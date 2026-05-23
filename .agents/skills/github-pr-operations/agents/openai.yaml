@@ -1,0 +1,4 @@
+interface:
+  display_name: "GitHub PR Operations"
+  short_description: "Create and edit pull requests with GitHub CLI"
+  default_prompt: "Use $github-pr-operations when creating, editing, or managing pull requests with GitHub CLI."

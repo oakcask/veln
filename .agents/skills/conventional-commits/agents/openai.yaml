@@ -1,0 +1,4 @@
+interface:
+  display_name: "Conventional Commits"
+  short_description: "Require conventional commit messages"
+  default_prompt: "Use $conventional-commits when creating a git commit."

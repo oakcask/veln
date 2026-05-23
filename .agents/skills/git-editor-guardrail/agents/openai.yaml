@@ -1,0 +1,4 @@
+interface:
+  display_name: "Git Editor Guardrail"
+  short_description: "Keep git commands noninteractive"
+  default_prompt: "Use $git-editor-guardrail to run git commands without accidentally opening an editor."

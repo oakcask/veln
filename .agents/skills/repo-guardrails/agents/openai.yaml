@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Guardrails"
+  short_description: "Place repo and agent guardrails"
+  default_prompt: "Use $repo-guardrails to decide whether a new guardrail belongs in AGENTS.md, a skill, CI, tests, or documentation."

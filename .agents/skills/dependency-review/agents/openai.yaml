@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dependency Review"
+  short_description: "Review dependencies for maintenance and security risk"
+  default_prompt: "Use $dependency-review when adding, choosing, comparing, upgrading, or approving a dependency."
