@@ -7,12 +7,15 @@ use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
 use veln_sema::lower_checked_surface_module;
 use veln_syntax::parse;
+use veln_test::doctest_sources;
 
 use crate::diagnostics::{has_error, parse_diagnostic_to_envelope, print_human, tool_info};
 
 pub(crate) fn check(json: bool, inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
-    let project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
+    let mut project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
+    let doctests = doctest_sources(&project.files);
+    project.files.extend(doctests.sources);
     let mut diagnostics = Vec::new();
 
     for source in &project.files {

@@ -60,5 +60,8 @@ No accepted language and type coverage follow-up is currently tracked here.
 
 - Test discovery selects top-level `test` declarations from `*_test.veln`
   files, explicit targets, and same-file declarations in other discovered
-  source files. Parsed docblock/example extraction and expected-output examples
-  remain follow-up work.
+  source files. Documentation comment `veln` doctest extraction and adjacent
+  `veln-output` expected-output comparison are implemented. Doctest result
+  propagation, explicit doctest error-type metadata, metadata diagnostics,
+  hidden setup, negative examples, and non-runnable examples remain follow-up
+  work.

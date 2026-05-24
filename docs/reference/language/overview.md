@@ -9,6 +9,9 @@ The following behavior is fixed for the implemented slice:
 
 - The standard edit loop is `veln fmt`, `veln check --json`,
   `veln run [--json] <entry> [-- arg ...]`, and `veln test [--json]`.
+- `veln check` and `veln test` extract executable doctest fences from
+  documentation line comments; `veln test` can compare adjacent expected
+  stdout and stderr fences.
 - Source paths in diagnostics and JSON are project-relative paths using `/`
   separators.
 - Diagnostics use the stable top-level check JSON envelope described in

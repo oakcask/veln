@@ -11,7 +11,8 @@ use veln_project::Project;
 use veln_sema::{analyze_surface_module, lower_checked_surface_module};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
-    contract_failure_from_trace, discover_test_cases, selected_test_files, stdio_call_spans,
+    attach_expected_outputs, compare_expected_output, contract_failure_from_trace,
+    discover_test_cases, doctest_sources, selected_test_files, stdio_call_spans,
     stdio_events_from_output, stdio_events_from_trace,
 };
 
@@ -23,11 +24,14 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let explicit = !targets.is_empty();
     let target_expansion = expand_test_targets(&root, &targets);
-    let project =
+    let mut project =
         Project::discover(root, &target_expansion.targets).map_err(|error| error.to_string())?;
+    let doctests = doctest_sources(&project.files);
+    project.files.extend(doctests.sources);
     let (module, mut diagnostics) = load_surface_module(&project);
     let test_files = selected_test_files(&project, &module, explicit);
     let mut cases = discover_test_cases(&module, &test_files);
+    attach_expected_outputs(&mut cases, &doctests.expected_outputs);
     let mut suite_errors = Vec::new();
 
     if !has_error(&diagnostics) {
@@ -184,6 +188,7 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
     };
     if output.status.success() {
         case.status = TestCaseStatus::Passed;
+        compare_expected_output(case);
     } else {
         case.status = TestCaseStatus::Failed;
         let message = format!("test process exited with status {}", output.status);

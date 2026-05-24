@@ -69,6 +69,11 @@ Source `test` declarations use `case.kind: "test"` and a `source.node_id`
 prefix of `test`. Ordinary functions use the `fn` prefix in other diagnostic
 contexts but are not selected as test cases.
 
+Executable doctests extracted from documentation comments use
+`case.kind: "doctest"`. Their generated test names are `doctest_N` within one
+command result. Their source file in diagnostics is a generated
+`#doctest-N_test.veln` path derived from the documented source path.
+
 JDK setup failures are reported on the affected case with
 `status: "error"`, `reason: "runner_error"`, and
 `failure.kind: "runtime"`. This includes a missing `javac` before compilation
@@ -84,6 +89,15 @@ cases with `failure.kind: "contract"`. The failure details use
 - `blame`: `caller` for `require`, or `implementation` for `ensure`
 - `node_id`: the contract node identifier
 - `span`: the source span for the failed clause
+
+Doctest expected-output mismatches are reported as failed cases with
+`reason: "expected_output"` and `failure.kind: "output"`. The failure details
+use `kind: "output"` and include:
+
+- `stream`: `stdout` or `stderr`
+- `expected`: reconstructed expected stream text from the adjacent
+  `veln-output` fence
+- `actual`: reconstructed actual stream text from captured stdio events
 
 Captured stdio events use:
 

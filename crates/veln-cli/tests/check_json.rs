@@ -1680,6 +1680,36 @@ fn test_json_auto_discovers_same_file_test_declarations() {
 }
 
 #[test]
+fn check_json_typechecks_executable_doctest_fences() {
+    let project = TestProject::new("check-json-doctest");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln\n",
+            "/// let value: Int = \"no\"\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"error\"",
+            "\"id\":\"type.mismatch\"",
+            "\"message\":\"expected `Int`, but found `String`\"",
+            "\"span\":{\"file\":\"main.veln#doctest-1_test.veln\"",
+        ],
+    );
+}
+
+#[test]
 fn test_json_maps_explicit_source_file_to_paired_test_file() {
     let project = TestProject::new("test-source-to-test-convention");
     project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");
@@ -1705,6 +1735,81 @@ fn test_json_maps_explicit_source_file_to_paired_test_file() {
             "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":1,\"errors\":0}",
             "\"name\":\"paired\"",
             "\"reason\":\"static_gate\"",
+        ],
+    );
+}
+
+#[test]
+fn test_json_runs_doctest_and_compares_expected_output_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("test-json-doctest-output");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln\n",
+            "/// stdio::println(\"ready\")\n",
+            "/// ```\n",
+            "/// ```veln-output stream=stdout\n",
+            "/// ready\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["--json", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"passed\"",
+            "\"summary\":{\"total\":1,\"passed\":1,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":0}",
+            "\"name\":\"doctest_1\",\"kind\":\"doctest\",\"status\":\"passed\"",
+            "\"events\":[{\"kind\":\"stdio\",\"stream\":\"stdout\",\"operation\":\"println\",\"text\":\"ready\",\"terminator\":\"newline\"",
+        ],
+    );
+}
+
+#[test]
+fn test_json_reports_doctest_expected_output_mismatch_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("test-json-doctest-output-mismatch");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln\n",
+            "/// stdio::println(\"waiting\")\n",
+            "/// ```\n",
+            "/// ```veln-output stream=stdout\n",
+            "/// ready\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["--json", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"failed\"",
+            "\"name\":\"doctest_1\",\"kind\":\"doctest\",\"status\":\"failed\"",
+            "\"reason\":\"expected_output\"",
+            "\"failure\":{\"kind\":\"output\",\"message\":\"expected stdout output did not match\"",
+            "\"details\":{\"kind\":\"output\",\"stream\":\"stdout\",\"expected\":\"ready\",\"actual\":\"waiting\\n\"}",
         ],
     );
 }

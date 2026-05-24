@@ -10,7 +10,7 @@ use std::process::Output;
 use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, SurfaceModule};
 use veln_diagnostics::{Diagnostic, JsonValue, Severity, diagnostic_to_json};
 use veln_project::Project;
-use veln_source::{LineCol, SourcePath, SourceSpan};
+use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
 
 pub fn selected_test_files(
     project: &Project,
@@ -41,14 +41,23 @@ fn same_file_test_files(module: &SurfaceModule) -> BTreeSet<String> {
 }
 
 pub fn selection_targets(project: &Project, test_files: &BTreeSet<String>) -> Vec<String> {
+    let mut targets = BTreeSet::new();
     project
         .files
         .iter()
-        .filter_map(|source| {
+        .filter(|source| {
             let path = source.path().as_str();
-            test_files.contains(path).then(|| path.to_string())
+            test_files.contains(path)
         })
-        .collect()
+        .for_each(|source| {
+            targets.insert(selection_target_path(source.path().as_str()).to_string());
+        });
+    targets.into_iter().collect()
+}
+
+fn selection_target_path(path: &str) -> &str {
+    path.split_once("#doctest-")
+        .map_or(path, |(origin, _)| origin)
 }
 
 pub fn discover_test_cases(module: &SurfaceModule, test_files: &BTreeSet<String>) -> Vec<TestCase> {
@@ -74,10 +83,75 @@ pub fn discover_test_cases(module: &SurfaceModule, test_files: &BTreeSet<String>
             },
             reason: None,
             failure: None,
+            expected_output: None,
             events: Vec::new(),
             diagnostics: Vec::new(),
         })
         .collect()
+}
+
+pub fn attach_expected_outputs(
+    cases: &mut [TestCase],
+    expected_outputs: &BTreeMap<String, ExpectedOutput>,
+) {
+    for case in cases {
+        if let Some(expected_output) = expected_outputs.get(&case.name) {
+            case.kind = "doctest".to_string();
+            case.expected_output = Some(expected_output.clone());
+        }
+    }
+}
+
+pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
+    let mut generated_sources = Vec::new();
+    let mut expected_outputs = BTreeMap::new();
+    let mut next_index = 1;
+
+    for source in sources {
+        for doctest in extract_doctests(source) {
+            let name = format!("doctest_{next_index}");
+            let generated_path =
+                format!("{}#doctest-{next_index}_test.veln", source.path().as_str());
+            let generated = generated_doctest_source(&name, &doctest.code);
+            generated_sources.push(SourceFile::new(generated_path, generated));
+            expected_outputs.insert(name, doctest.expected_output);
+            next_index += 1;
+        }
+    }
+
+    DoctestSources {
+        sources: generated_sources,
+        expected_outputs,
+    }
+}
+
+pub fn compare_expected_output(case: &mut TestCase) {
+    let Some(expected) = &case.expected_output else {
+        return;
+    };
+    let actual_stdout = reconstructed_stream(&case.events, "stdout");
+    let actual_stderr = reconstructed_stream(&case.events, "stderr");
+    let expected_stdout = expected.stdout.clone().unwrap_or_default();
+    let expected_stderr = expected.stderr.clone().unwrap_or_default();
+    if normalize_lines(&actual_stdout) == normalize_lines(&expected_stdout)
+        && normalize_lines(&actual_stderr) == normalize_lines(&expected_stderr)
+    {
+        return;
+    }
+
+    let (stream, expected_text, actual_text) =
+        if normalize_lines(&actual_stdout) != normalize_lines(&expected_stdout) {
+            ("stdout", expected_stdout, actual_stdout)
+        } else {
+            ("stderr", expected_stderr, actual_stderr)
+        };
+    case.status = TestCaseStatus::Failed;
+    case.reason = Some("expected_output".to_string());
+    case.failure = Some(TestFailure::output_mismatch(
+        stream,
+        expected_text,
+        actual_text,
+    ));
 }
 
 pub fn stdio_call_spans(module: &SurfaceModule) -> BTreeMap<(String, String), SourceSpan> {
@@ -522,6 +596,7 @@ pub struct TestCase {
     pub source: TestCaseSource,
     pub reason: Option<String>,
     pub failure: Option<TestFailure>,
+    pub expected_output: Option<ExpectedOutput>,
     pub events: Vec<JsonValue>,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -608,6 +683,26 @@ impl TestFailure {
         }
     }
 
+    pub fn output_mismatch(
+        stream: impl Into<String>,
+        expected: impl Into<String>,
+        actual: impl Into<String>,
+    ) -> Self {
+        let stream = stream.into();
+        let expected = expected.into();
+        let actual = actual.into();
+        Self {
+            kind: "output".to_string(),
+            message: format!("expected {stream} output did not match"),
+            details: JsonValue::object([
+                ("kind", JsonValue::string("output")),
+                ("stream", JsonValue::string(stream)),
+                ("expected", JsonValue::string(expected)),
+                ("actual", JsonValue::string(actual)),
+            ]),
+        }
+    }
+
     pub fn to_json(&self) -> JsonValue {
         JsonValue::object([
             ("kind", JsonValue::string(self.kind.clone())),
@@ -618,6 +713,167 @@ impl TestFailure {
             ("details", self.details.clone()),
         ])
     }
+}
+
+pub struct DoctestSources {
+    pub sources: Vec<SourceFile>,
+    pub expected_outputs: BTreeMap<String, ExpectedOutput>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ExpectedOutput {
+    pub stdout: Option<String>,
+    pub stderr: Option<String>,
+}
+
+#[derive(Default)]
+struct ExtractedDoctest {
+    code: Vec<String>,
+    expected_output: ExpectedOutput,
+}
+
+enum Fence {
+    Veln(Vec<String>),
+    Output { stream: String, lines: Vec<String> },
+}
+
+fn extract_doctests(source: &SourceFile) -> Vec<ExtractedDoctest> {
+    let mut doctests = Vec::new();
+    let mut pending: Option<ExtractedDoctest> = None;
+    let mut fence: Option<Fence> = None;
+
+    for line in source.text().lines() {
+        let Some(content) = doc_comment_content(line) else {
+            if let Some(doctest) = pending.take() {
+                doctests.push(doctest);
+            }
+            continue;
+        };
+        let content = content.strip_prefix(' ').unwrap_or(content);
+        if let Some(active) = &mut fence {
+            if content.trim_start().starts_with("```") {
+                match fence.take().expect("active fence should exist") {
+                    Fence::Veln(code) => {
+                        if let Some(doctest) = pending.take() {
+                            doctests.push(doctest);
+                        }
+                        pending = Some(ExtractedDoctest {
+                            code,
+                            expected_output: ExpectedOutput::default(),
+                        });
+                    }
+                    Fence::Output { stream, lines } => {
+                        if let Some(doctest) = &mut pending {
+                            let output = lines.join("\n");
+                            if stream == "stdout" {
+                                doctest.expected_output.stdout = Some(output);
+                            } else if stream == "stderr" {
+                                doctest.expected_output.stderr = Some(output);
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
+            match active {
+                Fence::Veln(lines) => lines.push(content.to_string()),
+                Fence::Output { lines, .. } => lines.push(content.to_string()),
+            }
+            continue;
+        }
+
+        let trimmed = content.trim_start();
+        if let Some(info) = trimmed.strip_prefix("```") {
+            let info = info.trim();
+            if info.split_whitespace().next() == Some("veln") {
+                fence = Some(Fence::Veln(Vec::new()));
+            } else if let Some(stream) = output_fence_stream(info) {
+                fence = Some(Fence::Output {
+                    stream: stream.to_string(),
+                    lines: Vec::new(),
+                });
+            } else if let Some(doctest) = pending.take() {
+                doctests.push(doctest);
+            }
+        } else if !trimmed.is_empty() {
+            if let Some(doctest) = pending.take() {
+                doctests.push(doctest);
+            }
+        }
+    }
+
+    if let Some(doctest) = pending {
+        doctests.push(doctest);
+    }
+    doctests
+}
+
+fn doc_comment_content(line: &str) -> Option<&str> {
+    line.trim_start().strip_prefix("///")
+}
+
+fn output_fence_stream(info: &str) -> Option<&str> {
+    let mut fields = info.split_whitespace();
+    if fields.next()? != "veln-output" {
+        return None;
+    }
+    let stream = fields.find_map(|field| field.strip_prefix("stream="))?;
+    matches!(stream, "stdout" | "stderr").then_some(stream)
+}
+
+fn generated_doctest_source(name: &str, code: &[String]) -> String {
+    let mut text = format!("test {name}() -> () effects [stdio]\n");
+    for line in code {
+        if line.is_empty() {
+            text.push('\n');
+        } else {
+            text.push_str("  ");
+            text.push_str(line);
+            text.push('\n');
+        }
+    }
+    text.push_str("  ()\nend\n");
+    text
+}
+
+fn reconstructed_stream(events: &[JsonValue], stream: &str) -> String {
+    let mut text = String::new();
+    for event in events {
+        let JsonValue::Object(fields) = event else {
+            continue;
+        };
+        if json_field(fields, "kind") != Some("stdio")
+            || json_field(fields, "stream") != Some(stream)
+        {
+            continue;
+        }
+        if let Some(value) = json_field(fields, "text") {
+            text.push_str(value);
+        }
+        if json_field(fields, "terminator") == Some("newline") {
+            text.push('\n');
+        }
+    }
+    text
+}
+
+fn json_field<'a>(fields: &'a [(String, JsonValue)], key: &str) -> Option<&'a str> {
+    fields.iter().find_map(|(field, value)| {
+        if field == key {
+            if let JsonValue::String(value) = value {
+                return Some(value.as_str());
+            }
+        }
+        None
+    })
+}
+
+fn normalize_lines(text: &str) -> String {
+    let normalized = text.replace("\r\n", "\n").replace('\r', "\n");
+    normalized
+        .strip_suffix('\n')
+        .unwrap_or(&normalized)
+        .to_string()
 }
 
 fn test_summary_to_json(cases: &[TestCase], suite_errors: &[SuiteError]) -> JsonValue {
@@ -733,6 +989,21 @@ mod tests {
     }
 
     #[test]
+    fn selection_targets_report_doctest_origin_source() {
+        let project = Project {
+            root: PathBuf::new(),
+            manifest: None,
+            files: vec![
+                SourceFile::new("main.veln", ""),
+                SourceFile::new("main.veln#doctest-1_test.veln", ""),
+            ],
+        };
+        let test_files = BTreeSet::from(["main.veln#doctest-1_test.veln".to_string()]);
+
+        assert_eq!(selection_targets(&project, &test_files), vec!["main.veln"]);
+    }
+
+    #[test]
     fn discovers_test_declarations_in_selected_files() {
         let module = module(concat!(
             "test first() -> () effects []\n",
@@ -833,6 +1104,92 @@ mod tests {
         );
         assert!(events[1].to_json().contains("\"sequence\":2"));
         assert!(events[1].to_json().contains("\"stream\":\"stderr\""));
+    }
+
+    #[test]
+    fn extracts_doc_comment_veln_fences_with_expected_output() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln\n",
+                "/// stdio::println(\"ready\")\n",
+                "/// ```\n",
+                "/// ```veln-output stream=stdout\n",
+                "/// ready\n",
+                "/// ```\n",
+                "pub fn main() -> () effects []\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  stdio::println(\"ready\")\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        let expected = doctests
+            .expected_outputs
+            .get("doctest_1")
+            .expect("expected output should be recorded");
+        assert_eq!(expected.stdout.as_deref(), Some("ready"));
+        assert_eq!(expected.stderr, None);
+    }
+
+    #[test]
+    fn expected_output_mismatch_marks_case_failed() {
+        let source_file = SourceFile::new(
+            "main.veln#doctest-1_test.veln",
+            "test doctest_1() -> () effects [stdio]\n  ()\nend\n",
+        );
+        let mut case = TestCase {
+            id: "case-1".to_string(),
+            name: "doctest_1".to_string(),
+            kind: "doctest".to_string(),
+            status: TestCaseStatus::Passed,
+            source: TestCaseSource {
+                file: "main.veln#doctest-1_test.veln".to_string(),
+                node_id: "test-1".to_string(),
+                span: source_file.span(TextRange::new(0, source_file.len())),
+            },
+            reason: None,
+            failure: None,
+            expected_output: Some(ExpectedOutput {
+                stdout: Some("ready".to_string()),
+                stderr: None,
+            }),
+            events: vec![stdio_event(
+                "stdout",
+                "println",
+                "waiting",
+                "newline",
+                1,
+                "call-1",
+                &source_file.span(TextRange::new(0, source_file.len())),
+            )],
+            diagnostics: Vec::new(),
+        };
+
+        compare_expected_output(&mut case);
+
+        assert_eq!(case.status, TestCaseStatus::Failed);
+        assert_eq!(case.reason.as_deref(), Some("expected_output"));
+        let failure = case.failure.expect("mismatch should create failure");
+        assert_eq!(failure.kind, "output");
+        assert_eq!(failure.message, "expected stdout output did not match");
+        assert!(
+            failure
+                .to_json()
+                .to_json()
+                .contains("\"actual\":\"waiting\\n\"")
+        );
     }
 
     #[test]

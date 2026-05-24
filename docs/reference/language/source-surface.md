@@ -100,6 +100,12 @@ targets, and any automatically discovered source file that contains a top-level
 return type and `effects [...]` clause, and are not ordinary callable
 functions.
 
+Documentation line comments may contain executable doctest fences. A doc
+comment fence whose info string is `veln` is extracted as generated test source
+for `veln check` and `veln test`. A following doc comment fence whose info
+string is `veln-output stream=stdout` or `veln-output stream=stderr` attaches
+expected output to the immediately preceding doctest.
+
 ## Expressions
 
 Implemented expressions:
@@ -176,4 +182,5 @@ read an explicit result binding.
 Implemented lowering and execution do not include user-defined ADT
 declarations, method calls, loops, mutation, classes, traits, macros,
 comprehensions, anonymous functions, custom operators, package manifest fields
-beyond `[modules]`, foreign declarations, or doctest fences.
+beyond `[modules]`, foreign declarations, doctest result propagation, doctest
+error-type fence metadata, or non-output doctest metadata.

@@ -86,6 +86,21 @@ contains a top-level `test` declaration. With explicit targets, it selects
 below explicit directories and including non-test files. Ordinary `fn`
 declarations are never selected merely because they have zero parameters.
 
+`test` also extracts executable doctests from documentation line comments.
+A doctest starts with a doc comment fence whose info string is `veln` and is
+checked as a generated private `test` declaration. The generated test returns
+`()` and declares `effects [stdio]`. In `check`, generated doctests
+participate in parse and semantic diagnostics. In `test`, generated doctests
+are selected as doctest cases.
+
+An adjacent doc comment fence whose info string is
+`veln-output stream=stdout` or `veln-output stream=stderr` records expected
+output for the immediately preceding executable doctest. When at least one
+output fence is present, any stream without a fence is expected to be empty.
+Output comparison uses captured stdio events, reconstructs logical stdout and
+stderr text, and ignores the Markdown closing-fence newline as a raw byte
+assertion.
+
 When an explicit target names a non-test `.veln` source file, `test` also
 selects a same-directory `*_test.veln` file with the same base name when that
 paired file exists. The command reports this as `source_to_test_convention` in
@@ -98,3 +113,6 @@ Runtime failures become failed cases. Runtime contract failures inside a
 selected case use `failure.kind: "contract"` and include runtime contract
 details. JDK setup failures become case errors with reason `runner_error`,
 including a missing `java` after `javac` succeeds.
+
+Doctest output mismatches become failed cases with `failure.kind: "output"` and
+`reason: "expected_output"`.
