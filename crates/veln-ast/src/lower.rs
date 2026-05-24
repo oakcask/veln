@@ -25,9 +25,10 @@ pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
         .collect();
     let mut functions = Vec::new();
 
+    let module_name = module.as_ref().map(|module| module.name.clone());
     for item in &tree.items {
         let SyntaxItem::Function(function) = item;
-        functions.push(builder.lower_function(function));
+        functions.push(builder.lower_function(function, module_name.clone()));
     }
 
     SurfaceModule {
@@ -70,9 +71,14 @@ impl AstBuilder {
         }
     }
 
-    fn lower_function(&mut self, function: &SyntaxFunction) -> Function {
+    fn lower_function(
+        &mut self,
+        function: &SyntaxFunction,
+        module_name: Option<String>,
+    ) -> Function {
         Function {
             node_id: self.alloc(),
+            module_name,
             kind: match function.kind {
                 veln_syntax::FunctionKind::Function => FunctionKind::Function,
                 veln_syntax::FunctionKind::Test => FunctionKind::Test,

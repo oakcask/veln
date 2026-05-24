@@ -88,7 +88,9 @@ checker reports module metadata drift.
 
 `use` declarations create module import aliases. The current alias is the final
 segment of the imported module path, so `use platform.io` declares the alias
-`io`.
+`io`. Calls may use that alias as a qualified function path, such as
+`io::read_line()`, when the imported module's source is part of the analyzed
+program.
 
 Public `fn` declarations are the implemented public API boundary. Dedicated
 export lists are not implemented. Function declarations can be referenced by

@@ -42,6 +42,7 @@ pub struct UseDecl {
 #[derive(Clone, Debug)]
 pub struct Function {
     pub node_id: NodeId,
+    pub module_name: Option<String>,
     pub kind: FunctionKind,
     pub visibility: Visibility,
     pub name: Option<String>,

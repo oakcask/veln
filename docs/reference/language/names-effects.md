@@ -14,10 +14,14 @@ Bare names resolve to local bindings. Function calls resolve to:
 
 - compiler-known stdio calls
 - local bindings with function type
-- discovered function signatures by final path segment
+- discovered function signatures by bare name
+- discovered function signatures through a `use` alias in `alias::function`
+  form
 - compiler-known prelude helper calls
 
-Unresolved values and call targets produce `name.unresolved` diagnostics.
+Unresolved values and call targets produce `name.unresolved` diagnostics. A
+qualified call does not fall back to a bare function with the same final
+segment when no matching import alias exists.
 Duplicate declarations in the same implemented namespace produce
 `name.duplicate` diagnostics at the later declaration, with the first
 declaration reported as related context.
@@ -76,8 +80,9 @@ Direct calls to these functions infer the `stdio` effect. Function signatures
 also carry effects inferred from their bodies, so a public function or test that
 calls a private helper whose body reaches `stdio` must declare `stdio` even when
 the helper omitted its own `effects` clause. Function-body effect inference
-follows direct function calls until a fixed point. Calls through a local binding
-with a function type infer the effects written in that function type.
+follows direct bare function calls and `use` alias qualified function calls
+until a fixed point. Calls through a local binding with a function type infer
+the effects written in that function type.
 
 A public function whose declared effects omit an inferred effect reports
 `effect.missing_public` with related provenance pointing at bounded call sites.

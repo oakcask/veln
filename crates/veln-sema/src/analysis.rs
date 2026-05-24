@@ -1140,34 +1140,35 @@ impl<'a> FunctionChecker<'a> {
                 if let Some(origin) = stdio_signature(segments, callee) {
                     return Some((vec![Type::string()], Type::unit(), origin));
                 }
-                let name = segments.last()?;
-                if let Some(binding) = self
-                    .bindings
-                    .iter()
-                    .rev()
-                    .find(|binding| binding.name == *name)
-                {
-                    let (params, return_type) = binding.ty.function_parts()?;
-                    let effects = binding.ty.function_effects().unwrap_or_default().to_vec();
-                    return Some((
-                        params.to_vec(),
-                        return_type.clone(),
-                        CallOrigin {
-                            node_id: callee.node_id,
-                            span: callee.span.clone(),
-                            symbol: name.clone(),
-                            effects,
-                        },
-                    ));
+                if let [name] = segments.as_slice() {
+                    if let Some(binding) = self
+                        .bindings
+                        .iter()
+                        .rev()
+                        .find(|binding| binding.name == *name)
+                    {
+                        let (params, return_type) = binding.ty.function_parts()?;
+                        let effects = binding.ty.function_effects().unwrap_or_default().to_vec();
+                        return Some((
+                            params.to_vec(),
+                            return_type.clone(),
+                            CallOrigin {
+                                node_id: callee.node_id,
+                                span: callee.span.clone(),
+                                symbol: name.clone(),
+                                effects,
+                            },
+                        ));
+                    }
                 }
-                self.environment.function(name).map(|function| {
+                self.environment.function_path(segments).map(|function| {
                     (
                         function.params.clone(),
                         function.return_type.clone(),
                         CallOrigin {
                             node_id: function.node_id,
                             span: function.span.clone(),
-                            symbol: function.name.clone(),
+                            symbol: segments.join("::"),
                             effects: function.effects.clone(),
                         },
                     )

@@ -1,5 +1,5 @@
 use crate::*;
-use veln_ast::lower_surface_ast;
+use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_core::{
     CoreBlocker, CoreCallTarget, CoreExprKind, CorePatternKind, CoreReadiness, CoreStmtKind,
     CoreType,
@@ -978,6 +978,82 @@ fn infers_non_constructor_calls_from_local_function_signatures() {
 }
 
 #[test]
+fn resolves_qualified_calls_through_import_aliases() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.math\n",
+            "pub fn main() -> Int effects []\n",
+            "  math::double(2)\n",
+            "end\n",
+        ),
+    );
+    let math_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod app.math\n",
+            "fn double(value: Int) -> Int\n",
+            "  value + value\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let math = lower_surface_ast(&parse(&math_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        functions: main.functions.into_iter().chain(math.functions).collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { target, .. } = &expr.kind else {
+        panic!("qualified call should lower as a call");
+    };
+    assert_eq!(target, &CoreCallTarget::Function("double".to_string()));
+}
+
+#[test]
+fn unresolved_qualified_calls_do_not_fall_back_to_bare_functions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "fn helper(value: String) -> String\n",
+            "  value\n",
+            "end\n",
+            "pub fn main() -> Int effects []\n",
+            "  math::helper(2)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `math::helper`"
+    }));
+    assert!(!diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch"
+            && diagnostic.message == "expected `String`, but found `Int`"
+    }));
+}
+
+#[test]
 fn pipeline_inserts_left_value_as_first_call_argument() {
     let source = SourceFile::new(
         "main.veln",
@@ -1422,6 +1498,52 @@ fn infers_transitive_private_helper_effects_from_body() {
     assert!(details.contains("\"inferred_effects\":[\"stdio\"]"));
     assert!(details.contains("\"symbol\":\"greet\""));
     assert_eq!(diagnostics[0].related.len(), 1);
+}
+
+#[test]
+fn infers_import_alias_call_effects_from_function_body() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.console\n",
+            "pub fn main() -> () effects []\n",
+            "  console::say(\"hello\")\n",
+            "end\n",
+        ),
+    );
+    let console_source = SourceFile::new(
+        "console.veln",
+        concat!(
+            "mod app.console\n",
+            "fn say(text: String) -> ()\n",
+            "  stdio::println(text)\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let console = lower_surface_ast(&parse(&console_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        functions: main
+            .functions
+            .into_iter()
+            .chain(console.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `stdio`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"inferred_effects\":[\"stdio\"]"));
+    assert!(details.contains("\"symbol\":\"console::say\""));
 }
 
 #[test]

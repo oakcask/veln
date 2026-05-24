@@ -911,28 +911,29 @@ impl<'a> CoreLowerer<'a> {
                 return_type: CoreType::unit(),
             });
         }
-        let name = segments.last()?;
-        if let Some(binding) = self
-            .bindings
-            .iter()
-            .rev()
-            .find(|binding| binding.name == *name)
-        {
-            if let CoreType::Function {
-                params,
-                return_type,
-                ..
-            } = &binding.ty
+        if let [name] = segments.as_slice() {
+            if let Some(binding) = self
+                .bindings
+                .iter()
+                .rev()
+                .find(|binding| binding.name == *name)
             {
-                return Some(CoreCallSignature {
-                    target: CoreCallTarget::Value(name.clone()),
-                    params: params.clone(),
-                    return_type: return_type.as_ref().clone(),
-                });
+                if let CoreType::Function {
+                    params,
+                    return_type,
+                    ..
+                } = &binding.ty
+                {
+                    return Some(CoreCallSignature {
+                        target: CoreCallTarget::Value(name.clone()),
+                        params: params.clone(),
+                        return_type: return_type.as_ref().clone(),
+                    });
+                }
+                return None;
             }
-            return None;
         }
-        if let Some(function) = self.environment.function(name) {
+        if let Some(function) = self.environment.function_path(segments) {
             return Some(CoreCallSignature {
                 target: CoreCallTarget::Function(function.name.clone()),
                 params: function.params.iter().map(core_type).collect(),

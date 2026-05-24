@@ -1,16 +1,18 @@
 use std::collections::BTreeMap;
 
-use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, SurfaceModule};
+use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, SurfaceModule, UseDecl};
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
+    uses: Vec<UseDecl>,
 }
 
 #[derive(Clone)]
 pub(crate) struct FunctionSignature {
     pub(crate) name: String,
+    pub(crate) module_name: Option<String>,
     pub(crate) params: Vec<Type>,
     pub(crate) return_type: Type,
     pub(crate) effects: Vec<String>,
@@ -254,6 +256,7 @@ impl TypeEnvironment {
                 let return_type = parse_type_or_unknown(function.return_type.as_deref());
                 Some(FunctionSignature {
                     name,
+                    module_name: function.module_name.clone(),
                     params,
                     return_type,
                     effects: function.effects.clone().unwrap_or_default(),
@@ -263,11 +266,31 @@ impl TypeEnvironment {
             })
             .collect::<Vec<_>>();
         infer_function_body_effects(module, &mut functions);
-        Self { functions }
+        Self {
+            functions,
+            uses: module.uses.clone(),
+        }
     }
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions.iter().find(|function| function.name == name)
+    }
+
+    pub(crate) fn function_path(&self, segments: &[String]) -> Option<&FunctionSignature> {
+        match segments {
+            [name] => self.function(name),
+            [alias, name] => {
+                let module_name = self
+                    .uses
+                    .iter()
+                    .find(|use_decl| use_decl.alias == *alias)
+                    .map(|use_decl| use_decl.name.as_str())?;
+                self.functions.iter().find(|function| {
+                    function.name == *name && function.module_name.as_deref() == Some(module_name)
+                })
+            }
+            _ => None,
+        }
     }
 }
 
@@ -285,6 +308,15 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
     let mut effects_by_name = functions
         .iter()
         .map(|function| (function.name.clone(), function.effects.clone()))
+        .collect::<BTreeMap<_, _>>();
+    let mut effects_by_module_path = functions
+        .iter()
+        .filter_map(|function| {
+            Some((
+                (function.module_name.clone()?, function.name.clone()),
+                function.effects.clone(),
+            ))
+        })
         .collect::<BTreeMap<_, _>>();
 
     let mut changed = true;
@@ -314,7 +346,14 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
                         annotation,
                         expr,
                     } => {
-                        collect_expr_effects(expr, &bindings, &effects_by_name, &mut inferred);
+                        collect_expr_effects(
+                            expr,
+                            &module.uses,
+                            &bindings,
+                            &effects_by_name,
+                            &effects_by_module_path,
+                            &mut inferred,
+                        );
                         if let Some(name) = name {
                             bindings.push(Binding {
                                 name: name.clone(),
@@ -323,12 +362,25 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
                         }
                     }
                     BodyLineKind::Expr { expr } => {
-                        collect_expr_effects(expr, &bindings, &effects_by_name, &mut inferred);
+                        collect_expr_effects(
+                            expr,
+                            &module.uses,
+                            &bindings,
+                            &effects_by_name,
+                            &effects_by_module_path,
+                            &mut inferred,
+                        );
                     }
                 }
             }
             if effects_by_name.get(name) != Some(&inferred) {
                 effects_by_name.insert(name.clone(), inferred);
+                if let Some(module_name) = &function.module_name {
+                    effects_by_module_path.insert(
+                        (module_name.clone(), name.clone()),
+                        effects_by_name[name].clone(),
+                    );
+                }
                 changed = true;
             }
         }
@@ -343,8 +395,10 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
 
 fn collect_expr_effects(
     expr: &Expr,
+    uses: &[UseDecl],
     bindings: &[Binding],
     effects_by_name: &BTreeMap<String, Vec<String>>,
+    effects_by_module_path: &BTreeMap<(String, String), Vec<String>>,
     inferred: &mut Vec<String>,
 ) {
     match &expr.kind {
@@ -352,48 +406,131 @@ fn collect_expr_effects(
             if let ExprKind::NamePath(segments) = &callee.kind {
                 if segments.as_slice().is_stdio_call() {
                     push_unique_effect(inferred, "stdio");
-                } else if let Some(name) = segments.last() {
-                    for effect in effects_for_callee(name, bindings, effects_by_name) {
+                } else {
+                    for effect in effects_for_callee_path(
+                        segments,
+                        uses,
+                        bindings,
+                        effects_by_name,
+                        effects_by_module_path,
+                    ) {
                         push_unique_effect(inferred, effect);
                     }
                 }
             } else {
-                collect_expr_effects(callee, bindings, effects_by_name, inferred);
+                collect_expr_effects(
+                    callee,
+                    uses,
+                    bindings,
+                    effects_by_name,
+                    effects_by_module_path,
+                    inferred,
+                );
             }
             for arg in args {
-                collect_expr_effects(arg, bindings, effects_by_name, inferred);
+                collect_expr_effects(
+                    arg,
+                    uses,
+                    bindings,
+                    effects_by_name,
+                    effects_by_module_path,
+                    inferred,
+                );
             }
         }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try(base)
         | ExprKind::Prefix { expr: base, .. } => {
-            collect_expr_effects(base, bindings, effects_by_name, inferred);
+            collect_expr_effects(
+                base,
+                uses,
+                bindings,
+                effects_by_name,
+                effects_by_module_path,
+                inferred,
+            );
         }
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_expr_effects(&field.expr, bindings, effects_by_name, inferred);
+                collect_expr_effects(
+                    &field.expr,
+                    uses,
+                    bindings,
+                    effects_by_name,
+                    effects_by_module_path,
+                    inferred,
+                );
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_expr_effects(&entry.key, bindings, effects_by_name, inferred);
-                collect_expr_effects(&entry.value, bindings, effects_by_name, inferred);
+                collect_expr_effects(
+                    &entry.key,
+                    uses,
+                    bindings,
+                    effects_by_name,
+                    effects_by_module_path,
+                    inferred,
+                );
+                collect_expr_effects(
+                    &entry.value,
+                    uses,
+                    bindings,
+                    effects_by_name,
+                    effects_by_module_path,
+                    inferred,
+                );
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_expr_effects(item, bindings, effects_by_name, inferred);
+                collect_expr_effects(
+                    item,
+                    uses,
+                    bindings,
+                    effects_by_name,
+                    effects_by_module_path,
+                    inferred,
+                );
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_expr_effects(scrutinee, bindings, effects_by_name, inferred);
+            collect_expr_effects(
+                scrutinee,
+                uses,
+                bindings,
+                effects_by_name,
+                effects_by_module_path,
+                inferred,
+            );
             for arm in arms {
-                collect_expr_effects(&arm.expr, bindings, effects_by_name, inferred);
+                collect_expr_effects(
+                    &arm.expr,
+                    uses,
+                    bindings,
+                    effects_by_name,
+                    effects_by_module_path,
+                    inferred,
+                );
             }
         }
         ExprKind::Binary { left, right, .. } => {
-            collect_expr_effects(left, bindings, effects_by_name, inferred);
-            collect_expr_effects(right, bindings, effects_by_name, inferred);
+            collect_expr_effects(
+                left,
+                uses,
+                bindings,
+                effects_by_name,
+                effects_by_module_path,
+                inferred,
+            );
+            collect_expr_effects(
+                right,
+                uses,
+                bindings,
+                effects_by_name,
+                effects_by_module_path,
+                inferred,
+            );
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -405,7 +542,32 @@ fn collect_expr_effects(
     }
 }
 
-fn effects_for_callee<'a>(
+fn effects_for_callee_path<'a>(
+    segments: &[String],
+    uses: &[UseDecl],
+    bindings: &'a [Binding],
+    effects_by_name: &'a BTreeMap<String, Vec<String>>,
+    effects_by_module_path: &'a BTreeMap<(String, String), Vec<String>>,
+) -> &'a [String] {
+    match segments {
+        [name] => effects_for_bare_callee(name, bindings, effects_by_name),
+        [alias, name] => {
+            let Some(module_name) = uses
+                .iter()
+                .find(|use_decl| use_decl.alias == *alias)
+                .map(|use_decl| use_decl.name.as_str())
+            else {
+                return &[];
+            };
+            effects_by_module_path
+                .get(&(module_name.to_string(), name.clone()))
+                .map_or(&[], Vec::as_slice)
+        }
+        _ => &[],
+    }
+}
+
+fn effects_for_bare_callee<'a>(
     name: &str,
     bindings: &'a [Binding],
     effects_by_name: &'a BTreeMap<String, Vec<String>>,
