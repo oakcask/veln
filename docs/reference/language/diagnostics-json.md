@@ -195,3 +195,16 @@ contains `candidates`. Each candidate contains:
 
 These records are ranked suggestions, not concrete edits. The
 `application_policy` remains `manual_review_required`.
+
+Doc diagnostic `details` are stable for doctest metadata diagnostics:
+
+- `kind: "doctest_metadata"`
+- `attribute` when the diagnostic names one malformed attribute
+- `fence` for unknown attributes
+- `stream` for invalid output stream values
+
+`doctest.unknown_metadata` reports an unsupported `veln` or `veln-output`
+fence attribute at the fence line. `doctest.invalid_metadata` reports an empty
+`error=`, missing `stream`, or output stream value other than `stdout` or
+`stderr`. `doctest.expected_failure_missing` reports a `veln fail` fence whose
+generated negative example produced no parse or semantic diagnostic.

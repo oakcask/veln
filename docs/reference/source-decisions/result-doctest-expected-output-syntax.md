@@ -1,7 +1,6 @@
 # Discussion Result: Doctest Expected Output Syntax
 
-Status: accepted-proposal
-Implementation: partially implemented
+Status: implemented
 
 ## Picked Question
 
@@ -131,24 +130,29 @@ using default config
 ```
 ````
 
-## Open Details
+## Implemented Scope
 
-The current implementation extracts documentation comment `veln` fences and
-compares adjacent `veln-output stream=stdout` and
-`veln-output stream=stderr` fences in `veln test`. It also type-checks
-generated doctest sources in `veln check`. Duplicate stream diagnostics are
-implemented for output fences that repeat `stdout` or `stderr` on the same
-doctest. Other metadata diagnostics, expected-error examples, hidden setup,
-ignored examples, and non-runnable examples remain future work.
+The implementation extracts documentation comment `veln` fences and compares
+adjacent `veln-output stream=stdout` and `veln-output stream=stderr` fences in
+`veln test`. It also type-checks generated doctest sources in `veln check`.
+Duplicate stream diagnostics are implemented for output fences that repeat
+`stdout` or `stderr` on the same doctest. Unknown output-fence attributes,
+missing streams, and unsupported stream names are reported as static doctest
+metadata diagnostics.
+
+Output mismatch failures include the stream, expected text, actual text, first
+differing logical line, the expected-output fence span when available, and a
+bounded list of captured stdio events that produced the actual stream.
 
 The first slice intentionally does not decide exact raw-output assertions. If
 examples later show that final newline, byte encoding, or stream interleaving
 matter in documentation, that should be handled as a separate extension over
 captured stdio events.
 
-The first slice also leaves expected-error examples, hidden setup, ignored
-examples, and non-runnable examples for later doctest metadata decisions. They
-should remain block-local and should not make the visible Veln example body
+Expected-error examples, hidden setup, ignored examples, and non-runnable
+examples remain outside this implemented decision. Unknown metadata is
+rejected rather than interpreted as those future features. They should remain
+block-local if added later and should not make the visible Veln example body
 carry harness ceremony.
 
 ## Consequence
@@ -160,16 +164,16 @@ to the stdio calls that produced actual output.
 
 ## References
 
-- Hoffman, D., & Strooper, P. A. (2003). API documentation with executable
-  examples. *Journal of Systems and Software*, 66(2), 143-156.
+- Hoffman, D., & Strooper, P. A. API documentation with executable examples.
+  *Journal of Systems and Software*.
   https://doi.org/10.1016/S0164-1212(02)00055-9
-- Python Software Foundation. (2026). *doctest - Test interactive Python
-  examples*. Python 3.14.5 documentation.
+- Python Software Foundation. *doctest - Test interactive Python examples*.
+  Python documentation.
   https://docs.python.org/3/library/doctest.html
-- Gerrand, A. (2015). *Testable Examples in Go*.
+- Gerrand, A. *Testable Examples in Go*.
   https://go.dev/blog/examples
-- The Rustdoc Book contributors. (2026). *Documentation tests*. The Rust
-  Project. https://doc.rust-lang.org/rustdoc/documentation-tests.html
-- Ko, A. J., & Myers, B. A. (2004). Designing the whyline: A debugging
-  interface for asking questions about program behavior. *CHI 2004*, 151-158.
+- The Rustdoc Book contributors. *Documentation tests*. The Rust Project.
+  https://doc.rust-lang.org/rustdoc/documentation-tests.html
+- Ko, A. J., & Myers, B. A. Designing the whyline: A debugging interface for
+  asking questions about program behavior. *CHI*.
   https://doi.org/10.1145/985692.985712

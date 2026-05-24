@@ -267,7 +267,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   declarations, with generated docs as derived views rather than canonical
   language syntax.
 - Resolved by
-  [Doctest Result Propagation](result-doctest-result-propagation.md):
+  [Doctest Result Propagation](../../reference/source-decisions/result-doctest-result-propagation.md):
   executable doctest examples may use `?` only inside a result-returning
   doctest context; the first slice should infer one local error type when
   unambiguous and otherwise require an explicit doctest error type.
@@ -276,6 +276,6 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   write an explicit doctest error type as a fenced-code info-string attribute,
   `error=<TypePath>`, on the executable Veln doctest block.
 - Resolved by
-  [Doctest Expected Output Syntax](result-doctest-expected-output-syntax.md):
+  [Doctest Expected Output Syntax](../../reference/source-decisions/result-doctest-expected-output-syntax.md):
   compare stdout and stderr with adjacent `veln-output stream=...` fences
   attached to the immediately preceding executable Veln doctest block.

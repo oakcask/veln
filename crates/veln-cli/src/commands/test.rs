@@ -12,8 +12,8 @@ use veln_sema::{analyze_surface_module, lower_checked_surface_module};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
     attach_expected_outputs, compare_expected_output, contract_failure_from_trace,
-    discover_test_cases, doctest_sources, selected_test_files, stdio_call_spans,
-    stdio_events_from_output, stdio_events_from_trace,
+    discover_test_cases, doctest_sources, reconcile_expected_doctest_failures, selected_test_files,
+    stdio_call_spans, stdio_events_from_output, stdio_events_from_trace,
 };
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
@@ -38,6 +38,7 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     if !has_error(&diagnostics) {
         diagnostics.extend(analyze_surface_module(&module));
     }
+    diagnostics = reconcile_expected_doctest_failures(diagnostics, &doctests.expected_failures);
 
     if cases.is_empty() && !has_error(&diagnostics) {
         suite_errors.push(SuiteError::discovery(

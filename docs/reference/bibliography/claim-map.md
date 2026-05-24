@@ -169,7 +169,7 @@
   is local and unambiguous, and otherwise require an explicit doctest error
   type instead of forcing noisy success-value type annotations into examples.
 - Discussion result:
-  [Doctest Result Propagation](../../proposals/agent-language-spec-wall/result-doctest-result-propagation.md)
+  [Doctest Result Propagation](../source-decisions/result-doctest-result-propagation.md)
 - Supporting references:
   `hoffman2003-api-executable-examples`, `rustdoc-documentation-tests`,
   `python-doctest`, `go-testable-examples`, `knuth1984-literate-programming`.

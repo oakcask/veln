@@ -20,6 +20,8 @@ read these records only for rationale or compatibility context.
 - [Contract Predicate Parsing](result-contract-predicate-parsing.md)
 - [Contract Static Runtime Boundary](result-contract-static-runtime-boundary.md)
 - [Doctest Error Type Fence Syntax](result-doctest-error-type-fence-syntax.md)
+- [Doctest Expected Output Syntax](result-doctest-expected-output-syntax.md)
+- [Doctest Result Propagation](result-doctest-result-propagation.md)
 - [Effect Access Modes](result-effect-access-modes.md)
 - [Effect Declaration Boundary](result-effect-declaration-boundary.md)
 - [Error Type Inference](result-error-type-inference.md)

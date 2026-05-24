@@ -116,6 +116,10 @@ whose info string is `veln-output stream=stdout` or
 `veln-output stream=stderr` attaches expected output to the immediately
 preceding generated doctest. A `veln ignore` fence is treated as a
 documentation-only code example and does not create a generated doctest.
+An executable fence marked `veln fail` is a negative static example. It is
+checked as a generated private function and is accepted only when that generated
+source produces at least one parse or semantic diagnostic. It is not selected
+as a runtime doctest case and cannot attach expected output.
 Inside an executable `veln` fence, a line that starts with `# ` is hidden setup:
 the generated test includes the line after removing the marker. Hidden setup is
 useful for imports, helpers, and bindings that the documented sample should use
@@ -203,5 +207,5 @@ read an explicit result binding.
 Implemented lowering and execution do not include user-defined ADT
 declarations, method calls, loops, mutation, classes, traits, macros,
 comprehensions, anonymous functions, custom operators, package manifest fields
-beyond `[modules]`, foreign declarations, negative doctests, or doctest
-metadata other than `error`, `ignore`, and `veln-output` stream selection.
+beyond `[modules]`, foreign declarations, or doctest metadata other than
+`error`, `ignore`, `fail`, and `veln-output` stream selection.

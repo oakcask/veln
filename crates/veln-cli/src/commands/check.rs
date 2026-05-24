@@ -7,7 +7,7 @@ use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
 use veln_sema::lower_checked_surface_module;
 use veln_syntax::parse;
-use veln_test::doctest_sources;
+use veln_test::{doctest_sources, reconcile_expected_doctest_failures};
 
 use crate::diagnostics::{has_error, parse_diagnostic_to_envelope, print_human, tool_info};
 
@@ -28,6 +28,7 @@ pub(crate) fn check(json: bool, inputs: Vec<PathBuf>) -> Result<ExitCode, String
         }
     }
 
+    let diagnostics = reconcile_expected_doctest_failures(diagnostics, &doctests.expected_failures);
     let has_errors = has_error(&diagnostics);
     let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
 

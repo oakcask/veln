@@ -105,7 +105,7 @@ end
 
 The broader doctest info-string grammar remains intentionally small. Output
 comparison is handled separately by
-[Doctest Expected Output Syntax](../../proposals/agent-language-spec-wall/result-doctest-expected-output-syntax.md).
+[Doctest Expected Output Syntax](result-doctest-expected-output-syntax.md).
 Future decisions may add inference for missing error types, diagnostics for
 malformed attributes, flags for hidden setup, negative examples, expected
 runtime errors, or non-runnable examples. Those additions should be block-local

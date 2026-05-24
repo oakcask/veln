@@ -105,6 +105,7 @@ pub fn attach_expected_outputs(
 pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
     let mut generated_sources = Vec::new();
     let mut expected_outputs = BTreeMap::new();
+    let mut expected_failures = BTreeMap::new();
     let mut diagnostics = Vec::new();
     let mut next_index = 1;
     let signatures = result_error_signatures(sources);
@@ -117,8 +118,13 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
             let generated_path =
                 format!("{}#doctest-{next_index}_test.veln", source.path().as_str());
             let generated = generated_doctest_source(&name, &doctest);
+            if let Some(fail_span) = doctest.fail_span {
+                expected_failures.insert(generated_path.clone(), fail_span);
+            }
             generated_sources.push(SourceFile::new(generated_path, generated));
-            expected_outputs.insert(name, doctest.expected_output);
+            if !doctest.should_fail {
+                expected_outputs.insert(name, doctest.expected_output);
+            }
             next_index += 1;
         }
     }
@@ -126,8 +132,45 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
     DoctestSources {
         sources: generated_sources,
         expected_outputs,
+        expected_failures,
         diagnostics,
     }
+}
+
+pub fn reconcile_expected_doctest_failures(
+    diagnostics: Vec<Diagnostic>,
+    expected_failures: &BTreeMap<String, SourceSpan>,
+) -> Vec<Diagnostic> {
+    if expected_failures.is_empty() {
+        return diagnostics;
+    }
+
+    let mut matched = BTreeSet::new();
+    let mut kept = Vec::new();
+    for diagnostic in diagnostics {
+        if let Some(span) = &diagnostic.span {
+            if expected_failures.contains_key(span.file.as_str()) {
+                matched.insert(span.file.as_str().to_string());
+                continue;
+            }
+        }
+        kept.push(diagnostic);
+    }
+
+    for (path, span) in expected_failures {
+        if matched.contains(path) {
+            continue;
+        }
+        kept.push(Diagnostic::new(
+            "doctest.expected_failure_missing",
+            Severity::Error,
+            DiagnosticKind::Doc,
+            "negative doctest produced no diagnostics",
+            Some(span.clone()),
+            JsonValue::object([("kind", JsonValue::string("doctest_metadata"))]),
+        ));
+    }
+    kept
 }
 
 pub fn compare_expected_output(case: &mut TestCase) {
@@ -747,6 +790,7 @@ impl TestFailure {
 pub struct DoctestSources {
     pub sources: Vec<SourceFile>,
     pub expected_outputs: BTreeMap<String, ExpectedOutput>,
+    pub expected_failures: BTreeMap<String, SourceSpan>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -789,6 +833,8 @@ struct ExtractedDoctest {
     code: Vec<String>,
     error_type: Option<String>,
     expected_output: ExpectedOutput,
+    should_fail: bool,
+    fail_span: Option<SourceSpan>,
 }
 
 enum Fence {
@@ -796,6 +842,8 @@ enum Fence {
         lines: Vec<String>,
         error_type: Option<String>,
         ignored: bool,
+        should_fail: bool,
+        fail_span: Option<SourceSpan>,
     },
     Output {
         stream: String,
@@ -843,6 +891,8 @@ fn extract_doctests(
                         lines,
                         error_type,
                         ignored,
+                        should_fail,
+                        fail_span,
                     } => {
                         if let Some(doctest) = pending.take() {
                             doctests.push(doctest);
@@ -852,6 +902,8 @@ fn extract_doctests(
                                 code: lines,
                                 error_type,
                                 expected_output: ExpectedOutput::default(),
+                                should_fail,
+                                fail_span,
                             });
                         }
                     }
@@ -904,6 +956,8 @@ fn extract_doctests(
                     lines: Vec::new(),
                     error_type: doctest_error_type(info).map(ToString::to_string),
                     ignored: doctest_ignored(info),
+                    should_fail: doctest_should_fail(info),
+                    fail_span: doctest_should_fail(info).then(|| source.span(line_range)),
                 });
             } else if output_fence_info(info) {
                 let span = source.span(line_range);
@@ -988,6 +1042,10 @@ fn doctest_ignored(info: &str) -> bool {
         .any(|field| field == "ignore")
 }
 
+fn doctest_should_fail(info: &str) -> bool {
+    info.split_whitespace().skip(1).any(|field| field == "fail")
+}
+
 fn output_fence_info(info: &str) -> bool {
     info.split_whitespace().next() == Some("veln-output")
 }
@@ -1020,7 +1078,7 @@ fn veln_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
                             ]),
                         )
                     })
-            } else if field == "ignore" {
+            } else if matches!(field, "ignore" | "fail") {
                 None
             } else {
                 Some(doctest_metadata_diagnostic(
@@ -1287,7 +1345,8 @@ fn generated_doctest_source(name: &str, doctest: &ExtractedDoctest) -> String {
         || "()".to_string(),
         |error_type| format!("Result((), {error_type})"),
     );
-    let mut text = format!("test {name}() -> {return_type} effects [stdio]\n");
+    let item_kind = if doctest.should_fail { "fn" } else { "test" };
+    let mut text = format!("{item_kind} {name}() -> {return_type} effects [stdio]\n");
     for line in &doctest.code {
         if line.is_empty() {
             text.push('\n');
@@ -1768,6 +1827,77 @@ mod tests {
             doctests.diagnostics.is_empty(),
             "{:#?}",
             doctests.diagnostics
+        );
+    }
+
+    #[test]
+    fn extracts_negative_doctest_fences_as_check_only_sources() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln fail\n",
+                "/// let value: Int = \"no\"\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "fn doctest_1() -> () effects [stdio]\n",
+                "  let value: Int = \"no\"\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        assert!(doctests.expected_outputs.is_empty());
+        assert_eq!(doctests.expected_failures.len(), 1);
+        assert!(
+            doctests
+                .expected_failures
+                .contains_key("main.veln#doctest-1_test.veln")
+        );
+    }
+
+    #[test]
+    fn negative_doctest_failure_reconciliation_consumes_matching_diagnostics() {
+        let source = SourceFile::new("main.veln", "/// ```veln fail\n");
+        let generated = SourceFile::new("main.veln#doctest-1_test.veln", "fn doctest_1()\nend\n");
+        let fail_span = source.span(TextRange::new(0, 16));
+        let generated_span = generated.span(TextRange::new(0, generated.len()));
+        let diagnostics = vec![Diagnostic::new(
+            "type.mismatch",
+            Severity::Error,
+            DiagnosticKind::Type,
+            "expected `Int`, but found `String`",
+            Some(generated_span),
+            JsonValue::Null,
+        )];
+        let expected_failures =
+            BTreeMap::from([("main.veln#doctest-1_test.veln".to_string(), fail_span)]);
+
+        let reconciled = reconcile_expected_doctest_failures(diagnostics, &expected_failures);
+
+        assert!(reconciled.is_empty(), "{reconciled:#?}");
+    }
+
+    #[test]
+    fn negative_doctest_failure_reconciliation_reports_missing_diagnostic() {
+        let source = SourceFile::new("main.veln", "/// ```veln fail\n");
+        let fail_span = source.span(TextRange::new(0, 16));
+        let expected_failures =
+            BTreeMap::from([("main.veln#doctest-1_test.veln".to_string(), fail_span)]);
+
+        let reconciled = reconcile_expected_doctest_failures(Vec::new(), &expected_failures);
+
+        assert_eq!(reconciled.len(), 1);
+        assert_eq!(reconciled[0].id, "doctest.expected_failure_missing");
+        assert_eq!(
+            reconciled[0].message,
+            "negative doctest produced no diagnostics"
         );
     }
 

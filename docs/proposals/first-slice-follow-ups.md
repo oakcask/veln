@@ -70,4 +70,5 @@ No accepted language and type coverage follow-up is currently tracked here.
   available or from known propagated function calls when every propagated call
   has the same concrete error type. Non-runnable doctest examples are
   implemented with `veln ignore`. Hidden setup is implemented with `# ` lines
-  inside executable doctest fences. Negative examples remain follow-up work.
+  inside executable doctest fences. Negative static examples are implemented
+  with `veln fail`.
