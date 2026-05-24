@@ -84,6 +84,23 @@ fn project_discover_reads_sources_with_project_relative_paths() {
     );
 }
 
+#[test]
+fn project_discover_reads_manifest_module_entries() {
+    let temp = TempProject::new("manifest-modules");
+    temp.write("src/main.veln", "mod app.main\n");
+    temp.write("veln.toml", "[modules]\n\"src/main.veln\" = \"app.main\"\n");
+
+    let project = Project::discover(temp.root().to_path_buf(), &[]).unwrap();
+    let manifest = project.manifest.expect("manifest should be loaded");
+
+    assert_eq!(manifest.path.as_str(), "veln.toml");
+    assert_eq!(manifest.modules.len(), 1);
+    assert_eq!(manifest.modules[0].path, "src/main.veln");
+    assert_eq!(manifest.modules[0].name, "app.main");
+    assert_eq!(manifest.modules[0].path_span.start.line, 2);
+    assert_eq!(manifest.modules[0].name_span.start.column, 20);
+}
+
 struct TempProject {
     root: PathBuf,
 }

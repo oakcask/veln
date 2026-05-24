@@ -1,5 +1,6 @@
 use veln_ast::{Expr, ExprKind, Function, FunctionKind, SurfaceModule, lower_surface_ast};
-use veln_diagnostics::Diagnostic;
+use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
+use veln_project::ManifestModule;
 use veln_project::Project;
 use veln_syntax::parse;
 
@@ -16,6 +17,11 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
         if parsed.diagnostics.is_empty() {
             let lowered = lower_surface_ast(&parsed.tree);
+            diagnostics.extend(validate_manifest_module(
+                project,
+                source.path().as_str(),
+                &lowered,
+            ));
             module = module.or(lowered.module);
             uses.extend(lowered.uses);
             functions.extend(lowered.functions);
@@ -30,6 +36,145 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
         },
         diagnostics,
     )
+}
+
+fn validate_manifest_module(
+    project: &Project,
+    source_path: &str,
+    module: &SurfaceModule,
+) -> Vec<Diagnostic> {
+    let Some(manifest_module) = project.manifest.as_ref().and_then(|manifest| {
+        manifest
+            .modules
+            .iter()
+            .find(|entry| entry.path == source_path)
+    }) else {
+        return Vec::new();
+    };
+
+    let Some(source_module) = &module.module else {
+        return vec![manifest_without_source_owner(manifest_module)];
+    };
+
+    if manifest_module.name == source_module.name {
+        return Vec::new();
+    }
+
+    let mut diagnostic = Diagnostic::new(
+        "module.metadata_drift",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "manifest module name `{}` does not match source module `{}`",
+            manifest_module.name, source_module.name
+        ),
+        Some(manifest_module.name_span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("module_identity")),
+            ("canonical_owner", JsonValue::string("source")),
+            ("derived_owner", JsonValue::string("manifest")),
+            (
+                "expected_value",
+                JsonValue::string(source_module.name.clone()),
+            ),
+            (
+                "observed_value",
+                JsonValue::string(manifest_module.name.clone()),
+            ),
+            ("manifest_path", JsonValue::string("veln.toml")),
+            ("source_path", JsonValue::string(source_path)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("canonical_owner")),
+        (
+            "message",
+            JsonValue::string(
+                "The source `mod` declaration owns the compiler-visible module name.",
+            ),
+        ),
+        (
+            "span",
+            JsonValue::object([
+                ("file", JsonValue::string(source_module.span.file.as_str())),
+                (
+                    "start",
+                    JsonValue::object([
+                        (
+                            "line",
+                            JsonValue::Number(source_module.span.start.line as i64),
+                        ),
+                        (
+                            "column",
+                            JsonValue::Number(source_module.span.start.column as i64),
+                        ),
+                        (
+                            "offset",
+                            JsonValue::Number(source_module.span.start.offset as i64),
+                        ),
+                    ]),
+                ),
+                (
+                    "end",
+                    JsonValue::object([
+                        (
+                            "line",
+                            JsonValue::Number(source_module.span.end.line as i64),
+                        ),
+                        (
+                            "column",
+                            JsonValue::Number(source_module.span.end.column as i64),
+                        ),
+                        (
+                            "offset",
+                            JsonValue::Number(source_module.span.end.offset as i64),
+                        ),
+                    ]),
+                ),
+            ]),
+        ),
+    ]));
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string("Update the manifest entry or remove the duplicated module name."),
+    )]));
+    vec![diagnostic]
+}
+
+fn manifest_without_source_owner(manifest_module: &ManifestModule) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "module.metadata_drift",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "manifest module name `{}` has no source `mod` owner",
+            manifest_module.name
+        ),
+        Some(manifest_module.name_span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("module_identity")),
+            ("canonical_owner", JsonValue::string("source")),
+            ("derived_owner", JsonValue::string("manifest")),
+            (
+                "observed_value",
+                JsonValue::string(manifest_module.name.clone()),
+            ),
+            ("manifest_path", JsonValue::string("veln.toml")),
+            (
+                "source_path",
+                JsonValue::string(manifest_module.path.clone()),
+            ),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string(
+            "Add a `mod` declaration to the source file or remove the manifest module name.",
+        ),
+    )]));
+    diagnostic
 }
 
 pub(crate) fn reachable_entry_module(
@@ -168,10 +313,11 @@ fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mu
 #[cfg(test)]
 mod tests {
     use veln_ast::{FunctionKind, SurfaceModule, lower_surface_ast};
-    use veln_source::SourceFile;
+    use veln_project::{ManifestModule, Project, ProjectManifest};
+    use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::parse;
 
-    use super::reachable_entry_module;
+    use super::{load_surface_module, reachable_entry_module};
 
     fn lower(text: &str) -> SurfaceModule {
         let source = SourceFile::new("main_test.veln", text);
@@ -230,5 +376,52 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(functions, vec![(FunctionKind::Function, Some("foo"))]);
+    }
+
+    #[test]
+    fn manifest_module_name_cannot_override_source_mod() {
+        let source = SourceFile::new(
+            "src/main.veln",
+            "mod app.main\nfn main() -> () effects []\n  ()\nend\n",
+        );
+        let project = Project {
+            root: ".".into(),
+            files: vec![source],
+            manifest: Some(ProjectManifest {
+                path: SourcePath::new("veln.toml"),
+                modules: vec![ManifestModule {
+                    path: "src/main.veln".to_string(),
+                    name: "manifest.main".to_string(),
+                    path_span: span("veln.toml", 2, 2, 11),
+                    name_span: span("veln.toml", 2, 20, 33),
+                }],
+            }),
+        };
+
+        let (module, diagnostics) = load_surface_module(&project);
+
+        assert_eq!(module.module.as_ref().unwrap().name, "app.main");
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].id, "module.metadata_drift");
+        assert_eq!(
+            diagnostics[0].message,
+            "manifest module name `manifest.main` does not match source module `app.main`"
+        );
+    }
+
+    fn span(file: &str, line: usize, start_column: usize, end_column: usize) -> SourceSpan {
+        SourceSpan {
+            file: SourcePath::new(file),
+            start: LineCol {
+                line,
+                column: start_column,
+                offset: 0,
+            },
+            end: LineCol {
+                line,
+                column: end_column,
+                offset: 0,
+            },
+        }
     }
 }

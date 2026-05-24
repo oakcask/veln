@@ -3,12 +3,13 @@ use std::path::PathBuf;
 
 use veln_source::SourceFile;
 
-use crate::discover_source_paths;
+use crate::{ProjectManifest, discover_source_paths, manifest::read_manifest};
 
 #[derive(Clone, Debug)]
 pub struct Project {
     pub root: PathBuf,
     pub files: Vec<SourceFile>,
+    pub manifest: Option<ProjectManifest>,
 }
 
 impl Project {
@@ -19,6 +20,11 @@ impl Project {
         for path in paths {
             files.push(SourceFile::read(&root, &path)?);
         }
-        Ok(Self { root, files })
+        let manifest = read_manifest(&root)?;
+        Ok(Self {
+            root,
+            files,
+            manifest,
+        })
     }
 }

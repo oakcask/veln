@@ -14,6 +14,11 @@ selects `.veln` files below the current project root, skipping `.git` and
 `target`. Explicit directories are searched recursively. The final discovered
 file list is sorted and deduplicated.
 
+If the current project root contains `veln.toml`, the command reads the
+implemented `[modules]` manifest table after source discovery. Manifest module
+entries are validated only for selected source files; they do not add files to
+the selected set and do not override source `mod` declarations.
+
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic
 diagnostics.

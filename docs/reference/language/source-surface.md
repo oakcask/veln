@@ -51,6 +51,20 @@ Bare `result` has no special meaning.
 single-file source with no imports. A source file with one or more `use`
 declarations must declare `mod` before those imports.
 
+When a project root contains `veln.toml`, the implemented manifest subset may
+list source modules in a `[modules]` table:
+
+```toml
+[modules]
+"src/main.veln" = "app.main"
+```
+
+The source `mod` declaration remains the compiler-visible owner of the module
+name. A manifest entry is packaging/discovery metadata and cannot rename the
+source module. If the manifest name differs from the source `mod` name, or if
+the manifest names a selected source file that has no `mod` declaration, the
+checker reports module metadata drift.
+
 `use` declarations create module import aliases. The current alias is the final
 segment of the imported module path, so `use platform.io` declares the alias
 `io`.

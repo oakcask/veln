@@ -41,6 +41,13 @@ Module boundary checks reject `use` declarations when the source file has no
 `mod` declaration. The diagnostic is `module.missing_identity` at the first
 `use` declaration and includes a repair hint in `related`.
 
+When `veln.toml` contains a `[modules]` entry for a selected source file, the
+entry is checked against that file's source `mod` declaration. The diagnostic
+is `module.metadata_drift` at the manifest module name when the manifest tries
+to supply a module name without a source owner or when the manifest name differs
+from the source `mod` name. The source declaration is canonical and is reported
+as related context when present.
+
 Named holes remain repair labels, not value declarations. Reusing a hole label
 does not affect name resolution.
 
