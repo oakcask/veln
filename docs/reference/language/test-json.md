@@ -20,8 +20,21 @@ Selection fields are:
 
 - `mode`: `discovered` or `explicit`
 - `targets`
-- `confidence`
-- `reason`: `pattern_discovery` or `user_selected`
+- `confidence`: `complete`, `partial`, or `unknown`
+- `reason`: `pattern_discovery`, `user_selected`, or
+  `source_to_test_convention`
+- `notes`: optional human-readable selection notes
+
+With no explicit targets, `veln test --json` discovers all selected
+`*_test.veln` files and reports `confidence: "complete"`.
+
+With explicit targets, the command treats the caller's direct file or directory
+list as intentional selection and reports `reason: "user_selected"` unless it
+adds paired tests by convention. If an explicit non-test `.veln` file has a
+same-directory `*_test.veln` peer with the same base name, the peer is added to
+the selected targets, the run reports `reason: "source_to_test_convention"`,
+and `confidence: "partial"` because the mapping is conservative but not a full
+dependency graph.
 
 ## Summary
 

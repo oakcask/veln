@@ -322,6 +322,7 @@ pub struct TestSelection {
     pub targets: Vec<String>,
     pub confidence: String,
     pub reason: String,
+    pub notes: Vec<String>,
 }
 
 impl TestSelection {
@@ -335,11 +336,24 @@ impl TestSelection {
             } else {
                 "pattern_discovery".to_string()
             },
+            notes: Vec::new(),
         }
     }
 
+    pub fn source_to_test_convention(mut self, added_count: usize) -> Self {
+        if added_count > 0 {
+            self.confidence = "partial".to_string();
+            self.reason = "source_to_test_convention".to_string();
+            let noun = if added_count == 1 { "file" } else { "files" };
+            self.notes.push(format!(
+                "added {added_count} test {noun} by source-to-test convention"
+            ));
+        }
+        self
+    }
+
     fn to_json(&self) -> JsonValue {
-        JsonValue::object([
+        let mut fields = vec![
             ("mode", JsonValue::string(self.mode_name.clone())),
             (
                 "targets",
@@ -347,7 +361,14 @@ impl TestSelection {
             ),
             ("confidence", JsonValue::string(self.confidence.clone())),
             ("reason", JsonValue::string(self.reason.clone())),
-        ])
+        ];
+        if !self.notes.is_empty() {
+            fields.push((
+                "notes",
+                JsonValue::array(self.notes.iter().map(JsonValue::string)),
+            ));
+        }
+        JsonValue::object(fields)
     }
 }
 
@@ -621,6 +642,7 @@ mod tests {
                 targets: vec!["main_test.veln".to_string()],
                 confidence: "complete".to_string(),
                 reason: "user_selected".to_string(),
+                notes: Vec::new(),
             },
             Vec::new(),
             Vec::new(),

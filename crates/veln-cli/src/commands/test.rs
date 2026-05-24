@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -21,7 +22,9 @@ use crate::surface::{load_surface_module, reachable_entry_module};
 pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let explicit = !targets.is_empty();
-    let project = Project::discover(root, &targets).map_err(|error| error.to_string())?;
+    let target_expansion = expand_test_targets(&root, &targets);
+    let project =
+        Project::discover(root, &target_expansion.targets).map_err(|error| error.to_string())?;
     let (module, mut diagnostics) = load_surface_module(&project);
     let test_files = selected_test_files(&project, explicit);
     let mut cases = discover_test_cases(&module, &test_files);
@@ -49,7 +52,8 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     }
 
     let report = TestReport::new(
-        TestSelection::new(&project, &test_files, explicit),
+        TestSelection::new(&project, &test_files, explicit)
+            .source_to_test_convention(target_expansion.source_to_test_added_count),
         diagnostics,
         suite_errors,
         cases,
@@ -66,6 +70,70 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     } else {
         ExitCode::from(1)
     })
+}
+
+struct TestTargetExpansion {
+    targets: Vec<PathBuf>,
+    source_to_test_added_count: usize,
+}
+
+fn expand_test_targets(root: &Path, targets: &[PathBuf]) -> TestTargetExpansion {
+    if targets.is_empty() {
+        return TestTargetExpansion {
+            targets: Vec::new(),
+            source_to_test_added_count: 0,
+        };
+    }
+
+    let mut original_targets = targets.to_vec();
+    original_targets.sort();
+    original_targets.dedup();
+    let original_count = original_targets.len();
+    let mut expanded = targets.to_vec();
+    for target in targets {
+        if let Some(test_target) = paired_test_target(root, target) {
+            expanded.push(test_target);
+        }
+    }
+    expanded.sort();
+    expanded.dedup();
+    let source_to_test_added_count = expanded.len().saturating_sub(original_count);
+    TestTargetExpansion {
+        targets: expanded,
+        source_to_test_added_count,
+    }
+}
+
+fn paired_test_target(root: &Path, target: &Path) -> Option<PathBuf> {
+    let absolute = if target.is_absolute() {
+        target.to_path_buf()
+    } else {
+        root.join(target)
+    };
+    if absolute.is_dir()
+        || absolute
+            .extension()
+            .is_none_or(|extension| extension != "veln")
+    {
+        return None;
+    }
+    let file_name = absolute.file_name()?.to_str()?;
+    if file_name.ends_with("_test.veln") {
+        return None;
+    }
+    let stem = absolute.file_stem()?.to_str()?;
+    let candidate = absolute.with_file_name(format!("{stem}_test.veln"));
+    if !candidate.is_file() {
+        return None;
+    }
+    if target.is_absolute() {
+        Some(candidate)
+    } else {
+        candidate.strip_prefix(root).map_or_else(
+            |_| Some(candidate.clone()),
+            |relative| Some(relative.to_path_buf()),
+        )
+    }
 }
 
 fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), String> {
@@ -124,6 +192,9 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
 }
 
 fn print_test_human(report: &TestReport) -> Result<(), String> {
+    for note in &report.selection.notes {
+        eprintln!("veln: test selection: {note}");
+    }
     if !report.diagnostics.is_empty() {
         print_human_stderr(&DiagnosticEnvelope::new(
             tool_info(),

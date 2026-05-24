@@ -65,6 +65,12 @@ discovered `*_test.veln` files. With explicit targets, it selects `test`
 declarations from the selected files, including non-test files. Ordinary `fn`
 declarations are never selected merely because they have zero parameters.
 
+When an explicit target names a non-test `.veln` source file, `test` also
+selects a same-directory `*_test.veln` file with the same base name when that
+paired file exists. The command reports this as `source_to_test_convention` in
+JSON output and prints a human selection note. The selection confidence is
+`partial` because the convention is narrower than a complete dependency graph.
+
 Static diagnostics block the suite before Java execution. In JSON output,
 already discovered cases are marked `blocked` with reason `static_gate`.
 Runtime failures become failed cases. JDK setup failures become case errors with

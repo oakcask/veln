@@ -1157,6 +1157,63 @@ fn test_json_blocks_static_gate_before_jdk_execution() {
 }
 
 #[test]
+fn test_json_maps_explicit_source_file_to_paired_test_file() {
+    let project = TestProject::new("test-source-to-test-convention");
+    project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");
+    project.write(
+        "app_test.veln",
+        concat!(
+            "test paired() -> Result((), AppError) effects []\n",
+            "  helper()\n",
+            "  _\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["--json", "app.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"selection\":{\"mode\":\"explicit\",\"targets\":[\"app.veln\",\"app_test.veln\"],\"confidence\":\"partial\",\"reason\":\"source_to_test_convention\",\"notes\":[\"added 1 test file by source-to-test convention\"]}",
+            "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":1,\"errors\":0}",
+            "\"name\":\"paired\"",
+            "\"reason\":\"static_gate\"",
+        ],
+    );
+}
+
+#[test]
+fn test_human_reports_source_to_test_selection_note() {
+    let project = TestProject::new("test-human-source-to-test-convention");
+    project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");
+    project.write(
+        "app_test.veln",
+        concat!(
+            "test paired() -> Result((), AppError) effects []\n",
+            "  helper()\n",
+            "  _\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["app.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "blocked paired\n");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "veln: test selection: added 1 test file by source-to-test convention",
+            "app_test.veln:3:3: hint[hole.unfilled]: hole requires a `Result((), AppError)` value",
+        ],
+    );
+}
+
+#[test]
 fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
     let project = TestProject::new("test-human-static-gate");
     project.write(
