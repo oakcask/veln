@@ -136,9 +136,10 @@ using default config
 The current implementation extracts documentation comment `veln` fences and
 compares adjacent `veln-output stream=stdout` and
 `veln-output stream=stderr` fences in `veln test`. It also type-checks
-generated doctest sources in `veln check`. Metadata diagnostics, duplicate
-stream diagnostics, expected-error examples, hidden setup, ignored examples,
-and non-runnable examples remain future work.
+generated doctest sources in `veln check`. Duplicate stream diagnostics are
+implemented for output fences that repeat `stdout` or `stderr` on the same
+doctest. Other metadata diagnostics, expected-error examples, hidden setup,
+ignored examples, and non-runnable examples remain future work.
 
 The first slice intentionally does not decide exact raw-output assertions. If
 examples later show that final newline, byte encoding, or stream interleaving

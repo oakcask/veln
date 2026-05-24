@@ -88,10 +88,14 @@ declarations are never selected merely because they have zero parameters.
 
 `test` also extracts executable doctests from documentation line comments.
 A doctest starts with a doc comment fence whose info string is `veln` and is
-checked as a generated private `test` declaration. The generated test returns
-`()` and declares `effects [stdio]`. In `check`, generated doctests
-participate in parse and semantic diagnostics. In `test`, generated doctests
-are selected as doctest cases.
+checked as a generated private `test` declaration. By default the generated
+test returns `()` and declares `effects [stdio]`. A doctest fence may include
+an `error=<TypePath>` info-string attribute. With that attribute, the
+generated test returns `Result((), <TypePath>)` and appends `Ok(())` as the
+implicit success value, so the visible example body can use `?` without
+writing harness-only success code. In `check`, generated doctests participate
+in parse and semantic diagnostics. In `test`, generated doctests are selected
+as doctest cases.
 
 An adjacent doc comment fence whose info string is
 `veln-output stream=stdout` or `veln-output stream=stderr` records expected

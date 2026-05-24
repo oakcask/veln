@@ -25,6 +25,7 @@ categorized specification files. The full implemented decision index is
 - [Contract Expression Language](../source-decisions/result-contract-expression-language.md)
 - [Contract Predicate Parsing](../source-decisions/result-contract-predicate-parsing.md)
 - [Runtime Contract Failure Reporting](../source-decisions/result-runtime-contract-failure-reporting.md)
+- [Doctest Error Type Fence Syntax](../source-decisions/result-doctest-error-type-fence-syntax.md)
 - [Safe Repair Candidate Boundary](../source-decisions/result-safe-repair-candidate-boundary.md)
 - [AST Phase Boundary](../source-decisions/result-ast-phase-boundary.md)
 - [AST Implementation Representation](../source-decisions/result-ast-implementation-representation.md)

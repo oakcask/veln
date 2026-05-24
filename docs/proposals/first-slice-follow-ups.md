@@ -61,7 +61,7 @@ No accepted language and type coverage follow-up is currently tracked here.
 - Test discovery selects top-level `test` declarations from `*_test.veln`
   files, explicit targets, and same-file declarations in other discovered
   source files. Documentation comment `veln` doctest extraction and adjacent
-  `veln-output` expected-output comparison are implemented. Doctest result
-  propagation, explicit doctest error-type metadata, metadata diagnostics,
-  hidden setup, negative examples, and non-runnable examples remain follow-up
-  work.
+  `veln-output` expected-output comparison are implemented. Explicit doctest
+  `error=<TypePath>` metadata is implemented for generated result-returning
+  wrappers. Doctest error-type inference, doctest metadata diagnostics, hidden
+  setup, negative examples, and non-runnable examples remain follow-up work.

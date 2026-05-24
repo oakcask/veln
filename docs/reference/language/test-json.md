@@ -99,6 +99,11 @@ use `kind: "output"` and include:
   `veln-output` fence
 - `actual`: reconstructed actual stream text from captured stdio events
 
+Duplicate `veln-output` fences for the same doctest stream are reported as
+static doc diagnostics before execution. The diagnostic id is
+`doctest.duplicate_output`; its details include `kind: "doctest_metadata"` and
+the duplicate `stream`.
+
 Captured stdio events use:
 
 - `kind: "stdio"`

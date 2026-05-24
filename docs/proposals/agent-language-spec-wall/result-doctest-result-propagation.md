@@ -106,7 +106,7 @@ boundary.
 ## Open Details
 
 Resolved by
-[Doctest Error Type Fence Syntax](result-doctest-error-type-fence-syntax.md):
+[Doctest Error Type Fence Syntax](../../reference/source-decisions/result-doctest-error-type-fence-syntax.md):
 write an explicit doctest error type as a fenced-code info-string attribute,
 `error=<TypePath>`, on the executable Veln doctest block.
 

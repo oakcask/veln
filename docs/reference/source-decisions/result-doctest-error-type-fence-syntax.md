@@ -1,6 +1,6 @@
 # Discussion Result: Doctest Error Type Fence Syntax
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 
@@ -26,11 +26,7 @@ those are available.
 
 When this attribute is present, the generated private doctest wrapper returns
 `Result((), <TypePath>)`, and every propagated `?` in the example must either
-produce that error type or be explicitly converted before propagation. The
-attribute is optional when the error type can be inferred from one concrete
-propagated error type or from an unambiguous documented public item context.
-It is required when mixed fallible operations would otherwise leave the
-doctest wrapper error type ambiguous.
+produce that error type or be explicitly converted before propagation.
 
 Do not use a doc-comment directive or a visible wrapper function for this first
 slice. The boundary belongs to the example block metadata, while the example
@@ -78,11 +74,6 @@ and diagnostics a concrete source span.
   `Result((), <TypePath>)`.
 - The attribute is harness metadata, not Veln source syntax, and must not be
   visible inside the generated example body.
-- A doctest using `?` without an inferrable or contextual error type should
-  receive a diagnostic that suggests adding `error=<TypePath>` to the fence.
-- A doctest whose `error=<TypePath>` conflicts with a propagated `?` should
-  report the conflicting propagation site and suggest an explicit conversion or
-  a different fence error type.
 - The first slice does not require hidden setup lines, expected-error modes, or
   expected-output syntax to share this attribute mechanism, but later doctest
   metadata should avoid conflicting with `error=`.
@@ -114,16 +105,12 @@ end
 
 The broader doctest info-string grammar remains intentionally small. Output
 comparison is handled separately by
-[Doctest Expected Output Syntax](result-doctest-expected-output-syntax.md).
-Future decisions may add flags for hidden setup, negative examples, expected
+[Doctest Expected Output Syntax](../../proposals/agent-language-spec-wall/result-doctest-expected-output-syntax.md).
+Future decisions may add inference for missing error types, diagnostics for
+malformed attributes, flags for hidden setup, negative examples, expected
 runtime errors, or non-runnable examples. Those additions should be block-local
 metadata and should not make the visible Veln example body carry test harness
 ceremony.
-
-The first slice also leaves exact parser recovery for malformed attributes
-open. The minimum requirement is that diagnostics point at the fence
-info-string and distinguish unknown doctest attributes from Veln type errors
-inside the example body.
 
 ## Consequence
 

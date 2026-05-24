@@ -8,9 +8,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::process::Output;
 
 use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, SurfaceModule};
-use veln_diagnostics::{Diagnostic, JsonValue, Severity, diagnostic_to_json};
+use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
 use veln_project::Project;
-use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
+use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 
 pub fn selected_test_files(
     project: &Project,
@@ -105,14 +105,17 @@ pub fn attach_expected_outputs(
 pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
     let mut generated_sources = Vec::new();
     let mut expected_outputs = BTreeMap::new();
+    let mut diagnostics = Vec::new();
     let mut next_index = 1;
 
     for source in sources {
-        for doctest in extract_doctests(source) {
+        let extracted = extract_doctests(source);
+        diagnostics.extend(extracted.diagnostics);
+        for doctest in extracted.doctests {
             let name = format!("doctest_{next_index}");
             let generated_path =
                 format!("{}#doctest-{next_index}_test.veln", source.path().as_str());
-            let generated = generated_doctest_source(&name, &doctest.code);
+            let generated = generated_doctest_source(&name, &doctest);
             generated_sources.push(SourceFile::new(generated_path, generated));
             expected_outputs.insert(name, doctest.expected_output);
             next_index += 1;
@@ -122,6 +125,7 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
     DoctestSources {
         sources: generated_sources,
         expected_outputs,
+        diagnostics,
     }
 }
 
@@ -718,6 +722,7 @@ impl TestFailure {
 pub struct DoctestSources {
     pub sources: Vec<SourceFile>,
     pub expected_outputs: BTreeMap<String, ExpectedOutput>,
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -729,20 +734,50 @@ pub struct ExpectedOutput {
 #[derive(Default)]
 struct ExtractedDoctest {
     code: Vec<String>,
+    error_type: Option<String>,
     expected_output: ExpectedOutput,
+    output_spans: ExpectedOutputSpans,
+}
+
+#[derive(Default)]
+struct ExpectedOutputSpans {
+    stdout: Option<SourceSpan>,
+    stderr: Option<SourceSpan>,
 }
 
 enum Fence {
-    Veln(Vec<String>),
-    Output { stream: String, lines: Vec<String> },
+    Veln {
+        lines: Vec<String>,
+        error_type: Option<String>,
+    },
+    Output {
+        stream: String,
+        lines: Vec<String>,
+        span: SourceSpan,
+    },
 }
 
-fn extract_doctests(source: &SourceFile) -> Vec<ExtractedDoctest> {
+#[derive(Default)]
+struct ExtractedDoctests {
+    doctests: Vec<ExtractedDoctest>,
+    diagnostics: Vec<Diagnostic>,
+}
+
+fn extract_doctests(source: &SourceFile) -> ExtractedDoctests {
     let mut doctests = Vec::new();
+    let mut diagnostics = Vec::new();
     let mut pending: Option<ExtractedDoctest> = None;
     let mut fence: Option<Fence> = None;
+    let mut offset = 0;
 
-    for line in source.text().lines() {
+    for raw_line in source.text().split_inclusive('\n') {
+        let line = raw_line
+            .strip_suffix('\n')
+            .unwrap_or(raw_line)
+            .strip_suffix('\r')
+            .unwrap_or_else(|| raw_line.strip_suffix('\n').unwrap_or(raw_line));
+        let line_range = TextRange::new(offset, offset + line.len());
+        offset += raw_line.len();
         let Some(content) = doc_comment_content(line) else {
             if let Some(doctest) = pending.take() {
                 doctests.push(doctest);
@@ -753,22 +788,42 @@ fn extract_doctests(source: &SourceFile) -> Vec<ExtractedDoctest> {
         if let Some(active) = &mut fence {
             if content.trim_start().starts_with("```") {
                 match fence.take().expect("active fence should exist") {
-                    Fence::Veln(code) => {
+                    Fence::Veln { lines, error_type } => {
                         if let Some(doctest) = pending.take() {
                             doctests.push(doctest);
                         }
                         pending = Some(ExtractedDoctest {
-                            code,
+                            code: lines,
+                            error_type,
                             expected_output: ExpectedOutput::default(),
+                            output_spans: ExpectedOutputSpans::default(),
                         });
                     }
-                    Fence::Output { stream, lines } => {
+                    Fence::Output {
+                        stream,
+                        lines,
+                        span,
+                    } => {
                         if let Some(doctest) = &mut pending {
                             let output = lines.join("\n");
                             if stream == "stdout" {
-                                doctest.expected_output.stdout = Some(output);
+                                if let Some(first_span) = &doctest.output_spans.stdout {
+                                    diagnostics.push(duplicate_output_diagnostic(
+                                        &stream, &span, first_span,
+                                    ));
+                                } else {
+                                    doctest.expected_output.stdout = Some(output);
+                                    doctest.output_spans.stdout = Some(span);
+                                }
                             } else if stream == "stderr" {
-                                doctest.expected_output.stderr = Some(output);
+                                if let Some(first_span) = &doctest.output_spans.stderr {
+                                    diagnostics.push(duplicate_output_diagnostic(
+                                        &stream, &span, first_span,
+                                    ));
+                                } else {
+                                    doctest.expected_output.stderr = Some(output);
+                                    doctest.output_spans.stderr = Some(span);
+                                }
                             }
                         }
                     }
@@ -776,7 +831,7 @@ fn extract_doctests(source: &SourceFile) -> Vec<ExtractedDoctest> {
                 continue;
             }
             match active {
-                Fence::Veln(lines) => lines.push(content.to_string()),
+                Fence::Veln { lines, .. } => lines.push(content.to_string()),
                 Fence::Output { lines, .. } => lines.push(content.to_string()),
             }
             continue;
@@ -785,12 +840,16 @@ fn extract_doctests(source: &SourceFile) -> Vec<ExtractedDoctest> {
         let trimmed = content.trim_start();
         if let Some(info) = trimmed.strip_prefix("```") {
             let info = info.trim();
-            if info.split_whitespace().next() == Some("veln") {
-                fence = Some(Fence::Veln(Vec::new()));
+            if veln_fence_info(info) {
+                fence = Some(Fence::Veln {
+                    lines: Vec::new(),
+                    error_type: doctest_error_type(info).map(ToString::to_string),
+                });
             } else if let Some(stream) = output_fence_stream(info) {
                 fence = Some(Fence::Output {
                     stream: stream.to_string(),
                     lines: Vec::new(),
+                    span: source.span(line_range),
                 });
             } else if let Some(doctest) = pending.take() {
                 doctests.push(doctest);
@@ -805,11 +864,52 @@ fn extract_doctests(source: &SourceFile) -> Vec<ExtractedDoctest> {
     if let Some(doctest) = pending {
         doctests.push(doctest);
     }
-    doctests
+    ExtractedDoctests {
+        doctests,
+        diagnostics,
+    }
+}
+
+fn duplicate_output_diagnostic(
+    stream: &str,
+    duplicate_span: &SourceSpan,
+    first_span: &SourceSpan,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "doctest.duplicate_output",
+        Severity::Error,
+        DiagnosticKind::Doc,
+        format!("duplicate expected {stream} output fence"),
+        Some(duplicate_span.clone()),
+        JsonValue::object([
+            ("kind", JsonValue::string("doctest_metadata")),
+            ("stream", JsonValue::string(stream)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("duplicate_origin")),
+        (
+            "message",
+            JsonValue::string(format!("First expected {stream} output fence is here.")),
+        ),
+        ("span", source_span_to_json(first_span)),
+    ]));
+    diagnostic
 }
 
 fn doc_comment_content(line: &str) -> Option<&str> {
     line.trim_start().strip_prefix("///")
+}
+
+fn veln_fence_info(info: &str) -> bool {
+    info.split_whitespace().next() == Some("veln")
+}
+
+fn doctest_error_type(info: &str) -> Option<&str> {
+    info.split_whitespace()
+        .skip(1)
+        .find_map(|field| field.strip_prefix("error="))
+        .filter(|value| !value.is_empty())
 }
 
 fn output_fence_stream(info: &str) -> Option<&str> {
@@ -821,9 +921,13 @@ fn output_fence_stream(info: &str) -> Option<&str> {
     matches!(stream, "stdout" | "stderr").then_some(stream)
 }
 
-fn generated_doctest_source(name: &str, code: &[String]) -> String {
-    let mut text = format!("test {name}() -> () effects [stdio]\n");
-    for line in code {
+fn generated_doctest_source(name: &str, doctest: &ExtractedDoctest) -> String {
+    let return_type = doctest.error_type.as_ref().map_or_else(
+        || "()".to_string(),
+        |error_type| format!("Result((), {error_type})"),
+    );
+    let mut text = format!("test {name}() -> {return_type} effects [stdio]\n");
+    for line in &doctest.code {
         if line.is_empty() {
             text.push('\n');
         } else {
@@ -832,7 +936,11 @@ fn generated_doctest_source(name: &str, code: &[String]) -> String {
             text.push('\n');
         }
     }
-    text.push_str("  ()\nend\n");
+    if doctest.error_type.is_some() {
+        text.push_str("  Ok(())\nend\n");
+    } else {
+        text.push_str("  ()\nend\n");
+    }
     text
 }
 
@@ -1141,6 +1249,70 @@ mod tests {
             .expect("expected output should be recorded");
         assert_eq!(expected.stdout.as_deref(), Some("ready"));
         assert_eq!(expected.stderr, None);
+    }
+
+    #[test]
+    fn duplicate_doctest_output_stream_reports_diagnostic() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln\n",
+                "/// stdio::println(\"ready\")\n",
+                "/// ```\n",
+                "/// ```veln-output stream=stdout\n",
+                "/// ready\n",
+                "/// ```\n",
+                "/// ```veln-output stream=stdout\n",
+                "/// duplicate\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        let expected = doctests
+            .expected_outputs
+            .get("doctest_1")
+            .expect("first expected output should be kept");
+        assert_eq!(expected.stdout.as_deref(), Some("ready"));
+        assert_eq!(doctests.diagnostics.len(), 1);
+        assert_eq!(doctests.diagnostics[0].id, "doctest.duplicate_output");
+        assert_eq!(
+            doctests.diagnostics[0].message,
+            "duplicate expected stdout output fence"
+        );
+        assert_eq!(doctests.diagnostics[0].related.len(), 1);
+    }
+
+    #[test]
+    fn extracts_doctest_error_type_fence_attribute() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln error=AppError\n",
+                "/// let value = parse(\"1\")?\n",
+                "/// stdio::println(\"ready\")\n",
+                "/// ```\n",
+                "pub fn main() -> () effects []\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> Result((), AppError) effects [stdio]\n",
+                "  let value = parse(\"1\")?\n",
+                "  stdio::println(\"ready\")\n",
+                "  Ok(())\n",
+                "end\n",
+            )
+        );
     }
 
     #[test]

@@ -272,7 +272,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   doctest context; the first slice should infer one local error type when
   unambiguous and otherwise require an explicit doctest error type.
 - Resolved by
-  [Doctest Error Type Fence Syntax](result-doctest-error-type-fence-syntax.md):
+  [Doctest Error Type Fence Syntax](../../reference/source-decisions/result-doctest-error-type-fence-syntax.md):
   write an explicit doctest error type as a fenced-code info-string attribute,
   `error=<TypePath>`, on the executable Veln doctest block.
 - Resolved by

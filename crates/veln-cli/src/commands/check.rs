@@ -15,8 +15,8 @@ pub(crate) fn check(json: bool, inputs: Vec<PathBuf>) -> Result<ExitCode, String
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
     let doctests = doctest_sources(&project.files);
+    let mut diagnostics = doctests.diagnostics;
     project.files.extend(doctests.sources);
-    let mut diagnostics = Vec::new();
 
     for source in &project.files {
         let parsed = parse(source);

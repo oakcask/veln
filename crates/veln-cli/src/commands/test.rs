@@ -29,6 +29,7 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     let doctests = doctest_sources(&project.files);
     project.files.extend(doctests.sources);
     let (module, mut diagnostics) = load_surface_module(&project);
+    diagnostics.extend(doctests.diagnostics);
     let test_files = selected_test_files(&project, &module, explicit);
     let mut cases = discover_test_cases(&module, &test_files);
     attach_expected_outputs(&mut cases, &doctests.expected_outputs);

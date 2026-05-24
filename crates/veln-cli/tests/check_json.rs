@@ -1710,6 +1710,96 @@ fn check_json_typechecks_executable_doctest_fences() {
 }
 
 #[test]
+fn check_json_uses_doctest_error_type_fence_attribute() {
+    let project = TestProject::new("check-json-doctest-error-type");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln error=AppError\n",
+            "/// let value: Int = Ok(1)?\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"ok\"",
+            "\"diagnostics\":[]",
+            "\"summary\":{\"diagnostic_count\":0",
+        ],
+    );
+}
+
+#[test]
+fn check_reports_duplicate_doctest_output_stream() {
+    let project = TestProject::new("check-duplicate-doctest-output");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln\n",
+            "/// stdio::println(\"ready\")\n",
+            "/// ```\n",
+            "/// ```veln-output stream=stdout\n",
+            "/// ready\n",
+            "/// ```\n",
+            "/// ```veln-output stream=stdout\n",
+            "/// duplicate\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let json_output = project.check_json(&["main.veln"]);
+    let json_stdout = stdout(&json_output);
+
+    assert_eq!(
+        json_output.status.code(),
+        Some(1),
+        "{}",
+        stderr(&json_output)
+    );
+    assert_contains_all(
+        json_stdout,
+        &[
+            "\"status\":\"error\"",
+            "\"id\":\"doctest.duplicate_output\"",
+            "\"kind\":\"doc\"",
+            "\"message\":\"duplicate expected stdout output fence\"",
+            "\"details\":{\"kind\":\"doctest_metadata\",\"stream\":\"stdout\"}",
+            "\"related\":[{\"kind\":\"duplicate_origin\",\"message\":\"First expected stdout output fence is here.\"",
+        ],
+    );
+
+    let human_output = project.veln(&["check"], &["main.veln"]);
+    let human_stdout = stdout(&human_output);
+
+    assert_eq!(
+        human_output.status.code(),
+        Some(1),
+        "{}",
+        stderr(&human_output)
+    );
+    assert_eq!(stderr(&human_output), "");
+    assert_contains_all(
+        human_stdout,
+        &[
+            "error[doctest.duplicate_output]: duplicate expected stdout output fence",
+            "note: main.veln:4:1: First expected stdout output fence is here.",
+        ],
+    );
+}
+
+#[test]
 fn test_json_maps_explicit_source_file_to_paired_test_file() {
     let project = TestProject::new("test-source-to-test-convention");
     project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");

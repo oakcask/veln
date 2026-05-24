@@ -102,9 +102,14 @@ functions.
 
 Documentation line comments may contain executable doctest fences. A doc
 comment fence whose info string is `veln` is extracted as generated test source
-for `veln check` and `veln test`. A following doc comment fence whose info
-string is `veln-output stream=stdout` or `veln-output stream=stderr` attaches
-expected output to the immediately preceding doctest.
+for `veln check` and `veln test`. The fence may include `error=<TypePath>` to
+make the generated wrapper return `Result((), <TypePath>)` and append an
+implicit `Ok(())` success value. A following doc comment fence whose info string
+is `veln-output stream=stdout` or `veln-output stream=stderr` attaches expected
+output to the immediately preceding doctest. A doctest may attach at most one
+expected-output fence for each stream. A second `veln-output` fence for the same
+stream reports `doctest.duplicate_output` at the duplicate fence and leaves the
+first fence as the selected expectation.
 
 ## Expressions
 
@@ -182,5 +187,5 @@ read an explicit result binding.
 Implemented lowering and execution do not include user-defined ADT
 declarations, method calls, loops, mutation, classes, traits, macros,
 comprehensions, anonymous functions, custom operators, package manifest fields
-beyond `[modules]`, foreign declarations, doctest result propagation, doctest
-error-type fence metadata, or non-output doctest metadata.
+beyond `[modules]`, foreign declarations, implicit doctest error-type
+inference, or non-output doctest metadata.
