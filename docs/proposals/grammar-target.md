@@ -11,7 +11,7 @@ This document describes the language target. It is not a claim that every
 production is implemented in the current parser, AST, lowering, or backend.
 
 For the fixed reference of behavior implemented in the current workspace, read
-[../reference/implemented-first-slice.md](../reference/implemented-first-slice.md).
+[../reference/README.md](../reference/README.md).
 
 ## Notation
 

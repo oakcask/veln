@@ -5,8 +5,8 @@ the experimental Veln implementation.
 
 ## Read First
 
-- [reference/implemented-first-slice.md](reference/implemented-first-slice.md)
-  is the stable entry point for behavior implemented in the current workspace.
+- [reference/README.md](reference/README.md) is the stable reference entry
+  point for behavior implemented in the current workspace.
 - [reference/language/README.md](reference/language/README.md) routes the
   categorized language specification for the implemented first slice.
 - [proposals/README.md](proposals/README.md) routes accepted and open design

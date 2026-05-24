@@ -7,7 +7,7 @@ discussion. Keep it small enough to read before choosing a detail file.
 
 ## Read First
 
-- [../reference/implemented-first-slice.md](../reference/implemented-first-slice.md)
+- [../reference/README.md](../reference/README.md)
   is the fixed reference for behavior implemented in the current workspace.
   Read it before mining discussion results for current behavior.
 - [design-brief.md](agent-language-spec-wall/design-brief.md)

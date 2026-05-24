@@ -36,6 +36,6 @@ not fully implemented in the current workspace.
 ## Read When
 
 - Use this directory when planning the next implementation slice.
-- Use `../reference/implemented-first-slice.md` when you need current behavior.
+- Use `../reference/` when you need current behavior.
 - Use `../discussions/` when you need the rationale behind a proposal.
 - Use `../phases/` when you need implementation order or completion notes.
