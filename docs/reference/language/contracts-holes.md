@@ -19,14 +19,15 @@ predicate reports `parse.satisfy_predicate`.
 After parsing, the checker validates a small pure boolean subset:
 
 - `true` and `false`
-- boolean local bindings
+- boolean bindings visible to the clause
 - `and`, `or`, and `not`
 - comparison and equality operators
-- referenced parameters and local bindings
+- field access on record-typed bindings visible to the clause
+- visible parameter bindings
 - explicit result bindings in `ensure` clauses
 
-Contract predicates containing `stdio::`, call-like syntax, field access
-syntax, empty predicates, non-boolean predicates, or unresolved names produce
+Contract predicates containing `stdio::`, call-like syntax, empty predicates,
+missing record fields, non-boolean predicates, or unresolved names produce
 diagnostics. Valid contracts are recorded and may contribute hole repair
 constraints, but runtime contract enforcement is not implemented.
 

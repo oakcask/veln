@@ -690,6 +690,29 @@ fn check_json_reports_contract_validation_diagnostics() {
 }
 
 #[test]
+fn check_human_reports_contract_missing_record_field() {
+    let project = TestProject::new("contract-missing-record-field");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main(value: {total: Int}) -> output: {total: Int} effects []\n",
+            "ensure output.missing == value.total\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_eq!(
+        stdout(&output),
+        "main.veln:2:1: error[contract.field_missing]: contract field `missing` is not present on `{total: Int}`\n",
+    );
+}
+
+#[test]
 fn check_json_reports_hole_constraints_from_contracts_and_satisfy() {
     let project = TestProject::new("hole-constraints");
     project.write(

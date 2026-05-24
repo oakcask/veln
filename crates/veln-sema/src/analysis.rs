@@ -8,9 +8,8 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::contracts::{
-    ContractValidation, contains_call_like_construct, contains_field_access_construct,
-    contract_kind_text, is_contract_keyword, predicate_is_boolean, predicate_rendered_type,
-    referenced_names,
+    ContractValidation, contains_call_like_construct, contract_kind_text, is_contract_keyword,
+    missing_contract_field, predicate_is_boolean, predicate_rendered_type, referenced_names,
 };
 use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, module_details, span_json,
@@ -567,6 +566,25 @@ impl<'a> FunctionChecker<'a> {
                         ),
                     ));
                 }
+                ContractValidation::MissingField { base_type, field } => {
+                    self.diagnostics.push(Diagnostic::new(
+                        "contract.field_missing",
+                        Severity::Error,
+                        DiagnosticKind::Contract,
+                        format!("contract field `{field}` is not present on `{base_type}`"),
+                        Some(contract.span.clone()),
+                        contract_details(
+                            contract.node_id.display("contract"),
+                            contract.kind,
+                            &contract.text,
+                            "invalid",
+                            "failed_static",
+                            "missing_field",
+                            false,
+                            self.contract_referenced_bindings(contract.kind, &contract.text),
+                        ),
+                    ));
+                }
                 ContractValidation::UnresolvedName { name } => {
                     self.push_unresolved_name(
                         contract.node_id,
@@ -676,11 +694,6 @@ impl<'a> FunctionChecker<'a> {
                 reason: "unsupported_call",
             };
         }
-        if contains_field_access_construct(trimmed) {
-            return ContractValidation::UnsupportedConstruct {
-                reason: "unsupported_field_access",
-            };
-        }
         for name in referenced_names(trimmed) {
             if is_contract_keyword(&name) || name == "true" || name == "false" {
                 continue;
@@ -693,6 +706,11 @@ impl<'a> FunctionChecker<'a> {
                 continue;
             }
             return ContractValidation::UnresolvedName { name };
+        }
+        if let Some((base_type, field)) =
+            missing_contract_field(trimmed, &self.contract_bindings(kind))
+        {
+            return ContractValidation::MissingField { base_type, field };
         }
         if predicate_is_boolean(trimmed, &self.contract_bindings(kind)) {
             ContractValidation::Valid

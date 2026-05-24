@@ -904,7 +904,7 @@ fn ensure_can_reference_explicit_result_binding() {
 }
 
 #[test]
-fn contract_field_access_syntax_is_not_semantically_supported_yet() {
+fn contract_field_access_resolves_record_fields() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -920,13 +920,55 @@ fn contract_field_access_syntax_is_not_semantically_supported_yet() {
 
     let diagnostics = analyze_surface_module(&module);
 
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_boolean_field_access_is_a_boolean_predicate() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}) -> output: {ready: Bool} effects []\n",
+            "require value.ready\n",
+            "ensure output.ready\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_missing_record_field_reports_contract_diagnostic() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {total: Int}) -> output: {total: Int} effects []\n",
+            "ensure output.missing == value.total\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
     assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "contract.unsupported_construct"
+        diagnostic.id == "contract.field_missing"
             && diagnostic.kind == DiagnosticKind::Contract
+            && diagnostic.message == "contract field `missing` is not present on `{total: Int}`"
             && diagnostic
                 .details
                 .to_json()
-                .contains("\"reason\":\"unsupported_field_access\"")
+                .contains("\"reason\":\"missing_field\"")
     }));
 }
 
