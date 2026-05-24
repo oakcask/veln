@@ -323,6 +323,38 @@ fn reports_hole_with_declared_return_expected_type() {
 }
 
 #[test]
+fn ranks_visible_symbol_candidates_for_hole_expected_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int) -> Int\n",
+            "  let fallback = 1\n",
+            "  _\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"candidates\":["));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\"}"
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\"}"
+    )));
+}
+
+#[test]
 fn reports_return_type_mismatch() {
     let source = SourceFile::new("main.veln", "fn bad() -> Int\n  \"no\"\nend\n");
     let parsed = parse(&source);

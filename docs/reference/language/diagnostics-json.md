@@ -151,3 +151,16 @@ Each `candidate_queries` entry is advisory and contains:
 - `candidate_status`
 - `application_policy`
 - `query`
+
+For hole symbol queries with visible assignable bindings, an entry also
+contains `candidates`. Each candidate contains:
+
+- `candidate_id`
+- `name`
+- `type`
+- `rank`
+- `reason`
+- `application_policy`
+
+These records are ranked suggestions, not concrete edits. The
+`application_policy` remains `manual_review_required`.

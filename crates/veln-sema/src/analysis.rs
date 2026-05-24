@@ -2095,7 +2095,8 @@ impl<'a> FunctionChecker<'a> {
             .map(|binding| binding.ty.render())
             .collect::<Vec<_>>()
             .join(", ");
-        vec![JsonValue::object([
+        let ranked_candidates = self.ranked_symbol_candidates(expected);
+        let mut query = vec![
             ("kind", JsonValue::string("symbol")),
             ("candidate_status", JsonValue::string("query_only")),
             (
@@ -2106,7 +2107,59 @@ impl<'a> FunctionChecker<'a> {
                 "query",
                 JsonValue::string(format!("fn({argument_types}) -> {}", expected.render())),
             ),
-        ])]
+        ];
+        if !ranked_candidates.is_empty() {
+            query.push(("candidates", JsonValue::array(ranked_candidates)));
+        }
+        vec![JsonValue::object(query)]
+    }
+
+    fn ranked_symbol_candidates(&self, expected: &Type) -> Vec<JsonValue> {
+        let mut candidates = self
+            .bindings
+            .iter()
+            .rev()
+            .enumerate()
+            .filter(|(_, binding)| is_assignable(expected, &binding.ty))
+            .map(|(distance, binding)| {
+                let score = if binding.ty == *expected { 0 } else { 1 };
+                (score, distance, binding)
+            })
+            .collect::<Vec<_>>();
+        candidates.sort_by(|left, right| {
+            left.0
+                .cmp(&right.0)
+                .then(left.1.cmp(&right.1))
+                .then(left.2.name.cmp(&right.2.name))
+        });
+        candidates
+            .into_iter()
+            .take(5)
+            .enumerate()
+            .map(|(index, (score, _, binding))| {
+                JsonValue::object([
+                    (
+                        "candidate_id",
+                        JsonValue::string(format!("symbol-{}", index + 1)),
+                    ),
+                    ("name", JsonValue::string(binding.name.clone())),
+                    ("type", JsonValue::string(binding.ty.render())),
+                    ("rank", JsonValue::Number((index + 1) as i64)),
+                    (
+                        "reason",
+                        JsonValue::string(if score == 0 {
+                            "exact_type_match"
+                        } else {
+                            "assignable_type_match"
+                        }),
+                    ),
+                    (
+                        "application_policy",
+                        JsonValue::string("manual_review_required"),
+                    ),
+                ])
+            })
+            .collect()
     }
 }
 

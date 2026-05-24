@@ -15,12 +15,12 @@ stays in
 ## Repair Loop
 
 - `hole.unfilled` emits candidate-query records when an expected type is
-  known, but candidate ranking and concrete repair generation remain outside
-  the completed first-slice gate.
+  known and ranks visible assignable symbol candidates when available.
+  Concrete repair generation remains outside the completed first-slice gate.
 - `satisfy` suffix parsing, formatting, constraint exposure, missing candidate
   diagnostics, missing `=>` diagnostics, candidate shadowing diagnostics, and
-  unused candidate diagnostics are implemented. Candidate ranking and concrete
-  repair generation remain follow-up work before formatter stabilization.
+  unused candidate diagnostics are implemented. Concrete repair generation
+  remains follow-up work before formatter stabilization.
 
 ## Effects And Contracts
 
