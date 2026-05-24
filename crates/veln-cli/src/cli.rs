@@ -9,6 +9,7 @@ pub(crate) enum Command {
         inputs: Vec<PathBuf>,
     },
     Run {
+        json: bool,
         entry: String,
         inputs: Vec<PathBuf>,
         entry_args: Vec<String>,
@@ -41,7 +42,7 @@ impl Command {
 pub(crate) fn print_help() {
     println!("veln check [--json] [path ...]");
     println!("veln fmt [path ...]");
-    println!("veln run <entry> [path ...] [-- arg ...]");
+    println!("veln run [--json] <entry> [path ...] [-- arg ...]");
     println!("veln test [--json] [target ...]");
 }
 
@@ -72,6 +73,7 @@ fn parse_fmt(args: impl Iterator<Item = String>) -> Result<Command, String> {
 }
 
 fn parse_run(args: impl Iterator<Item = String>) -> Result<Command, String> {
+    let mut json = false;
     let mut entry = None;
     let mut inputs = Vec::new();
     let mut entry_args = Vec::new();
@@ -82,6 +84,7 @@ fn parse_run(args: impl Iterator<Item = String>) -> Result<Command, String> {
             continue;
         }
         match arg.as_str() {
+            "--json" => json = true,
             "--help" | "-h" => return Ok(Command::Help),
             "--" => after_separator = true,
             flag if flag.starts_with('-') => return Err(format!("unknown run flag `{flag}`")),
@@ -93,6 +96,7 @@ fn parse_run(args: impl Iterator<Item = String>) -> Result<Command, String> {
         return Err("run requires an entry function name".to_string());
     };
     Ok(Command::Run {
+        json,
         entry,
         inputs,
         entry_args,

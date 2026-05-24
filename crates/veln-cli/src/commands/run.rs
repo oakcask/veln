@@ -5,15 +5,19 @@ use std::process::ExitCode;
 
 use veln_ast::FunctionKind;
 use veln_backend_jvm::{EntryArgType, generate_java_with_entry_arg_types};
-use veln_diagnostics::DiagnosticEnvelope;
+use veln_diagnostics::{DiagnosticEnvelope, JsonValue};
 use veln_project::Project;
 use veln_sema::lower_checked_surface_module;
+use veln_test::{TestFailure, contract_failure_from_trace};
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
-use crate::java::{compile_and_run_java, create_build_dir};
+use crate::java::{
+    JavaRunResult, compile_and_run_java, compile_and_run_java_capture_with_env, create_build_dir,
+};
 use crate::surface::{load_surface_module, reachable_entry_module};
 
 pub(crate) fn run_entry(
+    json: bool,
     entry: String,
     inputs: Vec<PathBuf>,
     entry_args: Vec<String>,
@@ -75,7 +79,11 @@ pub(crate) fn run_entry(
 
     let java = generate_java_with_entry_arg_types(&ir, &entry, &entry_arg_types);
     let build_dir = create_build_dir("veln-run").map_err(|error| error.to_string())?;
-    let result = compile_and_run_java(&build_dir, &java, &entry_args);
+    let result = if json {
+        run_json(&build_dir, &java, &entry_args)
+    } else {
+        compile_and_run_java(&build_dir, &java, &entry_args)
+    };
     let cleanup_result = fs::remove_dir_all(&build_dir);
     if let Err(error) = cleanup_result {
         eprintln!(
@@ -84,6 +92,158 @@ pub(crate) fn run_entry(
         );
     }
     result
+}
+
+fn run_json(
+    build_dir: &std::path::Path,
+    java: &veln_backend_jvm::JavaProgram,
+    entry_args: &[String],
+) -> Result<ExitCode, String> {
+    let contract_error_file = build_dir.join("contract-errors.tsv");
+    let event_env = [("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str())];
+    let result =
+        compile_and_run_java_capture_with_env(build_dir, java, "veln run", &event_env, entry_args)?;
+    let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
+
+    let report = match result {
+        JavaRunResult::ToolError(message) => RunJsonReport::tool_error(message),
+        JavaRunResult::Ran(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+            let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+            let exit_code = output.status.code().unwrap_or(1);
+            if output.status.success() {
+                RunJsonReport::passed(exit_code, stdout, stderr)
+            } else if let Some(failure) = contract_failure_from_trace(&contract_error_trace) {
+                RunJsonReport::failed(exit_code, stdout, stderr, failure)
+            } else {
+                RunJsonReport::runtime_error(
+                    exit_code,
+                    stdout,
+                    stderr,
+                    format!("run process exited with status {}", output.status),
+                )
+            }
+        }
+    };
+    let exit_code = report.exit_code();
+    println!("{}", report.to_json());
+    Ok(exit_code)
+}
+
+struct RunJsonReport {
+    status: &'static str,
+    exit_code: i32,
+    stdout: String,
+    stderr: String,
+    error: Option<RunJsonError>,
+}
+
+impl RunJsonReport {
+    fn passed(exit_code: i32, stdout: String, stderr: String) -> Self {
+        Self {
+            status: "passed",
+            exit_code,
+            stdout,
+            stderr,
+            error: None,
+        }
+    }
+
+    fn failed(exit_code: i32, stdout: String, stderr: String, failure: TestFailure) -> Self {
+        Self {
+            status: "failed",
+            exit_code,
+            stdout,
+            stderr,
+            error: Some(RunJsonError::from_test_failure(failure)),
+        }
+    }
+
+    fn runtime_error(exit_code: i32, stdout: String, stderr: String, message: String) -> Self {
+        Self {
+            status: "failed",
+            exit_code,
+            stdout,
+            stderr,
+            error: Some(RunJsonError::runtime(message)),
+        }
+    }
+
+    fn tool_error(message: String) -> Self {
+        Self {
+            status: "error",
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: String::new(),
+            error: Some(RunJsonError::runner(message)),
+        }
+    }
+
+    fn exit_code(&self) -> ExitCode {
+        if self.status == "passed" {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::from(1)
+        }
+    }
+
+    fn to_json(&self) -> String {
+        JsonValue::object([
+            ("schema_version", JsonValue::string("veln-run-json/v0")),
+            ("command", JsonValue::string("run")),
+            ("status", JsonValue::string(self.status)),
+            ("exit_code", JsonValue::Number(self.exit_code.into())),
+            ("stdout", JsonValue::string(self.stdout.clone())),
+            ("stderr", JsonValue::string(self.stderr.clone())),
+            (
+                "error",
+                self.error
+                    .as_ref()
+                    .map_or(JsonValue::Null, RunJsonError::to_json),
+            ),
+        ])
+        .to_json()
+    }
+}
+
+struct RunJsonError {
+    kind: String,
+    message: String,
+    details: JsonValue,
+}
+
+impl RunJsonError {
+    fn from_test_failure(failure: TestFailure) -> Self {
+        Self {
+            kind: failure.kind,
+            message: failure.message,
+            details: failure.details,
+        }
+    }
+
+    fn runtime(message: String) -> Self {
+        Self {
+            kind: "runtime".to_string(),
+            message,
+            details: JsonValue::object([("phase", JsonValue::string("runtime"))]),
+        }
+    }
+
+    fn runner(message: String) -> Self {
+        Self {
+            kind: "runner".to_string(),
+            message,
+            details: JsonValue::object([("phase", JsonValue::string("tool"))]),
+        }
+    }
+
+    fn to_json(&self) -> JsonValue {
+        JsonValue::object([
+            ("kind", JsonValue::string(self.kind.clone())),
+            ("message", JsonValue::string(self.message.clone())),
+            ("details", self.details.clone()),
+        ])
+    }
 }
 
 fn entry_arg_type(ty: &str) -> Option<EntryArgType> {

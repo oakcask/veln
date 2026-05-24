@@ -71,6 +71,17 @@ JDK setup failures are reported on the affected case with
 `failure.kind: "runtime"`. This includes a missing `javac` before compilation
 and a missing `java` after compilation succeeds.
 
+Runtime contract failures inside a selected test case are reported as failed
+cases with `failure.kind: "contract"`. The failure details use
+`kind: "contract"` and `phase: "runtime"` and include:
+
+- `clause`: `require` or `ensure`
+- `predicate`: the failed clause text
+- `function`: the checked function or test boundary
+- `blame`: `caller` for `require`, or `implementation` for `ensure`
+- `node_id`: the contract node identifier
+- `span`: the source span for the failed clause
+
 Captured stdio events use:
 
 - `kind: "stdio"`

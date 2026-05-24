@@ -25,10 +25,11 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
         Command::Check { json, inputs } => commands::check::check(json, inputs),
         Command::Fmt { inputs } => commands::fmt::fmt(inputs),
         Command::Run {
+            json,
             entry,
             inputs,
             entry_args,
-        } => commands::run::run_entry(entry, inputs, entry_args),
+        } => commands::run::run_entry(json, entry, inputs, entry_args),
         Command::Test { json, targets } => commands::test::test(json, targets),
         Command::Help => {
             cli::print_help();

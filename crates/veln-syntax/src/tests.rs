@@ -559,6 +559,54 @@ fn parses_dictionary_literals_with_expression_keys() {
 }
 
 #[test]
+fn parses_newlines_inside_grouped_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn data() -> ()\n",
+            "  let record = {\n",
+            "    name: \"veln\",\n",
+            "    values: [\n",
+            "      1,\n",
+            "      add(\n",
+            "        2,\n",
+            "        3,\n",
+            "      ),\n",
+            "    ],\n",
+            "  }\n",
+            "  record\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn data() -> ()\n",
+            "  let record = { name: \"veln\", values: [1, add(2, 3)] }\n",
+            "  record\n",
+            "end\n",
+        )
+    );
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Let { expr, .. } = &function.body[0] else {
+        panic!("expected let statement");
+    };
+    let ExprKind::Record(fields) = &expr.kind else {
+        panic!("expected record expression");
+    };
+    assert_eq!(fields.len(), 2);
+    let ExprKind::List(items) = &fields[1].expr.kind else {
+        panic!("expected list expression");
+    };
+    assert_eq!(items.len(), 2);
+    assert!(matches!(&items[1].kind, ExprKind::Call { args, .. } if args.len() == 2));
+}
+
+#[test]
 fn parses_field_access_as_postfix_expression() {
     let source = SourceFile::new(
         "main.veln",

@@ -40,6 +40,8 @@ immutability and update semantics. The exact JVM representation, copying
 strategy, and later structural-sharing choices remain backend details.
 
 Runtime contract failures stop the selected `run` entry or fail the selected
-test process with a contract failure message. The message names the failed
-clause text, function boundary, source identity, and blame route. `require`
-uses caller blame; `ensure` uses implementation blame.
+test case. Human output names the failed clause text, function boundary, source
+identity, and blame route. `veln run --json` reports one top-level structured
+runtime error record. `veln test --json` embeds runtime contract failures in
+the failed case with structured runtime contract details. `require` uses caller
+blame; `ensure` uses implementation blame.

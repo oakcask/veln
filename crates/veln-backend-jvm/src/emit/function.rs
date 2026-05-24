@@ -137,7 +137,7 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             ContractKind::Ensure => "ensure",
         };
         out.push_str(&format!(
-            "        {}.checkContract({}, {}, {}, {}, {}, {}, {});\n",
+            "        {}.checkContract({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});\n",
             self.program.options.runtime_class,
             java_predicate,
             java_string(clause),
@@ -145,7 +145,11 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             java_string(&self.function.name),
             java_string(blame),
             java_string(&contract.node_id.display("contract")),
-            java_string(contract.span.file.as_str())
+            java_string(contract.span.file.as_str()),
+            contract.span.start.line,
+            contract.span.start.column,
+            contract.span.end.line,
+            contract.span.end.column
         ));
     }
 

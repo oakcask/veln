@@ -10,7 +10,7 @@ use std::process::Output;
 use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, SurfaceModule};
 use veln_diagnostics::{Diagnostic, JsonValue, Severity, diagnostic_to_json};
 use veln_project::Project;
-use veln_source::{LineCol, SourceSpan};
+use veln_source::{LineCol, SourcePath, SourceSpan};
 
 pub fn selected_test_files(project: &Project, explicit: bool) -> BTreeSet<String> {
     project
@@ -113,6 +113,10 @@ pub fn stdio_events_from_trace(
         .lines()
         .filter_map(|line| stdio_event_from_trace_line(line, call_spans, fallback_source))
         .collect()
+}
+
+pub fn contract_failure_from_trace(trace: &str) -> Option<TestFailure> {
+    trace.lines().find_map(contract_failure_from_trace_line)
 }
 
 pub fn test_run_status(
@@ -259,6 +263,40 @@ fn decode_hex_text(hex: &str) -> Option<String> {
         bytes.push((hex_digit(high)? << 4) | hex_digit(low)?);
     }
     String::from_utf8(bytes).ok()
+}
+
+fn contract_failure_from_trace_line(line: &str) -> Option<TestFailure> {
+    let mut fields = line.split('\t');
+    if fields.next()? != "contract" {
+        return None;
+    }
+    let clause = fields.next()?.to_string();
+    let predicate = decode_hex_text(fields.next()?)?;
+    let function = decode_hex_text(fields.next()?)?;
+    let blame = fields.next()?.to_string();
+    let node_id = decode_hex_text(fields.next()?)?;
+    let source_file = decode_hex_text(fields.next()?)?;
+    let start_line = fields.next()?.parse::<usize>().ok()?;
+    let start_column = fields.next()?.parse::<usize>().ok()?;
+    let end_line = fields.next()?.parse::<usize>().ok()?;
+    let end_column = fields.next()?.parse::<usize>().ok()?;
+    let span = SourceSpan {
+        file: SourcePath::new(source_file),
+        start: LineCol {
+            line: start_line,
+            column: start_column,
+            offset: 0,
+        },
+        end: LineCol {
+            line: end_line,
+            column: end_column,
+            offset: 0,
+        },
+    };
+    let message = format!("contract failure: {clause} `{predicate}` in `{function}` blame {blame}");
+    Some(TestFailure::contract(
+        message, clause, predicate, function, blame, node_id, span,
+    ))
 }
 
 fn hex_digit(character: char) -> Option<u8> {
@@ -514,9 +552,43 @@ pub struct TestCaseSource {
 pub struct TestFailure {
     pub kind: String,
     pub message: String,
+    pub details: JsonValue,
 }
 
 impl TestFailure {
+    pub fn runtime(message: impl Into<String>) -> Self {
+        Self {
+            kind: "runtime".to_string(),
+            message: message.into(),
+            details: JsonValue::object(Vec::<(String, JsonValue)>::new()),
+        }
+    }
+
+    pub fn contract(
+        message: String,
+        clause: String,
+        predicate: String,
+        function: String,
+        blame: String,
+        node_id: String,
+        span: SourceSpan,
+    ) -> Self {
+        Self {
+            kind: "contract".to_string(),
+            message,
+            details: JsonValue::object([
+                ("kind", JsonValue::string("contract")),
+                ("phase", JsonValue::string("runtime")),
+                ("clause", JsonValue::string(clause)),
+                ("predicate", JsonValue::string(predicate)),
+                ("function", JsonValue::string(function)),
+                ("blame", JsonValue::string(blame)),
+                ("node_id", JsonValue::string(node_id)),
+                ("span", source_span_to_json(&span)),
+            ]),
+        }
+    }
+
     pub fn to_json(&self) -> JsonValue {
         JsonValue::object([
             ("kind", JsonValue::string(self.kind.clone())),
@@ -524,10 +596,7 @@ impl TestFailure {
             ("expected", JsonValue::Null),
             ("actual", JsonValue::Null),
             ("span", JsonValue::Null),
-            (
-                "details",
-                JsonValue::object(Vec::<(String, JsonValue)>::new()),
-            ),
+            ("details", self.details.clone()),
         ])
     }
 }
@@ -754,6 +823,32 @@ mod tests {
         assert!(first_event.contains("\"start\":{\"line\":2,\"column\":3"));
         assert!(events[1].to_json().contains("\"operation\":\"eprint\""));
         assert!(events[1].to_json().contains("\"terminator\":\"none\""));
+    }
+
+    #[test]
+    fn contract_trace_becomes_structured_test_failure() {
+        let trace = "contract\trequire\t66616c7365\t72656a65637473\tcaller\t636f6e74726163742d32\t6d61696e5f746573742e76656c6e\t2\t1\t2\t14\n";
+
+        let failure = contract_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "contract");
+        assert_eq!(
+            failure.message,
+            "contract failure: require `false` in `rejects` blame caller"
+        );
+        assert_eq!(
+            failure.to_json().to_json(),
+            concat!(
+                "{\"kind\":\"contract\",\"message\":\"contract failure: require `false` in `rejects` blame caller\",",
+                "\"expected\":null,\"actual\":null,\"span\":null,",
+                "\"details\":{\"kind\":\"contract\",\"phase\":\"runtime\",",
+                "\"clause\":\"require\",\"predicate\":\"false\",\"function\":\"rejects\",",
+                "\"blame\":\"caller\",\"node_id\":\"contract-2\",",
+                "\"span\":{\"file\":\"main_test.veln\",",
+                "\"start\":{\"line\":2,\"column\":1,\"offset\":0},",
+                "\"end\":{\"line\":2,\"column\":14,\"offset\":0}}}}"
+            )
+        );
     }
 
     #[cfg(unix)]

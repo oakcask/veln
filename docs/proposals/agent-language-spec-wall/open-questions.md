@@ -29,7 +29,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   contract predicate production from the start, while keeping ordinary
   expression-like spelling and later semantic validation.
 - Resolved by
-  [Runtime Contract Failure Reporting](result-runtime-contract-failure-reporting.md):
+  [Runtime Contract Failure Reporting](../../reference/source-decisions/result-runtime-contract-failure-reporting.md):
   use a structured runtime contract error as the common representation; map it
   to a non-zero `run` failure and to a failed test result when it occurs inside
   a selected test case, preserving contract blame metadata.
@@ -51,7 +51,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   reconciles
   [First Implementation Commands](../../reference/source-decisions/result-first-implementation-commands.md),
   [Affected Test Selection](../../reference/source-decisions/result-affected-test-selection.md), and
-  [Module Metadata Location](result-module-metadata-location.md).
+  [Module Metadata Location](../../reference/source-decisions/result-module-metadata-location.md).
 - Resolved by
   [Stdio API and Output Events](../../reference/source-decisions/result-stdio-api-and-output-events.md): provide
   four string-only stdio output functions and capture deterministic
@@ -248,7 +248,8 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
 
 ## Module and Documentation Model
 
-- Resolved by [Module Metadata Location](result-module-metadata-location.md):
+- Resolved by
+  [Module Metadata Location](../../reference/source-decisions/result-module-metadata-location.md):
   module metadata should live in both source and a package manifest, with
   package/tool metadata owned by the manifest, compiler-semantic module
   metadata owned by source, and duplicated facts rejected as drift.

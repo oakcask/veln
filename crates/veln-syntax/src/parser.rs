@@ -509,9 +509,20 @@ impl<'a> Parser<'a> {
         let start = self.current().range;
         let mut end = start;
         let mut tokens = Vec::new();
-        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+        let mut depth = 0usize;
+        while !self.at(TokenKind::Eof) {
+            if depth == 0 && self.at(TokenKind::Newline) {
+                break;
+            }
             let token = self.bump();
             end = token.range;
+            match token.kind {
+                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                    depth = depth.saturating_sub(1);
+                }
+                _ => {}
+            }
             if token.kind == TokenKind::Invalid {
                 self.diagnostics.push(ParseDiagnostic {
                     id: "parse.invalid_token",
@@ -529,8 +540,10 @@ impl<'a> Parser<'a> {
                         dropped_token_count: 1,
                     },
                 });
-            } else {
+            } else if token.kind != TokenKind::Newline {
                 tokens.push(token);
+            } else {
+                end = token.range;
             }
         }
         if self.at(TokenKind::Newline) {

@@ -99,6 +99,7 @@ impl<'a> ProgramEmitter<'a> {
                 System.exit(1);
             }}
         }} catch ({runtime}.ContractFailure error) {{
+            {runtime}.recordContractFailure(error);
             System.err.println(error.getMessage());
             System.exit(1);
         }}
@@ -216,13 +217,28 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     public static final class ContractFailure extends RuntimeException {{
+        public final String clause;
+        public final String predicate;
+        public final String function;
+        public final String blame;
+        public final String nodeId;
+        public final String sourceFile;
+        public final int startLine;
+        public final int startColumn;
+        public final int endLine;
+        public final int endColumn;
+
         private ContractFailure(
             String clause,
             String predicate,
             String function,
             String blame,
             String nodeId,
-            String sourceFile
+            String sourceFile,
+            int startLine,
+            int startColumn,
+            int endLine,
+            int endColumn
         ) {{
             super("contract failure: "
                 + clause
@@ -236,6 +252,16 @@ impl<'a> ProgramEmitter<'a> {
                 + sourceFile
                 + " "
                 + nodeId);
+            this.clause = clause;
+            this.predicate = predicate;
+            this.function = function;
+            this.blame = blame;
+            this.nodeId = nodeId;
+            this.sourceFile = sourceFile;
+            this.startLine = startLine;
+            this.startColumn = startColumn;
+            this.endLine = endLine;
+            this.endColumn = endColumn;
         }}
     }}
 
@@ -270,10 +296,25 @@ impl<'a> ProgramEmitter<'a> {
         String function,
         String blame,
         String nodeId,
-        String sourceFile
+        String sourceFile,
+        int startLine,
+        int startColumn,
+        int endLine,
+        int endColumn
     ) {{
         if (!asBool(value)) {{
-            throw new ContractFailure(clause, predicate, function, blame, nodeId, sourceFile);
+            throw new ContractFailure(
+                clause,
+                predicate,
+                function,
+                blame,
+                nodeId,
+                sourceFile,
+                startLine,
+                startColumn,
+                endLine,
+                endColumn
+            );
         }}
     }}
 
@@ -710,6 +751,35 @@ impl<'a> ProgramEmitter<'a> {
             );
         }} catch (java.io.IOException error) {{
             throw new RuntimeException("failed to record stdio event", error);
+        }}
+    }}
+
+    public static void recordContractFailure(ContractFailure error) {{
+        String path = System.getenv("VELN_CONTRACT_ERRORS");
+        if (path == null || path.isEmpty()) {{
+            return;
+        }}
+        String line = "contract"
+            + "\t" + error.clause
+            + "\t" + hex(error.predicate)
+            + "\t" + hex(error.function)
+            + "\t" + error.blame
+            + "\t" + hex(error.nodeId)
+            + "\t" + hex(error.sourceFile)
+            + "\t" + Integer.toString(error.startLine)
+            + "\t" + Integer.toString(error.startColumn)
+            + "\t" + Integer.toString(error.endLine)
+            + "\t" + Integer.toString(error.endColumn)
+            + System.lineSeparator();
+        try {{
+            java.nio.file.Files.write(
+                java.nio.file.Paths.get(path),
+                line.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND
+            );
+        }} catch (java.io.IOException ioError) {{
+            throw new RuntimeException("failed to record contract error", ioError);
         }}
     }}
 

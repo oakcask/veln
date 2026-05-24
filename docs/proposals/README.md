@@ -20,9 +20,6 @@ not fully implemented in the current workspace.
   [grammar-target.md](grammar-target.md).
 - Remaining first-slice implementation targets are tracked in
   [first-slice-follow-ups.md](first-slice-follow-ups.md).
-- Runtime contract enforcement is tracked by
-  [Runtime Contract Failure Reporting](agent-language-spec-wall/result-runtime-contract-failure-reporting.md)
-  and the current gap review.
 
 ## Status Rules
 

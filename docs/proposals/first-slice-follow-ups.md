@@ -29,8 +29,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   expose bounded path entries with hidden-frame and omitted-path counts.
 - The checker validates the first-slice pure boolean contract subset. Runtime
   contract discharge is implemented for function-entry `require` checks and
-  ordinary-return `ensure` checks; structured JSON runtime error records and
-  non-local return refinements remain follow-up work.
+  ordinary-return `ensure` checks. `veln test --json` reports runtime contract
+  failures inside selected test cases as structured failed-case details, and
+  `veln run --json` reports runtime contract failures as top-level structured
+  errors. Non-local return refinements remain follow-up work.
 - Contract predicates now parse through a dedicated first-slice predicate
   production. Pure calls to discovered effect-free functions are validated;
   richer predicate semantics remain follow-up work.

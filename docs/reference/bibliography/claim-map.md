@@ -105,7 +105,7 @@
   with package/tool metadata owned by the manifest, compiler-semantic module
   metadata owned by source, and duplicated facts reported as drift.
 - Discussion result:
-  [Module Metadata Location](../../proposals/agent-language-spec-wall/result-module-metadata-location.md)
+  [Module Metadata Location](../source-decisions/result-module-metadata-location.md)
 - Supporting references:
   `parnas1972-module-criteria`,
   `deremer1976-programming-large-small`, `cargo-manifest-format`,

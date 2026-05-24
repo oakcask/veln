@@ -42,6 +42,12 @@ PatternField  ::= Name ":" Pattern
 Contract predicates parse through a narrower predicate production before
 semantic contract validation.
 
+Function and test declarations can contain multiple body lines between their
+header and closing `end`. Expression newlines end the current body line except
+inside grouping forms. Parentheses, brackets, braces, and `match` expressions
+keep their inner newlines within the same expression; indentation is formatting
+only and does not define parse structure.
+
 A return may name the returned value for postconditions with `-> name: Type`.
 The binding is contract-facing only: it is visible to `ensure` clauses for the
 same function and to runtime `ensure` checks for ordinary returns, but not to
@@ -149,5 +155,5 @@ read an explicit result binding.
 
 Implemented lowering and execution do not include user-defined ADT
 declarations, method calls, loops, mutation, classes, traits, macros,
-comprehensions, anonymous functions, custom operators, package manifests,
-foreign declarations, or doctest fences.
+comprehensions, anonymous functions, custom operators, package manifest fields
+beyond `[modules]`, foreign declarations, or doctest fences.

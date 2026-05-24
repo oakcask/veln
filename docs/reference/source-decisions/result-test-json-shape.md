@@ -109,7 +109,7 @@ For failures, use a small typed record:
 `failure.kind` starts with `assertion`, `contract`, `panic`, `output`, or
 `runtime`. A runtime contract failure inside a case uses `kind: "contract"` and
 embeds the structured contract error fields decided by
-[Runtime Contract Failure Reporting](../../proposals/agent-language-spec-wall/result-runtime-contract-failure-reporting.md).
+[Runtime Contract Failure Reporting](result-runtime-contract-failure-reporting.md).
 Discovery failures, static-gate failures, or runtime failures outside a selected
 case belong in top-level `diagnostics` or `suite_errors`.
 

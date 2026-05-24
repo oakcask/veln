@@ -116,7 +116,7 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     let expected = concat!(
         "veln check [--json] [path ...]\n",
         "veln fmt [path ...]\n",
-        "veln run <entry> [path ...] [-- arg ...]\n",
+        "veln run [--json] <entry> [path ...] [-- arg ...]\n",
         "veln test [--json] [target ...]\n",
     );
 
@@ -1345,6 +1345,42 @@ fn run_reports_missing_javac_clearly() {
 }
 
 #[test]
+fn run_json_reports_runtime_contract_failures_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-json-contract-failure");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> () effects []\n",
+            "require false\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["--json", "main", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"schema_version\":\"veln-run-json/v0\"",
+            "\"command\":\"run\"",
+            "\"status\":\"failed\"",
+            "\"error\":{\"kind\":\"contract\",\"message\":\"contract failure: require `false` in `main` blame caller\"",
+            "\"details\":{\"kind\":\"contract\",\"phase\":\"runtime\",\"clause\":\"require\",\"predicate\":\"false\"",
+            "\"function\":\"main\",\"blame\":\"caller\",\"node_id\":\"contract-",
+            "\"span\":{\"file\":\"main.veln\"",
+        ],
+    );
+}
+
+#[test]
 fn test_json_reports_no_discovered_test_declarations() {
     let project = TestProject::new("test-no-declarations");
     project.write(
@@ -1712,6 +1748,40 @@ fn test_json_discovers_runs_and_captures_stdio_when_jdk_is_available() {
             "{\"kind\":\"stdio\",\"stream\":\"stderr\",\"operation\":\"eprintln\",\"text\":\"err\",\"terminator\":\"newline\"",
             "\"name\":\"fails\",\"kind\":\"test\",\"status\":\"failed\"",
             "\"failure\":{\"kind\":\"runtime\",\"message\":\"test process exited with status exit status: 1\"",
+        ],
+    );
+}
+
+#[test]
+fn test_json_embeds_runtime_contract_failures_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("test-json-contract-failure");
+    project.write(
+        "main_test.veln",
+        concat!(
+            "test rejects() -> () effects []\n",
+            "require false\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["--json"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"name\":\"rejects\",\"kind\":\"test\",\"status\":\"failed\"",
+            "\"failure\":{\"kind\":\"contract\",\"message\":\"contract failure: require `false` in `rejects` blame caller\"",
+            "\"details\":{\"kind\":\"contract\",\"phase\":\"runtime\",\"clause\":\"require\",\"predicate\":\"false\"",
+            "\"function\":\"rejects\",\"blame\":\"caller\",\"node_id\":\"contract-",
+            "\"span\":{\"file\":\"main_test.veln\"",
         ],
     );
 }

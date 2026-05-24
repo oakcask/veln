@@ -26,8 +26,6 @@ current workspace. Implemented decisions were moved to
 - [Doctest Expected Output Syntax](result-doctest-expected-output-syntax.md)
 - [Doctest Result Propagation](result-doctest-result-propagation.md)
 - [First-Slice Grammar](result-first-slice-grammar.md)
-- [Module Metadata Location](result-module-metadata-location.md)
-- [Runtime Contract Failure Reporting](result-runtime-contract-failure-reporting.md)
 
 ## Classification Rule
 

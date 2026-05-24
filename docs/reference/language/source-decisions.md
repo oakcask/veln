@@ -6,6 +6,7 @@ categorized specification files. The full implemented decision index is
 [../source-decisions/README.md](../source-decisions/README.md).
 
 - [First Implementation Commands](../source-decisions/result-first-implementation-commands.md)
+- [Module Metadata Location](../source-decisions/result-module-metadata-location.md)
 - [JSON Diagnostic Schema Stability](../source-decisions/result-json-diagnostic-schema-stability.md)
 - [Check JSON Details Fields](../source-decisions/result-check-json-details-fields.md)
 - [Test JSON Shape](../source-decisions/result-test-json-shape.md)
@@ -23,6 +24,7 @@ categorized specification files. The full implemented decision index is
 - [Postcondition Result Binding](../source-decisions/result-postcondition-result-binding.md)
 - [Contract Expression Language](../source-decisions/result-contract-expression-language.md)
 - [Contract Predicate Parsing](../source-decisions/result-contract-predicate-parsing.md)
+- [Runtime Contract Failure Reporting](../source-decisions/result-runtime-contract-failure-reporting.md)
 - [Safe Repair Candidate Boundary](../source-decisions/result-safe-repair-candidate-boundary.md)
 - [AST Phase Boundary](../source-decisions/result-ast-phase-boundary.md)
 - [AST Implementation Representation](../source-decisions/result-ast-implementation-representation.md)

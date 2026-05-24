@@ -1,6 +1,6 @@
 # Discussion Result: Runtime Contract Failure Reporting
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 
@@ -91,7 +91,7 @@ The exact exit code is not decided here. The first implementation only needs a
 stable non-zero outcome for contract-failed `run` and contract-failed `test`.
 
 The first test-output wrapper is resolved by
-[Test JSON Shape](../../reference/source-decisions/result-test-json-shape.md). This decision only requires that
+[Test JSON Shape](result-test-json-shape.md). This decision only requires that
 the embedded contract error preserve the same blame and source identity as
 contract diagnostics.
 

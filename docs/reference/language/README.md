@@ -23,6 +23,8 @@ target tracked in `../../proposals/`.
   helpers, and public effect diagnostics.
 - [contracts-holes.md](contracts-holes.md): implemented contract predicate
   checking, hole diagnostics, and `satisfy` constraints.
+- [run-json.md](run-json.md): `veln run --json` schema and runtime error
+  records.
 - [test-json.md](test-json.md): `veln test --json` schema, case shape, and
   captured stdio events.
 - [execution.md](execution.md): checked-core and backend boundaries.

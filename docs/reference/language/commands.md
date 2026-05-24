@@ -42,7 +42,7 @@ prefix operators, binary operators, and postfix `?`.
 Files containing comments are preserved byte-for-byte until formatter comment
 attachment is implemented.
 
-## `veln run <entry> [path ...] [-- arg ...]`
+## `veln run [--json] <entry> [path ...] [-- arg ...]`
 
 `run` uses the same source discovery rule as `check`. Parse-clean files are
 combined into one surface module for entry resolution. It blocks before user
@@ -60,8 +60,12 @@ or `false`. The reachable program is semantically checked, lowered to checked
 core, then typed IR, then generated Java source. Semantic diagnostics in
 functions unreachable from the selected entry do not block `run`. The command
 writes generated Java artifacts to an isolated temporary build directory,
-invokes `javac`, invokes `java`, forwards process stdout and stderr, and
-returns the Java process status for runtime failures.
+invokes `javac`, invokes `java`, forwards process stdout and stderr in human
+mode, and returns the Java process status for runtime failures.
+
+With `--json`, `run` captures process stdout and stderr into the run JSON
+record instead of forwarding them separately. Runtime contract failures are
+reported as top-level structured runtime errors with contract details.
 
 Missing `javac` before compilation or missing `java` after compilation
 succeeds is reported as a JDK setup error.
@@ -88,5 +92,7 @@ JSON output and prints a human selection note. The selection confidence is
 
 Static diagnostics block the suite before Java execution. In JSON output,
 already discovered cases are marked `blocked` with reason `static_gate`.
-Runtime failures become failed cases. JDK setup failures become case errors with
-reason `runner_error`, including a missing `java` after `javac` succeeds.
+Runtime failures become failed cases. Runtime contract failures inside a
+selected case use `failure.kind: "contract"` and include runtime contract
+details. JDK setup failures become case errors with reason `runner_error`,
+including a missing `java` after `javac` succeeds.
