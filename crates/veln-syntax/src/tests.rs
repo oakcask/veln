@@ -940,6 +940,78 @@ fn parses_and_formats_match_expression() {
 }
 
 #[test]
+fn parses_match_expression_inside_call_argument() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn describe(value: Option(Int)) -> String effects []\n",
+            "  wrap(match value\n",
+            "    Some(count) => \"some\"\n",
+            "    None => \"none\"\n",
+            "  end)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Call { args, .. } = &expr.kind else {
+        panic!("expected call expression");
+    };
+    assert!(matches!(args[0].kind, ExprKind::Match { .. }));
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn describe(value: Option(Int)) -> String effects []\n",
+            "  wrap(match value\n",
+            "    Some(count) => \"some\"\n",
+            "    None => \"none\"\n",
+            "  end)\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn parses_match_expression_inside_aggregate_literals() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn describe(value: Option(Int)) -> {labels: [String], primary: String} effects []\n",
+            "  {labels: [match value\n",
+            "    Some(count) => \"some\"\n",
+            "    None => \"none\"\n",
+            "  end], primary: match value\n",
+            "    Some(count) => \"some\"\n",
+            "    None => \"none\"\n",
+            "  end}\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Record(fields) = &expr.kind else {
+        panic!("expected record expression");
+    };
+    let ExprKind::List(items) = &fields[0].expr.kind else {
+        panic!("expected list field");
+    };
+    assert!(matches!(items[0].kind, ExprKind::Match { .. }));
+    assert!(matches!(fields[1].expr.kind, ExprKind::Match { .. }));
+}
+
+#[test]
 fn parses_and_formats_qualified_builtin_constructors() {
     let source = SourceFile::new(
         "main.veln",

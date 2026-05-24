@@ -202,15 +202,17 @@ Method-call-shaped syntax, such as `value.field(args)`, is rejected during
 parsing with `parse.method_call`. Use a plain function call like
 `field(value, args)` and reserve `value.field` for record field access.
 
-`match` arms are tried in source order. The implemented match-pattern subset
-covers wildcard `_`, binding names, literals, record patterns, and the built-in
-constructors `Some`, `None`, `Ok`, `Err`, `Option::Some`, `Option::None`,
-`Result::Ok`, and `Result::Err`. Record patterns match when the scrutinee is a
-record containing every named pattern field and every nested field pattern
-matches. Pattern bindings in one arm or `let` statement must not duplicate
-another binding in that pattern or a value binding already visible at the
-pattern. Record pattern field names must be unique. Exhaustiveness is not
-statically checked in the current slice.
+`match` is a primary expression and may appear anywhere an expression is
+accepted, including call arguments and aggregate literals. Match arms are tried
+in source order. The implemented match-pattern subset covers wildcard `_`,
+binding names, literals, record patterns, and the built-in constructors `Some`,
+`None`, `Ok`, `Err`, `Option::Some`, `Option::None`, `Result::Ok`, and
+`Result::Err`. Record patterns match when the scrutinee is a record containing
+every named pattern field and every nested field pattern matches. Pattern
+bindings in one arm or `let` statement must not duplicate another binding in
+that pattern or a value binding already visible at the pattern. Record pattern
+field names must be unique. Exhaustiveness is not statically checked in the
+current slice.
 
 ## Contract Predicates
 

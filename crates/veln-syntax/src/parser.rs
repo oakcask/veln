@@ -558,8 +558,9 @@ impl<'a> Parser<'a> {
         let mut end = start;
         let mut tokens = Vec::new();
         let mut depth = 0usize;
+        let mut match_depth = 0usize;
         while !self.at(TokenKind::Eof) {
-            if depth == 0 && self.at(TokenKind::Newline) {
+            if depth == 0 && match_depth == 0 && self.at(TokenKind::Newline) {
                 break;
             }
             let token = self.bump();
@@ -568,6 +569,10 @@ impl<'a> Parser<'a> {
                 TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
                 TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
                     depth = depth.saturating_sub(1);
+                }
+                TokenKind::Match => match_depth += 1,
+                TokenKind::End if match_depth > 0 => {
+                    match_depth = match_depth.saturating_sub(1);
                 }
                 _ => {}
             }

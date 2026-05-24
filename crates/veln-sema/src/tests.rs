@@ -700,6 +700,43 @@ fn record_patterns_bind_field_types_through_core_and_ir() {
 }
 
 #[test]
+fn match_expression_type_checks_inside_call_argument() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn wrap(value: String) -> String effects []\n",
+            "  value\n",
+            "end\n",
+            "fn describe(value: Option(Int)) -> String effects []\n",
+            "  wrap(match value\n",
+            "    Some(count) => \"some\"\n",
+            "    None => \"none\"\n",
+            "  end)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let describe = core
+        .functions
+        .iter()
+        .find(|function| function.name == "describe")
+        .expect("describe should be lowered");
+    let CoreStmtKind::Return { expr } = &describe.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("tail expression should lower as call");
+    };
+    assert!(matches!(args[0].kind, CoreExprKind::Match { .. }));
+}
+
+#[test]
 fn accepts_float_numeric_operators() {
     let source = SourceFile::new(
         "main.veln",
