@@ -559,6 +559,41 @@ fn parses_dictionary_literals_with_expression_keys() {
 }
 
 #[test]
+fn parses_dictionary_literals_with_identifier_led_expression_keys() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main(seed: Int) -> Dict(Int, String)\n  {seed + 1: \"next\"}\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(
+        format_tree(&output.tree),
+        "fn main(seed: Int) -> Dict(Int, String)\n  { seed + 1: \"next\" }\nend\n"
+    );
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Dict(entries) = &expr.kind else {
+        panic!("expected dictionary expression");
+    };
+    assert_eq!(entries.len(), 1);
+    assert!(matches!(
+        &entries[0].key.kind,
+        ExprKind::Binary {
+            op: BinaryOp::Add,
+            ..
+        }
+    ));
+    assert!(matches!(
+        &entries[0].value.kind,
+        ExprKind::StringLiteral(value) if value == "\"next\""
+    ));
+}
+
+#[test]
 fn parses_newlines_inside_grouped_expressions() {
     let source = SourceFile::new(
         "main.veln",

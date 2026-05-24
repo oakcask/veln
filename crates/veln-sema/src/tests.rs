@@ -550,6 +550,54 @@ fn accepts_dictionary_literals_with_expected_key_and_value_types() {
 }
 
 #[test]
+fn accepts_dictionary_literals_with_identifier_led_expression_keys() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(seed: Int) -> Dict(Int, String)\n",
+            "  {seed + 1: \"next\"}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert_eq!(expr.ty, CoreType::dict(CoreType::int(), CoreType::string()));
+    let CoreExprKind::Dict(entries) = &expr.kind else {
+        panic!("tail expression should lower as dictionary");
+    };
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].key.ty, CoreType::int());
+    assert_eq!(entries[0].value.ty, CoreType::string());
+    let ir = lowered.ir.expect("checked core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    let IrExprKind::Dict(entries) = &value.kind else {
+        panic!("tail expression should lower as IR dictionary");
+    };
+    assert_eq!(entries.len(), 1);
+}
+
+#[test]
 fn record_patterns_bind_field_types_through_core_and_ir() {
     let source = SourceFile::new(
         "main.veln",

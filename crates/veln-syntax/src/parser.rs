@@ -924,10 +924,10 @@ impl<'a> ExprParser<'a> {
                 }
             }
             TokenKind::LBrace => {
-                if matches!(
-                    self.peek_kind(1),
-                    Some(TokenKind::Ident | TokenKind::RBrace)
-                ) {
+                if self.peek_kind(1) == Some(TokenKind::RBrace)
+                    || (self.peek_kind(1) == Some(TokenKind::Ident)
+                        && self.peek_kind(2) == Some(TokenKind::Colon))
+                {
                     self.parse_record()
                 } else {
                     self.parse_dict()

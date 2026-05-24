@@ -75,7 +75,8 @@ field type.
 Dictionary literals infer `Dict(K, V)` from their expected type when available.
 Without an expected dictionary type, the first entry supplies the initial key
 and value types. Later entries are checked against the same key and value
-expectations.
+expectations. A dictionary key may be any implemented expression; the parser
+only reserves a first bare `name: value` entry for record literals.
 
 Record field access `expr.name` requires the base expression to have a record
 type containing `name`. The access has the declared field type. Accessing a

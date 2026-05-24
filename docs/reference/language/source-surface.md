@@ -42,6 +42,11 @@ PatternField  ::= Name ":" Pattern
 Contract predicates parse through a narrower predicate production before
 semantic contract validation.
 
+In expression position, `{}` and brace literals whose first entry is a bare
+`name: value` field parse as records. Other brace literals with `key: value`
+entries parse as dictionaries, including keys that are identifier-led
+expressions such as `seed + 1`.
+
 Function and test declarations can contain multiple body lines between their
 header and closing `end`. Expression newlines end the current body line except
 inside grouping forms. Parentheses, brackets, braces, and `match` expressions
@@ -100,8 +105,9 @@ Implemented expressions:
 - constructors: `Ok(value)`, `Err(error)`, `Some(value)`, and `None`
 - prelude helpers as bare calls such as `list_len(items)`
 - records: `{name: value, ...}`
-- dictionaries: `{key_expr: value_expr, ...}` when the first entry key is not
-  an identifier
+- dictionaries: `{key_expr: value_expr, ...}` when the first entry is not a
+  bare `name: value` field; identifier-led expression keys such as `seed + 1`
+  are dictionary keys
 - record field access: `expr.name`
 - lists: `[value, ...]`
 - match expressions over literals, bindings, `_`, record patterns, and built-in

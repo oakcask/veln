@@ -117,8 +117,10 @@ List          ::= "[" ArgList? "]"
 ```
 
 Record expressions require explicit `name: value` fields. Shorthand fields,
-spreads and update syntax are outside the first slice. Dictionary literals use
-non-identifier keys so they remain distinct from record literals.
+spreads and update syntax are outside the first slice. In expression position,
+`{}` and a first bare `name: value` entry remain record syntax. Other
+`key: value` brace entries are dictionary entries, including identifier-led
+key expressions such as `seed + 1`.
 
 ## Match And Patterns
 
