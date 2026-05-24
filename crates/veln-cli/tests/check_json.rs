@@ -337,12 +337,43 @@ fn check_json_reports_checked_core_call_arity_blockers() {
             "\"id\":\"core.option_constructor_arity_mismatch\"",
             "\"message\":\"option constructor expects 1 argument, but got 2\"",
             "\"reason\":\"option_constructor_arity_mismatch\"",
+            "\"id\":\"core.missing_expression\"",
+            "\"message\":\"expression is missing\"",
+            "\"reason\":\"missing_constructor_argument\"",
+            "\"expected_type\":\"Int\"",
             "\"expected_argument_count\":2",
             "\"actual_argument_count\":1",
             "\"expected_argument_count\":1",
             "\"actual_argument_count\":0",
             "\"actual_argument_count\":2",
-            "\"summary\":{\"diagnostic_count\":3,\"by_severity\":{\"error\":3},\"by_kind\":{\"type\":3}}",
+            "\"summary\":{\"diagnostic_count\":4,\"by_severity\":{\"error\":4},\"by_kind\":{\"type\":4}}",
+        ],
+    );
+}
+
+#[test]
+fn check_json_reports_checked_core_missing_expression_blocker() {
+    let project = TestProject::new("check-json-core-missing-expression");
+    project.write(
+        "main.veln",
+        concat!("pub fn main() -> Int effects []\n", "  1 +\n", "end\n"),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"core.missing_expression\"",
+            "\"severity\":\"error\"",
+            "\"kind\":\"type\"",
+            "\"message\":\"expression is missing\"",
+            "\"details\":{\"phase\":\"core_lowering\"",
+            "\"reason\":\"missing_expression\"",
+            "\"expected_type\":\"Int\"",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"type\":1}}",
         ],
     );
 }
@@ -369,6 +400,24 @@ fn check_human_reports_checked_core_call_arity_blocker() {
     assert_contains_all(
         stdout(&output),
         &["main.veln:5:3: error[core.call_arity_mismatch]: call expects 2 argument(s), but got 1"],
+    );
+}
+
+#[test]
+fn check_human_reports_checked_core_missing_expression_blocker() {
+    let project = TestProject::new("check-human-core-missing-expression");
+    project.write(
+        "main.veln",
+        concat!("pub fn main() -> Int effects []\n", "  1 +\n", "end\n"),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &["main.veln:4:1: error[core.missing_expression]: expression is missing"],
     );
 }
 

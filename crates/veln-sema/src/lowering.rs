@@ -161,6 +161,36 @@ impl<'a> CoreLowerer<'a> {
         ));
     }
 
+    fn missing_expression(
+        &mut self,
+        expr: &Expr,
+        expected: Option<&CoreType>,
+        reason: &'static str,
+    ) {
+        self.blockers.push(CoreBlocker::MissingExpression {
+            node_id: expr.node_id,
+        });
+        let mut details = vec![
+            ("phase", JsonValue::string("core_lowering")),
+            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+            ("reason", JsonValue::string(reason)),
+        ];
+        if let Some(expected) = expected {
+            details.push((
+                "expected_type",
+                JsonValue::string(render_core_type(expected)),
+            ));
+        }
+        self.diagnostics.push(Diagnostic::new(
+            "core.missing_expression",
+            Severity::Error,
+            DiagnosticKind::Type,
+            "expression is missing",
+            Some(expr.span.clone()),
+            JsonValue::object(details),
+        ));
+    }
+
     fn lower_body(&mut self, return_type: &CoreType) -> Vec<CoreStmt> {
         let mut body = Vec::new();
         for (index, line) in self.function.body.iter().enumerate() {
@@ -212,9 +242,7 @@ impl<'a> CoreLowerer<'a> {
     fn lower_expr(&mut self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {
         match &expr.kind {
             ExprKind::Missing => {
-                self.blockers.push(CoreBlocker::MissingExpression {
-                    node_id: expr.node_id,
-                });
+                self.missing_expression(expr, expected, "missing_expression");
                 self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
             }
             ExprKind::Hole { name, .. } => {
@@ -556,9 +584,7 @@ impl<'a> CoreLowerer<'a> {
             .first()
             .map(|arg| self.lower_expr(arg, Some(arg_expected)))
             .unwrap_or_else(|| {
-                self.blockers.push(CoreBlocker::MissingExpression {
-                    node_id: expr.node_id,
-                });
+                self.missing_expression(expr, Some(arg_expected), "missing_constructor_argument");
                 self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
             });
         let ty = if expected.and_then(CoreType::result_parts).is_some() {
@@ -613,9 +639,7 @@ impl<'a> CoreLowerer<'a> {
             .first()
             .map(|arg| self.lower_expr(arg, Some(&value_type)))
             .unwrap_or_else(|| {
-                self.blockers.push(CoreBlocker::MissingExpression {
-                    node_id: expr.node_id,
-                });
+                self.missing_expression(expr, Some(&value_type), "missing_constructor_argument");
                 self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
             });
         for arg in args.iter().skip(1) {
@@ -941,6 +965,47 @@ fn callee_symbol(callee: &Expr) -> Option<String> {
     match &callee.kind {
         ExprKind::NamePath(segments) => Some(segments.join("::")),
         _ => None,
+    }
+}
+
+fn render_core_type(ty: &CoreType) -> String {
+    match ty {
+        CoreType::Unknown => "unknown".to_string(),
+        CoreType::Named { name, args } if name == "Unit" && args.is_empty() => "()".to_string(),
+        CoreType::Named { name, args } if args.is_empty() => name.clone(),
+        CoreType::Named { name, args } => {
+            let args = args
+                .iter()
+                .map(render_core_type)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{name}({args})")
+        }
+        CoreType::Record(fields) => {
+            let fields = fields
+                .iter()
+                .map(|(name, ty)| format!("{name}: {}", render_core_type(ty)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{{{fields}}}")
+        }
+        CoreType::Function {
+            params,
+            return_type,
+            effects,
+        } => {
+            let params = params
+                .iter()
+                .map(render_core_type)
+                .collect::<Vec<_>>()
+                .join(", ");
+            let effects = if effects.is_empty() {
+                String::new()
+            } else {
+                format!(" effects [{}]", effects.join(", "))
+            };
+            format!("fn({params}) -> {}{effects}", render_core_type(return_type))
+        }
     }
 }
 

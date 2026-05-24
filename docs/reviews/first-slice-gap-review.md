@@ -272,9 +272,9 @@ Observed:
 - Some blockers, such as call arity mismatch, are represented during lowering
   as core blockers.
 - `check` lowers parse-clean, semantically error-free files far enough to report
-  call and constructor arity blockers as stable diagnostics.
-- Missing-expression blockers and broader shared-pipeline behavior remain
-  follow-up work.
+  missing-expression, call-arity, and constructor-arity blockers as stable
+  diagnostics.
+- Broader shared-pipeline behavior remains follow-up work.
 
 Why it matters:
 
@@ -284,12 +284,13 @@ Why it matters:
 Remaining fix direction:
 
 - Have the shared analysis entry point include checked-core readiness.
-- Convert remaining executable blockers into stable diagnostics for
-  `check --json`, or document a separate non-error readiness section if they
-  remain distinct.
+- Keep future executable blockers as stable diagnostics for `check --json`, or
+  document a separate non-error readiness section if they remain distinct.
 
 Acceptance checks:
 
+- A missing tail expression in a parse-clean file produces a stable diagnostic
+  in `check --json`.
 - Calling a known function with the wrong arity produces a stable diagnostic in
   `check --json`.
 - `run` and `test` reuse the same diagnostic instead of creating a different
