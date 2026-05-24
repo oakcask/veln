@@ -29,6 +29,14 @@ pub struct JavaBackendOptions {
     pub runtime_class: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EntryArgType {
+    String,
+    Int,
+    Float,
+    Bool,
+}
+
 impl Default for JavaBackendOptions {
     fn default() -> Self {
         Self {
@@ -56,10 +64,19 @@ pub fn generate_java_with_entry_args(
     entry_function: &str,
     entry_arg_count: usize,
 ) -> JavaProgram {
-    generate_java_with_entry_args_options(
+    let entry_arg_types = vec![EntryArgType::String; entry_arg_count];
+    generate_java_with_entry_arg_types(program, entry_function, &entry_arg_types)
+}
+
+pub fn generate_java_with_entry_arg_types(
+    program: &TypedProgram,
+    entry_function: &str,
+    entry_arg_types: &[EntryArgType],
+) -> JavaProgram {
+    generate_java_with_entry_arg_types_options(
         program,
         entry_function,
-        entry_arg_count,
+        entry_arg_types,
         &JavaBackendOptions::default(),
     )
 }
@@ -90,12 +107,22 @@ pub fn generate_java_with_entry_args_options(
     entry_arg_count: usize,
     options: &JavaBackendOptions,
 ) -> JavaProgram {
+    let entry_arg_types = vec![EntryArgType::String; entry_arg_count];
+    generate_java_with_entry_arg_types_options(program, entry_function, &entry_arg_types, options)
+}
+
+pub fn generate_java_with_entry_arg_types_options(
+    program: &TypedProgram,
+    entry_function: &str,
+    entry_arg_types: &[EntryArgType],
+    options: &JavaBackendOptions,
+) -> JavaProgram {
     let options = SanitizedOptions {
         program_class: java_type_identifier(&options.program_class),
         runtime_class: java_type_identifier(&options.runtime_class),
     };
     let emitter = ProgramEmitter::new(program, options);
-    emitter.emit_with_entry(entry_function, entry_arg_count)
+    emitter.emit_with_entry(entry_function, entry_arg_types)
 }
 
 #[derive(Clone, Debug)]

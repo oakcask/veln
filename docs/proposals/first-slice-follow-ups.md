@@ -52,8 +52,6 @@ stays in
 - Broader lowering stabilization still needs focused fixtures for
   function-typed value calls, blocked call and constructor arity cases, missing
   expression blockers, and selected-entry reachable-hole handling.
-- `veln run` accepts string entry arguments after `--`. Typed conversion for
-  non-`String` entry parameters remains deferred.
 - Reachable-hole blocking currently follows the selected entry and direct
   function-name calls in expressions. Broader conservative handling for future
   higher-order values, module initializers, imports, and ambiguous graph edges

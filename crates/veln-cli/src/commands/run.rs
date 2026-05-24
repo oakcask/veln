@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use veln_ast::FunctionKind;
-use veln_backend_jvm::generate_java_with_entry_args;
+use veln_backend_jvm::{EntryArgType, generate_java_with_entry_arg_types};
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
 use veln_sema::lower_checked_surface_module;
@@ -42,15 +42,23 @@ pub(crate) fn run_entry(
         eprintln!("veln: note: pass entry arguments after `--`");
         return Ok(ExitCode::from(1));
     }
-    for param in &entry_function.params {
-        if param.ty.as_deref() != Some("String") {
+    let mut entry_arg_types = Vec::new();
+    for (param, raw_arg) in entry_function.params.iter().zip(entry_args.iter()) {
+        let Some(arg_type) = param.ty.as_deref().and_then(entry_arg_type) else {
             eprintln!(
-                "veln: run entry parameter `{}` is not a `String` parameter",
+                "veln: run entry parameter `{}` cannot be supplied from a command-line argument",
                 param.name
             );
-            eprintln!("veln: note: entry arguments are passed as strings in this slice");
+            eprintln!(
+                "veln: note: supported entry argument types are String, Int, Float, and Bool"
+            );
+            return Ok(ExitCode::from(1));
+        };
+        if let Err(message) = validate_entry_arg(arg_type, &param.name, raw_arg) {
+            eprintln!("{message}");
             return Ok(ExitCode::from(1));
         }
+        entry_arg_types.push(arg_type);
     }
 
     let reachable_module = reachable_entry_module(&module, &entry, FunctionKind::Function);
@@ -65,7 +73,7 @@ pub(crate) fn run_entry(
         return Ok(ExitCode::from(1));
     };
 
-    let java = generate_java_with_entry_args(&ir, &entry, entry_args.len());
+    let java = generate_java_with_entry_arg_types(&ir, &entry, &entry_arg_types);
     let build_dir = create_build_dir("veln-run").map_err(|error| error.to_string())?;
     let result = compile_and_run_java(&build_dir, &java, &entry_args);
     let cleanup_result = fs::remove_dir_all(&build_dir);
@@ -76,4 +84,30 @@ pub(crate) fn run_entry(
         );
     }
     result
+}
+
+fn entry_arg_type(ty: &str) -> Option<EntryArgType> {
+    match ty {
+        "String" => Some(EntryArgType::String),
+        "Int" => Some(EntryArgType::Int),
+        "Float" => Some(EntryArgType::Float),
+        "Bool" => Some(EntryArgType::Bool),
+        _ => None,
+    }
+}
+
+fn validate_entry_arg(ty: EntryArgType, param_name: &str, raw_arg: &str) -> Result<(), String> {
+    match ty {
+        EntryArgType::String => Ok(()),
+        EntryArgType::Int => raw_arg.parse::<i64>().map(|_| ()).map_err(|_| {
+            format!("veln: invalid Int argument for parameter `{param_name}`: `{raw_arg}`")
+        }),
+        EntryArgType::Float => raw_arg.parse::<f64>().map(|_| ()).map_err(|_| {
+            format!("veln: invalid Float argument for parameter `{param_name}`: `{raw_arg}`")
+        }),
+        EntryArgType::Bool if raw_arg == "true" || raw_arg == "false" => Ok(()),
+        EntryArgType::Bool => Err(format!(
+            "veln: invalid Bool argument for parameter `{param_name}`: `{raw_arg}`"
+        )),
+    }
 }

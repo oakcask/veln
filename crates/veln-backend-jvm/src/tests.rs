@@ -243,6 +243,29 @@ fn generates_entry_runner_for_selected_function() {
 }
 
 #[test]
+fn generates_entry_runner_argument_conversions() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main(count: Int, ratio: Float, enabled: Bool) -> () effects []\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    let java = generate_java_with_entry_arg_types(
+        &ir,
+        "main",
+        &[EntryArgType::Int, EntryArgType::Float, EntryArgType::Bool],
+    );
+    let runner = java
+        .source("VelnEntry.java")
+        .expect("entry source should exist");
+
+    assert!(runner.contains("VelnProgram.fn_main(argInt(args[0], \"0\"), argFloat(args[1], \"1\"), argBool(args[2], \"2\"));"));
+    assert!(runner.contains("Long.valueOf(Long.parseLong(text))"));
+    assert!(runner.contains("Double.valueOf(Double.parseDouble(text))"));
+    assert!(runner.contains("\"true\".equals(text)"));
+}
+
+#[test]
 fn sanitizes_custom_class_names_and_entry_references() {
     let ir = lower_to_ir(concat!(
         "pub fn main() -> Result((), AppError) effects []\n",

@@ -36,6 +36,5 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 
 The split language files describe implemented behavior only. Planned grammar,
 discussion outcomes that are not implemented, runtime contract enforcement,
-package manifests, imports, persistent build caches, and non-string entry
-argument conversion are outside this reference unless a categorized file states
-otherwise.
+package manifests, imports, and persistent build caches are outside this
+reference unless a categorized file states otherwise.

@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ir::TypedProgram;
 
-use crate::api::{JavaProgram, JavaSourceFile, SanitizedOptions};
+use crate::api::{EntryArgType, JavaProgram, JavaSourceFile, SanitizedOptions};
 use crate::emit::function::FunctionEmitter;
 use crate::java::{sanitize_identifier_text, unique_java_identifier};
 
@@ -48,12 +48,12 @@ impl<'a> ProgramEmitter<'a> {
     pub(crate) fn emit_with_entry(
         &self,
         entry_function: &str,
-        entry_arg_count: usize,
+        entry_arg_types: &[EntryArgType],
     ) -> JavaProgram {
         let mut program = self.emit();
         program.sources.push(JavaSourceFile {
             path: "VelnEntry.java".to_string(),
-            contents: self.emit_entry_class(entry_function, entry_arg_count),
+            contents: self.emit_entry_class(entry_function, entry_arg_types),
         });
         program
     }
@@ -79,10 +79,12 @@ impl<'a> ProgramEmitter<'a> {
         out
     }
 
-    fn emit_entry_class(&self, entry_function: &str, entry_arg_count: usize) -> String {
+    fn emit_entry_class(&self, entry_function: &str, entry_arg_types: &[EntryArgType]) -> String {
         let function_name = self.function_name(entry_function);
-        let args = (0..entry_arg_count)
-            .map(|index| format!("args[{index}]"))
+        let args = entry_arg_types
+            .iter()
+            .enumerate()
+            .map(|(index, ty)| entry_arg_value(*ty, index))
             .collect::<Vec<_>>()
             .join(", ");
         format!(
@@ -95,6 +97,38 @@ impl<'a> ProgramEmitter<'a> {
             System.err.println({runtime}.format(result));
             System.exit(1);
         }}
+    }}
+
+    private static Object argInt(String text, String name) {{
+        try {{
+            return Long.valueOf(Long.parseLong(text));
+        }} catch (NumberFormatException error) {{
+            System.err.println("veln: invalid Int argument `" + name + "`: `" + text + "`");
+            System.exit(1);
+            return null;
+        }}
+    }}
+
+    private static Object argFloat(String text, String name) {{
+        try {{
+            return Double.valueOf(Double.parseDouble(text));
+        }} catch (NumberFormatException error) {{
+            System.err.println("veln: invalid Float argument `" + name + "`: `" + text + "`");
+            System.exit(1);
+            return null;
+        }}
+    }}
+
+    private static Object argBool(String text, String name) {{
+        if ("true".equals(text)) {{
+            return Boolean.TRUE;
+        }}
+        if ("false".equals(text)) {{
+            return Boolean.FALSE;
+        }}
+        System.err.println("veln: invalid Bool argument `" + name + "`: `" + text + "`");
+        System.exit(1);
+        return null;
     }}
 }}
 "#,
@@ -667,5 +701,14 @@ impl<'a> ProgramEmitter<'a> {
             .get(name)
             .cloned()
             .unwrap_or_else(|| format!("fn_{}", sanitize_identifier_text(name)))
+    }
+}
+
+fn entry_arg_value(ty: EntryArgType, index: usize) -> String {
+    match ty {
+        EntryArgType::String => format!("args[{index}]"),
+        EntryArgType::Int => format!("argInt(args[{index}], \"{index}\")"),
+        EntryArgType::Float => format!("argFloat(args[{index}], \"{index}\")"),
+        EntryArgType::Bool => format!("argBool(args[{index}], \"{index}\")"),
     }
 }

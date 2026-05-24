@@ -41,18 +41,21 @@ attachment is implemented.
 `run` uses the same source discovery rule as `check`. Parse-clean files are
 combined into one surface module for entry resolution. It blocks before user
 code execution on parse errors, a missing entry function, an entry argument
-count mismatch, a non-`String` entry parameter, selected-entry semantic
-errors, reachable holes, or checked-core blockers.
+count mismatch, an entry parameter type that cannot be supplied from command
+line text, selected-entry semantic errors, reachable holes, or checked-core
+blockers.
 
 The entry must be a discovered function. Arguments after `--` are entry
-arguments, not source inputs. Each entry argument is passed as a `String` value
-to the matching entry parameter, and this slice rejects entry parameters with
-other declared types. The reachable program is semantically checked, lowered to
-checked core, then typed IR, then generated Java source. Semantic diagnostics
-in functions unreachable from the selected entry do not block `run`. The
-command writes generated Java artifacts to an isolated temporary build
-directory, invokes `javac`, invokes `java`, forwards process stdout and stderr,
-and returns the Java process status for runtime failures.
+arguments, not source inputs. Entry parameters may be declared as `String`,
+`Int`, `Float`, or `Bool`. `String` arguments are passed through unchanged.
+`Int` arguments parse as decimal signed integers, `Float` arguments parse as
+JVM double-precision decimal text, and `Bool` arguments must be exactly `true`
+or `false`. The reachable program is semantically checked, lowered to checked
+core, then typed IR, then generated Java source. Semantic diagnostics in
+functions unreachable from the selected entry do not block `run`. The command
+writes generated Java artifacts to an isolated temporary build directory,
+invokes `javac`, invokes `java`, forwards process stdout and stderr, and
+returns the Java process status for runtime failures.
 
 Missing `javac` before compilation or missing `java` after compilation
 succeeds is reported as a JDK setup error.

@@ -1016,6 +1016,29 @@ fn run_passes_string_entry_arguments_when_jdk_is_available() {
 }
 
 #[test]
+fn run_converts_primitive_entry_arguments_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-primitive-entry-args");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main(count: Int, ratio: Float, enabled: Bool) -> {count: Int, ratio: Float, enabled: Bool} effects []\n",
+            "  {count: count + 1, ratio: ratio + 0.5, enabled: not enabled}\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln", "--", "41", "1.5", "false"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
 fn run_blocks_reachable_holes_before_jdk_execution() {
     let project = TestProject::new("run-hole");
     project.write(
@@ -1163,11 +1186,11 @@ fn run_rejects_wrong_entry_argument_count_before_jdk_execution() {
 }
 
 #[test]
-fn run_rejects_non_string_entry_parameters_before_jdk_execution() {
-    let project = TestProject::new("run-entry-non-string-param");
+fn run_rejects_unsupported_entry_parameters_before_jdk_execution() {
+    let project = TestProject::new("run-entry-unsupported-param");
     project.write(
         "main.veln",
-        "pub fn main(value: Int) -> Int effects []\n  value\nend\n",
+        "pub fn main(value: List(Int)) -> List(Int) effects []\n  value\nend\n",
     );
 
     let output = project.run(&["main", "main.veln", "--", "1"]);
@@ -1177,9 +1200,27 @@ fn run_rejects_non_string_entry_parameters_before_jdk_execution() {
     assert_eq!(
         stderr(&output),
         concat!(
-            "veln: run entry parameter `value` is not a `String` parameter\n",
-            "veln: note: entry arguments are passed as strings in this slice\n",
+            "veln: run entry parameter `value` cannot be supplied from a command-line argument\n",
+            "veln: note: supported entry argument types are String, Int, Float, and Bool\n",
         )
+    );
+}
+
+#[test]
+fn run_rejects_invalid_typed_entry_argument_before_jdk_execution() {
+    let project = TestProject::new("run-entry-invalid-arg");
+    project.write(
+        "main.veln",
+        "pub fn main(value: Int) -> Int effects []\n  value\nend\n",
+    );
+
+    let output = project.run(&["main", "main.veln", "--", "not-int"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(
+        stderr(&output),
+        "veln: invalid Int argument for parameter `value`: `not-int`\n"
     );
 }
 

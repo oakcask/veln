@@ -29,5 +29,4 @@ The following behavior is not fixed by this reference:
 - The exact shape of kind-specific diagnostic `details` fields not listed in
   [diagnostics-json.md](diagnostics-json.md).
 - Runtime contract enforcement, package manifests, imports, modules beyond
-  source discovery, persistent build caches, and non-string entry argument
-  conversion.
+  source discovery, and persistent build caches.
