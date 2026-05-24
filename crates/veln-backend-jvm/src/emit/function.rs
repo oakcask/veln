@@ -101,6 +101,9 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             IrExprKind::ResultOk(value) => self.emit_unary_runtime("ok", value),
             IrExprKind::ResultErr(value) => self.emit_unary_runtime("err", value),
             IrExprKind::OptionSome(value) => self.emit_unary_runtime("some", value),
+            IrExprKind::OptionNone => {
+                JavaExpr::simple(format!("{}.none()", self.program.options.runtime_class))
+            }
             IrExprKind::Call { target, args } => self.emit_call(expr, target, args),
             IrExprKind::Try(value) => self.emit_try(value),
             IrExprKind::Record(fields) => self.emit_record(fields),

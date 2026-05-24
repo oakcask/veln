@@ -1,6 +1,5 @@
 # Language Specification Overview
 
-Status: implemented
 This file defines the stability boundary for behavior implemented in the
 current Veln workspace.
 

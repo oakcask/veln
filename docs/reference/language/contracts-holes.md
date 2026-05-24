@@ -1,6 +1,5 @@
 # Contracts And Holes
 
-Status: implemented
 This file specifies implemented contract predicate validation, holes, and
 repair constraints.
 

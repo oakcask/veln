@@ -1,6 +1,5 @@
 # Source Surface
 
-Status: implemented
 This file specifies the source subset implemented by the parser and AST.
 
 ## Grammar
@@ -43,7 +42,7 @@ Implemented expressions:
 - holes: `_` and `_name`, with optional `satisfy candidate => predicate`
 - literals: strings, integers, floats, `true`, `false`, and `()`
 - paths and calls: `name`, `module::name`, `callee(args...)`
-- constructors: `Ok(value)`, `Err(error)`, and `Some(value)`
+- constructors: `Ok(value)`, `Err(error)`, `Some(value)`, and `None`
 - records: `{name: value, ...}`
 - lists: `[value, ...]`
 - prefix operators: `not`, `-`

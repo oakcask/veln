@@ -1,6 +1,5 @@
 # Source Decisions
 
-Status: implemented
 These discussion results support the implemented language specification. Read
 them for rationale or future design work, not as a substitute for the
 categorized specification files. The full implemented decision index is

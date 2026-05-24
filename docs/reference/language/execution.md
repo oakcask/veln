@@ -1,6 +1,5 @@
 # Execution Boundary
 
-Status: implemented
 This file specifies the implemented execution boundary.
 
 ## Core And IR

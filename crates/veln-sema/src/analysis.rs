@@ -610,7 +610,7 @@ impl<'a> FunctionChecker<'a> {
                     .map(|expected| expected.ty.clone())
                     .unwrap_or(Type::Unknown)
             }
-            ExprKind::NamePath(segments) => self.infer_name_path(segments, expr),
+            ExprKind::NamePath(segments) => self.infer_name_path(segments, expr, expected),
             ExprKind::StringLiteral(_) => Type::string(),
             ExprKind::IntLiteral(_) => Type::int(),
             ExprKind::FloatLiteral(_) => Type::float(),
@@ -624,9 +624,17 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn infer_name_path(&mut self, segments: &[String], expr: &Expr) -> Type {
+    fn infer_name_path(
+        &mut self,
+        segments: &[String],
+        expr: &Expr,
+        expected: Option<&ExpectedType>,
+    ) -> Type {
         match segments {
             [name] if name == "true" || name == "false" => Type::bool(),
+            [name] if name == "None" => expected
+                .and_then(|expected| expected.ty.option_part().map(|_| expected.ty.clone()))
+                .unwrap_or_else(|| Type::named("Option", vec![Type::Unknown])),
             [name] => {
                 if let Some(binding) = self
                     .bindings

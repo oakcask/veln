@@ -100,6 +100,7 @@ fn lower_expr(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
             CoreExprKind::ResultOk(value) => IrExprKind::ResultOk(Box::new(lower_expr(value)?)),
             CoreExprKind::ResultErr(value) => IrExprKind::ResultErr(Box::new(lower_expr(value)?)),
             CoreExprKind::OptionSome(value) => IrExprKind::OptionSome(Box::new(lower_expr(value)?)),
+            CoreExprKind::OptionNone => IrExprKind::OptionNone,
             CoreExprKind::Call { target, args } => IrExprKind::Call {
                 target: lower_call_target(expr.node_id, target)?,
                 args: args.iter().map(lower_expr).collect::<Result<Vec<_>, _>>()?,

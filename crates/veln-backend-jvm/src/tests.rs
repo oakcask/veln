@@ -49,8 +49,8 @@ fn generates_program_and_runtime_sources_for_result_try_and_stdio() {
 #[test]
 fn generates_runtime_values_for_records_lists_and_options() {
     let ir = lower_to_ir(concat!(
-        "pub fn main() -> Result({message: String, values: List(String), maybe: Option(String)}, AppError) effects []\n",
-        "  Ok({message: \"ok\", values: [\"a\", \"b\"], maybe: Some(\"x\")})\n",
+        "pub fn main() -> Result({message: String, values: List(String), maybe: Option(String), empty: Option(String)}, AppError) effects []\n",
+        "  Ok({message: \"ok\", values: [\"a\", \"b\"], maybe: Some(\"x\"), empty: None})\n",
         "end\n",
     ));
 
@@ -63,6 +63,7 @@ fn generates_runtime_values_for_records_lists_and_options() {
     assert!(program.contains("\"message\", \"ok\""));
     assert!(program.contains("\"values\", VelnRuntime.list(\"a\", \"b\")"));
     assert!(program.contains("\"maybe\", VelnRuntime.some(\"x\")"));
+    assert!(program.contains("\"empty\", VelnRuntime.none()"));
 }
 
 #[test]

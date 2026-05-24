@@ -1,6 +1,5 @@
 # Names And Effects
 
-Status: implemented
 This file specifies implemented name resolution and effect checking.
 
 ## Name Resolution

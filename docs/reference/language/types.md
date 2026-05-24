@@ -1,6 +1,5 @@
 # Types
 
-Status: implemented
 This file specifies implemented type annotations, inference, assignment
 compatibility, and operator typing.
 
@@ -35,7 +34,7 @@ Expected types flow into holes and subexpressions from:
 - function call parameters
 - record fields
 - list elements
-- `Ok`, `Err`, `Some`, and postfix `?`
+- `Ok`, `Err`, `Some`, `None`, and postfix `?`
 
 ## Assignment Compatibility
 

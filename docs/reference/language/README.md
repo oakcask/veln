@@ -1,6 +1,5 @@
 # Language Specification
 
-Status: implemented
 This directory contains the categorized specification for the implemented
 first slice of Veln. It records the implemented subset, not every language
 target tracked in `../../proposals/`.

@@ -1,6 +1,5 @@
 # Commands
 
-Status: implemented
 This file specifies implemented CLI behavior for the first slice.
 
 ## `veln check [--json] [path ...]`

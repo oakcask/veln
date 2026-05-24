@@ -499,6 +499,37 @@ fn lowers_option_constructor_with_expected_return_type() {
 }
 
 #[test]
+fn lowers_none_constructor_with_expected_return_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> Option(String) effects []\n",
+            "  None\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert_eq!(core.readiness, CoreReadiness::Complete);
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert_eq!(expr.ty, CoreType::option(CoreType::string()));
+    assert!(matches!(expr.kind, CoreExprKind::OptionNone));
+    assert!(lowered.ir.is_some());
+}
+
+#[test]
 fn lowers_runnable_checked_program_to_core_and_typed_ir() {
     let source = SourceFile::new(
         "main.veln",

@@ -65,6 +65,7 @@ pub enum IrExprKind {
     ResultOk(Box<IrExpr>),
     ResultErr(Box<IrExpr>),
     OptionSome(Box<IrExpr>),
+    OptionNone,
     Call {
         target: IrCallTarget,
         args: Vec<IrExpr>,

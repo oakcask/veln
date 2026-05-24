@@ -1,6 +1,5 @@
 # Test JSON
 
-Status: implemented
 This file specifies the implemented JSON output for `veln test --json`.
 
 ## Envelope

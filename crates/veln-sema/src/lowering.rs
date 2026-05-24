@@ -172,7 +172,7 @@ impl<'a> CoreLowerer<'a> {
                     },
                 )
             }
-            ExprKind::NamePath(segments) => self.lower_name_path(expr, segments),
+            ExprKind::NamePath(segments) => self.lower_name_path(expr, segments, expected),
             ExprKind::StringLiteral(value) => self.core_expr(
                 expr,
                 CoreType::string(),
@@ -236,7 +236,12 @@ impl<'a> CoreLowerer<'a> {
         }
     }
 
-    fn lower_name_path(&self, expr: &Expr, segments: &[String]) -> CoreExpr {
+    fn lower_name_path(
+        &self,
+        expr: &Expr,
+        segments: &[String],
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
         match segments {
             [name] if name == "true" => {
                 self.core_expr(expr, CoreType::bool(), CoreExprKind::BoolLiteral(true))
@@ -244,6 +249,14 @@ impl<'a> CoreLowerer<'a> {
             [name] if name == "false" => {
                 self.core_expr(expr, CoreType::bool(), CoreExprKind::BoolLiteral(false))
             }
+            [name] if name == "None" => self.core_expr(
+                expr,
+                expected
+                    .filter(|expected| expected.option_part().is_some())
+                    .cloned()
+                    .unwrap_or_else(|| CoreType::option(CoreType::Unknown)),
+                CoreExprKind::OptionNone,
+            ),
             [name] => {
                 let ty = self
                     .bindings
