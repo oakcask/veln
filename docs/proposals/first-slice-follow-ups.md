@@ -24,11 +24,10 @@ stays in
 - `hole.unfilled` emits candidate-query records when an expected type is
   known, but candidate ranking and concrete repair generation remain outside
   the completed first-slice gate.
-- The current `satisfy` implementation preserves the source suffix in parse
-  and AST output and exposes it in `hole.unfilled` constraints. Stricter
-  source-syntax diagnostics for missing candidate bindings, missing `=>`,
-  candidate shadowing, and unused candidate bindings remain follow-up work
-  before formatter stabilization.
+- `satisfy` suffix parsing, formatting, constraint exposure, missing candidate
+  diagnostics, missing `=>` diagnostics, candidate shadowing diagnostics, and
+  unused candidate diagnostics are implemented. Candidate ranking and concrete
+  repair generation remain follow-up work before formatter stabilization.
 
 ## Effects And Contracts
 

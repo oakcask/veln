@@ -757,6 +757,9 @@ impl<'a> FunctionChecker<'a> {
         match &expr.kind {
             ExprKind::Missing => Type::Unknown,
             ExprKind::Hole { name, satisfy } => {
+                if let Some(satisfy) = satisfy {
+                    self.check_satisfy_clause(expr, satisfy);
+                }
                 self.push_hole_diagnostic(expr, name.as_deref(), satisfy.as_ref(), expected);
                 expected
                     .map(|expected| expected.ty.clone())
@@ -1293,6 +1296,99 @@ impl<'a> FunctionChecker<'a> {
                 ("candidates", JsonValue::array([])),
             ]),
         ));
+    }
+
+    fn check_satisfy_clause(&mut self, expr: &Expr, satisfy: &SatisfyClause) {
+        let Some(candidate) = satisfy.candidate.as_deref() else {
+            return;
+        };
+        let candidate_span = satisfy
+            .candidate_span
+            .clone()
+            .unwrap_or_else(|| satisfy.span.clone());
+
+        if let Some((origin_kind, origin_span)) = self.satisfy_shadow_origin(candidate) {
+            let mut diagnostic = Diagnostic::new(
+                "hole.satisfy_candidate_shadow",
+                Severity::Error,
+                DiagnosticKind::Hole,
+                format!("satisfy candidate `{candidate}` shadows a visible binding"),
+                Some(candidate_span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("hole")),
+                    ("node_id", JsonValue::string(expr.node_id.display("hole"))),
+                    ("candidate_binding", JsonValue::string(candidate)),
+                    ("shadowed_binding_kind", JsonValue::string(origin_kind)),
+                ]),
+            );
+            if let Some(origin_span) = origin_span {
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("shadow_origin")),
+                    (
+                        "message",
+                        JsonValue::string("Visible binding with this name is here."),
+                    ),
+                    ("span", span_json(&origin_span)),
+                ]));
+            } else {
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("shadow_origin")),
+                    (
+                        "message",
+                        JsonValue::string(
+                            "Prelude helper names cannot be reused as satisfy candidates.",
+                        ),
+                    ),
+                ]));
+            }
+            self.diagnostics.push(diagnostic);
+        }
+
+        if !referenced_names(&satisfy.predicate)
+            .iter()
+            .any(|name| name == candidate)
+        {
+            let mut diagnostic = Diagnostic::new(
+                "hole.satisfy_candidate_unused",
+                Severity::Error,
+                DiagnosticKind::Hole,
+                format!("satisfy predicate does not reference candidate `{candidate}`"),
+                Some(candidate_span),
+                JsonValue::object([
+                    ("phase", JsonValue::string("hole")),
+                    ("node_id", JsonValue::string(expr.node_id.display("hole"))),
+                    ("candidate_binding", JsonValue::string(candidate)),
+                    (
+                        "predicate_text",
+                        JsonValue::string(satisfy.predicate.clone()),
+                    ),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("constraint_origin")),
+                (
+                    "message",
+                    JsonValue::string("The predicate for this satisfy clause is here."),
+                ),
+                ("span", span_json(&satisfy.span)),
+            ]));
+            self.diagnostics.push(diagnostic);
+        }
+    }
+
+    fn satisfy_shadow_origin(&self, candidate: &str) -> Option<(&'static str, Option<SourceSpan>)> {
+        if let Some((_, span)) = self.local_names.get(candidate) {
+            return Some(("local", Some(span.clone())));
+        }
+        if let Some(result_binding) = &self.function.return_binding {
+            if result_binding.name == candidate {
+                return Some(("result", Some(result_binding.span.clone())));
+            }
+        }
+        if prelude_signature(candidate, None).is_some() {
+            return Some(("prelude", None));
+        }
+        None
     }
 
     fn push_hole_diagnostic(

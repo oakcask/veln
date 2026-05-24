@@ -625,6 +625,64 @@ fn check_json_reports_hole_constraints_from_contracts_and_satisfy() {
 }
 
 #[test]
+fn check_human_reports_satisfy_candidate_context() {
+    let project = TestProject::new("satisfy-candidate-context");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn default_port(max: Int) -> Int\n",
+            "  _port satisfy max => true\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "main.veln:2:17: error[hole.satisfy_candidate_shadow]: satisfy candidate `max` shadows a visible binding",
+            "  note: main.veln:1:17: Visible binding with this name is here.",
+            "main.veln:2:17: error[hole.satisfy_candidate_unused]: satisfy predicate does not reference candidate `max`",
+            "  note: main.veln:2:9: The predicate for this satisfy clause is here.",
+        ],
+    );
+}
+
+#[test]
+fn check_json_reports_malformed_satisfy_clause() {
+    let project = TestProject::new("malformed-satisfy");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main() -> ()\n",
+            "  _first satisfy => candidate > 0\n",
+            "  _second satisfy candidate candidate > 0\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"parse.satisfy_candidate\"",
+            "\"message\":\"satisfy clause is missing a candidate binding\"",
+            "\"expected\":[\"candidate binding\"]",
+            "\"recovery\":{\"strategy\":\"insert_token\",\"anchor\":\"=>\",\"dropped_token_count\":0}",
+            "\"id\":\"parse.satisfy_arrow\"",
+            "\"message\":\"satisfy clause is missing `=>`\"",
+            "\"expected\":[\"=>\"]",
+        ],
+    );
+}
+
+#[test]
 fn check_json_reports_recovery_with_required_details() {
     let project = TestProject::new("recovery");
     project.write("main.veln", "garbage\nfn ok() -> ()\n  ()\nend\n");

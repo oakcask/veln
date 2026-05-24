@@ -62,6 +62,10 @@ Implemented expressions:
 - postfix result propagation: `expr?`
 - parenthesized expressions
 
+A `satisfy` suffix is valid only on a hole expression. The suffix requires one
+candidate binding, the `=>` separator, and a predicate. The candidate binding
+is visible only inside the suffix predicate.
+
 ## Not Implemented
 
 Implemented lowering and execution do not include `match`, user-defined ADT

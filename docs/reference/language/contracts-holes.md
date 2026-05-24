@@ -44,3 +44,15 @@ Hole details include:
 Named holes such as `_port` are diagnostic and repair labels, not bindings.
 The `satisfy candidate => predicate` suffix contributes a repair constraint; it
 does not bind `candidate` outside the suffix predicate.
+
+`satisfy` suffixes must include one candidate binding and `=>`. Missing
+candidate bindings report `parse.satisfy_candidate`; missing arrows report
+`parse.satisfy_arrow`.
+
+The candidate binding is scoped only to the suffix predicate. It must not
+shadow visible local bindings, parameters, explicit result bindings, or
+compiler-known prelude helper names. Shadowing reports
+`hole.satisfy_candidate_shadow`.
+
+The predicate must reference the candidate binding at least once. A predicate
+that omits the candidate reports `hole.satisfy_candidate_unused`.

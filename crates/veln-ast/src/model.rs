@@ -163,6 +163,7 @@ pub enum ExprKind {
 #[derive(Clone, Debug)]
 pub struct SatisfyClause {
     pub candidate: Option<String>,
+    pub candidate_span: Option<SourceSpan>,
     pub predicate: String,
     pub span: SourceSpan,
 }

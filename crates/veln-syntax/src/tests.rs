@@ -385,6 +385,33 @@ fn parses_hole_satisfy_clause() {
 }
 
 #[test]
+fn reports_malformed_hole_satisfy_clause() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main() -> ()\n",
+            "  _first satisfy => candidate > 0\n",
+            "  _second satisfy candidate candidate > 0\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.satisfy_candidate"
+            && diagnostic.message == "satisfy clause is missing a candidate binding"
+            && diagnostic.expected == vec!["candidate binding"]
+            && diagnostic.recovery.anchor.as_deref() == Some("=>")
+    }));
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.satisfy_arrow"
+            && diagnostic.message == "satisfy clause is missing `=>`"
+            && diagnostic.expected == vec!["=>"]
+    }));
+}
+
+#[test]
 fn parses_records_lists_and_formats_precedence() {
     let source = SourceFile::new(
         "main.veln",

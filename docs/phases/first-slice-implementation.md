@@ -531,8 +531,9 @@ Item 4 completion gate status:
 - Complete: hole diagnostics include contract-derived repair constraints and
   `satisfy candidate => predicate` constraints, plus related entries pointing
   at constraint origins. The current `satisfy` implementation preserves the
-  source suffix in parse and AST and exposes it in `hole.unfilled` constraints.
-  Stricter source-syntax diagnostics are tracked in
+  source suffix in parse and AST, exposes it in `hole.unfilled` constraints,
+  and reports malformed or unusable candidate bindings. Candidate ranking and
+  concrete repair generation are tracked in
   [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#repair-loop).
 
 Item 5 completion gate status:

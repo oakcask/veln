@@ -467,7 +467,8 @@ impl<'a> Parser<'a> {
             end = self.bump().range;
         }
 
-        let expr = ExprParser::new(self.source, &tokens).parse();
+        let (expr, diagnostics) = ExprParser::new(self.source, context, &tokens).parse();
+        self.diagnostics.extend(diagnostics);
         (expr, start.cover(end))
     }
 
@@ -626,21 +627,26 @@ impl<'a> Parser<'a> {
 
 struct ExprParser<'a> {
     source: &'a SourceFile,
+    context: &'static str,
     tokens: &'a [Token],
     cursor: usize,
+    diagnostics: Vec<ParseDiagnostic>,
 }
 
 impl<'a> ExprParser<'a> {
-    fn new(source: &'a SourceFile, tokens: &'a [Token]) -> Self {
+    fn new(source: &'a SourceFile, context: &'static str, tokens: &'a [Token]) -> Self {
         Self {
             source,
+            context,
             tokens,
             cursor: 0,
+            diagnostics: Vec::new(),
         }
     }
 
-    fn parse(mut self) -> Expr {
-        self.parse_expr(0)
+    fn parse(mut self) -> (Expr, Vec<ParseDiagnostic>) {
+        let expr = self.parse_expr(0);
+        (expr, self.diagnostics)
     }
 
     fn parse_expr(&mut self, min_bp: u8) -> Expr {
@@ -807,14 +813,34 @@ impl<'a> ExprParser<'a> {
             return None;
         }
         let start = self.bump().range;
-        let candidate = if self.at(TokenKind::Ident) {
-            Some(self.bump().text)
+        let (candidate, candidate_span) = if self.at(TokenKind::Ident) {
+            let token = self.bump();
+            let span = self.source.span(token.range);
+            (Some(token.text), Some(span))
         } else {
-            None
+            self.error_current(
+                "parse.satisfy_candidate",
+                "satisfy clause is missing a candidate binding",
+                vec!["candidate binding"],
+                RecoveryStrategy::InsertToken,
+                Some("=>"),
+            );
+            (None, None)
         };
-        let mut end = self
-            .eat(TokenKind::FatArrow)
-            .map_or(start, |token| token.range);
+        let mut end = if let Some(token) = self.eat(TokenKind::FatArrow) {
+            token.range
+        } else {
+            self.error_current(
+                "parse.satisfy_arrow",
+                "satisfy clause is missing `=>`",
+                vec!["=>"],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+            candidate_span.as_ref().map_or(start, |span| {
+                TextRange::new(span.start.offset, span.end.offset)
+            })
+        };
         let mut parts = Vec::new();
         let mut depth = 0usize;
         while let Some(token) = self.tokens.get(self.cursor) {
@@ -843,6 +869,7 @@ impl<'a> ExprParser<'a> {
         }
         Some(SatisfyClause {
             candidate,
+            candidate_span,
             predicate: normalize_collected_text(parts),
             span: self.source.span(start.cover(end)),
         })
@@ -967,6 +994,37 @@ impl<'a> ExprParser<'a> {
         self.tokens
             .get(self.cursor)
             .is_some_and(|token| token.kind == TokenKind::Ident && token.text == text)
+    }
+
+    fn error_current(
+        &mut self,
+        id: &'static str,
+        message: impl Into<String>,
+        expected: Vec<&'static str>,
+        strategy: RecoveryStrategy,
+        anchor: Option<&'static str>,
+    ) {
+        let token = self
+            .tokens
+            .get(self.cursor)
+            .cloned()
+            .unwrap_or_else(|| Token::eof(self.source.len()));
+        self.diagnostics.push(ParseDiagnostic {
+            id,
+            message: message.into(),
+            span: Some(self.source.span(token.range)),
+            parser_context: self.context,
+            unexpected: UnexpectedToken {
+                kind: token.kind.label().to_string(),
+                text: token.text,
+            },
+            expected,
+            recovery: Recovery {
+                strategy,
+                anchor: anchor.map(str::to_string),
+                dropped_token_count: 0,
+            },
+        });
     }
 
     fn current(&self) -> &Token {

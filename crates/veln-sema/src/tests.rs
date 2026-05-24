@@ -749,6 +749,36 @@ fn hole_diagnostic_includes_contract_and_satisfy_constraints() {
 }
 
 #[test]
+fn satisfy_candidate_reports_shadowing_and_unused_predicates() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn default_port(max: Int) -> Int\n",
+            "  _port satisfy max => true\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "hole.satisfy_candidate_shadow"
+            && diagnostic.kind == DiagnosticKind::Hole
+            && diagnostic.message == "satisfy candidate `max` shadows a visible binding"
+            && diagnostic.related.len() == 1
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "hole.satisfy_candidate_unused"
+            && diagnostic.kind == DiagnosticKind::Hole
+            && diagnostic.message == "satisfy predicate does not reference candidate `max`"
+            && diagnostic.related.len() == 1
+    }));
+}
+
+#[test]
 fn propagates_try_expected_type_from_result_return() {
     let source = SourceFile::new(
         "main.veln",
