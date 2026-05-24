@@ -201,6 +201,66 @@ fn lexes_number_string_hole_and_invalid_boundaries() {
 }
 
 #[test]
+fn token_kind_labels_cover_every_surface_token() {
+    let cases = [
+        (TokenKind::Whitespace, "whitespace"),
+        (TokenKind::Comment, "comment"),
+        (TokenKind::Ident, "identifier"),
+        (TokenKind::Hole, "hole"),
+        (TokenKind::String, "string"),
+        (TokenKind::Int, "integer"),
+        (TokenKind::Float, "float"),
+        (TokenKind::Newline, "newline"),
+        (TokenKind::Eof, "end of file"),
+        (TokenKind::Invalid, "invalid token"),
+        (TokenKind::Pub, "pub"),
+        (TokenKind::Fn, "fn"),
+        (TokenKind::Test, "test"),
+        (TokenKind::Effects, "effects"),
+        (TokenKind::Let, "let"),
+        (TokenKind::End, "end"),
+        (TokenKind::Require, "require"),
+        (TokenKind::Ensure, "ensure"),
+        (TokenKind::Mod, "mod"),
+        (TokenKind::Use, "use"),
+        (TokenKind::Match, "match"),
+        (TokenKind::Or, "or"),
+        (TokenKind::And, "and"),
+        (TokenKind::Not, "not"),
+        (TokenKind::LParen, "("),
+        (TokenKind::RParen, ")"),
+        (TokenKind::LBracket, "["),
+        (TokenKind::RBracket, "]"),
+        (TokenKind::LBrace, "{"),
+        (TokenKind::RBrace, "}"),
+        (TokenKind::Comma, ","),
+        (TokenKind::Colon, ":"),
+        (TokenKind::Dot, "."),
+        (TokenKind::DoubleColon, "::"),
+        (TokenKind::Arrow, "->"),
+        (TokenKind::FatArrow, "=>"),
+        (TokenKind::PipeGreater, "|>"),
+        (TokenKind::Question, "?"),
+        (TokenKind::Underscore, "_"),
+        (TokenKind::Equal, "="),
+        (TokenKind::EqualEqual, "=="),
+        (TokenKind::BangEqual, "!="),
+        (TokenKind::Less, "<"),
+        (TokenKind::LessEqual, "<="),
+        (TokenKind::Greater, ">"),
+        (TokenKind::GreaterEqual, ">="),
+        (TokenKind::Plus, "+"),
+        (TokenKind::Minus, "-"),
+        (TokenKind::Star, "*"),
+        (TokenKind::Slash, "/"),
+    ];
+
+    for (kind, label) in cases {
+        assert_eq!(kind.label(), label);
+    }
+}
+
+#[test]
 fn parses_module_use_nested_types_and_multiple_effects() {
     let source = SourceFile::new(
         "main.veln",

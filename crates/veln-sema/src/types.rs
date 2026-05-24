@@ -570,4 +570,180 @@ mod tests {
     fn keeps_unit_name_as_compatibility_alias() {
         assert_eq!(parse_type_annotation("Unit"), Ok(Type::unit()));
     }
+
+    #[test]
+    fn renders_record_and_function_types() {
+        let record = Type::Record(vec![
+            ("name".to_string(), Type::string()),
+            ("scores".to_string(), Type::list(Type::int())),
+        ]);
+        let pure_function = Type::Function {
+            params: vec![Type::int(), Type::float()],
+            return_type: Box::new(Type::bool()),
+            effects: Vec::new(),
+        };
+        let effectful_function = Type::Function {
+            params: vec![record.clone()],
+            return_type: Box::new(Type::result(Type::unit(), Type::named("AppError", Vec::new()))),
+            effects: vec!["stdio".to_string(), "net".to_string()],
+        };
+
+        assert_eq!(record.render(), "{name: String, scores: List(Int)}");
+        assert_eq!(pure_function.render(), "fn(Int, Float) -> Bool");
+        assert_eq!(
+            effectful_function.render(),
+            "fn({name: String, scores: List(Int)}) -> Result((), AppError) effects [stdio, net]"
+        );
+    }
+
+    #[test]
+    fn exposes_type_parts_and_core_type_shape() {
+        let function = Type::Function {
+            params: vec![Type::list(Type::int())],
+            return_type: Box::new(Type::Record(vec![("ok".to_string(), Type::bool())])),
+            effects: vec!["stdio".to_string()],
+        };
+
+        let (params, return_type) = function
+            .function_parts()
+            .expect("function type should expose parts");
+        assert_eq!(params, &[Type::list(Type::int())]);
+        assert_eq!(
+            return_type,
+            &Type::Record(vec![("ok".to_string(), Type::bool())])
+        );
+        assert!(Type::string().function_parts().is_none());
+        assert_eq!(
+            core_type(&function),
+            CoreType::Function {
+                params: vec![CoreType::list(CoreType::int())],
+                return_type: Box::new(CoreType::Record(vec![(
+                    "ok".to_string(),
+                    CoreType::bool()
+                )])),
+                effects: vec!["stdio".to_string()],
+            }
+        );
+    }
+
+    #[test]
+    fn assignability_allows_unknowns_record_width_and_function_shapes() {
+        let expected_record = Type::Record(vec![
+            ("name".to_string(), Type::string()),
+            ("meta".to_string(), Type::Record(vec![("count".to_string(), Type::int())])),
+        ]);
+        let actual_record = Type::Record(vec![
+            ("name".to_string(), Type::string()),
+            ("extra".to_string(), Type::bool()),
+            ("meta".to_string(), Type::Record(vec![("count".to_string(), Type::int())])),
+        ]);
+        let wrong_record = Type::Record(vec![("name".to_string(), Type::int())]);
+        let expected_function = Type::Function {
+            params: vec![Type::int()],
+            return_type: Box::new(Type::bool()),
+            effects: Vec::new(),
+        };
+        let actual_function = Type::Function {
+            params: vec![Type::int()],
+            return_type: Box::new(Type::bool()),
+            effects: vec!["stdio".to_string()],
+        };
+        let wrong_function = Type::Function {
+            params: vec![Type::int(), Type::int()],
+            return_type: Box::new(Type::bool()),
+            effects: Vec::new(),
+        };
+
+        assert!(is_assignable(&Type::Unknown, &Type::string()));
+        assert!(is_assignable(&Type::string(), &Type::Unknown));
+        assert!(is_assignable(&expected_record, &actual_record));
+        assert!(!is_assignable(&expected_record, &wrong_record));
+        assert!(is_assignable(&expected_function, &actual_function));
+        assert!(!is_assignable(&expected_function, &wrong_function));
+        assert!(!is_assignable(&Type::int(), &Type::float()));
+    }
+
+    #[test]
+    fn parses_nested_type_annotations_with_whitespace() {
+        assert_eq!(
+            parse_type_annotation(
+                " fn ( List ( Int ) , platform::Request ) -> Result ( Dict ( String , Int ) , AppError ) effects [ stdio , net ] "
+            ),
+            Ok(Type::Function {
+                params: vec![
+                    Type::list(Type::int()),
+                    Type::named("platform::Request", Vec::new()),
+                ],
+                return_type: Box::new(Type::result(
+                    Type::dict(Type::string(), Type::int()),
+                    Type::named("AppError", Vec::new())
+                )),
+                effects: vec!["stdio".to_string(), "net".to_string()],
+            })
+        );
+        assert_eq!(
+            parse_type_annotation("{ name: String, scores: List(Int) }"),
+            Ok(Type::Record(vec![
+                ("name".to_string(), Type::string()),
+                ("scores".to_string(), Type::list(Type::int())),
+            ]))
+        );
+    }
+
+    #[test]
+    fn rejects_malformed_type_annotations_with_specific_errors() {
+        let cases = [
+            ("", "expected type"),
+            ("(Int)", "expected `)` for unit type `()`"),
+            ("Int trailing", "unexpected `trailing`"),
+            ("{ : Int }", "expected record field name"),
+            ("{ name: String, }", "expected record field name"),
+            ("{ value Int }", "expected `:`"),
+            ("fn(Int) Int", "expected `->` in function type"),
+            ("fn(Int -> Int", "expected `)`"),
+            ("fn() -> () effects [,]", "expected effect name"),
+            ("fn() -> () effects [stdio", "expected `]`"),
+            ("List", "`List` expects 1 type argument(s), found 0"),
+            ("Dict(String)", "`Dict` expects 2 type argument(s), found 1"),
+            ("std::", "expected type"),
+        ];
+
+        for (text, message) in cases {
+            assert_eq!(parse_type_annotation(text), Err(message.to_string()));
+        }
+        assert_eq!(parse_type_or_unknown(Some("List")), Type::Unknown);
+        assert_eq!(parse_type_or_unknown(None), Type::Unknown);
+    }
+
+    #[test]
+    fn expected_type_sources_render_for_diagnostics_and_holes() {
+        let cases = [
+            (
+                ExpectedTypeSource::DeclaredReturn,
+                "declared_return",
+                "declared",
+            ),
+            (
+                ExpectedTypeSource::DeclaredParameter,
+                "declared_parameter",
+                "declared",
+            ),
+            (
+                ExpectedTypeSource::LocalAnnotation,
+                "local_annotation",
+                "declared",
+            ),
+            (
+                ExpectedTypeSource::Inferred,
+                "inferred_expression",
+                "inferred",
+            ),
+            (ExpectedTypeSource::Unknown, "unknown", "unknown"),
+        ];
+
+        for (source, type_source, hole_source) in cases {
+            assert_eq!(source.as_type_source(), type_source);
+            assert_eq!(source.as_hole_source(), hole_source);
+        }
+    }
 }
