@@ -637,6 +637,30 @@ fn parses_field_access_as_postfix_expression() {
 }
 
 #[test]
+fn rejects_method_call_shaped_syntax() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: {name: String}) -> ()\n",
+            "  value.name()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.method_call")
+        .expect("expected method-call diagnostic");
+    assert_eq!(diagnostic.message, "method-call syntax is not implemented");
+    assert_eq!(diagnostic.parser_context, "expression_line");
+    assert_eq!(diagnostic.expected, vec!["function call or field access"]);
+    assert_eq!(diagnostic.unexpected.text, "(");
+}
+
+#[test]
 fn format_tree_preserves_commented_source_losslessly() {
     let source = SourceFile::new(
         "main.veln",

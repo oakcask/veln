@@ -118,6 +118,10 @@ inserted as the first argument of that call, so `value |> target(extra)` is
 checked and executed as `target(value, extra)`. A non-call pipeline target
 reports `type.pipeline_target`.
 
+Method-call-shaped syntax, such as `value.field(args)`, is rejected during
+parsing with `parse.method_call`. Use a plain function call like
+`field(value, args)` and reserve `value.field` for record field access.
+
 `match` arms are tried in source order. The implemented pattern subset covers
 wildcard `_`, binding names, literals, record patterns, and the built-in
 constructors `Some`, `None`, `Ok`, and `Err`. Record patterns match when the

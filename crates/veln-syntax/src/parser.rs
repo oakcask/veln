@@ -838,6 +838,15 @@ impl<'a> ExprParser<'a> {
                         field_span: self.source.span(field_range),
                     },
                 };
+                if self.at(TokenKind::LParen) {
+                    self.error_current(
+                        "parse.method_call",
+                        "method-call syntax is not implemented",
+                        vec!["function call or field access"],
+                        RecoveryStrategy::InsertToken,
+                        None,
+                    );
+                }
                 continue;
             }
             if self.at(TokenKind::Question) {
