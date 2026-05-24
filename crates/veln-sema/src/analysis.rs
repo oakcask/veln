@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use veln_ast::{
-    BinaryOp, BodyLineKind, ContractKind, Expr, ExprKind, Function, FunctionKind, NodeId,
-    RecordField, SatisfyClause, SurfaceModule, Visibility,
+    BinaryOp, BodyLineKind, ContractKind, DictEntry, Expr, ExprKind, Function, FunctionKind,
+    NodeId, RecordField, SatisfyClause, SurfaceModule, Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
@@ -956,6 +956,7 @@ impl<'a> FunctionChecker<'a> {
             } => self.infer_field_access(expr, base, field, field_span),
             ExprKind::Try(inner) => self.infer_try(expr, inner, expected),
             ExprKind::Record(fields) => self.infer_record(expr, fields, expected),
+            ExprKind::Dict(entries) => self.infer_dict(expr, entries, expected),
             ExprKind::List(items) => self.infer_list(expr, items, expected),
             ExprKind::Prefix { op, expr } => self.infer_prefix(*op, expr, expected),
             ExprKind::Binary { op, left, right } => self.infer_binary(*op, left, right, expected),
@@ -1361,6 +1362,64 @@ impl<'a> FunctionChecker<'a> {
             }
         }
         Type::Record(actual_fields)
+    }
+
+    fn infer_dict(
+        &mut self,
+        expr: &Expr,
+        entries: &[DictEntry],
+        expected: Option<&ExpectedType>,
+    ) -> Type {
+        let (expected_key, expected_value) = expected
+            .and_then(|expected| expected.ty.dict_parts())
+            .map_or((Type::Unknown, Type::Unknown), |(key, value)| {
+                (key.clone(), value.clone())
+            });
+        let key_expected = ExpectedType {
+            ty: expected_key.clone(),
+            source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
+            origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
+            origin_span: expected.and_then(|expected| expected.origin_span.clone()),
+            origin_message: expected.map_or("Expected type inferred here.", |expected| {
+                expected.origin_message
+            }),
+        };
+        let value_expected = ExpectedType {
+            ty: expected_value.clone(),
+            source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
+            origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
+            origin_span: expected.and_then(|expected| expected.origin_span.clone()),
+            origin_message: expected.map_or("Expected type inferred here.", |expected| {
+                expected.origin_message
+            }),
+        };
+        let mut key_type = expected_key;
+        let mut value_type = expected_value;
+        for entry in entries {
+            let actual_key = self.infer_expr(&entry.key, Some(&key_expected));
+            self.check_assignable(
+                &entry.key,
+                &key_expected.ty,
+                &actual_key,
+                &key_expected,
+                "assignable",
+            );
+            if key_type == Type::Unknown {
+                key_type = actual_key;
+            }
+            let actual_value = self.infer_expr(&entry.value, Some(&value_expected));
+            self.check_assignable(
+                &entry.value,
+                &value_expected.ty,
+                &actual_value,
+                &value_expected,
+                "assignable",
+            );
+            if value_type == Type::Unknown {
+                value_type = actual_value;
+            }
+        }
+        Type::dict(key_type, value_type)
     }
 
     fn infer_try(&mut self, expr: &Expr, inner: &Expr, expected: Option<&ExpectedType>) -> Type {

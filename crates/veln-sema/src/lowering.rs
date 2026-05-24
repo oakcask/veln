@@ -1,7 +1,10 @@
-use veln_ast::{BinaryOp, BodyLineKind, Expr, ExprKind, Function, RecordField, SurfaceModule};
+use veln_ast::{
+    BinaryOp, BodyLineKind, DictEntry, Expr, ExprKind, Function, RecordField, SurfaceModule,
+};
 use veln_core::{
-    CheckedProgram, CoreBlocker, CoreCallTarget, CoreContract, CoreExpr, CoreExprKind,
-    CoreFunction, CoreParam, CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
+    CheckedProgram, CoreBlocker, CoreCallTarget, CoreContract, CoreDictEntry, CoreExpr,
+    CoreExprKind, CoreFunction, CoreParam, CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind,
+    CoreType,
 };
 
 use crate::effects::stdio_signature;
@@ -197,6 +200,7 @@ impl<'a> CoreLowerer<'a> {
             ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
             ExprKind::Try(inner) => self.lower_try(expr, inner, expected),
             ExprKind::Record(fields) => self.lower_record(expr, fields, expected),
+            ExprKind::Dict(entries) => self.lower_dict(expr, entries, expected),
             ExprKind::List(items) => self.lower_list(expr, items, expected),
             ExprKind::Prefix { op, expr: inner } => {
                 let expected_operand = match op {
@@ -564,6 +568,36 @@ impl<'a> CoreLowerer<'a> {
             )
         });
         self.core_expr(expr, ty, CoreExprKind::Record(fields))
+    }
+
+    fn lower_dict(
+        &mut self,
+        expr: &Expr,
+        entries: &[DictEntry],
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        let (key_expected, value_expected) = expected
+            .and_then(CoreType::dict_parts)
+            .map_or((None, None), |(key, value)| (Some(key), Some(value)));
+        let entries = entries
+            .iter()
+            .map(|entry| CoreDictEntry {
+                node_id: entry.node_id,
+                key: self.lower_expr(&entry.key, key_expected),
+                value: self.lower_expr(&entry.value, value_expected),
+                span: entry.span.clone(),
+            })
+            .collect::<Vec<_>>();
+        let ty = expected.cloned().unwrap_or_else(|| {
+            let key_type = entries
+                .first()
+                .map_or(CoreType::Unknown, |entry| entry.key.ty.clone());
+            let value_type = entries
+                .first()
+                .map_or(CoreType::Unknown, |entry| entry.value.ty.clone());
+            CoreType::dict(key_type, value_type)
+        });
+        self.core_expr(expr, ty, CoreExprKind::Dict(entries))
     }
 
     fn lower_list(&mut self, expr: &Expr, items: &[Expr], expected: Option<&CoreType>) -> CoreExpr {

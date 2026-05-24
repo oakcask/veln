@@ -1,7 +1,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{BinaryOp, PrefixOp};
-use veln_ir::{IrCallTarget, IrExpr, IrExprKind, IrFunction, IrRecordField, IrStmt, IrStmtKind};
+use veln_ir::{
+    IrCallTarget, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrRecordField, IrStmt, IrStmtKind,
+};
 
 use crate::emit::program::ProgramEmitter;
 use crate::java::{
@@ -108,6 +110,7 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             IrExprKind::FieldAccess { base, field } => self.emit_field_access(base, field),
             IrExprKind::Try(value) => self.emit_try(value),
             IrExprKind::Record(fields) => self.emit_record(fields),
+            IrExprKind::Dict(entries) => self.emit_dict(entries),
             IrExprKind::List(items) => self.emit_list(items),
             IrExprKind::Prefix { op, expr } => {
                 let method = match op {
@@ -214,6 +217,27 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             prelude,
             code: format!(
                 "{}.record({})",
+                self.program.options.runtime_class,
+                args.join(", ")
+            ),
+        }
+    }
+
+    fn emit_dict(&mut self, entries: &[IrDictEntry]) -> JavaExpr {
+        let mut prelude = Vec::new();
+        let mut args = Vec::new();
+        for entry in entries {
+            let key = self.emit_expr(&entry.key);
+            prelude.extend(key.prelude);
+            args.push(key.code);
+            let value = self.emit_expr(&entry.value);
+            prelude.extend(value.prelude);
+            args.push(value.code);
+        }
+        JavaExpr {
+            prelude,
+            code: format!(
+                "{}.dict({})",
                 self.program.options.runtime_class,
                 args.join(", ")
             ),

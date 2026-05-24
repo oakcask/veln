@@ -25,9 +25,9 @@ calls, field access, pipelines, `?`, and expression holes.
 The first slice excludes statement braces, semicolon-separated statement
 lists, indentation-sensitive nesting, method calls, user-defined ADT
 declarations, loops, mutation, classes, traits, macros, comprehensions,
-anonymous functions, custom operators, and dictionary literals. Dictionary
-types may appear in signatures as `Dict(K, V)`, but literal syntax should wait
-until examples show a repair-loop need.
+anonymous functions, and custom operators. Dictionary types may appear in
+signatures as `Dict(K, V)`, and the current grammar target includes
+non-identifier-key dictionary literals.
 
 ## Canonical Grammar
 
@@ -111,11 +111,11 @@ calls, records, lists, matches, and tail positions.
 ## Open Details
 
 This decision does not freeze the final concrete syntax for package manifests,
-foreign declarations, doctest fences, dictionary literals, or future
-user-defined data type declarations. Test declaration syntax is resolved by
-[Test Declaration Syntax](../../reference/source-decisions/result-test-declaration-syntax.md), which adds a
-top-level `test` item and supersedes treating ordinary zero-argument `fn`
-declarations as durable test syntax.
+foreign declarations, doctest fences, or future user-defined data type
+declarations. Test declaration syntax is resolved by
+[Test Declaration Syntax](../../reference/source-decisions/result-test-declaration-syntax.md),
+which adds a top-level `test` item and supersedes treating ordinary
+zero-argument `fn` declarations as durable test syntax.
 
 Record expressions and record patterns intentionally require explicit
 `name: value` and `name: pattern` fields in the first slice. Shorthand fields,

@@ -206,7 +206,7 @@ impl<'a> ProgramEmitter<'a> {
         for (int index = 0; index + 1 < entries.length; index += 2) {{
             map.put((String) entries[index], entries[index + 1]);
         }}
-        return java.util.Collections.unmodifiableMap(map);
+        return freezeMap(map);
     }}
 
     public static Object recordField(Object record, String field) {{
@@ -214,9 +214,15 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     public static java.util.List<Object> list(Object... values) {{
-        return java.util.Collections.unmodifiableList(
-            new java.util.ArrayList<Object>(java.util.Arrays.asList(values))
-        );
+        return freezeList(new java.util.ArrayList<Object>(java.util.Arrays.asList(values)));
+    }}
+
+    public static java.util.Map<Object, Object> dict(Object... entries) {{
+        java.util.LinkedHashMap<Object, Object> map = new java.util.LinkedHashMap<Object, Object>();
+        for (int i = 0; i + 1 < entries.length; i += 2) {{
+            map.put(entries[i], entries[i + 1]);
+        }}
+        return freezeMap(map);
     }}
 
     public static Object listLen(Object items) {{
@@ -230,13 +236,13 @@ impl<'a> ProgramEmitter<'a> {
     public static Object listPush(Object items, Object value) {{
         java.util.ArrayList<Object> copy = new java.util.ArrayList<Object>(asList(items));
         copy.add(value);
-        return java.util.Collections.unmodifiableList(copy);
+        return freezeList(copy);
     }}
 
     public static Object listConcat(Object left, Object right) {{
         java.util.ArrayList<Object> copy = new java.util.ArrayList<Object>(asList(left));
         copy.addAll(asList(right));
-        return java.util.Collections.unmodifiableList(copy);
+        return freezeList(copy);
     }}
 
     public static Object listMap(Object items, Object fn) {{
@@ -244,7 +250,7 @@ impl<'a> ProgramEmitter<'a> {
         for (Object item : asList(items)) {{
             mapped.add(call(fn, item));
         }}
-        return java.util.Collections.unmodifiableList(mapped);
+        return freezeList(mapped);
     }}
 
     public static Object listFilter(Object items, Object fn) {{
@@ -254,7 +260,7 @@ impl<'a> ProgramEmitter<'a> {
                 filtered.add(item);
             }}
         }}
-        return java.util.Collections.unmodifiableList(filtered);
+        return freezeList(filtered);
     }}
 
     public static Object listFold(Object items, Object initial, Object fn) {{
@@ -274,7 +280,7 @@ impl<'a> ProgramEmitter<'a> {
             }}
             mapped.add(unwrapOk(result));
         }}
-        return ok(java.util.Collections.unmodifiableList(mapped));
+        return ok(freezeList(mapped));
     }}
 
     public static Object dictGet(Object dict, Object key) {{
@@ -293,14 +299,22 @@ impl<'a> ProgramEmitter<'a> {
         java.util.LinkedHashMap<Object, Object> copy =
             new java.util.LinkedHashMap<Object, Object>(asMap(dict));
         copy.put(key, value);
-        return java.util.Collections.unmodifiableMap(copy);
+        return freezeMap(copy);
     }}
 
     public static Object dictRemove(Object dict, Object key) {{
         java.util.LinkedHashMap<Object, Object> copy =
             new java.util.LinkedHashMap<Object, Object>(asMap(dict));
         copy.remove(key);
-        return java.util.Collections.unmodifiableMap(copy);
+        return freezeMap(copy);
+    }}
+
+    private static java.util.List<Object> freezeList(java.util.List<Object> values) {{
+        return java.util.Collections.unmodifiableList(values);
+    }}
+
+    private static <K, V> java.util.Map<K, V> freezeMap(java.util.Map<K, V> values) {{
+        return java.util.Collections.unmodifiableMap(values);
     }}
 
     public static Object optionMap(Object option, Object fn) {{

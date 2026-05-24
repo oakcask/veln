@@ -25,6 +25,8 @@ Contract      ::= ("require" | "ensure") ContractPredicate NL
 BodyLine      ::= LetLine | ExprLine
 LetLine       ::= "let" Name (":" TypeText)? "=" Expr NL
 ExprLine      ::= Expr NL
+Record        ::= "{" (Name ":" Expr) ("," Name ":" Expr)* ","? "}"
+Dict          ::= "{" Expr ":" Expr ("," Expr ":" Expr)* ","? "}"
 ```
 
 `TypeText` is collected from source and parsed by the semantic type parser.
@@ -62,6 +64,8 @@ Implemented expressions:
 - constructors: `Ok(value)`, `Err(error)`, `Some(value)`, and `None`
 - prelude helpers as bare calls such as `list_len(items)`
 - records: `{name: value, ...}`
+- dictionaries: `{key_expr: value_expr, ...}` when the first entry key is not
+  an identifier
 - record field access: `expr.name`
 - lists: `[value, ...]`
 - prefix operators: `not`, `-`
@@ -97,6 +101,6 @@ clause.
 ## Not Implemented
 
 Implemented lowering and execution do not include `match`, user-defined ADT
-declarations, dictionary literals, method calls, loops, mutation, classes,
-traits, macros, comprehensions, anonymous functions, custom operators, package
-manifests, foreign declarations, or doctest fences.
+declarations, method calls, loops, mutation, classes, traits, macros,
+comprehensions, anonymous functions, custom operators, package manifests,
+foreign declarations, or doctest fences.

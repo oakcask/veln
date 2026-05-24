@@ -110,11 +110,14 @@ Pipelines insert the piped expression as the first argument of the target call.
 Record        ::= "{" FieldList? "}"
 FieldList     ::= Field ("," Field)* ","?
 Field         ::= Name ":" Expr
+Dict          ::= "{" DictEntry ("," DictEntry)* ","? "}"
+DictEntry     ::= Expr ":" Expr
 List          ::= "[" ArgList? "]"
 ```
 
 Record expressions require explicit `name: value` fields. Shorthand fields,
-spreads, update syntax, and dictionary literals are outside the first slice.
+spreads and update syntax are outside the first slice. Dictionary literals use
+non-identifier keys so they remain distinct from record literals.
 
 ## Match And Patterns
 
@@ -226,8 +229,7 @@ before their closing `end`.
 The first slice excludes statement braces, semicolon-separated statement lists,
 indentation-sensitive nesting, method calls, user-defined ADT declarations,
 loops, mutation, classes, traits, macros, comprehensions, anonymous functions,
-custom operators, dictionary literals, package manifests, foreign declarations,
-and doctest fences.
+custom operators, package manifests, foreign declarations, and doctest fences.
 
 ## Source Decisions
 

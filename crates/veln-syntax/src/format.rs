@@ -232,6 +232,14 @@ fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide) -> String {
                 .join(", ");
             format!("{{ {fields} }}")
         }
+        ExprKind::Dict(entries) => {
+            let entries = entries
+                .iter()
+                .map(|entry| format!("{}: {}", format_expr(&entry.key), format_expr(&entry.value)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{{ {entries} }}")
+        }
         ExprKind::List(items) => {
             let items = items.iter().map(format_expr).collect::<Vec<_>>().join(", ");
             format!("[{items}]")

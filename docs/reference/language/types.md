@@ -38,6 +38,7 @@ Expected types flow into holes and subexpressions from:
 - prelude helper parameters and return context
 - record fields
 - list elements
+- dictionary keys and values
 - `Ok`, `Err`, `Some`, `None`, and postfix `?`
 
 Record field access gets its result type from the inferred base record type.
@@ -55,6 +56,11 @@ function-type assignability.
 One record literal cannot declare the same field name twice. Duplicate record
 fields are name errors before record assignability chooses an expected field
 type.
+
+Dictionary literals infer `Dict(K, V)` from their expected type when available.
+Without an expected dictionary type, the first entry supplies the initial key
+and value types. Later entries are checked against the same key and value
+expectations.
 
 Record field access `expr.name` requires the base expression to have a record
 type containing `name`. The access has the declared field type. Accessing a

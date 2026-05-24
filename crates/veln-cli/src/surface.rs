@@ -133,6 +133,12 @@ fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mu
                 collect_function_callees(&field.expr, function_names, callees);
             }
         }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_function_callees(&entry.key, function_names, callees);
+                collect_function_callees(&entry.value, function_names, callees);
+            }
+        }
         ExprKind::List(items) => {
             for item in items {
                 collect_function_callees(item, function_names, callees);

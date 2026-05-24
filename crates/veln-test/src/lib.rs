@@ -173,6 +173,12 @@ fn collect_stdio_call_spans(expr: &Expr, spans: &mut BTreeMap<(String, String), 
                 collect_stdio_call_spans(&field.expr, spans);
             }
         }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_stdio_call_spans(&entry.key, spans);
+                collect_stdio_call_spans(&entry.value, spans);
+            }
+        }
         ExprKind::List(items) => {
             for item in items {
                 collect_stdio_call_spans(item, spans);

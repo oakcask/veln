@@ -533,6 +533,32 @@ fn parses_records_lists_and_formats_precedence() {
 }
 
 #[test]
+fn parses_dictionary_literals_with_expression_keys() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> Dict(String, Int)\n  {\"one\": 1, \"two\": 2}\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(
+        format_tree(&output.tree),
+        "fn main() -> Dict(String, Int)\n  { \"one\": 1, \"two\": 2 }\nend\n"
+    );
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Dict(entries) = &expr.kind else {
+        panic!("expected dictionary expression");
+    };
+    assert_eq!(entries.len(), 2);
+    assert!(matches!(&entries[0].key.kind, ExprKind::StringLiteral(value) if value == "\"one\""));
+    assert!(matches!(&entries[0].value.kind, ExprKind::IntLiteral(value) if value == "1"));
+}
+
+#[test]
 fn parses_field_access_as_postfix_expression() {
     let source = SourceFile::new(
         "main.veln",

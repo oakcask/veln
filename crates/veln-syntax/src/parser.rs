@@ -2,9 +2,9 @@ use veln_source::{SourceFile, SourceSpan, TextRange};
 
 use crate::tree::build_lossless_root;
 use crate::{
-    BinaryOp, BodyLine, ContractClause, ContractKind, Expr, ExprKind, FunctionDecl, FunctionKind,
-    ModuleDecl, Param, PrefixOp, RecordField, SatisfyClause, SyntaxItem, SyntaxTree, Token,
-    TokenKind, UseDecl, Visibility, lex,
+    BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry, Expr, ExprKind, FunctionDecl,
+    FunctionKind, ModuleDecl, Param, PrefixOp, RecordField, SatisfyClause, SyntaxItem, SyntaxTree,
+    Token, TokenKind, UseDecl, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -844,7 +844,16 @@ impl<'a> ExprParser<'a> {
                     }
                 }
             }
-            TokenKind::LBrace => self.parse_record(),
+            TokenKind::LBrace => {
+                if matches!(
+                    self.peek_kind(1),
+                    Some(TokenKind::Ident | TokenKind::RBrace)
+                ) {
+                    self.parse_record()
+                } else {
+                    self.parse_dict()
+                }
+            }
             TokenKind::LBracket => self.parse_list(),
             _ => {
                 self.bump();
@@ -1009,6 +1018,38 @@ impl<'a> ExprParser<'a> {
         }
     }
 
+    fn parse_dict(&mut self) -> Expr {
+        let start = self.bump().range;
+        let mut entries = Vec::new();
+        while !self.at(TokenKind::RBrace) && !self.is_at_end() {
+            let entry_start = self.current().range;
+            let key = self.parse_expr(0);
+            self.eat(TokenKind::Colon);
+            let value = self.parse_expr(0);
+            let entry_span = self.source.span(entry_start.cover(lhs_range(&value)));
+            entries.push(DictEntry {
+                key,
+                value,
+                span: entry_span,
+            });
+            if self.eat(TokenKind::Comma).is_none() {
+                break;
+            }
+        }
+        let end = self.eat(TokenKind::RBrace).map_or_else(
+            || {
+                entries.last().map_or(start, |entry| {
+                    TextRange::new(entry.span.start.offset, entry.span.end.offset)
+                })
+            },
+            |token| token.range,
+        );
+        Expr {
+            kind: ExprKind::Dict(entries),
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
     fn current_binary_op(&self) -> Option<(BinaryOp, u8, u8)> {
         match self.tokens.get(self.cursor)?.kind {
             TokenKind::PipeGreater => Some((BinaryOp::PipeGreater, 1, 2)),
@@ -1047,6 +1088,12 @@ impl<'a> ExprParser<'a> {
         self.tokens
             .get(self.cursor)
             .is_some_and(|token| token.kind == kind)
+    }
+
+    fn peek_kind(&self, offset: usize) -> Option<TokenKind> {
+        self.tokens
+            .get(self.cursor + offset)
+            .map(|token| token.kind.clone())
     }
 
     fn at_ident_text(&self, text: &str) -> bool {

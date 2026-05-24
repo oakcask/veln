@@ -76,6 +76,7 @@ pub enum IrExprKind {
     },
     Try(Box<IrExpr>),
     Record(Vec<IrRecordField>),
+    Dict(Vec<IrDictEntry>),
     List(Vec<IrExpr>),
     Prefix {
         op: PrefixOp,
@@ -100,5 +101,12 @@ pub enum IrCallTarget {
 pub struct IrRecordField {
     pub node_id: NodeId,
     pub name: String,
+    pub value: IrExpr,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct IrDictEntry {
+    pub node_id: NodeId,
+    pub key: IrExpr,
     pub value: IrExpr,
 }

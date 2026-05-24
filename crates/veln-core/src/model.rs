@@ -94,6 +94,7 @@ pub enum CoreExprKind {
     },
     Try(Box<CoreExpr>),
     Record(Vec<CoreRecordField>),
+    Dict(Vec<CoreDictEntry>),
     List(Vec<CoreExpr>),
     Prefix {
         op: PrefixOp,
@@ -120,5 +121,13 @@ pub struct CoreRecordField {
     pub node_id: NodeId,
     pub name: String,
     pub expr: CoreExpr,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreDictEntry {
+    pub node_id: NodeId,
+    pub key: CoreExpr,
+    pub value: CoreExpr,
     pub span: SourceSpan,
 }

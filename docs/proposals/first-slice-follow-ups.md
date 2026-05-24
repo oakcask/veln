@@ -10,15 +10,11 @@ stays in
 
 ## Language And Type Coverage
 
-- Dictionary support is complete only as type-system support:
-  `Dict(K, V)` annotations parse, validate arity, render deterministically,
-  and can flow into hole diagnostics. Dictionary literal parsing and value
-  construction are not implemented expression forms yet.
 - `match` expressions are not implemented yet. Expected-type flow through
   match branches and match lowering remain follow-up work.
-- Broader runtime semantics still need dictionary values, match lowering,
-  stable callable value construction, and numeric behavior beyond matching
-  `Int` or matching `Float` operator operands.
+- Broader runtime semantics still need match lowering, stable callable value
+  construction, and numeric behavior beyond matching `Int` or matching `Float`
+  operator operands.
 
 ## Repair Loop
 

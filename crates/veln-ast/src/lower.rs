@@ -1,12 +1,13 @@
 use veln_syntax::{
     BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, ContractKind as SyntaxContractKind,
-    Expr as SyntaxExpr, ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction,
-    ModuleDecl as SyntaxModule, PrefixOp as SyntaxPrefixOp, RecordField as SyntaxRecordField,
-    SyntaxItem, SyntaxTree, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
+    DictEntry as SyntaxDictEntry, Expr as SyntaxExpr, ExprKind as SyntaxExprKind,
+    FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule, PrefixOp as SyntaxPrefixOp,
+    RecordField as SyntaxRecordField, SyntaxItem, SyntaxTree, UseDecl as SyntaxUse,
+    Visibility as SyntaxVisibility,
 };
 
 use crate::{
-    BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, Expr, ExprKind, Function,
+    BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, ModuleHeader, NodeId, Param, PrefixOp, RecordField, ResultBinding, SurfaceModule,
     UseDecl, Visibility,
 };
@@ -179,6 +180,12 @@ impl AstBuilder {
                         .map(|field| self.lower_record_field(field))
                         .collect(),
                 ),
+                SyntaxExprKind::Dict(entries) => ExprKind::Dict(
+                    entries
+                        .iter()
+                        .map(|entry| self.lower_dict_entry(entry))
+                        .collect(),
+                ),
                 SyntaxExprKind::List(items) => {
                     ExprKind::List(items.iter().map(|item| self.lower_expr(item)).collect())
                 }
@@ -219,6 +226,15 @@ impl AstBuilder {
             name: field.name.clone(),
             expr: self.lower_expr(&field.expr),
             span: field.span.clone(),
+        }
+    }
+
+    fn lower_dict_entry(&mut self, entry: &SyntaxDictEntry) -> DictEntry {
+        DictEntry {
+            node_id: self.alloc(),
+            key: self.lower_expr(&entry.key),
+            value: self.lower_expr(&entry.value),
+            span: entry.span.clone(),
         }
     }
 }

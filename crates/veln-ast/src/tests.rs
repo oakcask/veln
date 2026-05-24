@@ -88,6 +88,13 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
                 collect_expr_node_ids(&field.expr, ids);
             }
         }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                ids.push(entry.node_id.as_u32());
+                collect_expr_node_ids(&entry.key, ids);
+                collect_expr_node_ids(&entry.value, ids);
+            }
+        }
         ExprKind::List(items) => {
             for item in items {
                 collect_expr_node_ids(item, ids);

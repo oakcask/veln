@@ -44,6 +44,9 @@ fn generates_program_and_runtime_sources_for_result_try_and_stdio() {
     assert!(runtime.contains("public static final class Option"));
     assert!(runtime.contains("public static java.util.Map<String, Object> record"));
     assert!(runtime.contains("public static java.util.List<Object> list"));
+    assert!(runtime.contains("public static java.util.Map<Object, Object> dict"));
+    assert!(runtime.contains("private static java.util.List<Object> freezeList"));
+    assert!(runtime.contains("private static <K, V> java.util.Map<K, V> freezeMap"));
 }
 
 #[test]
@@ -64,6 +67,46 @@ fn generates_runtime_values_for_records_lists_and_options() {
     assert!(program.contains("\"values\", VelnRuntime.list(\"a\", \"b\")"));
     assert!(program.contains("\"maybe\", VelnRuntime.some(\"x\")"));
     assert!(program.contains("\"empty\", VelnRuntime.none()"));
+}
+
+#[test]
+fn generates_runtime_values_for_dictionary_literals() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> Result(Dict(String, Int), AppError) effects []\n",
+        "  Ok({\"one\": 1, \"two\": 2})\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+
+    assert!(
+        program.contains("VelnRuntime.dict(\"one\", Long.valueOf(1L), \"two\", Long.valueOf(2L))")
+    );
+}
+
+#[test]
+fn generated_runtime_freezes_container_values_at_public_boundaries() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main(items: List(Int), table: Dict(String, Int)) -> Result({pushed: List(Int), inserted: Dict(String, Int)}, AppError) effects []\n",
+        "  Ok({pushed: list_push(items, 1), inserted: dict_insert(table, \"one\", 1)})\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(runtime.contains("return freezeMap(map);"));
+    assert!(runtime.contains(
+        "return freezeList(new java.util.ArrayList<Object>(java.util.Arrays.asList(values)));"
+    ));
+    assert!(runtime.contains("return freezeList(copy);"));
+    assert!(runtime.contains("return freezeMap(copy);"));
+    assert!(runtime.contains("return ok(freezeList(mapped));"));
 }
 
 #[test]

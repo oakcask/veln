@@ -113,6 +113,7 @@ pub enum ExprKind {
     },
     Try(Box<Expr>),
     Record(Vec<RecordField>),
+    Dict(Vec<DictEntry>),
     List(Vec<Expr>),
     Prefix {
         op: PrefixOp,
@@ -137,6 +138,13 @@ pub struct SatisfyClause {
 pub struct RecordField {
     pub name: String,
     pub expr: Expr,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct DictEntry {
+    pub key: Expr,
+    pub value: Expr,
     pub span: SourceSpan,
 }
 

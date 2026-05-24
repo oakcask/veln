@@ -5,8 +5,8 @@ pub mod readiness;
 pub mod types;
 
 pub use model::{
-    CheckedProgram, CoreCallTarget, CoreContract, CoreExpr, CoreExprKind, CoreFunction, CoreParam,
-    CoreRecordField, CoreStmt, CoreStmtKind,
+    CheckedProgram, CoreCallTarget, CoreContract, CoreDictEntry, CoreExpr, CoreExprKind,
+    CoreFunction, CoreParam, CoreRecordField, CoreStmt, CoreStmtKind,
 };
 pub use readiness::{CoreBlocker, CoreReadiness};
 pub use types::CoreType;

@@ -5,8 +5,8 @@ use veln_core::{
 };
 
 use crate::{
-    IrCallTarget, IrExpr, IrExprKind, IrFunction, IrParam, IrRecordField, IrStmt, IrStmtKind,
-    TypedProgram,
+    IrCallTarget, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrParam, IrRecordField, IrStmt,
+    IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -118,6 +118,18 @@ fn lower_expr(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
                             node_id: field.node_id,
                             name: field.name.clone(),
                             value: lower_expr(&field.expr)?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, IrLowerError>>()?,
+            ),
+            CoreExprKind::Dict(entries) => IrExprKind::Dict(
+                entries
+                    .iter()
+                    .map(|entry| {
+                        Ok(IrDictEntry {
+                            node_id: entry.node_id,
+                            key: lower_expr(&entry.key)?,
+                            value: lower_expr(&entry.value)?,
                         })
                     })
                     .collect::<Result<Vec<_>, IrLowerError>>()?,
