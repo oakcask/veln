@@ -88,6 +88,30 @@ fn generates_runtime_values_for_dictionary_literals() {
 }
 
 #[test]
+fn generates_record_pattern_matching() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main(value: {count: Int, label: String}) -> String effects []\n",
+        "  match value\n",
+        "    {count: 0, label: name} => name\n",
+        "    {count: count, label: _} => \"many\"\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("VelnRuntime.recordHasField("));
+    assert!(program.contains("VelnRuntime.recordField("));
+    assert!(runtime.contains("public static boolean recordHasField"));
+}
+
+#[test]
 fn generated_runtime_freezes_container_values_at_public_boundaries() {
     let ir = lower_to_ir(concat!(
         "pub fn main(items: List(Int), table: Dict(String, Int)) -> Result({pushed: List(Int), inserted: Dict(String, Int)}, AppError) effects []\n",

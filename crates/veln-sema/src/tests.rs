@@ -1,8 +1,11 @@
 use crate::*;
 use veln_ast::lower_surface_ast;
-use veln_core::{CoreBlocker, CoreCallTarget, CoreExprKind, CoreReadiness, CoreStmtKind, CoreType};
+use veln_core::{
+    CoreBlocker, CoreCallTarget, CoreExprKind, CorePatternKind, CoreReadiness, CoreStmtKind,
+    CoreType,
+};
 use veln_diagnostics::DiagnosticKind;
-use veln_ir::{IrCallTarget, IrExprKind, IrStmtKind};
+use veln_ir::{IrCallTarget, IrExprKind, IrPatternKind, IrStmtKind};
 use veln_source::SourceFile;
 use veln_syntax::parse;
 
@@ -458,6 +461,63 @@ fn accepts_dictionary_literals_with_expected_key_and_value_types() {
         panic!("tail expression should lower as IR dictionary");
     };
     assert_eq!(entries.len(), 2);
+}
+
+#[test]
+fn record_patterns_bind_field_types_through_core_and_ir() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: {count: Int, label: String}) -> String effects []\n",
+            "  match value\n",
+            "    {count: 0, label: name} => name\n",
+            "    {count: count, label: _} => \"many\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("tail expression should lower as match");
+    };
+    let CorePatternKind::Record(fields) = &arms[0].pattern.kind else {
+        panic!("first arm should lower as record pattern");
+    };
+    assert_eq!(fields.len(), 2);
+    assert_eq!(fields[0].name, "count");
+    assert_eq!(fields[1].name, "label");
+
+    let ir = lowered.ir.expect("checked core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    let IrExprKind::Match { arms, .. } = &value.kind else {
+        panic!("tail expression should lower as IR match");
+    };
+    assert!(matches!(
+        &arms[1].pattern.kind,
+        IrPatternKind::Record(fields)
+            if fields.iter().any(|field| field.name == "count")
+    ));
 }
 
 #[test]

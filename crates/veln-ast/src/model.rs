@@ -218,10 +218,19 @@ pub enum PatternKind {
     FloatLiteral(String),
     BoolLiteral(bool),
     Unit,
+    Record(Vec<PatternField>),
     Constructor {
         name: Vec<String>,
         args: Vec<Pattern>,
     },
+}
+
+#[derive(Clone, Debug)]
+pub struct PatternField {
+    pub node_id: NodeId,
+    pub name: String,
+    pub pattern: Pattern,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

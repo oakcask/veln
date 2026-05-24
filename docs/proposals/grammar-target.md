@@ -9,6 +9,7 @@ decisions. Historical rationale remains in the linked discussion results.
 
 This document describes the language target. It is not a claim that every
 production is implemented in the current parser, AST, lowering, or backend.
+Record patterns from this target are implemented in the current workspace.
 
 For the fixed reference of behavior implemented in the current workspace, read
 [../reference/README.md](../reference/README.md).

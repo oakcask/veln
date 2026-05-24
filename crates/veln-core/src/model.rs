@@ -160,8 +160,17 @@ pub enum CorePatternKind {
     FloatLiteral(String),
     BoolLiteral(bool),
     Unit,
+    Record(Vec<CorePatternField>),
     Constructor {
         name: Vec<String>,
         args: Vec<CorePattern>,
     },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CorePatternField {
+    pub node_id: NodeId,
+    pub name: String,
+    pub pattern: CorePattern,
+    pub span: SourceSpan,
 }

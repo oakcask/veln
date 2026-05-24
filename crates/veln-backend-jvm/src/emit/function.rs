@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use veln_ast::{BinaryOp, PrefixOp};
 use veln_ir::{
     IrCallTarget, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrPattern,
-    IrPatternKind, IrRecordField, IrStmt, IrStmtKind,
+    IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind,
 };
 
 use crate::emit::program::ProgramEmitter;
@@ -350,9 +350,40 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
                 ),
                 bindings: Vec::new(),
             },
+            IrPatternKind::Record(fields) => self.emit_record_pattern(fields, value),
             IrPatternKind::Constructor { name, args } => {
                 self.emit_constructor_pattern(name, args, value)
             }
+        }
+    }
+
+    fn emit_record_pattern(&mut self, fields: &[IrPatternField], value: &str) -> JavaPattern {
+        let mut conditions = Vec::new();
+        let mut bindings = Vec::new();
+        for field in fields {
+            let field_value = format!(
+                "{}.recordField({}, {})",
+                self.program.options.runtime_class,
+                value,
+                java_string(&field.name)
+            );
+            conditions.push(format!(
+                "{}.recordHasField({}, {})",
+                self.program.options.runtime_class,
+                value,
+                java_string(&field.name)
+            ));
+            let mut nested = self.emit_pattern(&field.pattern, &field_value);
+            conditions.push(nested.condition);
+            bindings.append(&mut nested.bindings);
+        }
+        JavaPattern {
+            condition: if conditions.is_empty() {
+                "true".to_string()
+            } else {
+                conditions.join(" && ")
+            },
+            bindings,
         }
     }
 

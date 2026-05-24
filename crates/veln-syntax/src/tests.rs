@@ -708,3 +708,53 @@ fn parses_and_formats_match_expression() {
     assert_eq!(arms.len(), 2);
     assert_eq!(format_tree(&output.tree), source.text());
 }
+
+#[test]
+fn parses_and_formats_record_patterns() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn describe(value: {count: Int, label: String}) -> String effects []\n",
+            "  match value\n",
+            "    {count: 0, label: name} => name\n",
+            "    {count: count, label: _} => \"many\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn describe(value: { count : Int, label : String }) -> String effects []\n",
+            "  match value\n",
+            "    { count: 0, label: name } => name\n",
+            "    { count: count, label: _ } => \"many\"\n",
+            "  end\n",
+            "end\n",
+        )
+    );
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("expected match expression");
+    };
+    let PatternKind::Record(fields) = &arms[0].pattern.kind else {
+        panic!("expected record pattern");
+    };
+    assert_eq!(fields.len(), 2);
+    assert_eq!(fields[0].name, "count");
+    assert!(matches!(
+        &fields[0].pattern.kind,
+        PatternKind::IntLiteral(value) if value == "0"
+    ));
+    assert!(matches!(
+        &fields[1].pattern.kind,
+        PatternKind::Binding(name) if name == "name"
+    ));
+}

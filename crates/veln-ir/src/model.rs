@@ -137,8 +137,16 @@ pub enum IrPatternKind {
     FloatLiteral(String),
     BoolLiteral(bool),
     Unit,
+    Record(Vec<IrPatternField>),
     Constructor {
         name: Vec<String>,
         args: Vec<IrPattern>,
     },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct IrPatternField {
+    pub node_id: NodeId,
+    pub name: String,
+    pub pattern: IrPattern,
 }

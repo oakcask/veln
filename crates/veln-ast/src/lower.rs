@@ -8,8 +8,8 @@ use veln_syntax::{
 
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
-    FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternKind, PrefixOp,
-    RecordField, ResultBinding, SurfaceModule, UseDecl, Visibility,
+    FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
+    PrefixOp, RecordField, ResultBinding, SurfaceModule, UseDecl, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -245,6 +245,17 @@ impl AstBuilder {
                 SyntaxPatternKind::FloatLiteral(value) => PatternKind::FloatLiteral(value.clone()),
                 SyntaxPatternKind::BoolLiteral(value) => PatternKind::BoolLiteral(*value),
                 SyntaxPatternKind::Unit => PatternKind::Unit,
+                SyntaxPatternKind::Record(fields) => PatternKind::Record(
+                    fields
+                        .iter()
+                        .map(|field| PatternField {
+                            node_id: self.alloc(),
+                            name: field.name.clone(),
+                            pattern: self.lower_pattern(&field.pattern),
+                            span: field.span.clone(),
+                        })
+                        .collect(),
+                ),
                 SyntaxPatternKind::Constructor { name, args } => PatternKind::Constructor {
                     name: name.clone(),
                     args: args.iter().map(|arg| self.lower_pattern(arg)).collect(),

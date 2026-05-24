@@ -3,8 +3,8 @@ use veln_source::{SourceFile, SourceSpan, TextRange};
 use crate::tree::build_lossless_root;
 use crate::{
     BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry, Expr, ExprKind, FunctionDecl,
-    FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternKind, PrefixOp, RecordField,
-    SatisfyClause, SyntaxItem, SyntaxTree, Token, TokenKind, UseDecl, Visibility, lex,
+    FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField, PatternKind, PrefixOp,
+    RecordField, SatisfyClause, SyntaxItem, SyntaxTree, Token, TokenKind, UseDecl, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -1024,6 +1024,7 @@ impl<'a> ExprParser<'a> {
                     }
                 }
             }
+            TokenKind::LBrace => self.parse_record_pattern(),
             TokenKind::Ident => self.parse_name_pattern(),
             _ => {
                 self.error_current(
@@ -1039,6 +1040,55 @@ impl<'a> ExprParser<'a> {
                     span: self.source.span(token.range),
                 }
             }
+        }
+    }
+
+    fn parse_record_pattern(&mut self) -> Pattern {
+        let start = self.bump().range;
+        let mut fields = Vec::new();
+        while !self.at(TokenKind::RBrace) && !self.is_at_end() {
+            let field_start = self.current().range;
+            let name = if self.at(TokenKind::Ident) {
+                self.bump().text
+            } else {
+                self.error_current(
+                    "parse.pattern",
+                    "record pattern field is missing a name",
+                    vec!["field name"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+                self.bump();
+                String::new()
+            };
+            self.expect_expr_token(
+                TokenKind::Colon,
+                "parse.pattern",
+                "record pattern field is missing `:`",
+                vec![":"],
+            );
+            let pattern = self.parse_pattern();
+            let span = self.source.span(field_start.cover(pattern_range(&pattern)));
+            fields.push(PatternField {
+                name,
+                pattern,
+                span,
+            });
+            if self.eat(TokenKind::Comma).is_none() {
+                break;
+            }
+        }
+        let end = self.eat(TokenKind::RBrace).map_or_else(
+            || {
+                fields.last().map_or(start, |field| {
+                    TextRange::new(field.span.start.offset, field.span.end.offset)
+                })
+            },
+            |token| token.range,
+        );
+        Pattern {
+            kind: PatternKind::Record(fields),
+            span: self.source.span(start.cover(end)),
         }
     }
 
@@ -1735,6 +1785,10 @@ impl<'a> ContractPredicateParser<'a> {
 
 fn lhs_range(expr: &Expr) -> TextRange {
     TextRange::new(expr.span.start.offset, expr.span.end.offset)
+}
+
+fn pattern_range(pattern: &Pattern) -> TextRange {
+    TextRange::new(pattern.span.start.offset, pattern.span.end.offset)
 }
 
 fn normalize_collected_text(parts: Vec<String>) -> String {

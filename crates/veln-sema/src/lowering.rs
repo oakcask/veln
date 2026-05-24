@@ -4,8 +4,8 @@ use veln_ast::{
 };
 use veln_core::{
     CheckedProgram, CoreBlocker, CoreCallTarget, CoreContract, CoreDictEntry, CoreExpr,
-    CoreExprKind, CoreFunction, CoreMatchArm, CoreParam, CorePattern, CorePatternKind,
-    CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
+    CoreExprKind, CoreFunction, CoreMatchArm, CoreParam, CorePattern, CorePatternField,
+    CorePatternKind, CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };
 
 use crate::effects::stdio_signature;
@@ -707,6 +707,15 @@ impl<'a> CoreLowerer<'a> {
                 name: name.clone(),
                 ty: scrutinee_type.clone(),
             }],
+            PatternKind::Record(fields) => fields
+                .iter()
+                .flat_map(|field| {
+                    let field_type = scrutinee_type
+                        .record_field(&field.name)
+                        .unwrap_or(&CoreType::Unknown);
+                    self.pattern_bindings(&field.pattern, field_type)
+                })
+                .collect(),
             PatternKind::Constructor { name, args } => match name.as_slice() {
                 [constructor] if constructor == "Some" => scrutinee_type
                     .option_part()
@@ -742,6 +751,17 @@ impl<'a> CoreLowerer<'a> {
                 PatternKind::FloatLiteral(value) => CorePatternKind::FloatLiteral(value.clone()),
                 PatternKind::BoolLiteral(value) => CorePatternKind::BoolLiteral(*value),
                 PatternKind::Unit => CorePatternKind::Unit,
+                PatternKind::Record(fields) => CorePatternKind::Record(
+                    fields
+                        .iter()
+                        .map(|field| CorePatternField {
+                            node_id: field.node_id,
+                            name: field.name.clone(),
+                            pattern: self.lower_pattern(&field.pattern),
+                            span: field.span.clone(),
+                        })
+                        .collect(),
+                ),
                 PatternKind::Constructor { name, args } => CorePatternKind::Constructor {
                     name: name.clone(),
                     args: args.iter().map(|arg| self.lower_pattern(arg)).collect(),

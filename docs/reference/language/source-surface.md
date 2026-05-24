@@ -29,10 +29,13 @@ Record        ::= "{" (Name ":" Expr) ("," Name ":" Expr)* ","? "}"
 Dict          ::= "{" Expr ":" Expr ("," Expr ":" Expr)* ","? "}"
 Match         ::= "match" Expr NL MatchArm+ "end"
 MatchArm      ::= Pattern "=>" Expr NL
-Pattern       ::= "_" | BindingName | Literal | ConstructorPattern
+Pattern       ::= "_" | BindingName | Literal | ConstructorPattern | RecordPattern
 ConstructorPattern ::= ConstructorName "(" PatternList? ")"
                      | ConstructorName
+RecordPattern ::= "{" PatternFieldList? "}"
 PatternList   ::= Pattern ("," Pattern)* ","?
+PatternFieldList ::= PatternField ("," PatternField)* ","?
+PatternField  ::= Name ":" Pattern
 ```
 
 `TypeText` is collected from source and parsed by the semantic type parser.
@@ -74,8 +77,8 @@ Implemented expressions:
   an identifier
 - record field access: `expr.name`
 - lists: `[value, ...]`
-- match expressions over literals, bindings, `_`, and built-in constructors
-  `Some`, `None`, `Ok`, and `Err`
+- match expressions over literals, bindings, `_`, record patterns, and built-in
+  constructors `Some`, `None`, `Ok`, and `Err`
 - prefix operators: `not`, `-`
 - pipelines: `expr |> target(args...)`
 - binary operators: `or`, `and`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`, `-`,
@@ -93,9 +96,11 @@ checked and executed as `target(value, extra)`. A non-call pipeline target
 reports `type.pipeline_target`.
 
 `match` arms are tried in source order. The implemented pattern subset covers
-wildcard `_`, binding names, literals, and the built-in constructors `Some`,
-`None`, `Ok`, and `Err`. Exhaustiveness is not statically checked in the
-current slice.
+wildcard `_`, binding names, literals, record patterns, and the built-in
+constructors `Some`, `None`, `Ok`, and `Err`. Record patterns match when the
+scrutinee is a record containing every named pattern field and every nested
+field pattern matches. Exhaustiveness is not statically checked in the current
+slice.
 
 ## Contract Predicates
 
@@ -120,6 +125,6 @@ clause.
 ## Not Implemented
 
 Implemented lowering and execution do not include user-defined ADT
-declarations, record patterns, method calls, loops, mutation, classes, traits,
-macros, comprehensions, anonymous functions, custom operators, package
-manifests, foreign declarations, or doctest fences.
+declarations, method calls, loops, mutation, classes, traits, macros,
+comprehensions, anonymous functions, custom operators, package manifests,
+foreign declarations, or doctest fences.

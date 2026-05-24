@@ -1380,6 +1380,15 @@ impl<'a> FunctionChecker<'a> {
                 name: name.clone(),
                 ty: scrutinee_type.clone(),
             }],
+            PatternKind::Record(fields) => fields
+                .iter()
+                .flat_map(|field| {
+                    let field_type = scrutinee_type
+                        .record_field(&field.name)
+                        .unwrap_or(&Type::Unknown);
+                    self.pattern_bindings(&field.pattern, field_type)
+                })
+                .collect(),
             PatternKind::Constructor { name, args } => match name.as_slice() {
                 [constructor] if constructor == "Some" => scrutinee_type
                     .option_part()

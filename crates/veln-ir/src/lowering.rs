@@ -6,7 +6,7 @@ use veln_core::{
 
 use crate::{
     IrCallTarget, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrParam, IrPattern,
-    IrPatternKind, IrRecordField, IrStmt, IrStmtKind, TypedProgram,
+    IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -183,6 +183,16 @@ fn lower_pattern(pattern: &veln_core::CorePattern) -> IrPattern {
             }
             veln_core::CorePatternKind::BoolLiteral(value) => IrPatternKind::BoolLiteral(*value),
             veln_core::CorePatternKind::Unit => IrPatternKind::Unit,
+            veln_core::CorePatternKind::Record(fields) => IrPatternKind::Record(
+                fields
+                    .iter()
+                    .map(|field| IrPatternField {
+                        node_id: field.node_id,
+                        name: field.name.clone(),
+                        pattern: lower_pattern(&field.pattern),
+                    })
+                    .collect(),
+            ),
             veln_core::CorePatternKind::Constructor { name, args } => IrPatternKind::Constructor {
                 name: name.clone(),
                 args: args.iter().map(lower_pattern).collect(),

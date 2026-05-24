@@ -315,6 +315,14 @@ fn format_pattern(pattern: &Pattern) -> String {
         PatternKind::BoolLiteral(true) => "true".to_string(),
         PatternKind::BoolLiteral(false) => "false".to_string(),
         PatternKind::Unit => "()".to_string(),
+        PatternKind::Record(fields) => {
+            let fields = fields
+                .iter()
+                .map(|field| format!("{}: {}", field.name, format_pattern(&field.pattern)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{{ {fields} }}")
+        }
         PatternKind::Constructor { name, args } => {
             if args.is_empty() {
                 name.join("::")

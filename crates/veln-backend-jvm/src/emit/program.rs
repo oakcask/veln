@@ -276,6 +276,10 @@ impl<'a> ProgramEmitter<'a> {
         return asMap(record).get(field);
     }}
 
+    public static boolean recordHasField(Object record, String field) {{
+        return asMap(record).containsKey(field);
+    }}
+
     public static java.util.List<Object> list(Object... values) {{
         return freezeList(new java.util.ArrayList<Object>(java.util.Arrays.asList(values)));
     }}
