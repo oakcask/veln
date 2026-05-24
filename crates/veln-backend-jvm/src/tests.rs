@@ -232,13 +232,13 @@ fn generates_runtime_support_for_float_numeric_ops() {
     assert!(program.contains("\"ordered\", VelnRuntime.floatLessEqual(p_left, p_right)"));
     assert!(runtime.contains("public static Object floatAdd(Object left, Object right)"));
     assert!(runtime.contains("public static Object floatLessEqual(Object left, Object right)"));
-    assert!(runtime.contains("requireFloatOperands(left, right);"));
+    assert!(!runtime.contains("requireFloatOperands"));
     assert!(runtime.contains("return Double.valueOf(asDouble(left) + asDouble(right));"));
     assert!(runtime.contains("return Boolean.valueOf(asDouble(left) <= asDouble(right));"));
 }
 
 #[test]
-fn generated_float_comparison_rejects_nan_operands() {
+fn generated_float_comparison_allows_nan_operands() {
     let ir = lower_to_ir(concat!(
         "pub fn main() -> Bool effects []\n",
         "  0.0 / 0.0 < 1.0\n",
@@ -273,14 +273,11 @@ fn generated_float_comparison_rejects_nan_operands() {
         .expect("java should run");
     let _ = fs::remove_dir_all(&root);
 
-    assert!(!java.status.success());
-    assert!(
-        String::from_utf8_lossy(&java.stderr).contains("Float operator requires non-NaN operands")
-    );
+    assert!(java.status.success());
 }
 
 #[test]
-fn generated_float_arithmetic_rejects_nan_operands() {
+fn generated_float_arithmetic_allows_nan_operands() {
     let ir = lower_to_ir(concat!(
         "pub fn main() -> Float effects []\n",
         "  0.0 / 0.0 + 1.0\n",
@@ -315,10 +312,7 @@ fn generated_float_arithmetic_rejects_nan_operands() {
         .expect("java should run");
     let _ = fs::remove_dir_all(&root);
 
-    assert!(!java.status.success());
-    assert!(
-        String::from_utf8_lossy(&java.stderr).contains("Float operator requires non-NaN operands")
-    );
+    assert!(java.status.success());
 }
 
 #[test]

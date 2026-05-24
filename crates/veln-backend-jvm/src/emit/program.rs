@@ -349,47 +349,38 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     public static Object floatNegate(Object value) {{
-        requireFloatOperand(value);
         return Double.valueOf(-asDouble(value));
     }}
 
     public static Object floatAdd(Object left, Object right) {{
-        requireFloatOperands(left, right);
         return Double.valueOf(asDouble(left) + asDouble(right));
     }}
 
     public static Object floatSubtract(Object left, Object right) {{
-        requireFloatOperands(left, right);
         return Double.valueOf(asDouble(left) - asDouble(right));
     }}
 
     public static Object floatMultiply(Object left, Object right) {{
-        requireFloatOperands(left, right);
         return Double.valueOf(asDouble(left) * asDouble(right));
     }}
 
     public static Object floatDivide(Object left, Object right) {{
-        requireFloatOperands(left, right);
         return Double.valueOf(asDouble(left) / asDouble(right));
     }}
 
     public static Object floatLess(Object left, Object right) {{
-        requireFloatOperands(left, right);
         return Boolean.valueOf(asDouble(left) < asDouble(right));
     }}
 
     public static Object floatLessEqual(Object left, Object right) {{
-        requireFloatOperands(left, right);
         return Boolean.valueOf(asDouble(left) <= asDouble(right));
     }}
 
     public static Object floatGreater(Object left, Object right) {{
-        requireFloatOperands(left, right);
         return Boolean.valueOf(asDouble(left) > asDouble(right));
     }}
 
     public static Object floatGreaterEqual(Object left, Object right) {{
-        requireFloatOperands(left, right);
         return Boolean.valueOf(asDouble(left) >= asDouble(right));
     }}
 
@@ -601,18 +592,6 @@ impl<'a> ProgramEmitter<'a> {
 
     private static boolean isFloating(Object value) {{
         return value instanceof Double || value instanceof Float;
-    }}
-
-    private static void requireFloatOperand(Object value) {{
-        if (Double.isNaN(asDouble(value))) {{
-            throw new IllegalStateException("Float operator requires non-NaN operands");
-        }}
-    }}
-
-    private static void requireFloatOperands(Object left, Object right) {{
-        if (Double.isNaN(asDouble(left)) || Double.isNaN(asDouble(right))) {{
-            throw new IllegalStateException("Float operator requires non-NaN operands");
-        }}
     }}
 
     @SuppressWarnings("unchecked")

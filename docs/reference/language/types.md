@@ -70,13 +70,11 @@ Implemented operator typing:
   `Float` when the expected result type or operand is clearly `Float`.
 - `or` and `and` expect `Bool` operands and return `Bool`.
 - comparisons other than equality expect matching `Int` operands or matching
-  `Float` operands and return `Bool`. Float comparison operands must be
-  non-NaN. A `Float` expected result does not apply to comparisons, so `Float`
-  comparison is selected from the operand types.
+  `Float` operands and return `Bool`. A `Float` expected result does not apply
+  to comparisons, so `Float` comparison is selected from the operand types.
 - `+`, `-`, `*`, and `/` expect matching `Int` operands and return `Int`, or
   expect matching `Float` operands and return `Float` when the expected result
-  type or either operand is clearly `Float`. Float arithmetic operands must be
-  non-NaN.
+  type or either operand is clearly `Float`.
 - `==` and `!=` return `Bool` and do not currently require matching operand
   types.
 - `|>` is parsed and lowered as a binary operator with unknown operand and
@@ -87,5 +85,5 @@ There is no implicit `Int` to `Float` promotion in operator typing. Mixed
 numeric operands report a type mismatch at the non-matching operand.
 
 Float arithmetic and comparison operators lower as calls to compiler-known
-prelude functions so the non-NaN precondition belongs to the same boundary as
-ordinary built-in function calls.
+prelude functions. `Float` values follow the backend floating-point value
+space, including infinities and NaN values.
