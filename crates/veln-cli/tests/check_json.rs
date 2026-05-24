@@ -1508,6 +1508,68 @@ fn test_json_blocks_static_gate_before_jdk_execution() {
 }
 
 #[test]
+fn test_json_reports_parse_static_gate_without_jdk_execution() {
+    let project = TestProject::new("test-parse-static-gate");
+    project.write(
+        "broken_test.veln",
+        "test broken() -> () effects []\n  @\nend\n",
+    );
+
+    let output = project.test(&["--json"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"blocked\"",
+            "\"selection\":{\"mode\":\"discovered\",\"targets\":[\"broken_test.veln\"],\"confidence\":\"complete\",\"reason\":\"pattern_discovery\"}",
+            "\"summary\":{\"total\":0,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":0}",
+            "\"diagnostics\":[{\"id\":\"parse.invalid_token\"",
+            "\"message\":\"invalid token in expression\"",
+            "\"span\":{\"file\":\"broken_test.veln\"",
+            "\"cases\":[]",
+        ],
+    );
+}
+
+#[test]
+fn test_json_blocks_cases_from_multiple_files_on_semantic_static_gate() {
+    let project = TestProject::new("test-multiple-files-static-gate");
+    project.write(
+        "first_test.veln",
+        "test first() -> () effects []\n  ()\nend\n",
+    );
+    project.write(
+        "second_test.veln",
+        "test second() -> Int effects []\n  \"no\"\nend\n",
+    );
+
+    let output = project.test(&["--json"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"blocked\"",
+            "\"selection\":{\"mode\":\"discovered\",\"targets\":[\"first_test.veln\",\"second_test.veln\"],\"confidence\":\"complete\",\"reason\":\"pattern_discovery\"}",
+            "\"summary\":{\"total\":2,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":2,\"errors\":0}",
+            "\"id\":\"type.mismatch\"",
+            "\"message\":\"expected `Int`, but found `String`\"",
+            "\"span\":{\"file\":\"second_test.veln\"",
+            "\"cases\":[{\"id\":\"case-1\",\"name\":\"first\",\"kind\":\"test\",\"status\":\"blocked\"",
+            "\"source\":{\"file\":\"first_test.veln\"",
+            "{\"id\":\"case-2\",\"name\":\"second\",\"kind\":\"test\",\"status\":\"blocked\"",
+            "\"source\":{\"file\":\"second_test.veln\"",
+            "\"reason\":\"static_gate\"",
+        ],
+    );
+}
+
+#[test]
 fn test_json_maps_explicit_source_file_to_paired_test_file() {
     let project = TestProject::new("test-source-to-test-convention");
     project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");

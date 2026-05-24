@@ -62,5 +62,3 @@ No accepted language and type coverage follow-up is currently tracked here.
 - Test discovery selects explicit top-level `test` declarations. Parsed
   docblock/example extraction, expected-output examples, and automatic
   same-file example discovery remain follow-up work.
-- Test stabilization should add focused fixtures for static-gate parse and
-  semantic diagnostics in `veln test --json` and multiple test files.

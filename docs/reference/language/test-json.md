@@ -26,7 +26,9 @@ Selection fields are:
 - `notes`: optional human-readable selection notes
 
 With no explicit targets, `veln test --json` discovers all selected
-`*_test.veln` files and reports `confidence: "complete"`.
+`*_test.veln` files, including multiple test files in one run, and reports
+`confidence: "complete"`. The selected target list is sorted and includes each
+selected test file path once.
 
 With explicit targets, the command treats the caller's direct file or recursive
 directory list as intentional selection and reports `reason: "user_selected"`
@@ -99,3 +101,17 @@ The event list is operation-oriented. `println` and `eprintln` preserve their
 logical newline through `terminator`, not by appending it to `text`. If runtime
 tracing is unavailable, output may be represented as aggregate stdout or stderr
 events attached to the case source.
+
+## Static Gate
+
+Parse and semantic diagnostics block the suite before Java compilation or
+execution. The top-level status is `blocked`, and diagnostics are reported in
+the run-level `diagnostics` array.
+
+If a parse error prevents a test declaration from being parsed, no case is
+invented for that broken declaration. Parse-clean selected cases from other
+files may still be discovered before the static gate blocks execution.
+
+When semantic diagnostics block execution, every discovered selected case is
+reported with `status: "blocked"` and `reason: "static_gate"`, including cases
+from other selected test files.
