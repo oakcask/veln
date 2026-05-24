@@ -327,6 +327,11 @@ bindings, and candidate-query hints.
 
 ## Current Implementation Position
 
+Review note: the current code has known gaps against this memo and the
+design-wall decisions. Read
+`../reviews/2026-05-24-first-slice-gap-review.md` before treating the completion
+claims below as the current implementation status.
+
 Status as of 2026-05-24: implementation order items 1, 2, 3, 4, 5, 6, 7, 8,
 and 9 are complete for the first-slice gate.
 
