@@ -137,6 +137,11 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   first reference execution target, and keep Node-hosted WebAssembly
   experimental with JavaScript glue instead of an early custom Veln heap.
 - Resolved by
+  [First Implementation Architecture](result-first-implementation-architecture.md):
+  implement the first CLI, frontend, typed IR, and initial JVM lowering in
+  Rust, pair it with a small Java or Kotlin JVM runtime library, and defer a
+  separate Kotlin JVM backend module until the typed IR has enough examples.
+- Resolved by
   [Channel-First Concurrency Runtime](result-channel-first-concurrency-runtime.md):
   use a parallel-capable runtime without a global interpreter lock, prefer
   structured tasks and bounded MPSC channels for concurrent data flow, and

@@ -110,6 +110,10 @@ one agent-facing product surface.
   use a backend-neutral typed IR, make the JVM the first reference execution
   target, and treat Node-hosted WebAssembly as an experimental target with
   JavaScript glue rather than a custom Veln heap.
+- [First Implementation Architecture](2026-05-24-agent-language-spec-wall/result-first-implementation-architecture.md):
+  implement the first toolchain in Rust through typed IR and initial JVM
+  lowering, use a small Java or Kotlin JVM runtime library, and defer a separate
+  Kotlin JVM backend module until the IR and examples stabilize.
 - [Channel-First Concurrency Runtime](2026-05-24-agent-language-spec-wall/result-channel-first-concurrency-runtime.md):
   use a parallel-capable runtime without a global interpreter lock, with
   structured tasks and bounded MPSC channels as the default coordination model.
