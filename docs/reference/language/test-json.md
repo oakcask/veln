@@ -28,9 +28,9 @@ Selection fields are:
 With no explicit targets, `veln test --json` discovers all selected
 `*_test.veln` files and reports `confidence: "complete"`.
 
-With explicit targets, the command treats the caller's direct file or directory
-list as intentional selection and reports `reason: "user_selected"` unless it
-adds paired tests by convention. If an explicit non-test `.veln` file has a
+With explicit targets, the command treats the caller's direct file or recursive
+directory list as intentional selection and reports `reason: "user_selected"`
+unless it adds paired tests by convention. If an explicit non-test `.veln` file has a
 same-directory `*_test.veln` peer with the same base name, the peer is added to
 the selected targets, the run reports `reason: "source_to_test_convention"`,
 and `confidence: "partial"` because the mapping is conservative but not a full
@@ -65,6 +65,11 @@ Each case has:
 Source `test` declarations use `case.kind: "test"` and a `source.node_id`
 prefix of `test`. Ordinary functions use the `fn` prefix in other diagnostic
 contexts but are not selected as test cases.
+
+JDK setup failures are reported on the affected case with
+`status: "error"`, `reason: "runner_error"`, and
+`failure.kind: "runtime"`. This includes a missing `javac` before compilation
+and a missing `java` after compilation succeeds.
 
 Captured stdio events use:
 

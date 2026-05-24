@@ -9,6 +9,7 @@ categorized specification files. The full implemented decision index is
 - [JSON Diagnostic Schema Stability](../source-decisions/result-json-diagnostic-schema-stability.md)
 - [Check JSON Details Fields](../source-decisions/result-check-json-details-fields.md)
 - [Test JSON Shape](../source-decisions/result-test-json-shape.md)
+- [Affected Test Selection](../source-decisions/result-affected-test-selection.md)
 - [Test Declaration Syntax](../source-decisions/result-test-declaration-syntax.md)
 - [First-Slice Module Fields](../source-decisions/result-first-slice-module-fields.md)
 - [Stdio API and Output Events](../source-decisions/result-stdio-api-and-output-events.md)

@@ -69,7 +69,5 @@ stays in
 - Test discovery selects explicit top-level `test` declarations. Parsed
   docblock/example extraction, expected-output examples, and automatic
   same-file example discovery remain follow-up work.
-- Test stabilization should add focused fixtures for missing `java` after
-  `javac` succeeds, static-gate parse and semantic diagnostics in
-  `veln test --json`, no-test discovery suite errors, explicit directory
-  targets, and multiple test files.
+- Test stabilization should add focused fixtures for static-gate parse and
+  semantic diagnostics in `veln test --json` and multiple test files.

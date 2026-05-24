@@ -1,6 +1,6 @@
 # Discussion Result: Affected Test Selection
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 
@@ -44,7 +44,7 @@ treated as complete for the edited scope.
 - `veln test` may accept explicit test targets and treat them as intentionally
   narrowed by the caller.
 - Automatic affected-test selection must include a confidence state in human
-  and future JSON output, at least `complete`, `partial`, or `unknown`.
+  and JSON output, at least `complete`, `partial`, or `unknown`.
 - If dependency information is `partial` or `unknown`, automatic selection
   widens to the smallest broader scope the tool can justify, such as the whole
   package, all explicit test files, or all discovered examples.
@@ -65,7 +65,7 @@ command can refine the evidence model without changing the conservative
 fallback rule.
 
 The test-result JSON shape is resolved by
-[Test JSON Shape](../../reference/source-decisions/result-test-json-shape.md). Selection policy still remains
+[Test JSON Shape](result-test-json-shape.md). Selection policy still remains
 independent of the exact reporting schema, but the JSON result now carries
 selection confidence and widening reasons.
 

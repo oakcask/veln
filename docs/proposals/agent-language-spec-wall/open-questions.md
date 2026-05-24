@@ -50,7 +50,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   conservative test discovery before manifests and `graph` exist. This
   reconciles
   [First Implementation Commands](../../reference/source-decisions/result-first-implementation-commands.md),
-  [Affected Test Selection](result-affected-test-selection.md), and
+  [Affected Test Selection](../../reference/source-decisions/result-affected-test-selection.md), and
   [Module Metadata Location](result-module-metadata-location.md).
 - Resolved by
   [Stdio API and Output Events](../../reference/source-decisions/result-stdio-api-and-output-events.md): provide
@@ -241,7 +241,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   JSON diagnostics should use a stable top-level envelope while allowing
   prototype `details` payloads to churn.
 - Resolved by
-  [Affected Test Selection](result-affected-test-selection.md): before a full
+  [Affected Test Selection](../../reference/source-decisions/result-affected-test-selection.md): before a full
   dependency graph exists, automatic affected-test selection should prefer
   false positives over false negatives, widen when evidence is incomplete, and
   report selection confidence.

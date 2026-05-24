@@ -11,6 +11,7 @@ read these records only for rationale or compatibility context.
 
 - [AST Implementation Representation](result-ast-implementation-representation.md)
 - [AST Phase Boundary](result-ast-phase-boundary.md)
+- [Affected Test Selection](result-affected-test-selection.md)
 - [Block Structure](result-block-structure.md)
 - [Check JSON Details Fields](result-check-json-details-fields.md)
 - [Compact Function Form](result-compact-function-form.md)

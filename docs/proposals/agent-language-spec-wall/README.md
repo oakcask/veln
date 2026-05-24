@@ -19,7 +19,6 @@ current workspace. Implemented decisions were moved to
 ## Accepted Or Open Targets
 
 - [ADR-Lite Decision Location](result-adr-lite-decision-location.md)
-- [Affected Test Selection](result-affected-test-selection.md)
 - [Channel-First Concurrency Runtime](result-channel-first-concurrency-runtime.md)
 - [Comparison Example Task](result-comparison-example-task.md)
 - [Contract Expression Language](result-contract-expression-language.md)

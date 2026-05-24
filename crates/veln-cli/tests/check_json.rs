@@ -1,4 +1,6 @@
 use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -58,6 +60,20 @@ impl TestProject {
             command.arg(arg);
         }
         command.output().expect("veln should run")
+    }
+
+    #[cfg(unix)]
+    fn bin_dir_with_successful_javac(&self) -> PathBuf {
+        let bin = self.root.join("bin");
+        fs::create_dir_all(&bin).expect("bin directory should be created");
+        let javac = bin.join("javac");
+        fs::write(&javac, "#!/bin/sh\nexit 0\n").expect("fake javac should be written");
+        let mut permissions = fs::metadata(&javac)
+            .expect("fake javac metadata should be available")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&javac, permissions).expect("fake javac should be executable");
+        bin
     }
 
     fn run_with_path(&self, args: &[&str], path: &str) -> Output {
@@ -1322,6 +1338,34 @@ fn test_human_reports_source_to_test_selection_note() {
 }
 
 #[test]
+fn test_json_treats_explicit_directory_target_as_user_selected() {
+    let project = TestProject::new("test-explicit-directory-target");
+    project.write(
+        "tests/app_test.veln",
+        "test directory_case() -> Result((), AppError) effects []\n  _\nend\n",
+    );
+    project.write(
+        "tests/helper.veln",
+        "fn helper() -> () effects []\n  ()\nend\n",
+    );
+
+    let output = project.test(&["--json", "tests"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"selection\":{\"mode\":\"explicit\",\"targets\":[\"tests/app_test.veln\",\"tests/helper.veln\"],\"confidence\":\"complete\",\"reason\":\"user_selected\"}",
+            "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":1,\"errors\":0}",
+            "\"name\":\"directory_case\"",
+            "\"reason\":\"static_gate\"",
+        ],
+    );
+}
+
+#[test]
 fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
     let project = TestProject::new("test-human-static-gate");
     project.write(
@@ -1379,6 +1423,33 @@ fn test_human_reports_missing_javac_as_runner_error() {
         stderr(&output),
         &[
             "veln: test `passes` failed: veln: `javac` was not found; install a JDK to use `veln test`",
+        ],
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn test_json_reports_missing_java_after_successful_javac_as_runner_error() {
+    let project = TestProject::new("test-no-java-after-javac");
+    project.write(
+        "main_test.veln",
+        "test passes() -> () effects []\n  ()\nend\n",
+    );
+    let bin = project.bin_dir_with_successful_javac();
+
+    let output = project.test_with_path(&["--json"], bin.to_str().expect("path should be UTF-8"));
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"error\"",
+            "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":1}",
+            "\"name\":\"passes\"",
+            "\"reason\":\"runner_error\"",
+            "\"failure\":{\"kind\":\"runtime\",\"message\":\"veln: `java` was not found; install a JDK to use `veln test`\"",
         ],
     );
 }
