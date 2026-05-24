@@ -360,12 +360,7 @@ impl<'a> Parser<'a> {
         let start = self.current().range;
         if self.at(TokenKind::Let) {
             self.bump();
-            let name = if self.at(TokenKind::Underscore) {
-                self.bump();
-                None
-            } else {
-                self.expect_ident("let_statement", "binding name")
-            };
+            let pattern = self.parse_let_pattern();
             let annotation = if self.eat(TokenKind::Colon).is_some() {
                 Some(self.collect_type_until(
                     "let_statement",
@@ -377,7 +372,7 @@ impl<'a> Parser<'a> {
             self.expect(TokenKind::Equal, "let_statement", vec!["="]);
             let (expr, end) = self.parse_expr_for_body_line("let_statement");
             BodyLine::Let {
-                name,
+                pattern,
                 annotation,
                 expr,
                 span: self.source.span(start.cover(end)),
@@ -467,6 +462,46 @@ impl<'a> Parser<'a> {
         } else {
             self.parse_expr_until_newline(context)
         }
+    }
+
+    fn parse_let_pattern(&mut self) -> Pattern {
+        let start = self.current().range;
+        let mut tokens = Vec::new();
+        let mut depth = 0usize;
+        while !self.at(TokenKind::Eof) && !self.at(TokenKind::Newline) {
+            if depth == 0 && (self.at(TokenKind::Colon) || self.at(TokenKind::Equal)) {
+                break;
+            }
+            let token = self.bump();
+            match token.kind {
+                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                    depth = depth.saturating_sub(1);
+                }
+                _ => {}
+            }
+            tokens.push(token);
+        }
+
+        if tokens.is_empty() {
+            self.error_current(
+                "parse.expected_pattern",
+                "expected let pattern",
+                "let_statement",
+                vec!["pattern"],
+                RecoveryStrategy::InsertToken,
+                Some("="),
+            );
+            return Pattern {
+                kind: PatternKind::Wildcard,
+                span: self.source.span(start),
+            };
+        }
+
+        let (pattern, diagnostics) =
+            ExprParser::new(self.source, "let_statement", &tokens).parse_pattern_only();
+        self.diagnostics.extend(diagnostics);
+        pattern
     }
 
     fn parse_match_expr_for_body_line(&mut self, context: &'static str) -> (Expr, TextRange) {
@@ -868,6 +903,11 @@ impl<'a> ExprParser<'a> {
     fn parse(mut self) -> (Expr, Vec<ParseDiagnostic>) {
         let expr = self.parse_expr(0);
         (expr, self.diagnostics)
+    }
+
+    fn parse_pattern_only(mut self) -> (Pattern, Vec<ParseDiagnostic>) {
+        let pattern = self.parse_pattern();
+        (pattern, self.diagnostics)
     }
 
     fn parse_expr(&mut self, min_bp: u8) -> Expr {

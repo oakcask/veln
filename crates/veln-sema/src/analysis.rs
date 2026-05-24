@@ -359,7 +359,7 @@ impl<'a> FunctionChecker<'a> {
         for (index, line) in self.function.body.iter().enumerate() {
             match &line.kind {
                 BodyLineKind::Let {
-                    name,
+                    pattern,
                     annotation,
                     expr,
                 } => {
@@ -376,18 +376,23 @@ impl<'a> FunctionChecker<'a> {
                     if let Some(expected) = &expected {
                         self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
                     }
-                    if let Some(name) = name {
+                    self.check_let_pattern_supported(pattern);
+                    let binding_type = expected
+                        .as_ref()
+                        .map_or_else(|| actual.clone(), |expected| expected.ty.clone());
+                    let pattern_bindings = self.pattern_bindings(pattern, &binding_type);
+                    for binding in pattern_bindings {
                         if !self.declare_local_name(
-                            name,
-                            line.node_id.display("let"),
-                            line.span.clone(),
+                            &binding.name,
+                            binding.node_id.display("pattern"),
+                            binding.span,
                             "local binding",
                         ) {
                             continue;
                         }
                         self.bindings.push(Binding {
-                            name: name.clone(),
-                            ty: expected.map_or(actual, |expected| expected.ty),
+                            name: binding.name,
+                            ty: binding.ty,
                         });
                     }
                 }
@@ -409,6 +414,49 @@ impl<'a> FunctionChecker<'a> {
             }
         }
         self.check_effect_boundaries();
+    }
+
+    fn check_let_pattern_supported(&mut self, pattern: &Pattern) {
+        match &pattern.kind {
+            PatternKind::Wildcard | PatternKind::Binding(_) => {}
+            PatternKind::Record(fields) => {
+                for field in fields {
+                    self.check_let_pattern_supported(&field.pattern);
+                }
+            }
+            PatternKind::StringLiteral(_)
+            | PatternKind::IntLiteral(_)
+            | PatternKind::FloatLiteral(_)
+            | PatternKind::BoolLiteral(_)
+            | PatternKind::Unit
+            | PatternKind::Constructor { .. } => {
+                let mut diagnostic = Diagnostic::new(
+                    "pattern.refutable_let",
+                    Severity::Error,
+                    DiagnosticKind::Type,
+                    "refutable let pattern is not supported",
+                    Some(pattern.span.clone()),
+                    JsonValue::object([
+                        ("phase", JsonValue::string("type_check")),
+                        (
+                            "node_id",
+                            JsonValue::string(pattern.node_id.display("pattern")),
+                        ),
+                    ]),
+                );
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("let_pattern")),
+                    (
+                        "message",
+                        JsonValue::string(
+                            "Use a binding, wildcard, or record pattern in a let statement.",
+                        ),
+                    ),
+                    ("span", span_json(&pattern.span)),
+                ]));
+                self.diagnostics.push(diagnostic);
+            }
+        }
     }
 
     fn check_function_annotations(&mut self) {

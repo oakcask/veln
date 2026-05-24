@@ -99,13 +99,13 @@ fn format_function(out: &mut String, function: &FunctionDecl) {
         out.push_str("  ");
         match line {
             BodyLine::Let {
-                name,
+                pattern,
                 annotation,
                 expr,
                 ..
             } => {
                 out.push_str("let ");
-                out.push_str(name.as_deref().unwrap_or("_"));
+                out.push_str(&format_pattern(pattern));
                 if let Some(annotation) = annotation {
                     out.push_str(": ");
                     out.push_str(&canonical_type_text(annotation));

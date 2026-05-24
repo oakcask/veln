@@ -26,16 +26,16 @@ fn expr_line(function: &Function, index: usize) -> &Expr {
     expr
 }
 
-fn let_line(function: &Function, index: usize) -> (&Option<String>, &Option<String>, &Expr) {
+fn let_line(function: &Function, index: usize) -> (&Pattern, &Option<String>, &Expr) {
     let BodyLineKind::Let {
-        name,
+        pattern,
         annotation,
         expr,
     } = &function.body[index].kind
     else {
         panic!("expected let line");
     };
-    (name, annotation, expr)
+    (pattern, annotation, expr)
 }
 
 fn collect_module_node_ids(module: &SurfaceModule) -> Vec<u32> {
@@ -227,8 +227,8 @@ fn lowers_function_metadata_contracts_and_let_lines() {
     assert_eq!(function.contracts[1].kind, ContractKind::Ensure);
     assert_eq!(function.contracts[1].text, "output == output");
 
-    let (name, annotation, expr) = let_line(function, 0);
-    assert_eq!(name.as_deref(), Some("message"));
+    let (pattern, annotation, expr) = let_line(function, 0);
+    assert!(matches!(&pattern.kind, PatternKind::Binding(name) if name == "message"));
     assert_eq!(annotation.as_deref(), Some("String"));
     assert!(matches!(&expr.kind, ExprKind::StringLiteral(value) if value == "\"ready\""));
 

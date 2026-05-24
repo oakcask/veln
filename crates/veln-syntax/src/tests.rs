@@ -68,13 +68,49 @@ fn parses_wildcard_let_without_binding_a_name() {
     assert_eq!(format_tree(&output.tree), source.text());
     let SyntaxItem::Function(function) = &output.tree.items[0];
     let BodyLine::Let {
-        name, annotation, ..
+        pattern,
+        annotation,
+        ..
     } = &function.body[0]
     else {
         panic!("first body line should be a let statement");
     };
-    assert_eq!(name, &None);
+    assert!(matches!(pattern.kind, PatternKind::Wildcard));
     assert_eq!(annotation.as_deref(), Some("Int"));
+}
+
+#[test]
+fn parses_record_let_pattern() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn unpack(value: {count: Int}) -> Int\n  let {count: amount}: {count: Int} = value\n  amount\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        "fn unpack(value: { count : Int }) -> Int\n  let { count: amount }: { count : Int } = value\n  amount\nend\n"
+    );
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Let {
+        pattern,
+        annotation,
+        ..
+    } = &function.body[0]
+    else {
+        panic!("first body line should be a let statement");
+    };
+    let PatternKind::Record(fields) = &pattern.kind else {
+        panic!("let pattern should be a record pattern");
+    };
+    assert_eq!(fields[0].name, "count");
+    assert!(matches!(
+        fields[0].pattern.kind,
+        PatternKind::Binding(ref name) if name == "amount"
+    ));
+    assert_eq!(annotation.as_deref(), Some("{ count : Int }"));
 }
 
 #[test]

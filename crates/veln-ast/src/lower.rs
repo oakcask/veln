@@ -126,14 +126,14 @@ impl AstBuilder {
                 .iter()
                 .map(|line| match line {
                     SyntaxBodyLine::Let {
-                        name,
+                        pattern,
                         annotation,
                         expr,
                         span,
                     } => BodyLine {
                         node_id: self.alloc(),
                         kind: BodyLineKind::Let {
-                            name: name.clone(),
+                            pattern: self.lower_pattern(pattern),
                             annotation: annotation.clone(),
                             expr: self.lower_expr(expr),
                         },

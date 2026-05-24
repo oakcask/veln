@@ -449,6 +449,32 @@ fn check_human_reports_duplicate_pattern_binding_origin() {
 }
 
 #[test]
+fn check_human_reports_refutable_let_pattern_hint() {
+    let project = TestProject::new("check-human-refutable-let-pattern");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(value: Option(Int)) -> ()\n",
+            "  let Some(amount) = value\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "main.veln:2:7: error[pattern.refutable_let]: refutable let pattern is not supported",
+            "  note: main.veln:2:7: Use a binding, wildcard, or record pattern in a let statement.",
+        ],
+    );
+}
+
+#[test]
 fn fmt_formats_first_slice_golden_and_is_idempotent() {
     let project = TestProject::new("fmt-golden");
     project.write(

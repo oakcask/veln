@@ -91,7 +91,7 @@ pub enum ContractKind {
 #[derive(Clone, Debug)]
 pub enum BodyLine {
     Let {
-        name: Option<String>,
+        pattern: Pattern,
         annotation: Option<String>,
         expr: Expr,
         span: SourceSpan,

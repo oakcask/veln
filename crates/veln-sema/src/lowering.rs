@@ -28,6 +28,7 @@ struct CoreLowerer<'a> {
     bindings: Vec<CoreBinding>,
     blockers: Vec<CoreBlocker>,
     diagnostics: Vec<Diagnostic>,
+    generated_local_count: usize,
 }
 
 pub(crate) struct CoreLoweringOutput {
@@ -73,6 +74,7 @@ impl<'a> CoreLowerer<'a> {
             bindings: Vec::new(),
             blockers: Vec::new(),
             diagnostics: Vec::new(),
+            generated_local_count: 0,
         }
     }
 
@@ -196,7 +198,7 @@ impl<'a> CoreLowerer<'a> {
         for (index, line) in self.function.body.iter().enumerate() {
             match &line.kind {
                 BodyLineKind::Let {
-                    name,
+                    pattern,
                     annotation,
                     expr,
                 } => {
@@ -205,27 +207,14 @@ impl<'a> CoreLowerer<'a> {
                         .map(|annotation| core_type(&parse_type_or_unknown(Some(annotation))));
                     let lowered = self.lower_expr(expr, expected.as_ref());
                     let ty = expected.unwrap_or_else(|| lowered.ty.clone());
-                    if let Some(name) = name {
-                        self.bindings.push(CoreBinding {
-                            name: name.clone(),
-                            ty: ty.clone(),
-                        });
-                        body.push(CoreStmt {
-                            node_id: line.node_id,
-                            kind: CoreStmtKind::Let {
-                                name: name.clone(),
-                                ty,
-                                expr: lowered,
-                            },
-                            span: line.span.clone(),
-                        });
-                    } else {
-                        body.push(CoreStmt {
-                            node_id: line.node_id,
-                            kind: CoreStmtKind::Expr { expr: lowered },
-                            span: line.span.clone(),
-                        });
-                    }
+                    self.lower_let_pattern(
+                        line.node_id,
+                        &line.span,
+                        pattern,
+                        lowered,
+                        ty,
+                        &mut body,
+                    );
                 }
                 BodyLineKind::Expr { expr } => {
                     let is_tail = index + 1 == self.function.body.len();
@@ -244,6 +233,129 @@ impl<'a> CoreLowerer<'a> {
             }
         }
         body
+    }
+
+    fn lower_let_pattern(
+        &mut self,
+        node_id: veln_ast::NodeId,
+        span: &veln_source::SourceSpan,
+        pattern: &Pattern,
+        expr: CoreExpr,
+        ty: CoreType,
+        body: &mut Vec<CoreStmt>,
+    ) {
+        match &pattern.kind {
+            PatternKind::Binding(name) => {
+                self.bindings.push(CoreBinding {
+                    name: name.clone(),
+                    ty: ty.clone(),
+                });
+                body.push(CoreStmt {
+                    node_id,
+                    kind: CoreStmtKind::Let {
+                        name: name.clone(),
+                        ty,
+                        expr,
+                    },
+                    span: span.clone(),
+                });
+            }
+            PatternKind::Wildcard => {
+                body.push(CoreStmt {
+                    node_id,
+                    kind: CoreStmtKind::Expr { expr },
+                    span: span.clone(),
+                });
+            }
+            PatternKind::Record(_) => {
+                let temp_name = self.generated_pattern_local();
+                body.push(CoreStmt {
+                    node_id,
+                    kind: CoreStmtKind::Let {
+                        name: temp_name.clone(),
+                        ty: ty.clone(),
+                        expr,
+                    },
+                    span: span.clone(),
+                });
+                let base = CoreExpr {
+                    node_id,
+                    ty: ty.clone(),
+                    kind: CoreExprKind::Local(temp_name),
+                    span: span.clone(),
+                };
+                self.lower_pattern_bindings(pattern, base, &ty, body);
+            }
+            PatternKind::StringLiteral(_)
+            | PatternKind::IntLiteral(_)
+            | PatternKind::FloatLiteral(_)
+            | PatternKind::BoolLiteral(_)
+            | PatternKind::Unit
+            | PatternKind::Constructor { .. } => {
+                body.push(CoreStmt {
+                    node_id,
+                    kind: CoreStmtKind::Expr { expr },
+                    span: span.clone(),
+                });
+            }
+        }
+    }
+
+    fn lower_pattern_bindings(
+        &mut self,
+        pattern: &Pattern,
+        value: CoreExpr,
+        ty: &CoreType,
+        body: &mut Vec<CoreStmt>,
+    ) {
+        match &pattern.kind {
+            PatternKind::Binding(name) => {
+                self.bindings.push(CoreBinding {
+                    name: name.clone(),
+                    ty: ty.clone(),
+                });
+                body.push(CoreStmt {
+                    node_id: pattern.node_id,
+                    kind: CoreStmtKind::Let {
+                        name: name.clone(),
+                        ty: ty.clone(),
+                        expr: value,
+                    },
+                    span: pattern.span.clone(),
+                });
+            }
+            PatternKind::Record(fields) => {
+                for field in fields {
+                    let field_ty = ty
+                        .record_field(&field.name)
+                        .cloned()
+                        .unwrap_or(CoreType::Unknown);
+                    let field_value = CoreExpr {
+                        node_id: field.node_id,
+                        ty: field_ty.clone(),
+                        kind: CoreExprKind::FieldAccess {
+                            base: Box::new(value.clone()),
+                            field: field.name.clone(),
+                        },
+                        span: field.span.clone(),
+                    };
+                    self.lower_pattern_bindings(&field.pattern, field_value, &field_ty, body);
+                }
+            }
+            PatternKind::Wildcard
+            | PatternKind::StringLiteral(_)
+            | PatternKind::IntLiteral(_)
+            | PatternKind::FloatLiteral(_)
+            | PatternKind::BoolLiteral(_)
+            | PatternKind::Unit
+            | PatternKind::Constructor { .. } => {}
+        }
+    }
+
+    fn generated_pattern_local(&mut self) -> String {
+        let name = format!("$pattern{}", self.generated_local_count);
+        self.generated_local_count += 1;
+        name
     }
 
     fn lower_expr(&mut self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {

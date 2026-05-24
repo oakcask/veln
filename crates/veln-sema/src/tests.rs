@@ -2363,6 +2363,71 @@ fn wildcard_let_lowers_to_discarding_expression_statement() {
 }
 
 #[test]
+fn record_let_pattern_binds_field_values() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(value: {count: Int, label: String}) -> Int effects []\n",
+            "  let {count: amount}: {count: Int, label: String} = value\n",
+            "  amount\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert_eq!(core.readiness, CoreReadiness::Complete);
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    assert_eq!(main.body.len(), 3);
+    let CoreStmtKind::Let { name, expr, .. } = &main.body[1].kind else {
+        panic!("record field binding should lower as a let statement");
+    };
+    assert_eq!(name, "amount");
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::FieldAccess { field, .. } if field == "count"
+    ));
+    assert_eq!(expr.ty, CoreType::int());
+    let CoreStmtKind::Return { expr } = &main.body[2].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(&expr.kind, CoreExprKind::Local(name) if name == "amount"));
+}
+
+#[test]
+fn refutable_let_pattern_reports_diagnostic() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(value: Option(Int)) -> () effects []\n",
+            "  let Some(amount) = value\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "pattern.refutable_let"
+            && diagnostic.message == "refutable let pattern is not supported"
+            && diagnostic.related.len() == 1
+    }));
+}
+
+#[test]
 fn match_expression_binds_constructor_payloads() {
     let source = SourceFile::new(
         "main.veln",

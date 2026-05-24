@@ -1,6 +1,9 @@
 use std::collections::BTreeMap;
 
-use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, SurfaceModule, UseDecl};
+use veln_ast::{
+    BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, Pattern, PatternKind, SurfaceModule,
+    UseDecl,
+};
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
@@ -342,7 +345,7 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
             for line in &function.body {
                 match &line.kind {
                     BodyLineKind::Let {
-                        name,
+                        pattern,
                         annotation,
                         expr,
                     } => {
@@ -354,12 +357,8 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
                             &effects_by_module_path,
                             &mut inferred,
                         );
-                        if let Some(name) = name {
-                            bindings.push(Binding {
-                                name: name.clone(),
-                                ty: parse_type_or_unknown(annotation.as_deref()),
-                            });
-                        }
+                        let ty = parse_type_or_unknown(annotation.as_deref());
+                        collect_pattern_bindings(pattern, &ty, &mut bindings);
                     }
                     BodyLineKind::Expr { expr } => {
                         collect_expr_effects(
@@ -390,6 +389,28 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
         if let Some(effects) = effects_by_name.remove(&function.name) {
             function.effects = effects;
         }
+    }
+}
+
+fn collect_pattern_bindings(pattern: &Pattern, ty: &Type, bindings: &mut Vec<Binding>) {
+    match &pattern.kind {
+        PatternKind::Binding(name) => bindings.push(Binding {
+            name: name.clone(),
+            ty: ty.clone(),
+        }),
+        PatternKind::Record(fields) => {
+            for field in fields {
+                let field_ty = ty.record_field(&field.name).unwrap_or(&Type::Unknown);
+                collect_pattern_bindings(&field.pattern, field_ty, bindings);
+            }
+        }
+        PatternKind::Wildcard
+        | PatternKind::StringLiteral(_)
+        | PatternKind::IntLiteral(_)
+        | PatternKind::FloatLiteral(_)
+        | PatternKind::BoolLiteral(_)
+        | PatternKind::Unit
+        | PatternKind::Constructor { .. } => {}
     }
 }
 

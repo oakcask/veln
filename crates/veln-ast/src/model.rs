@@ -115,7 +115,7 @@ pub struct BodyLine {
 #[derive(Clone, Debug)]
 pub enum BodyLineKind {
     Let {
-        name: Option<String>,
+        pattern: Pattern,
         annotation: Option<String>,
         expr: Expr,
     },

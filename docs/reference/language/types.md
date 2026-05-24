@@ -46,11 +46,13 @@ Expected types flow into holes and subexpressions from:
 - `Ok`, `Err`, `Some`, `None`, their `Result::` or `Option::` qualified
   forms, and postfix `?`
 - `match` arm results and constructor payload bindings
-- record pattern field bindings
+- record pattern field bindings in `match` arms and `let` statements
 
 Record field access gets its result type from the inferred base record type.
 Wildcard lets use the same annotation rule as named lets but do not add a
-binding to the local environment.
+binding to the local environment. Record let patterns bind each nested binding
+to the corresponding record field type when the right-hand side or annotation
+has a known record type.
 
 `match` infers the scrutinee first. A binding pattern has the scrutinee type.
 `Some(value)`, `Option::Some(value)`, `Ok(value)`, `Result::Ok(value)`,
