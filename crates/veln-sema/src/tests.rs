@@ -399,13 +399,22 @@ fn ranks_visible_symbol_candidates_for_hole_expected_type() {
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
         "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
-        "\"application_policy\":\"manual_review_required\"}"
+        "\"application_policy\":\"manual_review_required\",",
+        "\"edits\":[{\"kind\":\"replace\","
     )));
+    assert!(details.contains(concat!(
+        "\"span\":{\"file\":\"main.veln\",",
+        "\"start\":{\"line\":3,\"column\":3,\"offset\":48},",
+        "\"end\":{\"line\":3,\"column\":4,\"offset\":49}}"
+    )));
+    assert!(details.contains("\"replacement\":\"fallback\""));
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
         "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
-        "\"application_policy\":\"manual_review_required\"}"
+        "\"application_policy\":\"manual_review_required\",",
+        "\"edits\":[{\"kind\":\"replace\","
     )));
+    assert!(details.contains("\"replacement\":\"limit\""));
 }
 
 #[test]

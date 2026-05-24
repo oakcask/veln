@@ -2031,7 +2031,8 @@ impl<'a> FunctionChecker<'a> {
             .unwrap_or_else(|| "unknown".to_string());
         let expected_source =
             expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source);
-        let candidate_queries = self.candidate_queries(expected.map(|expected| &expected.ty));
+        let candidate_queries =
+            self.candidate_queries(expected.map(|expected| &expected.ty), &expr.span);
         let constraints = self.hole_constraints(satisfy);
         let mut diagnostic = Diagnostic::new(
             "hole.unfilled",
@@ -2147,7 +2148,7 @@ impl<'a> FunctionChecker<'a> {
         constraints
     }
 
-    fn candidate_queries(&self, expected: Option<&Type>) -> Vec<JsonValue> {
+    fn candidate_queries(&self, expected: Option<&Type>, hole_span: &SourceSpan) -> Vec<JsonValue> {
         let Some(expected) = expected.filter(|expected| **expected != Type::Unknown) else {
             return Vec::new();
         };
@@ -2157,7 +2158,7 @@ impl<'a> FunctionChecker<'a> {
             .map(|binding| binding.ty.render())
             .collect::<Vec<_>>()
             .join(", ");
-        let ranked_candidates = self.ranked_symbol_candidates(expected);
+        let ranked_candidates = self.ranked_symbol_candidates(expected, hole_span);
         let mut query = vec![
             ("kind", JsonValue::string("symbol")),
             ("candidate_status", JsonValue::string("query_only")),
@@ -2176,7 +2177,7 @@ impl<'a> FunctionChecker<'a> {
         vec![JsonValue::object(query)]
     }
 
-    fn ranked_symbol_candidates(&self, expected: &Type) -> Vec<JsonValue> {
+    fn ranked_symbol_candidates(&self, expected: &Type, hole_span: &SourceSpan) -> Vec<JsonValue> {
         let mut candidates = self
             .bindings
             .iter()
@@ -2218,6 +2219,14 @@ impl<'a> FunctionChecker<'a> {
                     (
                         "application_policy",
                         JsonValue::string("manual_review_required"),
+                    ),
+                    (
+                        "edits",
+                        JsonValue::array([JsonValue::object([
+                            ("kind", JsonValue::string("replace")),
+                            ("span", span_json(hole_span)),
+                            ("replacement", JsonValue::string(binding.name.clone())),
+                        ])]),
                     ),
                 ])
             })

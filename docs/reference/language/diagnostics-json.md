@@ -192,9 +192,11 @@ contains `candidates`. Each candidate contains:
 - `rank`
 - `reason`
 - `application_policy`
+- `edits`
 
-These records are ranked suggestions, not concrete edits. The
-`application_policy` remains `manual_review_required`.
+Each edit contains `kind: "replace"`, `span`, and `replacement`. The edits are
+concrete but still advisory; `application_policy` remains
+`manual_review_required`.
 
 Doc diagnostic `details` are stable for doctest metadata diagnostics:
 

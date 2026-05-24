@@ -68,14 +68,14 @@ Hole details include:
 Candidate query records are advisory only. Each query carries
 `candidate_status: "query_only"` and
 `application_policy: "manual_review_required"` to make clear that the checker
-has not produced or authorized an edit.
+has not authorized an edit.
 
 When a hole has a known expected type, the symbol query may include ranked
-visible binding candidates. A ranked candidate is not an edit. It records a
-binding name, rendered binding type, rank, match reason, and the same manual
-review application policy. Exact type matches rank before broader assignable
-matches, and nearer visible bindings rank before older bindings with the same
-match quality.
+visible binding candidates. A ranked candidate records a binding name, rendered
+binding type, rank, match reason, the same manual review application policy,
+and a concrete replacement edit for the hole span. Exact type matches rank
+before broader assignable matches, and nearer visible bindings rank before
+older bindings with the same match quality.
 
 Named holes such as `_port` are diagnostic and repair labels, not bindings.
 The `satisfy candidate => predicate` suffix contributes a repair constraint; it
