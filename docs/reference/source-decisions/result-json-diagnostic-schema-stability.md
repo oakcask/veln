@@ -30,8 +30,8 @@ unstable parts should be isolated below each diagnostic kind.
 
 - `id`: stable diagnostic code, such as `hole.expected_type`.
 - `severity`: `error`, `warning`, `info`, or `hint`.
-- `kind`: broad category, such as `parse`, `type`, `contract`, `effect`,
-  `lint`, `hole`, or `doc`.
+- `kind`: broad category, such as `parse`, `module`, `type`, `contract`,
+  `effect`, `lint`, `hole`, or `doc`.
 - `message`: short human-readable message.
 - `span`: file, start, and end positions when source-backed.
 - `details`: kind-specific payload, explicitly allowed to change until the

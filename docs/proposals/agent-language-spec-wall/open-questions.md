@@ -253,7 +253,8 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   package/tool metadata owned by the manifest, compiler-semantic module
   metadata owned by source, and duplicated facts rejected as drift.
 - Resolved by
-  [First-Slice Module Fields](result-first-slice-module-fields.md): require
+  [First-Slice Module Fields](../../reference/source-decisions/result-first-slice-module-fields.md):
+  require
   only machine-checkable boundary fields in first-slice source modules: module
   identity, source-level imports or module dependencies, public API boundaries,
   and public function effect declarations; keep purpose, invariants, examples,

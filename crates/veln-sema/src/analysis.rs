@@ -13,7 +13,8 @@ use crate::contracts::{
     referenced_names,
 };
 use crate::diagnostics::{
-    contract_details, effect_details, effect_missing_public_details, span_json, type_details,
+    contract_details, effect_details, effect_missing_public_details, module_details, span_json,
+    type_details,
 };
 use crate::effects::stdio_signature;
 use crate::prelude::{
@@ -139,6 +140,35 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
     }
 
     diagnostics
+}
+
+pub(crate) fn check_module_boundary(module: &SurfaceModule) -> Vec<Diagnostic> {
+    if module.module.is_some() || module.uses.is_empty() {
+        return Vec::new();
+    }
+
+    let first_use = &module.uses[0];
+    let mut diagnostic = Diagnostic::new(
+        "module.missing_identity",
+        Severity::Error,
+        DiagnosticKind::Module,
+        "module import requires a module identity",
+        Some(first_use.span.clone()),
+        module_details(
+            first_use.node_id.display("use"),
+            "module_identity",
+            "source",
+            "missing",
+        ),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("repair_hint")),
+        (
+            "message",
+            JsonValue::string("Add a `mod` declaration before `use` declarations."),
+        ),
+    ]));
+    vec![diagnostic]
 }
 
 fn duplicate_name_diagnostic(

@@ -1,6 +1,6 @@
 # Discussion Result: First-Slice Module Fields
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 
@@ -101,11 +101,12 @@ use in diagnostics.
   `kind: "module"` envelope and report the missing field, expected owner
   (`source` or `manifest`), module span when available, and a repair hint.
 
-## Open Detail
+## Remaining Extensions
 
-The first-slice grammar resolves source module declarations as `mod` and
-source imports as `use`. The exact source syntax for export lists and optional
-purpose text remains open.
+The implemented first slice resolves source module declarations as `mod`,
+source imports as `use`, and public declarations as the public API boundary.
+Dedicated export-list syntax and optional purpose text remain future
+extensions.
 
 The project may later define stricter documentation profiles for published
 packages. That should be a tool or package policy layered over the first-slice

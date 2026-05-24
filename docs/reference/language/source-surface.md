@@ -36,9 +36,16 @@ The binding is contract-facing only: it is visible to `ensure` clauses for the
 same function, but not to `require` clauses, the function body, or callers.
 Bare `result` has no special meaning.
 
+`mod` declares the source module identity. The header is optional for a
+single-file source with no imports. A source file with one or more `use`
+declarations must declare `mod` before those imports.
+
 `use` declarations create module import aliases. The current alias is the final
 segment of the imported module path, so `use platform.io` declares the alias
 `io`.
+
+Public `fn` declarations are the implemented public API boundary. Dedicated
+export lists are not implemented.
 
 `test` is a top-level declaration keyword, not a visibility modifier. Test
 declarations are selected by `veln test`, require an empty parameter list,

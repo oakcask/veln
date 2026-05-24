@@ -126,7 +126,7 @@
   Purpose, invariants, examples, tests, and ADR-lite decisions should remain
   optional language-core fields.
 - Discussion result:
-  [First-Slice Module Fields](../../proposals/agent-language-spec-wall/result-first-slice-module-fields.md)
+  [First-Slice Module Fields](../source-decisions/result-first-slice-module-fields.md)
 - Supporting references:
   `parnas1972-module-criteria`,
   `deremer1976-programming-large-small`,

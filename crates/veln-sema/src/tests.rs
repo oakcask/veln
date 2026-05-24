@@ -192,6 +192,38 @@ fn duplicate_use_aliases_are_static_errors() {
 }
 
 #[test]
+fn use_declarations_require_module_identity() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use platform.io\n",
+            "fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "module.missing_identity");
+    assert_eq!(diagnostics[0].kind, DiagnosticKind::Module);
+    assert_eq!(
+        diagnostics[0].message,
+        "module import requires a module identity"
+    );
+    assert_eq!(diagnostics[0].related.len(), 1);
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"field\":\"module_identity\"")
+    );
+}
+
+#[test]
 fn duplicate_parameter_names_are_static_errors() {
     let source = SourceFile::new(
         "main.veln",

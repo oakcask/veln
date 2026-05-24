@@ -227,6 +227,61 @@ fn check_human_reports_diagnostics_to_stdout() {
 }
 
 #[test]
+fn check_human_reports_missing_module_identity_for_imports() {
+    let project = TestProject::new("check-human-module-identity");
+    project.write(
+        "main.veln",
+        concat!(
+            "use platform.io\n",
+            "fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "main.veln:1:1: error[module.missing_identity]: module import requires a module identity",
+            "  note: Add a `mod` declaration before `use` declarations.",
+        ],
+    );
+}
+
+#[test]
+fn check_json_reports_missing_module_identity_for_imports() {
+    let project = TestProject::new("check-json-module-identity");
+    project.write(
+        "main.veln",
+        concat!(
+            "use platform.io\n",
+            "fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"module.missing_identity\"",
+            "\"kind\":\"module\"",
+            "\"message\":\"module import requires a module identity\"",
+            "\"details\":{\"phase\":\"module\",\"node_id\":\"use-1\",\"field\":\"module_identity\",\"expected_owner\":\"source\",\"observed_owner\":\"missing\"}",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"module\":1}}",
+        ],
+    );
+}
+
+#[test]
 fn fmt_formats_first_slice_golden_and_is_idempotent() {
     let project = TestProject::new("fmt-golden");
     project.write(

@@ -33,6 +33,10 @@ Current duplicate checks reject:
   duplicate parameters
 - duplicate field names in one record literal
 
+Module boundary checks reject `use` declarations when the source file has no
+`mod` declaration. The diagnostic is `module.missing_identity` at the first
+`use` declaration and includes a repair hint in `related`.
+
 Named holes remain repair labels, not value declarations. Reusing a hole label
 does not affect name resolution.
 

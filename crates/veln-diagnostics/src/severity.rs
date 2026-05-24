@@ -20,6 +20,7 @@ impl Severity {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DiagnosticKind {
     Parse,
+    Module,
     Name,
     Type,
     Contract,
@@ -33,6 +34,7 @@ impl DiagnosticKind {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Parse => "parse",
+            Self::Module => "module",
             Self::Name => "name",
             Self::Type => "type",
             Self::Contract => "contract",

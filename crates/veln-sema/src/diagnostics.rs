@@ -67,6 +67,21 @@ pub(crate) fn effect_details(node_id: String, boundary: &'static str) -> JsonVal
     ])
 }
 
+pub(crate) fn module_details(
+    node_id: String,
+    field: &'static str,
+    expected_owner: &'static str,
+    observed_owner: &'static str,
+) -> JsonValue {
+    JsonValue::object([
+        ("phase", JsonValue::string("module")),
+        ("node_id", JsonValue::string(node_id)),
+        ("field", JsonValue::string(field)),
+        ("expected_owner", JsonValue::string(expected_owner)),
+        ("observed_owner", JsonValue::string(observed_owner)),
+    ])
+}
+
 pub(crate) fn effect_missing_public_details(
     node_id: String,
     effect: &str,

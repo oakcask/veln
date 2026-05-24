@@ -29,8 +29,8 @@ Every diagnostic has:
 
 - `id`
 - `severity`: `error`, `warning`, `info`, or `hint`
-- `kind`: `parse`, `name`, `type`, `contract`, `effect`, `lint`, `hole`, or
-  `doc`
+- `kind`: `parse`, `module`, `name`, `type`, `contract`, `effect`, `lint`,
+  `hole`, or `doc`
 - `message`
 - `span`, or `null`
 - `details`
@@ -66,6 +66,17 @@ Name diagnostic `details` are stable for unresolved and duplicate names:
 
 `name.duplicate` reports the duplicate declaration span as the primary span.
 The first declaration appears in `related` with `kind: "duplicate_origin"`.
+
+Module diagnostic `details` are stable for missing source module identity:
+
+- `phase`
+- `node_id`
+- `field`
+- `expected_owner`
+- `observed_owner`
+
+`module.missing_identity` reports the first `use` declaration as the primary
+span and puts the repair hint in `related`.
 
 Type diagnostic `details` are stable for public-signature, invalid-annotation,
 and type-mismatch diagnostics:

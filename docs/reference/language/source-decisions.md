@@ -10,6 +10,7 @@ categorized specification files. The full implemented decision index is
 - [Check JSON Details Fields](../source-decisions/result-check-json-details-fields.md)
 - [Test JSON Shape](../source-decisions/result-test-json-shape.md)
 - [Test Declaration Syntax](../source-decisions/result-test-declaration-syntax.md)
+- [First-Slice Module Fields](../source-decisions/result-first-slice-module-fields.md)
 - [Stdio API and Output Events](../source-decisions/result-stdio-api-and-output-events.md)
 - [First-Slice Prelude Helpers](../source-decisions/result-first-slice-prelude-helpers.md)
 - [Minimum Type System for Holes](../source-decisions/result-minimum-type-system-for-holes.md)
