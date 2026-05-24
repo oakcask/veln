@@ -904,6 +904,50 @@ fn parses_and_formats_match_expression() {
 }
 
 #[test]
+fn parses_and_formats_qualified_builtin_constructors() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn describe(value: Result(Option(Int), String)) -> Result(String, String) effects []\n",
+            "  match value\n",
+            "    Result::Ok(Option::Some(count)) => Result::Ok(\"some\")\n",
+            "    Result::Ok(Option::None) => Result::Ok(\"none\")\n",
+            "    Result::Err(error) => Result::Err(error)\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("expected match expression");
+    };
+    assert_eq!(arms.len(), 3);
+    assert!(matches!(
+        &arms[0].pattern.kind,
+        PatternKind::Constructor { name, args } if name == &vec!["Result".to_string(), "Ok".to_string()]
+            && matches!(
+                &args[0].kind,
+                PatternKind::Constructor { name, .. } if name == &vec!["Option".to_string(), "Some".to_string()]
+            )
+    ));
+    let ExprKind::Call { callee, .. } = &arms[0].expr.kind else {
+        panic!("expected constructor call");
+    };
+    assert!(matches!(
+        &callee.kind,
+        ExprKind::NamePath(segments) if segments == &vec!["Result".to_string(), "Ok".to_string()]
+    ));
+    assert_eq!(format_tree(&output.tree), source.text());
+}
+
+#[test]
 fn parses_and_formats_record_patterns() {
     let source = SourceFile::new(
         "main.veln",

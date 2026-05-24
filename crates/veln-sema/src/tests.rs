@@ -2066,6 +2066,78 @@ fn lowers_none_constructor_with_expected_return_type() {
 }
 
 #[test]
+fn lowers_qualified_none_constructor_with_expected_return_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> Option(String) effects []\n",
+            "  Option::None\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert_eq!(expr.ty, CoreType::option(CoreType::string()));
+    assert!(matches!(expr.kind, CoreExprKind::OptionNone));
+    assert!(lowered.ir.is_some());
+}
+
+#[test]
+fn lowers_qualified_builtin_constructors() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(use_result: Bool) -> Result(Option(String), AppError) effects []\n",
+            "  if_missing(use_result)\n",
+            "end\n",
+            "fn if_missing(use_result: Bool) -> Result(Option(String), AppError) effects []\n",
+            "  Result::Ok(Option::Some(\"ok\"))\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let helper = core
+        .functions
+        .iter()
+        .find(|function| function.name == "if_missing")
+        .expect("helper should be lowered");
+    let CoreStmtKind::Return { expr } = &helper.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert_eq!(
+        expr.ty,
+        CoreType::result(
+            CoreType::option(CoreType::string()),
+            CoreType::named("AppError", Vec::new())
+        )
+    );
+    let CoreExprKind::ResultOk(value) = &expr.kind else {
+        panic!("Result::Ok call should lower to a result constructor");
+    };
+    assert!(matches!(value.kind, CoreExprKind::OptionSome(_)));
+}
+
+#[test]
 fn lowers_runnable_checked_program_to_core_and_typed_ir() {
     let source = SourceFile::new(
         "main.veln",
@@ -2210,6 +2282,41 @@ fn match_expression_binds_constructor_payloads() {
         panic!("tail expression should lower as return");
     };
     assert!(matches!(value.kind, IrExprKind::Match { .. }));
+}
+
+#[test]
+fn match_expression_binds_qualified_constructor_payloads() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(value: Result(Int, String)) -> Int effects []\n",
+            "  match value\n",
+            "    Result::Ok(count) => count + 1\n",
+            "    Result::Err(_) => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert_eq!(core.readiness, CoreReadiness::Complete);
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert_eq!(expr.ty, CoreType::int());
+    assert!(matches!(expr.kind, CoreExprKind::Match { .. }));
+    assert!(lowered.ir.is_some());
 }
 
 #[test]

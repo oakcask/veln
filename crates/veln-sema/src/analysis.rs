@@ -975,7 +975,7 @@ impl<'a> FunctionChecker<'a> {
     ) -> Type {
         match segments {
             [name] if name == "true" || name == "false" => Type::bool(),
-            [name] if name == "None" => expected
+            segments if is_option_none_constructor(segments) => expected
                 .and_then(|expected| expected.ty.option_part().map(|_| expected.ty.clone()))
                 .unwrap_or_else(|| Type::named("Option", vec![Type::Unknown])),
             [name] => {
@@ -1009,13 +1009,10 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Type {
         if let ExprKind::NamePath(segments) = &callee.kind {
-            if matches!(segments.as_slice(), [name] if name == "Ok") {
-                return self.infer_result_constructor(expr, args, expected, true);
+            if let Some(is_ok) = result_constructor_kind(segments) {
+                return self.infer_result_constructor(expr, args, expected, is_ok);
             }
-            if matches!(segments.as_slice(), [name] if name == "Err") {
-                return self.infer_result_constructor(expr, args, expected, false);
-            }
-            if matches!(segments.as_slice(), [name] if name == "Some") {
+            if is_option_some_constructor(segments) {
                 return self.infer_option_constructor(expr, args, expected);
             }
         }
@@ -1423,48 +1420,38 @@ impl<'a> FunctionChecker<'a> {
                 }
                 bindings
             }
-            PatternKind::Constructor { name, args } => match name.as_slice() {
-                [constructor] if constructor == "Some" => args
+            PatternKind::Constructor { name, args } if is_option_some_constructor(name) => args
+                .iter()
+                .enumerate()
+                .flat_map(|(index, pattern)| {
+                    let ty = if index == 0 {
+                        scrutinee_type.option_part().unwrap_or(&Type::Unknown)
+                    } else {
+                        &Type::Unknown
+                    };
+                    self.pattern_bindings(pattern, ty)
+                })
+                .collect(),
+            PatternKind::Constructor { name, args } => match result_constructor_kind(name) {
+                Some(is_ok) => args
                     .iter()
                     .enumerate()
                     .flat_map(|(index, pattern)| {
-                        let ty = if index == 0 {
-                            scrutinee_type.option_part().unwrap_or(&Type::Unknown)
-                        } else {
+                        let ty = if index != 0 {
                             &Type::Unknown
-                        };
-                        self.pattern_bindings(pattern, ty)
-                    })
-                    .collect(),
-                [constructor] if constructor == "Ok" => args
-                    .iter()
-                    .enumerate()
-                    .flat_map(|(index, pattern)| {
-                        let ty = if index == 0 {
+                        } else if is_ok {
                             scrutinee_type
                                 .result_parts()
                                 .map_or(&Type::Unknown, |(value, _)| value)
                         } else {
-                            &Type::Unknown
-                        };
-                        self.pattern_bindings(pattern, ty)
-                    })
-                    .collect(),
-                [constructor] if constructor == "Err" => args
-                    .iter()
-                    .enumerate()
-                    .flat_map(|(index, pattern)| {
-                        let ty = if index == 0 {
                             scrutinee_type
                                 .result_parts()
                                 .map_or(&Type::Unknown, |(_, error)| error)
-                        } else {
-                            &Type::Unknown
                         };
                         self.pattern_bindings(pattern, ty)
                     })
                     .collect(),
-                _ => Vec::new(),
+                None => Vec::new(),
             },
         }
     }
@@ -2391,6 +2378,26 @@ fn is_plain_identifier(value: &str) -> bool {
     };
     (first.is_ascii_alphabetic() || first == '_')
         && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn result_constructor_kind(segments: &[String]) -> Option<bool> {
+    match segments {
+        [name] if name == "Ok" => Some(true),
+        [type_name, name] if type_name == "Result" && name == "Ok" => Some(true),
+        [name] if name == "Err" => Some(false),
+        [type_name, name] if type_name == "Result" && name == "Err" => Some(false),
+        _ => None,
+    }
+}
+
+fn is_option_some_constructor(segments: &[String]) -> bool {
+    matches!(segments, [name] if name == "Some")
+        || matches!(segments, [type_name, name] if type_name == "Option" && name == "Some")
+}
+
+fn is_option_none_constructor(segments: &[String]) -> bool {
+    matches!(segments, [name] if name == "None")
+        || matches!(segments, [type_name, name] if type_name == "Option" && name == "None")
 }
 
 fn is_ordering_op(op: BinaryOp) -> bool {

@@ -9,8 +9,9 @@ decisions. Historical rationale remains in the linked discussion results.
 
 This document describes the language target. It is not a claim that every
 production is implemented in the current parser, AST, lowering, or backend.
-Record patterns and wildcard `let` targets from this target are implemented in
-the current workspace.
+Record patterns, wildcard `let` targets, and qualified built-in constructor
+expressions and patterns from this target are implemented in the current
+workspace.
 
 For the fixed reference of behavior implemented in the current workspace, read
 [../reference/README.md](../reference/README.md).
@@ -144,8 +145,9 @@ PatternField  ::= Name ":" Pattern
 ```
 
 The first slice resolves only the built-in `Option` and `Result` constructors:
-`Some(value)`, `None`, `Ok(value)`, and `Err(error)`. User-defined constructor
-declarations remain outside the first slice.
+`Some(value)`, `Option::Some(value)`, `None`, `Option::None`, `Ok(value)`,
+`Result::Ok(value)`, `Err(error)`, and `Result::Err(error)`. User-defined
+constructor declarations remain outside the first slice.
 
 ## Holes
 

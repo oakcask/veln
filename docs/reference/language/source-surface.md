@@ -33,15 +33,18 @@ MatchArm      ::= Pattern "=>" Expr NL
 Pattern       ::= "_" | BindingName | Literal | ConstructorPattern | RecordPattern
 ConstructorPattern ::= ConstructorName "(" PatternList? ")"
                      | ConstructorName
+ConstructorName ::= UpperName | Name "::" Name ("::" Name)*
 RecordPattern ::= "{" PatternFieldList? "}"
 PatternList   ::= Pattern ("," Pattern)* ","?
 PatternFieldList ::= PatternField ("," PatternField)* ","?
 PatternField  ::= Name ":" Pattern
 ```
 
-`TypeText` is collected from source and parsed by the semantic type parser.
-Contract predicates parse through a narrower predicate production before
-semantic contract validation.
+`Name` is an identifier. `UpperName` is an identifier whose first character is
+uppercase. `BindingName` is an unqualified identifier whose first character is
+not uppercase. `TypeText` is collected from source and parsed by the semantic
+type parser. Contract predicates parse through a narrower predicate production
+before semantic contract validation.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`
@@ -161,7 +164,8 @@ Implemented expressions:
 - literals: strings, integers, floats, `true`, `false`, and `()`
 - paths and calls: `name`, `module::name`, `callee(args...)`
 - callable function declaration values by bare name
-- constructors: `Ok(value)`, `Err(error)`, `Some(value)`, and `None`
+- constructors: `Ok(value)`, `Err(error)`, `Some(value)`, `None`, and their
+  `Result::` or `Option::` qualified forms
 - prelude helpers as bare calls such as `list_len(items)`
 - records: `{name: value, ...}`
 - dictionaries: `{key_expr: value_expr, ...}` when the first entry is not a
@@ -170,7 +174,8 @@ Implemented expressions:
 - record field access: `expr.name`
 - lists: `[value, ...]`
 - match expressions over literals, bindings, `_`, record patterns, and built-in
-  constructors `Some`, `None`, `Ok`, and `Err`
+  constructors `Some`, `None`, `Ok`, `Err`, `Option::Some`, `Option::None`,
+  `Result::Ok`, and `Result::Err`
 - prefix operators: `not`, `-`
 - pipelines: `expr |> target(args...)`
 - binary operators: `or`, `and`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`, `-`,
@@ -193,12 +198,12 @@ parsing with `parse.method_call`. Use a plain function call like
 
 `match` arms are tried in source order. The implemented match-pattern subset
 covers wildcard `_`, binding names, literals, record patterns, and the built-in
-constructors `Some`, `None`, `Ok`, and `Err`. Record patterns match when the
-scrutinee is a record containing every named pattern field and every nested
-field pattern matches. Pattern bindings in one arm must not duplicate another
-binding in that arm or a value binding already visible at the arm. Record
-pattern field names must be unique. Exhaustiveness is not statically checked in
-the current slice.
+constructors `Some`, `None`, `Ok`, `Err`, `Option::Some`, `Option::None`,
+`Result::Ok`, and `Result::Err`. Record patterns match when the scrutinee is a
+record containing every named pattern field and every nested field pattern
+matches. Pattern bindings in one arm must not duplicate another binding in that
+arm or a value binding already visible at the arm. Record pattern field names
+must be unique. Exhaustiveness is not statically checked in the current slice.
 
 ## Contract Predicates
 

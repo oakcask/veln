@@ -43,7 +43,8 @@ Expected types flow into holes and subexpressions from:
 - list elements
 - dictionary keys and values
 - callable function declarations used as values
-- `Ok`, `Err`, `Some`, `None`, and postfix `?`
+- `Ok`, `Err`, `Some`, `None`, their `Result::` or `Option::` qualified
+  forms, and postfix `?`
 - `match` arm results and constructor payload bindings
 - record pattern field bindings
 
@@ -52,13 +53,14 @@ Wildcard lets use the same annotation rule as named lets but do not add a
 binding to the local environment.
 
 `match` infers the scrutinee first. A binding pattern has the scrutinee type.
-`Some(value)`, `Ok(value)`, and `Err(error)` bind their payload patterns to
-the corresponding `Option` or `Result` argument when the scrutinee type is
-known. A record pattern field binds nested patterns to the corresponding record
-field type when the scrutinee type is known. Unknown or non-record scrutinee
-types leave nested pattern bindings unknown. Arm expressions share the expected
-result type when one is available; otherwise the first arm supplies the initial
-result type for later arms.
+`Some(value)`, `Option::Some(value)`, `Ok(value)`, `Result::Ok(value)`,
+`Err(error)`, and `Result::Err(error)` bind their payload patterns to the
+corresponding `Option` or `Result` argument when the scrutinee type is known. A
+record pattern field binds nested patterns to the corresponding record field
+type when the scrutinee type is known. Unknown or non-record scrutinee types
+leave nested pattern bindings unknown. Arm expressions share the expected result
+type when one is available; otherwise the first arm supplies the initial result
+type for later arms.
 
 ## Assignment Compatibility
 

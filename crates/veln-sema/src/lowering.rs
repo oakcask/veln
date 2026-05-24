@@ -452,7 +452,7 @@ impl<'a> CoreLowerer<'a> {
             [name] if name == "false" => {
                 self.core_expr(expr, CoreType::bool(), CoreExprKind::BoolLiteral(false))
             }
-            [name] if name == "None" => self.core_expr(
+            segments if is_option_none_constructor(segments) => self.core_expr(
                 expr,
                 expected
                     .filter(|expected| expected.option_part().is_some())
@@ -494,13 +494,10 @@ impl<'a> CoreLowerer<'a> {
         expected: Option<&CoreType>,
     ) -> CoreExpr {
         if let ExprKind::NamePath(segments) = &callee.kind {
-            if matches!(segments.as_slice(), [name] if name == "Ok") {
-                return self.lower_result_constructor(expr, args, expected, true);
+            if let Some(is_ok) = result_constructor_kind(segments) {
+                return self.lower_result_constructor(expr, args, expected, is_ok);
             }
-            if matches!(segments.as_slice(), [name] if name == "Err") {
-                return self.lower_result_constructor(expr, args, expected, false);
-            }
-            if matches!(segments.as_slice(), [name] if name == "Some") {
+            if is_option_some_constructor(segments) {
                 return self.lower_option_constructor(expr, args, expected);
             }
         }
@@ -842,26 +839,28 @@ impl<'a> CoreLowerer<'a> {
                     self.pattern_bindings(&field.pattern, field_type)
                 })
                 .collect(),
-            PatternKind::Constructor { name, args } => match name.as_slice() {
-                [constructor] if constructor == "Some" => scrutinee_type
+            PatternKind::Constructor { name, args } if is_option_some_constructor(name) => {
+                scrutinee_type
                     .option_part()
                     .zip(args.first())
                     .map_or_else(Vec::new, |(inner, pattern)| {
                         self.pattern_bindings(pattern, inner)
-                    }),
-                [constructor] if constructor == "Ok" => scrutinee_type
+                    })
+            }
+            PatternKind::Constructor { name, args } => match result_constructor_kind(name) {
+                Some(true) => scrutinee_type
                     .result_parts()
                     .zip(args.first())
                     .map_or_else(Vec::new, |((value, _), pattern)| {
                         self.pattern_bindings(pattern, value)
                     }),
-                [constructor] if constructor == "Err" => scrutinee_type
+                Some(false) => scrutinee_type
                     .result_parts()
                     .zip(args.first())
                     .map_or_else(Vec::new, |((_, error), pattern)| {
                         self.pattern_bindings(pattern, error)
                     }),
-                _ => Vec::new(),
+                None => Vec::new(),
             },
         }
     }
@@ -1014,6 +1013,26 @@ fn render_core_type(ty: &CoreType) -> String {
             format!("fn({params}) -> {}{effects}", render_core_type(return_type))
         }
     }
+}
+
+fn result_constructor_kind(segments: &[String]) -> Option<bool> {
+    match segments {
+        [name] if name == "Ok" => Some(true),
+        [type_name, name] if type_name == "Result" && name == "Ok" => Some(true),
+        [name] if name == "Err" => Some(false),
+        [type_name, name] if type_name == "Result" && name == "Err" => Some(false),
+        _ => None,
+    }
+}
+
+fn is_option_some_constructor(segments: &[String]) -> bool {
+    matches!(segments, [name] if name == "Some")
+        || matches!(segments, [type_name, name] if type_name == "Option" && name == "Some")
+}
+
+fn is_option_none_constructor(segments: &[String]) -> bool {
+    matches!(segments, [name] if name == "None")
+        || matches!(segments, [type_name, name] if type_name == "Option" && name == "None")
 }
 
 fn is_ordering_op(op: BinaryOp) -> bool {
