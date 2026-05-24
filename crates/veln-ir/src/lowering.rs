@@ -289,7 +289,7 @@ mod tests {
 
     fn fixture_ids() -> SurfaceModule {
         lower_source(concat!(
-            "pub fn main(input: Int, mapper: Mapper) -> Result(Unit, AppError) effects [stdio]\n",
+            "pub fn main(input: Int, mapper: Mapper) -> Result((), AppError) effects [stdio]\n",
             "  let answer: Int = mapper(input)\n",
             "  stdio::println(\"done\")\n",
             "  Ok(())\n",
@@ -447,7 +447,7 @@ mod tests {
     #[test]
     fn lower_nested_expression_variants_preserves_structure_and_types() {
         let module = lower_source(concat!(
-            "fn main(flag: Bool) -> Unit\n",
+            "fn main(flag: Bool) -> ()\n",
             "  { some: Some(flag), err: Err(\"bad\"), items: [1, 2], tried: parse(\"1\")?, ",
             "negated: -1, checked: not false, combined: 1 + 2, ratio: 1.5 }\n",
             "end\n",
@@ -727,7 +727,7 @@ mod tests {
 
     #[test]
     fn complete_program_reports_unresolved_call_target_with_call_node() {
-        let module = lower_source(concat!("fn main() -> Unit\n", "  missing()\n", "end\n",));
+        let module = lower_source(concat!("fn main() -> ()\n", "  missing()\n", "end\n",));
         let surface = main_function(&module);
         let call = expr_line(&surface.body[0]);
         let (callee, _args) = call_parts(call);
@@ -760,7 +760,7 @@ mod tests {
 
     #[test]
     fn complete_program_rejects_missing_and_hole_expressions() {
-        let module = lower_source(concat!("fn main() -> Unit\n", "  _\n", "end\n",));
+        let module = lower_source(concat!("fn main() -> ()\n", "  _\n", "end\n",));
         let surface = main_function(&module);
         let expr = expr_line(&surface.body[0]);
 

@@ -54,13 +54,13 @@ fn format_function(out: &mut String, function: &FunctionDecl) {
         out.push_str(&param.name);
         if let Some(ty) = &param.ty {
             out.push_str(": ");
-            out.push_str(ty);
+            out.push_str(&canonical_type_text(ty));
         }
     }
     out.push(')');
     if let Some(return_type) = &function.return_type {
         out.push_str(" -> ");
-        out.push_str(return_type);
+        out.push_str(&canonical_type_text(return_type));
     }
     if let Some(effects) = &function.effects {
         out.push_str(" effects [");
@@ -100,7 +100,7 @@ fn format_function(out: &mut String, function: &FunctionDecl) {
                 out.push_str(name.as_deref().unwrap_or("<missing>"));
                 if let Some(annotation) = annotation {
                     out.push_str(": ");
-                    out.push_str(annotation);
+                    out.push_str(&canonical_type_text(annotation));
                 }
                 out.push_str(" = ");
                 out.push_str(&format_expr(expr));
@@ -118,6 +118,44 @@ fn push_line(out: &mut String, args: std::fmt::Arguments<'_>) {
     out.write_fmt(args)
         .expect("writing to String should not fail");
     out.push('\n');
+}
+
+fn canonical_type_text(text: &str) -> String {
+    let mut out = String::new();
+    let mut cursor = 0;
+    while cursor < text.len() {
+        let ch = text[cursor..]
+            .chars()
+            .next()
+            .expect("cursor should stay on a char boundary");
+        if ch.is_ascii_alphabetic() || ch == '_' {
+            let start = cursor;
+            cursor += ch.len_utf8();
+            while cursor < text.len() {
+                let ch = text[cursor..]
+                    .chars()
+                    .next()
+                    .expect("cursor should stay on a char boundary");
+                if ch.is_ascii_alphanumeric() || ch == '_' {
+                    cursor += ch.len_utf8();
+                } else {
+                    break;
+                }
+            }
+            let ident = &text[start..cursor];
+            let namespaced_before = text[..start].ends_with("::");
+            let namespaced_after = text[cursor..].starts_with("::");
+            if ident == "Unit" && !namespaced_before && !namespaced_after {
+                out.push_str("()");
+            } else {
+                out.push_str(ident);
+            }
+        } else {
+            out.push(ch);
+            cursor += ch.len_utf8();
+        }
+    }
+    out
 }
 
 fn format_expr(expr: &Expr) -> String {

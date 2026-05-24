@@ -122,7 +122,7 @@ fn assigns_session_stable_node_ids() {
 
 #[test]
 fn lowers_holes_to_node_id_backed_expression_nodes() {
-    let module = lower_source("fn todo() -> Unit\n  _answer\nend\n");
+    let module = lower_source("fn todo() -> ()\n  _answer\nend\n");
 
     let BodyLineKind::Expr { expr } = &module.functions[0].body[0].kind else {
         panic!("expected expression line");
@@ -139,7 +139,7 @@ fn lowers_holes_to_node_id_backed_expression_nodes() {
 #[test]
 fn lowers_function_metadata_contracts_and_let_lines() {
     let module = lower_source(concat!(
-        "pub fn publish(user: User, count: Int) -> Result(Unit, Error) effects [db, log]\n",
+        "pub fn publish(user: User, count: Int) -> Result((), Error) effects [db, log]\n",
         "  require user ready\n",
         "  ensure result ok\n",
         "  let message: String = \"ready\"\n",
@@ -150,7 +150,7 @@ fn lowers_function_metadata_contracts_and_let_lines() {
     let function = &module.functions[0];
     assert_eq!(function.visibility, Visibility::Public);
     assert_eq!(function.name.as_deref(), Some("publish"));
-    assert_eq!(function.return_type.as_deref(), Some("Result(Unit, Error)"));
+    assert_eq!(function.return_type.as_deref(), Some("Result((), Error)"));
     assert_eq!(
         function.effects,
         Some(vec!["db".to_string(), "log".to_string()])
@@ -182,7 +182,7 @@ fn lowers_function_metadata_contracts_and_let_lines() {
 #[test]
 fn lowers_nested_expression_edge_cases() {
     let module = lower_source(concat!(
-        "fn build(input: Int) -> Unit\n",
+        "fn build(input: Int) -> ()\n",
         "  let data = {answer: [1, 2.5, -input?], check: _value satisfy candidate => candidate > 0}\n",
         "  data |> sink(\"ok\", ())\n",
         "end\n",
@@ -248,10 +248,10 @@ fn lowers_nested_expression_edge_cases() {
 #[test]
 fn allocates_unique_contiguous_node_ids_across_nested_nodes_and_functions() {
     let module = lower_source(concat!(
-        "fn first() -> Unit\n",
+        "fn first() -> ()\n",
         "  {x: [1]}\n",
         "end\n",
-        "fn second() -> Unit\n",
+        "fn second() -> ()\n",
         "  _\n",
         "end\n",
     ));
@@ -265,7 +265,7 @@ fn allocates_unique_contiguous_node_ids_across_nested_nodes_and_functions() {
 
 #[test]
 fn lowers_missing_let_initializers_to_missing_expressions() {
-    let module = lower_source_allowing_diagnostics("fn broken() -> Unit\n  let value =\nend\n");
+    let module = lower_source_allowing_diagnostics("fn broken() -> ()\n  let value =\nend\n");
     let (_, _, expr) = let_line(&module.functions[0], 0);
 
     assert!(matches!(&expr.kind, ExprKind::Missing));

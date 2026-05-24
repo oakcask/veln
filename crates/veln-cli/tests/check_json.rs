@@ -162,7 +162,7 @@ fn check_json_accepts_valid_input() {
     let project = TestProject::new("valid");
     project.write(
         "main.veln",
-        "pub fn main() -> Result(Unit, AppError) effects [stdio]\n  Ok(())\nend\n",
+        "pub fn main() -> Result((), AppError) effects [stdio]\n  Ok(())\nend\n",
     );
 
     let output = project.check_json(&["main.veln"]);
@@ -183,7 +183,7 @@ fn check_json_accepts_valid_input() {
 #[test]
 fn check_human_prints_ok_for_valid_input() {
     let project = TestProject::new("check-human-ok");
-    project.write("main.veln", "pub fn main() -> Unit effects []\n  ()\nend\n");
+    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
 
     let output = project.veln(&["check"], &["main.veln"]);
 
@@ -218,7 +218,7 @@ fn fmt_formats_first_slice_golden_and_is_idempotent() {
         concat!(
             "mod app\n",
             "use stdio\n",
-            "pub   fn   main ( name : String ) -> Result ( Unit , AppError ) effects [ stdio ]\n",
+            "pub   fn   main ( name : String ) -> Result ( () , AppError ) effects [ stdio ]\n",
             " require name != \"\"\n",
             " let payload : { message : String, values : List(Int) } = { message : name , values : [ 1 , 2 , add ( 3 , 4 ) ] }\n",
             " stdio::println ( payload )\n",
@@ -240,7 +240,7 @@ fn fmt_formats_first_slice_golden_and_is_idempotent() {
             "mod app\n",
             "use stdio\n",
             "\n",
-            "pub fn main(name: String) -> Result(Unit, AppError) effects [stdio]\n",
+            "pub fn main(name: String) -> Result((), AppError) effects [stdio]\n",
             "  require name != \"\"\n",
             "  let payload: { message : String, values : List(Int) } = { message: name, values: [1, 2, add(3, 4)] }\n",
             "  stdio::println(payload)\n",
@@ -262,7 +262,7 @@ fn fmt_formats_first_slice_golden_and_is_idempotent() {
             "mod app\n",
             "use stdio\n",
             "\n",
-            "pub fn main(name: String) -> Result(Unit, AppError) effects [stdio]\n",
+            "pub fn main(name: String) -> Result((), AppError) effects [stdio]\n",
             "  require name != \"\"\n",
             "  let payload: { message : String, values : List(Int) } = { message: name, values: [1, 2, add(3, 4)] }\n",
             "  stdio::println(payload)\n",
@@ -279,7 +279,7 @@ fn fmt_formats_first_slice_golden_and_is_idempotent() {
 #[test]
 fn fmt_rejects_unknown_flags_before_writing_files() {
     let project = TestProject::new("fmt-unknown-flag");
-    let text = "fn   ok ( ) -> Unit\n()\nend\n";
+    let text = "fn   ok ( ) -> ()\n()\nend\n";
     project.write("main.veln", text);
 
     let output = project.fmt(&["--json", "main.veln"]);
@@ -293,14 +293,14 @@ fn fmt_rejects_unknown_flags_before_writing_files() {
 #[test]
 fn fmt_preserves_files_when_any_input_has_parse_errors() {
     let project = TestProject::new("fmt-parse-error");
-    project.write("bad.veln", "fn bad() -> Unit\n  @\nend\n");
-    project.write("good.veln", "fn   ok ( ) -> Unit\n()\nend\n");
+    project.write("bad.veln", "fn bad() -> ()\n  @\nend\n");
+    project.write("good.veln", "fn   ok ( ) -> ()\n()\nend\n");
 
     let output = project.fmt(&["bad.veln", "good.veln"]);
 
     assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
-    assert_eq!(project.read("bad.veln"), "fn bad() -> Unit\n  @\nend\n");
-    assert_eq!(project.read("good.veln"), "fn   ok ( ) -> Unit\n()\nend\n");
+    assert_eq!(project.read("bad.veln"), "fn bad() -> ()\n  @\nend\n");
+    assert_eq!(project.read("good.veln"), "fn   ok ( ) -> ()\n()\nend\n");
     assert_contains_all(
         stderr(&output),
         &["bad.veln:2:3: error[parse.invalid_token]: invalid token in expression"],
@@ -312,7 +312,7 @@ fn fmt_preserves_comment_bearing_files_byte_for_byte() {
     let project = TestProject::new("fmt-comments");
     let text = concat!(
         "// keep leading comment\n",
-        "fn   main ( ) -> Unit\n",
+        "fn   main ( ) -> ()\n",
         "  () // keep trailing comment\n",
         "end\n",
     );
@@ -376,7 +376,7 @@ fn check_json_reports_hole_with_return_expected_type() {
     let project = TestProject::new("hole-return");
     project.write(
         "main.veln",
-        "pub fn main() -> Result(Unit, AppError) effects []\n  _\nend\n",
+        "pub fn main() -> Result((), AppError) effects []\n  _\nend\n",
     );
 
     let output = project.check_json(&["main.veln"]);
@@ -392,14 +392,14 @@ fn check_json_reports_hole_with_return_expected_type() {
             "\"id\":\"hole.unfilled\",",
             "\"severity\":\"hint\",",
             "\"kind\":\"hole\",",
-            "\"message\":\"hole requires a `Result(Unit, AppError)` value\",",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":2,\"column\":3,\"offset\":53},\"end\":{\"line\":2,\"column\":4,\"offset\":54}},",
+            "\"message\":\"hole requires a `Result((), AppError)` value\",",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":2,\"column\":3,\"offset\":51},\"end\":{\"line\":2,\"column\":4,\"offset\":52}},",
             "\"details\":{\"phase\":\"hole\",\"node_id\":\"hole-3\",\"label\":null,",
-            "\"expected_type\":\"Result(Unit, AppError)\",\"expected_type_source\":\"declared\",",
+            "\"expected_type\":\"Result((), AppError)\",\"expected_type_source\":\"declared\",",
             "\"constraints\":[],\"local_bindings\":[],",
-            "\"candidate_queries\":[{\"kind\":\"symbol\",\"query\":\"fn() -> Result(Unit, AppError)\"}]},",
+            "\"candidate_queries\":[{\"kind\":\"symbol\",\"query\":\"fn() -> Result((), AppError)\"}]},",
             "\"related\":[{\"kind\":\"expected_type_origin\",\"message\":\"Return type declared here.\",",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":59}}}]}],",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":57}}}]}],",
             "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"hint\":1},\"by_kind\":{\"hole\":1}}}\n"
         )
     );
@@ -408,7 +408,7 @@ fn check_json_reports_hole_with_return_expected_type() {
 #[test]
 fn check_json_keeps_sema_for_other_files_when_one_file_has_parse_errors() {
     let project = TestProject::new("parse-and-sema");
-    project.write("a_parse.veln", "fn broken() -> Unit\n  @\nend\n");
+    project.write("a_parse.veln", "fn broken() -> ()\n  @\nend\n");
     project.write(
         "b_type.veln",
         "pub fn main() -> Int effects []\n  \"no\"\nend\n",
@@ -459,7 +459,7 @@ fn check_json_reports_unresolved_name_and_call_target() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> Unit effects []\n",
+            "pub fn main() -> () effects []\n",
             "  missing_value\n",
             "  missing_call()\n",
             "end\n",
@@ -492,7 +492,7 @@ fn check_json_reports_missing_public_stdio_effect_with_provenance() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> Unit effects []\n",
+            "pub fn main() -> () effects []\n",
             "  stdio::println(\"hello\")\n",
             "end\n",
         ),
@@ -522,7 +522,7 @@ fn check_human_reports_missing_public_effect_cause() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> Unit effects []\n",
+            "pub fn main() -> () effects []\n",
             "  stdio::println(\"hello\")\n",
             "end\n",
         ),
@@ -544,7 +544,7 @@ fn check_human_reports_missing_public_effect_cause() {
 #[test]
 fn check_human_reports_public_effect_annotation_hint_as_note() {
     let project = TestProject::new("effect-human-boundary-hint");
-    project.write("main.veln", "pub fn main() -> Unit\n  ()\nend\n");
+    project.write("main.veln", "pub fn main() -> ()\n  ()\nend\n");
 
     let output = project.veln(&["check"], &["main.veln"]);
 
@@ -565,7 +565,7 @@ fn check_json_reports_contract_validation_diagnostics() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main(ready: Bool) -> Unit effects []\n",
+            "pub fn main(ready: Bool) -> () effects []\n",
             "require stdio::println(\"no\")\n",
             "  ()\n",
             "end\n",
@@ -627,7 +627,7 @@ fn check_json_reports_hole_constraints_from_contracts_and_satisfy() {
 #[test]
 fn check_json_reports_recovery_with_required_details() {
     let project = TestProject::new("recovery");
-    project.write("main.veln", "garbage\nfn ok() -> Unit\n  ()\nend\n");
+    project.write("main.veln", "garbage\nfn ok() -> ()\n  ()\nend\n");
 
     let output = project.check_json(&["main.veln"]);
     let stdout = stdout(&output);
@@ -649,7 +649,7 @@ fn check_json_reports_recovery_with_required_details() {
 #[test]
 fn check_json_reports_missing_end_at_eof_span() {
     let project = TestProject::new("missing-end");
-    project.write("main.veln", "fn broken() -> Unit\n  _\n");
+    project.write("main.veln", "fn broken() -> ()\n  _\n");
 
     let output = project.check_json(&["main.veln"]);
 
@@ -665,7 +665,7 @@ fn check_json_reports_missing_end_at_eof_span() {
             "\"severity\":\"error\",",
             "\"kind\":\"parse\",",
             "\"message\":\"expected `end` to close function declaration\",",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":3,\"column\":1,\"offset\":24},\"end\":{\"line\":3,\"column\":1,\"offset\":24}},",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":3,\"column\":1,\"offset\":22},\"end\":{\"line\":3,\"column\":1,\"offset\":22}},",
             "\"details\":{\"phase\":\"parse\",\"node_id\":null,\"parser_context\":\"function_body\",",
             "\"unexpected\":{\"kind\":\"end of file\",\"text\":\"\"},",
             "\"expected\":[\"end\"],",
@@ -679,7 +679,7 @@ fn check_json_reports_missing_end_at_eof_span() {
 #[test]
 fn check_json_reports_malformed_declaration() {
     let project = TestProject::new("malformed-declaration");
-    project.write("main.veln", "pub main() -> Unit\n  ()\nend\n");
+    project.write("main.veln", "pub main() -> ()\n  ()\nend\n");
 
     let output = project.check_json(&["main.veln"]);
     let stdout = stdout(&output);
@@ -702,7 +702,7 @@ fn check_json_reports_malformed_declaration() {
 #[test]
 fn check_json_reports_invalid_tokens() {
     let project = TestProject::new("invalid-token");
-    project.write("main.veln", "fn bad() -> Unit\n  @\nend\n");
+    project.write("main.veln", "fn bad() -> ()\n  @\nend\n");
 
     let output = project.check_json(&["main.veln"]);
 
@@ -718,7 +718,7 @@ fn check_json_reports_invalid_tokens() {
             "\"severity\":\"error\",",
             "\"kind\":\"parse\",",
             "\"message\":\"invalid token in expression\",",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":2,\"column\":3,\"offset\":19},\"end\":{\"line\":2,\"column\":4,\"offset\":20}},",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":2,\"column\":3,\"offset\":17},\"end\":{\"line\":2,\"column\":4,\"offset\":18}},",
             "\"details\":{\"phase\":\"parse\",\"node_id\":null,\"parser_context\":\"expression_line\",",
             "\"unexpected\":{\"kind\":\"invalid token\",\"text\":\"@\"},",
             "\"expected\":[\"expression\"],",
@@ -732,8 +732,8 @@ fn check_json_reports_invalid_tokens() {
 #[test]
 fn check_json_orders_diagnostics_by_source_discovery_order() {
     let project = TestProject::new("ordering");
-    project.write("b.veln", "fn b() -> Unit\n  _\n");
-    project.write("a.veln", "fn a() -> Unit\n  @\nend\n");
+    project.write("b.veln", "fn b() -> ()\n  _\n");
+    project.write("a.veln", "fn a() -> ()\n  @\nend\n");
 
     let output = project.check_json(&["b.veln", "a.veln"]);
     let stdout = stdout(&output);
@@ -758,7 +758,7 @@ fn run_forwards_stdout_and_stderr_when_jdk_is_available() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> Unit effects [stdio]\n",
+            "pub fn main() -> () effects [stdio]\n",
             "  stdio::println(\"out\")\n",
             "  stdio::eprintln(\"err\")\n",
             "  ()\n",
@@ -778,7 +778,7 @@ fn run_blocks_reachable_holes_before_jdk_execution() {
     let project = TestProject::new("run-hole");
     project.write(
         "main.veln",
-        "pub fn main() -> Result(Unit, AppError) effects []\n  _\nend\n",
+        "pub fn main() -> Result((), AppError) effects []\n  _\nend\n",
     );
 
     let output = project.run(&["main", "main.veln"]);
@@ -788,7 +788,7 @@ fn run_blocks_reachable_holes_before_jdk_execution() {
     assert_contains_all(
         stderr(&output),
         &[
-            "hint[hole.unfilled]: hole requires a `Result(Unit, AppError)` value",
+            "hint[hole.unfilled]: hole requires a `Result((), AppError)` value",
             "veln: run blocked: checked program is not executable",
         ],
     );
@@ -804,11 +804,11 @@ fn run_does_not_block_unreachable_holes_when_jdk_is_available() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> Unit effects [stdio]\n",
+            "pub fn main() -> () effects [stdio]\n",
             "  stdio::println(\"ran\")\n",
             "  ()\n",
             "end\n",
-            "fn later() -> Unit\n",
+            "fn later() -> ()\n",
             "  _\n",
             "end\n",
         ),
@@ -824,7 +824,7 @@ fn run_does_not_block_unreachable_holes_when_jdk_is_available() {
 #[test]
 fn run_reports_missing_entry_before_jdk_execution() {
     let project = TestProject::new("run-missing-entry");
-    project.write("main.veln", "pub fn main() -> Unit effects []\n  ()\nend\n");
+    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
 
     let output = project.run(&["missing", "main.veln"]);
 
@@ -860,7 +860,7 @@ fn run_rejects_parameterized_entry_before_jdk_execution() {
 #[test]
 fn run_reports_missing_javac_clearly() {
     let project = TestProject::new("run-no-javac");
-    project.write("main.veln", "pub fn main() -> Unit effects []\n  ()\nend\n");
+    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
 
     let output = project.run_with_path(&["main", "main.veln"], "");
 
@@ -920,7 +920,7 @@ fn test_json_blocks_static_gate_before_jdk_execution() {
     let project = TestProject::new("test-static-gate");
     project.write(
         "main_test.veln",
-        "fn blocked() -> Result(Unit, AppError) effects []\n  _\nend\n",
+        "fn blocked() -> Result((), AppError) effects []\n  _\nend\n",
     );
 
     let output = project.test(&["--json"]);
@@ -948,7 +948,7 @@ fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
     let project = TestProject::new("test-human-static-gate");
     project.write(
         "main_test.veln",
-        "fn blocked() -> Result(Unit, AppError) effects []\n  _\nend\n",
+        "fn blocked() -> Result((), AppError) effects []\n  _\nend\n",
     );
 
     let output = project.test(&[]);
@@ -957,9 +957,7 @@ fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
     assert_eq!(stdout(&output), "blocked blocked\n");
     assert_contains_all(
         stderr(&output),
-        &[
-            "main_test.veln:2:3: hint[hole.unfilled]: hole requires a `Result(Unit, AppError)` value",
-        ],
+        &["main_test.veln:2:3: hint[hole.unfilled]: hole requires a `Result((), AppError)` value"],
     );
 }
 
@@ -968,7 +966,7 @@ fn test_json_reports_missing_javac_as_runner_error() {
     let project = TestProject::new("test-no-javac");
     project.write(
         "main_test.veln",
-        "fn passes() -> Unit effects []\n  ()\nend\n",
+        "fn passes() -> () effects []\n  ()\nend\n",
     );
 
     let output = project.test_with_path(&["--json"], "");
@@ -994,16 +992,16 @@ fn test_json_discovers_runs_and_captures_stdio_when_jdk_is_available() {
     }
 
     let project = TestProject::new("test-json-cases");
-    project.write("app.veln", "fn helper() -> Unit effects []\n  ()\nend\n");
+    project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");
     project.write(
         "main_test.veln",
         concat!(
-            "fn passes() -> Unit effects [stdio]\n",
+            "fn passes() -> () effects [stdio]\n",
             "  stdio::println(\"out\")\n",
             "  stdio::eprintln(\"err\")\n",
             "  ()\n",
             "end\n",
-            "fn fails() -> Result(Unit, String) effects []\n",
+            "fn fails() -> Result((), String) effects []\n",
             "  Err(\"bad\")\n",
             "end\n",
         ),
@@ -1036,10 +1034,7 @@ fn test_explicit_target_runs_same_file_zero_arg_function_when_jdk_is_available()
     }
 
     let project = TestProject::new("test-explicit-same-file");
-    project.write(
-        "example.veln",
-        "fn example() -> Unit effects []\n  ()\nend\n",
-    );
+    project.write("example.veln", "fn example() -> () effects []\n  ()\nend\n");
 
     let output = project.test(&["--json", "example.veln"]);
     let stdout = stdout(&output);

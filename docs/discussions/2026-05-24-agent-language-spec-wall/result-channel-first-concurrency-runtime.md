@@ -40,12 +40,12 @@ default.
 
 Channel operations should use existing Veln absence and error conventions.
 Receiving from a closed channel returns `Option(T)`. Sending to a channel whose
-receiver has been dropped returns `Result(Unit, SendError)`.
+receiver has been dropped returns `Result((), SendError)`.
 
 ```veln
-channel::send(tx, value) -> Result(Unit, SendError)
+channel::send(tx, value) -> Result((), SendError)
 channel::recv(rx) -> Option(T)
-channel::close(tx) -> Unit
+channel::close(tx) -> ()
 ```
 
 Concurrency should be visible in public effect declarations through a coarse
@@ -94,7 +94,7 @@ locks.
   single-consumer in the first model.
 - Bounded channels are the default channel constructor. A rendezvous channel is
   a bounded channel with capacity zero.
-- Sending returns `Result(Unit, SendError)` when the receiver is no longer
+- Sending returns `Result((), SendError)` when the receiver is no longer
   available.
 - Receiving returns `Option(T)`, with `None` representing closed and drained.
 - `spawn`, channel send and receive, task join, cancellation, and future

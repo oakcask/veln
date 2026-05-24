@@ -33,7 +33,7 @@ veln test [--json] [target ...]
 ```veln
 use stdio
 
-pub fn main() -> Unit effects [stdio]
+pub fn main() -> () effects [stdio]
   stdio::println("hello from veln")
   stdio::eprintln("stderr from veln")
   ()
@@ -62,7 +62,7 @@ hello from veln
 Public functions carry explicit signatures and effect declarations:
 
 ```veln
-pub fn main() -> Unit effects [stdio]
+pub fn main() -> () effects [stdio]
   stdio::println("hello from veln")
   ()
 end
@@ -71,7 +71,7 @@ end
 Typed holes keep partial programs checkable and report repair context:
 
 ```veln
-pub fn main() -> Result(Unit, AppError) effects []
+pub fn main() -> Result((), AppError) effects []
   _todo satisfy candidate => candidate == Ok(())
 end
 ```
@@ -81,7 +81,7 @@ veln check samples/demo/hole_error.veln
 ```
 
 ```text
-samples/demo/hole_error.veln:2:3: hint[hole.unfilled]: hole requires a `Result(Unit, AppError)` value
+samples/demo/hole_error.veln:2:3: hint[hole.unfilled]: hole requires a `Result((), AppError)` value
   note: samples/demo/hole_error.veln:1:1: Return type declared here.
   note: samples/demo/hole_error.veln:2:9: Satisfy predicate contributes a repair constraint.
 ```

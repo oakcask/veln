@@ -15,13 +15,13 @@ event shape.
 The first implementation should provide these built-ins:
 
 ```veln
-pub fn stdio::print(text: String) -> Unit effects [stdio]
-pub fn stdio::println(text: String) -> Unit effects [stdio]
-pub fn stdio::eprint(text: String) -> Unit effects [stdio]
-pub fn stdio::eprintln(text: String) -> Unit effects [stdio]
+pub fn stdio::print(text: String) -> () effects [stdio]
+pub fn stdio::println(text: String) -> () effects [stdio]
+pub fn stdio::eprint(text: String) -> () effects [stdio]
+pub fn stdio::eprintln(text: String) -> () effects [stdio]
 ```
 
-All four functions accept only `String`, return `Unit`, and carry the coarse
+All four functions accept only `String`, return `()`, and carry the coarse
 `stdio` effect. `print` and `println` target stdout. `eprint` and `eprintln`
 target stderr. `println` and `eprintln` append one logical newline after
 `text`; the logical newline is `\n` in captured test events even if a later
@@ -87,7 +87,7 @@ the primary capture record structured enough for diagnostics and repair.
 
 - The first stdio built-ins are exactly `stdio::print`, `stdio::println`,
   `stdio::eprint`, and `stdio::eprintln`.
-- Each built-in takes one `String`, returns `Unit`, and has effect `stdio`.
+- Each built-in takes one `String`, returns `()`, and has effect `stdio`.
 - No first-slice stdio function accepts arbitrary values, formatting strings,
   byte buffers, file handles, or stdin.
 - `println` and `eprintln` append one logical newline after the provided

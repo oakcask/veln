@@ -25,7 +25,7 @@ accepted in ordinary Veln type annotations, including qualified names when
 those are available.
 
 When this attribute is present, the generated private doctest wrapper returns
-`Result(Unit, <TypePath>)`, and every propagated `?` in the example must either
+`Result((), <TypePath>)`, and every propagated `?` in the example must either
 produce that error type or be explicitly converted before propagation. The
 attribute is optional when the error type can be inferred from one concrete
 propagated error type or from an unambiguous documented public item context.
@@ -75,7 +75,7 @@ and diagnostics a concrete source span.
   `error=<TypePath>`.
 - `error=<TypePath>` applies only to the fenced block where it appears.
 - The attribute sets the generated wrapper return type to
-  `Result(Unit, <TypePath>)`.
+  `Result((), <TypePath>)`.
 - The attribute is harness metadata, not Veln source syntax, and must not be
   visible inside the generated example body.
 - A doctest using `?` without an inferrable or contextual error type should
@@ -103,7 +103,7 @@ end
 The checker treats the block as if the harness had generated:
 
 ```veln
-fn __doctest_load_config() -> Result(Unit, ConfigError) effects fs
+fn __doctest_load_config() -> Result((), ConfigError) effects fs
   let cfg = load_config("app.veln")?
   assert_eq(cfg.name, "demo")
   Ok(())

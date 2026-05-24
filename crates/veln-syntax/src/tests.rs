@@ -5,7 +5,7 @@ use veln_source::SourceFile;
 fn parses_minimal_public_function() {
     let source = SourceFile::new(
         "main.veln",
-        "pub fn main() -> Result(Unit, AppError) effects [stdio]\n  Ok(())\nend\n",
+        "pub fn main() -> Result((), AppError) effects [stdio]\n  Ok(())\nend\n",
     );
 
     let output = parse(&source);
@@ -36,7 +36,7 @@ fn parses_omitted_signature_annotations_as_recoverable_ast_facts() {
 
 #[test]
 fn reports_missing_end() {
-    let source = SourceFile::new("main.veln", "fn broken() -> Unit\n  _\n");
+    let source = SourceFile::new("main.veln", "fn broken() -> ()\n  _\n");
     let output = parse(&source);
 
     assert!(
@@ -80,7 +80,7 @@ fn lossless_tree_groups_declarations_for_formatting() {
     let text = concat!(
         "mod app\n",
         "use stdio\n",
-        "pub fn main() -> Unit effects [stdio]\n",
+        "pub fn main() -> () effects [stdio]\n",
         "  require ready\n",
         "  let message = \"hello\"\n",
         "  stdio::println(message)\n",
@@ -115,7 +115,7 @@ fn lossless_tree_groups_declarations_for_formatting() {
 fn parses_structured_calls_and_holes() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Unit\n  stdio::println(_message)\n  _\nend\n",
+        "fn main() -> ()\n  stdio::println(_message)\n  _\nend\n",
     );
 
     let output = parse(&source);
@@ -211,11 +211,37 @@ fn parses_module_use_nested_types_and_multiple_effects() {
 }
 
 #[test]
+fn formats_unit_type_with_empty_tuple_spelling() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Unit) -> Result(Unit, AppError)\n",
+            "  let ready: Unit = ()\n",
+            "  Ok(ready)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn main(value: ()) -> Result((), AppError)\n",
+            "  let ready: () = ()\n",
+            "  Ok(ready)\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn parses_hole_satisfy_clause() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn choose() -> Unit\n",
+            "fn choose() -> ()\n",
             "  _value satisfy candidate => candidate > 0 and candidate < 10\n",
             "end\n",
         ),
@@ -246,7 +272,7 @@ fn parses_records_lists_and_formats_precedence() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn data() -> Unit\n",
+            "fn data() -> ()\n",
             "  let record = { name: \"veln\", values: [1, 2 + 3 * 4] }\n",
             "  1 * (2 + 3)\n",
             "end\n",
@@ -297,7 +323,7 @@ fn parses_records_lists_and_formats_precedence() {
 fn format_tree_preserves_commented_source_losslessly() {
     let source = SourceFile::new(
         "main.veln",
-        "// header\nfn main() -> Unit\n  _ // hole\nend\n",
+        "// header\nfn main() -> ()\n  _ // hole\nend\n",
     );
 
     let output = parse(&source);
@@ -308,7 +334,7 @@ fn format_tree_preserves_commented_source_losslessly() {
 
 #[test]
 fn reports_invalid_expression_token_and_recovers_to_next_line() {
-    let source = SourceFile::new("main.veln", "fn main() -> Unit\n  @\n  1\nend\n");
+    let source = SourceFile::new("main.veln", "fn main() -> ()\n  @\n  1\nend\n");
 
     let output = parse(&source);
 

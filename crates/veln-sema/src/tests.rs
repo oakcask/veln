@@ -44,10 +44,7 @@ fn private_function_may_omit_boundary_annotations() {
 
 #[test]
 fn reports_hole_with_declared_return_expected_type() {
-    let source = SourceFile::new(
-        "main.veln",
-        "fn todo() -> Result(Unit, AppError)\n  _\nend\n",
-    );
+    let source = SourceFile::new("main.veln", "fn todo() -> Result((), AppError)\n  _\nend\n");
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 
@@ -60,11 +57,11 @@ fn reports_hole_with_declared_return_expected_type() {
         diagnostics[0].details.to_json(),
         concat!(
             "{\"phase\":\"hole\",\"node_id\":\"hole-3\",\"label\":null,",
-            "\"expected_type\":\"Result(Unit, AppError)\",",
+            "\"expected_type\":\"Result((), AppError)\",",
             "\"expected_type_source\":\"declared\",",
             "\"constraints\":[],\"local_bindings\":[],",
             "\"candidate_queries\":[{\"kind\":\"symbol\",",
-            "\"query\":\"fn() -> Result(Unit, AppError)\"}]}"
+            "\"query\":\"fn() -> Result((), AppError)\"}]}"
         )
     );
     assert_eq!(diagnostics[0].related.len(), 1);
@@ -96,7 +93,7 @@ fn reports_return_type_mismatch() {
 fn ok_constructor_accepts_declared_result_return() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result(Unit, AppError)\n  Ok(())\nend\n",
+        "fn main() -> Result((), AppError)\n  Ok(())\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -110,7 +107,7 @@ fn ok_constructor_accepts_declared_result_return() {
 fn result_constructor_checks_expected_value_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result(Unit, AppError)\n  Ok(\"no\")\nend\n",
+        "fn main() -> Result((), AppError)\n  Ok(\"no\")\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -122,7 +119,7 @@ fn result_constructor_checks_expected_value_type() {
     assert_eq!(
         diagnostics[0].details.to_json(),
         concat!(
-            "{\"phase\":\"type\",\"node_id\":\"expr-5\",\"expected_type\":\"Unit\",",
+            "{\"phase\":\"type\",\"node_id\":\"expr-5\",\"expected_type\":\"()\",",
             "\"actual_type\":\"String\",\"expected_type_source\":\"declared_return\",",
             "\"actual_type_source\":\"inferred_expression\",",
             "\"constraint\":\"call_argument\",",
@@ -209,10 +206,10 @@ fn flows_call_argument_expected_type_into_holes() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn consume(value: Float) -> Unit\n",
+            "fn consume(value: Float) -> ()\n",
             "  ()\n",
             "end\n",
-            "pub fn main() -> Unit effects []\n",
+            "pub fn main() -> () effects []\n",
             "  consume(_)\n",
             "end\n",
         ),
@@ -238,7 +235,7 @@ fn reports_missing_public_effect_with_call_provenance() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> Unit effects []\n",
+            "pub fn main() -> () effects []\n",
             "  stdio::println(\"hello\")\n",
             "end\n",
         ),
@@ -268,7 +265,7 @@ fn reports_non_boolean_contract_predicate() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(value: Int) -> Unit effects []\n",
+            "pub fn main(value: Int) -> () effects []\n",
             "require value\n",
             "  ()\n",
             "end\n",
@@ -390,7 +387,7 @@ fn lowers_runnable_checked_program_to_core_and_typed_ir() {
             "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
             "  Ok(1)\n",
             "end\n",
-            "pub fn main(raw: String) -> Result(Unit, AppError) effects [stdio]\n",
+            "pub fn main(raw: String) -> Result((), AppError) effects [stdio]\n",
             "  let value: Int = parse(raw)?\n",
             "  stdio::println(\"ok\")\n",
             "  Ok(())\n",
@@ -450,7 +447,7 @@ fn lowers_runnable_checked_program_to_core_and_typed_ir() {
 fn holes_build_blocked_core_but_not_executable_ir() {
     let source = SourceFile::new(
         "main.veln",
-        "pub fn main() -> Result(Unit, AppError) effects []\n  _\nend\n",
+        "pub fn main() -> Result((), AppError) effects []\n  _\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);

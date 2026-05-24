@@ -44,7 +44,7 @@ variables instead of concrete edit guidance.
 ## First-Slice Rules
 
 - Primitive types include at least `Bool`, `Int`, `Float`, `String`, and
-  `Unit`.
+  `()`.
 - Built-in compound types include records, homogeneous lists, homogeneous
   dictionaries, function types, `Option(T)`, and `Result(T, E)`.
 - Type variables may exist internally during checking, but public diagnostics

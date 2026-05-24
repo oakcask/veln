@@ -178,7 +178,7 @@ implementations.
 
 The frontend owns:
 
-- primitive types: `Bool`, `Int`, `Float`, `String`, and `Unit`
+- primitive types: `Bool`, `Int`, `Float`, `String`, and `()`
 - built-in parametric forms: `Option(T)`, `Result(T, E)`, `List(T)`, and
   `Dict(K, V)`
 - record and function type modeling
@@ -231,10 +231,10 @@ behavior.
 implementation provides exactly these output functions:
 
 ```veln
-pub fn stdio::print(text: String) -> Unit effects [stdio]
-pub fn stdio::println(text: String) -> Unit effects [stdio]
-pub fn stdio::eprint(text: String) -> Unit effects [stdio]
-pub fn stdio::eprintln(text: String) -> Unit effects [stdio]
+pub fn stdio::print(text: String) -> () effects [stdio]
+pub fn stdio::println(text: String) -> () effects [stdio]
+pub fn stdio::eprint(text: String) -> () effects [stdio]
+pub fn stdio::eprintln(text: String) -> () effects [stdio]
 ```
 
 Represent output internally as effect operations routed through implementation
@@ -282,7 +282,7 @@ Start with the smallest executable program that exercises public effects,
 built-in calls, `Result`, and JVM execution:
 
 ```veln
-pub fn main() -> Result(Unit, AppError) effects [stdio]
+pub fn main() -> Result((), AppError) effects [stdio]
   stdio::println("hello")
   Ok(())
 end
@@ -367,7 +367,7 @@ Implemented so far:
 - Exact `veln check --json` golden coverage for public boundary diagnostic
   spans, including the parameter span and function boundary span.
 - Item 3 type-analysis slice: primitive type rendering for `Bool`, `Int`,
-  `Float`, `String`, and `Unit`; parsed `Option(...)`, `Result(...)`,
+  `Float`, `String`, and `()`; parsed `Option(...)`, `Result(...)`,
   `List(...)`, `Dict(...)`, record, and function type forms; annotation
   validation diagnostics; local binding context; declared-return,
   local-annotation, call-argument, record-field, collection-element, and `?`
@@ -490,7 +490,7 @@ Resolved item 2 review notes:
 Item 3 completion gate status:
 
 - Complete: primitive coverage includes at least `Bool`, `Int`, `Float`,
-  `String`, and `Unit`, with deterministic rendering in type and hole
+  `String`, and `()`, with deterministic rendering in type and hole
   diagnostics.
 - Complete: built-in compound type support covers records, homogeneous lists,
   dictionary type forms, function types, `Option(T)`, and `Result(T, E)`.

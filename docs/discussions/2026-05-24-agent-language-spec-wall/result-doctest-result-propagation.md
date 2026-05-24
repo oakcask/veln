@@ -13,7 +13,7 @@ doctest context supplied by the test harness.
 
 For the first slice, every executable doctest should be checked as an isolated
 generated private test function. If a doctest body contains `?`, the generated
-function returns `Result(Unit, E)`. The checker may infer `E` when all
+function returns `Result((), E)`. The checker may infer `E` when all
 propagated fallible operations use one concrete error type, or when the
 documented public item gives an unambiguous `Result(_, E)` context. If more
 than one incompatible error type appears, the doctest must declare the intended
@@ -57,7 +57,7 @@ the exact `?` whose error type does not fit the doctest's chosen error type.
 - `veln test` runs executable doctest examples through the same static gates as
   normal test files.
 - A doctest containing `?` is valid only when the generated doctest wrapper has
-  a known `Result(Unit, E)` return type.
+  a known `Result((), E)` return type.
 - The checker may infer the doctest error type when every propagated fallible
   operation has the same concrete error type.
 - The checker may use the documented public item's explicit `Result(_, E)`
@@ -91,7 +91,7 @@ end
 The checker treats the block as if it were wrapped in a private generated test:
 
 ```veln
-fn __doctest_load_config() -> Result(Unit, ConfigError) effects fs
+fn __doctest_load_config() -> Result((), ConfigError) effects fs
   let cfg = load_config("app.veln")?
   assert_eq(cfg.name, "demo")
   Ok(())

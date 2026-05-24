@@ -134,6 +134,7 @@ impl Type {
     pub(crate) fn render(&self) -> String {
         match self {
             Self::Unknown => "unknown".to_string(),
+            Self::Named { name, args } if name == "Unit" && args.is_empty() => "()".to_string(),
             Self::Named { name, args } if args.is_empty() => name.clone(),
             Self::Named { name, args } => {
                 let args = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
@@ -333,6 +334,13 @@ impl<'a> TypeParser<'a> {
         if self.eat('{') {
             return self.parse_record_type();
         }
+        if self.eat('(') {
+            self.skip_ws();
+            if self.eat(')') {
+                return Ok(Type::unit());
+            }
+            return Err("expected `)` for unit type `()`".to_string());
+        }
         if self.eat_keyword("fn") {
             return self.parse_function_type();
         }
@@ -529,5 +537,36 @@ impl<'a> TypeParser<'a> {
 
     fn current(&self) -> Option<char> {
         self.text[self.cursor..].chars().next()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_empty_tuple_spelling_as_unit_type() {
+        assert_eq!(parse_type_annotation("()"), Ok(Type::unit()));
+        assert_eq!(
+            parse_type_annotation("Result((), AppError)"),
+            Ok(Type::result(
+                Type::unit(),
+                Type::named("AppError", Vec::new())
+            ))
+        );
+    }
+
+    #[test]
+    fn renders_unit_type_with_empty_tuple_spelling() {
+        assert_eq!(Type::unit().render(), "()");
+        assert_eq!(
+            Type::result(Type::unit(), Type::named("AppError", Vec::new())).render(),
+            "Result((), AppError)"
+        );
+    }
+
+    #[test]
+    fn keeps_unit_name_as_compatibility_alias() {
+        assert_eq!(parse_type_annotation("Unit"), Ok(Type::unit()));
     }
 }

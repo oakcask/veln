@@ -18,7 +18,7 @@ fn generates_program_and_runtime_sources_for_result_try_and_stdio() {
         "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
         "  Ok(1)\n",
         "end\n",
-        "pub fn main(raw: String) -> Result(Unit, AppError) effects [stdio]\n",
+        "pub fn main(raw: String) -> Result((), AppError) effects [stdio]\n",
         "  let value: Int = parse(raw)?\n",
         "  stdio::println(\"ok\")\n",
         "  Ok(())\n",
@@ -68,10 +68,10 @@ fn generates_runtime_values_for_records_lists_and_options() {
 #[test]
 fn generates_entry_runner_for_selected_function() {
     let ir = lower_to_ir(concat!(
-        "pub fn other() -> Unit effects []\n",
+        "pub fn other() -> () effects []\n",
         "  ()\n",
         "end\n",
-        "pub fn chosen() -> Result(Unit, AppError) effects []\n",
+        "pub fn chosen() -> Result((), AppError) effects []\n",
         "  Ok(())\n",
         "end\n",
     ));
@@ -89,7 +89,7 @@ fn generates_entry_runner_for_selected_function() {
 #[test]
 fn sanitizes_custom_class_names_and_entry_references() {
     let ir = lower_to_ir(concat!(
-        "pub fn main() -> Result(Unit, AppError) effects []\n",
+        "pub fn main() -> Result((), AppError) effects []\n",
         "  Ok(())\n",
         "end\n",
     ));
@@ -214,7 +214,7 @@ fn generated_sources_compile_when_javac_is_available() {
         "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
         "  Ok(1)\n",
         "end\n",
-        "pub fn main(raw: String) -> Result(Unit, AppError) effects [stdio]\n",
+        "pub fn main(raw: String) -> Result((), AppError) effects [stdio]\n",
         "  let value: Int = parse(raw)?\n",
         "  stdio::println(\"ok\")\n",
         "  Ok(())\n",
