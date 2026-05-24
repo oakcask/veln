@@ -7,7 +7,7 @@ not fully implemented in the current workspace.
 
 - [grammar-target.md](grammar-target.md) is the accepted first-slice grammar
   target. It includes syntax that is not implemented yet.
-- [../reviews/2026-05-24-first-slice-gap-review.md](../reviews/2026-05-24-first-slice-gap-review.md)
+- [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
   lists current gaps between the implementation and the broader design target.
 
 ## Accepted Targets Not Fully Implemented
@@ -15,13 +15,13 @@ not fully implemented in the current workspace.
 - Grammar coverage: `match`, explicit `test` declarations, and full hole
   grammar are tracked in [grammar-target.md](grammar-target.md).
 - Runtime contract enforcement is tracked by
-  [Runtime Contract Failure Reporting](../discussions/2026-05-24-agent-language-spec-wall/result-runtime-contract-failure-reporting.md)
+  [Runtime Contract Failure Reporting](../discussions/agent-language-spec-wall/result-runtime-contract-failure-reporting.md)
   and the current gap review.
 - Prelude helper coverage is tracked by
-  [First-Slice Prelude Helpers](../discussions/2026-05-24-agent-language-spec-wall/result-first-slice-prelude-helpers.md)
+  [First-Slice Prelude Helpers](../discussions/agent-language-spec-wall/result-first-slice-prelude-helpers.md)
   and the current gap review.
 - Captured stdio event fidelity is tracked by
-  [Stdio API and Output Events](../discussions/2026-05-24-agent-language-spec-wall/result-stdio-api-and-output-events.md)
+  [Stdio API and Output Events](../discussions/agent-language-spec-wall/result-stdio-api-and-output-events.md)
   and the current gap review.
 
 ## Status Rules

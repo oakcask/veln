@@ -1,8 +1,6 @@
 # Test JSON
 
 Status: implemented
-Date: 2026-05-24
-
 This file specifies the implemented JSON output for `veln test --json`.
 
 ## Envelope

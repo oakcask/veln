@@ -1,6 +1,5 @@
 # Veln First-Slice Grammar Target
 
-Date: 2026-05-24
 Status: accepted-proposal
 Implementation: partially implemented
 
@@ -232,9 +231,9 @@ and doctest fences.
 
 ## Source Decisions
 
-- [First-Slice Grammar](../discussions/2026-05-24-agent-language-spec-wall/result-first-slice-grammar.md)
-- [Test Declaration Syntax](../discussions/2026-05-24-agent-language-spec-wall/result-test-declaration-syntax.md)
-- [Hole Satisfy Source Syntax](../discussions/2026-05-24-agent-language-spec-wall/result-hole-satisfy-source-syntax.md)
-- [Contract Predicate Parsing](../discussions/2026-05-24-agent-language-spec-wall/result-contract-predicate-parsing.md)
-- [Public Function Type Boundaries](../discussions/2026-05-24-agent-language-spec-wall/result-public-function-type-boundaries.md)
-- [Effect Declaration Boundary](../discussions/2026-05-24-agent-language-spec-wall/result-effect-declaration-boundary.md)
+- [First-Slice Grammar](../discussions/agent-language-spec-wall/result-first-slice-grammar.md)
+- [Test Declaration Syntax](../discussions/agent-language-spec-wall/result-test-declaration-syntax.md)
+- [Hole Satisfy Source Syntax](../discussions/agent-language-spec-wall/result-hole-satisfy-source-syntax.md)
+- [Contract Predicate Parsing](../discussions/agent-language-spec-wall/result-contract-predicate-parsing.md)
+- [Public Function Type Boundaries](../discussions/agent-language-spec-wall/result-public-function-type-boundaries.md)
+- [Effect Declaration Boundary](../discussions/agent-language-spec-wall/result-effect-declaration-boundary.md)

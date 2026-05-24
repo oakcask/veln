@@ -4,7 +4,7 @@ This directory keeps implementation-phase plans and working notes.
 
 ## Read First
 
-- [../reviews/2026-05-24-first-slice-gap-review.md](../reviews/2026-05-24-first-slice-gap-review.md)
+- [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
   records current gaps that must be fixed before treating the first-slice gate
   as complete.
 - [first-slice-implementation.md](first-slice-implementation.md) describes the

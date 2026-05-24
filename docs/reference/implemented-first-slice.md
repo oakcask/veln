@@ -1,8 +1,6 @@
 # Implemented First-Slice Language Specification
 
 Status: implemented
-Date: 2026-05-24
-
 This is the stable entry point for behavior implemented in the current Veln
 workspace. The full specification is split by category under
 `language/`.

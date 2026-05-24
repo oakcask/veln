@@ -11,11 +11,11 @@ the experimental Veln implementation.
   categorized language specification for the implemented first slice.
 - [proposals/README.md](proposals/README.md) routes accepted and open design
   targets that are not fully implemented.
-- [reviews/2026-05-24-first-slice-gap-review.md](reviews/2026-05-24-first-slice-gap-review.md)
+- [reviews/first-slice-gap-review.md](reviews/first-slice-gap-review.md)
   is the current gap review against the broader design target.
 - [phases/first-slice-implementation.md](phases/first-slice-implementation.md)
   is the current implementation memo for the first slice.
-- [discussions/2026-05-24-agent-language-spec-wall.md](discussions/2026-05-24-agent-language-spec-wall.md)
+- [discussions/agent-language-spec-wall.md](discussions/agent-language-spec-wall.md)
   is the short entry point for the current design-wall discussion based on the
   agent-oriented language proposal.
 

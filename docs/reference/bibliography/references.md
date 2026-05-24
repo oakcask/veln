@@ -1,7 +1,5 @@
 # Bibliography References
 
-Date: 2026-05-24
-
 This file contains sanitized reference metadata promoted from the working
 bibliography cache when a source informs Veln design direction.
 

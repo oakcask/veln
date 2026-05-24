@@ -1,8 +1,6 @@
 # Language Specification Overview
 
 Status: implemented
-Date: 2026-05-24
-
 This file defines the stability boundary for behavior implemented in the
 current Veln workspace.
 

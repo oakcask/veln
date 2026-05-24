@@ -1,8 +1,6 @@
 # Source Surface
 
 Status: implemented
-Date: 2026-05-24
-
 This file specifies the source subset implemented by the parser and AST.
 
 ## Grammar

@@ -1,8 +1,6 @@
 # Language Specification
 
 Status: implemented
-Date: 2026-05-24
-
 This directory contains the categorized specification for the implemented
 first slice of Veln. It records the implemented subset, not every language
 target discussed in `../../discussions/`.

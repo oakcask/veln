@@ -1,7 +1,5 @@
 # First-Slice Implementation Memo
 
-Date: 2026-05-24
-
 This memo turns the current first-slice design decisions into an implementation
 shape. It is a working plan, not a replacement for the decision records under
 `docs/discussions/`.
@@ -329,10 +327,10 @@ bindings, and candidate-query hints.
 
 Review note: the current code has known gaps against this memo and the
 design-wall decisions. Read
-`../reviews/2026-05-24-first-slice-gap-review.md` before treating the completion
+`../reviews/first-slice-gap-review.md` before treating the completion
 claims below as the current implementation status.
 
-Status as of 2026-05-24: implementation order items 1, 2, 3, 4, 5, 6, 7, 8,
+Current status: implementation order items 1, 2, 3, 4, 5, 6, 7, 8,
 and 9 are complete for the first-slice gate.
 
 Implemented so far:
@@ -734,7 +732,7 @@ Item 9 completion gate status:
   files. With no targets, selection is restricted to zero-argument functions in
   discovered `*_test.veln` files. Public and private zero-argument functions
   are both eligible test cases. This is the implemented bootstrap behavior, not
-  the durable source syntax; [Test Declaration Syntax](../discussions/2026-05-24-agent-language-spec-wall/result-test-declaration-syntax.md)
+  the durable source syntax; [Test Declaration Syntax](../discussions/agent-language-spec-wall/result-test-declaration-syntax.md)
   replaces it with explicit top-level `test` declarations for future work.
 - Complete for the first-slice same-file example boundary: explicitly targeted
   non-`*_test.veln` files can be run as test files by selecting their
@@ -801,15 +799,15 @@ candidate ranking as later follow-up work.
 
 ## Related Decisions
 
-- [First Implementation Architecture](../discussions/2026-05-24-agent-language-spec-wall/result-first-implementation-architecture.md)
-- [First Implementation Commands](../discussions/2026-05-24-agent-language-spec-wall/result-first-implementation-commands.md)
-- [First-Slice Grammar](../discussions/2026-05-24-agent-language-spec-wall/result-first-slice-grammar.md)
-- [AST Phase Boundary](../discussions/2026-05-24-agent-language-spec-wall/result-ast-phase-boundary.md)
-- [AST Implementation Representation](../discussions/2026-05-24-agent-language-spec-wall/result-ast-implementation-representation.md)
-- [Minimum Type System for Holes](../discussions/2026-05-24-agent-language-spec-wall/result-minimum-type-system-for-holes.md)
-- [First-Slice Prelude Helpers](../discussions/2026-05-24-agent-language-spec-wall/result-first-slice-prelude-helpers.md)
-- [Stdio API and Output Events](../discussions/2026-05-24-agent-language-spec-wall/result-stdio-api-and-output-events.md)
-- [Check JSON Details Fields](../discussions/2026-05-24-agent-language-spec-wall/result-check-json-details-fields.md)
-- [Transitive Effect Diagnostics](../discussions/2026-05-24-agent-language-spec-wall/result-transitive-effect-diagnostics.md)
-- [Contract Predicate Parsing](../discussions/2026-05-24-agent-language-spec-wall/result-contract-predicate-parsing.md)
-- [Hole Satisfy Source Syntax](../discussions/2026-05-24-agent-language-spec-wall/result-hole-satisfy-source-syntax.md)
+- [First Implementation Architecture](../discussions/agent-language-spec-wall/result-first-implementation-architecture.md)
+- [First Implementation Commands](../discussions/agent-language-spec-wall/result-first-implementation-commands.md)
+- [First-Slice Grammar](../discussions/agent-language-spec-wall/result-first-slice-grammar.md)
+- [AST Phase Boundary](../discussions/agent-language-spec-wall/result-ast-phase-boundary.md)
+- [AST Implementation Representation](../discussions/agent-language-spec-wall/result-ast-implementation-representation.md)
+- [Minimum Type System for Holes](../discussions/agent-language-spec-wall/result-minimum-type-system-for-holes.md)
+- [First-Slice Prelude Helpers](../discussions/agent-language-spec-wall/result-first-slice-prelude-helpers.md)
+- [Stdio API and Output Events](../discussions/agent-language-spec-wall/result-stdio-api-and-output-events.md)
+- [Check JSON Details Fields](../discussions/agent-language-spec-wall/result-check-json-details-fields.md)
+- [Transitive Effect Diagnostics](../discussions/agent-language-spec-wall/result-transitive-effect-diagnostics.md)
+- [Contract Predicate Parsing](../discussions/agent-language-spec-wall/result-contract-predicate-parsing.md)
+- [Hole Satisfy Source Syntax](../discussions/agent-language-spec-wall/result-hole-satisfy-source-syntax.md)

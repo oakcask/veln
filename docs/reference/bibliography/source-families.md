@@ -1,7 +1,5 @@
 # Bibliography Source Families
 
-Date: 2026-05-24
-
 ## Contract and Specification Languages
 
 References in this family cover Design by Contract, executable contract

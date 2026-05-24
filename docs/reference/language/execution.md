@@ -1,8 +1,6 @@
 # Execution Boundary
 
 Status: implemented
-Date: 2026-05-24
-
 This file specifies the implemented execution boundary.
 
 ## Core And IR

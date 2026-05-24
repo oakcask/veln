@@ -1,8 +1,6 @@
 # Types
 
 Status: implemented
-Date: 2026-05-24
-
 This file specifies implemented type annotations, inference, assignment
 compatibility, and operator typing.
 
