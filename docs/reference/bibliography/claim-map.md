@@ -46,7 +46,7 @@
 - Claim: postconditions should refer to a returned value through an explicit
   result binding rather than a magic bare `result` identifier.
 - Discussion result:
-  [Postcondition Result Binding](../../proposals/agent-language-spec-wall/result-postcondition-result-binding.md)
+  [Postcondition Result Binding](../source-decisions/result-postcondition-result-binding.md)
 - Supporting references:
   `meyer1997-object-oriented-software-construction`,
   `jml-reference-manual-introduction`, `dafny-reference-manual`,

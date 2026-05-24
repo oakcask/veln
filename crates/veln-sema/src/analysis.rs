@@ -405,6 +405,45 @@ impl<'a> FunctionChecker<'a> {
                 "Return type declared here.",
             );
         }
+
+        if let Some(result_binding) = &self.function.return_binding {
+            if let Some(param) = self
+                .function
+                .params
+                .iter()
+                .find(|param| param.name == result_binding.name)
+            {
+                let mut diagnostic = Diagnostic::new(
+                    "name.duplicate",
+                    Severity::Error,
+                    DiagnosticKind::Name,
+                    format!("duplicate result binding name `{}`", result_binding.name),
+                    Some(result_binding.span.clone()),
+                    JsonValue::object([
+                        ("phase", JsonValue::string("name")),
+                        (
+                            "node_id",
+                            JsonValue::string(result_binding.node_id.display("result")),
+                        ),
+                        ("name", JsonValue::string(result_binding.name.clone())),
+                        ("namespace", JsonValue::string("value")),
+                        (
+                            "first_node_id",
+                            JsonValue::string(param.node_id.display("param")),
+                        ),
+                    ]),
+                );
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("duplicate_origin")),
+                    (
+                        "message",
+                        JsonValue::string("Parameter with this name is here."),
+                    ),
+                    ("span", span_json(&param.span)),
+                ]));
+                self.diagnostics.push(diagnostic);
+            }
+        }
     }
 
     fn declare_local_name(
@@ -607,19 +646,20 @@ impl<'a> FunctionChecker<'a> {
             if is_contract_keyword(&name) || name == "true" || name == "false" {
                 continue;
             }
-            if kind == ContractKind::Ensure && name == "result" {
-                continue;
-            }
-            if self.bindings.iter().any(|binding| binding.name == name) {
+            if self
+                .contract_bindings(kind)
+                .iter()
+                .any(|binding| binding.name == name)
+            {
                 continue;
             }
             return ContractValidation::UnresolvedName { name };
         }
-        if predicate_is_boolean(trimmed, &self.bindings) {
+        if predicate_is_boolean(trimmed, &self.contract_bindings(kind)) {
             ContractValidation::Valid
         } else {
             ContractValidation::NonBoolean {
-                actual_type: predicate_rendered_type(trimmed, &self.bindings),
+                actual_type: predicate_rendered_type(trimmed, &self.contract_bindings(kind)),
             }
         }
     }
@@ -628,7 +668,13 @@ impl<'a> FunctionChecker<'a> {
         referenced_names(predicate)
             .into_iter()
             .filter_map(|name| {
-                if kind == ContractKind::Ensure && name == "result" {
+                if kind == ContractKind::Ensure
+                    && self
+                        .function
+                        .return_binding
+                        .as_ref()
+                        .is_some_and(|binding| binding.name == name)
+                {
                     return Some(JsonValue::object([
                         ("name", JsonValue::string(name)),
                         ("kind", JsonValue::string("result")),
@@ -645,6 +691,24 @@ impl<'a> FunctionChecker<'a> {
                     })
             })
             .collect()
+    }
+
+    fn contract_bindings(&self, kind: ContractKind) -> Vec<Binding> {
+        let mut bindings = self.bindings.clone();
+        if kind == ContractKind::Ensure {
+            if let Some(result_binding) = &self.function.return_binding {
+                bindings.push(Binding {
+                    name: result_binding.name.clone(),
+                    ty: self
+                        .function
+                        .return_type
+                        .as_deref()
+                        .and_then(|return_type| parse_type_annotation(return_type).ok())
+                        .unwrap_or(Type::Unknown),
+                });
+            }
+        }
+        bindings
     }
 
     fn parse_annotation(

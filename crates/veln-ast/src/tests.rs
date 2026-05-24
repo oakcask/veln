@@ -51,6 +51,12 @@ fn collect_function_node_ids(function: &Function, ids: &mut Vec<u32>) {
     ids.extend(function.params.iter().map(|param| param.node_id.as_u32()));
     ids.extend(
         function
+            .return_binding
+            .iter()
+            .map(|binding| binding.node_id.as_u32()),
+    );
+    ids.extend(
+        function
             .contracts
             .iter()
             .map(|contract| contract.node_id.as_u32()),
@@ -160,9 +166,9 @@ fn lowers_holes_to_node_id_backed_expression_nodes() {
 #[test]
 fn lowers_function_metadata_contracts_and_let_lines() {
     let module = lower_source(concat!(
-        "pub fn publish(user: User, count: Int) -> Result((), Error) effects [db, log]\n",
+        "pub fn publish(user: User, count: Int) -> output: Result((), Error) effects [db, log]\n",
         "  require user ready\n",
-        "  ensure result ok\n",
+        "  ensure output ok\n",
         "  let message: String = \"ready\"\n",
         "  message\n",
         "end\n",
@@ -171,6 +177,13 @@ fn lowers_function_metadata_contracts_and_let_lines() {
     let function = &module.functions[0];
     assert_eq!(function.visibility, Visibility::Public);
     assert_eq!(function.name.as_deref(), Some("publish"));
+    assert_eq!(
+        function
+            .return_binding
+            .as_ref()
+            .map(|binding| binding.name.as_str()),
+        Some("output")
+    );
     assert_eq!(function.return_type.as_deref(), Some("Result((), Error)"));
     assert_eq!(
         function.effects,
@@ -187,7 +200,7 @@ fn lowers_function_metadata_contracts_and_let_lines() {
     assert_eq!(function.contracts[0].kind, ContractKind::Require);
     assert_eq!(function.contracts[0].text, "user ready");
     assert_eq!(function.contracts[1].kind, ContractKind::Ensure);
-    assert_eq!(function.contracts[1].text, "result ok");
+    assert_eq!(function.contracts[1].text, "output ok");
 
     let (name, annotation, expr) = let_line(function, 0);
     assert_eq!(name.as_deref(), Some("message"));

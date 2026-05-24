@@ -613,6 +613,111 @@ fn reports_non_boolean_contract_predicate() {
 }
 
 #[test]
+fn ensure_can_reference_explicit_result_binding() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int) -> output: Int effects []\n",
+            "ensure output == value\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn require_cannot_reference_result_binding() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> output: Int effects []\n",
+            "require output > 0\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved contract_predicate `output`"
+    }));
+}
+
+#[test]
+fn bare_result_has_no_ensure_special_case() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "ensure result == value\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved contract_predicate `result`"
+    }));
+}
+
+#[test]
+fn result_binding_is_not_in_function_body_scope() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> output: Int effects []\n",
+            "  output\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved value `output`"
+    }));
+}
+
+#[test]
+fn result_binding_cannot_duplicate_parameter_name() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(output: Int) -> output: Int effects []\n",
+            "ensure output == 0\n",
+            "  output\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate result binding name `output`"
+    }));
+}
+
+#[test]
 fn hole_diagnostic_includes_contract_and_satisfy_constraints() {
     let source = SourceFile::new(
         "main.veln",

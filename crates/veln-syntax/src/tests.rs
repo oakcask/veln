@@ -293,6 +293,41 @@ fn parses_module_use_nested_types_and_multiple_effects() {
 }
 
 #[test]
+fn parses_and_formats_result_binding() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn clamp(value: Int) -> output: Int\n",
+            "ensure output >= value\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    assert_eq!(
+        function
+            .return_binding
+            .as_ref()
+            .map(|binding| binding.name.as_str()),
+        Some("output")
+    );
+    assert_eq!(function.return_type.as_deref(), Some("Int"));
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn clamp(value: Int) -> output: Int\n",
+            "  ensure output >= value\n",
+            "  value\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn formats_unit_type_with_empty_tuple_spelling() {
     let source = SourceFile::new(
         "main.veln",

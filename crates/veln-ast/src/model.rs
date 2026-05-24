@@ -46,6 +46,7 @@ pub struct Function {
     pub visibility: Visibility,
     pub name: Option<String>,
     pub params: Vec<Param>,
+    pub return_binding: Option<ResultBinding>,
     pub return_type: Option<String>,
     pub effects: Option<Vec<String>>,
     pub contracts: Vec<Contract>,
@@ -79,6 +80,13 @@ pub struct Param {
     pub node_id: NodeId,
     pub name: String,
     pub ty: Option<String>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct ResultBinding {
+    pub node_id: NodeId,
+    pub name: String,
     pub span: SourceSpan,
 }
 

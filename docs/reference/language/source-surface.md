@@ -18,7 +18,8 @@ TestDecl      ::= "test" Name "(" ")" Return Effects NL
                   BodyLine*
                   "end" NL?
 Param         ::= Name (":" TypeText)?
-Return        ::= "->" TypeText
+Return        ::= "->" ResultBinding? TypeText
+ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
 Contract      ::= ("require" | "ensure") TextUntilNewline
 BodyLine      ::= LetLine | ExprLine
@@ -29,6 +30,11 @@ ExprLine      ::= Expr NL
 `TypeText` is collected from source and parsed by the semantic type parser.
 Contract predicates are collected as source text and validated by the contract
 checker.
+
+A return may name the returned value for postconditions with `-> name: Type`.
+The binding is contract-facing only: it is visible to `ensure` clauses for the
+same function, but not to `require` clauses, the function body, or callers.
+Bare `result` has no special meaning.
 
 `use` declarations create module import aliases. The current alias is the final
 segment of the imported module path, so `use platform.io` declares the alias

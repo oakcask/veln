@@ -19,6 +19,9 @@ Public functions must annotate every parameter, annotate the return type, and
 provide an explicit `effects [...]` clause. Private functions may omit these
 annotations.
 
+The optional result binding in `-> name: Type` names the return value for
+postconditions, but the type annotation remains `Type`.
+
 Test declarations must use an empty parameter list, annotate the return type as
 `()` or `Result((), E)`, and provide an explicit `effects [...]` clause. Their
 declared effect list is checked against directly inferred effects, but test

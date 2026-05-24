@@ -172,7 +172,8 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   failed `require` clauses default to caller blame and failed `ensure` clauses
   default to implementation blame, with blame treated as repair-routing
   metadata rather than proof of fault.
-- Resolved by [Postcondition Result Binding](result-postcondition-result-binding.md):
+- Resolved by
+  [Postcondition Result Binding](../../reference/source-decisions/result-postcondition-result-binding.md):
   postconditions should use an explicit result binding in the return type
   position rather than a magic bare `result` name.
 

@@ -7,8 +7,8 @@ use veln_syntax::{
 
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, Expr, ExprKind, Function,
-    FunctionKind, ModuleHeader, NodeId, Param, PrefixOp, RecordField, SurfaceModule, UseDecl,
-    Visibility,
+    FunctionKind, ModuleHeader, NodeId, Param, PrefixOp, RecordField, ResultBinding, SurfaceModule,
+    UseDecl, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -91,6 +91,14 @@ impl AstBuilder {
                     span: param.span.clone(),
                 })
                 .collect(),
+            return_binding: function
+                .return_binding
+                .as_ref()
+                .map(|binding| ResultBinding {
+                    node_id: self.alloc(),
+                    name: binding.name.clone(),
+                    span: binding.span.clone(),
+                }),
             return_type: function.return_type.clone(),
             effects: function.effects.clone(),
             contracts: function

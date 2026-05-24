@@ -204,12 +204,25 @@ impl<'a> Parser<'a> {
         let params = self.parse_params();
         self.expect(TokenKind::RParen, parameter_context, vec![")"]);
 
-        let return_type = self.eat(TokenKind::Arrow).map(|_| {
-            self.collect_type_until(
+        let (return_binding, return_type) = if self.eat(TokenKind::Arrow).is_some() {
+            let return_binding = if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Colon) {
+                let name = self.bump();
+                let colon = self.expect(TokenKind::Colon, return_context, vec![":"]);
+                Some(crate::ResultBinding {
+                    name: name.text,
+                    span: self.source.span(name.range.cover(colon.range)),
+                })
+            } else {
+                None
+            };
+            let return_type = self.collect_type_until(
                 return_context,
                 &[TokenKind::Effects, TokenKind::Newline, TokenKind::Eof],
-            )
-        });
+            );
+            (return_binding, Some(return_type))
+        } else {
+            (None, None)
+        };
 
         let effects = if self.eat(TokenKind::Effects).is_some() {
             Some(self.parse_effect_list())
@@ -263,6 +276,7 @@ impl<'a> Parser<'a> {
             visibility,
             name,
             params,
+            return_binding,
             return_type,
             effects,
             contracts,
@@ -583,6 +597,12 @@ impl<'a> Parser<'a> {
 
     fn at(&self, kind: TokenKind) -> bool {
         self.current().kind == kind
+    }
+
+    fn peek_at(&self, kind: TokenKind) -> bool {
+        self.tokens
+            .get(self.cursor + 1)
+            .is_some_and(|token| token.kind == kind)
     }
 
     fn current(&self) -> &Token {

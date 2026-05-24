@@ -31,7 +31,6 @@ current workspace. Implemented decisions were moved to
 - [First-Slice Grammar](result-first-slice-grammar.md)
 - [First-Slice Module Fields](result-first-slice-module-fields.md)
 - [Module Metadata Location](result-module-metadata-location.md)
-- [Postcondition Result Binding](result-postcondition-result-binding.md)
 - [Prelude Complexity Guarantees](result-prelude-complexity-guarantees.md)
 - [Runtime Contract Failure Reporting](result-runtime-contract-failure-reporting.md)
 - [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md)

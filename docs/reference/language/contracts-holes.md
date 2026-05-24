@@ -13,12 +13,17 @@ function. The checker validates a small pure boolean subset:
 - `and`, `or`, and `not`
 - comparison and equality operators
 - referenced parameters and local bindings
-- `result` in `ensure` clauses
+- explicit result bindings in `ensure` clauses
 
 Contract predicates containing `stdio::`, call-like syntax, empty predicates,
 non-boolean predicates, or unresolved names produce diagnostics. Valid
 contracts are recorded and may contribute hole repair constraints, but runtime
 contract enforcement is not implemented.
+
+An `ensure` clause may refer to the returned value only when the function return
+position names it with `-> name: Type`. That name is not visible to `require`
+clauses or the function body. The identifier `result` is ordinary: without an
+explicit binding named `result`, it reports an unresolved-name diagnostic.
 
 ## Holes
 

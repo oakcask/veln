@@ -64,6 +64,10 @@ fn format_function(out: &mut String, function: &FunctionDecl) {
     out.push(')');
     if let Some(return_type) = &function.return_type {
         out.push_str(" -> ");
+        if let Some(result_binding) = &function.return_binding {
+            out.push_str(&result_binding.name);
+            out.push_str(": ");
+        }
         out.push_str(&canonical_type_text(return_type));
     }
     if let Some(effects) = &function.effects {

@@ -1,6 +1,6 @@
 # Discussion Result: Postcondition Result Binding
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 

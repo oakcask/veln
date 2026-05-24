@@ -28,6 +28,7 @@ Current duplicate checks reject:
   imported module path
 - duplicate top-level function or test names
 - duplicate parameter names in one function
+- a result binding that duplicates a parameter name
 - duplicate `let` names in the same function value scope, including names that
   duplicate parameters
 - duplicate field names in one record literal
