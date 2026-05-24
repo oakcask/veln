@@ -2,9 +2,9 @@ use veln_source::{SourceFile, SourceSpan, TextRange};
 
 use crate::tree::build_lossless_root;
 use crate::{
-    BinaryOp, BodyLine, ContractClause, ContractKind, Expr, ExprKind, FunctionDecl, ModuleDecl,
-    Param, PrefixOp, RecordField, SatisfyClause, SyntaxItem, SyntaxTree, Token, TokenKind, UseDecl,
-    Visibility, lex,
+    BinaryOp, BodyLine, ContractClause, ContractKind, Expr, ExprKind, FunctionDecl, FunctionKind,
+    ModuleDecl, Param, PrefixOp, RecordField, SatisfyClause, SyntaxItem, SyntaxTree, Token,
+    TokenKind, UseDecl, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -107,13 +107,19 @@ impl<'a> Parser<'a> {
                 break;
             }
             if self.at(TokenKind::Pub) || self.at(TokenKind::Fn) {
-                items.push(SyntaxItem::Function(self.parse_function()));
+                items.push(SyntaxItem::Function(
+                    self.parse_function_like(FunctionKind::Function),
+                ));
+            } else if self.at(TokenKind::Test) {
+                items.push(SyntaxItem::Function(
+                    self.parse_function_like(FunctionKind::Test),
+                ));
             } else {
                 self.error_current(
                     "parse.expected_item",
-                    "expected a function declaration",
+                    "expected a function or test declaration",
                     "module",
-                    vec!["pub", "fn"],
+                    vec!["pub", "fn", "test"],
                     RecoveryStrategy::SynchronizeToAnchor,
                     Some("fn"),
                 );
@@ -158,22 +164,49 @@ impl<'a> Parser<'a> {
         )
     }
 
-    fn parse_function(&mut self) -> FunctionDecl {
+    fn parse_function_like(&mut self, kind: FunctionKind) -> FunctionDecl {
         let start = self.current().range;
-        let visibility = if self.eat(TokenKind::Pub).is_some() {
-            Visibility::Public
-        } else {
-            Visibility::Private
+        let visibility = match kind {
+            FunctionKind::Function => {
+                if self.eat(TokenKind::Pub).is_some() {
+                    Visibility::Public
+                } else {
+                    Visibility::Private
+                }
+            }
+            FunctionKind::Test => Visibility::Private,
         };
-        self.expect(TokenKind::Fn, "function_declaration", vec!["fn"]);
-        let name = self.expect_ident("function_declaration", "function name");
-        self.expect(TokenKind::LParen, "function_parameters", vec!["("]);
+        let context = match kind {
+            FunctionKind::Function => "function_declaration",
+            FunctionKind::Test => "test_declaration",
+        };
+        let parameter_context = match kind {
+            FunctionKind::Function => "function_parameters",
+            FunctionKind::Test => "test_parameters",
+        };
+        let return_context = match kind {
+            FunctionKind::Function => "function_return",
+            FunctionKind::Test => "test_return",
+        };
+        self.expect(
+            match kind {
+                FunctionKind::Function => TokenKind::Fn,
+                FunctionKind::Test => TokenKind::Test,
+            },
+            context,
+            vec![match kind {
+                FunctionKind::Function => "fn",
+                FunctionKind::Test => "test",
+            }],
+        );
+        let name = self.expect_ident(context, "declaration name");
+        self.expect(TokenKind::LParen, parameter_context, vec!["("]);
         let params = self.parse_params();
-        self.expect(TokenKind::RParen, "function_parameters", vec![")"]);
+        self.expect(TokenKind::RParen, parameter_context, vec![")"]);
 
         let return_type = self.eat(TokenKind::Arrow).map(|_| {
             self.collect_type_until(
-                "function_return",
+                return_context,
                 &[TokenKind::Effects, TokenKind::Newline, TokenKind::Eof],
             )
         });
@@ -183,7 +216,7 @@ impl<'a> Parser<'a> {
         } else {
             None
         };
-        self.expect_newline("function_declaration");
+        self.expect_newline(context);
 
         let mut contracts = Vec::new();
         while self.at(TokenKind::Require) || self.at(TokenKind::Ensure) {
@@ -211,7 +244,12 @@ impl<'a> Parser<'a> {
         if !end_present {
             self.error_current(
                 "parse.expected_end",
-                "expected `end` to close function declaration",
+                match kind {
+                    FunctionKind::Function => {
+                        "expected `end` to close function declaration".to_string()
+                    }
+                    FunctionKind::Test => "expected `end` to close test declaration".to_string(),
+                },
                 "function_body",
                 vec!["end"],
                 RecoveryStrategy::CloseBlock,
@@ -221,6 +259,7 @@ impl<'a> Parser<'a> {
 
         let end = self.previous().map_or(start, |token| token.range);
         FunctionDecl {
+            kind,
             visibility,
             name,
             params,
@@ -506,12 +545,25 @@ impl<'a> Parser<'a> {
         while !self.at(TokenKind::Eof)
             && !self.at(TokenKind::Pub)
             && !self.at(TokenKind::Fn)
+            && !self.at(TokenKind::Test)
             && !self.at(TokenKind::End)
         {
             self.bump();
         }
+        let at_eof = self.at(TokenKind::Eof);
+        let anchor = match self.current().kind {
+            TokenKind::Pub => Some("pub".to_string()),
+            TokenKind::Fn => Some("fn".to_string()),
+            TokenKind::Test => Some("test".to_string()),
+            TokenKind::End => Some("end".to_string()),
+            TokenKind::Eof => None,
+            _ => None,
+        };
         if let Some(last) = self.diagnostics.last_mut() {
             last.recovery.dropped_token_count = self.cursor.saturating_sub(start);
+            if anchor.is_some() || at_eof {
+                last.recovery.anchor = anchor;
+            }
         }
     }
 

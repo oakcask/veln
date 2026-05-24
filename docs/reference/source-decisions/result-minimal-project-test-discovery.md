@@ -33,7 +33,7 @@ source-relative `*_test.veln` files as an organization convention. Automatic
 narrowing is allowed only when this evidence is complete for the discovered
 source set; otherwise `test` widens and reports the missing evidence. The
 source spelling for user-authored test cases is resolved by
-[Test Declaration Syntax](../../proposals/agent-language-spec-wall/result-test-declaration-syntax.md).
+[Test Declaration Syntax](result-test-declaration-syntax.md).
 
 ## Rationale
 

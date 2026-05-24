@@ -101,7 +101,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   expression-centered grammar with explicit public signatures, public effect
   declarations, records, lists, `match`, holes, plain and qualified calls,
   pipelines, and `end`-closed blocks.
-- Resolved by [Test Declaration Syntax](result-test-declaration-syntax.md):
+- Resolved by [Test Declaration Syntax](../../reference/source-decisions/result-test-declaration-syntax.md):
   user-authored executable test cases should use a dedicated top-level `test`
   declaration instead of being inferred from ordinary zero-argument `fn`
   declarations.
@@ -223,7 +223,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   should emit one run-level native JSON result with deterministic summary
   counts, top-level gate diagnostics, suite errors, per-case records, and
   captured events.
-- Resolved by [Test Declaration Syntax](result-test-declaration-syntax.md):
+- Resolved by [Test Declaration Syntax](../../reference/source-decisions/result-test-declaration-syntax.md):
   `veln test` should select explicit `test` declarations and executable
   doctest examples, not ordinary `fn` declarations by arity alone.
 - Resolved by [Primary Check Command](../../reference/source-decisions/result-primary-check-command.md):

@@ -436,10 +436,9 @@ Implemented so far:
   JDK tools report clear `javac` or `java` messages.
 - Item 9 test slice: `veln test [--json] [target ...]` now shares the same
   parse, semantic, checked-core, typed-IR, JVM backend, and JDK execution gates
-  used by `run`. Without explicit targets it discovers selected cases from
-  `*_test.veln` files; with explicit targets it treats zero-argument functions
-  in the selected files as first-slice test cases, which is the current
-  same-file example boundary. Each case runs through an entry wrapper in an
+  used by `run`. Without explicit targets it discovers `test` declarations
+  from `*_test.veln` files; with explicit targets it selects `test`
+  declarations in the selected files. Each case runs through an entry wrapper in an
   isolated build directory. `--json` emits the required
   `veln-test-json/v0` run fields, selection metadata, deterministic summary
   counts, diagnostics, suite errors, per-case records, runtime failures, and
@@ -724,16 +723,13 @@ Item 9 completion gate status:
   existing project source discovery, parser, semantic diagnostics,
   checked-core lowering, typed IR, JVM backend, temporary artifact write,
   `javac`, and `java` execution path.
-- Complete: explicit targets select zero-argument functions in the selected
-  files. With no targets, selection is restricted to zero-argument functions in
-  discovered `*_test.veln` files. Public and private zero-argument functions
-  are both eligible test cases. This is the implemented bootstrap behavior, not
-  the durable source syntax; [Test Declaration Syntax](../proposals/agent-language-spec-wall/result-test-declaration-syntax.md)
-  and [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events)
-  track explicit top-level `test` declarations.
+- Complete: explicit targets select top-level `test` declarations in the
+  selected files. With no targets, selection is restricted to `test`
+  declarations in discovered `*_test.veln` files. Ordinary zero-argument
+  functions are not eligible test cases.
 - Complete for the first-slice same-file example boundary: explicitly targeted
-  non-`*_test.veln` files can be run as test files by selecting their
-  zero-argument functions. Example extraction is tracked in
+  non-`*_test.veln` files can contribute `test` declarations. Example extraction
+  is tracked in
   [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events).
 - Complete: static gates block before user code execution on parse errors,
   semantic errors, reachable holes, and checked-core blockers. Blocked test
@@ -765,8 +761,8 @@ Item 9 review notes:
   discovered `*_test.veln` files, reports deterministic selection metadata,
   and emits the required run and case JSON fields.
 - Same-file examples are complete only at the current first-slice boundary:
-  an explicitly targeted non-test file contributes its zero-argument functions
-  as cases. Test discovery follow-ups are tracked in
+  an explicitly targeted non-test file contributes its `test` declarations as
+  cases. Test discovery follow-ups are tracked in
   [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events).
 - Static gate behavior is acceptable for this slice. Parse and semantic errors
   block the suite before Java execution, reachable holes and checked-core

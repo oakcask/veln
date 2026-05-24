@@ -215,6 +215,7 @@ fn read_ident_or_keyword(
     let kind = match token_text {
         "pub" => TokenKind::Pub,
         "fn" => TokenKind::Fn,
+        "test" => TokenKind::Test,
         "effects" => TokenKind::Effects,
         "let" => TokenKind::Let,
         "end" => TokenKind::End,

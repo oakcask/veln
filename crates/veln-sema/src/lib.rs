@@ -9,12 +9,15 @@ mod lowering;
 mod tests;
 mod types;
 
-use veln_ast::{SurfaceModule, Visibility};
+use veln_ast::{FunctionKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
-use crate::analysis::{check_function_body, check_public_function_boundary};
+use crate::analysis::{
+    check_duplicate_function_names, check_function_body, check_public_function_boundary,
+    check_test_declaration_boundary,
+};
 use crate::lowering::lower_surface_module_to_core;
 use crate::types::TypeEnvironment;
 
@@ -29,9 +32,14 @@ pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let environment = TypeEnvironment::from_module(module);
 
+    diagnostics.extend(check_duplicate_function_names(module));
+
     for function in &module.functions {
         if function.visibility == Visibility::Public {
             diagnostics.extend(check_public_function_boundary(function));
+        }
+        if function.kind == FunctionKind::Test {
+            diagnostics.extend(check_test_declaration_boundary(function));
         }
         diagnostics.extend(check_function_body(function, &environment));
     }

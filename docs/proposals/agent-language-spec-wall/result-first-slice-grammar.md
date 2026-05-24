@@ -113,7 +113,7 @@ calls, records, lists, matches, and tail positions.
 This decision does not freeze the final concrete syntax for package manifests,
 foreign declarations, doctest fences, dictionary literals, or future
 user-defined data type declarations. Test declaration syntax is resolved by
-[Test Declaration Syntax](result-test-declaration-syntax.md), which adds a
+[Test Declaration Syntax](../../reference/source-decisions/result-test-declaration-syntax.md), which adds a
 top-level `test` item and supersedes treating ordinary zero-argument `fn`
 declarations as durable test syntax.
 

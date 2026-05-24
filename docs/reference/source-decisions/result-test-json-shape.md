@@ -175,7 +175,7 @@ the repair?
 ## Open Details
 
 Test declaration syntax is now defined by
-[Test Declaration Syntax](../../proposals/agent-language-spec-wall/result-test-declaration-syntax.md). This result does
+[Test Declaration Syntax](result-test-declaration-syntax.md). This result does
 not define parameterized tests, parallel execution ordering, flaky-test retry
 records, timing metrics, coverage, JUnit/TAP/CTRF exporters, or a stable schema
 beyond `veln-test-json/v0`.

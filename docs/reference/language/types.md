@@ -20,6 +20,11 @@ Public functions must annotate every parameter, annotate the return type, and
 provide an explicit `effects [...]` clause. Private functions may omit these
 annotations.
 
+Test declarations must use an empty parameter list, annotate the return type as
+`()` or `Result((), E)`, and provide an explicit `effects [...]` clause. Their
+declared effect list is checked against directly inferred effects, but test
+declarations are not callable function values.
+
 ## Inference
 
 Local inference is monomorphic and flow-sensitive within one function body.

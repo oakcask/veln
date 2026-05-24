@@ -1,6 +1,6 @@
 use crate::{
-    BinaryOp, BodyLine, ContractKind, Expr, ExprKind, FunctionDecl, PrefixOp, SyntaxItem,
-    SyntaxTree, TokenKind, Visibility,
+    BinaryOp, BodyLine, ContractKind, Expr, ExprKind, FunctionDecl, FunctionKind, PrefixOp,
+    SyntaxItem, SyntaxTree, TokenKind, Visibility,
 };
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
@@ -41,10 +41,14 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
 }
 
 fn format_function(out: &mut String, function: &FunctionDecl) {
-    if function.visibility == Visibility::Public {
-        out.push_str("pub ");
+    if function.kind == FunctionKind::Test {
+        out.push_str("test ");
+    } else {
+        if function.visibility == Visibility::Public {
+            out.push_str("pub ");
+        }
+        out.push_str("fn ");
     }
-    out.push_str("fn ");
     out.push_str(function.name.as_deref().unwrap_or("<missing>"));
     out.push('(');
     for (index, param) in function.params.iter().enumerate() {

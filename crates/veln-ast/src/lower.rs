@@ -6,8 +6,8 @@ use veln_syntax::{
 };
 
 use crate::{
-    BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, Expr, ExprKind, Function, NodeId,
-    Param, PrefixOp, RecordField, SurfaceModule, Visibility,
+    BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, Expr, ExprKind, Function,
+    FunctionKind, NodeId, Param, PrefixOp, RecordField, SurfaceModule, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -36,6 +36,10 @@ impl AstBuilder {
     fn lower_function(&mut self, function: &SyntaxFunction) -> Function {
         Function {
             node_id: self.alloc(),
+            kind: match function.kind {
+                veln_syntax::FunctionKind::Function => FunctionKind::Function,
+                veln_syntax::FunctionKind::Test => FunctionKind::Test,
+            },
             visibility: match function.visibility {
                 SyntaxVisibility::Public => Visibility::Public,
                 SyntaxVisibility::Private => Visibility::Private,

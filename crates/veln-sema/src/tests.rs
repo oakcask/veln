@@ -43,6 +43,125 @@ fn private_function_may_omit_boundary_annotations() {
 }
 
 #[test]
+fn test_declaration_requires_explicit_test_shape() {
+    let source = SourceFile::new(
+        "main_test.veln",
+        "test bad(value: Int) -> Int\n  value\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 3);
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "test.parameters"
+            && diagnostic.message == "test declaration has parameters"
+            && diagnostic.related.len() == 1
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "test.return_type"
+            && diagnostic.message == "test declaration returns `Int`"
+            && diagnostic.related.len() == 1
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "effect.missing_test"
+            && diagnostic.kind == DiagnosticKind::Effect
+            && diagnostic.message == "test declaration has no effects annotation"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"boundary\":\"test_declaration\"")
+    }));
+}
+
+#[test]
+fn test_declaration_checks_declared_effect_boundary() {
+    let source = SourceFile::new(
+        "main_test.veln",
+        concat!(
+            "test prints() -> () effects []\n",
+            "  stdio::println(\"hello\")\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_test");
+    assert_eq!(
+        diagnostics[0].message,
+        "test declaration uses undeclared effect `stdio`"
+    );
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"node_id\":\"test-1\"")
+    );
+}
+
+#[test]
+fn test_declarations_are_not_callable_functions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "test helper() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+            "fn main() -> ()\n",
+            "  helper()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "name.unresolved");
+    assert_eq!(diagnostics[0].message, "unresolved call_target `helper`");
+}
+
+#[test]
+fn duplicate_function_like_declaration_names_are_static_errors() {
+    let source = SourceFile::new(
+        "main_test.veln",
+        concat!(
+            "test same() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+            "fn same() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "name.duplicate");
+    assert_eq!(
+        diagnostics[0].message,
+        "duplicate function declaration name `same`"
+    );
+    assert_eq!(diagnostics[0].related.len(), 1);
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"namespace\":\"function\"")
+    );
+}
+
+#[test]
 fn reports_hole_with_declared_return_expected_type() {
     let source = SourceFile::new("main.veln", "fn todo() -> Result((), AppError)\n  _\nend\n");
     let parsed = parse(&source);

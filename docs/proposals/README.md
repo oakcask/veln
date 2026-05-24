@@ -16,8 +16,8 @@ not fully implemented in the current workspace.
 
 ## Accepted Targets Not Fully Implemented
 
-- Grammar coverage: `match`, explicit `test` declarations, and full hole
-  grammar are tracked in [grammar-target.md](grammar-target.md).
+- Grammar coverage: `match` and full hole grammar are tracked in
+  [grammar-target.md](grammar-target.md).
 - Remaining first-slice implementation targets are tracked in
   [first-slice-follow-ups.md](first-slice-follow-ups.md).
 - Runtime contract enforcement is tracked by

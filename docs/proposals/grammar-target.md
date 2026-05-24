@@ -232,7 +232,7 @@ and doctest fences.
 ## Source Decisions
 
 - [First-Slice Grammar](agent-language-spec-wall/result-first-slice-grammar.md)
-- [Test Declaration Syntax](agent-language-spec-wall/result-test-declaration-syntax.md)
+- [Test Declaration Syntax](../reference/source-decisions/result-test-declaration-syntax.md)
 - [Hole Satisfy Source Syntax](../reference/source-decisions/result-hole-satisfy-source-syntax.md)
 - [Contract Predicate Parsing](agent-language-spec-wall/result-contract-predicate-parsing.md)
 - [Public Function Type Boundaries](../reference/source-decisions/result-public-function-type-boundaries.md)

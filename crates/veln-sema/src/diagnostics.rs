@@ -54,12 +54,12 @@ pub(crate) fn type_details(
     ])
 }
 
-pub(crate) fn effect_details(node_id: String) -> JsonValue {
+pub(crate) fn effect_details(node_id: String, boundary: &'static str) -> JsonValue {
     JsonValue::object([
         ("phase", JsonValue::string("effect")),
         ("node_id", JsonValue::string(node_id)),
         ("effect", JsonValue::string("unknown")),
-        ("boundary", JsonValue::string("public_function")),
+        ("boundary", JsonValue::string(boundary)),
         ("declared_effects", JsonValue::array([])),
         ("inferred_effects", JsonValue::array([])),
         ("provenance", JsonValue::array([])),
@@ -70,6 +70,7 @@ pub(crate) fn effect_details(node_id: String) -> JsonValue {
 pub(crate) fn effect_missing_public_details(
     node_id: String,
     effect: &str,
+    boundary: &'static str,
     declared_effects: &[String],
     inferred_effects: &[String],
     provenance: &[EffectUse],
@@ -79,7 +80,7 @@ pub(crate) fn effect_missing_public_details(
         ("phase", JsonValue::string("effect")),
         ("node_id", JsonValue::string(node_id)),
         ("effect", JsonValue::string(effect)),
-        ("boundary", JsonValue::string("public_function")),
+        ("boundary", JsonValue::string(boundary)),
         (
             "declared_effects",
             JsonValue::array(declared_effects.iter().cloned().map(JsonValue::string)),

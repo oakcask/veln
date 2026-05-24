@@ -7,7 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::process::Output;
 
-use veln_ast::{BodyLineKind, Expr, ExprKind, SurfaceModule};
+use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, SurfaceModule};
 use veln_diagnostics::{Diagnostic, JsonValue, Severity, diagnostic_to_json};
 use veln_project::Project;
 use veln_source::{LineCol, SourceSpan};
@@ -37,7 +37,7 @@ pub fn discover_test_cases(module: &SurfaceModule, test_files: &BTreeSet<String>
         .functions
         .iter()
         .filter(|function| {
-            function.params.is_empty() && test_files.contains(function.span.file.as_str())
+            function.kind == FunctionKind::Test && test_files.contains(function.span.file.as_str())
         })
         .enumerate()
         .map(|(index, function)| TestCase {
@@ -50,7 +50,7 @@ pub fn discover_test_cases(module: &SurfaceModule, test_files: &BTreeSet<String>
             status: TestCaseStatus::Passed,
             source: TestCaseSource {
                 file: function.span.file.as_str().to_string(),
-                node_id: function.node_id.display("fn"),
+                node_id: function.node_id.display(function.kind.node_prefix()),
                 span: function.span.clone(),
             },
             reason: None,
@@ -579,13 +579,13 @@ mod tests {
     }
 
     #[test]
-    fn discovers_zero_argument_functions_in_selected_files() {
+    fn discovers_test_declarations_in_selected_files() {
         let module = module(concat!(
-            "fn first()\n",
+            "test first() -> () effects []\n",
             "  ()\n",
             "end\n",
-            "fn helper(value)\n",
-            "  value\n",
+            "fn helper()\n",
+            "  ()\n",
             "end\n",
         ));
         let test_files = BTreeSet::from(["main_test.veln".to_string()]);
@@ -596,12 +596,22 @@ mod tests {
         assert_eq!(cases[0].id, "case-1");
         assert_eq!(cases[0].name, "first");
         assert_eq!(cases[0].source.file, "main_test.veln");
-        assert_eq!(cases[0].source.node_id, "fn-1");
+        assert_eq!(cases[0].source.node_id, "test-1");
+    }
+
+    #[test]
+    fn ordinary_zero_argument_functions_are_not_test_cases() {
+        let module = module("fn helper()\n  ()\nend\n");
+        let test_files = BTreeSet::from(["main_test.veln".to_string()]);
+
+        let cases = discover_test_cases(&module, &test_files);
+
+        assert!(cases.is_empty());
     }
 
     #[test]
     fn report_json_contains_summary_suite_errors_and_cases() {
-        let module = module("fn first()\n  ()\nend\n");
+        let module = module("test first() -> () effects []\n  ()\nend\n");
         let test_files = BTreeSet::from(["main_test.veln".to_string()]);
         let cases = discover_test_cases(&module, &test_files);
         let report = TestReport::new(
@@ -627,9 +637,9 @@ mod tests {
                 "\"blocked\":0,\"errors\":0},\"diagnostics\":[],",
                 "\"suite_errors\":[],\"cases\":[{\"id\":\"case-1\",",
                 "\"name\":\"first\",\"kind\":\"test\",\"status\":\"passed\",",
-                "\"source\":{\"file\":\"main_test.veln\",\"node_id\":\"fn-1\",",
+                "\"source\":{\"file\":\"main_test.veln\",\"node_id\":\"test-1\",",
                 "\"span\":{\"start\":{\"line\":1,\"column\":1,\"offset\":0},",
-                "\"end\":{\"line\":4,\"column\":1,\"offset\":20}}},",
+                "\"end\":{\"line\":4,\"column\":1,\"offset\":39}}},",
                 "\"reason\":null,\"failure\":null,\"events\":[],",
                 "\"diagnostics\":[]}]}"
             )
@@ -638,10 +648,13 @@ mod tests {
 
     #[test]
     fn stdio_events_preserve_stream_sequence_and_source() {
-        let source_file = SourceFile::new("main_test.veln", "fn first()\n  ()\nend\n");
+        let source_file = SourceFile::new(
+            "main_test.veln",
+            "test first() -> () effects []\n  ()\nend\n",
+        );
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
-            node_id: "fn-1".to_string(),
+            node_id: "test-1".to_string(),
             span: source_file.span(TextRange::new(0, source_file.len())),
         };
         let output = Output {
@@ -658,9 +671,9 @@ mod tests {
             concat!(
                 "{\"kind\":\"stdio\",\"stream\":\"stdout\",\"operation\":\"print\",",
                 "\"text\":\"hello\\n\",\"terminator\":\"none\",\"sequence\":1,",
-                "\"node_id\":\"fn-1\",\"span\":{\"file\":\"main_test.veln\",",
+                "\"node_id\":\"test-1\",\"span\":{\"file\":\"main_test.veln\",",
                 "\"start\":{\"line\":1,\"column\":1,\"offset\":0},",
-                "\"end\":{\"line\":4,\"column\":1,\"offset\":20}}}"
+                "\"end\":{\"line\":4,\"column\":1,\"offset\":39}}}"
             )
         );
         assert!(events[1].to_json().contains("\"sequence\":2"));
@@ -670,7 +683,7 @@ mod tests {
     #[test]
     fn stdio_trace_events_preserve_operation_terminator_and_call_span() {
         let module = module(concat!(
-            "fn first() -> () effects [stdio]\n",
+            "test first() -> () effects [stdio]\n",
             "  stdio::println(\"out\")\n",
             "  stdio::eprint(\"err\")\n",
             "  ()\n",
@@ -685,7 +698,7 @@ mod tests {
         assert_eq!(call_ids.len(), 2);
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
-            node_id: "fn-1".to_string(),
+            node_id: "test-1".to_string(),
             span: module.functions[0].span.clone(),
         };
         let trace = format!(

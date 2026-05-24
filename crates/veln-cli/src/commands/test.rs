@@ -3,7 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use veln_ast::SurfaceModule;
+use veln_ast::{FunctionKind, SurfaceModule};
 use veln_backend_jvm::generate_java_with_entry;
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
@@ -33,7 +33,7 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
 
     if cases.is_empty() && !has_error(&diagnostics) {
         suite_errors.push(SuiteError::discovery(
-            "no zero-argument test functions were discovered",
+            "no test declarations were discovered",
         ));
     }
 
@@ -69,7 +69,7 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
 }
 
 fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), String> {
-    let reachable_module = reachable_entry_module(module, &case.name);
+    let reachable_module = reachable_entry_module(module, &case.name, FunctionKind::Test);
     let lowered = lower_checked_surface_module(&reachable_module);
     let Some(ir) = lowered.ir else {
         case.status = TestCaseStatus::Blocked;

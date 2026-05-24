@@ -6,10 +6,15 @@ This file specifies the source subset implemented by the parser and AST.
 ## Grammar
 
 ```text
-Module        ::= ModDecl? UseDecl* Function*
+Module        ::= ModDecl? UseDecl* Item*
 ModDecl       ::= "mod" ModuleName NL
 UseDecl       ::= "use" ModuleName NL
+Item          ::= Function | TestDecl
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
+                  Contract*
+                  BodyLine*
+                  "end" NL?
+TestDecl      ::= "test" Name "(" ")" Return Effects NL
                   Contract*
                   BodyLine*
                   "end" NL?
@@ -25,6 +30,11 @@ ExprLine      ::= Expr NL
 `TypeText` is collected from source and parsed by the semantic type parser.
 Contract predicates are collected as source text and validated by the contract
 checker.
+
+`test` is a top-level declaration keyword, not a visibility modifier. Test
+declarations are selected by `veln test`, require an empty parameter list,
+require an explicit return type and `effects [...]` clause, and are not ordinary
+callable functions.
 
 ## Expressions
 
@@ -47,5 +57,4 @@ Implemented expressions:
 Implemented lowering and execution do not include `match`, user-defined ADT
 declarations, dictionary literals, method calls, loops, mutation, classes,
 traits, macros, comprehensions, anonymous functions, custom operators, package
-manifests, foreign declarations, doctest fences, or explicit top-level `test`
-declarations.
+manifests, foreign declarations, or doctest fences.

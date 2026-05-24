@@ -640,7 +640,7 @@ fn check_json_reports_recovery_with_required_details() {
             "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":1,\"column\":8,\"offset\":7}}",
             "\"details\":{\"phase\":\"parse\",\"node_id\":null,\"parser_context\":\"module\"",
             "\"unexpected\":{\"kind\":\"identifier\",\"text\":\"garbage\"}",
-            "\"expected\":[\"pub\",\"fn\"]",
+            "\"expected\":[\"pub\",\"fn\",\"test\"]",
             "\"recovery\":{\"strategy\":\"synchronize_to_anchor\",\"anchor\":\"fn\",\"dropped_token_count\":2}",
         ],
     );
@@ -873,8 +873,8 @@ fn run_reports_missing_javac_clearly() {
 }
 
 #[test]
-fn test_json_reports_no_discovered_zero_arg_functions() {
-    let project = TestProject::new("test-no-zero-arg");
+fn test_json_reports_no_discovered_test_declarations() {
+    let project = TestProject::new("test-no-declarations");
     project.write(
         "main_test.veln",
         "fn takes_arg(value: Int) -> Int effects []\n  value\nend\n",
@@ -891,15 +891,15 @@ fn test_json_reports_no_discovered_zero_arg_functions() {
             "\"status\":\"blocked\"",
             "\"selection\":{\"mode\":\"discovered\",\"targets\":[\"main_test.veln\"],\"confidence\":\"complete\",\"reason\":\"pattern_discovery\"}",
             "\"summary\":{\"total\":0,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":1}",
-            "\"suite_errors\":[{\"kind\":\"discovery\",\"message\":\"no zero-argument test functions were discovered\"}]",
+            "\"suite_errors\":[{\"kind\":\"discovery\",\"message\":\"no test declarations were discovered\"}]",
             "\"cases\":[]",
         ],
     );
 }
 
 #[test]
-fn test_human_reports_no_discovered_zero_arg_functions() {
-    let project = TestProject::new("test-human-no-zero-arg");
+fn test_human_reports_no_discovered_test_declarations() {
+    let project = TestProject::new("test-human-no-declarations");
     project.write(
         "main_test.veln",
         "fn takes_arg(value: Int) -> Int effects []\n  value\nend\n",
@@ -911,7 +911,63 @@ fn test_human_reports_no_discovered_zero_arg_functions() {
     assert_eq!(stdout(&output), "");
     assert_eq!(
         stderr(&output),
-        "veln: test discovery: no zero-argument test functions were discovered\n"
+        "veln: test discovery: no test declarations were discovered\n"
+    );
+}
+
+#[test]
+fn test_json_blocks_duplicate_function_like_names_with_origin_note() {
+    let project = TestProject::new("test-duplicate-function-like-names-json");
+    project.write(
+        "first_test.veln",
+        "test same() -> () effects []\n  ()\nend\n",
+    );
+    project.write(
+        "second_test.veln",
+        "fn same() -> () effects []\n  ()\nend\n",
+    );
+
+    let output = project.test(&["--json"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"blocked\"",
+            "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":1,\"errors\":0}",
+            "\"id\":\"name.duplicate\"",
+            "\"message\":\"duplicate function declaration name `same`\"",
+            "\"details\":{\"phase\":\"name\",\"node_id\":\"fn-1\",\"name\":\"same\",\"namespace\":\"function\",\"first_node_id\":\"test-1\"}",
+            "\"related\":[{\"kind\":\"duplicate_origin\",\"message\":\"First function declaration with this name is here.\"",
+            "\"reason\":\"static_gate\"",
+        ],
+    );
+}
+
+#[test]
+fn test_human_blocks_duplicate_function_like_names_with_origin_note() {
+    let project = TestProject::new("test-duplicate-function-like-names-human");
+    project.write(
+        "first_test.veln",
+        "test same() -> () effects []\n  ()\nend\n",
+    );
+    project.write(
+        "second_test.veln",
+        "fn same() -> () effects []\n  ()\nend\n",
+    );
+
+    let output = project.test(&[]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "blocked same\n");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "second_test.veln:1:1: error[name.duplicate]: duplicate function declaration name `same`",
+            "  note: first_test.veln:1:1: First function declaration with this name is here.",
+        ],
     );
 }
 
@@ -920,7 +976,7 @@ fn test_json_blocks_static_gate_before_jdk_execution() {
     let project = TestProject::new("test-static-gate");
     project.write(
         "main_test.veln",
-        "fn blocked() -> Result((), AppError) effects []\n  _\nend\n",
+        "test blocked() -> Result((), AppError) effects []\n  _\nend\n",
     );
 
     let output = project.test(&["--json"]);
@@ -948,7 +1004,7 @@ fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
     let project = TestProject::new("test-human-static-gate");
     project.write(
         "main_test.veln",
-        "fn blocked() -> Result((), AppError) effects []\n  _\nend\n",
+        "test blocked() -> Result((), AppError) effects []\n  _\nend\n",
     );
 
     let output = project.test(&[]);
@@ -966,7 +1022,7 @@ fn test_json_reports_missing_javac_as_runner_error() {
     let project = TestProject::new("test-no-javac");
     project.write(
         "main_test.veln",
-        "fn passes() -> () effects []\n  ()\nend\n",
+        "test passes() -> () effects []\n  ()\nend\n",
     );
 
     let output = project.test_with_path(&["--json"], "");
@@ -996,12 +1052,12 @@ fn test_json_discovers_runs_and_captures_stdio_when_jdk_is_available() {
     project.write(
         "main_test.veln",
         concat!(
-            "fn passes() -> () effects [stdio]\n",
+            "test passes() -> () effects [stdio]\n",
             "  stdio::println(\"out\")\n",
             "  stdio::eprintln(\"err\")\n",
             "  ()\n",
             "end\n",
-            "fn fails() -> Result((), String) effects []\n",
+            "test fails() -> Result((), String) effects []\n",
             "  Err(\"bad\")\n",
             "end\n",
         ),
@@ -1028,13 +1084,16 @@ fn test_json_discovers_runs_and_captures_stdio_when_jdk_is_available() {
 }
 
 #[test]
-fn test_explicit_target_runs_same_file_zero_arg_function_when_jdk_is_available() {
+fn test_explicit_target_runs_same_file_test_declaration_when_jdk_is_available() {
     if !jdk_is_available() {
         return;
     }
 
     let project = TestProject::new("test-explicit-same-file");
-    project.write("example.veln", "fn example() -> () effects []\n  ()\nend\n");
+    project.write(
+        "example.veln",
+        "test example() -> () effects []\n  ()\nend\n",
+    );
 
     let output = project.test(&["--json", "example.veln"]);
     let stdout = stdout(&output);

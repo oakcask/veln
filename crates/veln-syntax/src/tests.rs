@@ -22,6 +22,27 @@ fn parses_minimal_public_function() {
 }
 
 #[test]
+fn parses_explicit_test_declaration() {
+    let source = SourceFile::new(
+        "main_test.veln",
+        "test returns_ok() -> Result((), String) effects []\n  Ok(())\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(output.tree.items.len(), 1);
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    assert_eq!(function.kind, FunctionKind::Test);
+    assert_eq!(function.visibility, Visibility::Private);
+    assert_eq!(function.name.as_deref(), Some("returns_ok"));
+    assert_eq!(
+        format_tree(&output.tree),
+        "test returns_ok() -> Result((), String) effects []\n  Ok(())\nend\n"
+    );
+}
+
+#[test]
 fn parses_omitted_signature_annotations_as_recoverable_ast_facts() {
     let source = SourceFile::new("main.veln", "fn helper(value)\n  value\nend\n");
 
@@ -148,7 +169,7 @@ fn parses_structured_calls_and_holes() {
 fn lexes_number_string_hole_and_invalid_boundaries() {
     let source = SourceFile::new(
         "tokens.veln",
-        r#"1 1.5 1.foo "a\"b" @ _ _name
+        r#"1 1.5 1.foo "a\"b" @ test _ _name
 "#,
     );
 
@@ -170,6 +191,7 @@ fn lexes_number_string_hole_and_invalid_boundaries() {
             (TokenKind::Ident, "foo".to_string()),
             (TokenKind::String, r#""a\"b""#.to_string()),
             (TokenKind::Invalid, "@".to_string()),
+            (TokenKind::Test, "test".to_string()),
             (TokenKind::Underscore, "_".to_string()),
             (TokenKind::Hole, "_name".to_string()),
             (TokenKind::Newline, "\n".to_string()),
@@ -380,5 +402,30 @@ fn synchronizes_top_level_garbage_to_next_function() {
     assert!(diagnostic.recovery.dropped_token_count > 0);
     assert_eq!(output.tree.items.len(), 1);
     let SyntaxItem::Function(function) = &output.tree.items[0];
+    assert_eq!(function.name.as_deref(), Some("main"));
+}
+
+#[test]
+fn synchronizes_top_level_garbage_to_next_test_declaration() {
+    let source = SourceFile::new(
+        "main.veln",
+        "let stray = 1\ntest main() -> () effects []\nend\n",
+    );
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.expected_item")
+        .expect("expected top-level item diagnostic");
+    assert_eq!(
+        diagnostic.recovery.strategy,
+        RecoveryStrategy::SynchronizeToAnchor
+    );
+    assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("test"));
+    assert_eq!(output.tree.items.len(), 1);
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    assert_eq!(function.kind, FunctionKind::Test);
     assert_eq!(function.name.as_deref(), Some("main"));
 }

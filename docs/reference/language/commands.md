@@ -61,13 +61,10 @@ JVM backend, and Java execution path used by `run`.
 Like `run`, `test` combines parse-clean selected files into one surface module
 before semantic analysis.
 
-Without explicit targets, `test` selects zero-argument functions in discovered
-`*_test.veln` files. With explicit targets, it selects zero-argument functions
-from the selected files, including non-test files. Public and private
-zero-argument functions are both eligible.
-
-This zero-argument function discovery is the implemented bootstrap test syntax.
-It is not the durable source syntax for future phases.
+Without explicit targets, `test` selects top-level `test` declarations in
+discovered `*_test.veln` files. With explicit targets, it selects `test`
+declarations from the selected files, including non-test files. Ordinary `fn`
+declarations are never selected merely because they have zero parameters.
 
 Static diagnostics block the suite before Java execution. In JSON output,
 already discovered cases are marked `blocked` with reason `static_gate`.

@@ -25,6 +25,7 @@ pub struct SurfaceModule {
 #[derive(Clone, Debug)]
 pub struct Function {
     pub node_id: NodeId,
+    pub kind: FunctionKind,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub params: Vec<Param>,
@@ -33,6 +34,21 @@ pub struct Function {
     pub contracts: Vec<Contract>,
     pub body: Vec<BodyLine>,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FunctionKind {
+    Function,
+    Test,
+}
+
+impl FunctionKind {
+    pub fn node_prefix(self) -> &'static str {
+        match self {
+            Self::Function => "fn",
+            Self::Test => "test",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

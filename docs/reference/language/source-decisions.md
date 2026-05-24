@@ -10,6 +10,7 @@ categorized specification files. The full implemented decision index is
 - [JSON Diagnostic Schema Stability](../source-decisions/result-json-diagnostic-schema-stability.md)
 - [Check JSON Details Fields](../source-decisions/result-check-json-details-fields.md)
 - [Test JSON Shape](../source-decisions/result-test-json-shape.md)
+- [Test Declaration Syntax](../source-decisions/result-test-declaration-syntax.md)
 - [Stdio API and Output Events](../source-decisions/result-stdio-api-and-output-events.md)
 - [Minimum Type System for Holes](../source-decisions/result-minimum-type-system-for-holes.md)
 - [Hole Satisfy Source Syntax](../source-decisions/result-hole-satisfy-source-syntax.md)

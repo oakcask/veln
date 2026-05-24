@@ -1,6 +1,6 @@
 # Discussion Result: Test Declaration Syntax
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 
@@ -44,9 +44,9 @@ explicit `effects [...]` clause on every `test` declaration.
 
 ## First-Slice Rules
 
-- `veln test` selects `test` declarations and executable doctest examples. It
-  must not select ordinary `fn` declarations merely because they have zero
-  parameters.
+- `veln test` selects `test` declarations. Executable doctest examples remain
+  outside the implemented source surface. The runner must not select ordinary
+  `fn` declarations merely because they have zero parameters.
 - A `test` declaration must have no parameters. A non-empty parameter list is a
   test-shape diagnostic at the parameter span.
 - A `test` declaration must return `()` or `Result((), E)`. Completing a `()`
@@ -57,14 +57,13 @@ explicit `effects [...]` clause on every `test` declaration.
 - Test declarations are not ordinary callable functions. Their bodies can call
   ordinary functions and use imports from the same project context, but user
   code cannot call a test by name.
-- Test names live in a module-local test namespace. Duplicate test names in the
-  same module are rejected. Cross-module duplicate display names are allowed
-  because JSON source identity disambiguates them.
+- Test names live in the same declaration namespace as ordinary functions.
+  `test foo` and `fn foo` cannot coexist in one checked source set, and
+  duplicate function-like names are rejected with `name.duplicate`.
 - `*_test.veln` remains a useful organization convention and discovery hint,
   but it does not change the meaning of `fn`.
 - Explicit file and directory targets bound the source set exactly as before;
-  within that source set, `veln test` selects only `test` declarations and
-  executable doctest examples.
+  within that source set, `veln test` selects only `test` declarations.
 - `veln check` parses and checks `test` declarations with the rest of the
   source set so stale tests do not hide from ordinary static diagnostics.
 - `veln fmt` preserves the `test` declaration head and formats the signature
@@ -81,22 +80,15 @@ fact at the declaration span:
 
 - `test.parameters`: `test declaration has parameters`
 - `test.return_type`: `test declaration returns <Type>`
+- `name.duplicate`: `duplicate function declaration name <Name>`
 - `effect.missing_test`: `test declaration has no effects annotation`
 
-Related notes can point to the accepted test shapes, effect declaration syntax,
-or legacy zero-argument function behavior.
+Related notes point to the accepted test shape or effect declaration syntax.
 
 ## Compatibility
 
-The current implementation's "zero-argument function in a selected test file"
-behavior is a provisional bootstrap rule. After `test` declarations are
-implemented, the runner should prefer explicit `test` declarations and stop
-auto-promoting ordinary `fn` declarations.
-
-A short migration window may keep legacy `fn` cases in `*_test.veln` files for
-existing samples, but only as compatibility behavior. Human output should make
-the legacy selection visible, and JSON should expose a selection or suite note
-so agents do not mistake it for the durable syntax.
+The older bootstrap behavior that treated zero-argument functions in selected
+test files as cases is no longer part of the implemented language reference.
 
 ## Rationale
 
@@ -128,7 +120,6 @@ test calculates_total() -> Result((), String) effects []
 end
 ```
 
-Future implementation work should add `test` as a lexer keyword and AST item,
-teach semantic analysis the test-shape rules, update discovery to ignore
-ordinary zero-argument `fn` declarations, migrate samples, and add human and
-JSON coverage for the new diagnostics.
+The implementation adds `test` as a lexer keyword and AST item, teaches
+semantic analysis the test-shape rules, and updates discovery to ignore
+ordinary zero-argument `fn` declarations.

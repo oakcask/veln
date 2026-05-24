@@ -68,12 +68,9 @@ stays in
 
 ## Test Discovery And Events
 
-- The implemented bootstrap test discovery selects zero-argument functions.
-  Future discovery should select explicit top-level `test` declarations.
-- Same-file examples currently require explicit target files and use
-  zero-argument functions as cases. Parsed docblock/example extraction,
-  expected-output examples, and automatic same-file example discovery remain
-  follow-up work.
+- Test discovery selects explicit top-level `test` declarations. Parsed
+  docblock/example extraction, expected-output examples, and automatic
+  same-file example discovery remain follow-up work.
 - Captured stdio events currently record aggregate process stdout/stderr per
   case. Per-stdio-operation events with exact operation names, newline
   terminators, and call-site provenance remain follow-up work before claiming

@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use veln_ast::FunctionKind;
 use veln_backend_jvm::generate_java_with_entry;
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
@@ -28,11 +29,9 @@ pub(crate) fn run_entry(entry: String, inputs: Vec<PathBuf>) -> Result<ExitCode,
         return Ok(ExitCode::from(1));
     }
 
-    let Some(entry_function) = module
-        .functions
-        .iter()
-        .find(|function| function.name.as_deref() == Some(entry.as_str()))
-    else {
+    let Some(entry_function) = module.functions.iter().find(|function| {
+        function.kind == FunctionKind::Function && function.name.as_deref() == Some(entry.as_str())
+    }) else {
         eprintln!("veln: run entry `{entry}` was not found");
         return Ok(ExitCode::from(1));
     };
@@ -42,7 +41,7 @@ pub(crate) fn run_entry(entry: String, inputs: Vec<PathBuf>) -> Result<ExitCode,
         return Ok(ExitCode::from(1));
     }
 
-    let reachable_module = reachable_entry_module(&module, &entry);
+    let reachable_module = reachable_entry_module(&module, &entry, FunctionKind::Function);
     let lowered = lower_checked_surface_module(&reachable_module);
     let Some(ir) = lowered.ir else {
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;

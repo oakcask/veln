@@ -50,6 +50,10 @@ Each case has:
 - `events`
 - `diagnostics`
 
+Source `test` declarations use `case.kind: "test"` and a `source.node_id`
+prefix of `test`. Ordinary functions use the `fn` prefix in other diagnostic
+contexts but are not selected as test cases.
+
 Captured stdio events use:
 
 - `kind: "stdio"`

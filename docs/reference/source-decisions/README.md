@@ -37,6 +37,7 @@ read these records only for rationale or compatibility context.
 - [Public Function Type Boundaries](result-public-function-type-boundaries.md)
 - [Satisfy Unknown Severity](result-satisfy-unknown-severity.md)
 - [Stdio API and Output Events](result-stdio-api-and-output-events.md)
+- [Test Declaration Syntax](result-test-declaration-syntax.md)
 - [Test JSON Shape](result-test-json-shape.md)
 - [User-Defined ADTs in the First Slice](result-user-defined-adts-first-slice.md)
 

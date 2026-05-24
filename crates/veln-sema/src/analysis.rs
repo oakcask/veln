@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
+
 use veln_ast::{
-    BinaryOp, BodyLineKind, ContractKind, Expr, ExprKind, Function, NodeId, RecordField,
-    SatisfyClause, Visibility,
+    BinaryOp, BodyLineKind, ContractKind, Expr, ExprKind, Function, FunctionKind, NodeId,
+    RecordField, SatisfyClause, SurfaceModule, Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
@@ -68,7 +70,7 @@ pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnos
             DiagnosticKind::Effect,
             "public function has no effects annotation",
             Some(function.span.clone()),
-            effect_details(function.node_id.display("fn")),
+            effect_details(function.node_id.display("fn"), "public_function"),
         );
         diagnostic.related.push(JsonValue::object([
             ("kind", JsonValue::string("repair_hint")),
@@ -81,6 +83,159 @@ pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnos
     }
 
     diagnostics
+}
+
+pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen = BTreeMap::<String, (String, SourceSpan)>::new();
+
+    for function in &module.functions {
+        let Some(name) = &function.name else {
+            continue;
+        };
+        let node_id = function.node_id.display(function.kind.node_prefix());
+        if let Some((first_node_id, first_span)) = seen.get(name) {
+            let mut diagnostic = Diagnostic::new(
+                "name.duplicate",
+                Severity::Error,
+                DiagnosticKind::Name,
+                format!("duplicate function declaration name `{name}`"),
+                Some(function.span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("name")),
+                    ("node_id", JsonValue::string(node_id)),
+                    ("name", JsonValue::string(name.clone())),
+                    ("namespace", JsonValue::string("function")),
+                    ("first_node_id", JsonValue::string(first_node_id.clone())),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("duplicate_origin")),
+                (
+                    "message",
+                    JsonValue::string("First function declaration with this name is here."),
+                ),
+                ("span", span_json(first_span)),
+            ]));
+            diagnostics.push(diagnostic);
+        } else {
+            seen.insert(name.clone(), (node_id, function.span.clone()));
+        }
+    }
+
+    diagnostics
+}
+
+pub(crate) fn check_test_declaration_boundary(function: &Function) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let node_id = function.node_id.display(function.kind.node_prefix());
+
+    if let Some(param) = function.params.first() {
+        let mut diagnostic = Diagnostic::new(
+            "test.parameters",
+            Severity::Error,
+            DiagnosticKind::Type,
+            "test declaration has parameters",
+            Some(param.span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("test")),
+                ("node_id", JsonValue::string(node_id.clone())),
+                ("expected_parameters", JsonValue::Number(0)),
+                (
+                    "actual_parameters",
+                    JsonValue::Number(function.params.len() as i64),
+                ),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("test_shape")),
+            (
+                "message",
+                JsonValue::string("A test declaration uses an empty parameter list."),
+            ),
+            ("span", span_json(&function.span)),
+        ]));
+        diagnostics.push(diagnostic);
+    }
+
+    match function.return_type.as_deref() {
+        Some(return_type) => {
+            if let Ok(ty) = parse_type_annotation(return_type) {
+                if !is_allowed_test_return(&ty) {
+                    diagnostics.push(test_return_diagnostic(
+                        function,
+                        &node_id,
+                        format!("test declaration returns `{}`", ty.render()),
+                        ty.render(),
+                    ));
+                }
+            }
+        }
+        None => diagnostics.push(test_return_diagnostic(
+            function,
+            &node_id,
+            "test declaration has no return type annotation".to_string(),
+            "missing".to_string(),
+        )),
+    }
+
+    if function.effects.is_none() {
+        let mut diagnostic = Diagnostic::new(
+            "effect.missing_test",
+            Severity::Error,
+            DiagnosticKind::Effect,
+            "test declaration has no effects annotation",
+            Some(function.span.clone()),
+            effect_details(node_id, "test_declaration"),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("repair_hint")),
+            (
+                "message",
+                JsonValue::string("Use `effects []` for a pure test declaration."),
+            ),
+        ]));
+        diagnostics.push(diagnostic);
+    }
+
+    diagnostics
+}
+
+fn is_allowed_test_return(ty: &Type) -> bool {
+    ty == &Type::unit()
+        || ty
+            .result_parts()
+            .is_some_and(|(value, _)| value == &Type::unit())
+}
+
+fn test_return_diagnostic(
+    function: &Function,
+    node_id: &str,
+    message: String,
+    actual_type: String,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "test.return_type",
+        Severity::Error,
+        DiagnosticKind::Type,
+        message,
+        Some(function.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("test")),
+            ("node_id", JsonValue::string(node_id)),
+            ("expected_type", JsonValue::string("() or Result((), E)")),
+            ("actual_type", JsonValue::string(actual_type)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("test_shape")),
+        (
+            "message",
+            JsonValue::string("A test declaration returns `()` or `Result((), E)`."),
+        ),
+        ("span", span_json(&function.span)),
+    ]));
+    diagnostic
 }
 
 pub(crate) fn check_function_body(
@@ -158,7 +313,7 @@ impl<'a> FunctionChecker<'a> {
                 }
             }
         }
-        self.check_public_effect_boundary();
+        self.check_effect_boundaries();
     }
 
     fn check_function_annotations(&mut self) {
@@ -263,10 +418,25 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn check_public_effect_boundary(&mut self) {
-        if self.function.visibility != Visibility::Public {
+    fn check_effect_boundaries(&mut self) {
+        let boundary = if self.function.kind == FunctionKind::Test {
+            Some((
+                "test_declaration",
+                "effect.missing_test",
+                "test declaration",
+            ))
+        } else if self.function.visibility == Visibility::Public {
+            Some((
+                "public_function",
+                "effect.missing_public",
+                "public function",
+            ))
+        } else {
+            None
+        };
+        let Some((boundary, diagnostic_id, subject)) = boundary else {
             return;
-        }
+        };
         let Some(declared_effects) = &self.function.effects else {
             return;
         };
@@ -290,14 +460,17 @@ impl<'a> FunctionChecker<'a> {
                 .cloned()
                 .collect::<Vec<_>>();
             let mut diagnostic = Diagnostic::new(
-                "effect.missing_public",
+                diagnostic_id,
                 Severity::Error,
                 DiagnosticKind::Effect,
-                format!("public function uses undeclared effect `{effect}`"),
+                format!("{subject} uses undeclared effect `{effect}`"),
                 Some(self.function.span.clone()),
                 effect_missing_public_details(
-                    self.function.node_id.display("fn"),
+                    self.function
+                        .node_id
+                        .display(self.function.kind.node_prefix()),
                     effect,
+                    boundary,
                     declared_effects,
                     &inferred_effects,
                     &provenance,

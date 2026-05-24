@@ -1,4 +1,4 @@
-use veln_ast::{NodeId, SurfaceModule};
+use veln_ast::{FunctionKind, NodeId, SurfaceModule};
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
@@ -217,6 +217,7 @@ impl TypeEnvironment {
         let functions = module
             .functions
             .iter()
+            .filter(|function| function.kind == FunctionKind::Function)
             .filter_map(|function| {
                 let name = function.name.clone()?;
                 let params = function

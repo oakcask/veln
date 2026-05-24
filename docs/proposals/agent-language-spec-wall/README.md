@@ -38,7 +38,6 @@ current workspace. Implemented decisions were moved to
 - [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md)
 - [Safe Repair Candidate Boundary](result-safe-repair-candidate-boundary.md)
 - [Scoping and Name Resolution](result-scoping-and-name-resolution.md)
-- [Test Declaration Syntax](result-test-declaration-syntax.md)
 - [Transitive Effect Diagnostics](result-transitive-effect-diagnostics.md)
 
 ## Classification Rule

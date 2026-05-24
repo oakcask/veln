@@ -19,6 +19,7 @@ pub enum SyntaxItem {
 
 #[derive(Clone, Debug)]
 pub struct FunctionDecl {
+    pub kind: FunctionKind,
     pub visibility: Visibility,
     pub name: Option<String>,
     pub params: Vec<Param>,
@@ -28,6 +29,12 @@ pub struct FunctionDecl {
     pub body: Vec<BodyLine>,
     pub span: SourceSpan,
     pub end_present: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FunctionKind {
+    Function,
+    Test,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -108,7 +108,7 @@ the primary capture record structured enough for diagnostics and repair.
 ## Open Details
 
 The first slice does not define source syntax for asserting on captured output.
-[Test Declaration Syntax](../../proposals/agent-language-spec-wall/result-test-declaration-syntax.md) defines how test
+[Test Declaration Syntax](result-test-declaration-syntax.md) defines how test
 cases are marked, but output assertions remain a separate decision. This
 decision only requires the runtime and test runner to preserve enough
 structured data for future assertions and failure reports.
