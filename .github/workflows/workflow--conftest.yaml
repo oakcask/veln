@@ -1,0 +1,18 @@
+name: workflow / conftest
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/*.yaml
+      - .github/workflows/*.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    container: openpolicyagent/conftest:v0.68.2@sha256:5fd81e332d7e4bc01daf3ef35371800a9a9720a30c0c37a78de0c5fbe4b6d622
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - run: conftest test -o github -p conftest/workflow .github/workflows
