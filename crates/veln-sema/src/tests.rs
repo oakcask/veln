@@ -586,6 +586,76 @@ fn infers_float_numeric_operators_from_call_results() {
 }
 
 #[test]
+fn accepts_int_operands_in_float_operator_contexts() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(left: Float, count: Int) -> {sum: Float, ordered: Bool, expected: Float} effects []\n",
+            "  {sum: left + count, ordered: count < left, expected: 1 + 2}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Record(fields) = &expr.kind else {
+        panic!("tail expression should lower as record");
+    };
+    assert_eq!(fields[0].expr.ty, CoreType::float());
+    assert_eq!(fields[1].expr.ty, CoreType::bool());
+    assert_eq!(fields[2].expr.ty, CoreType::float());
+    assert!(matches!(
+        &fields[0].expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::PreludeBuiltin(name),
+            ..
+        } if name == "float_add"
+    ));
+    assert!(matches!(
+        &fields[1].expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::PreludeBuiltin(name),
+            ..
+        } if name == "float_less"
+    ));
+    assert!(matches!(
+        &fields[2].expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::PreludeBuiltin(name),
+            ..
+        } if name == "float_add"
+    ));
+}
+
+#[test]
+fn rejects_int_values_in_float_assignment_contexts() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("pub fn main() -> Float effects []\n", "  1\n", "end\n",),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `Float`, but found `Int`");
+}
+
+#[test]
 fn reports_float_operator_operand_mismatch() {
     let source = SourceFile::new(
         "main.veln",

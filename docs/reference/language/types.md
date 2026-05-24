@@ -88,17 +88,19 @@ Implemented operator typing:
 - comparisons other than equality expect matching `Int` operands or matching
   `Float` operands and return `Bool`. A `Float` expected result does not apply
   to comparisons, so `Float` comparison is selected from the operand types.
-- `+`, `-`, `*`, and `/` expect matching `Int` operands and return `Int`, or
-  expect matching `Float` operands and return `Float` when the expected result
-  type or either operand is clearly `Float`.
+- `+`, `-`, `*`, and `/` expect `Int` operands and return `Int`, or expect
+  numeric operands and return `Float` when the expected result type or either
+  operand is clearly `Float`.
 - `==` and `!=` return `Bool` and do not currently require matching operand
   types.
 - `|>` is parsed and lowered as a binary operator with unknown operand and
   result types. It has no special call-rewrite semantics in the implemented
   slice. The current JVM runtime helper returns the right operand.
 
-There is no implicit `Int` to `Float` promotion in operator typing. Mixed
-numeric operands report a type mismatch at the non-matching operand.
+Operator typing permits `Int` operands where a selected `Float` operator
+expects a numeric operand. This widening is limited to numeric operators;
+ordinary assignment, return, record, list, and call argument checking still
+require `Float` where `Float` is declared.
 
 Float arithmetic and comparison operators lower as calls to compiler-known
 prelude functions. `Float` values follow the backend floating-point value

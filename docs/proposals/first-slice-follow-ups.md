@@ -10,8 +10,7 @@ stays in
 
 ## Language And Type Coverage
 
-- Stable callable value construction and numeric behavior beyond matching
-  `Int` or matching `Float` operator operands remain follow-up work.
+- Stable callable value construction remains follow-up work.
 
 ## Repair Loop
 

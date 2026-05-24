@@ -1658,7 +1658,7 @@ impl<'a> FunctionChecker<'a> {
             origin_message: "Builtin operator parameter type inferred here.",
         };
         let actual = self.infer_expr(arg, Some(&expected));
-        self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
+        self.check_numeric_operator_assignable(arg, &expected.ty, &actual, &expected);
         return_type
     }
 
@@ -1675,9 +1675,22 @@ impl<'a> FunctionChecker<'a> {
                 origin_message: "Builtin operator parameter type inferred here.",
             };
             let actual = self.infer_expr(arg, Some(&expected));
-            self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
+            self.check_numeric_operator_assignable(arg, &expected.ty, &actual, &expected);
         }
         return_type
+    }
+
+    fn check_numeric_operator_assignable(
+        &mut self,
+        expr: &Expr,
+        expected: &Type,
+        actual: &Type,
+        expected_context: &ExpectedType,
+    ) {
+        if expected == &Type::float() && actual == &Type::int() {
+            return;
+        }
+        self.check_assignable(expr, expected, actual, expected_context, "operator_operand");
     }
 
     fn numeric_operand_type(
