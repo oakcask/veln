@@ -367,6 +367,12 @@ fn collect_expr_effects(
                 collect_expr_effects(item, bindings, effects_by_name, inferred);
             }
         }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_expr_effects(scrutinee, bindings, effects_by_name, inferred);
+            for arm in arms {
+                collect_expr_effects(&arm.expr, bindings, effects_by_name, inferred);
+            }
+        }
         ExprKind::Binary { left, right, .. } => {
             collect_expr_effects(left, bindings, effects_by_name, inferred);
             collect_expr_effects(right, bindings, effects_by_name, inferred);

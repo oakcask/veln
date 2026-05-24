@@ -121,6 +121,7 @@ Acceptance checks:
 
 ### 3. First-Slice Grammar Coverage
 
+Status: resolved
 Severity: medium
 
 Expected:
@@ -130,25 +131,24 @@ Expected:
 
 Observed:
 
-- The lexer has a `match` token, but the parser, AST, checked core, typed IR,
-  and backend have no `match` expression representation.
-- The implementation memo notes match branch expected-type flow as later work,
-  which conflicts with the stronger first-slice completion claim.
+- `match` is represented through parser, AST, checked core, typed IR, and the
+  JVM backend for the implemented first-slice pattern subset.
+- Match arm expected-type flow and constructor payload bindings are covered by
+  semantic checks.
 
 Why it matters:
 
-- First-slice grammar examples and diagnostics cannot rely on `match`.
+- First-slice grammar examples and diagnostics can rely on the implemented
+  `match` subset.
 
 Fix direction:
 
-- Either implement first-slice `match` through syntax, AST, sema, core, IR, and
-  backend gates, or update the phase scope to explicitly defer `match`.
+- Keep future pattern extensions behind explicit reference updates.
 
 Acceptance checks:
 
-- Add parser and check fixtures for a minimal `match`.
-- Add an executable `match` fixture only after lowering/backend behavior is
-  intentionally supported.
+- Parser, semantic, IR, backend, and executable gate coverage should include
+  the implemented `match` subset.
 
 ### 4. Prelude Helper Coverage
 

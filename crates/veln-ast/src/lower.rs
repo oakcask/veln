@@ -1,15 +1,15 @@
 use veln_syntax::{
     BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, ContractKind as SyntaxContractKind,
     DictEntry as SyntaxDictEntry, Expr as SyntaxExpr, ExprKind as SyntaxExprKind,
-    FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule, PrefixOp as SyntaxPrefixOp,
-    RecordField as SyntaxRecordField, SyntaxItem, SyntaxTree, UseDecl as SyntaxUse,
-    Visibility as SyntaxVisibility,
+    FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule, Pattern as SyntaxPattern,
+    PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp, RecordField as SyntaxRecordField,
+    SyntaxItem, SyntaxTree, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
 };
 
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
-    FunctionKind, ModuleHeader, NodeId, Param, PrefixOp, RecordField, ResultBinding, SurfaceModule,
-    UseDecl, Visibility,
+    FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternKind, PrefixOp,
+    RecordField, ResultBinding, SurfaceModule, UseDecl, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -189,6 +189,18 @@ impl AstBuilder {
                 SyntaxExprKind::List(items) => {
                     ExprKind::List(items.iter().map(|item| self.lower_expr(item)).collect())
                 }
+                SyntaxExprKind::Match { scrutinee, arms } => ExprKind::Match {
+                    scrutinee: Box::new(self.lower_expr(scrutinee)),
+                    arms: arms
+                        .iter()
+                        .map(|arm| MatchArm {
+                            node_id: self.alloc(),
+                            pattern: self.lower_pattern(&arm.pattern),
+                            expr: self.lower_expr(&arm.expr),
+                            span: arm.span.clone(),
+                        })
+                        .collect(),
+                },
                 SyntaxExprKind::Prefix { op, expr } => ExprKind::Prefix {
                     op: match op {
                         SyntaxPrefixOp::Not => PrefixOp::Not,
@@ -217,6 +229,28 @@ impl AstBuilder {
                 },
             },
             span: expr.span.clone(),
+        }
+    }
+
+    fn lower_pattern(&mut self, pattern: &SyntaxPattern) -> Pattern {
+        Pattern {
+            node_id: self.alloc(),
+            kind: match &pattern.kind {
+                SyntaxPatternKind::Wildcard => PatternKind::Wildcard,
+                SyntaxPatternKind::Binding(name) => PatternKind::Binding(name.clone()),
+                SyntaxPatternKind::StringLiteral(value) => {
+                    PatternKind::StringLiteral(value.clone())
+                }
+                SyntaxPatternKind::IntLiteral(value) => PatternKind::IntLiteral(value.clone()),
+                SyntaxPatternKind::FloatLiteral(value) => PatternKind::FloatLiteral(value.clone()),
+                SyntaxPatternKind::BoolLiteral(value) => PatternKind::BoolLiteral(*value),
+                SyntaxPatternKind::Unit => PatternKind::Unit,
+                SyntaxPatternKind::Constructor { name, args } => PatternKind::Constructor {
+                    name: name.clone(),
+                    args: args.iter().map(|arg| self.lower_pattern(arg)).collect(),
+                },
+            },
+            span: pattern.span.clone(),
         }
     }
 

@@ -115,6 +115,10 @@ pub enum ExprKind {
     Record(Vec<RecordField>),
     Dict(Vec<DictEntry>),
     List(Vec<Expr>),
+    Match {
+        scrutinee: Box<Expr>,
+        arms: Vec<MatchArm>,
+    },
     Prefix {
         op: PrefixOp,
         expr: Box<Expr>,
@@ -146,6 +150,34 @@ pub struct DictEntry {
     pub key: Expr,
     pub value: Expr,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct MatchArm {
+    pub pattern: Pattern,
+    pub expr: Expr,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct Pattern {
+    pub kind: PatternKind,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub enum PatternKind {
+    Wildcard,
+    Binding(String),
+    StringLiteral(String),
+    IntLiteral(String),
+    FloatLiteral(String),
+    BoolLiteral(bool),
+    Unit,
+    Constructor {
+        name: Vec<String>,
+        args: Vec<Pattern>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

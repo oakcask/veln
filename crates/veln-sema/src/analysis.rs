@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use veln_ast::{
     BinaryOp, BodyLineKind, ContractKind, DictEntry, Expr, ExprKind, Function, FunctionKind,
-    NodeId, RecordField, SatisfyClause, SurfaceModule, Visibility,
+    MatchArm, NodeId, Pattern, PatternKind, RecordField, SatisfyClause, SurfaceModule, Visibility,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
@@ -958,6 +958,9 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Record(fields) => self.infer_record(expr, fields, expected),
             ExprKind::Dict(entries) => self.infer_dict(expr, entries, expected),
             ExprKind::List(items) => self.infer_list(expr, items, expected),
+            ExprKind::Match { scrutinee, arms } => {
+                self.infer_match(expr, scrutinee, arms, expected)
+            }
             ExprKind::Prefix { op, expr } => self.infer_prefix(*op, expr, expected),
             ExprKind::Binary { op, left, right } => self.infer_binary(*op, left, right, expected),
         }
@@ -1304,6 +1307,101 @@ impl<'a> FunctionChecker<'a> {
             }
         }
         Type::list(item_type)
+    }
+
+    fn infer_match(
+        &mut self,
+        expr: &Expr,
+        scrutinee: &Expr,
+        arms: &[MatchArm],
+        expected: Option<&ExpectedType>,
+    ) -> Type {
+        let scrutinee_type = self.infer_expr(scrutinee, None);
+        if arms.is_empty() {
+            return expected
+                .map(|expected| expected.ty.clone())
+                .unwrap_or(Type::Unknown);
+        }
+
+        let mut result_type = expected
+            .map(|expected| expected.ty.clone())
+            .unwrap_or(Type::Unknown);
+        for arm in arms {
+            let saved_bindings = self.bindings.len();
+            let saved_names = self.local_names.clone();
+            let pattern_bindings = self.pattern_bindings(&arm.pattern, &scrutinee_type);
+            for binding in pattern_bindings {
+                let _ = self.declare_local_name(
+                    &binding.name,
+                    arm.pattern.node_id.display("pattern"),
+                    arm.pattern.span.clone(),
+                    "pattern binding",
+                );
+                self.bindings.push(binding);
+            }
+
+            let arm_expected = if let Some(expected) = expected {
+                Some(expected.clone())
+            } else if result_type != Type::Unknown {
+                Some(ExpectedType {
+                    ty: result_type.clone(),
+                    source: ExpectedTypeSource::Inferred,
+                    origin_node_id: expr.node_id,
+                    origin_span: Some(expr.span.clone()),
+                    origin_message: "Match result type inferred here.",
+                })
+            } else {
+                None
+            };
+            let actual = self.infer_expr(&arm.expr, arm_expected.as_ref());
+            if let Some(expected) = &arm_expected {
+                self.check_assignable(&arm.expr, &expected.ty, &actual, expected, "match_arm");
+            }
+            if result_type == Type::Unknown {
+                result_type = actual;
+            }
+
+            self.bindings.truncate(saved_bindings);
+            self.local_names = saved_names;
+        }
+
+        result_type
+    }
+
+    fn pattern_bindings(&self, pattern: &Pattern, scrutinee_type: &Type) -> Vec<Binding> {
+        match &pattern.kind {
+            PatternKind::Wildcard
+            | PatternKind::StringLiteral(_)
+            | PatternKind::IntLiteral(_)
+            | PatternKind::FloatLiteral(_)
+            | PatternKind::BoolLiteral(_)
+            | PatternKind::Unit => Vec::new(),
+            PatternKind::Binding(name) => vec![Binding {
+                name: name.clone(),
+                ty: scrutinee_type.clone(),
+            }],
+            PatternKind::Constructor { name, args } => match name.as_slice() {
+                [constructor] if constructor == "Some" => scrutinee_type
+                    .option_part()
+                    .zip(args.first())
+                    .map_or_else(Vec::new, |(inner, pattern)| {
+                        self.pattern_bindings(pattern, inner)
+                    }),
+                [constructor] if constructor == "Ok" => scrutinee_type
+                    .result_parts()
+                    .zip(args.first())
+                    .map_or_else(Vec::new, |((value, _), pattern)| {
+                        self.pattern_bindings(pattern, value)
+                    }),
+                [constructor] if constructor == "Err" => scrutinee_type
+                    .result_parts()
+                    .zip(args.first())
+                    .map_or_else(Vec::new, |((_, error), pattern)| {
+                        self.pattern_bindings(pattern, error)
+                    }),
+                _ => Vec::new(),
+            },
+        }
     }
 
     fn infer_record(

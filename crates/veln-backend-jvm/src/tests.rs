@@ -518,6 +518,32 @@ fn escapes_string_literals_and_emits_result_errors() {
 }
 
 #[test]
+fn emits_match_expression_branches() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main(value: Option(Int)) -> Int effects []\n",
+        "  match value\n",
+        "    Some(count) => count + 1\n",
+        "    None => 0\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("if (VelnRuntime.isSome("));
+    assert!(program.contains("VelnRuntime.optionValue("));
+    assert!(program.contains("else if (VelnRuntime.isNone("));
+    assert!(runtime.contains("public static boolean isSome"));
+    assert!(runtime.contains("public static Object optionValue"));
+}
+
+#[test]
 fn generated_sources_compile_when_javac_is_available() {
     if Command::new("javac").arg("-version").output().is_err() {
         return;

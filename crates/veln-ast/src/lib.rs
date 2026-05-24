@@ -7,8 +7,8 @@ mod satisfy;
 pub use lower::lower_surface_ast;
 pub use model::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
-    FunctionKind, ModuleHeader, NodeId, Param, PrefixOp, RecordField, ResultBinding, SatisfyClause,
-    SurfaceModule, UseDecl, Visibility,
+    FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternKind, PrefixOp,
+    RecordField, ResultBinding, SatisfyClause, SurfaceModule, UseDecl, Visibility,
 };
 
 #[cfg(test)]

@@ -96,6 +96,10 @@ pub enum CoreExprKind {
     Record(Vec<CoreRecordField>),
     Dict(Vec<CoreDictEntry>),
     List(Vec<CoreExpr>),
+    Match {
+        scrutinee: Box<CoreExpr>,
+        arms: Vec<CoreMatchArm>,
+    },
     Prefix {
         op: PrefixOp,
         expr: Box<CoreExpr>,
@@ -130,4 +134,34 @@ pub struct CoreDictEntry {
     pub key: CoreExpr,
     pub value: CoreExpr,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CoreMatchArm {
+    pub node_id: NodeId,
+    pub pattern: CorePattern,
+    pub expr: CoreExpr,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CorePattern {
+    pub node_id: NodeId,
+    pub kind: CorePatternKind,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum CorePatternKind {
+    Wildcard,
+    Binding(String),
+    StringLiteral(String),
+    IntLiteral(String),
+    FloatLiteral(String),
+    BoolLiteral(bool),
+    Unit,
+    Constructor {
+        name: Vec<String>,
+        args: Vec<CorePattern>,
+    },
 }

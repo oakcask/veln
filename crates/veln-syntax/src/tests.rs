@@ -676,3 +676,35 @@ fn synchronizes_top_level_garbage_to_next_test_declaration() {
     assert_eq!(function.kind, FunctionKind::Test);
     assert_eq!(function.name.as_deref(), Some("main"));
 }
+
+#[test]
+fn parses_and_formats_match_expression() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn describe(value: Option(Int)) -> String effects []\n",
+            "  match value\n",
+            "    Some(count) => \"some\"\n",
+            "    None => \"none\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Match { scrutinee, arms } = &expr.kind else {
+        panic!("expected match expression");
+    };
+    assert!(matches!(
+        &scrutinee.kind,
+        ExprKind::NamePath(segments) if segments == &vec!["value".to_string()]
+    ));
+    assert_eq!(arms.len(), 2);
+    assert_eq!(format_tree(&output.tree), source.text());
+}

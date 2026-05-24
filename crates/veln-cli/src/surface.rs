@@ -144,6 +144,12 @@ fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mu
                 collect_function_callees(item, function_names, callees);
             }
         }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_function_callees(scrutinee, function_names, callees);
+            for arm in arms {
+                collect_function_callees(&arm.expr, function_names, callees);
+            }
+        }
         ExprKind::Prefix { expr, .. } => collect_function_callees(expr, function_names, callees),
         ExprKind::Binary { left, right, .. } => {
             collect_function_callees(left, function_names, callees);

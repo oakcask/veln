@@ -43,8 +43,15 @@ Expected types flow into holes and subexpressions from:
 - list elements
 - dictionary keys and values
 - `Ok`, `Err`, `Some`, `None`, and postfix `?`
+- `match` arm results and constructor payload bindings
 
 Record field access gets its result type from the inferred base record type.
+
+`match` infers the scrutinee first. A binding pattern has the scrutinee type.
+`Some(value)`, `Ok(value)`, and `Err(error)` bind their payload patterns to
+the corresponding `Option` or `Result` argument when the scrutinee type is
+known. Arm expressions share the expected result type when one is available;
+otherwise the first arm supplies the initial result type for later arms.
 
 ## Assignment Compatibility
 

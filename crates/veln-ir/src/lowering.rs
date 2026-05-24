@@ -5,8 +5,8 @@ use veln_core::{
 };
 
 use crate::{
-    IrCallTarget, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrParam, IrRecordField, IrStmt,
-    IrStmtKind, TypedProgram,
+    IrCallTarget, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrParam, IrPattern,
+    IrPatternKind, IrRecordField, IrStmt, IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -140,6 +140,19 @@ fn lower_expr(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
                     .map(lower_expr)
                     .collect::<Result<Vec<_>, _>>()?,
             ),
+            CoreExprKind::Match { scrutinee, arms } => IrExprKind::Match {
+                scrutinee: Box::new(lower_expr(scrutinee)?),
+                arms: arms
+                    .iter()
+                    .map(|arm| {
+                        Ok(IrMatchArm {
+                            node_id: arm.node_id,
+                            pattern: lower_pattern(&arm.pattern),
+                            value: lower_expr(&arm.expr)?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, IrLowerError>>()?,
+            },
             CoreExprKind::Prefix { op, expr } => IrExprKind::Prefix {
                 op: *op,
                 expr: Box::new(lower_expr(expr)?),
@@ -151,6 +164,31 @@ fn lower_expr(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
             },
         },
     })
+}
+
+fn lower_pattern(pattern: &veln_core::CorePattern) -> IrPattern {
+    IrPattern {
+        node_id: pattern.node_id,
+        kind: match &pattern.kind {
+            veln_core::CorePatternKind::Wildcard => IrPatternKind::Wildcard,
+            veln_core::CorePatternKind::Binding(name) => IrPatternKind::Binding(name.clone()),
+            veln_core::CorePatternKind::StringLiteral(value) => {
+                IrPatternKind::StringLiteral(value.clone())
+            }
+            veln_core::CorePatternKind::IntLiteral(value) => {
+                IrPatternKind::IntLiteral(value.clone())
+            }
+            veln_core::CorePatternKind::FloatLiteral(value) => {
+                IrPatternKind::FloatLiteral(value.clone())
+            }
+            veln_core::CorePatternKind::BoolLiteral(value) => IrPatternKind::BoolLiteral(*value),
+            veln_core::CorePatternKind::Unit => IrPatternKind::Unit,
+            veln_core::CorePatternKind::Constructor { name, args } => IrPatternKind::Constructor {
+                name: name.clone(),
+                args: args.iter().map(lower_pattern).collect(),
+            },
+        },
+    }
 }
 
 fn lower_call_target(

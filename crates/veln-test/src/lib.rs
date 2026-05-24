@@ -184,6 +184,12 @@ fn collect_stdio_call_spans(expr: &Expr, spans: &mut BTreeMap<(String, String), 
                 collect_stdio_call_spans(item, spans);
             }
         }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_stdio_call_spans(scrutinee, spans);
+            for arm in arms {
+                collect_stdio_call_spans(&arm.expr, spans);
+            }
+        }
         ExprKind::Prefix { expr, .. } => collect_stdio_call_spans(expr, spans),
         ExprKind::Binary { left, right, .. } => {
             collect_stdio_call_spans(left, spans);

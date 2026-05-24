@@ -1,6 +1,6 @@
 use crate::{
-    BinaryOp, BodyLine, ContractKind, Expr, ExprKind, FunctionDecl, FunctionKind, PrefixOp,
-    SyntaxItem, SyntaxTree, TokenKind, Visibility,
+    BinaryOp, BodyLine, ContractKind, Expr, ExprKind, FunctionDecl, FunctionKind, Pattern,
+    PatternKind, PrefixOp, SyntaxItem, SyntaxTree, TokenKind, Visibility,
 };
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
@@ -244,6 +244,18 @@ fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide) -> String {
             let items = items.iter().map(format_expr).collect::<Vec<_>>().join(", ");
             format!("[{items}]")
         }
+        ExprKind::Match { scrutinee, arms } => {
+            let mut text = format!("match {}\n", format_expr(scrutinee));
+            for arm in arms {
+                text.push_str("    ");
+                text.push_str(&format_pattern(&arm.pattern));
+                text.push_str(" => ");
+                text.push_str(&format_expr(&arm.expr));
+                text.push('\n');
+            }
+            text.push_str("  end");
+            text
+        }
         ExprKind::Prefix { op, expr: inner } => match op {
             PrefixOp::Not => format!(
                 "not {}",
@@ -288,7 +300,33 @@ fn expr_prec(expr: &Expr) -> u8 {
         },
         ExprKind::Prefix { .. } => 15,
         ExprKind::Call { .. } | ExprKind::FieldAccess { .. } | ExprKind::Try(_) => 17,
+        ExprKind::Match { .. } => 19,
         _ => 19,
+    }
+}
+
+fn format_pattern(pattern: &Pattern) -> String {
+    match &pattern.kind {
+        PatternKind::Wildcard => "_".to_string(),
+        PatternKind::Binding(name) => name.clone(),
+        PatternKind::StringLiteral(value)
+        | PatternKind::IntLiteral(value)
+        | PatternKind::FloatLiteral(value) => value.clone(),
+        PatternKind::BoolLiteral(true) => "true".to_string(),
+        PatternKind::BoolLiteral(false) => "false".to_string(),
+        PatternKind::Unit => "()".to_string(),
+        PatternKind::Constructor { name, args } => {
+            if args.is_empty() {
+                name.join("::")
+            } else {
+                let args = args
+                    .iter()
+                    .map(format_pattern)
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{}({args})", name.join("::"))
+            }
+        }
     }
 }
 

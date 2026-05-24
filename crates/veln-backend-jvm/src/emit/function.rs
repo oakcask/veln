@@ -2,7 +2,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{BinaryOp, PrefixOp};
 use veln_ir::{
-    IrCallTarget, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrRecordField, IrStmt, IrStmtKind,
+    IrCallTarget, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrPattern,
+    IrPatternKind, IrRecordField, IrStmt, IrStmtKind,
 };
 
 use crate::emit::program::ProgramEmitter;
@@ -112,6 +113,7 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             IrExprKind::Record(fields) => self.emit_record(fields),
             IrExprKind::Dict(entries) => self.emit_dict(entries),
             IrExprKind::List(items) => self.emit_list(items),
+            IrExprKind::Match { scrutinee, arms } => self.emit_match(scrutinee, arms),
             IrExprKind::Prefix { op, expr } => {
                 let method = match op {
                     PrefixOp::Not => "not",
@@ -264,6 +266,165 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
         }
     }
 
+    fn emit_match(&mut self, scrutinee: &IrExpr, arms: &[IrMatchArm]) -> JavaExpr {
+        let scrutinee_value = self.emit_expr(scrutinee);
+        let scrutinee_temp = self.next_temp("match_value");
+        let result_temp = self.next_temp("match_result");
+        let mut prelude = scrutinee_value.prelude;
+        prelude.push(format!(
+            "Object {scrutinee_temp} = {};",
+            scrutinee_value.code
+        ));
+        prelude.push(format!("Object {result_temp};"));
+        for (index, arm) in arms.iter().enumerate() {
+            let saved_locals = self.locals.clone();
+            let saved_used_names = self.used_names.clone();
+            let pattern = self.emit_pattern(&arm.pattern, &scrutinee_temp);
+            let condition = if index == 0 {
+                format!("if ({}) {{", pattern.condition)
+            } else {
+                format!("else if ({}) {{", pattern.condition)
+            };
+            prelude.push(condition);
+            for binding in pattern.bindings {
+                prelude.push(format!("    {binding}"));
+            }
+            let arm_value = self.emit_expr(&arm.value);
+            for line in arm_value.prelude {
+                prelude.push(format!("    {line}"));
+            }
+            prelude.push(format!("    {result_temp} = {};", arm_value.code));
+            prelude.push("}".to_string());
+            self.locals = saved_locals;
+            self.used_names = saved_used_names;
+        }
+        prelude.push("else {".to_string());
+        prelude.push("    throw new IllegalStateException(\"non-exhaustive match\");".to_string());
+        prelude.push("}".to_string());
+        JavaExpr {
+            prelude,
+            code: result_temp,
+        }
+    }
+
+    fn emit_pattern(&mut self, pattern: &IrPattern, value: &str) -> JavaPattern {
+        match &pattern.kind {
+            IrPatternKind::Wildcard => JavaPattern::matches(),
+            IrPatternKind::Binding(name) => {
+                let java_name = self.bind_local(name, "p");
+                JavaPattern {
+                    condition: "true".to_string(),
+                    bindings: vec![format!("Object {java_name} = {value};")],
+                }
+            }
+            IrPatternKind::StringLiteral(text) => JavaPattern {
+                condition: format!(
+                    "java.util.Objects.equals({value}, {})",
+                    java_string(&veln_string_literal_value(text))
+                ),
+                bindings: Vec::new(),
+            },
+            IrPatternKind::IntLiteral(text) => JavaPattern {
+                condition: format!("java.util.Objects.equals({value}, Long.valueOf({text}L))"),
+                bindings: Vec::new(),
+            },
+            IrPatternKind::FloatLiteral(text) => JavaPattern {
+                condition: format!("java.util.Objects.equals({value}, Double.valueOf({text}D))"),
+                bindings: Vec::new(),
+            },
+            IrPatternKind::BoolLiteral(value_bool) => JavaPattern {
+                condition: format!(
+                    "java.util.Objects.equals({value}, {})",
+                    if *value_bool {
+                        "Boolean.TRUE"
+                    } else {
+                        "Boolean.FALSE"
+                    }
+                ),
+                bindings: Vec::new(),
+            },
+            IrPatternKind::Unit => JavaPattern {
+                condition: format!(
+                    "java.util.Objects.equals({value}, {}.UNIT)",
+                    self.program.options.runtime_class
+                ),
+                bindings: Vec::new(),
+            },
+            IrPatternKind::Constructor { name, args } => {
+                self.emit_constructor_pattern(name, args, value)
+            }
+        }
+    }
+
+    fn emit_constructor_pattern(
+        &mut self,
+        name: &[String],
+        args: &[IrPattern],
+        value: &str,
+    ) -> JavaPattern {
+        let Some(constructor) = name.last().map(String::as_str) else {
+            return JavaPattern::never();
+        };
+        match constructor {
+            "None" if args.is_empty() => JavaPattern {
+                condition: format!("{}.isNone({value})", self.program.options.runtime_class),
+                bindings: Vec::new(),
+            },
+            "Some" if args.len() == 1 => {
+                let inner = format!(
+                    "{}.optionValue({value})",
+                    self.program.options.runtime_class
+                );
+                let mut nested = self.emit_pattern(&args[0], &inner);
+                let condition = format!(
+                    "{}.isSome({value}) && {}",
+                    self.program.options.runtime_class, nested.condition
+                );
+                let mut bindings = Vec::new();
+                bindings.append(&mut nested.bindings);
+                JavaPattern {
+                    condition,
+                    bindings,
+                }
+            }
+            "Ok" if args.len() == 1 => {
+                let inner = format!(
+                    "{}.resultValue({value})",
+                    self.program.options.runtime_class
+                );
+                let mut nested = self.emit_pattern(&args[0], &inner);
+                let condition = format!(
+                    "{}.isOk({value}) && {}",
+                    self.program.options.runtime_class, nested.condition
+                );
+                let mut bindings = Vec::new();
+                bindings.append(&mut nested.bindings);
+                JavaPattern {
+                    condition,
+                    bindings,
+                }
+            }
+            "Err" if args.len() == 1 => {
+                let inner = format!(
+                    "{}.resultValue({value})",
+                    self.program.options.runtime_class
+                );
+                let mut nested = self.emit_pattern(&args[0], &inner);
+                let condition = format!(
+                    "{}.isErr({value}) && {}",
+                    self.program.options.runtime_class, nested.condition
+                );
+                let mut bindings = Vec::new();
+                bindings.append(&mut nested.bindings);
+                JavaPattern {
+                    condition,
+                    bindings,
+                }
+            }
+            _ => JavaPattern::never(),
+        }
+    }
+
     fn emit_binary(&mut self, op: BinaryOp, left: &IrExpr, right: &IrExpr) -> JavaExpr {
         let left = self.emit_expr(left);
         let right = self.emit_expr(right);
@@ -328,6 +489,27 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
 struct JavaExpr {
     prelude: Vec<String>,
     code: String,
+}
+
+struct JavaPattern {
+    condition: String,
+    bindings: Vec<String>,
+}
+
+impl JavaPattern {
+    fn matches() -> Self {
+        Self {
+            condition: "true".to_string(),
+            bindings: Vec::new(),
+        }
+    }
+
+    fn never() -> Self {
+        Self {
+            condition: "false".to_string(),
+            bindings: Vec::new(),
+        }
+    }
 }
 
 impl JavaExpr {

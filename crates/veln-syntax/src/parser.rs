@@ -3,8 +3,8 @@ use veln_source::{SourceFile, SourceSpan, TextRange};
 use crate::tree::build_lossless_root;
 use crate::{
     BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry, Expr, ExprKind, FunctionDecl,
-    FunctionKind, ModuleDecl, Param, PrefixOp, RecordField, SatisfyClause, SyntaxItem, SyntaxTree,
-    Token, TokenKind, UseDecl, Visibility, lex,
+    FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternKind, PrefixOp, RecordField,
+    SatisfyClause, SyntaxItem, SyntaxTree, Token, TokenKind, UseDecl, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -362,7 +362,7 @@ impl<'a> Parser<'a> {
                 None
             };
             self.expect(TokenKind::Equal, "let_statement", vec!["="]);
-            let (expr, end) = self.parse_expr_until_newline("let_statement");
+            let (expr, end) = self.parse_expr_for_body_line("let_statement");
             BodyLine::Let {
                 name,
                 annotation,
@@ -370,7 +370,7 @@ impl<'a> Parser<'a> {
                 span: self.source.span(start.cover(end)),
             }
         } else {
-            let (expr, end) = self.parse_expr_until_newline("expression_line");
+            let (expr, end) = self.parse_expr_for_body_line("expression_line");
             BodyLine::Expr {
                 expr,
                 span: self.source.span(start.cover(end)),
@@ -446,6 +446,63 @@ impl<'a> Parser<'a> {
             tokens,
             start.cover(end),
         )
+    }
+
+    fn parse_expr_for_body_line(&mut self, context: &'static str) -> (Expr, TextRange) {
+        if self.at(TokenKind::Match) {
+            self.parse_match_expr_for_body_line(context)
+        } else {
+            self.parse_expr_until_newline(context)
+        }
+    }
+
+    fn parse_match_expr_for_body_line(&mut self, context: &'static str) -> (Expr, TextRange) {
+        let start = self.current().range;
+        let mut end = start;
+        let mut tokens = Vec::new();
+        let mut match_depth = 0usize;
+        while !self.at(TokenKind::Eof) {
+            let token = self.bump();
+            end = token.range;
+            if token.kind == TokenKind::Invalid {
+                self.diagnostics.push(ParseDiagnostic {
+                    id: "parse.invalid_token",
+                    message: "invalid token in expression".to_string(),
+                    span: Some(self.source.span(token.range)),
+                    parser_context: context,
+                    unexpected: UnexpectedToken {
+                        kind: token.kind.label().to_string(),
+                        text: token.text.clone(),
+                    },
+                    expected: vec!["expression"],
+                    recovery: Recovery {
+                        strategy: RecoveryStrategy::SkipToken,
+                        anchor: Some("end".to_string()),
+                        dropped_token_count: 1,
+                    },
+                });
+                continue;
+            }
+            if token.kind == TokenKind::Match {
+                match_depth += 1;
+            }
+            if token.kind == TokenKind::End {
+                match_depth = match_depth.saturating_sub(1);
+                tokens.push(token);
+                if match_depth == 0 {
+                    if self.at(TokenKind::Newline) {
+                        end = self.bump().range;
+                    }
+                    break;
+                }
+                continue;
+            }
+            tokens.push(token);
+        }
+
+        let (expr, diagnostics) = ExprParser::new(self.source, context, &tokens).parse();
+        self.diagnostics.extend(diagnostics);
+        (expr, start.cover(end))
     }
 
     fn parse_expr_until_newline(&mut self, context: &'static str) -> (Expr, TextRange) {
@@ -855,6 +912,7 @@ impl<'a> ExprParser<'a> {
                 }
             }
             TokenKind::LBracket => self.parse_list(),
+            TokenKind::Match => self.parse_match(),
             _ => {
                 self.bump();
                 Expr {
@@ -862,6 +920,182 @@ impl<'a> ExprParser<'a> {
                     span: self.source.span(token.range),
                 }
             }
+        }
+    }
+
+    fn parse_match(&mut self) -> Expr {
+        let start = self.bump().range;
+        let scrutinee = self.parse_expr(0);
+        self.eat_newlines();
+        let mut arms = Vec::new();
+        while !self.at(TokenKind::End) && !self.is_at_end() {
+            if self.at(TokenKind::Newline) {
+                self.bump();
+                continue;
+            }
+            let arm_start = self.current().range;
+            let pattern = self.parse_pattern();
+            self.expect_expr_token(
+                TokenKind::FatArrow,
+                "parse.match_arm",
+                "match arm is missing `=>`",
+                vec!["=>"],
+            );
+            let expr = self.parse_expr(0);
+            let arm_end = lhs_range(&expr);
+            arms.push(MatchArm {
+                pattern,
+                expr,
+                span: self.source.span(arm_start.cover(arm_end)),
+            });
+            self.eat_newlines();
+        }
+        let end = self.eat(TokenKind::End).map_or_else(
+            || {
+                arms.last().map_or(lhs_range(&scrutinee), |arm| {
+                    TextRange::new(arm.span.start.offset, arm.span.end.offset)
+                })
+            },
+            |token| token.range,
+        );
+        Expr {
+            kind: ExprKind::Match {
+                scrutinee: Box::new(scrutinee),
+                arms,
+            },
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_pattern(&mut self) -> Pattern {
+        let Some(token) = self.tokens.get(self.cursor).cloned() else {
+            return Pattern {
+                kind: PatternKind::Wildcard,
+                span: self.source.span(TextRange::at(self.source.len())),
+            };
+        };
+        match token.kind {
+            TokenKind::Underscore => {
+                self.bump();
+                Pattern {
+                    kind: PatternKind::Wildcard,
+                    span: self.source.span(token.range),
+                }
+            }
+            TokenKind::String => {
+                self.bump();
+                Pattern {
+                    kind: PatternKind::StringLiteral(token.text),
+                    span: self.source.span(token.range),
+                }
+            }
+            TokenKind::Int => {
+                self.bump();
+                Pattern {
+                    kind: PatternKind::IntLiteral(token.text),
+                    span: self.source.span(token.range),
+                }
+            }
+            TokenKind::Float => {
+                self.bump();
+                Pattern {
+                    kind: PatternKind::FloatLiteral(token.text),
+                    span: self.source.span(token.range),
+                }
+            }
+            TokenKind::LParen => {
+                let start = self.bump().range;
+                if let Some(end) = self.eat(TokenKind::RParen) {
+                    Pattern {
+                        kind: PatternKind::Unit,
+                        span: self.source.span(start.cover(end.range)),
+                    }
+                } else {
+                    self.error_current(
+                        "parse.pattern",
+                        "unsupported parenthesized pattern",
+                        vec!["pattern"],
+                        RecoveryStrategy::SkipToken,
+                        None,
+                    );
+                    Pattern {
+                        kind: PatternKind::Wildcard,
+                        span: self.source.span(start),
+                    }
+                }
+            }
+            TokenKind::Ident => self.parse_name_pattern(),
+            _ => {
+                self.error_current(
+                    "parse.pattern",
+                    "expected a match pattern",
+                    vec!["pattern"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+                self.bump();
+                Pattern {
+                    kind: PatternKind::Wildcard,
+                    span: self.source.span(token.range),
+                }
+            }
+        }
+    }
+
+    fn parse_name_pattern(&mut self) -> Pattern {
+        let start = self.current().range;
+        let mut end = start;
+        let mut segments = vec![self.bump().text];
+        while self.eat(TokenKind::DoubleColon).is_some() {
+            if self.at(TokenKind::Ident) {
+                let segment = self.bump();
+                end = segment.range;
+                segments.push(segment.text);
+            } else {
+                break;
+            }
+        }
+        if segments == ["true"] {
+            return Pattern {
+                kind: PatternKind::BoolLiteral(true),
+                span: self.source.span(start.cover(end)),
+            };
+        }
+        if segments == ["false"] {
+            return Pattern {
+                kind: PatternKind::BoolLiteral(false),
+                span: self.source.span(start.cover(end)),
+            };
+        }
+        let is_constructor = segments.len() > 1
+            || segments
+                .last()
+                .and_then(|name| name.chars().next())
+                .is_some_and(char::is_uppercase);
+        if !is_constructor {
+            return Pattern {
+                kind: PatternKind::Binding(segments.remove(0)),
+                span: self.source.span(start.cover(end)),
+            };
+        }
+        let mut args = Vec::new();
+        if self.eat(TokenKind::LParen).is_some() {
+            while !self.at(TokenKind::RParen) && !self.is_at_end() {
+                args.push(self.parse_pattern());
+                if self.eat(TokenKind::Comma).is_none() {
+                    break;
+                }
+            }
+            if let Some(close) = self.eat(TokenKind::RParen) {
+                end = close.range;
+            }
+        }
+        Pattern {
+            kind: PatternKind::Constructor {
+                name: segments,
+                args,
+            },
+            span: self.source.span(start.cover(end)),
         }
     }
 
@@ -1133,12 +1367,33 @@ impl<'a> ExprParser<'a> {
         });
     }
 
+    fn expect_expr_token(
+        &mut self,
+        kind: TokenKind,
+        id: &'static str,
+        message: impl Into<String>,
+        expected: Vec<&'static str>,
+    ) -> Option<Token> {
+        if self.at(kind) {
+            Some(self.bump())
+        } else {
+            self.error_current(id, message, expected, RecoveryStrategy::InsertToken, None);
+            None
+        }
+    }
+
     fn current(&self) -> &Token {
         &self.tokens[self.cursor]
     }
 
     fn is_at_end(&self) -> bool {
         self.cursor >= self.tokens.len()
+    }
+
+    fn eat_newlines(&mut self) {
+        while self.at(TokenKind::Newline) {
+            self.bump();
+        }
     }
 
     fn bump(&mut self) -> Token {

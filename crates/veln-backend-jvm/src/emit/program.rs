@@ -234,6 +234,26 @@ impl<'a> ProgramEmitter<'a> {
         return value instanceof Result && !((Result) value).isOk();
     }}
 
+    public static boolean isOk(Object value) {{
+        return value instanceof Result && ((Result) value).isOk();
+    }}
+
+    public static Object resultValue(Object value) {{
+        return asResult(value).value();
+    }}
+
+    public static boolean isSome(Object value) {{
+        return value instanceof Option && ((Option) value).some;
+    }}
+
+    public static boolean isNone(Object value) {{
+        return value instanceof Option && !((Option) value).some;
+    }}
+
+    public static Object optionValue(Object value) {{
+        return asOption(value).value;
+    }}
+
     public static Object unwrapOk(Object value) {{
         if (value instanceof Result) {{
             Result result = (Result) value;

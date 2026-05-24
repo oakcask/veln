@@ -16,7 +16,7 @@ not fully implemented in the current workspace.
 
 ## Accepted Targets Not Fully Implemented
 
-- Grammar coverage: `match` and full hole grammar are tracked in
+- Grammar coverage for the remaining full hole grammar is tracked in
   [grammar-target.md](grammar-target.md).
 - Remaining first-slice implementation targets are tracked in
   [first-slice-follow-ups.md](first-slice-follow-ups.md).

@@ -10,11 +10,8 @@ stays in
 
 ## Language And Type Coverage
 
-- `match` expressions are not implemented yet. Expected-type flow through
-  match branches and match lowering remain follow-up work.
-- Broader runtime semantics still need match lowering, stable callable value
-  construction, and numeric behavior beyond matching `Int` or matching `Float`
-  operator operands.
+- Stable callable value construction and numeric behavior beyond matching
+  `Int` or matching `Float` operator operands remain follow-up work.
 
 ## Repair Loop
 

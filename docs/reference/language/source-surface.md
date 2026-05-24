@@ -27,6 +27,12 @@ LetLine       ::= "let" Name (":" TypeText)? "=" Expr NL
 ExprLine      ::= Expr NL
 Record        ::= "{" (Name ":" Expr) ("," Name ":" Expr)* ","? "}"
 Dict          ::= "{" Expr ":" Expr ("," Expr ":" Expr)* ","? "}"
+Match         ::= "match" Expr NL MatchArm+ "end"
+MatchArm      ::= Pattern "=>" Expr NL
+Pattern       ::= "_" | BindingName | Literal | ConstructorPattern
+ConstructorPattern ::= ConstructorName "(" PatternList? ")"
+                     | ConstructorName
+PatternList   ::= Pattern ("," Pattern)* ","?
 ```
 
 `TypeText` is collected from source and parsed by the semantic type parser.
@@ -68,6 +74,8 @@ Implemented expressions:
   an identifier
 - record field access: `expr.name`
 - lists: `[value, ...]`
+- match expressions over literals, bindings, `_`, and built-in constructors
+  `Some`, `None`, `Ok`, and `Err`
 - prefix operators: `not`, `-`
 - binary operators: `|>`, `or`, `and`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`,
   `-`, `*`, `/`
@@ -77,6 +85,11 @@ Implemented expressions:
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
 is visible only inside the suffix predicate.
+
+`match` arms are tried in source order. The implemented pattern subset covers
+wildcard `_`, binding names, literals, and the built-in constructors `Some`,
+`None`, `Ok`, and `Err`. Exhaustiveness is not statically checked in the
+current slice.
 
 ## Contract Predicates
 
@@ -100,7 +113,7 @@ clause.
 
 ## Not Implemented
 
-Implemented lowering and execution do not include `match`, user-defined ADT
-declarations, method calls, loops, mutation, classes, traits, macros,
-comprehensions, anonymous functions, custom operators, package manifests,
-foreign declarations, or doctest fences.
+Implemented lowering and execution do not include user-defined ADT
+declarations, record patterns, method calls, loops, mutation, classes, traits,
+macros, comprehensions, anonymous functions, custom operators, package
+manifests, foreign declarations, or doctest fences.

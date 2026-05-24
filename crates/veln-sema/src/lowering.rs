@@ -1,10 +1,11 @@
 use veln_ast::{
-    BinaryOp, BodyLineKind, DictEntry, Expr, ExprKind, Function, RecordField, SurfaceModule,
+    BinaryOp, BodyLineKind, DictEntry, Expr, ExprKind, Function, MatchArm, Pattern, PatternKind,
+    RecordField, SurfaceModule,
 };
 use veln_core::{
     CheckedProgram, CoreBlocker, CoreCallTarget, CoreContract, CoreDictEntry, CoreExpr,
-    CoreExprKind, CoreFunction, CoreParam, CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind,
-    CoreType,
+    CoreExprKind, CoreFunction, CoreMatchArm, CoreParam, CorePattern, CorePatternKind,
+    CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };
 
 use crate::effects::stdio_signature;
@@ -202,6 +203,9 @@ impl<'a> CoreLowerer<'a> {
             ExprKind::Record(fields) => self.lower_record(expr, fields, expected),
             ExprKind::Dict(entries) => self.lower_dict(expr, entries, expected),
             ExprKind::List(items) => self.lower_list(expr, items, expected),
+            ExprKind::Match { scrutinee, arms } => {
+                self.lower_match(expr, scrutinee, arms, expected)
+            }
             ExprKind::Prefix { op, expr: inner } => {
                 let expected_operand = match op {
                     veln_ast::PrefixOp::Not => CoreType::bool(),
@@ -612,6 +616,110 @@ impl<'a> CoreLowerer<'a> {
                 .map_or(CoreType::Unknown, |item| item.ty.clone())
         });
         self.core_expr(expr, CoreType::list(item_type), CoreExprKind::List(items))
+    }
+
+    fn lower_match(
+        &mut self,
+        expr: &Expr,
+        scrutinee: &Expr,
+        arms: &[MatchArm],
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        let scrutinee = self.lower_expr(scrutinee, None);
+        let mut result_type = expected.cloned().unwrap_or(CoreType::Unknown);
+        let mut lowered_arms = Vec::new();
+        if arms.is_empty() {
+            self.blockers.push(CoreBlocker::UnsupportedExpression {
+                node_id: expr.node_id,
+                reason: "empty_match".to_string(),
+            });
+        }
+        for arm in arms {
+            let saved_bindings = self.bindings.len();
+            for binding in self.pattern_bindings(&arm.pattern, &scrutinee.ty) {
+                self.bindings.push(binding);
+            }
+            let arm_expected = if result_type == CoreType::Unknown {
+                None
+            } else {
+                Some(&result_type)
+            };
+            let lowered_expr = self.lower_expr(&arm.expr, arm_expected);
+            if result_type == CoreType::Unknown {
+                result_type = lowered_expr.ty.clone();
+            }
+            lowered_arms.push(CoreMatchArm {
+                node_id: arm.node_id,
+                pattern: self.lower_pattern(&arm.pattern),
+                expr: lowered_expr,
+                span: arm.span.clone(),
+            });
+            self.bindings.truncate(saved_bindings);
+        }
+        self.core_expr(
+            expr,
+            result_type,
+            CoreExprKind::Match {
+                scrutinee: Box::new(scrutinee),
+                arms: lowered_arms,
+            },
+        )
+    }
+
+    fn pattern_bindings(&self, pattern: &Pattern, scrutinee_type: &CoreType) -> Vec<CoreBinding> {
+        match &pattern.kind {
+            PatternKind::Wildcard
+            | PatternKind::StringLiteral(_)
+            | PatternKind::IntLiteral(_)
+            | PatternKind::FloatLiteral(_)
+            | PatternKind::BoolLiteral(_)
+            | PatternKind::Unit => Vec::new(),
+            PatternKind::Binding(name) => vec![CoreBinding {
+                name: name.clone(),
+                ty: scrutinee_type.clone(),
+            }],
+            PatternKind::Constructor { name, args } => match name.as_slice() {
+                [constructor] if constructor == "Some" => scrutinee_type
+                    .option_part()
+                    .zip(args.first())
+                    .map_or_else(Vec::new, |(inner, pattern)| {
+                        self.pattern_bindings(pattern, inner)
+                    }),
+                [constructor] if constructor == "Ok" => scrutinee_type
+                    .result_parts()
+                    .zip(args.first())
+                    .map_or_else(Vec::new, |((value, _), pattern)| {
+                        self.pattern_bindings(pattern, value)
+                    }),
+                [constructor] if constructor == "Err" => scrutinee_type
+                    .result_parts()
+                    .zip(args.first())
+                    .map_or_else(Vec::new, |((_, error), pattern)| {
+                        self.pattern_bindings(pattern, error)
+                    }),
+                _ => Vec::new(),
+            },
+        }
+    }
+
+    fn lower_pattern(&self, pattern: &Pattern) -> CorePattern {
+        CorePattern {
+            node_id: pattern.node_id,
+            kind: match &pattern.kind {
+                PatternKind::Wildcard => CorePatternKind::Wildcard,
+                PatternKind::Binding(name) => CorePatternKind::Binding(name.clone()),
+                PatternKind::StringLiteral(value) => CorePatternKind::StringLiteral(value.clone()),
+                PatternKind::IntLiteral(value) => CorePatternKind::IntLiteral(value.clone()),
+                PatternKind::FloatLiteral(value) => CorePatternKind::FloatLiteral(value.clone()),
+                PatternKind::BoolLiteral(value) => CorePatternKind::BoolLiteral(*value),
+                PatternKind::Unit => CorePatternKind::Unit,
+                PatternKind::Constructor { name, args } => CorePatternKind::Constructor {
+                    name: name.clone(),
+                    args: args.iter().map(|arg| self.lower_pattern(arg)).collect(),
+                },
+            },
+            span: pattern.span.clone(),
+        }
     }
 
     fn core_call_signature(

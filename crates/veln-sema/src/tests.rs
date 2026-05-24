@@ -1573,6 +1573,50 @@ fn lowers_runnable_checked_program_to_core_and_typed_ir() {
 }
 
 #[test]
+fn match_expression_binds_constructor_payloads() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(value: Option(Int)) -> Int effects []\n",
+            "  match value\n",
+            "    Some(count) => count + 1\n",
+            "    None => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    assert_eq!(core.readiness, CoreReadiness::Complete);
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert_eq!(expr.ty, CoreType::int());
+    assert!(matches!(expr.kind, CoreExprKind::Match { .. }));
+    let ir = lowered.ir.expect("complete core should lower to typed IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(value.kind, IrExprKind::Match { .. }));
+}
+
+#[test]
 fn holes_build_blocked_core_but_not_executable_ir() {
     let source = SourceFile::new(
         "main.veln",

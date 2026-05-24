@@ -100,6 +100,14 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
                 collect_expr_node_ids(item, ids);
             }
         }
+        ExprKind::Match { scrutinee, arms } => {
+            collect_expr_node_ids(scrutinee, ids);
+            for arm in arms {
+                ids.push(arm.node_id.as_u32());
+                collect_pattern_node_ids(&arm.pattern, ids);
+                collect_expr_node_ids(&arm.expr, ids);
+            }
+        }
         ExprKind::Prefix { expr, .. } => collect_expr_node_ids(expr, ids),
         ExprKind::Binary { left, right, .. } => {
             collect_expr_node_ids(left, ids);
@@ -112,6 +120,15 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)
         | ExprKind::Unit => {}
+    }
+}
+
+fn collect_pattern_node_ids(pattern: &Pattern, ids: &mut Vec<u32>) {
+    ids.push(pattern.node_id.as_u32());
+    if let PatternKind::Constructor { args, .. } = &pattern.kind {
+        for arg in args {
+            collect_pattern_node_ids(arg, ids);
+        }
     }
 }
 

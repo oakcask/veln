@@ -78,6 +78,10 @@ pub enum IrExprKind {
     Record(Vec<IrRecordField>),
     Dict(Vec<IrDictEntry>),
     List(Vec<IrExpr>),
+    Match {
+        scrutinee: Box<IrExpr>,
+        arms: Vec<IrMatchArm>,
+    },
     Prefix {
         op: PrefixOp,
         expr: Box<IrExpr>,
@@ -109,4 +113,32 @@ pub struct IrDictEntry {
     pub node_id: NodeId,
     pub key: IrExpr,
     pub value: IrExpr,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct IrMatchArm {
+    pub node_id: NodeId,
+    pub pattern: IrPattern,
+    pub value: IrExpr,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct IrPattern {
+    pub node_id: NodeId,
+    pub kind: IrPatternKind,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum IrPatternKind {
+    Wildcard,
+    Binding(String),
+    StringLiteral(String),
+    IntLiteral(String),
+    FloatLiteral(String),
+    BoolLiteral(bool),
+    Unit,
+    Constructor {
+        name: Vec<String>,
+        args: Vec<IrPattern>,
+    },
 }
