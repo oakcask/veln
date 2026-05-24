@@ -5,6 +5,8 @@ the experimental Veln implementation.
 
 ## Read First
 
+- [phases/first-slice-implementation.md](phases/first-slice-implementation.md)
+  is the current implementation memo for the first slice.
 - [discussions/2026-05-24-agent-language-spec-wall.md](discussions/2026-05-24-agent-language-spec-wall.md)
   is the short entry point for the current design-wall discussion based on the
   agent-oriented language proposal.
