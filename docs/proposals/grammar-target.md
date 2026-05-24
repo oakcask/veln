@@ -231,9 +231,9 @@ and doctest fences.
 
 ## Source Decisions
 
-- [First-Slice Grammar](../discussions/agent-language-spec-wall/result-first-slice-grammar.md)
-- [Test Declaration Syntax](../discussions/agent-language-spec-wall/result-test-declaration-syntax.md)
-- [Hole Satisfy Source Syntax](../discussions/agent-language-spec-wall/result-hole-satisfy-source-syntax.md)
-- [Contract Predicate Parsing](../discussions/agent-language-spec-wall/result-contract-predicate-parsing.md)
-- [Public Function Type Boundaries](../discussions/agent-language-spec-wall/result-public-function-type-boundaries.md)
-- [Effect Declaration Boundary](../discussions/agent-language-spec-wall/result-effect-declaration-boundary.md)
+- [First-Slice Grammar](agent-language-spec-wall/result-first-slice-grammar.md)
+- [Test Declaration Syntax](agent-language-spec-wall/result-test-declaration-syntax.md)
+- [Hole Satisfy Source Syntax](../reference/source-decisions/result-hole-satisfy-source-syntax.md)
+- [Contract Predicate Parsing](agent-language-spec-wall/result-contract-predicate-parsing.md)
+- [Public Function Type Boundaries](../reference/source-decisions/result-public-function-type-boundaries.md)
+- [Effect Declaration Boundary](../reference/source-decisions/result-effect-declaration-boundary.md)

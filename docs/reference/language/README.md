@@ -3,7 +3,7 @@
 Status: implemented
 This directory contains the categorized specification for the implemented
 first slice of Veln. It records the implemented subset, not every language
-target discussed in `../../discussions/`.
+target tracked in `../../proposals/`.
 
 ## Read First
 
@@ -34,6 +34,9 @@ target discussed in `../../discussions/`.
 
 - Use `../../proposals/grammar-target.md` only when working on planned syntax
   beyond the implemented subset.
-- Use `../../discussions/` only for rationale and dated decision history.
+- Use `../source-decisions/` only for implemented rationale and decision
+  history.
+- Use `../../proposals/agent-language-spec-wall/` only for planned or
+  incomplete decision history.
 - Use `../../phases/` only for implementation plans and completion notes.
 - Use `../../reviews/` only for current gaps and verification findings.

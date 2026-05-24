@@ -1,0 +1,49 @@
+# Agent-Language Spec Wall Proposals
+
+Status: open-proposal
+
+This directory keeps design-wall material that is not fully implemented in the
+current workspace. Implemented decisions were moved to
+`../../reference/source-decisions/`.
+
+## Read First
+
+- [design-brief.md](design-brief.md) gives the broad thesis and first-slice
+  design anchors.
+- [open-questions.md](open-questions.md) routes resolved and unresolved
+  questions.
+- [../grammar-target.md](../grammar-target.md) is the consolidated accepted
+  grammar target; it intentionally includes syntax beyond the current parser
+  and backend.
+
+## Accepted Or Open Targets
+
+- [ADR-Lite Decision Location](result-adr-lite-decision-location.md)
+- [Affected Test Selection](result-affected-test-selection.md)
+- [Channel-First Concurrency Runtime](result-channel-first-concurrency-runtime.md)
+- [Comparison Example Task](result-comparison-example-task.md)
+- [Contract Expression Language](result-contract-expression-language.md)
+- [Contract Predicate Parsing](result-contract-predicate-parsing.md)
+- [Contract Static Runtime Boundary](result-contract-static-runtime-boundary.md)
+- [Doctest Error Type Fence Syntax](result-doctest-error-type-fence-syntax.md)
+- [Doctest Expected Output Syntax](result-doctest-expected-output-syntax.md)
+- [Doctest Result Propagation](result-doctest-result-propagation.md)
+- [First-Slice Grammar](result-first-slice-grammar.md)
+- [First-Slice Module Fields](result-first-slice-module-fields.md)
+- [First-Slice Prelude Helpers](result-first-slice-prelude-helpers.md)
+- [Module Metadata Location](result-module-metadata-location.md)
+- [Postcondition Result Binding](result-postcondition-result-binding.md)
+- [Prelude Complexity Guarantees](result-prelude-complexity-guarantees.md)
+- [Runtime Contract Failure Reporting](result-runtime-contract-failure-reporting.md)
+- [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md)
+- [Safe Repair Candidate Boundary](result-safe-repair-candidate-boundary.md)
+- [Scoping and Name Resolution](result-scoping-and-name-resolution.md)
+- [Test Declaration Syntax](result-test-declaration-syntax.md)
+- [Transitive Effect Diagnostics](result-transitive-effect-diagnostics.md)
+
+## Classification Rule
+
+This directory is for decisions whose accepted behavior is absent, partial, or
+only represented as a future compatibility target. When implementation and
+tests catch up to a decision, move that record to
+`../../reference/source-decisions/` and update both index files.

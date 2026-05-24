@@ -16,6 +16,8 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
   inference, assignment, and operator typing.
 - [language/diagnostics-json.md](language/diagnostics-json.md) defines
   `veln check --json` output.
+- [source-decisions/README.md](source-decisions/README.md) lists implemented
+  decision records for rationale and compatibility context.
 - [bibliography/source-families.md](bibliography/source-families.md) groups the
   research references that support design decisions.
 
@@ -24,7 +26,9 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 - Use `language/` before changing code, tests, diagnostics, or samples.
 - Use `../proposals/grammar-target.md` when you need the broader first-slice
   language target, including planned syntax not yet implemented.
-- Use `../discussions/` for rationale and dated decision history.
+- Use `source-decisions/` for implemented decision rationale.
+- Use `../proposals/agent-language-spec-wall/` for planned or incomplete
+  decision rationale.
 - Use `../phases/` for implementation plans and completion notes.
 - Use `../reviews/` for current implementation gaps and verification findings.
 

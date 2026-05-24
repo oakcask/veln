@@ -15,16 +15,18 @@ the experimental Veln implementation.
   is the current gap review against the broader design target.
 - [phases/first-slice-implementation.md](phases/first-slice-implementation.md)
   is the current implementation memo for the first slice.
-- [discussions/agent-language-spec-wall.md](discussions/agent-language-spec-wall.md)
-  is the short entry point for the current design-wall discussion based on the
-  agent-oriented language proposal.
+- [reference/source-decisions/README.md](reference/source-decisions/README.md)
+  lists discussion decisions that are implemented in the current workspace.
+- [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md)
+  lists accepted and open design-wall decisions that are not fully implemented.
 
 ## Document Status Rules
 
 - Put behavior that works in the current code and tests in `reference/`.
 - Put accepted or open design targets that are not fully implemented in
   `proposals/`.
-- Put rationale, alternatives, and dated decision history in `discussions/`.
+- Put implemented rationale and decision history in `reference/source-decisions/`.
+- Put planned or incomplete rationale and decision history in `proposals/`.
 - Put implementation order, completion notes, and working plans in `phases/`.
 - Put implementation gaps, verification evidence, and correction lists in
   `reviews/`.
@@ -36,7 +38,7 @@ the experimental Veln implementation.
 Use these status labels at the top of durable specification documents:
 
 - `implemented`: current code and tests support the described behavior.
-- `accepted-proposal`: discussions accepted the target, but implementation is
+- `accepted-proposal`: a decision record accepted the target, but implementation is
   absent or incomplete.
 - `open-proposal`: the design is being explored and should not be treated as a
   commitment.
@@ -45,10 +47,10 @@ Use these status labels at the top of durable specification documents:
 
 ## Conventions
 
-- Put exploratory discussion logs in `discussions/`.
+- Put exploratory proposal logs in `proposals/`.
 - Put implementation review findings and correction lists in `reviews/`.
 - Put stable language reference material in `reference/`.
 - Put planned but not fully implemented specification targets in `proposals/`.
 - Prefer small, dated files so later agents can read only the relevant context.
-- When a discussion accumulates decision results, keep the dated entry file as
-  an index and move each result body into a companion detail directory.
+- When a proposal accumulates implemented decision results, move those result
+  bodies into `reference/source-decisions/`.

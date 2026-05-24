@@ -2,7 +2,9 @@
 
 This memo turns the current first-slice design decisions into an implementation
 shape. It is a working plan, not a replacement for the decision records under
-`docs/discussions/`.
+`docs/reference/source-decisions/` and `docs/proposals/agent-language-spec-wall/`.
+Remaining accepted targets that are not fully implemented are tracked in
+[First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md).
 
 ## Goal
 
@@ -452,15 +454,15 @@ Item 3 review notes:
   envelope.
 - The dictionary part of item 3 is complete as type-system support:
   `Dict(K, V)` annotations parse, validate arity, render deterministically,
-  and can flow into hole diagnostics. Dictionary literal parsing and value
-  construction are not implemented expression forms yet and should not be read
-  as part of this item 3 completion claim.
+  and can flow into hole diagnostics. Dictionary value work is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#language-and-type-coverage).
 - `hole.unfilled` includes the required details shape: `phase`, `node_id`,
   `label`, `expected_type`, `expected_type_source`, `constraints`,
   `local_bindings`, and `candidate_queries` are present. When an expected type
   is known, the checker emits a structured symbol candidate query, and related
-  entries point at the closest available expected-type origin. Candidate
-  ranking and concrete repair generation remain outside item 3.
+  entries point at the closest available expected-type origin. Repair ranking
+  work is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#repair-loop).
 - `status: "partial"` is appropriate for hole-only checks. The current
   top-level priority is also appropriate: parse and type errors keep
   `status: "error"` even if hole diagnostics exist.
@@ -499,9 +501,9 @@ Item 3 completion gate status:
 - Complete for currently implemented expression forms: expected-type flow
   reaches holes through declared returns, local annotations, call arguments,
   record fields, collection elements, and `?` propagation into compatible
-  `Result` returns. Match branch expected-type flow remains later follow-up
-  work because match expressions are not implemented yet; contract-derived
-  repair constraints are covered by item 4.
+  `Result` returns. Match expression work is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#language-and-type-coverage);
+  contract-derived repair constraints are covered by item 4.
 - Complete: `hole.unfilled` diagnostics include required details keys, visible
   local bindings, useful candidate-query records when an expected type is
   known, and `related` entries for the closest expected-type origin.
@@ -521,21 +523,18 @@ Item 4 completion gate status:
   The details shape matches the required `effect.missing_public` fields in the
   check-JSON decision: `phase`, `node_id`, `effect`, `boundary`,
   `declared_effects`, `inferred_effects`, `provenance`, and
-  `provenance_truncated`. The richer transitive-effect path fields
-  (`hidden_frame_count`, `omitted_path_count`, and expanded path entries)
-  remain follow-up for transitive helper inference; the current direct-stdio
-  slice is not blocked by them.
+  `provenance_truncated`. Transitive helper inference work is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#effects-and-contracts).
 - Complete for the first-slice contract subset: `require` and `ensure`
   predicates are checked for boolean shape, effectful stdio use, unsupported
-  calls, and unresolved predicate names. Valid runtime contract discharge is
-  still deferred.
+  calls, and unresolved predicate names. Runtime contract work is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#effects-and-contracts).
 - Complete: hole diagnostics include contract-derived repair constraints and
   `satisfy candidate => predicate` constraints, plus related entries pointing
   at constraint origins. The current `satisfy` implementation preserves the
-  source suffix in parse and AST and exposes it in `hole.unfilled` constraints;
-  stricter source-syntax diagnostics for missing candidate bindings, missing
-  `=>`, candidate shadowing, and unused candidate bindings remain follow-up
-  before formatter stabilization.
+  source suffix in parse and AST and exposes it in `hole.unfilled` constraints.
+  Stricter source-syntax diagnostics are tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#repair-loop).
 
 Item 5 completion gate status:
 
@@ -549,7 +548,8 @@ Item 5 completion gate status:
   contract clause, `let` and tail expression lines, `hole satisfy`, records,
   lists, calls, module/use headers, and multi-function spacing.
 - Complete for comment safety: comment-bearing files are preserved
-  byte-for-byte until formatter comment attachment is implemented.
+  byte-for-byte. Comment attachment is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#formatting).
 
 Item 6 completion gate status:
 
@@ -618,7 +618,7 @@ Item 7 completion gate status:
 - Complete: focused backend tests cover result propagation, stdio generation,
   runtime source contents, record/list/option value generation, and `javac`
   compilation when a JDK is available.
-- Deferred to item 8: command-line `veln run`, entry-point resolution,
+- Completed by item 8: command-line `veln run`, entry-point resolution,
   writing artifacts to a build directory, invoking `javac`/`java` as a user
   workflow, and reachable-hole blocking UX.
 
@@ -638,9 +638,8 @@ Item 7 review notes:
 - The runtime helpers are sufficient for the first-slice executable IR:
   minimal boxed `Result`, `Option`, records, lists, unit, stdio builtins,
   callable values, operators, formatting, and `?` early `Err` propagation are
-  present. Broader runtime semantics such as contract discharge, dictionary
-  values, match lowering, richer numeric behavior, and stable callable value
-  construction remain later work.
+  present. Broader runtime semantics are tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#language-and-type-coverage).
 - Focused backend tests are sufficient to proceed to item 8 because they cover
   Java emission shape and compile readiness when a JDK is available. Item 8
   should add end-to-end `run` fixtures for entry-point selection, argument
@@ -667,9 +666,8 @@ Item 8 completion gate status:
 - Complete: CLI fixtures cover reachable-hole blocking without requiring a
   JDK, missing entry reporting, missing `javac` reporting, and stdout/stderr
   forwarding when `javac` and `java` are available.
-- Deferred beyond item 8: entry arguments, `veln test`, richer runtime
-  contract discharge, dictionary values, match lowering, candidate ranking, and
-  a persistent build cache. `veln test` is now covered by item 9 below.
+- Complete for the item 8 gate. Remaining run and runtime targets are tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#lowering-and-execution).
 
 Item 8 review notes:
 
@@ -678,19 +676,20 @@ Item 8 review notes:
 - Entry resolution is sufficient for the first-slice minimum: `run` selects a
   named zero-argument function from the shared discovered source set and rejects
   missing or parameterized entries before compiling Java artifacts. Entry
-  arguments remain explicitly deferred.
+  arguments are tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#lowering-and-execution).
 - Static gates are sufficient for this slice: parse errors, semantic errors,
   missing public effects, missing or parameterized entries, reachable holes, and
   checked-core/IR blockers stop before generated Java execution. The current
   command checks semantic errors across the discovered module before narrowing
-  hole blocking to the entry-reachable module, which is conservative and may be
-  relaxed later if selected-entry execution needs to tolerate unrelated broken
-  helpers.
+  hole blocking to the entry-reachable module; narrower selected-entry behavior
+  is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#lowering-and-execution).
 - Reachable-hole blocking matches the documented first-slice direct call graph
   scope. The current reachability graph follows selected entry plus direct
   function-name calls in expressions, allowing holes in unreachable functions.
-  Broader conservative handling for future higher-order values, module
-  initializers, imports, and ambiguous graph edges remains follow-up work.
+  Broader reachability handling is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#lowering-and-execution).
 - JVM execution behavior is reasonable for item 8: generated sources are written
   to an isolated temporary build directory, `javac` runs before `java`, process
   stdout/stderr are forwarded, Java runtime exit status is preserved, and
@@ -713,14 +712,11 @@ Item 5 review notes:
   1.
 - Preserving any comment-bearing file byte-for-byte is compatible with item 5.
   It prevents destructive trivia movement while keeping the lossless tree's
-  comment retention available for later comment attachment. This means comment
-  files are deliberately no-op formatted until formatter stabilization.
+  comment retention available for later comment attachment. Formatter
+  stabilization targets are tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#formatting).
 - Fixture coverage is sufficient to start item 6, but it is not exhaustive
-  formatter stabilization coverage. Before claiming a more complete formatter,
-  add focused golden/idempotence fixtures for `ensure`, prefix and binary
-  precedence, postfix `?`, nested records/lists/calls, multiple input files
-  without parse errors, and comment attachment once comments stop being no-op
-  preserved.
+  formatter stabilization coverage.
 
 Item 9 completion gate status:
 
@@ -732,12 +728,13 @@ Item 9 completion gate status:
   files. With no targets, selection is restricted to zero-argument functions in
   discovered `*_test.veln` files. Public and private zero-argument functions
   are both eligible test cases. This is the implemented bootstrap behavior, not
-  the durable source syntax; [Test Declaration Syntax](../discussions/agent-language-spec-wall/result-test-declaration-syntax.md)
-  replaces it with explicit top-level `test` declarations for future work.
+  the durable source syntax; [Test Declaration Syntax](../proposals/agent-language-spec-wall/result-test-declaration-syntax.md)
+  and [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events)
+  track explicit top-level `test` declarations.
 - Complete for the first-slice same-file example boundary: explicitly targeted
   non-`*_test.veln` files can be run as test files by selecting their
-  zero-argument functions. Comment/docblock example extraction remains later
-  work.
+  zero-argument functions. Example extraction is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events).
 - Complete: static gates block before user code execution on parse errors,
   semantic errors, reachable holes, and checked-core blockers. Blocked test
   JSON keeps top-level diagnostics and marks already discovered cases as
@@ -750,8 +747,9 @@ Item 9 completion gate status:
 - Complete for first-slice captured output: case stdout/stderr are captured as
   deterministic `kind: "stdio"` events with stream, operation, text,
   terminator, sequence, node id, and source span. The current implementation
-  records aggregate process stdout/stderr per case rather than one event per
-  individual stdio call.
+  records aggregate process stdout/stderr per case. Exact per-call event work
+  is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events).
 - Complete: focused CLI coverage includes static-gate blocked JSON without a
   JDK, missing `javac` JSON behavior, default `*_test.veln` discovery,
   passed and failed cases, captured stdout/stderr events, and explicit
@@ -768,10 +766,8 @@ Item 9 review notes:
   and emits the required run and case JSON fields.
 - Same-file examples are complete only at the current first-slice boundary:
   an explicitly targeted non-test file contributes its zero-argument functions
-  as cases. Parsed docblock/example extraction, expected-output examples, and
-  automatic same-file example discovery remain follow-up work. Future test
-  discovery should select explicit `test` declarations rather than ordinary
-  zero-argument `fn` declarations.
+  as cases. Test discovery follow-ups are tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events).
 - Static gate behavior is acceptable for this slice. Parse and semantic errors
   block the suite before Java execution, reachable holes and checked-core
   blockers block selected cases, runtime failures become failed cases, and JDK
@@ -779,35 +775,28 @@ Item 9 review notes:
 - Captured stdio events satisfy the required event-key shape, use
   source-relative spans, and are deterministic for the current execution path.
   They are aggregate stdout/stderr events attached to the test function rather
-  than per-stdio-operation events attached to the exact call site, so exact
-  operation names, newline terminators, and call-site provenance should be
-  implemented before claiming full conformance with the stdio event decision.
-- Coverage is sufficient for the first-slice claim, but stabilization should
-  add focused fixtures for missing `java` after `javac` succeeds, static-gate
-  parse and semantic diagnostics in `veln test --json`, no-test discovery
-  suite errors, explicit directory targets, multiple test files, and exact
-  stdio event fields.
+  than per-stdio-operation events attached to the exact call site. Exact event
+  conformance is tracked in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events).
+- Coverage is sufficient for the first-slice claim, but test stabilization
+  targets remain in
+  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events).
 
 Next recommended implementation step: plan the next phase from a completed
-first slice. Keep match expressions, dictionary literals, transitive effect
-inference through undeclared helpers, full contract predicate parsing, strict
-`satisfy` suffix validation, comment attachment, formatter stabilization
-fixture expansion, broader lowering stabilization fixtures, entry arguments,
-persistent build caching, per-stdio-call capture with exact call-site
-provenance, docblock example extraction, runtime contract discharge, and
-candidate ranking as later follow-up work.
+first slice using
+[First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md).
 
 ## Related Decisions
 
-- [First Implementation Architecture](../discussions/agent-language-spec-wall/result-first-implementation-architecture.md)
-- [First Implementation Commands](../discussions/agent-language-spec-wall/result-first-implementation-commands.md)
-- [First-Slice Grammar](../discussions/agent-language-spec-wall/result-first-slice-grammar.md)
-- [AST Phase Boundary](../discussions/agent-language-spec-wall/result-ast-phase-boundary.md)
-- [AST Implementation Representation](../discussions/agent-language-spec-wall/result-ast-implementation-representation.md)
-- [Minimum Type System for Holes](../discussions/agent-language-spec-wall/result-minimum-type-system-for-holes.md)
-- [First-Slice Prelude Helpers](../discussions/agent-language-spec-wall/result-first-slice-prelude-helpers.md)
-- [Stdio API and Output Events](../discussions/agent-language-spec-wall/result-stdio-api-and-output-events.md)
-- [Check JSON Details Fields](../discussions/agent-language-spec-wall/result-check-json-details-fields.md)
-- [Transitive Effect Diagnostics](../discussions/agent-language-spec-wall/result-transitive-effect-diagnostics.md)
-- [Contract Predicate Parsing](../discussions/agent-language-spec-wall/result-contract-predicate-parsing.md)
-- [Hole Satisfy Source Syntax](../discussions/agent-language-spec-wall/result-hole-satisfy-source-syntax.md)
+- [First Implementation Architecture](../reference/source-decisions/result-first-implementation-architecture.md)
+- [First Implementation Commands](../reference/source-decisions/result-first-implementation-commands.md)
+- [First-Slice Grammar](../proposals/agent-language-spec-wall/result-first-slice-grammar.md)
+- [AST Phase Boundary](../reference/source-decisions/result-ast-phase-boundary.md)
+- [AST Implementation Representation](../reference/source-decisions/result-ast-implementation-representation.md)
+- [Minimum Type System for Holes](../reference/source-decisions/result-minimum-type-system-for-holes.md)
+- [First-Slice Prelude Helpers](../proposals/agent-language-spec-wall/result-first-slice-prelude-helpers.md)
+- [Stdio API and Output Events](../reference/source-decisions/result-stdio-api-and-output-events.md)
+- [Check JSON Details Fields](../reference/source-decisions/result-check-json-details-fields.md)
+- [Transitive Effect Diagnostics](../proposals/agent-language-spec-wall/result-transitive-effect-diagnostics.md)
+- [Contract Predicate Parsing](../proposals/agent-language-spec-wall/result-contract-predicate-parsing.md)
+- [Hole Satisfy Source Syntax](../reference/source-decisions/result-hole-satisfy-source-syntax.md)

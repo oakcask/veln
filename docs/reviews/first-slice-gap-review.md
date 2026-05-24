@@ -3,7 +3,8 @@
 Scope:
 
 - `docs/phases/first-slice-implementation.md`
-- `docs/discussions/agent-language-spec-wall.md`
+- `docs/proposals/agent-language-spec-wall/README.md`
+- `docs/reference/source-decisions/README.md`
 - Current Rust workspace and sample commands
 
 ## Summary

@@ -5,7 +5,7 @@
 - Claim: first-slice contracts should use a pure, side-effect-free boolean
   specification-expression subset rather than arbitrary executable expressions.
 - Discussion result:
-  [Contract Expression Language](../../discussions/agent-language-spec-wall/result-contract-expression-language.md)
+  [Contract Expression Language](../../proposals/agent-language-spec-wall/result-contract-expression-language.md)
 - Supporting references:
   `meyer1997-object-oriented-software-construction`,
   `findler2002-higher-order-contracts`, `rondon2008-liquid-types`,
@@ -22,7 +22,7 @@
   to diagnostics, while only conservative local obligations are statically
   discharged and valid unknown obligations are enforced at runtime.
 - Discussion result:
-  [Contract Static Runtime Boundary](../../discussions/agent-language-spec-wall/result-contract-static-runtime-boundary.md)
+  [Contract Static Runtime Boundary](../../proposals/agent-language-spec-wall/result-contract-static-runtime-boundary.md)
 - Supporting references:
   `meyer1997-object-oriented-software-construction`,
   `findler2002-higher-order-contracts`, `rondon2008-liquid-types`,
@@ -46,7 +46,7 @@
 - Claim: postconditions should refer to a returned value through an explicit
   result binding rather than a magic bare `result` identifier.
 - Discussion result:
-  [Postcondition Result Binding](../../discussions/agent-language-spec-wall/result-postcondition-result-binding.md)
+  [Postcondition Result Binding](../../proposals/agent-language-spec-wall/result-postcondition-result-binding.md)
 - Supporting references:
   `meyer1997-object-oriented-software-construction`,
   `jml-reference-manual-introduction`, `dafny-reference-manual`,
@@ -66,7 +66,7 @@
 - Claim: missing public effects should be reported by coarse effect label with
   bounded provenance slices rather than full transitive call graphs.
 - Discussion result:
-  [Transitive Effect Diagnostics](../../discussions/agent-language-spec-wall/result-transitive-effect-diagnostics.md)
+  [Transitive Effect Diagnostics](../../proposals/agent-language-spec-wall/result-transitive-effect-diagnostics.md)
 - Supporting references:
   `lucassen1988-polymorphic-effect-systems`,
   `talpin1994-type-effect-discipline`,
@@ -85,7 +85,7 @@
   keyword-delimited, expression-centered grammar instead of multiple equivalent
   surface forms.
 - Discussion result:
-  [First-Slice Grammar](../../discussions/agent-language-spec-wall/result-first-slice-grammar.md)
+  [First-Slice Grammar](../../proposals/agent-language-spec-wall/result-first-slice-grammar.md)
 - Supporting references:
   `stefik2013-programming-language-syntax`,
   `lappi2023-syntax-intuitiveness-replication`,
@@ -105,7 +105,7 @@
   with package/tool metadata owned by the manifest, compiler-semantic module
   metadata owned by source, and duplicated facts reported as drift.
 - Discussion result:
-  [Module Metadata Location](../../discussions/agent-language-spec-wall/result-module-metadata-location.md)
+  [Module Metadata Location](../../proposals/agent-language-spec-wall/result-module-metadata-location.md)
 - Supporting references:
   `parnas1972-module-criteria`,
   `deremer1976-programming-large-small`, `cargo-manifest-format`,
@@ -126,7 +126,7 @@
   Purpose, invariants, examples, tests, and ADR-lite decisions should remain
   optional language-core fields.
 - Discussion result:
-  [First-Slice Module Fields](../../discussions/agent-language-spec-wall/result-first-slice-module-fields.md)
+  [First-Slice Module Fields](../../proposals/agent-language-spec-wall/result-first-slice-module-fields.md)
 - Supporting references:
   `parnas1972-module-criteria`,
   `deremer1976-programming-large-small`,
@@ -146,7 +146,7 @@
   documentation comments attached to modules or public API declarations, with
   generated docs as a derived view rather than canonical language syntax.
 - Discussion result:
-  [ADR-Lite Decision Location](../../discussions/agent-language-spec-wall/result-adr-lite-decision-location.md)
+  [ADR-Lite Decision Location](../../proposals/agent-language-spec-wall/result-adr-lite-decision-location.md)
 - Supporting references:
   `parnas1972-module-criteria`,
   `deremer1976-programming-large-small`,
@@ -169,7 +169,7 @@
   is local and unambiguous, and otherwise require an explicit doctest error
   type instead of forcing noisy success-value type annotations into examples.
 - Discussion result:
-  [Doctest Result Propagation](../../discussions/agent-language-spec-wall/result-doctest-result-propagation.md)
+  [Doctest Result Propagation](../../proposals/agent-language-spec-wall/result-doctest-result-propagation.md)
 - Supporting references:
   `hoffman2003-api-executable-examples`, `rustdoc-documentation-tests`,
   `python-doctest`, `go-testable-examples`, `knuth1984-literate-programming`.
@@ -187,7 +187,7 @@
   run entries, and conservative test discovery before manifests and `graph`
   exist.
 - Discussion result:
-  [Minimal Project and Test Discovery](../../discussions/agent-language-spec-wall/result-minimal-project-test-discovery.md)
+  [Minimal Project and Test Discovery](../source-decisions/result-minimal-project-test-discovery.md)
 - Supporting references:
   `parnas1972-module-criteria`,
   `deremer1976-programming-large-small`, `hejderup2021-prazi`,
@@ -207,7 +207,7 @@
   stable node IDs, and store type, contract, effect, hole, public-boundary, and
   diagnostic provenance facts in phase-specific analysis tables.
 - Discussion result:
-  [AST Phase Boundary](../../discussions/agent-language-spec-wall/result-ast-phase-boundary.md)
+  [AST Phase Boundary](../source-decisions/result-ast-phase-boundary.md)
 - Supporting references:
   `najd2017-trees-that-grow`, `omar2019-live-typed-holes`,
   `perelman2012-type-directed-completion`,
@@ -228,7 +228,7 @@
   effect, and hole diagnostics, with stable routing facts, expected/actual
   facts, recovery or provenance evidence, and repair context.
 - Discussion result:
-  [Check JSON Details Fields](../../discussions/agent-language-spec-wall/result-check-json-details-fields.md)
+  [Check JSON Details Fields](../source-decisions/result-check-json-details-fields.md)
 - Supporting references:
   `lsp-317-diagnostics`, `sarif-210`,
   `barik2018-compiler-explanations`, `medeiros2019-peg-error-recovery`,
@@ -246,7 +246,7 @@
   repair candidate with reason, evidence, limits, and verification hints, not
   an automatically applied edit or a correctness guarantee from passing tests.
 - Discussion result:
-  [Safe Repair Candidate Boundary](../../discussions/agent-language-spec-wall/result-safe-repair-candidate-boundary.md)
+  [Safe Repair Candidate Boundary](../../proposals/agent-language-spec-wall/result-safe-repair-candidate-boundary.md)
 - Supporting references:
   `legoues2012-genprog`,
   `monperrus2018-automatic-software-repair`,
@@ -266,7 +266,7 @@
   resolve nearest lexical value declarations deterministically, and keep
   named-hole labels outside semantic name resolution.
 - Discussion result:
-  [Scoping and Name Resolution](../../discussions/agent-language-spec-wall/result-scoping-and-name-resolution.md)
+  [Scoping and Name Resolution](../../proposals/agent-language-spec-wall/result-scoping-and-name-resolution.md)
 - Supporting references:
   `neron2015-name-resolution`, `van-antwerpen2018-scopes-as-types`,
   `rust-reference-name-resolution`, `barik2018-compiler-explanations`,
@@ -286,7 +286,7 @@
   traversal helpers, and `Result`/`Option` composition helpers, with
   `list_try_map` as the explicit fallible traversal primitive.
 - Discussion result:
-  [First-Slice Prelude Helpers](../../discussions/agent-language-spec-wall/result-first-slice-prelude-helpers.md)
+  [First-Slice Prelude Helpers](../../proposals/agent-language-spec-wall/result-first-slice-prelude-helpers.md)
 - Supporting references:
   `okasaki1998-persistence`, `mcbride2008-applicative-programming`,
   `haskell-2010-report`, `rust-std-iterator`,
@@ -306,7 +306,7 @@
   not promise asymptotic complexity before Veln chooses concrete persistent
   container representations.
 - Discussion result:
-  [Prelude Complexity Guarantees](../../discussions/agent-language-spec-wall/result-prelude-complexity-guarantees.md)
+  [Prelude Complexity Guarantees](../../proposals/agent-language-spec-wall/result-prelude-complexity-guarantees.md)
 - Supporting references:
   `okasaki1998-persistence`,
   `mcbride2008-applicative-programming`,
@@ -327,7 +327,7 @@
   collection traversal, tests, stdout, and Veln typed-hole diagnostics without
   claiming general speed, memory, or productivity conclusions.
 - Discussion result:
-  [Comparison Example Task](../../discussions/agent-language-spec-wall/result-comparison-example-task.md)
+  [Comparison Example Task](../../proposals/agent-language-spec-wall/result-comparison-example-task.md)
 - Supporting references:
   `nanz2015-rosetta-code`, `green1996-cognitive-dimensions`,
   `stefik2013-programming-language-syntax`,
