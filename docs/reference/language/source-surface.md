@@ -83,9 +83,11 @@ When a selected `run` or `test` entry uses a function declaration as a value,
 that referenced function is part of the selected executable slice.
 
 `test` is a top-level declaration keyword, not a visibility modifier. Test
-declarations are selected by `veln test`, require an empty parameter list,
-require an explicit return type and `effects [...]` clause, and are not ordinary
-callable functions.
+declarations are selected by `veln test` from `*_test.veln` files, explicit
+targets, and any automatically discovered source file that contains a top-level
+`test` declaration. They require an empty parameter list, require an explicit
+return type and `effects [...]` clause, and are not ordinary callable
+functions.
 
 ## Expressions
 

@@ -1598,6 +1598,39 @@ fn test_json_blocks_cases_from_multiple_files_on_semantic_static_gate() {
 }
 
 #[test]
+fn test_json_auto_discovers_same_file_test_declarations() {
+    let project = TestProject::new("test-same-file-discovery");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn helper() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+            "test same_file() -> Result((), AppError) effects []\n",
+            "  _\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["--json"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"blocked\"",
+            "\"selection\":{\"mode\":\"discovered\",\"targets\":[\"main.veln\"],\"confidence\":\"complete\",\"reason\":\"pattern_discovery\"}",
+            "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":1,\"errors\":0}",
+            "\"name\":\"same_file\"",
+            "\"source\":{\"file\":\"main.veln\"",
+            "\"reason\":\"static_gate\"",
+        ],
+    );
+}
+
+#[test]
 fn test_json_maps_explicit_source_file_to_paired_test_file() {
     let project = TestProject::new("test-source-to-test-convention");
     project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");

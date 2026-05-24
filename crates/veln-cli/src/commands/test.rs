@@ -26,7 +26,7 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     let project =
         Project::discover(root, &target_expansion.targets).map_err(|error| error.to_string())?;
     let (module, mut diagnostics) = load_surface_module(&project);
-    let test_files = selected_test_files(&project, explicit);
+    let test_files = selected_test_files(&project, &module, explicit);
     let mut cases = discover_test_cases(&module, &test_files);
     let mut suite_errors = Vec::new();
 

@@ -3,9 +3,10 @@ use veln_ast::{
     RecordField, SurfaceModule,
 };
 use veln_core::{
-    CheckedProgram, CoreBlocker, CoreCallTarget, CoreContract, CoreDictEntry, CoreExpr,
-    CoreExprKind, CoreFunction, CoreMatchArm, CoreParam, CorePattern, CorePatternField,
-    CorePatternKind, CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
+    CheckedProgram, ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreContract,
+    CoreDictEntry, CoreExpr, CoreExprKind, CoreFunction, CoreMatchArm, CoreParam, CorePattern,
+    CorePatternField, CorePatternKind, CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind,
+    CoreType,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
@@ -103,6 +104,7 @@ impl<'a> CoreLowerer<'a> {
                 node_id: contract.node_id,
                 kind: contract.kind,
                 predicate: contract.text.clone(),
+                obligation_status: ContractObligationStatus::RuntimeRequired,
                 span: contract.span.clone(),
             })
             .collect();

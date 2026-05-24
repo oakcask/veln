@@ -1,5 +1,5 @@
 use veln_ast::{BinaryOp, ContractKind, NodeId, PrefixOp, Visibility};
-use veln_core::CoreType;
+use veln_core::{ContractObligationStatus, CoreType};
 use veln_source::SourceSpan;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -32,6 +32,7 @@ pub struct IrContract {
     pub node_id: NodeId,
     pub kind: ContractKind,
     pub predicate: String,
+    pub obligation_status: ContractObligationStatus,
     pub span: SourceSpan,
 }
 

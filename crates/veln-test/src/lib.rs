@@ -12,12 +12,31 @@ use veln_diagnostics::{Diagnostic, JsonValue, Severity, diagnostic_to_json};
 use veln_project::Project;
 use veln_source::{LineCol, SourcePath, SourceSpan};
 
-pub fn selected_test_files(project: &Project, explicit: bool) -> BTreeSet<String> {
+pub fn selected_test_files(
+    project: &Project,
+    module: &SurfaceModule,
+    explicit: bool,
+) -> BTreeSet<String> {
     project
         .files
         .iter()
         .filter(|source| explicit || source.path().as_str().ends_with("_test.veln"))
         .map(|source| source.path().as_str().to_string())
+        .chain(
+            (!explicit)
+                .then(|| same_file_test_files(module))
+                .into_iter()
+                .flatten(),
+        )
+        .collect()
+}
+
+fn same_file_test_files(module: &SurfaceModule) -> BTreeSet<String> {
+    module
+        .functions
+        .iter()
+        .filter(|function| function.kind == FunctionKind::Test)
+        .map(|function| function.span.file.as_str().to_string())
         .collect()
 }
 
@@ -665,6 +684,11 @@ mod tests {
 
     #[test]
     fn discovered_selection_uses_test_file_pattern() {
+        let module = SurfaceModule {
+            module: None,
+            uses: Vec::new(),
+            functions: Vec::new(),
+        };
         let project = Project {
             root: PathBuf::new(),
             manifest: None,
@@ -674,11 +698,37 @@ mod tests {
             ],
         };
 
-        let test_files = selected_test_files(&project, false);
+        let test_files = selected_test_files(&project, &module, false);
         let selection = TestSelection::new(&project, &test_files, false);
 
         assert_eq!(selection.mode_name, "discovered");
         assert_eq!(selection.targets, vec!["main_test.veln"]);
+        assert_eq!(selection.reason, "pattern_discovery");
+    }
+
+    #[test]
+    fn discovered_selection_includes_same_file_test_declarations() {
+        let source = SourceFile::new(
+            "main.veln",
+            "test same_file() -> () effects []\n  ()\nend\n",
+        );
+        let parsed = parse(&source);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "unexpected parse diagnostics: {:?}",
+            parsed.diagnostics
+        );
+        let module = lower_surface_ast(&parsed.tree);
+        let project = Project {
+            root: PathBuf::new(),
+            manifest: None,
+            files: vec![source],
+        };
+
+        let test_files = selected_test_files(&project, &module, false);
+        let selection = TestSelection::new(&project, &test_files, false);
+
+        assert_eq!(selection.targets, vec!["main.veln"]);
         assert_eq!(selection.reason, "pattern_discovery");
     }
 

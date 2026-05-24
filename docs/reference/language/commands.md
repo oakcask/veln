@@ -79,10 +79,11 @@ Like `run`, `test` combines parse-clean selected files into one surface module
 before semantic analysis.
 
 Without explicit targets, `test` selects top-level `test` declarations in
-discovered `*_test.veln` files. With explicit targets, it selects `test`
-declarations from the selected files, including files found recursively below
-explicit directories and including non-test files. Ordinary `fn` declarations
-are never selected merely because they have zero parameters.
+discovered `*_test.veln` files and in any other discovered source file that
+contains a top-level `test` declaration. With explicit targets, it selects
+`test` declarations from the selected files, including files found recursively
+below explicit directories and including non-test files. Ordinary `fn`
+declarations are never selected merely because they have zero parameters.
 
 When an explicit target names a non-test `.veln` source file, `test` also
 selects a same-directory `*_test.veln` file with the same base name when that

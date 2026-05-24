@@ -22,7 +22,7 @@
   to diagnostics, while only conservative local obligations are statically
   discharged and valid unknown obligations are enforced at runtime.
 - Discussion result:
-  [Contract Static Runtime Boundary](../../proposals/agent-language-spec-wall/result-contract-static-runtime-boundary.md)
+  [Contract Static Runtime Boundary](../source-decisions/result-contract-static-runtime-boundary.md)
 - Supporting references:
   `meyer1997-object-oriented-software-construction`,
   `findler2002-higher-order-contracts`, `rondon2008-liquid-types`,

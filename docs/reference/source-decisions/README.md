@@ -18,6 +18,7 @@ read these records only for rationale or compatibility context.
 - [Contract Blame Boundary](result-contract-blame-boundary.md)
 - [Contract Expression Language](result-contract-expression-language.md)
 - [Contract Predicate Parsing](result-contract-predicate-parsing.md)
+- [Contract Static Runtime Boundary](result-contract-static-runtime-boundary.md)
 - [Effect Access Modes](result-effect-access-modes.md)
 - [Effect Declaration Boundary](result-effect-declaration-boundary.md)
 - [Error Type Inference](result-error-type-inference.md)

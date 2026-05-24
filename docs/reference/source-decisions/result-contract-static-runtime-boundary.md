@@ -1,6 +1,6 @@
 # Discussion Result: Contract Static Runtime Boundary
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 

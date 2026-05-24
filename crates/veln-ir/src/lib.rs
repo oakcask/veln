@@ -8,3 +8,4 @@ pub use model::{
     IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrParam,
     IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind, TypedProgram,
 };
+pub use veln_core::ContractObligationStatus;

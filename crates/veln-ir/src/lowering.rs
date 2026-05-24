@@ -56,6 +56,7 @@ fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLo
                 node_id: contract.node_id,
                 kind: contract.kind,
                 predicate: contract.predicate.clone(),
+                obligation_status: contract.obligation_status,
                 span: contract.span.clone(),
             })
             .collect(),

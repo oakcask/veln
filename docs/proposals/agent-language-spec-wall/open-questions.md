@@ -164,7 +164,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   pure boolean expression subset rather than arbitrary executable core-language
   expressions.
 - Resolved by
-  [Contract Static Runtime Boundary](result-contract-static-runtime-boundary.md):
+  [Contract Static Runtime Boundary](../../reference/source-decisions/result-contract-static-runtime-boundary.md):
   all contracts are statically validated and exposed to diagnostics, but only a
   conservative subset is statically discharged; valid unknown obligations become
   runtime-required checks.

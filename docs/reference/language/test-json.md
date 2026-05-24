@@ -25,10 +25,11 @@ Selection fields are:
   `source_to_test_convention`
 - `notes`: optional human-readable selection notes
 
-With no explicit targets, `veln test --json` discovers all selected
-`*_test.veln` files, including multiple test files in one run, and reports
+With no explicit targets, `veln test --json` discovers selected `*_test.veln`
+files and any other discovered source file that contains a top-level `test`
+declaration, including multiple test-bearing files in one run. It reports
 `confidence: "complete"`. The selected target list is sorted and includes each
-selected test file path once.
+selected test-bearing file path once.
 
 With explicit targets, the command treats the caller's direct file or recursive
 directory list as intentional selection and reports `reason: "user_selected"`

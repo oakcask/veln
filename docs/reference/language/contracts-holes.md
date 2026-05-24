@@ -39,6 +39,11 @@ entry paths. `require` clauses are checked when a function is entered.
 returns through its tail expression. Runtime `require` failures blame the
 caller; runtime `ensure` failures blame the implementation.
 
+The implemented obligation classification is conservative: every valid
+contract predicate is classified as `runtime_required`. Invalid predicates fail
+the static contract gate instead of becoming runtime-only checks. No contract is
+currently classified as statically proven or statically disproven.
+
 An `ensure` clause may refer to the returned value only when the function return
 position names it with `-> name: Type`. That name is not visible to `require`
 clauses or the function body. The identifier `result` is ordinary: without an

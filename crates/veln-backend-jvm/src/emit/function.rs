@@ -2,8 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
-    IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrPattern,
-    IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind,
+    ContractObligationStatus, IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind,
+    IrFunction, IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt,
+    IrStmtKind,
 };
 
 use crate::emit::program::ProgramEmitter;
@@ -124,6 +125,9 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
     }
 
     fn emit_contract_check(&mut self, out: &mut String, contract: &IrContract) {
+        if contract.obligation_status != ContractObligationStatus::RuntimeRequired {
+            return;
+        }
         let Some(predicate) = ContractParser::new(&contract.predicate).parse() else {
             return;
         };
