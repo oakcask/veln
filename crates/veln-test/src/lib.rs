@@ -702,7 +702,7 @@ mod tests {
             span: module.functions[0].span.clone(),
         };
         let trace = format!(
-            "1\tstdout\tprintln\tnewline\t{}\t{}\t6f75740a\n2\tstderr\teprint\tnone\t{}\t{}\t657272\n",
+            "1\tstdout\tprintln\tnewline\t{}\t{}\t6f7574\n2\tstderr\teprint\tnone\t{}\t{}\t657272\n",
             call_keys[0].1, call_keys[0].0, call_keys[1].1, call_keys[1].0
         );
 
@@ -711,7 +711,7 @@ mod tests {
         assert_eq!(events.len(), 2);
         let first_event = events[0].to_json();
         assert!(first_event.contains("\"operation\":\"println\""));
-        assert!(first_event.contains("\"text\":\"out\\n\""));
+        assert!(first_event.contains("\"text\":\"out\""));
         assert!(first_event.contains("\"terminator\":\"newline\""));
         assert!(first_event.contains(&format!("\"node_id\":\"{}\"", call_ids[0])));
         assert!(first_event.contains("\"file\":\"main_test.veln\""));

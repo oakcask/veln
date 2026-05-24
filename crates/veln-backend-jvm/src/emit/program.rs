@@ -362,8 +362,9 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     public static Object stdioPrintln(Object value, String nodeId, String sourceFile) {{
-        String text = format(value) + System.lineSeparator();
+        String text = format(value);
         System.out.print(text);
+        System.out.print(System.lineSeparator());
         recordStdioEvent("stdout", "println", "newline", text, nodeId, sourceFile);
         return UNIT;
     }}
@@ -384,8 +385,9 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     public static Object stdioEprintln(Object value, String nodeId, String sourceFile) {{
-        String text = format(value) + System.lineSeparator();
+        String text = format(value);
         System.err.print(text);
+        System.err.print(System.lineSeparator());
         recordStdioEvent("stderr", "eprintln", "newline", text, nodeId, sourceFile);
         return UNIT;
     }}

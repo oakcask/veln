@@ -57,13 +57,16 @@ Captured stdio events use:
 
 - `kind: "stdio"`
 - `stream`: `stdout` or `stderr`
-- `operation`: `print`, `println`, `eprint`, or `eprintln` when runtime tracing
-  is available
-- `text`
-- `terminator`
-- `sequence`
-- `node_id`
-- `span`
+- `operation`: `print`, `println`, `eprint`, or `eprintln`
+- `text`: the string passed to the stdio operation, without the logical
+  newline for `println` or `eprintln`
+- `terminator`: `none` for `print` and `eprint`, or `newline` for `println`
+  and `eprintln`
+- `sequence`: a monotonic integer within the case
+- `node_id`: the source call node identifier
+- `span`: the source call span
 
-When the runtime trace is unavailable, output may be represented as aggregate
-stdout or stderr events attached to the case source.
+The event list is operation-oriented. `println` and `eprintln` preserve their
+logical newline through `terminator`, not by appending it to `text`. If runtime
+tracing is unavailable, output may be represented as aggregate stdout or stderr
+events attached to the case source.

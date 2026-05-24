@@ -23,9 +23,6 @@ not fully implemented in the current workspace.
 - Runtime contract enforcement is tracked by
   [Runtime Contract Failure Reporting](agent-language-spec-wall/result-runtime-contract-failure-reporting.md)
   and the current gap review.
-- Captured stdio event gaps are tracked by the current gap review; the
-  implemented event shape is in
-  [Stdio API and Output Events](../reference/source-decisions/result-stdio-api-and-output-events.md).
 
 ## Status Rules
 

@@ -71,11 +71,7 @@ stays in
 - Test discovery selects explicit top-level `test` declarations. Parsed
   docblock/example extraction, expected-output examples, and automatic
   same-file example discovery remain follow-up work.
-- Captured stdio events currently record aggregate process stdout/stderr per
-  case. Per-stdio-operation events with exact operation names, newline
-  terminators, and call-site provenance remain follow-up work before claiming
-  full conformance with the stdio event decision.
 - Test stabilization should add focused fixtures for missing `java` after
   `javac` succeeds, static-gate parse and semantic diagnostics in
   `veln test --json`, no-test discovery suite errors, explicit directory
-  targets, multiple test files, and exact stdio event fields.
+  targets, and multiple test files.

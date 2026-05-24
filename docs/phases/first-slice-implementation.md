@@ -743,10 +743,9 @@ Item 9 completion gate status:
   `diagnostics` fields.
 - Complete for first-slice captured output: case stdout/stderr are captured as
   deterministic `kind: "stdio"` events with stream, operation, text,
-  terminator, sequence, node id, and source span. The current implementation
-  records aggregate process stdout/stderr per case. Exact per-call event work
-  is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events).
+  terminator, sequence, node id, and source span. Runtime tracing records
+  per-stdio-operation events with call-site provenance. If runtime tracing is
+  unavailable, aggregate process stdout/stderr events are attached to the case.
 - Complete: focused CLI coverage includes static-gate blocked JSON without a
   JDK, missing `javac` JSON behavior, default `*_test.veln` discovery,
   passed and failed cases, captured stdout/stderr events, and explicit
@@ -771,10 +770,9 @@ Item 9 review notes:
   setup failures are surfaced as runner errors in JSON.
 - Captured stdio events satisfy the required event-key shape, use
   source-relative spans, and are deterministic for the current execution path.
-  They are aggregate stdout/stderr events attached to the test function rather
-  than per-stdio-operation events attached to the exact call site. Exact event
-  conformance is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events).
+  Runtime tracing emits per-stdio-operation events attached to the exact call
+  site. `println` and `eprintln` keep their logical newline in the
+  `terminator` field instead of appending it to `text`.
 - Coverage is sufficient for the first-slice claim, but test stabilization
   targets remain in
   [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#test-discovery-and-events).
