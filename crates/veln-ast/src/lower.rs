@@ -1,17 +1,27 @@
 use veln_syntax::{
     BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, ContractKind as SyntaxContractKind,
     Expr as SyntaxExpr, ExprKind as SyntaxExprKind, FunctionDecl as SyntaxFunction,
-    PrefixOp as SyntaxPrefixOp, RecordField as SyntaxRecordField, SyntaxItem, SyntaxTree,
-    Visibility as SyntaxVisibility,
+    ModuleDecl as SyntaxModule, PrefixOp as SyntaxPrefixOp, RecordField as SyntaxRecordField,
+    SyntaxItem, SyntaxTree, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
 };
 
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, Expr, ExprKind, Function,
-    FunctionKind, NodeId, Param, PrefixOp, RecordField, SurfaceModule, Visibility,
+    FunctionKind, ModuleHeader, NodeId, Param, PrefixOp, RecordField, SurfaceModule, UseDecl,
+    Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
     let mut builder = AstBuilder { next_node_id: 1 };
+    let module = tree
+        .module
+        .as_ref()
+        .map(|module| builder.lower_module_header(module));
+    let uses = tree
+        .uses
+        .iter()
+        .map(|use_decl| builder.lower_use_decl(use_decl))
+        .collect();
     let mut functions = Vec::new();
 
     for item in &tree.items {
@@ -19,7 +29,11 @@ pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
         functions.push(builder.lower_function(function));
     }
 
-    SurfaceModule { functions }
+    SurfaceModule {
+        module,
+        uses,
+        functions,
+    }
 }
 
 struct AstBuilder {
@@ -31,6 +45,28 @@ impl AstBuilder {
         let node_id = NodeId::new(self.next_node_id);
         self.next_node_id += 1;
         node_id
+    }
+
+    fn lower_module_header(&mut self, module: &SyntaxModule) -> ModuleHeader {
+        ModuleHeader {
+            node_id: self.alloc(),
+            name: module.name.clone(),
+            span: module.span.clone(),
+        }
+    }
+
+    fn lower_use_decl(&mut self, use_decl: &SyntaxUse) -> UseDecl {
+        UseDecl {
+            node_id: self.alloc(),
+            name: use_decl.name.clone(),
+            alias: use_decl
+                .name
+                .split('.')
+                .next_back()
+                .unwrap_or(use_decl.name.as_str())
+                .to_string(),
+            span: use_decl.span.clone(),
+        }
     }
 
     fn lower_function(&mut self, function: &SyntaxFunction) -> Function {

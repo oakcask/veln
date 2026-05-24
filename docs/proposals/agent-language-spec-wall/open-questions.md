@@ -63,7 +63,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   deterministically, and keep named-hole labels outside semantic name
   resolution.
 - Resolved by
-  [First-Slice Prelude Helpers](result-first-slice-prelude-helpers.md): first
+  [First-Slice Prelude Helpers](../../reference/source-decisions/result-first-slice-prelude-helpers.md): first
   examples and golden tests may rely on a small prefix-named prelude for
   immutable list and dictionary updates, ordinary traversal, `Option`/`Result`
   composition, and `list_try_map` as the concrete fallible traversal helper.

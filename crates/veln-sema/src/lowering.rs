@@ -5,6 +5,7 @@ use veln_core::{
 };
 
 use crate::effects::stdio_signature;
+use crate::prelude::core_prelude_signature;
 use crate::types::{TypeEnvironment, core_type, parse_type_annotation, parse_type_or_unknown};
 
 struct CoreBinding {
@@ -293,7 +294,7 @@ impl<'a> CoreLowerer<'a> {
             }
         }
 
-        let signature = self.core_call_signature(callee);
+        let signature = self.core_call_signature(callee, expected);
         if let Some(signature) = &signature {
             if args.len() != signature.params.len() {
                 self.blockers.push(CoreBlocker::UnsupportedExpression {
@@ -481,7 +482,11 @@ impl<'a> CoreLowerer<'a> {
         self.core_expr(expr, CoreType::list(item_type), CoreExprKind::List(items))
     }
 
-    fn core_call_signature(&self, callee: &Expr) -> Option<CoreCallSignature> {
+    fn core_call_signature(
+        &self,
+        callee: &Expr,
+        expected: Option<&CoreType>,
+    ) -> Option<CoreCallSignature> {
         let ExprKind::NamePath(segments) = &callee.kind else {
             return None;
         };
@@ -504,20 +509,31 @@ impl<'a> CoreLowerer<'a> {
             .bindings
             .iter()
             .rev()
-            .find(|binding| binding.name == *name)?;
-        let CoreType::Function {
-            params,
-            return_type,
-            ..
-        } = &binding.ty
-        else {
-            return None;
-        };
-        Some(CoreCallSignature {
-            target: CoreCallTarget::Value(name.clone()),
-            params: params.clone(),
-            return_type: return_type.as_ref().clone(),
-        })
+            .find(|binding| binding.name == *name);
+        if let Some(binding) = binding {
+            if let CoreType::Function {
+                params,
+                return_type,
+                ..
+            } = &binding.ty
+            {
+                return Some(CoreCallSignature {
+                    target: CoreCallTarget::Value(name.clone()),
+                    params: params.clone(),
+                    return_type: return_type.as_ref().clone(),
+                });
+            }
+        }
+        if let [name] = segments.as_slice() {
+            if let Some((target, params, return_type)) = core_prelude_signature(name, expected) {
+                return Some(CoreCallSignature {
+                    target,
+                    params,
+                    return_type,
+                });
+            }
+        }
+        None
     }
 
     fn core_expr(&self, expr: &Expr, ty: CoreType, kind: CoreExprKind) -> CoreExpr {

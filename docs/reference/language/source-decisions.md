@@ -11,6 +11,7 @@ categorized specification files. The full implemented decision index is
 - [Test JSON Shape](../source-decisions/result-test-json-shape.md)
 - [Test Declaration Syntax](../source-decisions/result-test-declaration-syntax.md)
 - [Stdio API and Output Events](../source-decisions/result-stdio-api-and-output-events.md)
+- [First-Slice Prelude Helpers](../source-decisions/result-first-slice-prelude-helpers.md)
 - [Minimum Type System for Holes](../source-decisions/result-minimum-type-system-for-holes.md)
 - [Hole Satisfy Source Syntax](../source-decisions/result-hole-satisfy-source-syntax.md)
 - [AST Phase Boundary](../source-decisions/result-ast-phase-boundary.md)

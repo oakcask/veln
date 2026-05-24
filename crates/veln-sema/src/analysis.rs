@@ -15,6 +15,7 @@ use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, span_json, type_details,
 };
 use crate::effects::stdio_signature;
+use crate::prelude::prelude_signature;
 use crate::types::{
     Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type, TypeEnvironment,
     is_assignable, parse_type_annotation,
@@ -95,35 +96,79 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
         };
         let node_id = function.node_id.display(function.kind.node_prefix());
         if let Some((first_node_id, first_span)) = seen.get(name) {
-            let mut diagnostic = Diagnostic::new(
-                "name.duplicate",
-                Severity::Error,
-                DiagnosticKind::Name,
-                format!("duplicate function declaration name `{name}`"),
-                Some(function.span.clone()),
-                JsonValue::object([
-                    ("phase", JsonValue::string("name")),
-                    ("node_id", JsonValue::string(node_id)),
-                    ("name", JsonValue::string(name.clone())),
-                    ("namespace", JsonValue::string("function")),
-                    ("first_node_id", JsonValue::string(first_node_id.clone())),
-                ]),
-            );
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("duplicate_origin")),
-                (
-                    "message",
-                    JsonValue::string("First function declaration with this name is here."),
-                ),
-                ("span", span_json(first_span)),
-            ]));
-            diagnostics.push(diagnostic);
+            diagnostics.push(duplicate_name_diagnostic(
+                name,
+                "function",
+                "function declaration",
+                node_id,
+                function.span.clone(),
+                first_node_id.clone(),
+                first_span,
+            ));
         } else {
             seen.insert(name.clone(), (node_id, function.span.clone()));
         }
     }
 
     diagnostics
+}
+
+pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen = BTreeMap::<String, (String, SourceSpan)>::new();
+
+    for use_decl in &module.uses {
+        let node_id = use_decl.node_id.display("use");
+        if let Some((first_node_id, first_span)) = seen.get(&use_decl.alias) {
+            diagnostics.push(duplicate_name_diagnostic(
+                &use_decl.alias,
+                "module",
+                "import alias",
+                node_id,
+                use_decl.span.clone(),
+                first_node_id.clone(),
+                first_span,
+            ));
+        } else {
+            seen.insert(use_decl.alias.clone(), (node_id, use_decl.span.clone()));
+        }
+    }
+
+    diagnostics
+}
+
+fn duplicate_name_diagnostic(
+    name: &str,
+    namespace: &'static str,
+    declaration_kind: &'static str,
+    node_id: String,
+    span: SourceSpan,
+    first_node_id: String,
+    first_span: &SourceSpan,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "name.duplicate",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("duplicate {declaration_kind} name `{name}`"),
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::string(node_id)),
+            ("name", JsonValue::string(name)),
+            ("namespace", JsonValue::string(namespace)),
+            ("first_node_id", JsonValue::string(first_node_id)),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("duplicate_origin")),
+        (
+            "message",
+            JsonValue::string(format!("First {declaration_kind} with this name is here.")),
+        ),
+        ("span", span_json(first_span)),
+    ]));
+    diagnostic
 }
 
 pub(crate) fn check_test_declaration_boundary(function: &Function) -> Vec<Diagnostic> {
@@ -251,6 +296,7 @@ struct FunctionChecker<'a> {
     function: &'a Function,
     environment: &'a TypeEnvironment,
     bindings: Vec<Binding>,
+    local_names: BTreeMap<String, (String, SourceSpan)>,
     inferred_effects: Vec<EffectUse>,
     diagnostics: Vec<Diagnostic>,
 }
@@ -261,6 +307,7 @@ impl<'a> FunctionChecker<'a> {
             function,
             environment,
             bindings: Vec::new(),
+            local_names: BTreeMap::new(),
             inferred_effects: Vec::new(),
             diagnostics: Vec::new(),
         }
@@ -290,6 +337,14 @@ impl<'a> FunctionChecker<'a> {
                         self.check_assignable(expr, &expected.ty, &actual, expected, "assignable");
                     }
                     if let Some(name) = name {
+                        if !self.declare_local_name(
+                            name,
+                            line.node_id.display("let"),
+                            line.span.clone(),
+                            "local binding",
+                        ) {
+                            continue;
+                        }
                         self.bindings.push(Binding {
                             name: name.clone(),
                             ty: expected.map_or(actual, |expected| expected.ty),
@@ -327,6 +382,14 @@ impl<'a> FunctionChecker<'a> {
                     "Parameter type declared here.",
                 )
             });
+            if !self.declare_local_name(
+                &param.name,
+                param.node_id.display("param"),
+                param.span.clone(),
+                "parameter",
+            ) {
+                continue;
+            }
             self.bindings.push(Binding {
                 name: param.name.clone(),
                 ty: ty.map_or(Type::Unknown, |expected| expected.ty),
@@ -341,6 +404,31 @@ impl<'a> FunctionChecker<'a> {
                 ExpectedTypeSource::DeclaredReturn,
                 "Return type declared here.",
             );
+        }
+    }
+
+    fn declare_local_name(
+        &mut self,
+        name: &str,
+        node_id: String,
+        span: SourceSpan,
+        declaration_kind: &'static str,
+    ) -> bool {
+        if let Some((first_node_id, first_span)) = self.local_names.get(name) {
+            self.diagnostics.push(duplicate_name_diagnostic(
+                name,
+                "value",
+                declaration_kind,
+                node_id,
+                span,
+                first_node_id.clone(),
+                first_span,
+            ));
+            false
+        } else {
+            self.local_names
+                .insert(name.to_string(), (node_id, span.clone()));
+            true
         }
     }
 
@@ -704,6 +792,37 @@ impl<'a> FunctionChecker<'a> {
         }
 
         if let ExprKind::NamePath(segments) = &callee.kind {
+            if let [name] = segments.as_slice() {
+                if let Some((params, return_type)) =
+                    prelude_signature(name, expected.map(|expected| &expected.ty))
+                {
+                    for (index, arg) in args.iter().enumerate() {
+                        let Some(param_type) = params.get(index) else {
+                            self.infer_expr(arg, None);
+                            continue;
+                        };
+                        let expected = ExpectedType {
+                            ty: param_type.clone(),
+                            source: ExpectedTypeSource::Inferred,
+                            origin_node_id: callee.node_id,
+                            origin_span: Some(callee.span.clone()),
+                            origin_message: "Prelude helper parameter type inferred here.",
+                        };
+                        let actual = self.infer_expr(arg, Some(&expected));
+                        self.check_assignable(
+                            arg,
+                            &expected.ty,
+                            &actual,
+                            &expected,
+                            "call_argument",
+                        );
+                    }
+                    return return_type;
+                }
+            }
+        }
+
+        if let ExprKind::NamePath(segments) = &callee.kind {
             let symbol = segments.join("::");
             self.push_unresolved_name(callee.node_id, callee.span.clone(), &symbol, "call_target");
         }
@@ -894,7 +1013,24 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Type {
         let mut actual_fields = Vec::new();
+        let mut seen_fields = BTreeMap::<String, (String, SourceSpan)>::new();
         for field in fields {
+            if let Some((first_node_id, first_span)) = seen_fields.get(&field.name) {
+                self.diagnostics.push(duplicate_name_diagnostic(
+                    &field.name,
+                    "record_field",
+                    "record field",
+                    field.node_id.display("field"),
+                    field.span.clone(),
+                    first_node_id.clone(),
+                    first_span,
+                ));
+            } else {
+                seen_fields.insert(
+                    field.name.clone(),
+                    (field.node_id.display("field"), field.span.clone()),
+                );
+            }
             let field_expected = expected
                 .and_then(|expected| expected.ty.record_field(&field.name))
                 .cloned()

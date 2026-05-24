@@ -121,6 +121,27 @@ fn assigns_session_stable_node_ids() {
 }
 
 #[test]
+fn lowers_module_header_and_use_aliases() {
+    let module = lower_source(concat!(
+        "mod app.core\n",
+        "use platform.io\n",
+        "fn main() -> () effects []\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(module.module.as_ref().unwrap().name, "app.core");
+    assert_eq!(
+        module.module.as_ref().unwrap().node_id.display("mod"),
+        "mod-1"
+    );
+    assert_eq!(module.uses[0].name, "platform.io");
+    assert_eq!(module.uses[0].alias, "io");
+    assert_eq!(module.uses[0].node_id.display("use"), "use-2");
+    assert_eq!(module.functions[0].node_id.display("fn"), "fn-3");
+}
+
+#[test]
 fn lowers_holes_to_node_id_backed_expression_nodes() {
     let module = lower_source("fn todo() -> ()\n  _answer\nend\n");
 

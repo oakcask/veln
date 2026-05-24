@@ -152,7 +152,7 @@ Acceptance checks:
 
 ### 4. Prelude Helper Coverage
 
-Severity: medium
+Status: resolved
 
 Expected:
 
@@ -163,31 +163,29 @@ Expected:
 
 Observed:
 
-- Compiler-known call signatures are currently focused on `stdio`.
-- `Ok`, `Err`, and `Some` constructors are special-cased, but the listed
-  prelude helper functions are not implemented as compiler-known functions.
-- The runtime has basic list/record/result/option support, but not the
-  documented helper surface.
+- The required helper names are compiler-known calls with semantic signatures,
+  typed IR targets, and JVM runtime helpers.
+- Generic helper signatures use `unknown` type arguments where the local
+  expected type does not identify a concrete type yet.
 
 Why it matters:
 
-- The documented repair-loop example using `list_try_map` is not supported as
-  a first-class first-slice feature.
+- Repair-loop examples can now use `list_try_map` as a first-class first-slice
+  feature.
 
-Fix direction:
+Implemented direction:
 
-- Add a prelude signature table separate from the JVM backend.
-- Lower helpers either to runtime calls or backend intrinsics without exposing
-  backend layout in typed IR.
-- Start with type/effect diagnostics for all required names, then add runtime
-  semantics for the helpers needed by executable examples.
+- The semantic prelude signature table is separate from the JVM backend.
+- Typed IR carries a prelude builtin call target without exposing backend
+  layout.
+- Runtime semantics cover list, dictionary, `Option`, and `Result` helpers.
 
 Acceptance checks:
 
 - `check --json` accepts a `list_try_map(lines, parse_line)` example with the
   intended `Result(List(T), E)` shape.
-- Wrong helper arity and wrong callback result types produce structured
-  diagnostics.
+- Wrong callback result types produce structured type diagnostics through the
+  normal call-argument path.
 
 ### 5. `veln-test` Crate Boundary
 

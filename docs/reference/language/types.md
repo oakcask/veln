@@ -32,6 +32,7 @@ Expected types flow into holes and subexpressions from:
 - declared return types for tail expressions
 - local `let` annotations
 - function call parameters
+- prelude helper parameters and return context
 - record fields
 - list elements
 - `Ok`, `Err`, `Some`, `None`, and postfix `?`
@@ -40,9 +41,15 @@ Expected types flow into holes and subexpressions from:
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
-record and be assignable. Function assignment checks parameter count, parameter
-types, and return type; effect lists are currently carried but not compared for
+record and be assignable. Named types with the same constructor are compatible
+when their arguments are pairwise assignable, so `List(unknown)` accepts
+`List(Int)`. Function assignment checks parameter count, parameter types, and
+return type; effect lists are currently carried but not compared for
 function-type assignability.
+
+One record literal cannot declare the same field name twice. Duplicate record
+fields are name errors before record assignability chooses an expected field
+type.
 
 ## Operators
 

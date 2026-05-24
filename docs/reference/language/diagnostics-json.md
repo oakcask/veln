@@ -49,14 +49,18 @@ Parse diagnostic `details` are stable for the implemented slice:
 - `expected`
 - `recovery`
 
-Name diagnostic `details` are stable for unresolved names:
+Name diagnostic `details` are stable for unresolved and duplicate names:
 
 - `phase`
 - `node_id`
-- `symbol`
+- `symbol` for unresolved references
+- `name` for duplicate declarations
 - `namespace`
-- `resolution_status`
-- `candidates`
+- `resolution_status` and `candidates` for unresolved references
+- `first_node_id` for duplicate declarations
+
+`name.duplicate` reports the duplicate declaration span as the primary span.
+The first declaration appears in `related` with `kind: "duplicate_origin"`.
 
 Type diagnostic `details` are stable for public-signature, invalid-annotation,
 and type-mismatch diagnostics:

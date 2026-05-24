@@ -5,8 +5,8 @@ use veln_ir::{IrCallTarget, IrExpr, IrExprKind, IrFunction, IrRecordField, IrStm
 
 use crate::emit::program::ProgramEmitter;
 use crate::java::{
-    binary_method, java_string, sanitize_identifier_text, stdio_method, unique_java_identifier,
-    veln_string_literal_value,
+    binary_method, java_string, prelude_method, sanitize_identifier_text, stdio_method,
+    unique_java_identifier, veln_string_literal_value,
 };
 
 pub(crate) struct FunctionEmitter<'a, 'program> {
@@ -146,6 +146,14 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
                     self.program.options.runtime_class,
                     stdio_method(name),
                     all_args.join(", ")
+                )
+            }
+            IrCallTarget::PreludeBuiltin(name) => {
+                format!(
+                    "{}.{}({})",
+                    self.program.options.runtime_class,
+                    prelude_method(name),
+                    java_args.join(", ")
                 )
             }
             IrCallTarget::Value(name) => {

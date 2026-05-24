@@ -30,6 +30,10 @@ the experimental Veln implementation.
 - Put implementation order, completion notes, and working plans in `phases/`.
 - Put implementation gaps, verification evidence, and correction lists in
   `reviews/`.
+- When a proposal becomes fully implemented, move its stable behavior into
+  `reference/` and its implemented decision rationale into
+  `reference/source-decisions/`; do not leave the implemented proposal under
+  `proposals/`.
 - When a document mixes implemented and planned behavior, either split it or
   label the planned sections and link them from `proposals/`.
 - Treat `reference/language/` as the current behavior source before changing

@@ -1,6 +1,6 @@
 # Discussion Result: First-Slice Prelude Helpers
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 

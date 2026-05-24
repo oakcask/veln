@@ -790,7 +790,7 @@ first slice using
 - [AST Phase Boundary](../reference/source-decisions/result-ast-phase-boundary.md)
 - [AST Implementation Representation](../reference/source-decisions/result-ast-implementation-representation.md)
 - [Minimum Type System for Holes](../reference/source-decisions/result-minimum-type-system-for-holes.md)
-- [First-Slice Prelude Helpers](../proposals/agent-language-spec-wall/result-first-slice-prelude-helpers.md)
+- [First-Slice Prelude Helpers](../reference/source-decisions/result-first-slice-prelude-helpers.md)
 - [Stdio API and Output Events](../reference/source-decisions/result-stdio-api-and-output-events.md)
 - [Check JSON Details Fields](../reference/source-decisions/result-check-json-details-fields.md)
 - [Transitive Effect Diagnostics](../proposals/agent-language-spec-wall/result-transitive-effect-diagnostics.md)

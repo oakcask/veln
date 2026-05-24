@@ -162,6 +162,105 @@ fn duplicate_function_like_declaration_names_are_static_errors() {
 }
 
 #[test]
+fn duplicate_use_aliases_are_static_errors() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app\n",
+            "use platform.io\n",
+            "use local.io\n",
+            "fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "name.duplicate");
+    assert_eq!(diagnostics[0].message, "duplicate import alias name `io`");
+    assert_eq!(diagnostics[0].related.len(), 1);
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"namespace\":\"module\"")
+    );
+}
+
+#[test]
+fn duplicate_parameter_names_are_static_errors() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn bad(value: Int, value: Int) -> Int effects []\n  value\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "name.duplicate");
+    assert_eq!(diagnostics[0].message, "duplicate parameter name `value`");
+    assert_eq!(diagnostics[0].related.len(), 1);
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"namespace\":\"value\"")
+    );
+}
+
+#[test]
+fn let_names_cannot_duplicate_the_function_value_scope() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn bad(value: Int) -> Int effects []\n  let value = 1\n  value\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "name.duplicate");
+    assert_eq!(
+        diagnostics[0].message,
+        "duplicate local binding name `value`"
+    );
+    assert_eq!(diagnostics[0].related.len(), 1);
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"namespace\":\"value\"")
+    );
+}
+
+#[test]
+fn duplicate_record_field_names_are_static_errors() {
+    let source = SourceFile::new("main.veln", "fn bad() -> {a: Int}\n  {a: 1, a: 2}\nend\n");
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "name.duplicate");
+    assert_eq!(diagnostics[0].message, "duplicate record field name `a`");
+    assert_eq!(diagnostics[0].related.len(), 1);
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"namespace\":\"record_field\"")
+    );
+}
+
+#[test]
 fn reports_hole_with_declared_return_expected_type() {
     let source = SourceFile::new("main.veln", "fn todo() -> Result((), AppError)\n  _\nend\n");
     let parsed = parse(&source);
@@ -318,6 +417,107 @@ fn infers_non_constructor_calls_from_local_function_signatures() {
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn infers_prelude_helper_calls_from_expected_types() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(items: List(Int), other: List(Int), table: Dict(String, Int), ",
+            "mapper: fn(Int) -> String, keep: fn(Int) -> Bool, folder: fn(String, Int) -> String, ",
+            "fallible: fn(Int) -> Result(String, AppError), opt: Option(Int), ",
+            "opt_map: fn(Int) -> String, opt_next: fn(Int) -> Option(String), ",
+            "res: Result(Int, AppError), err_map: fn(AppError) -> String, ",
+            "res_next: fn(Int) -> Result(String, AppError)) -> {",
+            "count: Int, empty: Bool, pushed: List(Int), joined: List(Int), mapped: List(String), ",
+            "filtered: List(Int), folded: String, tried: Result(List(String), AppError), ",
+            "found: Option(Int), has_key: Bool, inserted: Dict(String, Int), removed: Dict(String, Int), ",
+            "opt_mapped: Option(String), opt_nexted: Option(String), opt_value: Int, ",
+            "res_mapped: Result(String, AppError), res_err: Result(Int, String), ",
+            "res_nexted: Result(String, AppError)} effects []\n",
+            "  {count: list_len(items), empty: list_is_empty(items), ",
+            "pushed: list_push(items, 1), joined: list_concat(items, other), ",
+            "mapped: list_map(items, mapper), filtered: list_filter(items, keep), ",
+            "folded: list_fold(items, \"\", folder), tried: list_try_map(items, fallible), ",
+            "found: dict_get(table, \"a\"), has_key: dict_contains(table, \"a\"), ",
+            "inserted: dict_insert(table, \"b\", 2), removed: dict_remove(table, \"b\"), ",
+            "opt_mapped: option_map(opt, opt_map), opt_nexted: option_and_then(opt, opt_next), ",
+            "opt_value: option_unwrap_or(opt, 0), res_mapped: result_map(res, opt_map), ",
+            "res_err: result_map_err(res, err_map), res_nexted: result_and_then(res, res_next)}\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Record(fields) = &expr.kind else {
+        panic!("prelude results should be returned in a record");
+    };
+    let first = fields
+        .first()
+        .expect("record should contain prelude result fields");
+    assert!(matches!(
+        &first.expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::PreludeBuiltin(name),
+            ..
+        } if name == "list_len"
+    ));
+    assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
+    let ir = lowered
+        .ir
+        .expect("complete prelude core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    let IrExprKind::Record(fields) = &value.kind else {
+        panic!("prelude record should lower to IR");
+    };
+    assert!(matches!(
+        &fields[0].value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::PreludeBuiltin(name),
+            ..
+        } if name == "list_len"
+    ));
+}
+
+#[test]
+fn prelude_helpers_check_direct_expected_return_types() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(value: Option(Int)) -> Int effects []\n",
+            "  option_unwrap_or(value, \"bad\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
 }
 
 #[test]

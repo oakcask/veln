@@ -19,7 +19,24 @@ impl NodeId {
 
 #[derive(Clone, Debug)]
 pub struct SurfaceModule {
+    pub module: Option<ModuleHeader>,
+    pub uses: Vec<UseDecl>,
     pub functions: Vec<Function>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ModuleHeader {
+    pub node_id: NodeId,
+    pub name: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct UseDecl {
+    pub node_id: NodeId,
+    pub name: String,
+    pub alias: String,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]

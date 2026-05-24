@@ -215,6 +215,135 @@ impl<'a> ProgramEmitter<'a> {
         );
     }}
 
+    public static Object listLen(Object items) {{
+        return Long.valueOf(asList(items).size());
+    }}
+
+    public static Object listIsEmpty(Object items) {{
+        return Boolean.valueOf(asList(items).isEmpty());
+    }}
+
+    public static Object listPush(Object items, Object value) {{
+        java.util.ArrayList<Object> copy = new java.util.ArrayList<Object>(asList(items));
+        copy.add(value);
+        return java.util.Collections.unmodifiableList(copy);
+    }}
+
+    public static Object listConcat(Object left, Object right) {{
+        java.util.ArrayList<Object> copy = new java.util.ArrayList<Object>(asList(left));
+        copy.addAll(asList(right));
+        return java.util.Collections.unmodifiableList(copy);
+    }}
+
+    public static Object listMap(Object items, Object fn) {{
+        java.util.ArrayList<Object> mapped = new java.util.ArrayList<Object>();
+        for (Object item : asList(items)) {{
+            mapped.add(call(fn, item));
+        }}
+        return java.util.Collections.unmodifiableList(mapped);
+    }}
+
+    public static Object listFilter(Object items, Object fn) {{
+        java.util.ArrayList<Object> filtered = new java.util.ArrayList<Object>();
+        for (Object item : asList(items)) {{
+            if (asBool(call(fn, item))) {{
+                filtered.add(item);
+            }}
+        }}
+        return java.util.Collections.unmodifiableList(filtered);
+    }}
+
+    public static Object listFold(Object items, Object initial, Object fn) {{
+        Object accumulator = initial;
+        for (Object item : asList(items)) {{
+            accumulator = call(fn, accumulator, item);
+        }}
+        return accumulator;
+    }}
+
+    public static Object listTryMap(Object items, Object fn) {{
+        java.util.ArrayList<Object> mapped = new java.util.ArrayList<Object>();
+        for (Object item : asList(items)) {{
+            Object result = call(fn, item);
+            if (isErr(result)) {{
+                return result;
+            }}
+            mapped.add(unwrapOk(result));
+        }}
+        return ok(java.util.Collections.unmodifiableList(mapped));
+    }}
+
+    public static Object dictGet(Object dict, Object key) {{
+        java.util.Map<Object, Object> map = asMap(dict);
+        if (map.containsKey(key)) {{
+            return some(map.get(key));
+        }}
+        return none();
+    }}
+
+    public static Object dictContains(Object dict, Object key) {{
+        return Boolean.valueOf(asMap(dict).containsKey(key));
+    }}
+
+    public static Object dictInsert(Object dict, Object key, Object value) {{
+        java.util.LinkedHashMap<Object, Object> copy =
+            new java.util.LinkedHashMap<Object, Object>(asMap(dict));
+        copy.put(key, value);
+        return java.util.Collections.unmodifiableMap(copy);
+    }}
+
+    public static Object dictRemove(Object dict, Object key) {{
+        java.util.LinkedHashMap<Object, Object> copy =
+            new java.util.LinkedHashMap<Object, Object>(asMap(dict));
+        copy.remove(key);
+        return java.util.Collections.unmodifiableMap(copy);
+    }}
+
+    public static Object optionMap(Object option, Object fn) {{
+        Option value = asOption(option);
+        if (!value.some) {{
+            return none();
+        }}
+        return some(call(fn, value.value));
+    }}
+
+    public static Object optionAndThen(Object option, Object fn) {{
+        Option value = asOption(option);
+        if (!value.some) {{
+            return none();
+        }}
+        return call(fn, value.value);
+    }}
+
+    public static Object optionUnwrapOr(Object option, Object fallback) {{
+        Option value = asOption(option);
+        return value.some ? value.value : fallback;
+    }}
+
+    public static Object resultMap(Object result, Object fn) {{
+        Result value = asResult(result);
+        if (!value.isOk()) {{
+            return value;
+        }}
+        return ok(call(fn, value.value()));
+    }}
+
+    public static Object resultMapErr(Object result, Object fn) {{
+        Result value = asResult(result);
+        if (value.isOk()) {{
+            return value;
+        }}
+        return err(call(fn, value.value()));
+    }}
+
+    public static Object resultAndThen(Object result, Object fn) {{
+        Result value = asResult(result);
+        if (!value.isOk()) {{
+            return value;
+        }}
+        return call(fn, value.value());
+    }}
+
     private static int stdioSequence = 0;
 
     public static Object stdioPrint(Object value) {{
@@ -386,6 +515,24 @@ impl<'a> ProgramEmitter<'a> {
 
     private static long asLong(Object value) {{
         return ((Number) value).longValue();
+    }}
+
+    @SuppressWarnings("unchecked")
+    private static java.util.List<Object> asList(Object value) {{
+        return (java.util.List<Object>) value;
+    }}
+
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<Object, Object> asMap(Object value) {{
+        return (java.util.Map<Object, Object>) value;
+    }}
+
+    private static Option asOption(Object value) {{
+        return (Option) value;
+    }}
+
+    private static Result asResult(Object value) {{
+        return (Result) value;
     }}
 }}
 "#

@@ -30,7 +30,6 @@ current workspace. Implemented decisions were moved to
 - [Doctest Result Propagation](result-doctest-result-propagation.md)
 - [First-Slice Grammar](result-first-slice-grammar.md)
 - [First-Slice Module Fields](result-first-slice-module-fields.md)
-- [First-Slice Prelude Helpers](result-first-slice-prelude-helpers.md)
 - [Module Metadata Location](result-module-metadata-location.md)
 - [Postcondition Result Binding](result-postcondition-result-binding.md)
 - [Prelude Complexity Guarantees](result-prelude-complexity-guarantees.md)

@@ -23,9 +23,6 @@ not fully implemented in the current workspace.
 - Runtime contract enforcement is tracked by
   [Runtime Contract Failure Reporting](agent-language-spec-wall/result-runtime-contract-failure-reporting.md)
   and the current gap review.
-- Prelude helper coverage is tracked by
-  [First-Slice Prelude Helpers](agent-language-spec-wall/result-first-slice-prelude-helpers.md)
-  and the current gap review.
 - Captured stdio event gaps are tracked by the current gap review; the
   implemented event shape is in
   [Stdio API and Output Events](../reference/source-decisions/result-stdio-api-and-output-events.md).
@@ -33,6 +30,9 @@ not fully implemented in the current workspace.
 ## Status Rules
 
 - `implemented` documents belong in `../reference/`.
+- Fully implemented proposals must not remain in this directory; move stable
+  behavior to `../reference/` and implemented decision rationale to
+  `../reference/source-decisions/`.
 - `accepted-proposal` means a decision record accepted the target, but code support is
   absent or incomplete.
 - `open-proposal` means the design is still exploratory.

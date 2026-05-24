@@ -286,7 +286,7 @@
   traversal helpers, and `Result`/`Option` composition helpers, with
   `list_try_map` as the explicit fallible traversal primitive.
 - Discussion result:
-  [First-Slice Prelude Helpers](../../proposals/agent-language-spec-wall/result-first-slice-prelude-helpers.md)
+  [First-Slice Prelude Helpers](../source-decisions/result-first-slice-prelude-helpers.md)
 - Supporting references:
   `okasaki1998-persistence`, `mcbride2008-applicative-programming`,
   `haskell-2010-report`, `rust-std-iterator`,

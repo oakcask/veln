@@ -53,6 +53,10 @@ impl CoreType {
         Self::named("List", vec![value])
     }
 
+    pub fn dict(key: CoreType, value: CoreType) -> Self {
+        Self::named("Dict", vec![key, value])
+    }
+
     pub fn result_parts(&self) -> Option<(&CoreType, &CoreType)> {
         match self {
             Self::Named { name, args } if name == "Result" && args.len() == 2 => {
@@ -72,6 +76,15 @@ impl CoreType {
     pub fn list_part(&self) -> Option<&CoreType> {
         match self {
             Self::Named { name, args } if name == "List" && args.len() == 1 => Some(&args[0]),
+            _ => None,
+        }
+    }
+
+    pub fn dict_parts(&self) -> Option<(&CoreType, &CoreType)> {
+        match self {
+            Self::Named { name, args } if name == "Dict" && args.len() == 2 => {
+                Some((&args[0], &args[1]))
+            }
             _ => None,
         }
     }

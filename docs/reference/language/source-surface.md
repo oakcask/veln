@@ -30,6 +30,10 @@ ExprLine      ::= Expr NL
 Contract predicates are collected as source text and validated by the contract
 checker.
 
+`use` declarations create module import aliases. The current alias is the final
+segment of the imported module path, so `use platform.io` declares the alias
+`io`.
+
 `test` is a top-level declaration keyword, not a visibility modifier. Test
 declarations are selected by `veln test`, require an empty parameter list,
 require an explicit return type and `effects [...]` clause, and are not ordinary
@@ -43,6 +47,7 @@ Implemented expressions:
 - literals: strings, integers, floats, `true`, `false`, and `()`
 - paths and calls: `name`, `module::name`, `callee(args...)`
 - constructors: `Ok(value)`, `Err(error)`, `Some(value)`, and `None`
+- prelude helpers as bare calls such as `list_len(items)`
 - records: `{name: value, ...}`
 - lists: `[value, ...]`
 - prefix operators: `not`, `-`

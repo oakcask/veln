@@ -18,5 +18,6 @@ The JVM backend generates Java source for the implemented IR subset:
 
 - functions, parameters, locals, expression statements, and returns
 - literals, records, lists, `Ok`, `Err`, `Some`, and `?`
-- stdio builtins, ordinary function calls, and function-value calls
+- stdio builtins, prelude helpers, ordinary function calls, and function-value
+  calls
 - integer and boolean operators used by the implemented type rules

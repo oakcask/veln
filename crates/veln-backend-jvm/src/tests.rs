@@ -190,6 +190,36 @@ fn generates_runtime_calls_for_value_call_prefix_and_binary_ops() {
 }
 
 #[test]
+fn generates_runtime_calls_for_prelude_helpers() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main(items: List(Int), table: Dict(String, Int), mapper: fn(Int) -> String) -> {",
+        "count: Int, pushed: List(Int), mapped: List(String), found: Option(Int), inserted: Dict(String, Int)",
+        "} effects []\n",
+        "  {count: list_len(items), pushed: list_push(items, 1), mapped: list_map(items, mapper), ",
+        "found: dict_get(table, \"a\"), inserted: dict_insert(table, \"b\", 2)}\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("\"count\", VelnRuntime.listLen(p_items)"));
+    assert!(program.contains("\"pushed\", VelnRuntime.listPush(p_items, Long.valueOf(1L))"));
+    assert!(program.contains("\"mapped\", VelnRuntime.listMap(p_items, p_mapper)"));
+    assert!(program.contains("\"found\", VelnRuntime.dictGet(p_table, \"a\")"));
+    assert!(
+        program.contains("\"inserted\", VelnRuntime.dictInsert(p_table, \"b\", Long.valueOf(2L))")
+    );
+    assert!(runtime.contains("public static Object listTryMap"));
+    assert!(runtime.contains("public static Object resultAndThen"));
+}
+
+#[test]
 fn escapes_string_literals_and_emits_result_errors() {
     let ir = lower_to_ir(concat!(
         "pub fn main() -> Result(String, String) effects []\n",

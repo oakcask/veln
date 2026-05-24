@@ -7,17 +7,29 @@ use crate::diagnostics::parse_diagnostic_to_envelope;
 
 pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
+    let mut module = None;
+    let mut uses = Vec::new();
     let mut functions = Vec::new();
 
     for source in &project.files {
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
         if parsed.diagnostics.is_empty() {
-            functions.extend(lower_surface_ast(&parsed.tree).functions);
+            let lowered = lower_surface_ast(&parsed.tree);
+            module = module.or(lowered.module);
+            uses.extend(lowered.uses);
+            functions.extend(lowered.functions);
         }
     }
 
-    (SurfaceModule { functions }, diagnostics)
+    (
+        SurfaceModule {
+            module,
+            uses,
+            functions,
+        },
+        diagnostics,
+    )
 }
 
 pub(crate) fn reachable_entry_module(
@@ -58,6 +70,8 @@ pub(crate) fn reachable_entry_module(
     }
 
     SurfaceModule {
+        module: module.module.clone(),
+        uses: module.uses.clone(),
         functions: module
             .functions
             .iter()

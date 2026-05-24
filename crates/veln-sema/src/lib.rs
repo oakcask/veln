@@ -5,6 +5,7 @@ mod contracts;
 mod diagnostics;
 mod effects;
 mod lowering;
+mod prelude;
 #[cfg(test)]
 mod tests;
 mod types;
@@ -15,8 +16,8 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
-    check_duplicate_function_names, check_function_body, check_public_function_boundary,
-    check_test_declaration_boundary,
+    check_duplicate_function_names, check_duplicate_use_aliases, check_function_body,
+    check_public_function_boundary, check_test_declaration_boundary,
 };
 use crate::lowering::lower_surface_module_to_core;
 use crate::types::TypeEnvironment;
@@ -33,6 +34,7 @@ pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
     let environment = TypeEnvironment::from_module(module);
 
     diagnostics.extend(check_duplicate_function_names(module));
+    diagnostics.extend(check_duplicate_use_aliases(module));
 
     for function in &module.functions {
         if function.visibility == Visibility::Public {

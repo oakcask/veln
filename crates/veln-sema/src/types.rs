@@ -191,6 +191,15 @@ impl Type {
         }
     }
 
+    pub(crate) fn dict_parts(&self) -> Option<(&Type, &Type)> {
+        match self {
+            Self::Named { name, args } if name == "Dict" && args.len() == 2 => {
+                Some((&args[0], &args[1]))
+            }
+            _ => None,
+        }
+    }
+
     pub(crate) fn record_field(&self, field_name: &str) -> Option<&Type> {
         match self {
             Self::Record(fields) => fields
@@ -256,6 +265,23 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
                     .find(|(actual_name, _)| actual_name == expected_name)
                     .is_some_and(|(_, actual_ty)| is_assignable(expected_ty, actual_ty))
             })
+        }
+        (
+            Type::Named {
+                name: expected_name,
+                args: expected_args,
+            },
+            Type::Named {
+                name: actual_name,
+                args: actual_args,
+            },
+        ) => {
+            expected_name == actual_name
+                && expected_args.len() == actual_args.len()
+                && expected_args
+                    .iter()
+                    .zip(actual_args)
+                    .all(|(expected, actual)| is_assignable(expected, actual))
         }
         (
             Type::Function {
@@ -584,7 +610,10 @@ mod tests {
         };
         let effectful_function = Type::Function {
             params: vec![record.clone()],
-            return_type: Box::new(Type::result(Type::unit(), Type::named("AppError", Vec::new()))),
+            return_type: Box::new(Type::result(
+                Type::unit(),
+                Type::named("AppError", Vec::new()),
+            )),
             effects: vec!["stdio".to_string(), "net".to_string()],
         };
 
@@ -617,10 +646,7 @@ mod tests {
             core_type(&function),
             CoreType::Function {
                 params: vec![CoreType::list(CoreType::int())],
-                return_type: Box::new(CoreType::Record(vec![(
-                    "ok".to_string(),
-                    CoreType::bool()
-                )])),
+                return_type: Box::new(CoreType::Record(vec![("ok".to_string(), CoreType::bool())])),
                 effects: vec!["stdio".to_string()],
             }
         );
@@ -630,12 +656,18 @@ mod tests {
     fn assignability_allows_unknowns_record_width_and_function_shapes() {
         let expected_record = Type::Record(vec![
             ("name".to_string(), Type::string()),
-            ("meta".to_string(), Type::Record(vec![("count".to_string(), Type::int())])),
+            (
+                "meta".to_string(),
+                Type::Record(vec![("count".to_string(), Type::int())]),
+            ),
         ]);
         let actual_record = Type::Record(vec![
             ("name".to_string(), Type::string()),
             ("extra".to_string(), Type::bool()),
-            ("meta".to_string(), Type::Record(vec![("count".to_string(), Type::int())])),
+            (
+                "meta".to_string(),
+                Type::Record(vec![("count".to_string(), Type::int())]),
+            ),
         ]);
         let wrong_record = Type::Record(vec![("name".to_string(), Type::int())]);
         let expected_function = Type::Function {

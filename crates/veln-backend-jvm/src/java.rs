@@ -12,6 +12,30 @@ pub(crate) fn stdio_method(name: &str) -> &'static str {
     }
 }
 
+pub(crate) fn prelude_method(name: &str) -> &'static str {
+    match name {
+        "list_len" => "listLen",
+        "list_is_empty" => "listIsEmpty",
+        "list_push" => "listPush",
+        "list_concat" => "listConcat",
+        "list_map" => "listMap",
+        "list_filter" => "listFilter",
+        "list_fold" => "listFold",
+        "list_try_map" => "listTryMap",
+        "dict_get" => "dictGet",
+        "dict_contains" => "dictContains",
+        "dict_insert" => "dictInsert",
+        "dict_remove" => "dictRemove",
+        "option_map" => "optionMap",
+        "option_and_then" => "optionAndThen",
+        "option_unwrap_or" => "optionUnwrapOr",
+        "result_map" => "resultMap",
+        "result_map_err" => "resultMapErr",
+        "result_and_then" => "resultAndThen",
+        _ => "listLen",
+    }
+}
+
 pub(crate) fn binary_method(op: BinaryOp) -> &'static str {
     match op {
         BinaryOp::PipeGreater => "pipe",

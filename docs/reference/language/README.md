@@ -19,8 +19,8 @@ target tracked in `../../proposals/`.
 
 - [commands.md](commands.md): CLI behavior, source discovery, format gates,
   execution gates, and bootstrap test selection.
-- [names-effects.md](names-effects.md): name resolution, stdio calls, and public
-  effect diagnostics.
+- [names-effects.md](names-effects.md): name resolution, stdio calls, prelude
+  helpers, and public effect diagnostics.
 - [contracts-holes.md](contracts-holes.md): implemented contract predicate
   checking, hole diagnostics, and `satisfy` constraints.
 - [test-json.md](test-json.md): `veln test --json` schema, case shape, and
