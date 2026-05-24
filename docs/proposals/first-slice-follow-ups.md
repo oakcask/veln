@@ -27,8 +27,10 @@ No accepted language and type coverage follow-up is currently tracked here.
 - Direct stdio calls are recognized as compiler-known effectful prelude calls,
   private helper body effects propagate to callers, and effect diagnostics
   expose bounded path entries with hidden-frame and omitted-path counts.
-- The checker validates the first-slice pure boolean contract subset, but
-  runtime contract discharge remains deferred.
+- The checker validates the first-slice pure boolean contract subset. Runtime
+  contract discharge is implemented for function-entry `require` checks and
+  ordinary-return `ensure` checks; structured JSON runtime error records and
+  non-local return refinements remain follow-up work.
 - Contract predicates now parse through a dedicated first-slice predicate
   production. Pure calls to discovered effect-free functions are validated;
   richer predicate semantics remain follow-up work.

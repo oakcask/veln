@@ -25,6 +25,8 @@ The JVM backend generates Java source for the implemented IR subset:
   calls
 - pipelines lowered to calls with the left expression inserted as the first
   argument
+- runtime `require` checks at function entry and runtime `ensure` checks before
+  ordinary tail-expression returns
 - integer and boolean operators used by the implemented type rules
 
 Generated runtime helpers may use mutable builders while constructing records,
@@ -36,3 +38,8 @@ return new frozen containers instead of mutating the input value in place.
 This freeze rule is an observable language boundary only through value
 immutability and update semantics. The exact JVM representation, copying
 strategy, and later structural-sharing choices remain backend details.
+
+Runtime contract failures stop the selected `run` entry or fail the selected
+test process with a contract failure message. The message names the failed
+clause text, function boundary, source identity, and blame route. `require`
+uses caller blame; `ensure` uses implementation blame.

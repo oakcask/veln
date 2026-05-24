@@ -44,8 +44,9 @@ semantic contract validation.
 
 A return may name the returned value for postconditions with `-> name: Type`.
 The binding is contract-facing only: it is visible to `ensure` clauses for the
-same function, but not to `require` clauses, the function body, or callers.
-Bare `result` has no special meaning.
+same function and to runtime `ensure` checks for ordinary returns, but not to
+`require` clauses, the function body, or callers. Bare `result` has no special
+meaning.
 
 `mod` declares the source module identity. The header is optional for a
 single-file source with no imports. A source file with one or more `use`
@@ -139,6 +140,10 @@ may still fail contract validation. Function calls must resolve to discovered
 pure functions, call arguments must be assignable to declared parameter types,
 and field access must resolve through record-typed values visible to the
 clause.
+
+Valid clauses are executable obligations. `require` is checked at function
+entry. `ensure` is checked before an ordinary tail-expression return and may
+read an explicit result binding.
 
 ## Not Implemented
 

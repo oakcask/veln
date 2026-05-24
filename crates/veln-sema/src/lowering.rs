@@ -117,6 +117,11 @@ impl<'a> CoreLowerer<'a> {
                 .unwrap_or_else(|| "<missing>".to_string()),
             visibility: self.function.visibility,
             params,
+            return_binding: self
+                .function
+                .return_binding
+                .as_ref()
+                .map(|binding| binding.name.clone()),
             return_type,
             effects: self.function.effects.clone().unwrap_or_default(),
             contracts,

@@ -5,8 +5,8 @@ use veln_core::{
 };
 
 use crate::{
-    IrCallTarget, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrParam, IrPattern,
-    IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind, TypedProgram,
+    IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrParam,
+    IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind, TypedProgram,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -46,8 +46,19 @@ fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLo
                 ty: param.ty.clone(),
             })
             .collect(),
+        return_binding: function.return_binding.clone(),
         return_type: function.return_type.clone(),
         effects: function.effects.clone(),
+        contracts: function
+            .contracts
+            .iter()
+            .map(|contract| IrContract {
+                node_id: contract.node_id,
+                kind: contract.kind,
+                predicate: contract.predicate.clone(),
+                span: contract.span.clone(),
+            })
+            .collect(),
         body: function
             .body
             .iter()
@@ -269,6 +280,7 @@ mod tests {
             name: function.name.clone().expect("function should be named"),
             visibility: function.visibility,
             params: Vec::new(),
+            return_binding: None,
             return_type: CoreType::unit(),
             effects: Vec::new(),
             contracts: Vec::new(),
@@ -411,6 +423,7 @@ mod tests {
                     span: mapper.span.clone(),
                 },
             ],
+            return_binding: None,
             return_type: result_unit.clone(),
             effects: vec!["stdio".to_string()],
             contracts: Vec::new(),

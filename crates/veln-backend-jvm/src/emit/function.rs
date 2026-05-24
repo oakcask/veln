@@ -1,8 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use veln_ast::{BinaryOp, PrefixOp};
+use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
-    IrCallTarget, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrPattern,
+    IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrPattern,
     IrPatternField, IrPatternKind, IrRecordField, IrStmt, IrStmtKind,
 };
 
@@ -44,6 +44,14 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             .collect::<Vec<_>>()
             .join(", ");
         out.push_str(&format!("    static Object {function_name}({params}) {{\n"));
+        for contract in self
+            .function
+            .contracts
+            .iter()
+            .filter(|contract| contract.kind == ContractKind::Require)
+        {
+            self.emit_contract_check(out, contract);
+        }
         for stmt in &self.function.body {
             self.emit_stmt(out, stmt);
         }
@@ -78,8 +86,115 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             IrStmtKind::Return { value } => {
                 let java_value = self.emit_expr(value);
                 self.emit_prelude(out, &java_value.prelude);
-                out.push_str(&format!("        return {};\n", java_value.code));
+                if self
+                    .function
+                    .contracts
+                    .iter()
+                    .any(|contract| contract.kind == ContractKind::Ensure)
+                {
+                    let result = self.next_temp("result");
+                    out.push_str(&format!("        Object {result} = {};\n", java_value.code));
+                    let previous = self.function.return_binding.as_ref().map(|binding| {
+                        (
+                            binding.clone(),
+                            self.locals.insert(binding.clone(), result.clone()),
+                        )
+                    });
+                    for contract in self
+                        .function
+                        .contracts
+                        .iter()
+                        .filter(|contract| contract.kind == ContractKind::Ensure)
+                    {
+                        self.emit_contract_check(out, contract);
+                    }
+                    if let Some((binding, old)) = previous {
+                        if let Some(old) = old {
+                            self.locals.insert(binding, old);
+                        } else {
+                            self.locals.remove(&binding);
+                        }
+                    }
+                    out.push_str(&format!("        return {result};\n"));
+                } else {
+                    out.push_str(&format!("        return {};\n", java_value.code));
+                }
             }
+        }
+    }
+
+    fn emit_contract_check(&mut self, out: &mut String, contract: &IrContract) {
+        let Some(predicate) = ContractParser::new(&contract.predicate).parse() else {
+            return;
+        };
+        let java_predicate = self.emit_contract_expr(&predicate);
+        let blame = match contract.kind {
+            ContractKind::Require => "caller",
+            ContractKind::Ensure => "implementation",
+        };
+        let clause = match contract.kind {
+            ContractKind::Require => "require",
+            ContractKind::Ensure => "ensure",
+        };
+        out.push_str(&format!(
+            "        {}.checkContract({}, {}, {}, {}, {}, {}, {});\n",
+            self.program.options.runtime_class,
+            java_predicate,
+            java_string(clause),
+            java_string(&contract.predicate),
+            java_string(&self.function.name),
+            java_string(blame),
+            java_string(&contract.node_id.display("contract")),
+            java_string(contract.span.file.as_str())
+        ));
+    }
+
+    fn emit_contract_expr(&self, expr: &ContractExpr) -> String {
+        match expr {
+            ContractExpr::Bool(value) => {
+                if *value {
+                    "Boolean.TRUE".to_string()
+                } else {
+                    "Boolean.FALSE".to_string()
+                }
+            }
+            ContractExpr::String(value) => java_string(value),
+            ContractExpr::Int(value) => format!("Long.valueOf({value}L)"),
+            ContractExpr::Float(value) => format!("Double.valueOf({value}D)"),
+            ContractExpr::Unit => format!("{}.UNIT", self.program.options.runtime_class),
+            ContractExpr::Name(name) => self.local_name(name),
+            ContractExpr::Call { callee, args } => {
+                let args = args
+                    .iter()
+                    .map(|arg| self.emit_contract_expr(arg))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{}({args})", self.program.function_name(callee))
+            }
+            ContractExpr::FieldAccess { base, field } => format!(
+                "{}.recordField({}, {})",
+                self.program.options.runtime_class,
+                self.emit_contract_expr(base),
+                java_string(field)
+            ),
+            ContractExpr::Prefix { op, expr } => {
+                let method = match op {
+                    PrefixOp::Not => "not",
+                    PrefixOp::Negate => "negate",
+                };
+                format!(
+                    "{}.{method}({})",
+                    self.program.options.runtime_class,
+                    self.emit_contract_expr(expr)
+                )
+            }
+            ContractExpr::Binary { op, left, right } => format!(
+                "{}.{}({}, {})",
+                self.program.options.runtime_class,
+                binary_method(*op),
+                self.emit_contract_expr(left),
+                self.emit_contract_expr(right)
+            ),
         }
     }
 
@@ -569,4 +684,331 @@ impl JavaExpr {
             code,
         }
     }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum ContractExpr {
+    Bool(bool),
+    String(String),
+    Int(String),
+    Float(String),
+    Unit,
+    Name(String),
+    Call {
+        callee: String,
+        args: Vec<ContractExpr>,
+    },
+    FieldAccess {
+        base: Box<ContractExpr>,
+        field: String,
+    },
+    Prefix {
+        op: PrefixOp,
+        expr: Box<ContractExpr>,
+    },
+    Binary {
+        op: BinaryOp,
+        left: Box<ContractExpr>,
+        right: Box<ContractExpr>,
+    },
+}
+
+struct ContractParser<'a> {
+    tokens: Vec<ContractToken<'a>>,
+    cursor: usize,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ContractToken<'a> {
+    Ident(&'a str),
+    String(&'a str),
+    Int(&'a str),
+    Float(&'a str),
+    LParen,
+    RParen,
+    Comma,
+    Dot,
+    ColonColon,
+    Op(&'a str),
+    Eof,
+}
+
+impl<'a> ContractParser<'a> {
+    fn new(text: &'a str) -> Self {
+        Self {
+            tokens: tokenize_contract(text),
+            cursor: 0,
+        }
+    }
+
+    fn parse(&mut self) -> Option<ContractExpr> {
+        let expr = self.parse_prec(0)?;
+        matches!(self.current(), ContractToken::Eof).then_some(expr)
+    }
+
+    fn parse_prec(&mut self, min_prec: u8) -> Option<ContractExpr> {
+        let mut left = self.parse_prefix()?;
+        while let Some((op, prec)) = self.current_binary_op() {
+            if prec < min_prec {
+                break;
+            }
+            self.bump();
+            let right = self.parse_prec(prec + 1)?;
+            left = ContractExpr::Binary {
+                op,
+                left: Box::new(left),
+                right: Box::new(right),
+            };
+        }
+        Some(left)
+    }
+
+    fn parse_prefix(&mut self) -> Option<ContractExpr> {
+        match self.current() {
+            ContractToken::Ident("not") => {
+                self.bump();
+                Some(ContractExpr::Prefix {
+                    op: PrefixOp::Not,
+                    expr: Box::new(self.parse_prefix()?),
+                })
+            }
+            ContractToken::Op("-") => {
+                self.bump();
+                Some(ContractExpr::Prefix {
+                    op: PrefixOp::Negate,
+                    expr: Box::new(self.parse_prefix()?),
+                })
+            }
+            _ => self.parse_postfix(),
+        }
+    }
+
+    fn parse_postfix(&mut self) -> Option<ContractExpr> {
+        let mut expr = self.parse_primary()?;
+        while matches!(self.current(), ContractToken::Dot) {
+            self.bump();
+            let ContractToken::Ident(field) = self.current() else {
+                return None;
+            };
+            let field = field.to_string();
+            self.bump();
+            expr = ContractExpr::FieldAccess {
+                base: Box::new(expr),
+                field,
+            };
+        }
+        Some(expr)
+    }
+
+    fn parse_primary(&mut self) -> Option<ContractExpr> {
+        match self.current() {
+            ContractToken::Ident("true") => {
+                self.bump();
+                Some(ContractExpr::Bool(true))
+            }
+            ContractToken::Ident("false") => {
+                self.bump();
+                Some(ContractExpr::Bool(false))
+            }
+            ContractToken::Ident(_) => self.parse_name_or_call(),
+            ContractToken::String(value) => {
+                let value = veln_string_literal_value(value);
+                self.bump();
+                Some(ContractExpr::String(value))
+            }
+            ContractToken::Int(value) => {
+                let value = value.to_string();
+                self.bump();
+                Some(ContractExpr::Int(value))
+            }
+            ContractToken::Float(value) => {
+                let value = value.to_string();
+                self.bump();
+                Some(ContractExpr::Float(value))
+            }
+            ContractToken::LParen => {
+                self.bump();
+                if matches!(self.current(), ContractToken::RParen) {
+                    self.bump();
+                    return Some(ContractExpr::Unit);
+                }
+                let expr = self.parse_prec(0)?;
+                if !matches!(self.current(), ContractToken::RParen) {
+                    return None;
+                }
+                self.bump();
+                Some(expr)
+            }
+            _ => None,
+        }
+    }
+
+    fn parse_name_or_call(&mut self) -> Option<ContractExpr> {
+        let mut parts = Vec::new();
+        let ContractToken::Ident(first) = self.current() else {
+            return None;
+        };
+        parts.push(first);
+        self.bump();
+        while matches!(self.current(), ContractToken::ColonColon) {
+            self.bump();
+            let ContractToken::Ident(part) = self.current() else {
+                return None;
+            };
+            parts.push(part);
+            self.bump();
+        }
+        let name = parts.join("::");
+        if !matches!(self.current(), ContractToken::LParen) {
+            return Some(ContractExpr::Name(name));
+        }
+        self.bump();
+        let mut args = Vec::new();
+        while !matches!(self.current(), ContractToken::RParen | ContractToken::Eof) {
+            args.push(self.parse_prec(0)?);
+            if !matches!(self.current(), ContractToken::Comma) {
+                break;
+            }
+            self.bump();
+        }
+        if !matches!(self.current(), ContractToken::RParen) {
+            return None;
+        }
+        self.bump();
+        Some(ContractExpr::Call { callee: name, args })
+    }
+
+    fn current_binary_op(&self) -> Option<(BinaryOp, u8)> {
+        match self.current() {
+            ContractToken::Ident("or") => Some((BinaryOp::Or, 1)),
+            ContractToken::Ident("and") => Some((BinaryOp::And, 2)),
+            ContractToken::Op("==") => Some((BinaryOp::Equal, 3)),
+            ContractToken::Op("!=") => Some((BinaryOp::NotEqual, 3)),
+            ContractToken::Op("<") => Some((BinaryOp::Less, 4)),
+            ContractToken::Op("<=") => Some((BinaryOp::LessEqual, 4)),
+            ContractToken::Op(">") => Some((BinaryOp::Greater, 4)),
+            ContractToken::Op(">=") => Some((BinaryOp::GreaterEqual, 4)),
+            ContractToken::Op("+") => Some((BinaryOp::Add, 5)),
+            ContractToken::Op("-") => Some((BinaryOp::Subtract, 5)),
+            ContractToken::Op("*") => Some((BinaryOp::Multiply, 6)),
+            ContractToken::Op("/") => Some((BinaryOp::Divide, 6)),
+            _ => None,
+        }
+    }
+
+    fn current(&self) -> ContractToken<'a> {
+        self.tokens
+            .get(self.cursor)
+            .copied()
+            .unwrap_or(ContractToken::Eof)
+    }
+
+    fn bump(&mut self) {
+        self.cursor += 1;
+    }
+}
+
+fn tokenize_contract(text: &str) -> Vec<ContractToken<'_>> {
+    let mut tokens = Vec::new();
+    let mut cursor = 0;
+    while cursor < text.len() {
+        let ch = text[cursor..]
+            .chars()
+            .next()
+            .expect("cursor should stay on a char boundary");
+        if ch.is_whitespace() {
+            cursor += ch.len_utf8();
+            continue;
+        }
+        if ch.is_ascii_alphabetic() || ch == '_' {
+            let start = cursor;
+            cursor += ch.len_utf8();
+            while cursor < text.len() {
+                let ch = text[cursor..]
+                    .chars()
+                    .next()
+                    .expect("cursor should stay on a char boundary");
+                if ch.is_ascii_alphanumeric() || ch == '_' {
+                    cursor += ch.len_utf8();
+                } else {
+                    break;
+                }
+            }
+            tokens.push(ContractToken::Ident(&text[start..cursor]));
+            continue;
+        }
+        if ch.is_ascii_digit() {
+            let start = cursor;
+            cursor += ch.len_utf8();
+            let mut float = false;
+            while cursor < text.len() {
+                let ch = text[cursor..]
+                    .chars()
+                    .next()
+                    .expect("cursor should stay on a char boundary");
+                if ch.is_ascii_digit() {
+                    cursor += ch.len_utf8();
+                } else if ch == '.' && !float {
+                    float = true;
+                    cursor += ch.len_utf8();
+                } else {
+                    break;
+                }
+            }
+            let value = &text[start..cursor];
+            tokens.push(if float {
+                ContractToken::Float(value)
+            } else {
+                ContractToken::Int(value)
+            });
+            continue;
+        }
+        if ch == '"' {
+            let start = cursor;
+            cursor += 1;
+            let mut escaped = false;
+            while cursor < text.len() {
+                let ch = text[cursor..]
+                    .chars()
+                    .next()
+                    .expect("cursor should stay on a char boundary");
+                cursor += ch.len_utf8();
+                if escaped {
+                    escaped = false;
+                } else if ch == '\\' {
+                    escaped = true;
+                } else if ch == '"' {
+                    break;
+                }
+            }
+            tokens.push(ContractToken::String(&text[start..cursor]));
+            continue;
+        }
+        let rest = &text[cursor..];
+        let (token, width) = if rest.starts_with("::") {
+            (ContractToken::ColonColon, 2)
+        } else if rest.starts_with("==")
+            || rest.starts_with("!=")
+            || rest.starts_with("<=")
+            || rest.starts_with(">=")
+        {
+            (ContractToken::Op(&rest[..2]), 2)
+        } else {
+            match ch {
+                '(' => (ContractToken::LParen, 1),
+                ')' => (ContractToken::RParen, 1),
+                ',' => (ContractToken::Comma, 1),
+                '.' => (ContractToken::Dot, 1),
+                '<' | '>' | '+' | '-' | '*' | '/' => (ContractToken::Op(&rest[..1]), 1),
+                _ => {
+                    cursor += ch.len_utf8();
+                    continue;
+                }
+            }
+        };
+        tokens.push(token);
+        cursor += width;
+    }
+    tokens.push(ContractToken::Eof);
+    tokens
 }

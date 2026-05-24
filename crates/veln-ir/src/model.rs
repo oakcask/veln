@@ -1,4 +1,4 @@
-use veln_ast::{BinaryOp, NodeId, PrefixOp, Visibility};
+use veln_ast::{BinaryOp, ContractKind, NodeId, PrefixOp, Visibility};
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
@@ -13,8 +13,10 @@ pub struct IrFunction {
     pub name: String,
     pub visibility: Visibility,
     pub params: Vec<IrParam>,
+    pub return_binding: Option<String>,
     pub return_type: CoreType,
     pub effects: Vec<String>,
+    pub contracts: Vec<IrContract>,
     pub body: Vec<IrStmt>,
 }
 
@@ -23,6 +25,14 @@ pub struct IrParam {
     pub node_id: NodeId,
     pub name: String,
     pub ty: CoreType,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct IrContract {
+    pub node_id: NodeId,
+    pub kind: ContractKind,
+    pub predicate: String,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, PartialEq)]

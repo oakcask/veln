@@ -92,9 +92,14 @@ impl<'a> ProgramEmitter<'a> {
     private VelnEntry() {{}}
 
     public static void main(String[] args) {{
-        Object result = {program}.{function_name}({entry_args});
-        if ({runtime}.isErr(result)) {{
-            System.err.println({runtime}.format(result));
+        try {{
+            Object result = {program}.{function_name}({entry_args});
+            if ({runtime}.isErr(result)) {{
+                System.err.println({runtime}.format(result));
+                System.exit(1);
+            }}
+        }} catch ({runtime}.ContractFailure error) {{
+            System.err.println(error.getMessage());
             System.exit(1);
         }}
     }}
@@ -210,6 +215,30 @@ impl<'a> ProgramEmitter<'a> {
         }}
     }}
 
+    public static final class ContractFailure extends RuntimeException {{
+        private ContractFailure(
+            String clause,
+            String predicate,
+            String function,
+            String blame,
+            String nodeId,
+            String sourceFile
+        ) {{
+            super("contract failure: "
+                + clause
+                + " `"
+                + predicate
+                + "` in `"
+                + function
+                + "` blame "
+                + blame
+                + " at "
+                + sourceFile
+                + " "
+                + nodeId);
+        }}
+    }}
+
     public interface Fn {{
         Object call(Object... args);
     }}
@@ -232,6 +261,20 @@ impl<'a> ProgramEmitter<'a> {
 
     public static boolean isErr(Object value) {{
         return value instanceof Result && !((Result) value).isOk();
+    }}
+
+    public static void checkContract(
+        Object value,
+        String clause,
+        String predicate,
+        String function,
+        String blame,
+        String nodeId,
+        String sourceFile
+    ) {{
+        if (!asBool(value)) {{
+            throw new ContractFailure(clause, predicate, function, blame, nodeId, sourceFile);
+        }}
     }}
 
     public static boolean isOk(Object value) {{

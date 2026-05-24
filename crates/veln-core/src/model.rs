@@ -15,6 +15,7 @@ pub struct CoreFunction {
     pub name: String,
     pub visibility: Visibility,
     pub params: Vec<CoreParam>,
+    pub return_binding: Option<String>,
     pub return_type: CoreType,
     pub effects: Vec<String>,
     pub contracts: Vec<CoreContract>,

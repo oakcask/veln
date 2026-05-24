@@ -31,8 +31,13 @@ After parsing, the checker validates a small pure boolean subset:
 Contract predicates containing `stdio::`, effectful function calls,
 unsupported call targets, empty predicates, missing record fields, non-boolean
 predicates, or unresolved names produce diagnostics. Valid contracts are
-recorded and may contribute hole repair constraints, but runtime contract
-enforcement is not implemented.
+recorded and may contribute hole repair constraints.
+
+Valid contract clauses are runtime obligations for executable `run` and `test`
+entry paths. `require` clauses are checked when a function is entered.
+`ensure` clauses are checked before an ordinary return when the function
+returns through its tail expression. Runtime `require` failures blame the
+caller; runtime `ensure` failures blame the implementation.
 
 An `ensure` clause may refer to the returned value only when the function return
 position names it with `-> name: Type`. That name is not visible to `require`

@@ -619,6 +619,78 @@ fn emits_match_expression_branches() {
 }
 
 #[test]
+fn emits_runtime_contract_checks() {
+    let ir = lower_to_ir(concat!(
+        "pub fn clamp(value: Int) -> result: Int effects []\n",
+        "  require value >= 0\n",
+        "  ensure result >= value\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("VelnRuntime.checkContract("));
+    assert!(program.contains("\"require\", \"value >= 0\", \"clamp\", \"caller\""));
+    assert!(program.contains("\"ensure\", \"result >= value\", \"clamp\", \"implementation\""));
+    assert!(runtime.contains("public static final class ContractFailure"));
+}
+
+#[test]
+fn generated_entry_reports_contract_failures() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main(value: Int) -> Int effects []\n",
+        "  require value > 0\n",
+        "  value\n",
+        "end\n",
+    ));
+    let java = generate_java_with_entry_arg_types(&ir, "main", &[EntryArgType::Int]);
+    let root = temp_dir("contract-runtime");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("VelnEntry.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("VelnEntry")
+        .arg("0")
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("contract failure: require `value > 0`"));
+    assert!(stderr.contains("blame caller"));
+}
+
+#[test]
 fn generated_sources_compile_when_javac_is_available() {
     if Command::new("javac").arg("-version").output().is_err() {
         return;
