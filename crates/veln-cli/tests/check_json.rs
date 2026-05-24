@@ -136,6 +136,8 @@ fn cli_reports_parser_errors_before_project_discovery() {
 
     let unknown_command = project.veln(&[], &["wat"]);
     let unknown_check_flag = project.veln(&["check"], &["--wat"]);
+    let unknown_run_flag = project.veln(&["run"], &["--wat"]);
+    let unknown_test_flag = project.veln(&["test"], &["--wat"]);
     let missing_run_entry = project.veln(&["run"], &[]);
 
     assert_eq!(unknown_command.status.code(), Some(2));
@@ -147,6 +149,20 @@ fn cli_reports_parser_errors_before_project_discovery() {
     assert_eq!(
         stderr(&unknown_check_flag),
         "veln: unknown check flag `--wat`\n"
+    );
+
+    assert_eq!(unknown_run_flag.status.code(), Some(2));
+    assert_eq!(stdout(&unknown_run_flag), "");
+    assert_eq!(
+        stderr(&unknown_run_flag),
+        "veln: unknown run flag `--wat`\n"
+    );
+
+    assert_eq!(unknown_test_flag.status.code(), Some(2));
+    assert_eq!(stdout(&unknown_test_flag), "");
+    assert_eq!(
+        stderr(&unknown_test_flag),
+        "veln: unknown test flag `--wat`\n"
     );
 
     assert_eq!(missing_run_entry.status.code(), Some(2));
@@ -877,6 +893,39 @@ fn run_blocks_reachable_holes_before_jdk_execution() {
 }
 
 #[test]
+fn run_reports_parse_diagnostics_before_semantic_analysis() {
+    let project = TestProject::new("run-parse-diagnostics");
+    project.write("main.veln", "fn main() -> ()\n  @\nend\n");
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &["main.veln:2:3: error[parse.invalid_token]: invalid token in expression"],
+    );
+}
+
+#[test]
+fn run_reports_semantic_diagnostics_before_lowering() {
+    let project = TestProject::new("run-semantic-diagnostics");
+    project.write(
+        "main.veln",
+        "pub fn main() -> Int effects []\n  \"no\"\nend\n",
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &["main.veln:2:3: error[type.mismatch]: expected `Int`, but found `String`"],
+    );
+}
+
+#[test]
 fn run_does_not_block_unreachable_holes_when_jdk_is_available() {
     if !jdk_is_available() {
         return;
@@ -1120,6 +1169,55 @@ fn test_json_reports_missing_javac_as_runner_error() {
             "\"name\":\"passes\"",
             "\"failure\":{\"kind\":\"runtime\",\"message\":\"veln: `javac` was not found; install a JDK to use `veln test`\"",
         ],
+    );
+}
+
+#[test]
+fn test_human_reports_missing_javac_as_runner_error() {
+    let project = TestProject::new("test-human-no-javac");
+    project.write(
+        "main_test.veln",
+        "test passes() -> () effects []\n  ()\nend\n",
+    );
+
+    let output = project.test_with_path(&[], "");
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "error passes\n");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "veln: test `passes` failed: veln: `javac` was not found; install a JDK to use `veln test`",
+        ],
+    );
+}
+
+#[test]
+fn test_human_reports_passed_and_failed_cases_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("test-human-cases");
+    project.write(
+        "main_test.veln",
+        concat!(
+            "test passes() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+            "test fails() -> Result((), String) effects []\n",
+            "  Err(\"bad\")\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&[]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "ok passes\nnot ok fails\n");
+    assert_contains_all(
+        stderr(&output),
+        &["veln: test `fails` failed: test process exited with status exit status: 1"],
     );
 }
 

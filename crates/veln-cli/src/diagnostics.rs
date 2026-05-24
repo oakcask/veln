@@ -225,6 +225,66 @@ mod tests {
         );
     }
 
+    #[test]
+    fn human_diagnostic_output_handles_missing_spans_and_malformed_related_notes() {
+        let mut diagnostic = Diagnostic::new(
+            "project.discovery",
+            Severity::Error,
+            DiagnosticKind::Doc,
+            "no input files were discovered",
+            None,
+            JsonValue::object(Vec::<(String, JsonValue)>::new()),
+        );
+        diagnostic
+            .related
+            .push(JsonValue::String("not an object".to_string()));
+        diagnostic.related.push(JsonValue::object([(
+            "message",
+            JsonValue::string("Add a source file or pass an explicit target."),
+        )]));
+        diagnostic.related.push(JsonValue::object([
+            ("message", JsonValue::string("Malformed span is ignored.")),
+            ("span", JsonValue::String("not a span".to_string())),
+        ]));
+        diagnostic.related.push(JsonValue::object([
+            ("message", JsonValue::string("Malformed start is ignored.")),
+            (
+                "span",
+                JsonValue::object([
+                    ("file", JsonValue::string("main.veln")),
+                    ("start", JsonValue::String("not a point".to_string())),
+                ]),
+            ),
+        ]));
+        diagnostic.related.push(JsonValue::object([
+            ("message", JsonValue::string("Malformed line is ignored.")),
+            (
+                "span",
+                JsonValue::object([
+                    ("file", JsonValue::string("main.veln")),
+                    (
+                        "start",
+                        JsonValue::object([
+                            ("line", JsonValue::string("one")),
+                            ("column", JsonValue::Number(1)),
+                        ]),
+                    ),
+                ]),
+            ),
+        ]));
+
+        assert_eq!(
+            diagnostic_human_lines(&diagnostic),
+            vec![
+                "error[project.discovery]: no input files were discovered",
+                "  note: Add a source file or pass an explicit target.",
+                "  note: Malformed span is ignored.",
+                "  note: Malformed start is ignored.",
+                "  note: Malformed line is ignored.",
+            ]
+        );
+    }
+
     fn span(file: &str, line: usize, column: usize) -> SourceSpan {
         SourceSpan {
             file: SourcePath::new(file),
