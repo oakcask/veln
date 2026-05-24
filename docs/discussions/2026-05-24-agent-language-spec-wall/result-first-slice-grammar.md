@@ -32,10 +32,10 @@ until examples show a repair-loop need.
 ## Canonical Grammar
 
 The canonical grammar now lives in
-[Veln First-Slice Grammar](../../reference/grammar.md). This discussion result
+[Veln First-Slice Grammar Target](../../proposals/grammar-target.md). This discussion result
 records the original decision and rationale; later grammar updates such as
 `test` declarations and hole `satisfy` clauses are consolidated in the
-reference document.
+proposal document.
 
 ## Rationale
 

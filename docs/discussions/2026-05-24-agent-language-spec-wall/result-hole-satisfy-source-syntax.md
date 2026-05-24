@@ -20,7 +20,7 @@ _ satisfy value => value.name != ""
 The first-slice grammar should extend `Hole` like this:
 
 The consolidated production is maintained in
-[Veln First-Slice Grammar](../../reference/grammar.md#holes).
+[Veln First-Slice Grammar Target](../../proposals/grammar-target.md#holes).
 
 `BindingName` names the candidate value that would replace the hole. The
 binding is read-only and scoped only to the `ContractPredicate` after `=>`.

@@ -1,0 +1,53 @@
+# Source Surface
+
+Status: implemented
+Date: 2026-05-24
+
+This file specifies the source subset implemented by the parser and AST.
+
+## Grammar
+
+```text
+Module        ::= ModDecl? UseDecl* Function*
+ModDecl       ::= "mod" ModuleName NL
+UseDecl       ::= "use" ModuleName NL
+Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
+                  Contract*
+                  BodyLine*
+                  "end" NL?
+Param         ::= Name (":" TypeText)?
+Return        ::= "->" TypeText
+Effects       ::= "effects" "[" EffectList? "]"
+Contract      ::= ("require" | "ensure") TextUntilNewline
+BodyLine      ::= LetLine | ExprLine
+LetLine       ::= "let" Name (":" TypeText)? "=" Expr NL
+ExprLine      ::= Expr NL
+```
+
+`TypeText` is collected from source and parsed by the semantic type parser.
+Contract predicates are collected as source text and validated by the contract
+checker.
+
+## Expressions
+
+Implemented expressions:
+
+- holes: `_` and `_name`, with optional `satisfy candidate => predicate`
+- literals: strings, integers, floats, `true`, `false`, and `()`
+- paths and calls: `name`, `module::name`, `callee(args...)`
+- constructors: `Ok(value)`, `Err(error)`, and `Some(value)`
+- records: `{name: value, ...}`
+- lists: `[value, ...]`
+- prefix operators: `not`, `-`
+- binary operators: `|>`, `or`, `and`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`,
+  `-`, `*`, `/`
+- postfix result propagation: `expr?`
+- parenthesized expressions
+
+## Not Implemented
+
+Implemented lowering and execution do not include `match`, user-defined ADT
+declarations, dictionary literals, method calls, loops, mutation, classes,
+traits, macros, comprehensions, anonymous functions, custom operators, package
+manifests, foreign declarations, doctest fences, or explicit top-level `test`
+declarations.

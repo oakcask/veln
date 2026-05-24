@@ -9,6 +9,9 @@ discussion. Keep it small enough to read before choosing a detail file.
 
 ## Read First
 
+- [../reference/implemented-first-slice.md](../reference/implemented-first-slice.md)
+  is the fixed reference for behavior implemented in the current workspace.
+  Read it before mining discussion results for current behavior.
 - [design-brief.md](2026-05-24-agent-language-spec-wall/design-brief.md)
   contains the current thesis, design anchors, first slice, and next topics.
 - [open-questions.md](2026-05-24-agent-language-spec-wall/open-questions.md)
@@ -59,7 +62,7 @@ one agent-facing product surface.
   explicit public signatures, public effect declarations, records, lists,
   `match`, holes, plain and qualified calls, pipelines, and `end`-closed
   blocks. The current consolidated grammar is
-  [reference/grammar.md](../reference/grammar.md).
+  [proposals/grammar-target.md](../proposals/grammar-target.md).
 - [JSON Diagnostic Schema Stability](2026-05-24-agent-language-spec-wall/result-json-diagnostic-schema-stability.md):
   use a stable top-level diagnostic envelope while allowing prototype
   kind-specific `details` payloads to change.
