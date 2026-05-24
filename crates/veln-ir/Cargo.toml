@@ -8,5 +8,9 @@ publish = false
 veln-ast.workspace = true
 veln-core.workspace = true
 
+[dev-dependencies]
+veln-source.workspace = true
+veln-syntax.workspace = true
+
 [lints]
 workspace = true

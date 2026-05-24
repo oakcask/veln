@@ -2401,7 +2401,9 @@ fn contract_details(
 mod tests {
     use super::*;
     use veln_ast::lower_surface_ast;
-    use veln_core::{CoreBlocker, CoreCallTarget, CoreExprKind, CoreReadiness, CoreStmtKind};
+    use veln_core::{
+        CoreBlocker, CoreCallTarget, CoreExprKind, CoreReadiness, CoreStmtKind, CoreType,
+    };
     use veln_ir::{IrCallTarget, IrExprKind, IrStmtKind};
     use veln_source::SourceFile;
     use veln_syntax::parse;
@@ -2631,6 +2633,99 @@ mod tests {
     }
 
     #[test]
+    fn reports_missing_public_effect_with_call_provenance() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "pub fn main() -> Unit effects []\n",
+                "  stdio::println(\"hello\")\n",
+                "end\n",
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].id, "effect.missing_public");
+        assert_eq!(diagnostics[0].kind, DiagnosticKind::Effect);
+        assert_eq!(
+            diagnostics[0].message,
+            "public function must declare `stdio` in its effects list"
+        );
+        let details = diagnostics[0].details.to_json();
+        assert!(details.contains("\"effect\":\"stdio\""));
+        assert!(details.contains("\"declared_effects\":[]"));
+        assert!(details.contains("\"inferred_effects\":[\"stdio\"]"));
+        assert!(details.contains("\"symbol\":\"stdio::println\""));
+        assert_eq!(diagnostics[0].related.len(), 1);
+    }
+
+    #[test]
+    fn reports_non_boolean_contract_predicate() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "pub fn main(value: Int) -> Unit effects []\n",
+                "require value\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(diagnostics.len(), 2);
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "contract.type_mismatch"
+                && diagnostic.kind == DiagnosticKind::Contract
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"reason\":\"non_boolean_predicate\"")
+        }));
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "type.mismatch"
+                && diagnostic.kind == DiagnosticKind::Type
+                && diagnostic.message == "expected `Bool`, but found `Int`"
+        }));
+    }
+
+    #[test]
+    fn hole_diagnostic_includes_contract_and_satisfy_constraints() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "pub fn default_port(max: Int) -> Int effects []\n",
+                "require max > 0\n",
+                "  _port satisfy candidate => candidate > 0 and candidate <= max\n",
+                "end\n",
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].id, "hole.unfilled");
+        let details = diagnostics[0].details.to_json();
+        assert!(details.contains("\"expected_type\":\"Int\""));
+        assert!(details.contains("\"kind\":\"contract\""));
+        assert!(details.contains("\"clause\":\"require\""));
+        assert!(details.contains("\"text\":\"max > 0\""));
+        assert!(details.contains("\"kind\":\"satisfy\""));
+        assert!(details.contains(
+            "\"text\":\"candidate > 0 and candidate <= max\",\"candidate_binding\":\"candidate\""
+        ));
+        assert!(details.contains("\"repair_status\":\"blocked_until_discharged\""));
+        assert_eq!(diagnostics[0].related.len(), 3);
+    }
+
+    #[test]
     fn propagates_try_expected_type_from_result_return() {
         let source = SourceFile::new(
             "main.veln",
@@ -2649,6 +2744,40 @@ mod tests {
                 .to_json()
                 .contains("\"expected_type\":\"Result(Int, AppError)\"")
         );
+    }
+
+    #[test]
+    fn lowers_option_constructor_with_expected_return_type() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "pub fn main() -> Option(String) effects []\n",
+                "  Some(\"ok\")\n",
+                "end\n",
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let lowered = lower_checked_surface_module(&module);
+
+        assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+        let core = lowered.core.expect("checked core should be built");
+        assert_eq!(core.readiness, CoreReadiness::Complete);
+        let main = core
+            .functions
+            .iter()
+            .find(|function| function.name == "main")
+            .expect("main should be lowered");
+        let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+            panic!("tail expression should lower as return");
+        };
+        assert_eq!(expr.ty, CoreType::option(CoreType::string()));
+        let CoreExprKind::OptionSome(value) = &expr.kind else {
+            panic!("Some call should lower to an option constructor");
+        };
+        assert_eq!(value.ty, CoreType::string());
+        assert!(lowered.ir.is_some());
     }
 
     #[test]

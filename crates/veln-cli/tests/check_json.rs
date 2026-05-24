@@ -95,6 +95,69 @@ impl Drop for TestProject {
 }
 
 #[test]
+fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
+    let project = TestProject::new("cli-help");
+    let expected = concat!(
+        "veln check [--json] [path ...]\n",
+        "veln fmt [path ...]\n",
+        "veln run <entry> [path ...]\n",
+        "veln test [--json] [target ...]\n",
+    );
+
+    let empty_output = project.veln(&[], &[]);
+    let check_help_output = project.veln(&["check"], &["--help"]);
+
+    assert!(empty_output.status.success(), "{}", stderr(&empty_output));
+    assert_eq!(stdout(&empty_output), expected);
+    assert_eq!(stderr(&empty_output), "");
+    assert!(
+        check_help_output.status.success(),
+        "{}",
+        stderr(&check_help_output)
+    );
+    assert_eq!(stdout(&check_help_output), expected);
+    assert_eq!(stderr(&check_help_output), "");
+}
+
+#[test]
+fn cli_prints_version() {
+    let project = TestProject::new("cli-version");
+
+    let output = project.veln(&[], &["--version"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "veln 0.1.0\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
+fn cli_reports_parser_errors_before_project_discovery() {
+    let project = TestProject::new("cli-parser-errors");
+
+    let unknown_command = project.veln(&[], &["wat"]);
+    let unknown_check_flag = project.veln(&["check"], &["--wat"]);
+    let missing_run_entry = project.veln(&["run"], &[]);
+
+    assert_eq!(unknown_command.status.code(), Some(2));
+    assert_eq!(stdout(&unknown_command), "");
+    assert_eq!(stderr(&unknown_command), "veln: unknown command `wat`\n");
+
+    assert_eq!(unknown_check_flag.status.code(), Some(2));
+    assert_eq!(stdout(&unknown_check_flag), "");
+    assert_eq!(
+        stderr(&unknown_check_flag),
+        "veln: unknown check flag `--wat`\n"
+    );
+
+    assert_eq!(missing_run_entry.status.code(), Some(2));
+    assert_eq!(stdout(&missing_run_entry), "");
+    assert_eq!(
+        stderr(&missing_run_entry),
+        "veln: run requires an entry function name\n"
+    );
+}
+
+#[test]
 fn check_json_accepts_valid_input() {
     let project = TestProject::new("valid");
     project.write(
@@ -114,6 +177,36 @@ fn check_json_accepts_valid_input() {
             "\"diagnostics\":[],",
             "\"summary\":{\"diagnostic_count\":0,\"by_severity\":{},\"by_kind\":{}}}\n"
         )
+    );
+}
+
+#[test]
+fn check_human_prints_ok_for_valid_input() {
+    let project = TestProject::new("check-human-ok");
+    project.write("main.veln", "pub fn main() -> Unit effects []\n  ()\nend\n");
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "ok\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
+fn check_human_reports_diagnostics_to_stdout() {
+    let project = TestProject::new("check-human-diagnostics");
+    project.write(
+        "main.veln",
+        "pub fn main() -> Int effects []\n  \"no\"\nend\n",
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &["main.veln:2:3: error[type.mismatch]: expected `Int`, but found `String`"],
     );
 }
 
@@ -181,6 +274,20 @@ fn fmt_formats_first_slice_golden_and_is_idempotent() {
             "end\n",
         )
     );
+}
+
+#[test]
+fn fmt_rejects_unknown_flags_before_writing_files() {
+    let project = TestProject::new("fmt-unknown-flag");
+    let text = "fn   ok ( ) -> Unit\n()\nend\n";
+    project.write("main.veln", text);
+
+    let output = project.fmt(&["--json", "main.veln"]);
+
+    assert_eq!(output.status.code(), Some(2));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(stderr(&output), "veln: unknown fmt flag `--json`\n");
+    assert_eq!(project.read("main.veln"), text);
 }
 
 #[test]
@@ -687,6 +794,24 @@ fn run_reports_missing_entry_before_jdk_execution() {
 }
 
 #[test]
+fn run_rejects_parameterized_entry_before_jdk_execution() {
+    let project = TestProject::new("run-entry-params");
+    project.write(
+        "main.veln",
+        "pub fn main(value: Int) -> Int effects []\n  value\nend\n",
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(
+        stderr(&output),
+        "veln: run entry `main` must not declare parameters in this slice\n"
+    );
+}
+
+#[test]
 fn run_reports_missing_javac_clearly() {
     let project = TestProject::new("run-no-javac");
     project.write("main.veln", "pub fn main() -> Unit effects []\n  ()\nend\n");
@@ -698,6 +823,49 @@ fn run_reports_missing_javac_clearly() {
     assert_contains_all(
         stderr(&output),
         &["veln: `javac` was not found; install a JDK to use `veln run`"],
+    );
+}
+
+#[test]
+fn test_json_reports_no_discovered_zero_arg_functions() {
+    let project = TestProject::new("test-no-zero-arg");
+    project.write(
+        "main_test.veln",
+        "fn takes_arg(value: Int) -> Int effects []\n  value\nend\n",
+    );
+
+    let output = project.test(&["--json"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"blocked\"",
+            "\"selection\":{\"mode\":\"discovered\",\"targets\":[\"main_test.veln\"],\"confidence\":\"complete\",\"reason\":\"pattern_discovery\"}",
+            "\"summary\":{\"total\":0,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":1}",
+            "\"suite_errors\":[{\"kind\":\"discovery\",\"message\":\"no zero-argument test functions were discovered\"}]",
+            "\"cases\":[]",
+        ],
+    );
+}
+
+#[test]
+fn test_human_reports_no_discovered_zero_arg_functions() {
+    let project = TestProject::new("test-human-no-zero-arg");
+    project.write(
+        "main_test.veln",
+        "fn takes_arg(value: Int) -> Int effects []\n  value\nend\n",
+    );
+
+    let output = project.test(&[]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(
+        stderr(&output),
+        "veln: test discovery: no zero-argument test functions were discovered\n"
     );
 }
 
@@ -725,6 +893,26 @@ fn test_json_blocks_static_gate_before_jdk_execution() {
             "\"id\":\"hole.unfilled\"",
             "\"cases\":[{\"id\":\"case-1\",\"name\":\"blocked\",\"kind\":\"test\",\"status\":\"blocked\"",
             "\"reason\":\"static_gate\"",
+        ],
+    );
+}
+
+#[test]
+fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
+    let project = TestProject::new("test-human-static-gate");
+    project.write(
+        "main_test.veln",
+        "fn blocked() -> Result(Unit, AppError) effects []\n  _\nend\n",
+    );
+
+    let output = project.test(&[]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "blocked blocked\n");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "main_test.veln:2:3: hint[hole.unfilled]: hole requires a `Result(Unit, AppError)` value",
         ],
     );
 }

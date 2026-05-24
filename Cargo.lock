@@ -58,6 +58,8 @@ version = "0.1.0"
 dependencies = [
  "veln-ast",
  "veln-core",
+ "veln-source",
+ "veln-syntax",
 ]
 
 [[package]]

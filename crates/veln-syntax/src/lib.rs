@@ -2180,4 +2180,217 @@ mod tests {
         };
         assert!(matches!(&expr.kind, ExprKind::Hole { name: None, .. }));
     }
+
+    #[test]
+    fn lexes_number_string_hole_and_invalid_boundaries() {
+        let source = SourceFile::new(
+            "tokens.veln",
+            r#"1 1.5 1.foo "a\"b" @ _ _name
+"#,
+        );
+
+        let lexed = lex(&source);
+        let significant = lexed
+            .tokens
+            .iter()
+            .filter(|token| token.kind != TokenKind::Whitespace)
+            .map(|token| (token.kind.clone(), token.text.clone()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            significant,
+            vec![
+                (TokenKind::Int, "1".to_string()),
+                (TokenKind::Float, "1.5".to_string()),
+                (TokenKind::Int, "1".to_string()),
+                (TokenKind::Dot, ".".to_string()),
+                (TokenKind::Ident, "foo".to_string()),
+                (TokenKind::String, r#""a\"b""#.to_string()),
+                (TokenKind::Invalid, "@".to_string()),
+                (TokenKind::Underscore, "_".to_string()),
+                (TokenKind::Hole, "_name".to_string()),
+                (TokenKind::Newline, "\n".to_string()),
+                (TokenKind::Eof, String::new()),
+            ]
+        );
+    }
+
+    #[test]
+    fn parses_module_use_nested_types_and_multiple_effects() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "mod app.core\n",
+                "use platform.io\n",
+                "fn collect(items: List(Result(Int, Error))) -> Result(List(Int), Error) effects [fs, net]\n",
+                "end\n",
+            ),
+        );
+
+        let output = parse(&source);
+
+        assert!(output.diagnostics.is_empty());
+        assert_eq!(output.tree.module.as_ref().unwrap().name, "app.core");
+        assert_eq!(output.tree.uses[0].name, "platform.io");
+        let SyntaxItem::Function(function) = &output.tree.items[0];
+        assert_eq!(
+            function.params[0].ty.as_deref(),
+            Some("List(Result(Int, Error))")
+        );
+        assert_eq!(
+            function.return_type.as_deref(),
+            Some("Result(List(Int), Error)")
+        );
+        assert_eq!(
+            function.effects.as_ref().unwrap(),
+            &vec!["fs".to_string(), "net".to_string()]
+        );
+    }
+
+    #[test]
+    fn parses_hole_satisfy_clause() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn choose() -> Unit\n",
+                "  _value satisfy candidate => candidate > 0 and candidate < 10\n",
+                "end\n",
+            ),
+        );
+
+        let output = parse(&source);
+
+        assert!(output.diagnostics.is_empty());
+        let SyntaxItem::Function(function) = &output.tree.items[0];
+        let BodyLine::Expr { expr, .. } = &function.body[0] else {
+            panic!("expected expression line");
+        };
+        let ExprKind::Hole {
+            name,
+            satisfy: Some(satisfy),
+        } = &expr.kind
+        else {
+            panic!("expected hole with satisfy clause");
+        };
+        assert_eq!(name.as_deref(), Some("value"));
+        assert_eq!(satisfy.candidate.as_deref(), Some("candidate"));
+        assert_eq!(satisfy.predicate, "candidate > 0 and candidate < 10");
+        assert_eq!(format_tree(&output.tree), source.text());
+    }
+
+    #[test]
+    fn parses_records_lists_and_formats_precedence() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn data() -> Unit\n",
+                "  let record = { name: \"veln\", values: [1, 2 + 3 * 4] }\n",
+                "  1 * (2 + 3)\n",
+                "end\n",
+            ),
+        );
+
+        let output = parse(&source);
+
+        assert!(output.diagnostics.is_empty());
+        assert_eq!(format_tree(&output.tree), source.text());
+        let SyntaxItem::Function(function) = &output.tree.items[0];
+        let BodyLine::Let { expr, .. } = &function.body[0] else {
+            panic!("expected let statement");
+        };
+        let ExprKind::Record(fields) = &expr.kind else {
+            panic!("expected record expression");
+        };
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0].name, "name");
+        assert_eq!(fields[1].name, "values");
+        let ExprKind::List(items) = &fields[1].expr.kind else {
+            panic!("expected list expression");
+        };
+        assert_eq!(items.len(), 2);
+        assert!(matches!(
+            &items[1].kind,
+            ExprKind::Binary {
+                op: BinaryOp::Add,
+                right,
+                ..
+            } if matches!(right.kind, ExprKind::Binary { op: BinaryOp::Multiply, .. })
+        ));
+
+        let BodyLine::Expr { expr, .. } = &function.body[1] else {
+            panic!("expected expression line");
+        };
+        assert!(matches!(
+            &expr.kind,
+            ExprKind::Binary {
+                op: BinaryOp::Multiply,
+                right,
+                ..
+            } if matches!(right.kind, ExprKind::Binary { op: BinaryOp::Add, .. })
+        ));
+    }
+
+    #[test]
+    fn format_tree_preserves_commented_source_losslessly() {
+        let source = SourceFile::new(
+            "main.veln",
+            "// header\nfn main() -> Unit\n  _ // hole\nend\n",
+        );
+
+        let output = parse(&source);
+
+        assert!(output.diagnostics.is_empty());
+        assert_eq!(format_tree(&output.tree), source.text());
+    }
+
+    #[test]
+    fn reports_invalid_expression_token_and_recovers_to_next_line() {
+        let source = SourceFile::new("main.veln", "fn main() -> Unit\n  @\n  1\nend\n");
+
+        let output = parse(&source);
+
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "parse.invalid_token")
+            .expect("expected invalid token diagnostic");
+        assert_eq!(diagnostic.parser_context, "expression_line");
+        assert_eq!(diagnostic.unexpected.text, "@");
+        assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::SkipToken);
+        assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("newline"));
+        assert_eq!(diagnostic.recovery.dropped_token_count, 1);
+
+        let SyntaxItem::Function(function) = &output.tree.items[0];
+        assert_eq!(function.body.len(), 2);
+        let BodyLine::Expr { expr, .. } = &function.body[0] else {
+            panic!("expected expression line");
+        };
+        assert!(matches!(expr.kind, ExprKind::Missing));
+        let BodyLine::Expr { expr, .. } = &function.body[1] else {
+            panic!("expected expression line");
+        };
+        assert!(matches!(expr.kind, ExprKind::IntLiteral(ref value) if value == "1"));
+    }
+
+    #[test]
+    fn synchronizes_top_level_garbage_to_next_function() {
+        let source = SourceFile::new("main.veln", "let stray = 1\nfn main()\nend\n");
+
+        let output = parse(&source);
+
+        let diagnostic = output
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.id == "parse.expected_item")
+            .expect("expected top-level item diagnostic");
+        assert_eq!(
+            diagnostic.recovery.strategy,
+            RecoveryStrategy::SynchronizeToAnchor
+        );
+        assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("fn"));
+        assert!(diagnostic.recovery.dropped_token_count > 0);
+        assert_eq!(output.tree.items.len(), 1);
+        let SyntaxItem::Function(function) = &output.tree.items[0];
+        assert_eq!(function.name.as_deref(), Some("main"));
+    }
 }

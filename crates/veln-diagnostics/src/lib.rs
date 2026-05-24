@@ -328,6 +328,7 @@ fn write_json_string(out: &mut String, value: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use veln_source::{SourceFile, TextRange};
 
     #[test]
     fn renders_stable_envelope_fields() {
@@ -347,5 +348,147 @@ mod tests {
         assert!(json.contains("\"schema_version\":1"));
         assert!(json.contains("\"status\":\"error\""));
         assert!(json.contains("\"by_kind\":{\"parse\":1}"));
+    }
+
+    #[test]
+    fn envelope_status_prefers_errors_over_holes() {
+        let envelope = DiagnosticEnvelope::new(
+            ToolInfo::new("veln", "0.1.0"),
+            vec![
+                Diagnostic::new(
+                    "hole.unresolved",
+                    Severity::Info,
+                    DiagnosticKind::Hole,
+                    "hole remains",
+                    None,
+                    JsonValue::Null,
+                ),
+                Diagnostic::new(
+                    "type.mismatch",
+                    Severity::Error,
+                    DiagnosticKind::Type,
+                    "type mismatch",
+                    None,
+                    JsonValue::Null,
+                ),
+            ],
+        );
+
+        assert_eq!(envelope.status, CheckStatus::Error);
+        assert!(envelope.to_json().contains("\"status\":\"error\""));
+    }
+
+    #[test]
+    fn envelope_status_is_partial_for_non_error_holes() {
+        let envelope = DiagnosticEnvelope::new(
+            ToolInfo::new("veln", "0.1.0"),
+            vec![Diagnostic::new(
+                "hole.unresolved",
+                Severity::Hint,
+                DiagnosticKind::Hole,
+                "hole remains",
+                None,
+                JsonValue::Null,
+            )],
+        );
+
+        assert_eq!(envelope.status, CheckStatus::Partial);
+        assert!(envelope.to_json().contains("\"status\":\"partial\""));
+    }
+
+    #[test]
+    fn envelope_summary_counts_by_severity_and_kind_in_stable_order() {
+        let envelope = DiagnosticEnvelope::new(
+            ToolInfo::new("veln", "0.1.0"),
+            vec![
+                Diagnostic::new(
+                    "lint.unused",
+                    Severity::Warning,
+                    DiagnosticKind::Lint,
+                    "unused binding",
+                    None,
+                    JsonValue::Null,
+                ),
+                Diagnostic::new(
+                    "parse.expected",
+                    Severity::Error,
+                    DiagnosticKind::Parse,
+                    "expected expression",
+                    None,
+                    JsonValue::Null,
+                ),
+                Diagnostic::new(
+                    "lint.style",
+                    Severity::Warning,
+                    DiagnosticKind::Lint,
+                    "style issue",
+                    None,
+                    JsonValue::Null,
+                ),
+                Diagnostic::new(
+                    "doc.missing",
+                    Severity::Info,
+                    DiagnosticKind::Doc,
+                    "missing docs",
+                    None,
+                    JsonValue::Null,
+                ),
+            ],
+        );
+
+        let json = envelope.to_json();
+        assert!(json.contains("\"diagnostic_count\":4"));
+        assert!(json.contains("\"by_severity\":{\"error\":1,\"info\":1,\"warning\":2}"));
+        assert!(json.contains("\"by_kind\":{\"doc\":1,\"lint\":2,\"parse\":1}"));
+    }
+
+    #[test]
+    fn diagnostic_json_includes_span_details_and_related_payloads() {
+        let source = SourceFile::new("src/main.veln", "let x\nnext");
+        let span = source.span(TextRange::new(4, 6));
+        let mut diagnostic = Diagnostic::new(
+            "name.duplicate",
+            Severity::Error,
+            DiagnosticKind::Name,
+            "duplicate name",
+            Some(span),
+            JsonValue::object([
+                ("symbol", JsonValue::string("x")),
+                ("previous", JsonValue::Number(1)),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([(
+            "message",
+            JsonValue::string("first binding"),
+        )]));
+
+        assert_eq!(
+            diagnostic_to_json(&diagnostic).to_json(),
+            concat!(
+                "{\"id\":\"name.duplicate\",\"severity\":\"error\",\"kind\":\"name\",",
+                "\"message\":\"duplicate name\",",
+                "\"span\":{\"file\":\"src/main.veln\",",
+                "\"start\":{\"line\":1,\"column\":5,\"offset\":4},",
+                "\"end\":{\"line\":2,\"column\":1,\"offset\":6}},",
+                "\"details\":{\"symbol\":\"x\",\"previous\":1},",
+                "\"related\":[{\"message\":\"first binding\"}]}"
+            )
+        );
+    }
+
+    #[test]
+    fn json_string_escapes_quotes_backslashes_and_control_characters() {
+        let value = JsonValue::object([
+            (
+                "text",
+                JsonValue::string("quote \" slash \\ newline\n tab\t backspace\u{08} form\u{0c}"),
+            ),
+            ("control", JsonValue::string("\u{01}")),
+        ]);
+
+        assert_eq!(
+            value.to_json(),
+            "{\"text\":\"quote \\\" slash \\\\ newline\\n tab\\t backspace\\b form\\f\",\"control\":\"\\u0001\"}"
+        );
     }
 }

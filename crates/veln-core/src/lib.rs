@@ -217,3 +217,153 @@ impl CoreType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn primitive_type_constructors_use_canonical_names_without_args() {
+        assert_eq!(
+            CoreType::bool(),
+            CoreType::Named {
+                name: "Bool".to_string(),
+                args: Vec::new()
+            }
+        );
+        assert_eq!(
+            CoreType::int(),
+            CoreType::Named {
+                name: "Int".to_string(),
+                args: Vec::new()
+            }
+        );
+        assert_eq!(
+            CoreType::float(),
+            CoreType::Named {
+                name: "Float".to_string(),
+                args: Vec::new()
+            }
+        );
+        assert_eq!(
+            CoreType::string(),
+            CoreType::Named {
+                name: "String".to_string(),
+                args: Vec::new()
+            }
+        );
+        assert_eq!(
+            CoreType::unit(),
+            CoreType::Named {
+                name: "Unit".to_string(),
+                args: Vec::new()
+            }
+        );
+    }
+
+    #[test]
+    fn generic_type_constructors_preserve_nested_arguments() {
+        let result = CoreType::result(
+            CoreType::option(CoreType::int()),
+            CoreType::list(CoreType::string()),
+        );
+
+        assert_eq!(
+            result,
+            CoreType::Named {
+                name: "Result".to_string(),
+                args: vec![
+                    CoreType::Named {
+                        name: "Option".to_string(),
+                        args: vec![CoreType::int()]
+                    },
+                    CoreType::Named {
+                        name: "List".to_string(),
+                        args: vec![CoreType::string()]
+                    }
+                ]
+            }
+        );
+    }
+
+    #[test]
+    fn result_parts_accept_only_result_with_two_arguments() {
+        let ok = CoreType::result(CoreType::int(), CoreType::string());
+        assert_eq!(
+            ok.result_parts(),
+            Some((&CoreType::int(), &CoreType::string()))
+        );
+
+        let wrong_name = CoreType::named("Outcome", vec![CoreType::int(), CoreType::string()]);
+        assert_eq!(wrong_name.result_parts(), None);
+
+        let missing_error = CoreType::named("Result", vec![CoreType::int()]);
+        assert_eq!(missing_error.result_parts(), None);
+
+        let extra_arg = CoreType::named(
+            "Result",
+            vec![CoreType::int(), CoreType::string(), CoreType::bool()],
+        );
+        assert_eq!(extra_arg.result_parts(), None);
+    }
+
+    #[test]
+    fn option_part_accepts_only_option_with_one_argument() {
+        let some_type = CoreType::option(CoreType::bool());
+        assert_eq!(some_type.option_part(), Some(&CoreType::bool()));
+
+        let wrong_name = CoreType::named("Maybe", vec![CoreType::bool()]);
+        assert_eq!(wrong_name.option_part(), None);
+
+        let missing_arg = CoreType::named("Option", Vec::new());
+        assert_eq!(missing_arg.option_part(), None);
+
+        let extra_arg = CoreType::named("Option", vec![CoreType::bool(), CoreType::string()]);
+        assert_eq!(extra_arg.option_part(), None);
+    }
+
+    #[test]
+    fn list_part_accepts_only_list_with_one_argument() {
+        let list_type = CoreType::list(CoreType::float());
+        assert_eq!(list_type.list_part(), Some(&CoreType::float()));
+
+        let wrong_name = CoreType::named("Array", vec![CoreType::float()]);
+        assert_eq!(wrong_name.list_part(), None);
+
+        let missing_arg = CoreType::named("List", Vec::new());
+        assert_eq!(missing_arg.list_part(), None);
+
+        let extra_arg = CoreType::named("List", vec![CoreType::float(), CoreType::int()]);
+        assert_eq!(extra_arg.list_part(), None);
+    }
+
+    #[test]
+    fn record_field_finds_the_first_matching_field() {
+        let first_count = CoreType::int();
+        let second_count = CoreType::string();
+        let record = CoreType::Record(vec![
+            ("ready".to_string(), CoreType::bool()),
+            ("count".to_string(), first_count.clone()),
+            ("count".to_string(), second_count),
+        ]);
+
+        assert_eq!(record.record_field("ready"), Some(&CoreType::bool()));
+        assert_eq!(record.record_field("count"), Some(&first_count));
+        assert_eq!(record.record_field("missing"), None);
+    }
+
+    #[test]
+    fn record_field_rejects_non_record_types() {
+        assert_eq!(CoreType::Unknown.record_field("anything"), None);
+        assert_eq!(CoreType::int().record_field("anything"), None);
+        assert_eq!(
+            CoreType::Function {
+                params: vec![CoreType::int()],
+                return_type: Box::new(CoreType::bool()),
+                effects: vec!["io".to_string()],
+            }
+            .record_field("anything"),
+            None
+        );
+    }
+}

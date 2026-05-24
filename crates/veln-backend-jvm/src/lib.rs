@@ -950,6 +950,124 @@ mod tests {
     }
 
     #[test]
+    fn sanitizes_custom_class_names_and_entry_references() {
+        let ir = lower_to_ir(concat!(
+            "pub fn main() -> Result(Unit, AppError) effects []\n",
+            "  Ok(())\n",
+            "end\n",
+        ));
+
+        let java = generate_java_with_entry_options(
+            &ir,
+            "main",
+            &JavaBackendOptions {
+                program_class: "9 bad-name".to_string(),
+                runtime_class: "class".to_string(),
+            },
+        );
+        let program = java
+            .source("_9_bad_name.java")
+            .expect("sanitized program source should exist");
+        let runtime = java
+            .source("VelnGenerated.java")
+            .expect("fallback runtime source should exist");
+        let runner = java
+            .source("VelnEntry.java")
+            .expect("entry source should exist");
+
+        assert!(program.contains("public final class _9_bad_name"));
+        assert!(program.contains("return VelnGenerated.ok(VelnGenerated.UNIT);"));
+        assert!(runtime.contains("public final class VelnGenerated"));
+        assert!(runner.contains("Object result = _9_bad_name.fn_main();"));
+        assert!(runner.contains("if (VelnGenerated.isErr(result))"));
+    }
+
+    #[test]
+    fn sanitizes_java_keywords_and_colliding_identifiers() {
+        let mut ir = lower_to_ir(concat!(
+            "fn add(left: Int, right: Int) -> Int effects []\n",
+            "  let total: Int = left + right\n",
+            "  total\n",
+            "end\n",
+        ));
+        let function = &mut ir.functions[0];
+        function.name = "class".to_string();
+        function.params[0].name = "a-b".to_string();
+        function.params[1].name = "a_b".to_string();
+        if let IrStmtKind::Let { name, value, .. } = &mut function.body[0].kind {
+            *name = "return".to_string();
+            if let IrExprKind::Binary { left, right, .. } = &mut value.kind {
+                left.kind = IrExprKind::Local("a-b".to_string());
+                right.kind = IrExprKind::Local("a_b".to_string());
+            }
+        }
+        if let IrStmtKind::Return { value } = &mut function.body[1].kind {
+            value.kind = IrExprKind::Local("return".to_string());
+        }
+
+        let java = generate_java(&ir);
+        let program = java
+            .source("VelnProgram.java")
+            .expect("program source should exist");
+
+        assert!(program.contains("static Object fn_class(Object p_a_b, Object p_a_b_1)"));
+        assert!(program.contains("Object v_return = VelnRuntime.add(p_a_b, p_a_b_1);"));
+        assert!(program.contains("return v_return;"));
+    }
+
+    #[test]
+    fn generates_runtime_calls_for_value_call_prefix_and_binary_ops() {
+        let ir = lower_to_ir(concat!(
+            "pub fn main(callback: fn(Int) -> Int, a: Int, b: Int, flag: Bool) -> {",
+            "called: Int, negated: Int, inverted: Bool, add: Int, sub: Int, mul: Int, div: Int, ",
+            "eq: Bool, ne: Bool, lt: Bool, le: Bool, gt: Bool, ge: Bool, anded: Bool, ored: Bool, piped: Int",
+            "} effects []\n",
+            "  {called: callback(1), negated: -a, inverted: not flag, add: a + b, sub: a - b, ",
+            "mul: a * b, div: a / b, eq: a == b, ne: a != b, lt: a < b, le: a <= b, ",
+            "gt: a > b, ge: a >= b, anded: flag and false, ored: flag or true, piped: a |> b}\n",
+            "end\n",
+        ));
+
+        let java = generate_java(&ir);
+        let program = java
+            .source("VelnProgram.java")
+            .expect("program source should exist");
+
+        assert!(program.contains("\"called\", VelnRuntime.call(p_callback, Long.valueOf(1L))"));
+        assert!(program.contains("\"negated\", VelnRuntime.negate(p_a)"));
+        assert!(program.contains("\"inverted\", VelnRuntime.not(p_flag)"));
+        assert!(program.contains("\"add\", VelnRuntime.add(p_a, p_b)"));
+        assert!(program.contains("\"sub\", VelnRuntime.subtract(p_a, p_b)"));
+        assert!(program.contains("\"mul\", VelnRuntime.multiply(p_a, p_b)"));
+        assert!(program.contains("\"div\", VelnRuntime.divide(p_a, p_b)"));
+        assert!(program.contains("\"eq\", VelnRuntime.equal(p_a, p_b)"));
+        assert!(program.contains("\"ne\", VelnRuntime.notEqual(p_a, p_b)"));
+        assert!(program.contains("\"lt\", VelnRuntime.less(p_a, p_b)"));
+        assert!(program.contains("\"le\", VelnRuntime.lessEqual(p_a, p_b)"));
+        assert!(program.contains("\"gt\", VelnRuntime.greater(p_a, p_b)"));
+        assert!(program.contains("\"ge\", VelnRuntime.greaterEqual(p_a, p_b)"));
+        assert!(program.contains("\"anded\", VelnRuntime.and(p_flag, Boolean.FALSE)"));
+        assert!(program.contains("\"ored\", VelnRuntime.or(p_flag, Boolean.TRUE)"));
+        assert!(program.contains("\"piped\", VelnRuntime.pipe(p_a, p_b)"));
+    }
+
+    #[test]
+    fn escapes_string_literals_and_emits_result_errors() {
+        let ir = lower_to_ir(concat!(
+            "pub fn main() -> Result(String, String) effects []\n",
+            "  Err(\"line\\n\\\"quoted\\\"\\\\tail\")\n",
+            "end\n",
+        ));
+
+        let java = generate_java(&ir);
+        let program = java
+            .source("VelnProgram.java")
+            .expect("program source should exist");
+
+        assert!(program.contains("return VelnRuntime.err(\"line\\n\\\"quoted\\\"\\\\tail\");"));
+    }
+
+    #[test]
     fn generated_sources_compile_when_javac_is_available() {
         if Command::new("javac").arg("-version").output().is_err() {
             return;
