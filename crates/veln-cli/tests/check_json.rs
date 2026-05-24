@@ -758,6 +758,30 @@ fn check_json_reports_malformed_declaration() {
 }
 
 #[test]
+fn check_json_reports_contract_predicate_parse_errors_as_contract_kind() {
+    let project = TestProject::new("contract-predicate-parse");
+    project.write(
+        "main.veln",
+        "fn bad(value: Int) -> Int\nrequire _missing\n  value\nend\n",
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"parse.contract_predicate\"",
+            "\"kind\":\"contract\"",
+            "\"message\":\"hole syntax is not allowed in a contract predicate\"",
+            "\"parser_context\":\"contract_predicate\"",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"contract\":1}}",
+        ],
+    );
+}
+
+#[test]
 fn check_json_reports_invalid_tokens() {
     let project = TestProject::new("invalid-token");
     project.write("main.veln", "fn bad() -> ()\n  @\nend\n");

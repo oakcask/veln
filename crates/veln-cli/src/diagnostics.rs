@@ -12,10 +12,15 @@ pub(crate) fn has_error(diagnostics: &[Diagnostic]) -> bool {
 }
 
 pub(crate) fn parse_diagnostic_to_envelope(diagnostic: &ParseDiagnostic) -> Diagnostic {
+    let kind = if diagnostic.parser_context == "contract_predicate" {
+        DiagnosticKind::Contract
+    } else {
+        DiagnosticKind::Parse
+    };
     Diagnostic::new(
         diagnostic.id,
         Severity::Error,
-        DiagnosticKind::Parse,
+        kind,
         diagnostic.message.clone(),
         diagnostic.span.clone(),
         JsonValue::object([

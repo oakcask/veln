@@ -6,7 +6,17 @@ repair constraints.
 ## Contracts
 
 Implemented contract clauses are `require` and `ensure` lines attached to a
-function. The checker validates a small pure boolean subset:
+function. The parser first checks a narrow contract predicate syntax. It
+accepts literals, names, qualified names, grouping, field access syntax,
+plain or qualified call syntax, prefix operators, arithmetic operators,
+comparisons, equality, and boolean operators.
+
+The parser rejects holes, `?`, pipelines, `match`, records, and lists in
+contract predicates. Unsupported contract syntax in `require` or `ensure`
+reports `parse.contract_predicate`; unsupported syntax in a hole `satisfy`
+predicate reports `parse.satisfy_predicate`.
+
+After parsing, the checker validates a small pure boolean subset:
 
 - `true` and `false`
 - boolean local bindings
@@ -15,10 +25,10 @@ function. The checker validates a small pure boolean subset:
 - referenced parameters and local bindings
 - explicit result bindings in `ensure` clauses
 
-Contract predicates containing `stdio::`, call-like syntax, empty predicates,
-non-boolean predicates, or unresolved names produce diagnostics. Valid
-contracts are recorded and may contribute hole repair constraints, but runtime
-contract enforcement is not implemented.
+Contract predicates containing `stdio::`, call-like syntax, field access
+syntax, empty predicates, non-boolean predicates, or unresolved names produce
+diagnostics. Valid contracts are recorded and may contribute hole repair
+constraints, but runtime contract enforcement is not implemented.
 
 An `ensure` clause may refer to the returned value only when the function return
 position names it with `-> name: Type`. That name is not visible to `require`

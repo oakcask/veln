@@ -21,15 +21,15 @@ Param         ::= Name (":" TypeText)?
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
-Contract      ::= ("require" | "ensure") TextUntilNewline
+Contract      ::= ("require" | "ensure") ContractPredicate NL
 BodyLine      ::= LetLine | ExprLine
 LetLine       ::= "let" Name (":" TypeText)? "=" Expr NL
 ExprLine      ::= Expr NL
 ```
 
 `TypeText` is collected from source and parsed by the semantic type parser.
-Contract predicates are collected as source text and validated by the contract
-checker.
+Contract predicates parse through a narrower predicate production before
+semantic contract validation.
 
 A return may name the returned value for postconditions with `-> name: Type`.
 The binding is contract-facing only: it is visible to `ensure` clauses for the
@@ -65,6 +65,25 @@ Implemented expressions:
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
 is visible only inside the suffix predicate.
+
+## Contract Predicates
+
+`require`, `ensure`, and hole `satisfy` predicates accept this implemented
+syntax:
+
+- literals, names, qualified names, and `()`
+- grouping with parentheses
+- plain or qualified call syntax
+- field access syntax
+- prefix `not` and `-`
+- binary `or`, `and`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`, `-`, `*`, and
+  `/`
+
+The parser rejects holes, `?`, pipelines, `match`, records, and lists in
+contract predicates before semantic checking. A syntactically valid predicate
+may still fail contract validation; for example, all call-like syntax is
+currently rejected by the contract checker, and field access syntax is parsed
+but not semantically supported yet.
 
 ## Not Implemented
 

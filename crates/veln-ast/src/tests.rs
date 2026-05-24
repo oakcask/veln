@@ -167,8 +167,8 @@ fn lowers_holes_to_node_id_backed_expression_nodes() {
 fn lowers_function_metadata_contracts_and_let_lines() {
     let module = lower_source(concat!(
         "pub fn publish(user: User, count: Int) -> output: Result((), Error) effects [db, log]\n",
-        "  require user ready\n",
-        "  ensure output ok\n",
+        "  require count >= 0\n",
+        "  ensure output == output\n",
         "  let message: String = \"ready\"\n",
         "  message\n",
         "end\n",
@@ -198,9 +198,9 @@ fn lowers_function_metadata_contracts_and_let_lines() {
 
     assert_eq!(function.contracts.len(), 2);
     assert_eq!(function.contracts[0].kind, ContractKind::Require);
-    assert_eq!(function.contracts[0].text, "user ready");
+    assert_eq!(function.contracts[0].text, "count >= 0");
     assert_eq!(function.contracts[1].kind, ContractKind::Ensure);
-    assert_eq!(function.contracts[1].text, "output ok");
+    assert_eq!(function.contracts[1].text, "output == output");
 
     let (name, annotation, expr) = let_line(function, 0);
     assert_eq!(name.as_deref(), Some("message"));

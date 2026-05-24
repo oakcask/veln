@@ -632,6 +632,33 @@ fn ensure_can_reference_explicit_result_binding() {
 }
 
 #[test]
+fn contract_field_access_syntax_is_not_semantically_supported_yet() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {total: Int}) -> output: {total: Int} effects []\n",
+            "ensure output.total == value.total\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.unsupported_construct"
+            && diagnostic.kind == DiagnosticKind::Contract
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"unsupported_field_access\"")
+    }));
+}
+
+#[test]
 fn require_cannot_reference_result_binding() {
     let source = SourceFile::new(
         "main.veln",

@@ -328,6 +328,55 @@ fn parses_and_formats_result_binding() {
 }
 
 #[test]
+fn parses_contract_predicate_subset() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn clamp(value: Int, limit: Int) -> output: Int\n",
+            "require value >= 0 and value <= limit\n",
+            "ensure output.total == value + limit\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    assert_eq!(function.contracts.len(), 2);
+    assert_eq!(function.contracts[0].text, "value >= 0 and value <= limit");
+    assert_eq!(function.contracts[1].text, "output.total == value + limit");
+}
+
+#[test]
+fn rejects_non_predicate_contract_syntax() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn bad(value: Int) -> Int\n",
+            "require _missing\n",
+            "ensure [value]\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.contract_predicate"
+            && diagnostic.message == "hole syntax is not allowed in a contract predicate"
+            && diagnostic.parser_context == "contract_predicate"
+    }));
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.contract_predicate"
+            && diagnostic.message == "list syntax is not allowed in a contract predicate"
+            && diagnostic.parser_context == "contract_predicate"
+    }));
+}
+
+#[test]
 fn formats_unit_type_with_empty_tuple_spelling() {
     let source = SourceFile::new(
         "main.veln",
@@ -408,6 +457,26 @@ fn reports_malformed_hole_satisfy_clause() {
         diagnostic.id == "parse.satisfy_arrow"
             && diagnostic.message == "satisfy clause is missing `=>`"
             && diagnostic.expected == vec!["=>"]
+    }));
+}
+
+#[test]
+fn rejects_non_predicate_satisfy_syntax() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose() -> Int\n",
+            "  _value satisfy candidate => candidate |> valid\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "parse.satisfy_predicate"
+            && diagnostic.message == "pipeline syntax is not allowed in a contract predicate"
+            && diagnostic.parser_context == "satisfy_predicate"
     }));
 }
 

@@ -8,8 +8,9 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::contracts::{
-    ContractValidation, contains_call_like_construct, contract_kind_text, is_contract_keyword,
-    predicate_is_boolean, predicate_rendered_type, referenced_names,
+    ContractValidation, contains_call_like_construct, contains_field_access_construct,
+    contract_kind_text, is_contract_keyword, predicate_is_boolean, predicate_rendered_type,
+    referenced_names,
 };
 use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, span_json, type_details,
@@ -640,6 +641,11 @@ impl<'a> FunctionChecker<'a> {
         if contains_call_like_construct(trimmed) {
             return ContractValidation::UnsupportedConstruct {
                 reason: "unsupported_call",
+            };
+        }
+        if contains_field_access_construct(trimmed) {
+            return ContractValidation::UnsupportedConstruct {
+                reason: "unsupported_field_access",
             };
         }
         for name in referenced_names(trimmed) {

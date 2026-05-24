@@ -49,6 +49,11 @@ Parse diagnostic `details` are stable for the implemented slice:
 - `expected`
 - `recovery`
 
+Contract predicate syntax diagnostics use the same parse-phase detail shape.
+`require` and `ensure` predicate parse failures use `kind: "contract"` with
+`id: "parse.contract_predicate"` so contract-specific failures remain grouped
+with other contract diagnostics.
+
 Name diagnostic `details` are stable for unresolved and duplicate names:
 
 - `phase`

@@ -331,7 +331,16 @@ impl<'a> Parser<'a> {
             TokenKind::Require => ContractKind::Require,
             _ => ContractKind::Ensure,
         };
-        let (text, end) = self.collect_until_newline();
+        let (text, predicate_tokens, end) = self.collect_until_newline();
+        self.diagnostics.extend(
+            ContractPredicateParser::new(
+                self.source,
+                "contract_predicate",
+                "parse.contract_predicate",
+                &predicate_tokens,
+            )
+            .parse(),
+        );
         ContractClause {
             kind,
             text,
@@ -409,14 +418,16 @@ impl<'a> Parser<'a> {
             .replace(" ,", ",")
     }
 
-    fn collect_until_newline(&mut self) -> (String, TextRange) {
+    fn collect_until_newline(&mut self) -> (String, Vec<Token>, TextRange) {
         let start = self.current().range;
         let mut end = start;
         let mut parts = Vec::new();
+        let mut tokens = Vec::new();
         while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
             let token = self.bump();
             end = token.range;
-            parts.push(token.text);
+            parts.push(token.text.clone());
+            tokens.push(token);
         }
         if self.at(TokenKind::Newline) {
             end = self.bump().range;
@@ -428,9 +439,11 @@ impl<'a> Parser<'a> {
                 .replace(" (", "(")
                 .replace("( ", "(")
                 .replace(" )", ")")
+                .replace(" . ", ".")
                 .replace("[ ", "[")
                 .replace(" ]", "]")
                 .replace(" ,", ","),
+            tokens,
             start.cover(end),
         )
     }
@@ -842,6 +855,7 @@ impl<'a> ExprParser<'a> {
             })
         };
         let mut parts = Vec::new();
+        let mut predicate_tokens = Vec::new();
         let mut depth = 0usize;
         while let Some(token) = self.tokens.get(self.cursor) {
             if depth == 0
@@ -865,8 +879,18 @@ impl<'a> ExprParser<'a> {
             }
             let token = self.bump();
             end = token.range;
-            parts.push(token.text);
+            parts.push(token.text.clone());
+            predicate_tokens.push(token);
         }
+        self.diagnostics.extend(
+            ContractPredicateParser::new(
+                self.source,
+                "satisfy_predicate",
+                "parse.satisfy_predicate",
+                &predicate_tokens,
+            )
+            .parse(),
+        );
         Some(SatisfyClause {
             candidate,
             candidate_span,
@@ -1042,6 +1066,336 @@ impl<'a> ExprParser<'a> {
     }
 }
 
+struct ContractPredicateParser<'a> {
+    source: &'a SourceFile,
+    context: &'static str,
+    diagnostic_id: &'static str,
+    tokens: &'a [Token],
+    cursor: usize,
+    diagnostics: Vec<ParseDiagnostic>,
+}
+
+impl<'a> ContractPredicateParser<'a> {
+    fn new(
+        source: &'a SourceFile,
+        context: &'static str,
+        diagnostic_id: &'static str,
+        tokens: &'a [Token],
+    ) -> Self {
+        Self {
+            source,
+            context,
+            diagnostic_id,
+            tokens,
+            cursor: 0,
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn parse(mut self) -> Vec<ParseDiagnostic> {
+        if self.tokens.is_empty() {
+            self.error_current(
+                "contract predicate is empty",
+                vec!["contract predicate"],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+            return self.diagnostics;
+        }
+
+        self.parse_predicate(0);
+        if !self.is_at_end() {
+            if self.at(TokenKind::PipeGreater) {
+                self.error_current(
+                    "pipeline syntax is not allowed in a contract predicate",
+                    vec!["contract predicate operator", "end of predicate"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+            } else {
+                self.error_current(
+                    "unexpected token in contract predicate",
+                    vec!["contract predicate operator", "end of predicate"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+            }
+        }
+        self.diagnostics
+    }
+
+    fn parse_predicate(&mut self, min_bp: u8) {
+        self.parse_prefix();
+
+        loop {
+            if self.at(TokenKind::Question) {
+                self.error_current(
+                    "`?` is not allowed in a contract predicate",
+                    vec!["contract predicate operator", "end of predicate"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+                self.bump();
+                continue;
+            }
+
+            let Some((_, left_bp, right_bp)) = self.current_binary_op() else {
+                break;
+            };
+            if left_bp < min_bp {
+                break;
+            }
+            self.bump();
+            self.parse_predicate(right_bp);
+        }
+    }
+
+    fn parse_prefix(&mut self) {
+        if self.at(TokenKind::Not) || self.at(TokenKind::Minus) {
+            self.bump();
+            self.parse_predicate(13);
+            return;
+        }
+        self.parse_postfix();
+    }
+
+    fn parse_postfix(&mut self) {
+        self.parse_primary();
+        loop {
+            if self.at(TokenKind::LParen) {
+                self.parse_call_args();
+                continue;
+            }
+            if self.at(TokenKind::Dot) {
+                self.bump();
+                if self.at(TokenKind::Ident) {
+                    self.bump();
+                } else {
+                    self.error_current(
+                        "contract predicate field access is missing a field name",
+                        vec!["field name"],
+                        RecoveryStrategy::InsertToken,
+                        None,
+                    );
+                }
+                continue;
+            }
+            break;
+        }
+    }
+
+    fn parse_call_args(&mut self) {
+        self.bump();
+        if self.eat(TokenKind::RParen).is_some() {
+            return;
+        }
+        while !self.at(TokenKind::RParen) && !self.is_at_end() {
+            self.parse_predicate(0);
+            if self.eat(TokenKind::Comma).is_none() {
+                break;
+            }
+        }
+        if self.eat(TokenKind::RParen).is_none() {
+            self.error_current(
+                "contract predicate call is missing `)`",
+                vec![")"],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+        }
+    }
+
+    fn parse_primary(&mut self) {
+        if self.is_at_end() {
+            self.error_current(
+                "contract predicate is missing an expression",
+                vec!["contract predicate atom"],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+            return;
+        }
+
+        match self.current().kind {
+            TokenKind::String | TokenKind::Int | TokenKind::Float | TokenKind::Ident => {
+                self.parse_name_path_or_literal();
+            }
+            TokenKind::LParen => {
+                self.bump();
+                if self.eat(TokenKind::RParen).is_some() {
+                    return;
+                }
+                self.parse_predicate(0);
+                if self.eat(TokenKind::RParen).is_none() {
+                    self.error_current(
+                        "contract predicate grouping is missing `)`",
+                        vec![")"],
+                        RecoveryStrategy::InsertToken,
+                        None,
+                    );
+                }
+            }
+            TokenKind::Hole | TokenKind::Underscore => {
+                self.error_current(
+                    "hole syntax is not allowed in a contract predicate",
+                    vec!["contract predicate atom"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+                self.bump();
+            }
+            TokenKind::LBracket => {
+                self.error_current(
+                    "list syntax is not allowed in a contract predicate",
+                    vec!["contract predicate atom"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+                self.bump();
+            }
+            TokenKind::LBrace => {
+                self.error_current(
+                    "record syntax is not allowed in a contract predicate",
+                    vec!["contract predicate atom"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+                self.bump();
+            }
+            TokenKind::Match => {
+                self.error_current(
+                    "`match` is not allowed in a contract predicate",
+                    vec!["contract predicate atom"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+                self.bump();
+            }
+            TokenKind::PipeGreater => {
+                self.error_current(
+                    "pipeline syntax is not allowed in a contract predicate",
+                    vec!["contract predicate atom"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+                self.bump();
+            }
+            TokenKind::Invalid => {
+                self.error_current(
+                    "invalid token in contract predicate",
+                    vec!["contract predicate atom"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+                self.bump();
+            }
+            _ => {
+                self.error_current(
+                    "expected a contract predicate atom",
+                    vec!["contract predicate atom"],
+                    RecoveryStrategy::SkipToken,
+                    None,
+                );
+                self.bump();
+            }
+        }
+    }
+
+    fn parse_name_path_or_literal(&mut self) {
+        self.bump();
+        while self.at(TokenKind::DoubleColon) {
+            self.bump();
+            if self.at(TokenKind::Ident) {
+                self.bump();
+            } else {
+                self.error_current(
+                    "qualified contract predicate name is missing a segment",
+                    vec!["name segment"],
+                    RecoveryStrategy::InsertToken,
+                    None,
+                );
+                break;
+            }
+        }
+    }
+
+    fn current_binary_op(&self) -> Option<(BinaryOp, u8, u8)> {
+        match self.tokens.get(self.cursor)?.kind {
+            TokenKind::Or => Some((BinaryOp::Or, 3, 4)),
+            TokenKind::And => Some((BinaryOp::And, 5, 6)),
+            TokenKind::EqualEqual => Some((BinaryOp::Equal, 7, 8)),
+            TokenKind::BangEqual => Some((BinaryOp::NotEqual, 7, 8)),
+            TokenKind::Less => Some((BinaryOp::Less, 9, 10)),
+            TokenKind::LessEqual => Some((BinaryOp::LessEqual, 9, 10)),
+            TokenKind::Greater => Some((BinaryOp::Greater, 9, 10)),
+            TokenKind::GreaterEqual => Some((BinaryOp::GreaterEqual, 9, 10)),
+            TokenKind::Plus => Some((BinaryOp::Add, 11, 12)),
+            TokenKind::Minus => Some((BinaryOp::Subtract, 11, 12)),
+            TokenKind::Star => Some((BinaryOp::Multiply, 13, 14)),
+            TokenKind::Slash => Some((BinaryOp::Divide, 13, 14)),
+            _ => None,
+        }
+    }
+
+    fn error_current(
+        &mut self,
+        message: impl Into<String>,
+        expected: Vec<&'static str>,
+        strategy: RecoveryStrategy,
+        anchor: Option<&'static str>,
+    ) {
+        let token = self
+            .tokens
+            .get(self.cursor)
+            .cloned()
+            .unwrap_or_else(|| Token::eof(self.source.len()));
+        self.diagnostics.push(ParseDiagnostic {
+            id: self.diagnostic_id,
+            message: message.into(),
+            span: Some(self.source.span(token.range)),
+            parser_context: self.context,
+            unexpected: UnexpectedToken {
+                kind: token.kind.label().to_string(),
+                text: token.text,
+            },
+            expected,
+            recovery: Recovery {
+                strategy,
+                anchor: anchor.map(str::to_string),
+                dropped_token_count: usize::from(strategy == RecoveryStrategy::SkipToken),
+            },
+        });
+    }
+
+    fn eat(&mut self, kind: TokenKind) -> Option<Token> {
+        if self.at(kind) {
+            Some(self.bump())
+        } else {
+            None
+        }
+    }
+
+    fn at(&self, kind: TokenKind) -> bool {
+        self.tokens
+            .get(self.cursor)
+            .is_some_and(|token| token.kind == kind)
+    }
+
+    fn current(&self) -> &Token {
+        &self.tokens[self.cursor]
+    }
+
+    fn is_at_end(&self) -> bool {
+        self.cursor >= self.tokens.len()
+    }
+
+    fn bump(&mut self) -> Token {
+        let token = self.current().clone();
+        self.cursor += 1;
+        token
+    }
+}
+
 fn lhs_range(expr: &Expr) -> TextRange {
     TextRange::new(expr.span.start.offset, expr.span.end.offset)
 }
@@ -1053,6 +1407,7 @@ fn normalize_collected_text(parts: Vec<String>) -> String {
         .replace(" (", "(")
         .replace("( ", "(")
         .replace(" )", ")")
+        .replace(" . ", ".")
         .replace("[ ", "[")
         .replace(" ]", "]")
         .replace(" ,", ",")

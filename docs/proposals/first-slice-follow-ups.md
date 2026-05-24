@@ -37,8 +37,9 @@ stays in
   helper inference.
 - The checker validates the first-slice pure boolean contract subset, but
   runtime contract discharge remains deferred.
-- Full contract predicate parsing beyond the completed subset remains a
-  follow-up target.
+- Contract predicates now parse through a dedicated first-slice predicate
+  production. Pure-call validation and richer predicate semantics remain
+  follow-up work.
 
 ## Formatting
 

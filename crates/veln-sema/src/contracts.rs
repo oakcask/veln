@@ -23,6 +23,19 @@ pub(crate) fn contains_call_like_construct(predicate: &str) -> bool {
     })
 }
 
+pub(crate) fn contains_field_access_construct(predicate: &str) -> bool {
+    let bytes = predicate.as_bytes();
+    bytes.windows(1).enumerate().any(|(index, window)| {
+        if window != b"." || index == 0 || index + 1 >= bytes.len() {
+            return false;
+        }
+        let previous = bytes[index - 1] as char;
+        let next = bytes[index + 1] as char;
+        (previous.is_ascii_alphanumeric() || previous == '_')
+            && (next.is_ascii_alphabetic() || next == '_')
+    })
+}
+
 trait EndsWithIdentifier {
     fn ends_with_identifier(&self) -> bool;
 }
@@ -57,6 +70,9 @@ pub(crate) fn referenced_names(predicate: &str) -> Vec<String> {
                 continue;
             }
             if index + 2 <= bytes.len() && &predicate[index..index + 2] == "::" {
+                continue;
+            }
+            if start >= 1 && &predicate[start - 1..start] == "." {
                 continue;
             }
             let name = predicate[start..index].to_string();
