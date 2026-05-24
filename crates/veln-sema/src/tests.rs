@@ -1910,6 +1910,76 @@ fn satisfy_candidate_reports_shadowing_and_unused_predicates() {
 }
 
 #[test]
+fn satisfy_predicate_is_checked_with_candidate_expected_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose(limit: Int) -> Int\n",
+            "  _value satisfy candidate => candidate > 0 and candidate <= limit\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+}
+
+#[test]
+fn satisfy_predicate_reports_non_boolean_candidate_expression() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose() -> Int\n",
+            "  _value satisfy candidate => candidate\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "hole.satisfy_type_mismatch"
+            && diagnostic.kind == DiagnosticKind::Hole
+            && diagnostic.message == "satisfy predicate is not `Bool`"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"actual_type\":\"Int\"")
+    }));
+}
+
+#[test]
+fn satisfy_predicate_reports_unresolved_names() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn choose() -> Int\n",
+            "  _value satisfy candidate => candidate == missing\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.kind == DiagnosticKind::Name
+            && diagnostic.message == "unresolved satisfy_predicate `missing`"
+    }));
+}
+
+#[test]
 fn propagates_try_expected_type_from_result_return() {
     let source = SourceFile::new(
         "main.veln",

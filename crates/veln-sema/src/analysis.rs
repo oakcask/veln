@@ -694,6 +694,14 @@ impl<'a> FunctionChecker<'a> {
         kind: ContractKind,
         predicate: &str,
     ) -> ContractValidation {
+        self.validate_predicate_with_bindings(predicate, &self.contract_bindings(kind))
+    }
+
+    fn validate_predicate_with_bindings(
+        &self,
+        predicate: &str,
+        bindings: &[Binding],
+    ) -> ContractValidation {
         let trimmed = predicate.trim();
         if trimmed.is_empty() {
             return ContractValidation::UnsupportedConstruct {
@@ -744,16 +752,12 @@ impl<'a> FunctionChecker<'a> {
                     if arg_calls.iter().any(|call| call.callee == name) {
                         continue;
                     }
-                    if self
-                        .contract_bindings(kind)
-                        .iter()
-                        .any(|binding| binding.name == name)
-                    {
+                    if bindings.iter().any(|binding| binding.name == name) {
                         continue;
                     }
                     return ContractValidation::UnresolvedName { name };
                 }
-                let actual_type = self.contract_arg_type(kind, arg);
+                let actual_type = self.predicate_arg_type(arg, bindings);
                 if !is_assignable(expected, &actual_type) {
                     return ContractValidation::UnsupportedConstruct {
                         reason: "call_argument_type",
@@ -768,11 +772,7 @@ impl<'a> FunctionChecker<'a> {
             if calls.iter().any(|call| call.callee == name) {
                 continue;
             }
-            if self
-                .contract_bindings(kind)
-                .iter()
-                .any(|binding| binding.name == name)
-            {
+            if bindings.iter().any(|binding| binding.name == name) {
                 continue;
             }
             return ContractValidation::UnresolvedName { name };
@@ -794,21 +794,19 @@ impl<'a> FunctionChecker<'a> {
                 }
             };
         }
-        if let Some((base_type, field)) =
-            missing_contract_field(trimmed, &self.contract_bindings(kind))
-        {
+        if let Some((base_type, field)) = missing_contract_field(trimmed, bindings) {
             return ContractValidation::MissingField { base_type, field };
         }
-        if predicate_is_boolean(trimmed, &self.contract_bindings(kind)) {
+        if predicate_is_boolean(trimmed, bindings) {
             ContractValidation::Valid
         } else {
             ContractValidation::NonBoolean {
-                actual_type: predicate_rendered_type(trimmed, &self.contract_bindings(kind)),
+                actual_type: predicate_rendered_type(trimmed, bindings),
             }
         }
     }
 
-    fn contract_arg_type(&self, kind: ContractKind, arg: &str) -> Type {
+    fn predicate_arg_type(&self, arg: &str, bindings: &[Binding]) -> Type {
         let trimmed = arg.trim();
         if trimmed.starts_with('"') {
             return Type::string();
@@ -832,14 +830,10 @@ impl<'a> FunctionChecker<'a> {
         let Some(base) = parts.next() else {
             return Type::Unknown;
         };
-        let Some(binding) = self
-            .contract_bindings(kind)
-            .into_iter()
-            .find(|binding| binding.name == base)
-        else {
+        let Some(binding) = bindings.iter().find(|binding| binding.name == base) else {
             return Type::Unknown;
         };
-        let mut current = binding.ty;
+        let mut current = binding.ty.clone();
         for field in parts {
             let Some(next) = current.record_field(field) else {
                 return Type::Unknown;
@@ -943,7 +937,7 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Missing => Type::Unknown,
             ExprKind::Hole { name, satisfy } => {
                 if let Some(satisfy) = satisfy {
-                    self.check_satisfy_clause(expr, satisfy);
+                    self.check_satisfy_clause(expr, satisfy, expected);
                 }
                 self.push_hole_diagnostic(expr, name.as_deref(), satisfy.as_ref(), expected);
                 expected
@@ -1926,7 +1920,12 @@ impl<'a> FunctionChecker<'a> {
         ));
     }
 
-    fn check_satisfy_clause(&mut self, expr: &Expr, satisfy: &SatisfyClause) {
+    fn check_satisfy_clause(
+        &mut self,
+        expr: &Expr,
+        satisfy: &SatisfyClause,
+        expected: Option<&ExpectedType>,
+    ) {
         let Some(candidate) = satisfy.candidate.as_deref() else {
             return;
         };
@@ -2001,6 +2000,84 @@ impl<'a> FunctionChecker<'a> {
                 ("span", span_json(&satisfy.span)),
             ]));
             self.diagnostics.push(diagnostic);
+        }
+
+        let mut predicate_bindings = self.bindings.clone();
+        predicate_bindings.push(Binding {
+            name: candidate.to_string(),
+            ty: expected
+                .map(|expected| expected.ty.clone())
+                .unwrap_or(Type::Unknown),
+        });
+        match self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings) {
+            ContractValidation::Valid => {}
+            ContractValidation::NonBoolean { actual_type } => {
+                self.diagnostics.push(Diagnostic::new(
+                    "hole.satisfy_type_mismatch",
+                    Severity::Error,
+                    DiagnosticKind::Hole,
+                    "satisfy predicate is not `Bool`",
+                    Some(satisfy.span.clone()),
+                    JsonValue::object([
+                        ("phase", JsonValue::string("hole")),
+                        ("node_id", JsonValue::string(expr.node_id.display("hole"))),
+                        ("candidate_binding", JsonValue::string(candidate)),
+                        (
+                            "predicate_text",
+                            JsonValue::string(satisfy.predicate.clone()),
+                        ),
+                        ("expected_type", JsonValue::string("Bool")),
+                        ("actual_type", JsonValue::string(actual_type)),
+                    ]),
+                ));
+            }
+            ContractValidation::UnsupportedConstruct { reason } => {
+                self.diagnostics.push(Diagnostic::new(
+                    "hole.satisfy_unsupported_construct",
+                    Severity::Error,
+                    DiagnosticKind::Hole,
+                    "satisfy predicate contains an unsupported construct",
+                    Some(satisfy.span.clone()),
+                    JsonValue::object([
+                        ("phase", JsonValue::string("hole")),
+                        ("node_id", JsonValue::string(expr.node_id.display("hole"))),
+                        ("candidate_binding", JsonValue::string(candidate)),
+                        (
+                            "predicate_text",
+                            JsonValue::string(satisfy.predicate.clone()),
+                        ),
+                        ("reason", JsonValue::string(reason)),
+                    ]),
+                ));
+            }
+            ContractValidation::MissingField { base_type, field } => {
+                self.diagnostics.push(Diagnostic::new(
+                    "hole.satisfy_field_missing",
+                    Severity::Error,
+                    DiagnosticKind::Hole,
+                    format!("satisfy field `{field}` is not present on `{base_type}`"),
+                    Some(satisfy.span.clone()),
+                    JsonValue::object([
+                        ("phase", JsonValue::string("hole")),
+                        ("node_id", JsonValue::string(expr.node_id.display("hole"))),
+                        ("candidate_binding", JsonValue::string(candidate)),
+                        (
+                            "predicate_text",
+                            JsonValue::string(satisfy.predicate.clone()),
+                        ),
+                        ("base_type", JsonValue::string(base_type)),
+                        ("field", JsonValue::string(field)),
+                    ]),
+                ));
+            }
+            ContractValidation::UnresolvedName { name } => {
+                self.push_unresolved_name(
+                    expr.node_id,
+                    satisfy.span.clone(),
+                    &name,
+                    "satisfy_predicate",
+                );
+            }
         }
     }
 

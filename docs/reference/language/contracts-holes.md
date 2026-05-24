@@ -100,3 +100,10 @@ compiler-known prelude helper names. Shadowing reports
 
 The predicate must reference the candidate binding at least once. A predicate
 that omits the candidate reports `hole.satisfy_candidate_unused`.
+
+After parsing, the checker validates a `satisfy` predicate against the same
+small pure boolean subset used by contracts. The candidate binding is visible
+inside that validation with the hole expected type when one is known. Invalid
+satisfy predicates report hole diagnostics for non-boolean predicates,
+unsupported constructs, or missing record fields, and report unresolved names
+with the `satisfy_predicate` namespace.

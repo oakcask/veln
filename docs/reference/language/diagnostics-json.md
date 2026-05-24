@@ -206,6 +206,13 @@ concrete but unapplied. The default `application_policy` remains
 `satisfy_status`, either `statically_satisfied` or
 `blocked_until_discharged`.
 
+Semantic satisfy diagnostics use hole diagnostic detail objects with
+`phase: "hole"`, `node_id`, `candidate_binding`, and `predicate_text`. Type mismatch
+details also include `expected_type` and `actual_type`; unsupported construct
+details include `reason`; missing field details include `base_type` and
+`field`. Unresolved names in satisfy predicates use the normal name diagnostic
+shape with `namespace: "satisfy_predicate"`.
+
 Doc diagnostic `details` are stable for doctest metadata diagnostics:
 
 - `kind: "doctest_metadata"`
