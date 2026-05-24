@@ -554,6 +554,12 @@ impl<'a> TypeParser<'a> {
             let Some(name) = self.parse_ident() else {
                 return Err("expected record field name".to_string());
             };
+            if fields
+                .iter()
+                .any(|(field_name, _): &(String, Type)| field_name == &name)
+            {
+                return Err(format!("duplicate record field `{name}`"));
+            }
             self.expect(':')?;
             let ty = self.parse_type()?;
             fields.push((name, ty));
@@ -892,6 +898,10 @@ mod tests {
             ("Int trailing", "unexpected `trailing`"),
             ("{ : Int }", "expected record field name"),
             ("{ name: String, }", "expected record field name"),
+            (
+                "{ value: Int, value: String }",
+                "duplicate record field `value`",
+            ),
             ("{ value Int }", "expected `:`"),
             ("fn(Int) Int", "expected `->` in function type"),
             ("fn(Int -> Int", "expected `)`"),

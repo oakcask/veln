@@ -33,6 +33,10 @@ Current duplicate checks reject:
   duplicate parameters
 - duplicate field names in one record literal
 
+Record type annotations also require unique field names. Duplicate record type
+fields are reported through invalid type annotation diagnostics because they are
+part of annotation parsing rather than value-name resolution.
+
 Module boundary checks reject `use` declarations when the source file has no
 `mod` declaration. The diagnostic is `module.missing_identity` at the first
 `use` declaration and includes a repair hint in `related`.

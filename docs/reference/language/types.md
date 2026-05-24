@@ -15,6 +15,9 @@ Implemented type annotations:
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
 
+One record type annotation cannot declare the same field name twice. A
+duplicate field in a record type annotation is an invalid type annotation.
+
 Public functions must annotate every parameter, annotate the return type, and
 provide an explicit `effects [...]` clause. Private functions may omit these
 annotations.
@@ -54,8 +57,8 @@ return type; effect lists are currently carried but not compared for
 function-type assignability.
 
 One record literal cannot declare the same field name twice. Duplicate record
-fields are name errors before record assignability chooses an expected field
-type.
+literal fields are name errors before record assignability chooses an expected
+field type.
 
 Dictionary literals infer `Dict(K, V)` from their expected type when available.
 Without an expected dictionary type, the first entry supplies the initial key
