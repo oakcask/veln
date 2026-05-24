@@ -58,9 +58,6 @@ stays in
   expression blockers, and selected-entry reachable-hole handling.
 - `veln run` currently selects a named zero-argument function. Entry arguments
   remain deferred.
-- The command checks semantic errors across the discovered module before
-  narrowing hole blocking to the entry-reachable module. This can be relaxed if
-  selected-entry execution needs to tolerate unrelated broken helpers.
 - Reachable-hole blocking currently follows the selected entry and direct
   function-name calls in expressions. Broader conservative handling for future
   higher-order values, module initializers, imports, and ambiguous graph edges

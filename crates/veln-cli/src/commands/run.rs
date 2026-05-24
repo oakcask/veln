@@ -7,7 +7,7 @@ use veln_ast::FunctionKind;
 use veln_backend_jvm::generate_java_with_entry;
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
-use veln_sema::{analyze_surface_module, lower_checked_surface_module};
+use veln_sema::lower_checked_surface_module;
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{compile_and_run_java, create_build_dir};
@@ -18,12 +18,6 @@ pub(crate) fn run_entry(entry: String, inputs: Vec<PathBuf>) -> Result<ExitCode,
     let project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
     let (module, diagnostics) = load_surface_module(&project);
 
-    if has_error(&diagnostics) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
-        return Ok(ExitCode::from(1));
-    }
-
-    let diagnostics = analyze_surface_module(&module);
     if has_error(&diagnostics) {
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
         return Ok(ExitCode::from(1));
@@ -43,6 +37,10 @@ pub(crate) fn run_entry(entry: String, inputs: Vec<PathBuf>) -> Result<ExitCode,
 
     let reachable_module = reachable_entry_module(&module, &entry, FunctionKind::Function);
     let lowered = lower_checked_surface_module(&reachable_module);
+    if has_error(&lowered.diagnostics) {
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
+        return Ok(ExitCode::from(1));
+    }
     let Some(ir) = lowered.ir else {
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
         eprintln!("veln: run blocked: checked program is not executable");

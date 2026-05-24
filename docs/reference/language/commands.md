@@ -39,16 +39,18 @@ attachment is implemented.
 ## `veln run <entry> [path ...]`
 
 `run` uses the same source discovery rule as `check`. Parse-clean files are
-combined into one surface module for entry resolution and semantic analysis. It
-blocks before user code execution on parse errors, semantic errors, a missing
-entry function, an entry function with parameters, reachable holes, or
+combined into one surface module for entry resolution. It blocks before user
+code execution on parse errors, a missing entry function, an entry function
+with parameters, selected-entry semantic errors, reachable holes, or
 checked-core blockers.
 
 The entry must be a discovered zero-argument function. The reachable program is
-lowered to checked core, then typed IR, then generated Java source. The command
-writes generated Java artifacts to an isolated temporary build directory,
-invokes `javac`, invokes `java`, forwards process stdout and stderr, and returns
-the Java process status for runtime failures.
+semantically checked, lowered to checked core, then typed IR, then generated
+Java source. Semantic diagnostics in functions unreachable from the selected
+entry do not block `run`. The command writes generated Java artifacts to an
+isolated temporary build directory, invokes `javac`, invokes `java`, forwards
+process stdout and stderr, and returns the Java process status for runtime
+failures.
 
 Missing `javac` or `java` is reported as a JDK setup error.
 

@@ -1007,6 +1007,36 @@ fn run_reports_semantic_diagnostics_before_lowering() {
 }
 
 #[test]
+fn run_ignores_unreachable_semantic_diagnostics() {
+    let project = TestProject::new("run-unreachable-semantic-diagnostics");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+            "fn later() -> Int effects []\n",
+            "  \"no\"\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run_with_path(&["main", "main.veln"], "");
+    let stderr = stderr(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr,
+        &["veln: `javac` was not found; install a JDK to use `veln run`"],
+    );
+    assert!(
+        !stderr.contains("type.mismatch"),
+        "unreachable diagnostic should not block run: {stderr}"
+    );
+}
+
+#[test]
 fn run_does_not_block_unreachable_holes_when_jdk_is_available() {
     if !jdk_is_available() {
         return;
