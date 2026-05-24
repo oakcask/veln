@@ -51,15 +51,19 @@ stdio::eprint(text: String) -> () effects [stdio]
 stdio::eprintln(text: String) -> () effects [stdio]
 ```
 
-Direct calls to these functions infer the `stdio` effect. A public function
-whose declared effects omit an inferred effect reports `effect.missing_public`
-with related provenance pointing at bounded call sites.
+Direct calls to these functions infer the `stdio` effect. Function signatures
+also carry effects inferred from their bodies, so a public function or test that
+calls a private helper whose body reaches `stdio` must declare `stdio` even when
+the helper omitted its own `effects` clause. Function-body effect inference
+follows direct function calls until a fixed point. Calls through a local binding
+with a function type infer the effects written in that function type.
 
-Transitive effect inference through helper functions is limited to discovered
-function signatures. Effect diagnostics include bounded structured provenance
-paths. Each path records the boundary entry, the effect-causing call entry,
-whether the path set was truncated, how many frames were hidden, and how many
-equivalent paths were omitted. For the current direct-call and signature-based
+A public function whose declared effects omit an inferred effect reports
+`effect.missing_public` with related provenance pointing at bounded call sites.
+Effect diagnostics include bounded structured provenance paths. Each path
+records the boundary entry, the effect-causing call entry, whether the path set
+was truncated, how many frames were hidden, and how many equivalent paths were
+omitted. For the current direct-call, signature-based, and body-inferred helper
 inference, hidden frame counts are zero.
 
 ## Prelude Helpers

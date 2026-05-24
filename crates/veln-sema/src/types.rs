@@ -1,4 +1,6 @@
-use veln_ast::{FunctionKind, NodeId, SurfaceModule};
+use std::collections::BTreeMap;
+
+use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, SurfaceModule};
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
@@ -219,11 +221,18 @@ impl Type {
             _ => None,
         }
     }
+
+    pub(crate) fn function_effects(&self) -> Option<&[String]> {
+        match self {
+            Self::Function { effects, .. } => Some(effects),
+            _ => None,
+        }
+    }
 }
 
 impl TypeEnvironment {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
-        let functions = module
+        let mut functions = module
             .functions
             .iter()
             .filter(|function| function.kind == FunctionKind::Function)
@@ -244,12 +253,165 @@ impl TypeEnvironment {
                     span: function.span.clone(),
                 })
             })
-            .collect();
+            .collect::<Vec<_>>();
+        infer_function_body_effects(module, &mut functions);
         Self { functions }
     }
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions.iter().find(|function| function.name == name)
+    }
+}
+
+fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [FunctionSignature]) {
+    let mut effects_by_name = functions
+        .iter()
+        .map(|function| (function.name.clone(), function.effects.clone()))
+        .collect::<BTreeMap<_, _>>();
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for function in module
+            .functions
+            .iter()
+            .filter(|function| function.kind == FunctionKind::Function)
+        {
+            let Some(name) = &function.name else {
+                continue;
+            };
+            let mut bindings = function
+                .params
+                .iter()
+                .map(|param| Binding {
+                    name: param.name.clone(),
+                    ty: parse_type_or_unknown(param.ty.as_deref()),
+                })
+                .collect::<Vec<_>>();
+            let mut inferred = effects_by_name.get(name).cloned().unwrap_or_default();
+            for line in &function.body {
+                match &line.kind {
+                    BodyLineKind::Let {
+                        name,
+                        annotation,
+                        expr,
+                    } => {
+                        collect_expr_effects(expr, &bindings, &effects_by_name, &mut inferred);
+                        if let Some(name) = name {
+                            bindings.push(Binding {
+                                name: name.clone(),
+                                ty: parse_type_or_unknown(annotation.as_deref()),
+                            });
+                        }
+                    }
+                    BodyLineKind::Expr { expr } => {
+                        collect_expr_effects(expr, &bindings, &effects_by_name, &mut inferred);
+                    }
+                }
+            }
+            if effects_by_name.get(name) != Some(&inferred) {
+                effects_by_name.insert(name.clone(), inferred);
+                changed = true;
+            }
+        }
+    }
+
+    for function in functions {
+        if let Some(effects) = effects_by_name.remove(&function.name) {
+            function.effects = effects;
+        }
+    }
+}
+
+fn collect_expr_effects(
+    expr: &Expr,
+    bindings: &[Binding],
+    effects_by_name: &BTreeMap<String, Vec<String>>,
+    inferred: &mut Vec<String>,
+) {
+    match &expr.kind {
+        ExprKind::Call { callee, args } => {
+            if let ExprKind::NamePath(segments) = &callee.kind {
+                if segments.as_slice().is_stdio_call() {
+                    push_unique_effect(inferred, "stdio");
+                } else if let Some(name) = segments.last() {
+                    for effect in effects_for_callee(name, bindings, effects_by_name) {
+                        push_unique_effect(inferred, effect);
+                    }
+                }
+            } else {
+                collect_expr_effects(callee, bindings, effects_by_name, inferred);
+            }
+            for arg in args {
+                collect_expr_effects(arg, bindings, effects_by_name, inferred);
+            }
+        }
+        ExprKind::FieldAccess { base, .. }
+        | ExprKind::Try(base)
+        | ExprKind::Prefix { expr: base, .. } => {
+            collect_expr_effects(base, bindings, effects_by_name, inferred);
+        }
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_expr_effects(&field.expr, bindings, effects_by_name, inferred);
+            }
+        }
+        ExprKind::Dict(entries) => {
+            for entry in entries {
+                collect_expr_effects(&entry.key, bindings, effects_by_name, inferred);
+                collect_expr_effects(&entry.value, bindings, effects_by_name, inferred);
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                collect_expr_effects(item, bindings, effects_by_name, inferred);
+            }
+        }
+        ExprKind::Binary { left, right, .. } => {
+            collect_expr_effects(left, bindings, effects_by_name, inferred);
+            collect_expr_effects(right, bindings, effects_by_name, inferred);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath(_)
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::Unit => {}
+    }
+}
+
+fn effects_for_callee<'a>(
+    name: &str,
+    bindings: &'a [Binding],
+    effects_by_name: &'a BTreeMap<String, Vec<String>>,
+) -> &'a [String] {
+    if let Some(binding) = bindings.iter().rev().find(|binding| binding.name == name) {
+        if let Some(effects) = binding.ty.function_effects() {
+            return effects;
+        }
+    }
+    effects_by_name.get(name).map_or(&[], Vec::as_slice)
+}
+
+fn push_unique_effect(effects: &mut Vec<String>, effect: &str) {
+    if !effects.iter().any(|existing| existing == effect) {
+        effects.push(effect.to_string());
+    }
+}
+
+trait StdioSegments {
+    fn is_stdio_call(&self) -> bool;
+}
+
+impl StdioSegments for [String] {
+    fn is_stdio_call(&self) -> bool {
+        matches!(
+            self,
+            [module, name]
+                if module == "stdio"
+                    && matches!(name.as_str(), "print" | "println" | "eprint" | "eprintln")
+        )
     }
 }
 

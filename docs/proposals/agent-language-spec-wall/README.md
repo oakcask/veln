@@ -29,7 +29,6 @@ current workspace. Implemented decisions were moved to
 - [Module Metadata Location](result-module-metadata-location.md)
 - [Runtime Contract Failure Reporting](result-runtime-contract-failure-reporting.md)
 - [Scoping and Name Resolution](result-scoping-and-name-resolution.md)
-- [Transitive Effect Diagnostics](result-transitive-effect-diagnostics.md)
 
 ## Classification Rule
 

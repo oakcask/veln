@@ -905,6 +905,64 @@ fn reports_missing_public_effect_with_call_provenance() {
 }
 
 #[test]
+fn infers_transitive_private_helper_effects_from_body() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn say(text: String) -> ()\n",
+            "  stdio::println(text)\n",
+            "end\n",
+            "fn greet(text: String) -> ()\n",
+            "  say(text)\n",
+            "end\n",
+            "pub fn main() -> () effects []\n",
+            "  greet(\"hello\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `stdio`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"inferred_effects\":[\"stdio\"]"));
+    assert!(details.contains("\"symbol\":\"greet\""));
+    assert_eq!(diagnostics[0].related.len(), 1);
+}
+
+#[test]
+fn function_typed_value_calls_infer_declared_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(callback: fn(String) -> () effects [stdio]) -> () effects []\n",
+            "  callback(\"hello\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `stdio`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"symbol\":\"callback\""));
+}
+
+#[test]
 fn effect_provenance_reports_omitted_equivalent_paths() {
     let source = SourceFile::new(
         "main.veln",

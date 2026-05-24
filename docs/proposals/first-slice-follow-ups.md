@@ -29,9 +29,8 @@ stays in
 ## Effects And Contracts
 
 - Direct stdio calls are recognized as compiler-known effectful prelude calls,
-  and effect diagnostics expose bounded path entries with hidden-frame and
-  omitted-path counts. Broader transitive helper inference beyond discovered
-  function signatures remains follow-up work.
+  private helper body effects propagate to callers, and effect diagnostics
+  expose bounded path entries with hidden-frame and omitted-path counts.
 - The checker validates the first-slice pure boolean contract subset, but
   runtime contract discharge remains deferred.
 - Contract predicates now parse through a dedicated first-slice predicate

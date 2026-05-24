@@ -48,6 +48,7 @@ read these records only for rationale or compatibility context.
 - [Stdio API and Output Events](result-stdio-api-and-output-events.md)
 - [Test Declaration Syntax](result-test-declaration-syntax.md)
 - [Test JSON Shape](result-test-json-shape.md)
+- [Transitive Effect Diagnostics](result-transitive-effect-diagnostics.md)
 - [User-Defined ADTs in the First Slice](result-user-defined-adts-first-slice.md)
 
 ## Boundary

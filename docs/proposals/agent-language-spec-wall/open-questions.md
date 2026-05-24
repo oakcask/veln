@@ -192,7 +192,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   source-level effect handler syntax deferred and internal operation/handler
   representation used by `run` and `test`.
 - Resolved by
-  [Transitive Effect Diagnostics](result-transitive-effect-diagnostics.md):
+  [Transitive Effect Diagnostics](../../reference/source-decisions/result-transitive-effect-diagnostics.md):
   transitive effects should be grouped by missing coarse label and displayed as
   bounded provenance slices rather than full transitive call graphs.
 

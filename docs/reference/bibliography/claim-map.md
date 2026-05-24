@@ -66,7 +66,7 @@
 - Claim: missing public effects should be reported by coarse effect label with
   bounded provenance slices rather than full transitive call graphs.
 - Discussion result:
-  [Transitive Effect Diagnostics](../../proposals/agent-language-spec-wall/result-transitive-effect-diagnostics.md)
+  [Transitive Effect Diagnostics](../source-decisions/result-transitive-effect-diagnostics.md)
 - Supporting references:
   `lucassen1988-polymorphic-effect-systems`,
   `talpin1994-type-effect-discipline`,

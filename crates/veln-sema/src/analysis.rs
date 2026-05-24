@@ -1156,6 +1156,7 @@ impl<'a> FunctionChecker<'a> {
                     .rev()
                     .find(|binding| binding.name == *name)?;
                 let (params, return_type) = binding.ty.function_parts()?;
+                let effects = binding.ty.function_effects().unwrap_or_default().to_vec();
                 Some((
                     params.to_vec(),
                     return_type.clone(),
@@ -1163,7 +1164,7 @@ impl<'a> FunctionChecker<'a> {
                         node_id: callee.node_id,
                         span: callee.span.clone(),
                         symbol: name.clone(),
-                        effects: Vec::new(),
+                        effects,
                     },
                 ))
             }

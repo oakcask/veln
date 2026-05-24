@@ -1,11 +1,11 @@
 # Discussion Result: Transitive Effect Diagnostics
 
-Status: accepted-proposal
-Implementation: partially implemented
+Status: implemented
 
 Current reference behavior implements bounded structured provenance paths for
-the direct-call and discovered-signature effect inference available in the
-first slice. Broader transitive helper inference remains follow-up work.
+the direct-call, discovered-signature, and body-inferred helper effect inference
+available in the first slice. Deeper provenance expansion beyond the bounded
+default remains follow-up work.
 
 ## Picked Question
 
