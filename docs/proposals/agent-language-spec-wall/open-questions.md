@@ -68,7 +68,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   immutable list and dictionary updates, ordinary traversal, `Option`/`Result`
   composition, and `list_try_map` as the concrete fallible traversal helper.
 - Resolved by
-  [Prelude Complexity Guarantees](result-prelude-complexity-guarantees.md):
+  [Prelude Complexity Guarantees](../../reference/source-decisions/result-prelude-complexity-guarantees.md):
   first-slice prelude helpers specify value semantics, source-order traversal,
   and `Result` short-circuiting, but leave asymptotic complexity
   non-normative until concrete container representations are chosen.

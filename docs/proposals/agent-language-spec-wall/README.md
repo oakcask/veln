@@ -29,7 +29,6 @@ current workspace. Implemented decisions were moved to
 - [Doctest Result Propagation](result-doctest-result-propagation.md)
 - [First-Slice Grammar](result-first-slice-grammar.md)
 - [Module Metadata Location](result-module-metadata-location.md)
-- [Prelude Complexity Guarantees](result-prelude-complexity-guarantees.md)
 - [Runtime Contract Failure Reporting](result-runtime-contract-failure-reporting.md)
 - [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md)
 - [Safe Repair Candidate Boundary](result-safe-repair-candidate-boundary.md)

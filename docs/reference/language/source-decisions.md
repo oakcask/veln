@@ -14,6 +14,7 @@ categorized specification files. The full implemented decision index is
 - [First-Slice Module Fields](../source-decisions/result-first-slice-module-fields.md)
 - [Stdio API and Output Events](../source-decisions/result-stdio-api-and-output-events.md)
 - [First-Slice Prelude Helpers](../source-decisions/result-first-slice-prelude-helpers.md)
+- [Prelude Complexity Guarantees](../source-decisions/result-prelude-complexity-guarantees.md)
 - [Minimum Type System for Holes](../source-decisions/result-minimum-type-system-for-holes.md)
 - [Hole Satisfy Source Syntax](../source-decisions/result-hole-satisfy-source-syntax.md)
 - [Postcondition Result Binding](../source-decisions/result-postcondition-result-binding.md)

@@ -90,4 +90,12 @@ result_and_then(value: Result(A, E), f: fn(A) -> Result(B, E)) -> Result(B, E)
 
 Container update helpers return new values. `list_try_map` evaluates items in
 source order, stops at the first `Err`, and otherwise returns `Ok` containing
-the mapped list in source order.
+the mapped list in source order. `list_map`, `list_filter`, and `list_fold`
+also visit list items in source order.
+
+The language specification does not promise asymptotic complexity, allocation
+counts, representation identity, structural sharing, hashing, or tree-balancing
+behavior for these helpers. Those are implementation details until a concrete
+container representation is specified. Tests should assert value semantics,
+source-order traversal, `Result` short-circuiting, diagnostics, and effect
+behavior rather than timings or allocation counts.

@@ -37,6 +37,7 @@ read these records only for rationale or compatibility context.
 - [Named Hole Syntax](result-named-hole-syntax.md)
 - [Pipeline Style](result-pipeline-style.md)
 - [Postcondition Result Binding](result-postcondition-result-binding.md)
+- [Prelude Complexity Guarantees](result-prelude-complexity-guarantees.md)
 - [Primary Check Command](result-primary-check-command.md)
 - [Public Function Type Boundaries](result-public-function-type-boundaries.md)
 - [Satisfy Unknown Severity](result-satisfy-unknown-severity.md)

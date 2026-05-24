@@ -306,7 +306,7 @@
   not promise asymptotic complexity before Veln chooses concrete persistent
   container representations.
 - Discussion result:
-  [Prelude Complexity Guarantees](../../proposals/agent-language-spec-wall/result-prelude-complexity-guarantees.md)
+  [Prelude Complexity Guarantees](../source-decisions/result-prelude-complexity-guarantees.md)
 - Supporting references:
   `okasaki1998-persistence`,
   `mcbride2008-applicative-programming`,
