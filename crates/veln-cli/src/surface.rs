@@ -252,17 +252,12 @@ fn direct_function_callees(function: &Function, function_names: &[String]) -> Ve
 
 fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mut Vec<String>) {
     match &expr.kind {
+        ExprKind::NamePath(segments) => {
+            collect_function_name_reference(segments, function_names, callees);
+        }
         ExprKind::Call { callee, args } => {
             if let ExprKind::NamePath(segments) = &callee.kind {
-                if let Some(name) = segments.last() {
-                    if function_names
-                        .iter()
-                        .any(|function_name| function_name == name)
-                        && !callees.iter().any(|callee| callee == name)
-                    {
-                        callees.push(name.clone());
-                    }
-                }
+                collect_function_name_reference(segments, function_names, callees);
             }
             collect_function_callees(callee, function_names, callees);
             for arg in args {
@@ -302,11 +297,27 @@ fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mu
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
-        | ExprKind::NamePath(_)
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)
         | ExprKind::Unit => {}
+    }
+}
+
+fn collect_function_name_reference(
+    segments: &[String],
+    function_names: &[String],
+    callees: &mut Vec<String>,
+) {
+    let Some(name) = segments.last() else {
+        return;
+    };
+    if function_names
+        .iter()
+        .any(|function_name| function_name == name)
+        && !callees.iter().any(|callee| callee == name)
+    {
+        callees.push(name.clone());
     }
 }
 
@@ -353,6 +364,34 @@ mod tests {
             vec![
                 (FunctionKind::Test, Some("foo")),
                 (FunctionKind::Function, Some("helper")),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_entry_can_reach_function_value_reference() {
+        let module = lower(concat!(
+            "test foo() -> () effects []\n",
+            "  list_map([1], stringify)\n",
+            "  ()\n",
+            "end\n",
+            "fn stringify(value: Int) -> String effects []\n",
+            "  \"ok\"\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "foo", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (FunctionKind::Test, Some("foo")),
+                (FunctionKind::Function, Some("stringify")),
             ]
         );
     }

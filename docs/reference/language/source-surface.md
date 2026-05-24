@@ -79,6 +79,8 @@ segment of the imported module path, so `use platform.io` declares the alias
 Public `fn` declarations are the implemented public API boundary. Dedicated
 export lists are not implemented. Function declarations can be referenced by
 bare name as callable values where a function-typed expression is expected.
+When a selected `run` or `test` entry uses a function declaration as a value,
+that referenced function is part of the selected executable slice.
 
 `test` is a top-level declaration keyword, not a visibility modifier. Test
 declarations are selected by `veln test`, require an empty parameter list,

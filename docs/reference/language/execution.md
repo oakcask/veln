@@ -7,6 +7,8 @@ This file specifies the implemented execution boundary.
 Checked core is produced only after semantic diagnostics have no errors. Typed
 IR is produced only when checked core is complete. Reachable holes, missing
 expressions, constructor arity gaps, and call arity gaps block executable IR.
+For selected `run` and `test` entries, reachability includes direct function
+calls and bare function declaration values used inside reachable expressions.
 
 The typed IR is runtime-neutral. JVM class names, Java method names, boxed
 runtime representation, generated artifact paths, and runtime helper layout are

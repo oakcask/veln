@@ -51,10 +51,10 @@ No accepted language and type coverage follow-up is currently tracked here.
 - Broader lowering stabilization still needs focused fixtures for
   function-typed value calls, missing expression blockers, and selected-entry
   reachable-hole handling.
-- Reachable-hole blocking currently follows the selected entry and direct
-  function-name calls in expressions. Broader conservative handling for future
-  higher-order values, module initializers, imports, and ambiguous graph edges
-  remains follow-up work.
+- Reachable-hole blocking follows the selected entry, direct function-name
+  calls, and bare function declaration values used in reachable expressions.
+  Broader conservative handling for future higher-order values, module
+  initializers, imports, and ambiguous graph edges remains follow-up work.
 - A persistent build cache remains deferred.
 
 ## Test Discovery And Events

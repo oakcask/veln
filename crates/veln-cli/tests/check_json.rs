@@ -1165,6 +1165,34 @@ fn run_blocks_reachable_holes_before_jdk_execution() {
 }
 
 #[test]
+fn run_blocks_holes_reachable_through_function_values_before_jdk_execution() {
+    let project = TestProject::new("run-function-value-hole");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> List(String) effects []\n",
+            "  list_map([1], stringify)\n",
+            "end\n",
+            "fn stringify(value: Int) -> String effects []\n",
+            "  _\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "hint[hole.unfilled]: hole requires a `String` value",
+            "veln: run blocked: checked program is not executable",
+        ],
+    );
+}
+
+#[test]
 fn run_reports_parse_diagnostics_before_semantic_analysis() {
     let project = TestProject::new("run-parse-diagnostics");
     project.write("main.veln", "fn main() -> ()\n  @\nend\n");
