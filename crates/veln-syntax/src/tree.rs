@@ -6,6 +6,7 @@ use crate::{BodyLine, FunctionDecl, ModuleDecl, SyntaxItem, Token, TokenKind, Us
 pub struct SyntaxTree {
     pub root: SyntaxNode,
     pub module: Option<ModuleDecl>,
+    pub adr_lite_records: Vec<crate::AdrLiteRecord>,
     pub uses: Vec<UseDecl>,
     pub items: Vec<SyntaxItem>,
 }

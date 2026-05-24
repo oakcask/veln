@@ -1,10 +1,13 @@
+use std::collections::BTreeMap;
+
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
 use crate::tree::build_lossless_root;
 use crate::{
-    BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry, Expr, ExprKind, FunctionDecl,
-    FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField, PatternKind, PrefixOp,
-    RecordField, SatisfyClause, SyntaxItem, SyntaxTree, Token, TokenKind, UseDecl, Visibility, lex,
+    AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
+    Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
+    PatternKind, PrefixOp, RecordField, SatisfyClause, SyntaxItem, SyntaxTree, Token, TokenKind,
+    UseDecl, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -86,6 +89,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse(mut self) -> ParseOutput {
+        self.eat_newlines();
         let module = if self.at(TokenKind::Mod) {
             Some(
                 self.parse_named_header(TokenKind::Mod, "module_declaration")
@@ -127,6 +131,9 @@ impl<'a> Parser<'a> {
             }
         }
 
+        let adr_lite_records =
+            collect_adr_lite_records(self.source, &self.lossless_tokens, module.as_ref(), &items);
+
         let root = build_lossless_root(
             self.lossless_tokens,
             self.source.len(),
@@ -139,6 +146,7 @@ impl<'a> Parser<'a> {
             tree: SyntaxTree {
                 root,
                 module,
+                adr_lite_records,
                 uses,
                 items,
             },
@@ -711,6 +719,131 @@ impl<'a> Parser<'a> {
         }
         token
     }
+}
+
+fn collect_adr_lite_records(
+    source: &SourceFile,
+    tokens: &[Token],
+    module: Option<&ModuleDecl>,
+    items: &[SyntaxItem],
+) -> Vec<AdrLiteRecord> {
+    let anchors = adr_lite_anchors(module, items);
+    let mut records = Vec::new();
+    let mut cursor = 0;
+
+    while cursor < tokens.len() {
+        let token = &tokens[cursor];
+        if token.kind != TokenKind::Comment || !is_adr_lite_marker(&doc_comment_text(token)) {
+            cursor += 1;
+            continue;
+        }
+
+        let start = token.range;
+        let mut end = token.range;
+        let mut fields = BTreeMap::<String, String>::new();
+        cursor += 1;
+
+        while cursor < tokens.len() {
+            match tokens[cursor].kind {
+                TokenKind::Whitespace | TokenKind::Newline => {
+                    cursor += 1;
+                }
+                TokenKind::Comment => {
+                    let content = doc_comment_text(&tokens[cursor]);
+                    if content.is_empty() {
+                        end = end.cover(tokens[cursor].range);
+                        cursor += 1;
+                        continue;
+                    }
+                    if content.starts_with('@') {
+                        break;
+                    }
+                    if let Some((key, value)) = content.split_once(':') {
+                        fields.insert(key.trim().to_string(), value.trim().to_string());
+                    }
+                    end = end.cover(tokens[cursor].range);
+                    cursor += 1;
+                }
+                _ => break,
+            }
+        }
+
+        let Some(id) = fields.remove("id") else {
+            continue;
+        };
+        let Some(status) = fields.remove("status") else {
+            continue;
+        };
+        let Some(scope) = fields.remove("scope") else {
+            continue;
+        };
+        let Some(context) = fields.remove("context") else {
+            continue;
+        };
+        let Some(decision) = fields.remove("decision") else {
+            continue;
+        };
+        let Some(consequences) = fields.remove("consequences") else {
+            continue;
+        };
+        let span = source.span(start.cover(end));
+        let anchor = anchors
+            .iter()
+            .find_map(|(offset, anchor)| (*offset >= span.end.offset).then(|| anchor.clone()));
+        records.push(AdrLiteRecord {
+            id,
+            status,
+            scope,
+            context,
+            decision,
+            consequences,
+            anchor,
+            span,
+        });
+    }
+
+    records
+}
+
+fn adr_lite_anchors(
+    module: Option<&ModuleDecl>,
+    items: &[SyntaxItem],
+) -> Vec<(usize, AdrLiteAnchor)> {
+    let mut anchors = Vec::new();
+    if let Some(module) = module {
+        anchors.push((
+            module.span.start.offset,
+            AdrLiteAnchor::Module {
+                name: module.name.clone(),
+            },
+        ));
+    }
+    for item in items {
+        let SyntaxItem::Function(function) = item;
+        if function.visibility == Visibility::Public {
+            if let Some(name) = &function.name {
+                anchors.push((
+                    function.span.start.offset,
+                    AdrLiteAnchor::Function { name: name.clone() },
+                ));
+            }
+        }
+    }
+    anchors.sort_by_key(|(offset, _)| *offset);
+    anchors
+}
+
+fn doc_comment_text(token: &Token) -> String {
+    token
+        .text
+        .strip_prefix("///")
+        .map(str::trim)
+        .unwrap_or_default()
+        .to_string()
+}
+
+fn is_adr_lite_marker(content: &str) -> bool {
+    matches!(content, "@adr" | "@adr-lite")
 }
 
 struct ExprParser<'a> {

@@ -146,7 +146,7 @@
   documentation comments attached to modules or public API declarations, with
   generated docs as a derived view rather than canonical language syntax.
 - Discussion result:
-  [ADR-Lite Decision Location](../../proposals/agent-language-spec-wall/result-adr-lite-decision-location.md)
+  [ADR-Lite Decision Location](../source-decisions/result-adr-lite-decision-location.md)
 - Supporting references:
   `parnas1972-module-criteria`,
   `deremer1976-programming-large-small`,

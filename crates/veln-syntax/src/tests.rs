@@ -119,6 +119,71 @@ fn lossless_tree_retains_trivia() {
 }
 
 #[test]
+fn parses_adr_lite_records_from_doc_comments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "/// @adr\n",
+            "/// id: order-summary\n",
+            "/// status: accepted\n",
+            "/// scope: pub fn summarize\n",
+            "/// context: Summaries need source-adjacent rationale.\n",
+            "/// decision: Keep the public API pure.\n",
+            "/// consequences: Runtime behavior ignores this record.\n",
+            "pub fn summarize() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(output.tree.adr_lite_records.len(), 1);
+    let record = &output.tree.adr_lite_records[0];
+    assert_eq!(record.id, "order-summary");
+    assert_eq!(record.status, "accepted");
+    assert_eq!(record.scope, "pub fn summarize");
+    assert_eq!(
+        record.anchor,
+        Some(AdrLiteAnchor::Function {
+            name: "summarize".to_string()
+        })
+    );
+    assert_eq!(format_tree(&output.tree), source.text());
+}
+
+#[test]
+fn anchors_adr_lite_records_to_modules() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "/// @adr-lite\n",
+            "/// id: module-boundary\n",
+            "/// status: accepted\n",
+            "/// scope: module\n",
+            "/// context: Module identity is compiler-visible.\n",
+            "/// decision: Keep the source header canonical.\n",
+            "/// consequences: Manifest metadata cannot rename the module.\n",
+            "mod app.core\n",
+            "fn helper() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(
+        output.tree.adr_lite_records[0].anchor,
+        Some(AdrLiteAnchor::Module {
+            name: "app.core".to_string()
+        })
+    );
+}
+
+#[test]
 fn lossless_tree_groups_declarations_for_formatting() {
     let text = concat!(
         "mod app\n",

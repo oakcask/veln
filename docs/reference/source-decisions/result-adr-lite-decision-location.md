@@ -1,6 +1,23 @@
 # Discussion Result: ADR-Lite Decision Location
 
-Status: accepted-proposal
+Status: implemented
+
+Implemented syntax:
+
+```text
+/// @adr
+/// id: decision-id
+/// status: accepted
+/// scope: pub fn example
+/// context: Brief context.
+/// decision: Brief decision.
+/// consequences: Brief consequences.
+```
+
+`@adr-lite` is accepted as an equivalent marker. The record is attached to the
+nearest following `mod` declaration or `pub fn` declaration when one exists.
+The parser exposes complete records as structured source metadata and the
+compiler ignores them for runtime semantics.
 
 ## Picked Question
 

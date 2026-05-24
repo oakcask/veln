@@ -261,7 +261,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   and public function effect declarations; keep purpose, invariants, examples,
   tests, and ADR-lite decisions optional.
 - Resolved by
-  [ADR-Lite Decision Location](result-adr-lite-decision-location.md):
+  [ADR-Lite Decision Location](../../reference/source-decisions/result-adr-lite-decision-location.md):
   ADR-lite decisions should be optional structured source documentation
   comments attached to modules, package documentation, or public API
   declarations, with generated docs as derived views rather than canonical

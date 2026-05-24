@@ -131,6 +131,28 @@ attach at most one expected-output fence for each stream. A second
 `doctest.duplicate_output` at the duplicate fence and leaves the first fence as
 the selected expectation.
 
+Documentation line comments may also contain ADR-lite records. A complete
+record starts with `/// @adr` or `/// @adr-lite` and then provides these fields
+as `key: value` doc-comment lines: `id`, `status`, `scope`, `context`,
+`decision`, and `consequences`.
+
+```veln
+/// @adr
+/// id: module-boundary
+/// status: accepted
+/// scope: module
+/// context: Module identity is compiler-visible.
+/// decision: Keep the source header canonical.
+/// consequences: Manifest metadata cannot rename the module.
+mod app.core
+```
+
+The parser exposes complete ADR-lite records as structured source metadata and
+attaches each record to the nearest following `mod` declaration or `pub fn`
+declaration when one exists. ADR-lite records are ignored for runtime
+semantics: they do not affect parsing of declarations, type checking,
+lowering, execution, or generated output.
+
 ## Expressions
 
 Implemented expressions:

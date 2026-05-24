@@ -15,10 +15,11 @@ current workspace. Implemented decisions were moved to
 - [../grammar-target.md](../grammar-target.md) is the consolidated accepted
   grammar target; it intentionally includes syntax beyond the current parser
   and backend.
+- [../../reference/source-decisions/result-adr-lite-decision-location.md](../../reference/source-decisions/result-adr-lite-decision-location.md)
+  records the implemented ADR-lite comment decision.
 
 ## Accepted Or Open Targets
 
-- [ADR-Lite Decision Location](result-adr-lite-decision-location.md)
 - [Channel-First Concurrency Runtime](result-channel-first-concurrency-runtime.md)
 - [Comparison Example Task](result-comparison-example-task.md)
 - [First-Slice Grammar](result-first-slice-grammar.md)

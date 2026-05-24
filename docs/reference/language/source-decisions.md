@@ -29,6 +29,7 @@ categorized specification files. The full implemented decision index is
 - [Doctest Expected Output Syntax](../source-decisions/result-doctest-expected-output-syntax.md)
 - [Doctest Result Propagation](../source-decisions/result-doctest-result-propagation.md)
 - [Safe Repair Candidate Boundary](../source-decisions/result-safe-repair-candidate-boundary.md)
+- [ADR-Lite Decision Location](../source-decisions/result-adr-lite-decision-location.md)
 - [AST Phase Boundary](../source-decisions/result-ast-phase-boundary.md)
 - [AST Implementation Representation](../source-decisions/result-ast-implementation-representation.md)
 - [Runtime Value Freeze Boundary](../source-decisions/result-runtime-value-freeze-boundary.md)

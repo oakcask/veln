@@ -6,6 +6,24 @@ pub struct ModuleDecl {
     pub span: SourceSpan,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdrLiteRecord {
+    pub id: String,
+    pub status: String,
+    pub scope: String,
+    pub context: String,
+    pub decision: String,
+    pub consequences: String,
+    pub anchor: Option<AdrLiteAnchor>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AdrLiteAnchor {
+    Module { name: String },
+    Function { name: String },
+}
+
 #[derive(Clone, Debug)]
 pub struct UseDecl {
     pub name: String,
