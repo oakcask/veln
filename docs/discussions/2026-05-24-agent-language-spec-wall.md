@@ -58,7 +58,8 @@ one agent-facing product surface.
   use a small line-oriented, keyword-delimited, expression-centered grammar with
   explicit public signatures, public effect declarations, records, lists,
   `match`, holes, plain and qualified calls, pipelines, and `end`-closed
-  blocks.
+  blocks. The current consolidated grammar is
+  [reference/grammar.md](../reference/grammar.md).
 - [JSON Diagnostic Schema Stability](2026-05-24-agent-language-spec-wall/result-json-diagnostic-schema-stability.md):
   use a stable top-level diagnostic envelope while allowing prototype
   kind-specific `details` payloads to change.
@@ -83,6 +84,9 @@ one agent-facing product surface.
   make `veln test --json` one run-level native JSON result with deterministic
   summary counts, gate diagnostics, suite errors, per-case records, and captured
   events.
+- [Test Declaration Syntax](2026-05-24-agent-language-spec-wall/result-test-declaration-syntax.md):
+  mark user-authored executable test cases with a dedicated top-level `test`
+  declaration instead of promoting ordinary zero-argument `fn` declarations.
 - [Affected Test Selection](2026-05-24-agent-language-spec-wall/result-affected-test-selection.md):
   before a full dependency graph exists, automatic test selection should widen
   when evidence is incomplete and report selection confidence.

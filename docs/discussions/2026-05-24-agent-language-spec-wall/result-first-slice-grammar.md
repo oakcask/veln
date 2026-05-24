@@ -29,120 +29,13 @@ anonymous functions, custom operators, and dictionary literals. Dictionary
 types may appear in signatures as `Dict(K, V)`, but literal syntax should wait
 until examples show a repair-loop need.
 
-## Grammar Sketch
+## Canonical Grammar
 
-This sketch is normative for the first implementation unless a later result
-replaces it. It names productions for implementers; it is not a user tutorial.
-
-```text
-Module        ::= ModDecl? UseDecl* Item*
-ModDecl       ::= "mod" ModuleName NL
-UseDecl       ::= "use" ModuleName NL
-Item          ::= FunctionDecl
-
-ModuleName    ::= Name ("." Name)*
-QualName      ::= Name ("::" Name)*
-
-FunctionDecl  ::= Visibility? "fn" Name Params Return EffectDecl? NL
-                  ContractClause*
-                  Block
-                  "end" NL?
-Visibility    ::= "pub"
-Params        ::= "(" ParamList? ")"
-ParamList     ::= Param ("," Param)* ","?
-Param         ::= Name ":" Type
-Return        ::= "->" (Name ":")? Type
-EffectDecl    ::= "effects" "[" EffectList? "]"
-EffectList    ::= EffectName ("," EffectName)* ","?
-
-ContractClause ::= ("require" | "ensure") ContractPredicate NL
-
-Block         ::= Stmt* Expr? NL?
-Stmt          ::= LetStmt NL
-LetStmt       ::= "let" Pattern (":" Type)? "=" Expr
-
-Expr          ::= Pipeline
-Pipeline      ::= OrExpr ("|>" PipeTarget)*
-PipeTarget    ::= Call
-OrExpr        ::= AndExpr ("or" AndExpr)*
-AndExpr       ::= Equality ("and" Equality)*
-Equality      ::= Compare (("==" | "!=") Compare)*
-Compare       ::= Add (("<" | "<=" | ">" | ">=") Add)*
-Add           ::= Mul (("+" | "-") Mul)*
-Mul           ::= Prefix (("*" | "/") Prefix)*
-Prefix        ::= ("not" | "-") Prefix | Postfix
-Postfix       ::= Primary ("?" | "." Name)*
-Primary       ::= Literal
-                | Name
-                | Hole
-                | Call
-                | Record
-                | List
-                | Match
-                | "(" Expr ")"
-Call          ::= QualName "(" ArgList? ")"
-ArgList       ::= Expr ("," Expr)* ","?
-
-Record        ::= "{" FieldList? "}"
-FieldList     ::= Field ("," Field)* ","?
-Field         ::= Name ":" Expr
-List          ::= "[" ArgList? "]"
-
-Match         ::= "match" Expr NL MatchArm+ "end"
-MatchArm      ::= Pattern "=>" Expr NL
-Pattern       ::= "_"
-                | BindingName
-                | Literal
-                | ConstructorPattern
-                | "{" PatternFieldList? "}"
-ConstructorPattern ::= ConstructorName "(" PatternList? ")"
-                     | ConstructorName
-ConstructorName ::= UpperName | QualifiedName
-QualifiedName   ::= Name "::" Name ("::" Name)*
-BindingName     ::= LowerName
-PatternList    ::= Pattern ("," Pattern)* ","?
-PatternFieldList ::= PatternField ("," PatternField)* ","?
-PatternField  ::= Name ":" Pattern
-
-Hole          ::= "_" | "_" Name
-
-Type          ::= TypePath
-                | TypePath "(" TypeList? ")"
-                | "{" TypeFieldList? "}"
-                | FunctionType
-TypePath      ::= QualName
-FunctionType  ::= "fn" "(" TypeList? ")" "->" Type FunctionTypeEffect?
-FunctionTypeEffect ::= EffectDecl
-TypeList      ::= Type ("," Type)* ","?
-TypeFieldList ::= TypeField ("," TypeField)* ","?
-TypeField     ::= Name ":" Type
-
-ContractPredicate ::= ContractOr
-ContractOr     ::= ContractAnd ("or" ContractAnd)*
-ContractAnd    ::= ContractEquality ("and" ContractEquality)*
-ContractEquality ::= ContractCompare (("==" | "!=") ContractCompare)*
-ContractCompare ::= ContractAdd (("<" | "<=" | ">" | ">=") ContractAdd)*
-ContractAdd    ::= ContractMul (("+" | "-") ContractMul)*
-ContractMul    ::= ContractPrefix (("*" | "/") ContractPrefix)*
-ContractPrefix ::= ("not" | "-") ContractPrefix | ContractPostfix
-ContractPostfix ::= ContractPrimary ("." Name)*
-ContractPrimary ::= Literal
-                  | Name
-                  | ContractCall
-                  | "(" ContractPredicate ")"
-ContractCall    ::= QualName "(" ContractArgList? ")"
-ContractArgList ::= ContractPredicate ("," ContractPredicate)* ","?
-```
-
-`UpperName` is a name that starts with an uppercase letter. `LowerName` is a
-name that does not start with an uppercase letter. A qualified name in pattern
-position is treated as a constructor name regardless of the final segment's
-case.
-
-The lexer treats newlines outside grouping forms as separators. Indentation is
-not parse structure; `veln fmt` owns indentation. Grouping forms are
-parentheses, brackets, braces, function declarations before their closing
-`end`, and `match` expressions before their closing `end`.
+The canonical grammar now lives in
+[Veln First-Slice Grammar](../../reference/grammar.md). This discussion result
+records the original decision and rationale; later grammar updates such as
+`test` declarations and hole `satisfy` clauses are consolidated in the
+reference document.
 
 ## Rationale
 
@@ -218,8 +111,11 @@ calls, records, lists, matches, and tail positions.
 ## Open Details
 
 This decision does not freeze the final concrete syntax for package manifests,
-foreign declarations, tests, doctest fences, dictionary literals, or future
-user-defined data type declarations.
+foreign declarations, doctest fences, dictionary literals, or future
+user-defined data type declarations. Test declaration syntax is resolved by
+[Test Declaration Syntax](result-test-declaration-syntax.md), which adds a
+top-level `test` item and supersedes treating ordinary zero-argument `fn`
+declarations as durable test syntax.
 
 Record expressions and record patterns intentionally require explicit
 `name: value` and `name: pattern` fields in the first slice. Shorthand fields,

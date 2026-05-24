@@ -1,5 +1,6 @@
 use veln_ast::{BinaryOp, NodeId, PrefixOp, Visibility};
 use veln_core::CoreType;
+use veln_source::SourceSpan;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct TypedProgram {
@@ -50,6 +51,7 @@ pub struct IrExpr {
     pub node_id: NodeId,
     pub ty: CoreType,
     pub kind: IrExprKind,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug, PartialEq)]

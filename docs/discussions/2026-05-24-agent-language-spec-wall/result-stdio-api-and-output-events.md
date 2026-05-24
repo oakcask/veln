@@ -108,9 +108,10 @@ the primary capture record structured enough for diagnostics and repair.
 ## Open Details
 
 The first slice does not define source syntax for asserting on captured output.
-That can be decided with the first test declaration syntax. This decision only
-requires the runtime and test runner to preserve enough structured data for
-future assertions and failure reports.
+[Test Declaration Syntax](result-test-declaration-syntax.md) defines how test
+cases are marked, but output assertions remain a separate decision. This
+decision only requires the runtime and test runner to preserve enough
+structured data for future assertions and failure reports.
 
 The first slice does not decide whether later formatted output uses pure
 formatting helpers, a display protocol, or overload-like resolution. Any later

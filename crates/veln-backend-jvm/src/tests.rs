@@ -38,7 +38,7 @@ fn generates_program_and_runtime_sources_for_result_try_and_stdio() {
     assert!(program.contains("Object __try0 = fn_parse(p_raw);"));
     assert!(program.contains("if (VelnRuntime.isErr(__try0))"));
     assert!(program.contains("Object v_value = VelnRuntime.unwrapOk(__try0);"));
-    assert!(program.contains("VelnRuntime.stdioPrintln(\"ok\");"));
+    assert!(program.contains("VelnRuntime.stdioPrintln(\"ok\", \"call-"));
     assert!(program.contains("return VelnRuntime.ok(VelnRuntime.UNIT);"));
     assert!(runtime.contains("public static final class Result"));
     assert!(runtime.contains("public static final class Option"));

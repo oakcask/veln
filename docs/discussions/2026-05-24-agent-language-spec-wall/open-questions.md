@@ -101,6 +101,10 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   expression-centered grammar with explicit public signatures, public effect
   declarations, records, lists, `match`, holes, plain and qualified calls,
   pipelines, and `end`-closed blocks.
+- Resolved by [Test Declaration Syntax](result-test-declaration-syntax.md):
+  user-authored executable test cases should use a dedicated top-level `test`
+  declaration instead of being inferred from ordinary zero-argument `fn`
+  declarations.
 
 ## Types and Inference
 
@@ -219,6 +223,9 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   should emit one run-level native JSON result with deterministic summary
   counts, top-level gate diagnostics, suite errors, per-case records, and
   captured events.
+- Resolved by [Test Declaration Syntax](result-test-declaration-syntax.md):
+  `veln test` should select explicit `test` declarations and executable
+  doctest examples, not ordinary `fn` declarations by arity alone.
 - Resolved by [Primary Check Command](result-primary-check-command.md):
   `check` should be the primary read-only agent command that combines parse,
   type, contract, effect, lint, doc drift, and hole diagnostics.

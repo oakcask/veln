@@ -7,6 +7,8 @@ the experimental Veln implementation.
 
 - [reviews/2026-05-24-first-slice-gap-review.md](reviews/2026-05-24-first-slice-gap-review.md)
   is the current implementation gap review for the first slice.
+- [reference/grammar.md](reference/grammar.md) is the canonical first-slice
+  source grammar.
 - [phases/first-slice-implementation.md](phases/first-slice-implementation.md)
   is the current implementation memo for the first slice.
 - [discussions/2026-05-24-agent-language-spec-wall.md](discussions/2026-05-24-agent-language-spec-wall.md)
@@ -17,8 +19,7 @@ the experimental Veln implementation.
 
 - Put exploratory discussion logs in `discussions/`.
 - Put implementation review findings and correction lists in `reviews/`.
-- Keep stable language decisions short and promote them to a future `reference/`
-  document when they stop changing.
+- Put stable language reference material in `reference/`.
 - Prefer small, dated files so later agents can read only the relevant context.
 - When a discussion accumulates decision results, keep the dated entry file as
   an index and move each result body into a companion detail directory.

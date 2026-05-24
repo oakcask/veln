@@ -10,11 +10,12 @@ use veln_project::Project;
 use veln_sema::{analyze_surface_module, lower_checked_surface_module};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
-    discover_test_cases, selected_test_files, stdio_events_from_output,
+    discover_test_cases, selected_test_files, stdio_call_spans, stdio_events_from_output,
+    stdio_events_from_trace,
 };
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
-use crate::java::{JavaRunResult, compile_and_run_java_capture, create_build_dir};
+use crate::java::{JavaRunResult, compile_and_run_java_capture_with_env, create_build_dir};
 use crate::surface::{load_surface_module, reachable_entry_module};
 
 pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String> {
@@ -79,7 +80,10 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
 
     let java = generate_java_with_entry(&ir, &case.name);
     let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
-    let result = compile_and_run_java_capture(&build_dir, &java, "veln test");
+    let event_file = build_dir.join("stdio-events.tsv");
+    let event_env = [("VELN_STDIO_EVENTS", event_file.as_os_str())];
+    let result = compile_and_run_java_capture_with_env(&build_dir, &java, "veln test", &event_env);
+    let event_trace = fs::read_to_string(&event_file).unwrap_or_default();
     let cleanup_result = fs::remove_dir_all(&build_dir);
     if let Err(error) = cleanup_result {
         eprintln!(
@@ -101,7 +105,12 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
         }
     };
 
-    case.events = stdio_events_from_output(&output, &case.source);
+    let call_spans = stdio_call_spans(&reachable_module);
+    case.events = if event_trace.is_empty() {
+        stdio_events_from_output(&output, &case.source)
+    } else {
+        stdio_events_from_trace(&event_trace, &call_spans, &case.source)
+    };
     if output.status.success() {
         case.status = TestCaseStatus::Passed;
     } else {

@@ -4,10 +4,10 @@
 //! use veln_test as _;
 //! ```
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::process::Output;
 
-use veln_ast::SurfaceModule;
+use veln_ast::{BodyLineKind, Expr, ExprKind, SurfaceModule};
 use veln_diagnostics::{Diagnostic, JsonValue, Severity, diagnostic_to_json};
 use veln_project::Project;
 use veln_source::{LineCol, SourceSpan};
@@ -61,27 +61,58 @@ pub fn discover_test_cases(module: &SurfaceModule, test_files: &BTreeSet<String>
         .collect()
 }
 
+pub fn stdio_call_spans(module: &SurfaceModule) -> BTreeMap<(String, String), SourceSpan> {
+    let mut spans = BTreeMap::new();
+    for function in &module.functions {
+        for line in &function.body {
+            match &line.kind {
+                BodyLineKind::Let { expr, .. } | BodyLineKind::Expr { expr } => {
+                    collect_stdio_call_spans(expr, &mut spans);
+                }
+            }
+        }
+    }
+    spans
+}
+
 pub fn stdio_events_from_output(output: &Output, source: &TestCaseSource) -> Vec<JsonValue> {
     let mut events = Vec::new();
     let stdout = String::from_utf8_lossy(&output.stdout);
     if !stdout.is_empty() {
         events.push(stdio_event(
             "stdout",
+            "print",
             stdout.as_ref(),
+            "none",
             events.len() + 1,
-            source,
+            &source.node_id,
+            &source.span,
         ));
     }
     let stderr = String::from_utf8_lossy(&output.stderr);
     if !stderr.is_empty() {
         events.push(stdio_event(
             "stderr",
+            "print",
             stderr.as_ref(),
+            "none",
             events.len() + 1,
-            source,
+            &source.node_id,
+            &source.span,
         ));
     }
     events
+}
+
+pub fn stdio_events_from_trace(
+    trace: &str,
+    call_spans: &BTreeMap<(String, String), SourceSpan>,
+    fallback_source: &TestCaseSource,
+) -> Vec<JsonValue> {
+    trace
+        .lines()
+        .filter_map(|line| stdio_event_from_trace_line(line, call_spans, fallback_source))
+        .collect()
 }
 
 pub fn test_run_status(
@@ -118,16 +149,132 @@ fn has_error(diagnostics: &[Diagnostic]) -> bool {
         .any(|diagnostic| diagnostic.severity == Severity::Error)
 }
 
-fn stdio_event(stream: &str, text: &str, sequence: usize, source: &TestCaseSource) -> JsonValue {
+fn collect_stdio_call_spans(expr: &Expr, spans: &mut BTreeMap<(String, String), SourceSpan>) {
+    match &expr.kind {
+        ExprKind::Call { callee, args } => {
+            if is_stdio_callee(callee) {
+                spans.insert(
+                    (
+                        expr.span.file.as_str().to_string(),
+                        expr.node_id.display("call"),
+                    ),
+                    expr.span.clone(),
+                );
+            }
+            collect_stdio_call_spans(callee, spans);
+            for arg in args {
+                collect_stdio_call_spans(arg, spans);
+            }
+        }
+        ExprKind::Try(inner) => collect_stdio_call_spans(inner, spans),
+        ExprKind::Record(fields) => {
+            for field in fields {
+                collect_stdio_call_spans(&field.expr, spans);
+            }
+        }
+        ExprKind::List(items) => {
+            for item in items {
+                collect_stdio_call_spans(item, spans);
+            }
+        }
+        ExprKind::Prefix { expr, .. } => collect_stdio_call_spans(expr, spans),
+        ExprKind::Binary { left, right, .. } => {
+            collect_stdio_call_spans(left, spans);
+            collect_stdio_call_spans(right, spans);
+        }
+        ExprKind::Missing
+        | ExprKind::Hole { .. }
+        | ExprKind::NamePath(_)
+        | ExprKind::StringLiteral(_)
+        | ExprKind::IntLiteral(_)
+        | ExprKind::FloatLiteral(_)
+        | ExprKind::Unit => {}
+    }
+}
+
+fn is_stdio_callee(expr: &Expr) -> bool {
+    matches!(
+        &expr.kind,
+        ExprKind::NamePath(segments)
+            if matches!(
+                segments.as_slice(),
+                [module, name]
+                    if module == "stdio"
+                        && matches!(name.as_str(), "print" | "println" | "eprint" | "eprintln")
+            )
+    )
+}
+
+fn stdio_event_from_trace_line(
+    line: &str,
+    call_spans: &BTreeMap<(String, String), SourceSpan>,
+    fallback_source: &TestCaseSource,
+) -> Option<JsonValue> {
+    let mut fields = line.splitn(7, '\t');
+    let sequence = fields.next()?.parse::<usize>().ok()?;
+    let stream = fields.next()?;
+    let operation = fields.next()?;
+    let terminator = fields.next()?;
+    let node_id = fields.next()?;
+    let source_file = fields.next()?;
+    let text = decode_hex_text(fields.next()?)?;
+    let node_id = if node_id.is_empty() {
+        fallback_source.node_id.as_str()
+    } else {
+        node_id
+    };
+    let source_file = if source_file.is_empty() {
+        fallback_source.file.as_str()
+    } else {
+        source_file
+    };
+    let span = call_spans
+        .get(&(source_file.to_string(), node_id.to_string()))
+        .unwrap_or(&fallback_source.span);
+    Some(stdio_event(
+        stream, operation, &text, terminator, sequence, node_id, span,
+    ))
+}
+
+fn decode_hex_text(hex: &str) -> Option<String> {
+    if hex.len() % 2 != 0 {
+        return None;
+    }
+    let mut bytes = Vec::with_capacity(hex.len() / 2);
+    let mut chars = hex.chars();
+    while let (Some(high), Some(low)) = (chars.next(), chars.next()) {
+        bytes.push((hex_digit(high)? << 4) | hex_digit(low)?);
+    }
+    String::from_utf8(bytes).ok()
+}
+
+fn hex_digit(character: char) -> Option<u8> {
+    match character {
+        '0'..='9' => Some(character as u8 - b'0'),
+        'a'..='f' => Some(character as u8 - b'a' + 10),
+        'A'..='F' => Some(character as u8 - b'A' + 10),
+        _ => None,
+    }
+}
+
+fn stdio_event(
+    stream: &str,
+    operation: &str,
+    text: &str,
+    terminator: &str,
+    sequence: usize,
+    node_id: &str,
+    span: &SourceSpan,
+) -> JsonValue {
     JsonValue::object([
         ("kind", JsonValue::string("stdio")),
         ("stream", JsonValue::string(stream)),
-        ("operation", JsonValue::string("print")),
+        ("operation", JsonValue::string(operation)),
         ("text", JsonValue::string(text)),
-        ("terminator", JsonValue::string("none")),
+        ("terminator", JsonValue::string(terminator)),
         ("sequence", JsonValue::Number(sequence as i64)),
-        ("node_id", JsonValue::string(source.node_id.clone())),
-        ("span", source_span_to_json(&source.span)),
+        ("node_id", JsonValue::string(node_id)),
+        ("span", source_span_to_json(span)),
     ])
 }
 
@@ -518,6 +665,46 @@ mod tests {
         );
         assert!(events[1].to_json().contains("\"sequence\":2"));
         assert!(events[1].to_json().contains("\"stream\":\"stderr\""));
+    }
+
+    #[test]
+    fn stdio_trace_events_preserve_operation_terminator_and_call_span() {
+        let module = module(concat!(
+            "fn first() -> () effects [stdio]\n",
+            "  stdio::println(\"out\")\n",
+            "  stdio::eprint(\"err\")\n",
+            "  ()\n",
+            "end\n",
+        ));
+        let call_spans = stdio_call_spans(&module);
+        let call_keys = call_spans.keys().cloned().collect::<Vec<_>>();
+        let call_ids = call_keys
+            .iter()
+            .map(|(_, node_id)| node_id.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(call_ids.len(), 2);
+        let source = TestCaseSource {
+            file: "main_test.veln".to_string(),
+            node_id: "fn-1".to_string(),
+            span: module.functions[0].span.clone(),
+        };
+        let trace = format!(
+            "1\tstdout\tprintln\tnewline\t{}\t{}\t6f75740a\n2\tstderr\teprint\tnone\t{}\t{}\t657272\n",
+            call_keys[0].1, call_keys[0].0, call_keys[1].1, call_keys[1].0
+        );
+
+        let events = stdio_events_from_trace(&trace, &call_spans, &source);
+
+        assert_eq!(events.len(), 2);
+        let first_event = events[0].to_json();
+        assert!(first_event.contains("\"operation\":\"println\""));
+        assert!(first_event.contains("\"text\":\"out\\n\""));
+        assert!(first_event.contains("\"terminator\":\"newline\""));
+        assert!(first_event.contains(&format!("\"node_id\":\"{}\"", call_ids[0])));
+        assert!(first_event.contains("\"file\":\"main_test.veln\""));
+        assert!(first_event.contains("\"start\":{\"line\":2,\"column\":3"));
+        assert!(events[1].to_json().contains("\"operation\":\"eprint\""));
+        assert!(events[1].to_json().contains("\"terminator\":\"none\""));
     }
 
     #[cfg(unix)]

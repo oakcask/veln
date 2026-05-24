@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
@@ -31,6 +32,15 @@ pub(crate) fn compile_and_run_java_capture(
     java: &veln_backend_jvm::JavaProgram,
     command_name: &str,
 ) -> Result<JavaRunResult, String> {
+    compile_and_run_java_capture_with_env(build_dir, java, command_name, &[])
+}
+
+pub(crate) fn compile_and_run_java_capture_with_env(
+    build_dir: &Path,
+    java: &veln_backend_jvm::JavaProgram,
+    command_name: &str,
+    java_env: &[(&str, &OsStr)],
+) -> Result<JavaRunResult, String> {
     for source in &java.sources {
         fs::write(build_dir.join(&source.path), &source.contents)
             .map_err(|error| error.to_string())?;
@@ -56,11 +66,12 @@ pub(crate) fn compile_and_run_java_capture(
         )));
     }
 
-    let java_output = ProcessCommand::new("java")
-        .arg("-cp")
-        .arg(build_dir)
-        .arg("VelnEntry")
-        .output();
+    let mut command = ProcessCommand::new("java");
+    command.arg("-cp").arg(build_dir).arg("VelnEntry");
+    for (name, value) in java_env {
+        command.env(name, value);
+    }
+    let java_output = command.output();
     let java_output = match java_output {
         Ok(output) => output,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {

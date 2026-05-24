@@ -28,10 +28,12 @@ roots remain manifest-owned future work rather than hidden command behavior.
 
 Entry points must be explicit for `run` unless exactly one executable public
 `main`-shaped function is discovered. Test discovery starts with explicit test
-targets, same-file executable examples, and source-relative `*_test.veln`
-files. Automatic narrowing is allowed only when this evidence is complete for
-the discovered source set; otherwise `test` widens and reports the missing
-evidence.
+targets, source-declared test cases, same-file executable examples, and
+source-relative `*_test.veln` files as an organization convention. Automatic
+narrowing is allowed only when this evidence is complete for the discovered
+source set; otherwise `test` widens and reports the missing evidence. The
+source spelling for user-authored test cases is resolved by
+[Test Declaration Syntax](result-test-declaration-syntax.md).
 
 ## Rationale
 
@@ -82,8 +84,9 @@ tool can state why the selected tests cover the edited scope.
   or to the explicit single-file target's containing directory.
 - `run` requires an explicit entry point unless exactly one executable public
   `main`-shaped function is discovered.
-- `test` discovers explicit test targets first, then same-file executable
-  examples, then source-relative `*_test.veln` files.
+- `test` discovers explicit test targets first, then source-declared test
+  cases, then same-file executable examples, then source-relative `*_test.veln`
+  files as an organization convention.
 - Automatic affected-test narrowing must reuse the discovered source set and
   import evidence. If evidence is incomplete, `test` widens to all discovered
   tests and reports `selection_confidence: "partial"` or `"unknown"`.

@@ -733,7 +733,9 @@ Item 9 completion gate status:
 - Complete: explicit targets select zero-argument functions in the selected
   files. With no targets, selection is restricted to zero-argument functions in
   discovered `*_test.veln` files. Public and private zero-argument functions
-  are both eligible test cases.
+  are both eligible test cases. This is the implemented bootstrap behavior, not
+  the durable source syntax; [Test Declaration Syntax](../discussions/2026-05-24-agent-language-spec-wall/result-test-declaration-syntax.md)
+  replaces it with explicit top-level `test` declarations for future work.
 - Complete for the first-slice same-file example boundary: explicitly targeted
   non-`*_test.veln` files can be run as test files by selecting their
   zero-argument functions. Comment/docblock example extraction remains later
@@ -769,7 +771,9 @@ Item 9 review notes:
 - Same-file examples are complete only at the current first-slice boundary:
   an explicitly targeted non-test file contributes its zero-argument functions
   as cases. Parsed docblock/example extraction, expected-output examples, and
-  automatic same-file example discovery remain follow-up work.
+  automatic same-file example discovery remain follow-up work. Future test
+  discovery should select explicit `test` declarations rather than ordinary
+  zero-argument `fn` declarations.
 - Static gate behavior is acceptable for this slice. Parse and semantic errors
   block the suite before Java execution, reachable holes and checked-core
   blockers block selected cases, runtime failures become failed cases, and JDK

@@ -215,23 +215,49 @@ impl<'a> ProgramEmitter<'a> {
         );
     }}
 
+    private static int stdioSequence = 0;
+
     public static Object stdioPrint(Object value) {{
-        System.out.print(format(value));
+        return stdioPrint(value, null, null);
+    }}
+
+    public static Object stdioPrint(Object value, String nodeId, String sourceFile) {{
+        String text = format(value);
+        System.out.print(text);
+        recordStdioEvent("stdout", "print", "none", text, nodeId, sourceFile);
         return UNIT;
     }}
 
     public static Object stdioPrintln(Object value) {{
-        System.out.println(format(value));
+        return stdioPrintln(value, null, null);
+    }}
+
+    public static Object stdioPrintln(Object value, String nodeId, String sourceFile) {{
+        String text = format(value) + System.lineSeparator();
+        System.out.print(text);
+        recordStdioEvent("stdout", "println", "newline", text, nodeId, sourceFile);
         return UNIT;
     }}
 
     public static Object stdioEprint(Object value) {{
-        System.err.print(format(value));
+        return stdioEprint(value, null, null);
+    }}
+
+    public static Object stdioEprint(Object value, String nodeId, String sourceFile) {{
+        String text = format(value);
+        System.err.print(text);
+        recordStdioEvent("stderr", "eprint", "none", text, nodeId, sourceFile);
         return UNIT;
     }}
 
     public static Object stdioEprintln(Object value) {{
-        System.err.println(format(value));
+        return stdioEprintln(value, null, null);
+    }}
+
+    public static Object stdioEprintln(Object value, String nodeId, String sourceFile) {{
+        String text = format(value) + System.lineSeparator();
+        System.err.print(text);
+        recordStdioEvent("stderr", "eprintln", "newline", text, nodeId, sourceFile);
         return UNIT;
     }}
 
@@ -307,6 +333,51 @@ impl<'a> ProgramEmitter<'a> {
             return "()";
         }}
         return String.valueOf(value);
+    }}
+
+    private static void recordStdioEvent(
+        String stream,
+        String operation,
+        String terminator,
+        String text,
+        String nodeId,
+        String sourceFile
+    ) {{
+        String path = System.getenv("VELN_STDIO_EVENTS");
+        if (path == null || path.isEmpty()) {{
+            return;
+        }}
+        stdioSequence += 1;
+        String line = Integer.toString(stdioSequence)
+            + "\t" + stream
+            + "\t" + operation
+            + "\t" + terminator
+            + "\t" + (nodeId == null ? "" : nodeId)
+            + "\t" + (sourceFile == null ? "" : sourceFile)
+            + "\t" + hex(text)
+            + System.lineSeparator();
+        try {{
+            java.nio.file.Files.write(
+                java.nio.file.Paths.get(path),
+                line.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND
+            );
+        }} catch (java.io.IOException error) {{
+            throw new RuntimeException("failed to record stdio event", error);
+        }}
+    }}
+
+    private static String hex(String text) {{
+        byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        char[] digits = "0123456789abcdef".toCharArray();
+        char[] encoded = new char[bytes.length * 2];
+        for (int index = 0; index < bytes.length; index += 1) {{
+            int value = bytes[index] & 0xff;
+            encoded[index * 2] = digits[value >>> 4];
+            encoded[index * 2 + 1] = digits[value & 0x0f];
+        }}
+        return new String(encoded);
     }}
 
     private static boolean asBool(Object value) {{

@@ -101,7 +101,7 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             IrExprKind::ResultOk(value) => self.emit_unary_runtime("ok", value),
             IrExprKind::ResultErr(value) => self.emit_unary_runtime("err", value),
             IrExprKind::OptionSome(value) => self.emit_unary_runtime("some", value),
-            IrExprKind::Call { target, args } => self.emit_call(target, args),
+            IrExprKind::Call { target, args } => self.emit_call(expr, target, args),
             IrExprKind::Try(value) => self.emit_try(value),
             IrExprKind::Record(fields) => self.emit_record(fields),
             IrExprKind::List(items) => self.emit_list(items),
@@ -116,7 +116,7 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
         }
     }
 
-    fn emit_call(&mut self, target: &IrCallTarget, args: &[IrExpr]) -> JavaExpr {
+    fn emit_call(&mut self, expr: &IrExpr, target: &IrCallTarget, args: &[IrExpr]) -> JavaExpr {
         let mut prelude = Vec::new();
         let java_args = args
             .iter()
@@ -134,12 +134,17 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
                     java_args.join(", ")
                 )
             }
-            IrCallTarget::StdioBuiltin(name) => format!(
-                "{}.{}({})",
-                self.program.options.runtime_class,
-                stdio_method(name),
-                java_args.join(", ")
-            ),
+            IrCallTarget::StdioBuiltin(name) => {
+                let mut all_args = java_args;
+                all_args.push(java_string(&expr.node_id.display("call")));
+                all_args.push(java_string(expr.span.file.as_str()));
+                format!(
+                    "{}.{}({})",
+                    self.program.options.runtime_class,
+                    stdio_method(name),
+                    all_args.join(", ")
+                )
+            }
             IrCallTarget::Value(name) => {
                 let mut all_args = Vec::with_capacity(java_args.len() + 1);
                 all_args.push(self.local_name(name));

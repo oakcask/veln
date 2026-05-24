@@ -79,6 +79,7 @@ fn lower_expr(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
     Ok(IrExpr {
         node_id: expr.node_id,
         ty: expr.ty.clone(),
+        span: expr.span.clone(),
         kind: match &expr.kind {
             CoreExprKind::Missing => {
                 return Err(IrLowerError::MissingExpression {

@@ -174,9 +174,11 @@ the repair?
 
 ## Open Details
 
-This result does not define test declaration syntax, parameterized tests,
-parallel execution ordering, flaky-test retry records, timing metrics, coverage,
-JUnit/TAP/CTRF exporters, or a stable schema beyond `veln-test-json/v0`.
+Test declaration syntax is now defined by
+[Test Declaration Syntax](result-test-declaration-syntax.md). This result does
+not define parameterized tests, parallel execution ordering, flaky-test retry
+records, timing metrics, coverage, JUnit/TAP/CTRF exporters, or a stable schema
+beyond `veln-test-json/v0`.
 
 The exact `failure.details` payloads for assertion and output mismatches can be
 refined when assertion syntax and expected-output assertions are implemented.
