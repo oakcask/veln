@@ -105,6 +105,7 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
                 JavaExpr::simple(format!("{}.none()", self.program.options.runtime_class))
             }
             IrExprKind::Call { target, args } => self.emit_call(expr, target, args),
+            IrExprKind::FieldAccess { base, field } => self.emit_field_access(base, field),
             IrExprKind::Try(value) => self.emit_try(value),
             IrExprKind::Record(fields) => self.emit_record(fields),
             IrExprKind::List(items) => self.emit_list(items),
@@ -168,6 +169,19 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             }
         };
         JavaExpr { prelude, code }
+    }
+
+    fn emit_field_access(&mut self, base: &IrExpr, field: &str) -> JavaExpr {
+        let base = self.emit_expr(base);
+        JavaExpr {
+            prelude: base.prelude,
+            code: format!(
+                "{}.recordField({}, {})",
+                self.program.options.runtime_class,
+                base.code,
+                java_string(field)
+            ),
+        }
     }
 
     fn emit_try(&mut self, value: &IrExpr) -> JavaExpr {

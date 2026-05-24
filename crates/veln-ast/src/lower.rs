@@ -163,6 +163,15 @@ impl AstBuilder {
                     callee: Box::new(self.lower_expr(callee)),
                     args: args.iter().map(|arg| self.lower_expr(arg)).collect(),
                 },
+                SyntaxExprKind::FieldAccess {
+                    base,
+                    field,
+                    field_span,
+                } => ExprKind::FieldAccess {
+                    base: Box::new(self.lower_expr(base)),
+                    field: field.clone(),
+                    field_span: field_span.clone(),
+                },
                 SyntaxExprKind::Try(expr) => ExprKind::Try(Box::new(self.lower_expr(expr))),
                 SyntaxExprKind::Record(fields) => ExprKind::Record(
                     fields

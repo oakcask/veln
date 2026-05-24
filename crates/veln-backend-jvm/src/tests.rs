@@ -67,6 +67,28 @@ fn generates_runtime_values_for_records_lists_and_options() {
 }
 
 #[test]
+fn generates_runtime_lookup_for_record_field_access() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> Int effects []\n",
+        "  {count: 1}.count\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains(
+        "return VelnRuntime.recordField(VelnRuntime.record(\"count\", Long.valueOf(1L)), \"count\");"
+    ));
+    assert!(runtime.contains("public static Object recordField(Object record, String field)"));
+}
+
+#[test]
 fn generates_entry_runner_for_selected_function() {
     let ir = lower_to_ir(concat!(
         "pub fn other() -> () effects []\n",

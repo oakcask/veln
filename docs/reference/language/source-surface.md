@@ -55,6 +55,7 @@ Implemented expressions:
 - constructors: `Ok(value)`, `Err(error)`, `Some(value)`, and `None`
 - prelude helpers as bare calls such as `list_len(items)`
 - records: `{name: value, ...}`
+- record field access: `expr.name`
 - lists: `[value, ...]`
 - prefix operators: `not`, `-`
 - binary operators: `|>`, `or`, `and`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`,

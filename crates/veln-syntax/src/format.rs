@@ -211,6 +211,12 @@ fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide) -> String {
                 format_expr_prec(callee, expr_prec(expr), ExprSide::Left)
             )
         }
+        ExprKind::FieldAccess { base, field, .. } => {
+            format!(
+                "{}.{field}",
+                format_expr_prec(base, expr_prec(expr), ExprSide::Left)
+            )
+        }
         ExprKind::Try(inner) => format!(
             "{}?",
             format_expr_prec(inner, expr_prec(expr), ExprSide::Left)
@@ -273,7 +279,7 @@ fn expr_prec(expr: &Expr) -> u8 {
             BinaryOp::Multiply | BinaryOp::Divide => 13,
         },
         ExprKind::Prefix { .. } => 15,
-        ExprKind::Call { .. } | ExprKind::Try(_) => 17,
+        ExprKind::Call { .. } | ExprKind::FieldAccess { .. } | ExprKind::Try(_) => 17,
         _ => 19,
     }
 }

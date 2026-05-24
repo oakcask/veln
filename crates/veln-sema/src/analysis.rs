@@ -777,6 +777,11 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::FloatLiteral(_) => Type::float(),
             ExprKind::Unit => Type::unit(),
             ExprKind::Call { callee, args } => self.infer_call(expr, callee, args, expected),
+            ExprKind::FieldAccess {
+                base,
+                field,
+                field_span,
+            } => self.infer_field_access(expr, base, field, field_span),
             ExprKind::Try(inner) => self.infer_try(expr, inner, expected),
             ExprKind::Record(fields) => self.infer_record(expr, fields, expected),
             ExprKind::List(items) => self.infer_list(expr, items, expected),
@@ -902,6 +907,54 @@ impl<'a> FunctionChecker<'a> {
         for arg in args {
             self.infer_expr(arg, None);
         }
+        Type::Unknown
+    }
+
+    fn infer_field_access(
+        &mut self,
+        expr: &Expr,
+        base: &Expr,
+        field: &str,
+        field_span: &SourceSpan,
+    ) -> Type {
+        let base_type = self.infer_expr(base, None);
+        if let Some(field_type) = base_type.record_field(field) {
+            return field_type.clone();
+        }
+        if base_type == Type::Unknown {
+            return Type::Unknown;
+        }
+        let mut diagnostic = Diagnostic::new(
+            "type.field_missing",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("type `{}` has no field `{field}`", base_type.render()),
+            Some(field_span.clone()),
+            type_details(
+                expr.node_id.display("expr"),
+                format!("record field `{field}`"),
+                base_type.render(),
+                "field_access",
+                "inferred_expression",
+                "field_access",
+                [
+                    self.function.node_id.display("fn"),
+                    base.node_id.display("expr"),
+                ],
+            ),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("field_base")),
+            (
+                "message",
+                JsonValue::string(format!(
+                    "Field access base has type `{}`.",
+                    base_type.render()
+                )),
+            ),
+            ("span", span_json(&base.span)),
+        ]));
+        self.diagnostics.push(diagnostic);
         Type::Unknown
     }
 

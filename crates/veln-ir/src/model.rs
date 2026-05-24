@@ -70,6 +70,10 @@ pub enum IrExprKind {
         target: IrCallTarget,
         args: Vec<IrExpr>,
     },
+    FieldAccess {
+        base: Box<IrExpr>,
+        field: String,
+    },
     Try(Box<IrExpr>),
     Record(Vec<IrRecordField>),
     List(Vec<IrExpr>),

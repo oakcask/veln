@@ -533,6 +533,36 @@ fn parses_records_lists_and_formats_precedence() {
 }
 
 #[test]
+fn parses_field_access_as_postfix_expression() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn data() -> ()\n",
+            "  let count = { nested: { count: 1 } }.nested.count\n",
+            "  count\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(format_tree(&output.tree), source.text());
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Let { expr, .. } = &function.body[0] else {
+        panic!("expected let statement");
+    };
+    let ExprKind::FieldAccess { base, field, .. } = &expr.kind else {
+        panic!("expected field access expression");
+    };
+    assert_eq!(field, "count");
+    assert!(matches!(
+        &base.kind,
+        ExprKind::FieldAccess { field, .. } if field == "nested"
+    ));
+}
+
+#[test]
 fn format_tree_preserves_commented_source_losslessly() {
     let source = SourceFile::new(
         "main.veln",

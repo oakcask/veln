@@ -209,6 +209,10 @@ impl<'a> ProgramEmitter<'a> {
         return java.util.Collections.unmodifiableMap(map);
     }}
 
+    public static Object recordField(Object record, String field) {{
+        return asMap(record).get(field);
+    }}
+
     public static java.util.List<Object> list(Object... values) {{
         return java.util.Collections.unmodifiableList(
             new java.util.ArrayList<Object>(java.util.Arrays.asList(values))

@@ -124,6 +124,9 @@ fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mu
                 collect_function_callees(arg, function_names, callees);
             }
         }
+        ExprKind::FieldAccess { base, .. } => {
+            collect_function_callees(base, function_names, callees);
+        }
         ExprKind::Try(inner) => collect_function_callees(inner, function_names, callees),
         ExprKind::Record(fields) => {
             for field in fields {

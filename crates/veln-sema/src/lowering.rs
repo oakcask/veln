@@ -191,6 +191,7 @@ impl<'a> CoreLowerer<'a> {
             ),
             ExprKind::Unit => self.core_expr(expr, CoreType::unit(), CoreExprKind::Unit),
             ExprKind::Call { callee, args } => self.lower_call(expr, callee, args, expected),
+            ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
             ExprKind::Try(inner) => self.lower_try(expr, inner, expected),
             ExprKind::Record(fields) => self.lower_record(expr, fields, expected),
             ExprKind::List(items) => self.lower_list(expr, items, expected),
@@ -414,6 +415,23 @@ impl<'a> CoreLowerer<'a> {
             CoreType::option(value_type)
         };
         self.core_expr(expr, ty, CoreExprKind::OptionSome(Box::new(first)))
+    }
+
+    fn lower_field_access(&mut self, expr: &Expr, base: &Expr, field: &str) -> CoreExpr {
+        let base = self.lower_expr(base, None);
+        let ty = base
+            .ty
+            .record_field(field)
+            .cloned()
+            .unwrap_or(CoreType::Unknown);
+        self.core_expr(
+            expr,
+            ty,
+            CoreExprKind::FieldAccess {
+                base: Box::new(base),
+                field: field.to_string(),
+            },
+        )
     }
 
     fn lower_try(&mut self, expr: &Expr, inner: &Expr, expected: Option<&CoreType>) -> CoreExpr {

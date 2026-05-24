@@ -501,6 +501,78 @@ fn infers_prelude_helper_calls_from_expected_types() {
 }
 
 #[test]
+fn lowers_record_field_access_through_core_and_ir() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> String effects []\n",
+            "  let payload: {name: String, count: Int} = {name: \"veln\", count: 1}\n",
+            "  payload.name\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[1].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::FieldAccess { field, .. } if field == "name"
+    ));
+    assert_eq!(expr.ty, CoreType::string());
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[1].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::FieldAccess { field, .. } if field == "name"
+    ));
+}
+
+#[test]
+fn reports_missing_record_field_access() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> Int effects []\n",
+            "  let payload: {count: Int} = {count: 1}\n",
+            "  payload.name\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.field_missing");
+    assert_eq!(
+        diagnostics[0].message,
+        "type `{count: Int}` has no field `name`"
+    );
+    assert_eq!(diagnostics[0].related.len(), 1);
+}
+
+#[test]
 fn prelude_helpers_check_direct_expected_return_types() {
     let source = SourceFile::new(
         "main.veln",

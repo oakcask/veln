@@ -88,6 +88,10 @@ pub enum CoreExprKind {
         target: CoreCallTarget,
         args: Vec<CoreExpr>,
     },
+    FieldAccess {
+        base: Box<CoreExpr>,
+        field: String,
+    },
     Try(Box<CoreExpr>),
     Record(Vec<CoreRecordField>),
     List(Vec<CoreExpr>),

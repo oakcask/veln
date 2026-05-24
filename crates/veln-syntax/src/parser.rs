@@ -721,29 +721,64 @@ impl<'a> ExprParser<'a> {
     fn parse_postfix(&mut self) -> Expr {
         let mut expr = self.parse_primary();
         loop {
-            if !self.at(TokenKind::LParen) {
-                break;
-            }
-            let start = lhs_range(&expr);
-            self.bump();
-            let mut args = Vec::new();
-            while !self.at(TokenKind::RParen) && !self.is_at_end() {
-                args.push(self.parse_expr(0));
-                if self.eat(TokenKind::Comma).is_none() {
-                    break;
+            if self.at(TokenKind::LParen) {
+                let start = lhs_range(&expr);
+                self.bump();
+                let mut args = Vec::new();
+                while !self.at(TokenKind::RParen) && !self.is_at_end() {
+                    args.push(self.parse_expr(0));
+                    if self.eat(TokenKind::Comma).is_none() {
+                        break;
+                    }
                 }
+                let end = self.eat(TokenKind::RParen).map_or_else(
+                    || lhs_range(args.last().unwrap_or(&expr)),
+                    |token| token.range,
+                );
+                expr = Expr {
+                    span: self.source.span(start.cover(end)),
+                    kind: ExprKind::Call {
+                        callee: Box::new(expr),
+                        args,
+                    },
+                };
+                continue;
             }
-            let end = self.eat(TokenKind::RParen).map_or_else(
-                || lhs_range(args.last().unwrap_or(&expr)),
-                |token| token.range,
-            );
-            expr = Expr {
-                span: self.source.span(start.cover(end)),
-                kind: ExprKind::Call {
-                    callee: Box::new(expr),
-                    args,
-                },
-            };
+            if self.at(TokenKind::Dot) {
+                let start = lhs_range(&expr);
+                let dot = self.bump();
+                let (field, field_range) = if self.at(TokenKind::Ident) {
+                    let field = self.bump();
+                    (field.text, field.range)
+                } else {
+                    self.error_current(
+                        "parse.field_access",
+                        "field access is missing a field name",
+                        vec!["field name"],
+                        RecoveryStrategy::InsertToken,
+                        None,
+                    );
+                    (String::new(), dot.range)
+                };
+                expr = Expr {
+                    span: self.source.span(start.cover(field_range)),
+                    kind: ExprKind::FieldAccess {
+                        base: Box::new(expr),
+                        field,
+                        field_span: self.source.span(field_range),
+                    },
+                };
+                continue;
+            }
+            if self.at(TokenKind::Question) {
+                let token = self.bump();
+                expr = Expr {
+                    span: self.source.span(lhs_range(&expr).cover(token.range)),
+                    kind: ExprKind::Try(Box::new(expr)),
+                };
+                continue;
+            }
+            break;
         }
         expr
     }

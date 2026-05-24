@@ -470,6 +470,32 @@ fn check_json_reports_return_type_mismatch() {
 }
 
 #[test]
+fn check_human_reports_missing_record_field_with_base_note() {
+    let project = TestProject::new("field-missing-human");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> Int effects []\n",
+            "  let payload: {count: Int} = {count: 1}\n",
+            "  payload.name\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_eq!(
+        stdout(&output),
+        concat!(
+            "main.veln:3:11: error[type.field_missing]: type `{count: Int}` has no field `name`\n",
+            "  note: main.veln:3:3: Field access base has type `{count: Int}`.\n",
+        ),
+    );
+}
+
+#[test]
 fn check_json_reports_unresolved_name_and_call_target() {
     let project = TestProject::new("name-diagnostics");
     project.write(

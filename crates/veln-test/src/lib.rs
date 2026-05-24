@@ -166,6 +166,7 @@ fn collect_stdio_call_spans(expr: &Expr, spans: &mut BTreeMap<(String, String), 
                 collect_stdio_call_spans(arg, spans);
             }
         }
+        ExprKind::FieldAccess { base, .. } => collect_stdio_call_spans(base, spans),
         ExprKind::Try(inner) => collect_stdio_call_spans(inner, spans),
         ExprKind::Record(fields) => {
             for field in fields {

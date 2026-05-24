@@ -105,6 +105,10 @@ fn lower_expr(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
                 target: lower_call_target(expr.node_id, target)?,
                 args: args.iter().map(lower_expr).collect::<Result<Vec<_>, _>>()?,
             },
+            CoreExprKind::FieldAccess { base, field } => IrExprKind::FieldAccess {
+                base: Box::new(lower_expr(base)?),
+                field: field.clone(),
+            },
             CoreExprKind::Try(value) => IrExprKind::Try(Box::new(lower_expr(value)?)),
             CoreExprKind::Record(fields) => IrExprKind::Record(
                 fields

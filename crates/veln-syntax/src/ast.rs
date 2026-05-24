@@ -106,6 +106,11 @@ pub enum ExprKind {
         callee: Box<Expr>,
         args: Vec<Expr>,
     },
+    FieldAccess {
+        base: Box<Expr>,
+        field: String,
+        field_span: SourceSpan,
+    },
     Try(Box<Expr>),
     Record(Vec<RecordField>),
     List(Vec<Expr>),

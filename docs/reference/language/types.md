@@ -40,6 +40,8 @@ Expected types flow into holes and subexpressions from:
 - list elements
 - `Ok`, `Err`, `Some`, `None`, and postfix `?`
 
+Record field access gets its result type from the inferred base record type.
+
 ## Assignment Compatibility
 
 Assignment compatibility treats `unknown` as compatible with any type. Record
@@ -53,6 +55,11 @@ function-type assignability.
 One record literal cannot declare the same field name twice. Duplicate record
 fields are name errors before record assignability chooses an expected field
 type.
+
+Record field access `expr.name` requires the base expression to have a record
+type containing `name`. The access has the declared field type. Accessing a
+field absent from a known record type is a type error reported at the field
+name, with the base expression reported as related context.
 
 ## Operators
 
