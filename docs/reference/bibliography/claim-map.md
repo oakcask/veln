@@ -246,7 +246,7 @@
   repair candidate with reason, evidence, limits, and verification hints, not
   an automatically applied edit or a correctness guarantee from passing tests.
 - Discussion result:
-  [Safe Repair Candidate Boundary](../../proposals/agent-language-spec-wall/result-safe-repair-candidate-boundary.md)
+  [Safe Repair Candidate Boundary](../source-decisions/result-safe-repair-candidate-boundary.md)
 - Supporting references:
   `legoues2012-genprog`,
   `monperrus2018-automatic-software-repair`,

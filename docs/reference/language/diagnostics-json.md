@@ -129,3 +129,21 @@ Contract diagnostic `details` are stable for implemented contract validation:
 - `blame`
 - `runtime_required`
 - `referenced_bindings`
+
+Hole diagnostic `details` are stable for unfilled holes:
+
+- `phase`
+- `node_id`
+- `label`
+- `expected_type`
+- `expected_type_source`
+- `constraints`
+- `local_bindings`
+- `candidate_queries`
+
+Each `candidate_queries` entry is advisory and contains:
+
+- `kind`
+- `candidate_status`
+- `application_policy`
+- `query`

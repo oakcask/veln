@@ -55,6 +55,11 @@ Hole details include:
 - `local_bindings`
 - `candidate_queries`
 
+Candidate query records are advisory only. Each query carries
+`candidate_status: "query_only"` and
+`application_policy: "manual_review_required"` to make clear that the checker
+has not produced or authorized an edit.
+
 Named holes such as `_port` are diagnostic and repair labels, not bindings.
 The `satisfy candidate => predicate` suffix contributes a repair constraint; it
 does not bind `candidate` outside the suffix predicate.

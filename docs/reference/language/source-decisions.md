@@ -20,6 +20,7 @@ categorized specification files. The full implemented decision index is
 - [Postcondition Result Binding](../source-decisions/result-postcondition-result-binding.md)
 - [Contract Expression Language](../source-decisions/result-contract-expression-language.md)
 - [Contract Predicate Parsing](../source-decisions/result-contract-predicate-parsing.md)
+- [Safe Repair Candidate Boundary](../source-decisions/result-safe-repair-candidate-boundary.md)
 - [AST Phase Boundary](../source-decisions/result-ast-phase-boundary.md)
 - [AST Implementation Representation](../source-decisions/result-ast-implementation-representation.md)
 - [Runtime Value Freeze Boundary](../source-decisions/result-runtime-value-freeze-boundary.md)

@@ -231,7 +231,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   `check` should be the primary read-only agent command that combines parse,
   type, contract, effect, lint, doc drift, and hole diagnostics.
 - Resolved by
-  [Safe Repair Candidate Boundary](result-safe-repair-candidate-boundary.md):
+  [Safe Repair Candidate Boundary](../../reference/source-decisions/result-safe-repair-candidate-boundary.md):
   `safe repair` should initially mean an unapplied, machine-readable candidate
   with reason, evidence, limits, and verification hints, while automatic
   application waits for explicit gates and must not treat passing tests alone

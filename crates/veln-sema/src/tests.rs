@@ -311,6 +311,8 @@ fn reports_hole_with_declared_return_expected_type() {
             "\"expected_type_source\":\"declared\",",
             "\"constraints\":[],\"local_bindings\":[],",
             "\"candidate_queries\":[{\"kind\":\"symbol\",",
+            "\"candidate_status\":\"query_only\",",
+            "\"application_policy\":\"manual_review_required\",",
             "\"query\":\"fn() -> Result((), AppError)\"}]}"
         )
     );
@@ -1319,6 +1321,8 @@ fn hole_diagnostic_includes_contract_and_satisfy_constraints() {
     assert_eq!(diagnostics[0].id, "hole.unfilled");
     let details = diagnostics[0].details.to_json();
     assert!(details.contains("\"expected_type\":\"Int\""));
+    assert!(details.contains("\"candidate_status\":\"query_only\""));
+    assert!(details.contains("\"application_policy\":\"manual_review_required\""));
     assert!(details.contains("\"kind\":\"contract\""));
     assert!(details.contains("\"clause\":\"require\""));
     assert!(details.contains("\"text\":\"max > 0\""));

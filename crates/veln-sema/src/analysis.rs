@@ -1940,6 +1940,11 @@ impl<'a> FunctionChecker<'a> {
             .join(", ");
         vec![JsonValue::object([
             ("kind", JsonValue::string("symbol")),
+            ("candidate_status", JsonValue::string("query_only")),
+            (
+                "application_policy",
+                JsonValue::string("manual_review_required"),
+            ),
             (
                 "query",
                 JsonValue::string(format!("fn({argument_types}) -> {}", expected.render())),

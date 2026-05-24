@@ -1,6 +1,6 @@
 # Discussion Result: Safe Repair Candidate Boundary
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 

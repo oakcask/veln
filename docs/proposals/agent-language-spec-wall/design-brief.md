@@ -77,7 +77,7 @@ code, get structured information, fill holes, and run focused checks.
 - `Result` and `Option` should be in the core model, but the syntax for their
   constructors can remain conventional until examples show friction.
 - Resolved by
-  [Safe Repair Candidate Boundary](result-safe-repair-candidate-boundary.md):
+  [Safe Repair Candidate Boundary](../../reference/source-decisions/result-safe-repair-candidate-boundary.md):
   `safe repair` should initially mean a machine-readable candidate with reason,
   evidence, limits, and verification hints, not automatic edit application.
 - Test selection should prefer false positives over false negatives. If the

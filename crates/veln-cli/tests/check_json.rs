@@ -484,7 +484,10 @@ fn check_json_reports_hole_with_return_expected_type() {
             "\"details\":{\"phase\":\"hole\",\"node_id\":\"hole-3\",\"label\":null,",
             "\"expected_type\":\"Result((), AppError)\",\"expected_type_source\":\"declared\",",
             "\"constraints\":[],\"local_bindings\":[],",
-            "\"candidate_queries\":[{\"kind\":\"symbol\",\"query\":\"fn() -> Result((), AppError)\"}]},",
+            "\"candidate_queries\":[{\"kind\":\"symbol\",",
+            "\"candidate_status\":\"query_only\",",
+            "\"application_policy\":\"manual_review_required\",",
+            "\"query\":\"fn() -> Result((), AppError)\"}]},",
             "\"related\":[{\"kind\":\"expected_type_origin\",\"message\":\"Return type declared here.\",",
             "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":57}}}]}],",
             "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"hint\":1},\"by_kind\":{\"hole\":1}}}\n"
