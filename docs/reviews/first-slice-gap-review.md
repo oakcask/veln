@@ -258,6 +258,8 @@ Acceptance checks:
 
 ### 7. Executable Blockers Missing From `check`
 
+Status: partially resolved
+
 Severity: medium
 
 Expected:
@@ -268,20 +270,23 @@ Expected:
 Observed:
 
 - Some blockers, such as call arity mismatch, are represented during lowering
-  as core blockers rather than ordinary check diagnostics.
-- `check` currently does not lower to checked core, so these blockers can first
-  appear only when `run` or `test` tries to execute.
+  as core blockers.
+- `check` lowers parse-clean, semantically error-free files far enough to report
+  call and constructor arity blockers as stable diagnostics.
+- Missing-expression blockers and broader shared-pipeline behavior remain
+  follow-up work.
 
 Why it matters:
 
 - The repair loop is weaker if an agent must run executable commands to
   discover static blockers.
 
-Fix direction:
+Remaining fix direction:
 
 - Have the shared analysis entry point include checked-core readiness.
-- Convert executable blockers into stable diagnostics for `check --json`, or
-  document a separate non-error readiness section if they remain distinct.
+- Convert remaining executable blockers into stable diagnostics for
+  `check --json`, or document a separate non-error readiness section if they
+  remain distinct.
 
 Acceptance checks:
 

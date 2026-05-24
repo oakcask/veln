@@ -105,6 +105,18 @@ and type-mismatch diagnostics:
 `|>`. Its `details` include `phase`, `node_id`, `expected`, `actual`, and
 `constraint: "pipeline_target"`.
 
+Checked-core executable blockers that `check` can prove before runtime are
+reported as error diagnostics with `kind: "type"`. The implemented blockers
+are `core.call_arity_mismatch`, `core.result_constructor_arity_mismatch`, and
+`core.option_constructor_arity_mismatch`. Their primary span is the blocked
+call or constructor expression. Their `details` include:
+
+- `phase: "core_lowering"`
+- `node_id`
+- `reason`
+- `facts.expected_argument_count`
+- `facts.actual_argument_count`
+
 Effect diagnostic `details` are stable for `effect.missing_public`:
 
 - `phase`

@@ -7,6 +7,7 @@ use veln_core::{
     CoreExprKind, CoreFunction, CoreMatchArm, CoreParam, CorePattern, CorePatternField,
     CorePatternKind, CoreReadiness, CoreRecordField, CoreStmt, CoreStmtKind, CoreType,
 };
+use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
 use crate::effects::stdio_signature;
 use crate::prelude::{
@@ -25,13 +26,20 @@ struct CoreLowerer<'a> {
     environment: &'a TypeEnvironment,
     bindings: Vec<CoreBinding>,
     blockers: Vec<CoreBlocker>,
+    diagnostics: Vec<Diagnostic>,
+}
+
+pub(crate) struct CoreLoweringOutput {
+    pub(crate) program: CheckedProgram,
+    pub(crate) diagnostics: Vec<Diagnostic>,
 }
 
 pub(crate) fn lower_surface_module_to_core(
     module: &SurfaceModule,
     environment: &TypeEnvironment,
-) -> CheckedProgram {
+) -> CoreLoweringOutput {
     let mut blockers = Vec::new();
+    let mut diagnostics = Vec::new();
     let functions = module
         .functions
         .iter()
@@ -39,16 +47,20 @@ pub(crate) fn lower_surface_module_to_core(
             let mut lowerer = CoreLowerer::new(function, environment);
             let lowered = lowerer.lower_function();
             blockers.extend(lowerer.blockers);
+            diagnostics.extend(lowerer.diagnostics);
             lowered
         })
         .collect();
-    CheckedProgram {
-        functions,
-        readiness: if blockers.is_empty() {
-            CoreReadiness::Complete
-        } else {
-            CoreReadiness::Blocked(blockers)
+    CoreLoweringOutput {
+        program: CheckedProgram {
+            functions,
+            readiness: if blockers.is_empty() {
+                CoreReadiness::Complete
+            } else {
+                CoreReadiness::Blocked(blockers)
+            },
         },
+        diagnostics,
     }
 }
 
@@ -59,6 +71,7 @@ impl<'a> CoreLowerer<'a> {
             environment,
             bindings: Vec::new(),
             blockers: Vec::new(),
+            diagnostics: Vec::new(),
         }
     }
 
@@ -110,6 +123,35 @@ impl<'a> CoreLowerer<'a> {
             body,
             span: self.function.span.clone(),
         }
+    }
+
+    fn unsupported_expression(
+        &mut self,
+        expr: &Expr,
+        reason: &'static str,
+        message: String,
+        extra_details: Option<JsonValue>,
+    ) {
+        self.blockers.push(CoreBlocker::UnsupportedExpression {
+            node_id: expr.node_id,
+            reason: reason.to_string(),
+        });
+        let mut details = vec![
+            ("phase", JsonValue::string("core_lowering")),
+            ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+            ("reason", JsonValue::string(reason)),
+        ];
+        if let Some(extra_details) = extra_details {
+            details.push(("facts", extra_details));
+        }
+        self.diagnostics.push(Diagnostic::new(
+            format!("core.{reason}"),
+            Severity::Error,
+            DiagnosticKind::Type,
+            message,
+            Some(expr.span.clone()),
+            JsonValue::object(details),
+        ));
     }
 
     fn lower_body(&mut self, return_type: &CoreType) -> Vec<CoreStmt> {
@@ -424,10 +466,25 @@ impl<'a> CoreLowerer<'a> {
         let signature = self.core_call_signature(callee, expected);
         if let Some(signature) = &signature {
             if args.len() != signature.params.len() {
-                self.blockers.push(CoreBlocker::UnsupportedExpression {
-                    node_id: expr.node_id,
-                    reason: "call_arity_mismatch".to_string(),
-                });
+                self.unsupported_expression(
+                    expr,
+                    "call_arity_mismatch",
+                    format!(
+                        "call expects {} argument(s), but got {}",
+                        signature.params.len(),
+                        args.len()
+                    ),
+                    Some(JsonValue::object([
+                        (
+                            "expected_argument_count",
+                            JsonValue::Number(signature.params.len() as i64),
+                        ),
+                        (
+                            "actual_argument_count",
+                            JsonValue::Number(args.len() as i64),
+                        ),
+                    ])),
+                );
             }
         }
         let lowered_args = args
@@ -466,10 +523,21 @@ impl<'a> CoreLowerer<'a> {
         is_ok: bool,
     ) -> CoreExpr {
         if args.len() != 1 {
-            self.blockers.push(CoreBlocker::UnsupportedExpression {
-                node_id: expr.node_id,
-                reason: "result_constructor_arity_mismatch".to_string(),
-            });
+            self.unsupported_expression(
+                expr,
+                "result_constructor_arity_mismatch",
+                format!(
+                    "result constructor expects 1 argument, but got {}",
+                    args.len()
+                ),
+                Some(JsonValue::object([
+                    ("expected_argument_count", JsonValue::Number(1)),
+                    (
+                        "actual_argument_count",
+                        JsonValue::Number(args.len() as i64),
+                    ),
+                ])),
+            );
         }
         let (value_type, error_type) = expected
             .and_then(CoreType::result_parts)
@@ -514,10 +582,21 @@ impl<'a> CoreLowerer<'a> {
         expected: Option<&CoreType>,
     ) -> CoreExpr {
         if args.len() != 1 {
-            self.blockers.push(CoreBlocker::UnsupportedExpression {
-                node_id: expr.node_id,
-                reason: "option_constructor_arity_mismatch".to_string(),
-            });
+            self.unsupported_expression(
+                expr,
+                "option_constructor_arity_mismatch",
+                format!(
+                    "option constructor expects 1 argument, but got {}",
+                    args.len()
+                ),
+                Some(JsonValue::object([
+                    ("expected_argument_count", JsonValue::Number(1)),
+                    (
+                        "actual_argument_count",
+                        JsonValue::Number(args.len() as i64),
+                    ),
+                ])),
+            );
         }
         let value_type = expected
             .and_then(CoreType::option_part)

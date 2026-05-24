@@ -45,8 +45,8 @@ No accepted language and type coverage follow-up is currently tracked here.
 ## Lowering And Execution
 
 - Broader lowering stabilization still needs focused fixtures for
-  function-typed value calls, blocked call and constructor arity cases, missing
-  expression blockers, and selected-entry reachable-hole handling.
+  function-typed value calls, missing expression blockers, and selected-entry
+  reachable-hole handling.
 - Reachable-hole blocking currently follows the selected entry and direct
   function-name calls in expressions. Broader conservative handling for future
   higher-order values, module initializers, imports, and ambiguous graph edges

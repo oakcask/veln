@@ -5,9 +5,10 @@ This file specifies implemented CLI behavior for the first slice.
 ## `veln check [--json] [path ...]`
 
 `check` discovers source files, parses them, lowers each parse-clean file to the
-surface AST, and runs semantic diagnostics for that file. With `--json`, it
-prints the check JSON envelope. Without `--json`, it prints human diagnostics
-or `ok`.
+surface AST, runs semantic diagnostics for that file, and then lowers each
+error-free file far enough to report checked-core executable blockers such as
+call and constructor arity mismatches. With `--json`, it prints the check JSON
+envelope. Without `--json`, it prints human diagnostics or `ok`.
 
 Inputs are files or directories. If no path is provided, discovery recursively
 selects `.veln` files below the current project root, skipping `.git` and

@@ -51,7 +51,7 @@ pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
 }
 
 pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
-    let diagnostics = analyze_surface_module(module);
+    let mut diagnostics = analyze_surface_module(module);
     if diagnostics
         .iter()
         .any(|diagnostic| diagnostic.severity == Severity::Error)
@@ -64,12 +64,20 @@ pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceMod
     }
 
     let environment = TypeEnvironment::from_module(module);
-    let core = lower_surface_module_to_core(module, &environment);
-    let ir = lower_checked_core(&core).ok();
+    let lowered_core = lower_surface_module_to_core(module, &environment);
+    diagnostics.extend(lowered_core.diagnostics);
+    let ir = if diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.severity == Severity::Error)
+    {
+        None
+    } else {
+        lower_checked_core(&lowered_core.program).ok()
+    };
 
     LoweredSurfaceModule {
         diagnostics,
-        core: Some(core),
+        core: Some(lowered_core.program),
         ir,
     }
 }

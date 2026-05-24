@@ -5,7 +5,7 @@ use std::process::ExitCode;
 use veln_ast::lower_surface_ast;
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
-use veln_sema::analyze_surface_module;
+use veln_sema::lower_checked_surface_module;
 use veln_syntax::parse;
 
 use crate::diagnostics::{has_error, parse_diagnostic_to_envelope, print_human, tool_info};
@@ -21,7 +21,7 @@ pub(crate) fn check(json: bool, inputs: Vec<PathBuf>) -> Result<ExitCode, String
         let has_parse_diagnostics = !parsed.diagnostics.is_empty();
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
         if !has_parse_diagnostics {
-            diagnostics.extend(analyze_surface_module(&surface_ast));
+            diagnostics.extend(lower_checked_surface_module(&surface_ast).diagnostics);
         }
     }
 
