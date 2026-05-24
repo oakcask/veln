@@ -93,17 +93,26 @@ test returns `()` and declares `effects [stdio]`. A doctest fence may include
 an `error=<TypePath>` info-string attribute. With that attribute, the
 generated test returns `Result((), <TypePath>)` and appends `Ok(())` as the
 implicit success value, so the visible example body can use `?` without
-writing harness-only success code. In `check`, generated doctests participate
-in parse and semantic diagnostics. In `test`, generated doctests are selected
-as doctest cases.
+writing harness-only success code. Without `error=<TypePath>`, a doctest that
+uses `?` can infer the wrapper error type from the immediately documented
+public `Result(_, E)` function or from known propagated function calls when all
+of them use the same `E`. A `veln ignore` fence is documentation-only: it is
+not generated, checked, selected, or paired with expected output. Other unknown
+executable doctest attributes and empty `error=` values are static doc
+diagnostics. A line inside an executable doctest fence that starts with `# `
+is hidden setup: the generated test includes the line after the marker, so the
+example can bind helpers without exposing harness code in the documented
+sample. In `check`, generated doctests participate in parse and semantic
+diagnostics. In `test`, generated doctests are selected as doctest cases.
 
 An adjacent doc comment fence whose info string is
 `veln-output stream=stdout` or `veln-output stream=stderr` records expected
-output for the immediately preceding executable doctest. When at least one
-output fence is present, any stream without a fence is expected to be empty.
-Output comparison uses captured stdio events, reconstructs logical stdout and
-stderr text, and ignores the Markdown closing-fence newline as a raw byte
-assertion.
+output for the immediately preceding executable doctest. Unknown output-fence
+attributes, missing `stream`, and unsupported stream values are static doc
+diagnostics. When at least one output fence is present, any stream without a
+fence is expected to be empty. Output comparison uses captured stdio events,
+reconstructs logical stdout and stderr text, and ignores the Markdown
+closing-fence newline as a raw byte assertion.
 
 When an explicit target names a non-test `.veln` source file, `test` also
 selects a same-directory `*_test.veln` file with the same base name when that
@@ -119,4 +128,7 @@ details. JDK setup failures become case errors with reason `runner_error`,
 including a missing `java` after `javac` succeeds.
 
 Doctest output mismatches become failed cases with `failure.kind: "output"` and
-`reason: "expected_output"`.
+`reason: "expected_output"`. JSON details include the mismatched stream,
+expected text, actual text, first differing logical line, bounded captured
+stdio events for the actual stream, and the expected-output fence span when
+available.

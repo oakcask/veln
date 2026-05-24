@@ -63,5 +63,11 @@ No accepted language and type coverage follow-up is currently tracked here.
   source files. Documentation comment `veln` doctest extraction and adjacent
   `veln-output` expected-output comparison are implemented. Explicit doctest
   `error=<TypePath>` metadata is implemented for generated result-returning
-  wrappers. Doctest error-type inference, doctest metadata diagnostics, hidden
-  setup, negative examples, and non-runnable examples remain follow-up work.
+  wrappers. Unknown and invalid metadata diagnostics are implemented for
+  executable doctest fences and expected-output fences. Doctests that contain
+  `?` infer the wrapper error type from the immediately documented public
+  function's explicit `Result(_, E)` return type when that context is
+  available or from known propagated function calls when every propagated call
+  has the same concrete error type. Non-runnable doctest examples are
+  implemented with `veln ignore`. Hidden setup is implemented with `# ` lines
+  inside executable doctest fences. Negative examples remain follow-up work.

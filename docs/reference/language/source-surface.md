@@ -104,12 +104,28 @@ Documentation line comments may contain executable doctest fences. A doc
 comment fence whose info string is `veln` is extracted as generated test source
 for `veln check` and `veln test`. The fence may include `error=<TypePath>` to
 make the generated wrapper return `Result((), <TypePath>)` and append an
-implicit `Ok(())` success value. A following doc comment fence whose info string
-is `veln-output stream=stdout` or `veln-output stream=stderr` attaches expected
-output to the immediately preceding doctest. A doctest may attach at most one
-expected-output fence for each stream. A second `veln-output` fence for the same
-stream reports `doctest.duplicate_output` at the duplicate fence and leaves the
-first fence as the selected expectation.
+implicit `Ok(())` success value. If the fence omits `error=<TypePath>`, contains
+`?`, and immediately documents a public function with an explicit
+`Result(_, E)` return type, the generated wrapper uses `Result((), E)` and also
+appends the implicit `Ok(())` success value. If there is no documented result
+context, the wrapper error type is inferred when every `?` applies to a known
+function call returning `Result(_, E)` and all such calls use the same `E`. Any
+other `veln` fence attribute reports `doctest.unknown_metadata`, and an empty
+`error=` value reports `doctest.invalid_metadata`. A following doc comment fence
+whose info string is `veln-output stream=stdout` or
+`veln-output stream=stderr` attaches expected output to the immediately
+preceding generated doctest. A `veln ignore` fence is treated as a
+documentation-only code example and does not create a generated doctest.
+Inside an executable `veln` fence, a line that starts with `# ` is hidden setup:
+the generated test includes the line after removing the marker. Hidden setup is
+useful for imports, helpers, and bindings that the documented sample should use
+without displaying harness-only setup as example code.
+Unknown `veln-output` attributes, missing `stream`, and stream values other
+than `stdout` or `stderr` report doctest metadata diagnostics. A doctest may
+attach at most one expected-output fence for each stream. A second
+`veln-output` fence for the same stream reports
+`doctest.duplicate_output` at the duplicate fence and leaves the first fence as
+the selected expectation.
 
 ## Expressions
 
@@ -187,5 +203,5 @@ read an explicit result binding.
 Implemented lowering and execution do not include user-defined ADT
 declarations, method calls, loops, mutation, classes, traits, macros,
 comprehensions, anonymous functions, custom operators, package manifest fields
-beyond `[modules]`, foreign declarations, implicit doctest error-type
-inference, or non-output doctest metadata.
+beyond `[modules]`, foreign declarations, negative doctests, or doctest
+metadata other than `error`, `ignore`, and `veln-output` stream selection.

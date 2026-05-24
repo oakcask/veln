@@ -107,9 +107,10 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
     let mut expected_outputs = BTreeMap::new();
     let mut diagnostics = Vec::new();
     let mut next_index = 1;
+    let signatures = result_error_signatures(sources);
 
     for source in sources {
-        let extracted = extract_doctests(source);
+        let extracted = extract_doctests(source, &signatures);
         diagnostics.extend(extracted.diagnostics);
         for doctest in extracted.doctests {
             let name = format!("doctest_{next_index}");
@@ -143,18 +144,33 @@ pub fn compare_expected_output(case: &mut TestCase) {
         return;
     }
 
-    let (stream, expected_text, actual_text) =
+    let (stream, expected_text, actual_text, expected_span) =
         if normalize_lines(&actual_stdout) != normalize_lines(&expected_stdout) {
-            ("stdout", expected_stdout, actual_stdout)
+            (
+                "stdout",
+                expected_stdout,
+                actual_stdout,
+                expected.stdout_span.clone(),
+            )
         } else {
-            ("stderr", expected_stderr, actual_stderr)
+            (
+                "stderr",
+                expected_stderr,
+                actual_stderr,
+                expected.stderr_span.clone(),
+            )
         };
+    let first_difference = first_differing_line(&expected_text, &actual_text);
+    let actual_events = output_events_for_stream(&case.events, stream);
     case.status = TestCaseStatus::Failed;
     case.reason = Some("expected_output".to_string());
     case.failure = Some(TestFailure::output_mismatch(
         stream,
         expected_text,
         actual_text,
+        first_difference,
+        expected_span,
+        actual_events,
     ));
 }
 
@@ -691,19 +707,28 @@ impl TestFailure {
         stream: impl Into<String>,
         expected: impl Into<String>,
         actual: impl Into<String>,
+        first_difference: OutputDifference,
+        expected_span: Option<SourceSpan>,
+        actual_events: Vec<JsonValue>,
     ) -> Self {
         let stream = stream.into();
         let expected = expected.into();
         let actual = actual.into();
+        let mut details = vec![
+            ("kind", JsonValue::string("output")),
+            ("stream", JsonValue::string(stream.clone())),
+            ("expected", JsonValue::string(expected)),
+            ("actual", JsonValue::string(actual)),
+            ("first_difference", first_difference.to_json()),
+            ("actual_events", JsonValue::Array(actual_events)),
+        ];
+        if let Some(span) = expected_span {
+            details.push(("expected_span", source_span_to_json(&span)));
+        }
         Self {
             kind: "output".to_string(),
             message: format!("expected {stream} output did not match"),
-            details: JsonValue::object([
-                ("kind", JsonValue::string("output")),
-                ("stream", JsonValue::string(stream)),
-                ("expected", JsonValue::string(expected)),
-                ("actual", JsonValue::string(actual)),
-            ]),
+            details: JsonValue::object(details),
         }
     }
 
@@ -729,6 +754,34 @@ pub struct DoctestSources {
 pub struct ExpectedOutput {
     pub stdout: Option<String>,
     pub stderr: Option<String>,
+    pub stdout_span: Option<SourceSpan>,
+    pub stderr_span: Option<SourceSpan>,
+}
+
+pub struct OutputDifference {
+    pub line: usize,
+    pub expected: Option<String>,
+    pub actual: Option<String>,
+}
+
+impl OutputDifference {
+    fn to_json(&self) -> JsonValue {
+        JsonValue::object([
+            ("line", JsonValue::Number(self.line as i64)),
+            (
+                "expected",
+                self.expected
+                    .as_ref()
+                    .map_or(JsonValue::Null, JsonValue::string),
+            ),
+            (
+                "actual",
+                self.actual
+                    .as_ref()
+                    .map_or(JsonValue::Null, JsonValue::string),
+            ),
+        ])
+    }
 }
 
 #[derive(Default)]
@@ -736,25 +789,20 @@ struct ExtractedDoctest {
     code: Vec<String>,
     error_type: Option<String>,
     expected_output: ExpectedOutput,
-    output_spans: ExpectedOutputSpans,
-}
-
-#[derive(Default)]
-struct ExpectedOutputSpans {
-    stdout: Option<SourceSpan>,
-    stderr: Option<SourceSpan>,
 }
 
 enum Fence {
     Veln {
         lines: Vec<String>,
         error_type: Option<String>,
+        ignored: bool,
     },
     Output {
         stream: String,
         lines: Vec<String>,
         span: SourceSpan,
     },
+    Ignored,
 }
 
 #[derive(Default)]
@@ -763,7 +811,10 @@ struct ExtractedDoctests {
     diagnostics: Vec<Diagnostic>,
 }
 
-fn extract_doctests(source: &SourceFile) -> ExtractedDoctests {
+fn extract_doctests(
+    source: &SourceFile,
+    signatures: &BTreeMap<String, Option<String>>,
+) -> ExtractedDoctests {
     let mut doctests = Vec::new();
     let mut diagnostics = Vec::new();
     let mut pending: Option<ExtractedDoctest> = None;
@@ -780,7 +831,7 @@ fn extract_doctests(source: &SourceFile) -> ExtractedDoctests {
         offset += raw_line.len();
         let Some(content) = doc_comment_content(line) else {
             if let Some(doctest) = pending.take() {
-                doctests.push(doctest);
+                doctests.push(with_error_type_context(doctest, line, signatures));
             }
             continue;
         };
@@ -788,16 +839,21 @@ fn extract_doctests(source: &SourceFile) -> ExtractedDoctests {
         if let Some(active) = &mut fence {
             if content.trim_start().starts_with("```") {
                 match fence.take().expect("active fence should exist") {
-                    Fence::Veln { lines, error_type } => {
+                    Fence::Veln {
+                        lines,
+                        error_type,
+                        ignored,
+                    } => {
                         if let Some(doctest) = pending.take() {
                             doctests.push(doctest);
                         }
-                        pending = Some(ExtractedDoctest {
-                            code: lines,
-                            error_type,
-                            expected_output: ExpectedOutput::default(),
-                            output_spans: ExpectedOutputSpans::default(),
-                        });
+                        if !ignored {
+                            pending = Some(ExtractedDoctest {
+                                code: lines,
+                                error_type,
+                                expected_output: ExpectedOutput::default(),
+                            });
+                        }
                     }
                     Fence::Output {
                         stream,
@@ -807,32 +863,34 @@ fn extract_doctests(source: &SourceFile) -> ExtractedDoctests {
                         if let Some(doctest) = &mut pending {
                             let output = lines.join("\n");
                             if stream == "stdout" {
-                                if let Some(first_span) = &doctest.output_spans.stdout {
+                                if let Some(first_span) = &doctest.expected_output.stdout_span {
                                     diagnostics.push(duplicate_output_diagnostic(
                                         &stream, &span, first_span,
                                     ));
                                 } else {
                                     doctest.expected_output.stdout = Some(output);
-                                    doctest.output_spans.stdout = Some(span);
+                                    doctest.expected_output.stdout_span = Some(span);
                                 }
                             } else if stream == "stderr" {
-                                if let Some(first_span) = &doctest.output_spans.stderr {
+                                if let Some(first_span) = &doctest.expected_output.stderr_span {
                                     diagnostics.push(duplicate_output_diagnostic(
                                         &stream, &span, first_span,
                                     ));
                                 } else {
                                     doctest.expected_output.stderr = Some(output);
-                                    doctest.output_spans.stderr = Some(span);
+                                    doctest.expected_output.stderr_span = Some(span);
                                 }
                             }
                         }
                     }
+                    Fence::Ignored => {}
                 }
                 continue;
             }
             match active {
-                Fence::Veln { lines, .. } => lines.push(content.to_string()),
+                Fence::Veln { lines, .. } => lines.push(doctest_code_line(content)),
                 Fence::Output { lines, .. } => lines.push(content.to_string()),
+                Fence::Ignored => {}
             }
             continue;
         }
@@ -841,16 +899,24 @@ fn extract_doctests(source: &SourceFile) -> ExtractedDoctests {
         if let Some(info) = trimmed.strip_prefix("```") {
             let info = info.trim();
             if veln_fence_info(info) {
+                diagnostics.extend(veln_metadata_diagnostics(info, source.span(line_range)));
                 fence = Some(Fence::Veln {
                     lines: Vec::new(),
                     error_type: doctest_error_type(info).map(ToString::to_string),
+                    ignored: doctest_ignored(info),
                 });
-            } else if let Some(stream) = output_fence_stream(info) {
-                fence = Some(Fence::Output {
-                    stream: stream.to_string(),
-                    lines: Vec::new(),
-                    span: source.span(line_range),
-                });
+            } else if output_fence_info(info) {
+                let span = source.span(line_range);
+                diagnostics.extend(output_metadata_diagnostics(info, span.clone()));
+                if let Some(stream) = output_fence_stream(info) {
+                    fence = Some(Fence::Output {
+                        stream: stream.to_string(),
+                        lines: Vec::new(),
+                        span,
+                    });
+                } else {
+                    fence = Some(Fence::Ignored);
+                }
             } else if let Some(doctest) = pending.take() {
                 doctests.push(doctest);
             }
@@ -901,6 +967,10 @@ fn doc_comment_content(line: &str) -> Option<&str> {
     line.trim_start().strip_prefix("///")
 }
 
+fn doctest_code_line(content: &str) -> String {
+    content.strip_prefix("# ").unwrap_or(content).to_string()
+}
+
 fn veln_fence_info(info: &str) -> bool {
     info.split_whitespace().next() == Some("veln")
 }
@@ -912,6 +982,16 @@ fn doctest_error_type(info: &str) -> Option<&str> {
         .filter(|value| !value.is_empty())
 }
 
+fn doctest_ignored(info: &str) -> bool {
+    info.split_whitespace()
+        .skip(1)
+        .any(|field| field == "ignore")
+}
+
+fn output_fence_info(info: &str) -> bool {
+    info.split_whitespace().next() == Some("veln-output")
+}
+
 fn output_fence_stream(info: &str) -> Option<&str> {
     let mut fields = info.split_whitespace();
     if fields.next()? != "veln-output" {
@@ -919,6 +999,287 @@ fn output_fence_stream(info: &str) -> Option<&str> {
     }
     let stream = fields.find_map(|field| field.strip_prefix("stream="))?;
     matches!(stream, "stdout" | "stderr").then_some(stream)
+}
+
+fn veln_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
+    info.split_whitespace()
+        .skip(1)
+        .filter_map(|field| {
+            if field.starts_with("error=") {
+                field
+                    .strip_prefix("error=")
+                    .is_some_and(|value| value.is_empty())
+                    .then(|| {
+                        doctest_metadata_diagnostic(
+                            "doctest.invalid_metadata",
+                            "empty doctest error type",
+                            span.clone(),
+                            JsonValue::object([
+                                ("kind", JsonValue::string("doctest_metadata")),
+                                ("attribute", JsonValue::string("error")),
+                            ]),
+                        )
+                    })
+            } else if field == "ignore" {
+                None
+            } else {
+                Some(doctest_metadata_diagnostic(
+                    "doctest.unknown_metadata",
+                    format!(
+                        "unknown doctest attribute `{}`",
+                        metadata_attribute_name(field)
+                    ),
+                    span.clone(),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("doctest_metadata")),
+                        (
+                            "attribute",
+                            JsonValue::string(metadata_attribute_name(field)),
+                        ),
+                        ("fence", JsonValue::string("veln")),
+                    ]),
+                ))
+            }
+        })
+        .collect()
+}
+
+fn output_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut has_stream = false;
+    for field in info.split_whitespace().skip(1) {
+        if let Some(stream) = field.strip_prefix("stream=") {
+            has_stream = true;
+            if !matches!(stream, "stdout" | "stderr") {
+                diagnostics.push(doctest_metadata_diagnostic(
+                    "doctest.invalid_metadata",
+                    format!("unknown doctest output stream `{stream}`"),
+                    span.clone(),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("doctest_metadata")),
+                        ("attribute", JsonValue::string("stream")),
+                        ("stream", JsonValue::string(stream)),
+                    ]),
+                ));
+            }
+        } else {
+            diagnostics.push(doctest_metadata_diagnostic(
+                "doctest.unknown_metadata",
+                format!(
+                    "unknown doctest output attribute `{}`",
+                    metadata_attribute_name(field)
+                ),
+                span.clone(),
+                JsonValue::object([
+                    ("kind", JsonValue::string("doctest_metadata")),
+                    (
+                        "attribute",
+                        JsonValue::string(metadata_attribute_name(field)),
+                    ),
+                    ("fence", JsonValue::string("veln-output")),
+                ]),
+            ));
+        }
+    }
+    if !has_stream {
+        diagnostics.push(doctest_metadata_diagnostic(
+            "doctest.invalid_metadata",
+            "missing doctest output stream",
+            span,
+            JsonValue::object([
+                ("kind", JsonValue::string("doctest_metadata")),
+                ("attribute", JsonValue::string("stream")),
+            ]),
+        ));
+    }
+    diagnostics
+}
+
+fn doctest_metadata_diagnostic(
+    id: &str,
+    message: impl Into<String>,
+    span: SourceSpan,
+    details: JsonValue,
+) -> Diagnostic {
+    Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Doc,
+        message,
+        Some(span),
+        details,
+    )
+}
+
+fn metadata_attribute_name(field: &str) -> &str {
+    field.split_once('=').map_or(field, |(name, _)| name)
+}
+
+fn with_error_type_context(
+    mut doctest: ExtractedDoctest,
+    line: &str,
+    signatures: &BTreeMap<String, Option<String>>,
+) -> ExtractedDoctest {
+    if doctest.error_type.is_none() && doctest.code.iter().any(|line| line.contains('?')) {
+        doctest.error_type = documented_result_error_type(line)
+            .or_else(|| inferred_doctest_error_type(&doctest.code, signatures));
+    }
+    doctest
+}
+
+fn result_error_signatures(sources: &[SourceFile]) -> BTreeMap<String, Option<String>> {
+    let mut signatures = BTreeMap::<String, Option<String>>::new();
+    for source in sources {
+        for line in source.text().lines() {
+            let line = line.trim_start();
+            let Some(name) = function_name(line) else {
+                continue;
+            };
+            let Some(error_type) = function_result_error_type(line) else {
+                continue;
+            };
+            signatures
+                .entry(name.to_string())
+                .and_modify(|existing| {
+                    if existing.as_deref() != Some(error_type) {
+                        *existing = None;
+                    }
+                })
+                .or_insert_with(|| Some(error_type.to_string()));
+        }
+    }
+    signatures
+}
+
+fn function_name(line: &str) -> Option<&str> {
+    let rest = line
+        .strip_prefix("pub fn ")
+        .or_else(|| line.strip_prefix("fn "))?;
+    let open = rest.find('(')?;
+    let name = rest[..open].trim();
+    (!name.is_empty()).then_some(name)
+}
+
+fn function_result_error_type(line: &str) -> Option<&str> {
+    let return_text = line.split_once("->")?.1;
+    let return_text = return_text
+        .split_once(" effects ")
+        .map_or(return_text, |(return_text, _)| return_text)
+        .trim();
+    let return_text = strip_result_binding(return_text);
+    result_error_type(return_text)
+}
+
+fn inferred_doctest_error_type(
+    code: &[String],
+    signatures: &BTreeMap<String, Option<String>>,
+) -> Option<String> {
+    let mut inferred = None::<String>;
+    let mut found_try = false;
+    for line in code {
+        for callee in propagated_call_names(line) {
+            found_try = true;
+            let error_type = signatures.get(callee).and_then(|value| value.as_deref())?;
+            if inferred
+                .as_deref()
+                .is_some_and(|existing| existing != error_type)
+            {
+                return None;
+            }
+            inferred.get_or_insert_with(|| error_type.to_string());
+        }
+    }
+    found_try.then_some(inferred).flatten()
+}
+
+fn propagated_call_names(line: &str) -> Vec<&str> {
+    let mut names = Vec::new();
+    for (index, ch) in line.char_indices() {
+        if ch != '?' {
+            continue;
+        }
+        let Some(name) = propagated_call_name(&line[..index]) else {
+            names.push("");
+            continue;
+        };
+        names.push(name);
+    }
+    names
+}
+
+fn propagated_call_name(text: &str) -> Option<&str> {
+    let text = text.trim_end();
+    if !text.ends_with(')') {
+        return None;
+    }
+    let open = matching_open_paren(text)?;
+    let before_open = text[..open].trim_end();
+    let start = before_open
+        .rfind(|ch: char| !(ch == '_' || ch == ':' || ch.is_ascii_alphanumeric()))
+        .map_or(0, |index| index + 1);
+    let name = &before_open[start..];
+    (!name.is_empty()).then_some(name)
+}
+
+fn matching_open_paren(text: &str) -> Option<usize> {
+    let mut depth = 0usize;
+    for (index, ch) in text.char_indices().rev() {
+        match ch {
+            ')' => depth += 1,
+            '(' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn documented_result_error_type(line: &str) -> Option<String> {
+    let line = line.trim_start();
+    if !line.starts_with("pub fn ") {
+        return None;
+    }
+    function_result_error_type(line).map(ToString::to_string)
+}
+
+fn strip_result_binding(return_text: &str) -> &str {
+    let Some((binding, ty)) = return_text.split_once(':') else {
+        return return_text;
+    };
+    if binding
+        .trim()
+        .chars()
+        .all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
+    {
+        ty.trim_start()
+    } else {
+        return_text
+    }
+}
+
+fn result_error_type(ty: &str) -> Option<&str> {
+    let ty = ty.trim();
+    let args = ty.strip_prefix("Result(")?.strip_suffix(')')?;
+    let comma = top_level_comma(args)?;
+    let error = args[comma + 1..].trim();
+    (!error.is_empty()).then_some(error)
+}
+
+fn top_level_comma(text: &str) -> Option<usize> {
+    let mut depth = 0usize;
+    for (index, ch) in text.char_indices() {
+        match ch {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => return Some(index),
+            _ => {}
+        }
+    }
+    None
 }
 
 fn generated_doctest_source(name: &str, doctest: &ExtractedDoctest) -> String {
@@ -982,6 +1343,45 @@ fn normalize_lines(text: &str) -> String {
         .strip_suffix('\n')
         .unwrap_or(&normalized)
         .to_string()
+}
+
+fn first_differing_line(expected: &str, actual: &str) -> OutputDifference {
+    let expected = normalize_lines(expected);
+    let actual = normalize_lines(actual);
+    let expected_lines = expected.split('\n').collect::<Vec<_>>();
+    let actual_lines = actual.split('\n').collect::<Vec<_>>();
+    let max_len = expected_lines.len().max(actual_lines.len());
+    for index in 0..max_len {
+        let expected_line = expected_lines.get(index).copied();
+        let actual_line = actual_lines.get(index).copied();
+        if expected_line != actual_line {
+            return OutputDifference {
+                line: index + 1,
+                expected: expected_line.map(ToString::to_string),
+                actual: actual_line.map(ToString::to_string),
+            };
+        }
+    }
+    OutputDifference {
+        line: 1,
+        expected: None,
+        actual: None,
+    }
+}
+
+fn output_events_for_stream(events: &[JsonValue], stream: &str) -> Vec<JsonValue> {
+    events
+        .iter()
+        .filter_map(|event| {
+            let JsonValue::Object(fields) = event else {
+                return None;
+            };
+            (json_field(fields, "kind") == Some("stdio")
+                && json_field(fields, "stream") == Some(stream))
+            .then(|| event.clone())
+        })
+        .take(4)
+        .collect()
 }
 
 fn test_summary_to_json(cases: &[TestCase], suite_errors: &[SuiteError]) -> JsonValue {
@@ -1286,6 +1686,150 @@ mod tests {
     }
 
     #[test]
+    fn unknown_doctest_output_attribute_reports_diagnostic() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln\n",
+                "/// stdio::println(\"ready\")\n",
+                "/// ```\n",
+                "/// ```veln-output stream=stdout trim=true\n",
+                "/// ready\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(doctests.diagnostics.len(), 1);
+        assert_eq!(doctests.diagnostics[0].id, "doctest.unknown_metadata");
+        assert_eq!(
+            doctests.diagnostics[0].message,
+            "unknown doctest output attribute `trim`"
+        );
+        assert_eq!(
+            doctests.diagnostics[0].details.to_json(),
+            "{\"kind\":\"doctest_metadata\",\"attribute\":\"trim\",\"fence\":\"veln-output\"}"
+        );
+    }
+
+    #[test]
+    fn invalid_doctest_output_stream_reports_diagnostic() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln\n",
+                "/// stdio::println(\"ready\")\n",
+                "/// ```\n",
+                "/// ```veln-output stream=combined\n",
+                "/// ready\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        let expected = doctests
+            .expected_outputs
+            .get("doctest_1")
+            .expect("doctest should keep an empty expectation record");
+        assert_eq!(expected.stdout, None);
+        assert_eq!(expected.stderr, None);
+        assert_eq!(doctests.diagnostics.len(), 1);
+        assert_eq!(doctests.diagnostics[0].id, "doctest.invalid_metadata");
+        assert_eq!(
+            doctests.diagnostics[0].message,
+            "unknown doctest output stream `combined`"
+        );
+        assert_eq!(
+            doctests.diagnostics[0].details.to_json(),
+            "{\"kind\":\"doctest_metadata\",\"attribute\":\"stream\",\"stream\":\"combined\"}"
+        );
+    }
+
+    #[test]
+    fn ignores_non_runnable_doctest_fences() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln ignore\n",
+                "/// stdio::println(\"ready\")\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert!(doctests.sources.is_empty());
+        assert!(doctests.expected_outputs.is_empty());
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
+    fn extracts_hidden_doctest_setup_lines() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln\n",
+                "/// # let greeting = \"ready\"\n",
+                "/// stdio::println(greeting)\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  let greeting = \"ready\"\n",
+                "  stdio::println(greeting)\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
+    fn unknown_doctest_fence_attribute_reports_diagnostic() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln skip=true\n",
+                "/// stdio::println(\"ready\")\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(doctests.diagnostics.len(), 1);
+        assert_eq!(doctests.diagnostics[0].id, "doctest.unknown_metadata");
+        assert_eq!(
+            doctests.diagnostics[0].message,
+            "unknown doctest attribute `skip`"
+        );
+        assert_eq!(
+            doctests.diagnostics[0].details.to_json(),
+            "{\"kind\":\"doctest_metadata\",\"attribute\":\"skip\",\"fence\":\"veln\"}"
+        );
+    }
+
+    #[test]
     fn extracts_doctest_error_type_fence_attribute() {
         let source = SourceFile::new(
             "main.veln",
@@ -1316,6 +1860,101 @@ mod tests {
     }
 
     #[test]
+    fn infers_doctest_error_type_from_documented_public_result() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln\n",
+                "/// let value: Int = Ok(1)?\n",
+                "/// ```\n",
+                "pub fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+                "  Ok(1)\n",
+                "end\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> Result((), AppError) effects [stdio]\n",
+                "  let value: Int = Ok(1)?\n",
+                "  Ok(())\n",
+                "end\n",
+            )
+        );
+    }
+
+    #[test]
+    fn infers_doctest_error_type_from_single_result_operation() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+                "  Ok(1)\n",
+                "end\n",
+                "/// ```veln\n",
+                "/// let value = parse(\"1\")?\n",
+                "/// ```\n",
+                "pub fn main() -> () effects []\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> Result((), AppError) effects [stdio]\n",
+                "  let value = parse(\"1\")?\n",
+                "  Ok(())\n",
+                "end\n",
+            )
+        );
+    }
+
+    #[test]
+    fn does_not_infer_doctest_error_type_from_mixed_result_operations() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+                "  Ok(1)\n",
+                "end\n",
+                "fn read(raw: String) -> Result(String, IoError) effects []\n",
+                "  Ok(raw)\n",
+                "end\n",
+                "/// ```veln\n",
+                "/// let value = parse(\"1\")?\n",
+                "/// let text = read(\"x\")?\n",
+                "/// ```\n",
+                "pub fn main() -> () effects []\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  let value = parse(\"1\")?\n",
+                "  let text = read(\"x\")?\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+    }
+
+    #[test]
     fn expected_output_mismatch_marks_case_failed() {
         let source_file = SourceFile::new(
             "main.veln#doctest-1_test.veln",
@@ -1336,6 +1975,7 @@ mod tests {
             expected_output: Some(ExpectedOutput {
                 stdout: Some("ready".to_string()),
                 stderr: None,
+                ..ExpectedOutput::default()
             }),
             events: vec![stdio_event(
                 "stdout",
@@ -1356,12 +1996,12 @@ mod tests {
         let failure = case.failure.expect("mismatch should create failure");
         assert_eq!(failure.kind, "output");
         assert_eq!(failure.message, "expected stdout output did not match");
-        assert!(
-            failure
-                .to_json()
-                .to_json()
-                .contains("\"actual\":\"waiting\\n\"")
-        );
+        let failure_json = failure.to_json().to_json();
+        assert!(failure_json.contains("\"actual\":\"waiting\\n\""));
+        assert!(failure_json.contains(
+            "\"first_difference\":{\"line\":1,\"expected\":\"ready\",\"actual\":\"waiting\"}"
+        ));
+        assert!(failure_json.contains("\"actual_events\":[{\"kind\":\"stdio\""));
     }
 
     #[test]

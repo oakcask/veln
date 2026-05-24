@@ -98,11 +98,33 @@ use `kind: "output"` and include:
 - `expected`: reconstructed expected stream text from the adjacent
   `veln-output` fence
 - `actual`: reconstructed actual stream text from captured stdio events
+- `first_difference`: the first mismatching logical line, with one-based
+  `line`, `expected`, and `actual` fields
+- `actual_events`: up to four captured stdio events for the mismatched stream
+- `expected_span`: the expected-output fence span when available
 
 Duplicate `veln-output` fences for the same doctest stream are reported as
 static doc diagnostics before execution. The diagnostic id is
 `doctest.duplicate_output`; its details include `kind: "doctest_metadata"` and
 the duplicate `stream`.
+
+Executable doctests that contain `?` may omit `error=<TypePath>` when the
+doctest immediately documents a public function whose declared return type is
+`Result(_, E)`. The generated doctest wrapper returns `Result((), E)` and
+appends the implicit success value before static gates run.
+
+Doctest fences marked `veln ignore` are documentation-only examples. They do
+not produce generated test sources, case records, expected-output attachments,
+or static diagnostics from their body.
+
+Executable doctest lines that start with `# ` are hidden setup lines. The
+generated doctest includes each hidden setup line after removing the marker,
+and diagnostics for that generated source use the normal doctest source path.
+
+Unknown doctest metadata and invalid doctest metadata are also reported as
+static doc diagnostics before execution. Unknown `veln` and `veln-output`
+attributes use `doctest.unknown_metadata`; empty `error=`, missing `stream`,
+and unsupported output streams use `doctest.invalid_metadata`.
 
 Captured stdio events use:
 

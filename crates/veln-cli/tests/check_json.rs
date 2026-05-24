@@ -1739,6 +1739,35 @@ fn check_json_uses_doctest_error_type_fence_attribute() {
 }
 
 #[test]
+fn check_json_infers_doctest_error_type_from_public_result() {
+    let project = TestProject::new("check-json-doctest-public-result-error-type");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln\n",
+            "/// let value: Int = Ok(1)?\n",
+            "/// ```\n",
+            "pub fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+            "  Ok(1)\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"ok\"",
+            "\"diagnostics\":[]",
+            "\"summary\":{\"diagnostic_count\":0",
+        ],
+    );
+}
+
+#[test]
 fn check_reports_duplicate_doctest_output_stream() {
     let project = TestProject::new("check-duplicate-doctest-output");
     project.write(
@@ -1797,6 +1826,109 @@ fn check_reports_duplicate_doctest_output_stream() {
             "note: main.veln:4:1: First expected stdout output fence is here.",
         ],
     );
+}
+
+#[test]
+fn check_reports_unknown_doctest_metadata() {
+    let project = TestProject::new("check-unknown-doctest-metadata");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln skip=true\n",
+            "/// stdio::println(\"ready\")\n",
+            "/// ```\n",
+            "/// ```veln-output stream=stdout trim=true\n",
+            "/// ready\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let json_output = project.check_json(&["main.veln"]);
+    let json_stdout = stdout(&json_output);
+
+    assert_eq!(
+        json_output.status.code(),
+        Some(1),
+        "{}",
+        stderr(&json_output)
+    );
+    assert_contains_all(
+        json_stdout,
+        &[
+            "\"status\":\"error\"",
+            "\"id\":\"doctest.unknown_metadata\"",
+            "\"message\":\"unknown doctest attribute `skip`\"",
+            "\"details\":{\"kind\":\"doctest_metadata\",\"attribute\":\"skip\",\"fence\":\"veln\"}",
+            "\"message\":\"unknown doctest output attribute `trim`\"",
+            "\"details\":{\"kind\":\"doctest_metadata\",\"attribute\":\"trim\",\"fence\":\"veln-output\"}",
+        ],
+    );
+
+    let human_output = project.veln(&["check"], &["main.veln"]);
+    let human_stdout = stdout(&human_output);
+
+    assert_eq!(
+        human_output.status.code(),
+        Some(1),
+        "{}",
+        stderr(&human_output)
+    );
+    assert_eq!(stderr(&human_output), "");
+    assert_contains_all(
+        human_stdout,
+        &[
+            "error[doctest.unknown_metadata]: unknown doctest attribute `skip`",
+            "error[doctest.unknown_metadata]: unknown doctest output attribute `trim`",
+        ],
+    );
+}
+
+#[test]
+fn check_ignores_non_runnable_doctest_fences() {
+    let project = TestProject::new("check-ignore-doctest");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln ignore\n",
+            "/// missing_function()\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(stdout, &["\"status\":\"ok\"", "\"diagnostics\":[]"]);
+}
+
+#[test]
+fn check_json_typechecks_hidden_doctest_setup_lines() {
+    let project = TestProject::new("check-json-hidden-doctest-setup");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln\n",
+            "/// # let greeting = \"ready\"\n",
+            "/// stdio::println(greeting)\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(stdout, &["\"status\":\"ok\"", "\"diagnostics\":[]"]);
 }
 
 #[test]
@@ -1899,7 +2031,9 @@ fn test_json_reports_doctest_expected_output_mismatch_when_jdk_is_available() {
             "\"name\":\"doctest_1\",\"kind\":\"doctest\",\"status\":\"failed\"",
             "\"reason\":\"expected_output\"",
             "\"failure\":{\"kind\":\"output\",\"message\":\"expected stdout output did not match\"",
-            "\"details\":{\"kind\":\"output\",\"stream\":\"stdout\",\"expected\":\"ready\",\"actual\":\"waiting\\n\"}",
+            "\"details\":{\"kind\":\"output\",\"stream\":\"stdout\",\"expected\":\"ready\",\"actual\":\"waiting\\n\",\"first_difference\":{\"line\":1,\"expected\":\"ready\",\"actual\":\"waiting\"}",
+            "\"actual_events\":[{\"kind\":\"stdio\",\"stream\":\"stdout\",\"operation\":\"println\",\"text\":\"waiting\"",
+            "\"expected_span\":{\"file\":\"main.veln\"",
         ],
     );
 }
