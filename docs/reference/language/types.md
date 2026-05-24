@@ -42,6 +42,7 @@ Expected types flow into holes and subexpressions from:
 - record fields
 - list elements
 - dictionary keys and values
+- callable function declarations used as values
 - `Ok`, `Err`, `Some`, `None`, and postfix `?`
 - `match` arm results and constructor payload bindings
 - record pattern field bindings

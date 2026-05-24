@@ -133,6 +133,14 @@ impl Type {
         Self::named("Dict", vec![key, value])
     }
 
+    pub(crate) fn function(params: Vec<Type>, return_type: Type, effects: Vec<String>) -> Self {
+        Self::Function {
+            params,
+            return_type: Box::new(return_type),
+            effects,
+        }
+    }
+
     pub(crate) fn render(&self) -> String {
         match self {
             Self::Unknown => "unknown".to_string(),
@@ -260,6 +268,16 @@ impl TypeEnvironment {
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions.iter().find(|function| function.name == name)
+    }
+}
+
+impl FunctionSignature {
+    pub(crate) fn ty(&self) -> Type {
+        Type::function(
+            self.params.clone(),
+            self.return_type.clone(),
+            self.effects.clone(),
+        )
     }
 }
 

@@ -28,7 +28,6 @@ current workspace. Implemented decisions were moved to
 - [First-Slice Grammar](result-first-slice-grammar.md)
 - [Module Metadata Location](result-module-metadata-location.md)
 - [Runtime Contract Failure Reporting](result-runtime-contract-failure-reporting.md)
-- [Scoping and Name Resolution](result-scoping-and-name-resolution.md)
 
 ## Classification Rule
 

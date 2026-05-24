@@ -334,6 +334,13 @@ struct FunctionChecker<'a> {
     diagnostics: Vec<Diagnostic>,
 }
 
+struct PatternBinding {
+    name: String,
+    ty: Type,
+    node_id: NodeId,
+    span: SourceSpan,
+}
+
 impl<'a> FunctionChecker<'a> {
     fn new(function: &'a Function, environment: &'a TypeEnvironment) -> Self {
         Self {
@@ -985,6 +992,8 @@ impl<'a> FunctionChecker<'a> {
                     .find(|binding| binding.name == *name)
                 {
                     binding.ty.clone()
+                } else if let Some(function) = self.environment.function(name) {
+                    function.ty()
                 } else {
                     self.push_unresolved_name(expr.node_id, expr.span.clone(), name, "value");
                     Type::Unknown
@@ -1141,8 +1150,27 @@ impl<'a> FunctionChecker<'a> {
                     return Some((vec![Type::string()], Type::unit(), origin));
                 }
                 let name = segments.last()?;
-                if let Some(function) = self.environment.function(name) {
+                if let Some(binding) = self
+                    .bindings
+                    .iter()
+                    .rev()
+                    .find(|binding| binding.name == *name)
+                {
+                    let (params, return_type) = binding.ty.function_parts()?;
+                    let effects = binding.ty.function_effects().unwrap_or_default().to_vec();
                     return Some((
+                        params.to_vec(),
+                        return_type.clone(),
+                        CallOrigin {
+                            node_id: callee.node_id,
+                            span: callee.span.clone(),
+                            symbol: name.clone(),
+                            effects,
+                        },
+                    ));
+                }
+                self.environment.function(name).map(|function| {
+                    (
                         function.params.clone(),
                         function.return_type.clone(),
                         CallOrigin {
@@ -1151,25 +1179,8 @@ impl<'a> FunctionChecker<'a> {
                             symbol: function.name.clone(),
                             effects: function.effects.clone(),
                         },
-                    ));
-                }
-                let binding = self
-                    .bindings
-                    .iter()
-                    .rev()
-                    .find(|binding| binding.name == *name)?;
-                let (params, return_type) = binding.ty.function_parts()?;
-                let effects = binding.ty.function_effects().unwrap_or_default().to_vec();
-                Some((
-                    params.to_vec(),
-                    return_type.clone(),
-                    CallOrigin {
-                        node_id: callee.node_id,
-                        span: callee.span.clone(),
-                        symbol: name.clone(),
-                        effects,
-                    },
-                ))
+                    )
+                })
             }
             _ => None,
         }
@@ -1331,13 +1342,18 @@ impl<'a> FunctionChecker<'a> {
             let saved_names = self.local_names.clone();
             let pattern_bindings = self.pattern_bindings(&arm.pattern, &scrutinee_type);
             for binding in pattern_bindings {
-                let _ = self.declare_local_name(
+                if !self.declare_local_name(
                     &binding.name,
-                    arm.pattern.node_id.display("pattern"),
-                    arm.pattern.span.clone(),
+                    binding.node_id.display("pattern"),
+                    binding.span,
                     "pattern binding",
-                );
-                self.bindings.push(binding);
+                ) {
+                    continue;
+                }
+                self.bindings.push(Binding {
+                    name: binding.name,
+                    ty: binding.ty,
+                });
             }
 
             let arm_expected = if let Some(expected) = expected {
@@ -1368,7 +1384,11 @@ impl<'a> FunctionChecker<'a> {
         result_type
     }
 
-    fn pattern_bindings(&self, pattern: &Pattern, scrutinee_type: &Type) -> Vec<Binding> {
+    fn pattern_bindings(
+        &mut self,
+        pattern: &Pattern,
+        scrutinee_type: &Type,
+    ) -> Vec<PatternBinding> {
         match &pattern.kind {
             PatternKind::Wildcard
             | PatternKind::StringLiteral(_)
@@ -1376,38 +1396,80 @@ impl<'a> FunctionChecker<'a> {
             | PatternKind::FloatLiteral(_)
             | PatternKind::BoolLiteral(_)
             | PatternKind::Unit => Vec::new(),
-            PatternKind::Binding(name) => vec![Binding {
+            PatternKind::Binding(name) => vec![PatternBinding {
                 name: name.clone(),
                 ty: scrutinee_type.clone(),
+                node_id: pattern.node_id,
+                span: pattern.span.clone(),
             }],
-            PatternKind::Record(fields) => fields
-                .iter()
-                .flat_map(|field| {
+            PatternKind::Record(fields) => {
+                let mut bindings = Vec::new();
+                let mut seen_fields = BTreeMap::<String, (String, SourceSpan)>::new();
+                for field in fields {
+                    if let Some((first_node_id, first_span)) = seen_fields.get(&field.name) {
+                        self.diagnostics.push(duplicate_name_diagnostic(
+                            &field.name,
+                            "record_field",
+                            "record pattern field",
+                            field.node_id.display("field"),
+                            field.span.clone(),
+                            first_node_id.clone(),
+                            first_span,
+                        ));
+                    } else {
+                        seen_fields.insert(
+                            field.name.clone(),
+                            (field.node_id.display("field"), field.span.clone()),
+                        );
+                    }
                     let field_type = scrutinee_type
                         .record_field(&field.name)
                         .unwrap_or(&Type::Unknown);
-                    self.pattern_bindings(&field.pattern, field_type)
-                })
-                .collect(),
+                    bindings.extend(self.pattern_bindings(&field.pattern, field_type));
+                }
+                bindings
+            }
             PatternKind::Constructor { name, args } => match name.as_slice() {
-                [constructor] if constructor == "Some" => scrutinee_type
-                    .option_part()
-                    .zip(args.first())
-                    .map_or_else(Vec::new, |(inner, pattern)| {
-                        self.pattern_bindings(pattern, inner)
-                    }),
-                [constructor] if constructor == "Ok" => scrutinee_type
-                    .result_parts()
-                    .zip(args.first())
-                    .map_or_else(Vec::new, |((value, _), pattern)| {
-                        self.pattern_bindings(pattern, value)
-                    }),
-                [constructor] if constructor == "Err" => scrutinee_type
-                    .result_parts()
-                    .zip(args.first())
-                    .map_or_else(Vec::new, |((_, error), pattern)| {
-                        self.pattern_bindings(pattern, error)
-                    }),
+                [constructor] if constructor == "Some" => args
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(index, pattern)| {
+                        let ty = if index == 0 {
+                            scrutinee_type.option_part().unwrap_or(&Type::Unknown)
+                        } else {
+                            &Type::Unknown
+                        };
+                        self.pattern_bindings(pattern, ty)
+                    })
+                    .collect(),
+                [constructor] if constructor == "Ok" => args
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(index, pattern)| {
+                        let ty = if index == 0 {
+                            scrutinee_type
+                                .result_parts()
+                                .map_or(&Type::Unknown, |(value, _)| value)
+                        } else {
+                            &Type::Unknown
+                        };
+                        self.pattern_bindings(pattern, ty)
+                    })
+                    .collect(),
+                [constructor] if constructor == "Err" => args
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(index, pattern)| {
+                        let ty = if index == 0 {
+                            scrutinee_type
+                                .result_parts()
+                                .map_or(&Type::Unknown, |(_, error)| error)
+                        } else {
+                            &Type::Unknown
+                        };
+                        self.pattern_bindings(pattern, ty)
+                    })
+                    .collect(),
                 _ => Vec::new(),
             },
         }

@@ -70,7 +70,8 @@ segment of the imported module path, so `use platform.io` declares the alias
 `io`.
 
 Public `fn` declarations are the implemented public API boundary. Dedicated
-export lists are not implemented.
+export lists are not implemented. Function declarations can be referenced by
+bare name as callable values where a function-typed expression is expected.
 
 `test` is a top-level declaration keyword, not a visibility modifier. Test
 declarations are selected by `veln test`, require an empty parameter list,
@@ -84,6 +85,7 @@ Implemented expressions:
 - holes: `_` and `_name`, with optional `satisfy candidate => predicate`
 - literals: strings, integers, floats, `true`, `false`, and `()`
 - paths and calls: `name`, `module::name`, `callee(args...)`
+- callable function declaration values by bare name
 - constructors: `Ok(value)`, `Err(error)`, `Some(value)`, and `None`
 - prelude helpers as bare calls such as `list_len(items)`
 - records: `{name: value, ...}`
@@ -113,8 +115,10 @@ reports `type.pipeline_target`.
 wildcard `_`, binding names, literals, record patterns, and the built-in
 constructors `Some`, `None`, `Ok`, and `Err`. Record patterns match when the
 scrutinee is a record containing every named pattern field and every nested
-field pattern matches. Exhaustiveness is not statically checked in the current
-slice.
+field pattern matches. Pattern bindings in one arm must not duplicate another
+binding in that arm or a value binding already visible at the arm. Record
+pattern field names must be unique. Exhaustiveness is not statically checked in
+the current slice.
 
 ## Contract Predicates
 

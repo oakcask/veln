@@ -266,7 +266,7 @@
   resolve nearest lexical value declarations deterministically, and keep
   named-hole labels outside semantic name resolution.
 - Discussion result:
-  [Scoping and Name Resolution](../../proposals/agent-language-spec-wall/result-scoping-and-name-resolution.md)
+  [Scoping and Name Resolution](../source-decisions/result-scoping-and-name-resolution.md)
 - Supporting references:
   `neron2015-name-resolution`, `van-antwerpen2018-scopes-as-types`,
   `rust-reference-name-resolution`, `barik2018-compiler-explanations`,

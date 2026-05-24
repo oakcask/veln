@@ -377,13 +377,22 @@ impl<'a> CoreLowerer<'a> {
                 CoreExprKind::OptionNone,
             ),
             [name] => {
-                let ty = self
+                if let Some(binding) = self
                     .bindings
                     .iter()
                     .rev()
                     .find(|binding| binding.name == *name)
-                    .map_or(CoreType::Unknown, |binding| binding.ty.clone());
-                self.core_expr(expr, ty, CoreExprKind::Local(name.clone()))
+                {
+                    self.core_expr(expr, binding.ty.clone(), CoreExprKind::Local(name.clone()))
+                } else if let Some(function) = self.environment.function(name) {
+                    self.core_expr(
+                        expr,
+                        core_type(&function.ty()),
+                        CoreExprKind::FunctionValue(name.clone()),
+                    )
+                } else {
+                    self.core_expr(expr, CoreType::Unknown, CoreExprKind::Local(name.clone()))
+                }
             }
             _ => self.core_expr(
                 expr,
@@ -787,19 +796,12 @@ impl<'a> CoreLowerer<'a> {
             });
         }
         let name = segments.last()?;
-        if let Some(function) = self.environment.function(name) {
-            return Some(CoreCallSignature {
-                target: CoreCallTarget::Function(function.name.clone()),
-                params: function.params.iter().map(core_type).collect(),
-                return_type: core_type(&function.return_type),
-            });
-        }
-        let binding = self
+        if let Some(binding) = self
             .bindings
             .iter()
             .rev()
-            .find(|binding| binding.name == *name);
-        if let Some(binding) = binding {
+            .find(|binding| binding.name == *name)
+        {
             if let CoreType::Function {
                 params,
                 return_type,
@@ -812,6 +814,14 @@ impl<'a> CoreLowerer<'a> {
                     return_type: return_type.as_ref().clone(),
                 });
             }
+            return None;
+        }
+        if let Some(function) = self.environment.function(name) {
+            return Some(CoreCallSignature {
+                target: CoreCallTarget::Function(function.name.clone()),
+                params: function.params.iter().map(core_type).collect(),
+                return_type: core_type(&function.return_type),
+            });
         }
         if let [name] = segments.as_slice() {
             if let Some((target, params, return_type)) = core_prelude_signature(name, expected) {

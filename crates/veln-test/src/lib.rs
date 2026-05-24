@@ -598,6 +598,7 @@ mod tests {
     fn discovered_selection_uses_test_file_pattern() {
         let project = Project {
             root: PathBuf::new(),
+            manifest: None,
             files: vec![
                 SourceFile::new("main.veln", ""),
                 SourceFile::new("main_test.veln", ""),

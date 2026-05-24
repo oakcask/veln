@@ -13,14 +13,17 @@ Implemented checker namespaces are:
 Bare names resolve to local bindings. Function calls resolve to:
 
 - compiler-known stdio calls
-- discovered function signatures by final path segment
 - local bindings with function type
+- discovered function signatures by final path segment
 - compiler-known prelude helper calls
 
 Unresolved values and call targets produce `name.unresolved` diagnostics.
 Duplicate declarations in the same implemented namespace produce
 `name.duplicate` diagnostics at the later declaration, with the first
 declaration reported as related context.
+
+Local value bindings shadow discovered function declarations for both bare
+values and calls.
 
 Current duplicate checks reject:
 
@@ -32,6 +35,9 @@ Current duplicate checks reject:
 - duplicate `let` names in the same function value scope, including names that
   duplicate parameters
 - duplicate field names in one record literal
+- duplicate pattern binding names in one match arm, including names that
+  duplicate bindings already visible at the arm
+- duplicate field names in one record pattern
 
 Record type annotations also require unique field names. Duplicate record type
 fields are reported through invalid type annotation diagnostics because they are

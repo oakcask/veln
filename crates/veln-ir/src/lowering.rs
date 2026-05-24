@@ -97,6 +97,7 @@ fn lower_expr(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
             CoreExprKind::IntLiteral(value) => IrExprKind::IntLiteral(value.clone()),
             CoreExprKind::FloatLiteral(value) => IrExprKind::FloatLiteral(value.clone()),
             CoreExprKind::Unit => IrExprKind::Unit,
+            CoreExprKind::FunctionValue(name) => IrExprKind::FunctionValue(name.clone()),
             CoreExprKind::ResultOk(value) => IrExprKind::ResultOk(Box::new(lower_expr(value)?)),
             CoreExprKind::ResultErr(value) => IrExprKind::ResultErr(Box::new(lower_expr(value)?)),
             CoreExprKind::OptionSome(value) => IrExprKind::OptionSome(Box::new(lower_expr(value)?)),

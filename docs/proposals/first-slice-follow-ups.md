@@ -10,7 +10,7 @@ stays in
 
 ## Language And Type Coverage
 
-- Stable callable value construction remains follow-up work.
+No accepted language and type coverage follow-up is currently tracked here.
 
 ## Repair Loop
 

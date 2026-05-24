@@ -44,6 +44,7 @@ read these records only for rationale or compatibility context.
 - [Public Function Type Boundaries](result-public-function-type-boundaries.md)
 - [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md)
 - [Safe Repair Candidate Boundary](result-safe-repair-candidate-boundary.md)
+- [Scoping and Name Resolution](result-scoping-and-name-resolution.md)
 - [Satisfy Unknown Severity](result-satisfy-unknown-severity.md)
 - [Stdio API and Output Events](result-stdio-api-and-output-events.md)
 - [Test Declaration Syntax](result-test-declaration-syntax.md)

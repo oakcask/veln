@@ -726,6 +726,13 @@ impl<'a> ProgramEmitter<'a> {
             .cloned()
             .unwrap_or_else(|| format!("fn_{}", sanitize_identifier_text(name)))
     }
+
+    pub(crate) fn function(&self, name: &str) -> Option<&veln_ir::IrFunction> {
+        self.program
+            .functions
+            .iter()
+            .find(|function| function.name == name)
+    }
 }
 
 fn entry_arg_value(ty: EntryArgType, index: usize) -> String {

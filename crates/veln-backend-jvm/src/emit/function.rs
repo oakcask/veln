@@ -101,6 +101,7 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             IrExprKind::Unit => {
                 JavaExpr::simple(format!("{}.UNIT", self.program.options.runtime_class))
             }
+            IrExprKind::FunctionValue(name) => self.emit_function_value(name),
             IrExprKind::ResultOk(value) => self.emit_unary_runtime("ok", value),
             IrExprKind::ResultErr(value) => self.emit_unary_runtime("err", value),
             IrExprKind::OptionSome(value) => self.emit_unary_runtime("some", value),
@@ -174,6 +175,24 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             }
         };
         JavaExpr { prelude, code }
+    }
+
+    fn emit_function_value(&self, name: &str) -> JavaExpr {
+        let function_name = self.program.function_name(name);
+        let Some(function) = self.program.function(name) else {
+            return JavaExpr::simple(format!(
+                "({}.Fn) ((Object... fnArgs) -> {function_name}())",
+                self.program.options.runtime_class
+            ));
+        };
+        let args = (0..function.params.len())
+            .map(|index| format!("fnArgs[{index}]"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        JavaExpr::simple(format!(
+            "({}.Fn) ((Object... fnArgs) -> {function_name}({args}))",
+            self.program.options.runtime_class
+        ))
     }
 
     fn emit_field_access(&mut self, base: &IrExpr, field: &str) -> JavaExpr {

@@ -62,6 +62,7 @@ pub enum IrExprKind {
     IntLiteral(String),
     FloatLiteral(String),
     Unit,
+    FunctionValue(String),
     ResultOk(Box<IrExpr>),
     ResultErr(Box<IrExpr>),
     OptionSome(Box<IrExpr>),

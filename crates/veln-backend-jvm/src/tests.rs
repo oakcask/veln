@@ -529,6 +529,54 @@ fn generates_runtime_calls_for_prelude_helpers() {
 }
 
 #[test]
+fn generates_function_values_for_declared_functions() {
+    let ir = lower_to_ir(concat!(
+        "fn stringify(value: Int) -> String effects []\n",
+        "  \"ok\"\n",
+        "end\n",
+        "pub fn main(items: List(Int)) -> List(String) effects []\n",
+        "  list_map(items, stringify)\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+
+    assert!(
+        program.contains(
+            "VelnRuntime.listMap(p_items, (VelnRuntime.Fn) ((Object... fnArgs) -> fn_stringify(fnArgs[0])))"
+        )
+    );
+
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let root = temp_dir("function-value");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+
+    let output = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
 fn escapes_string_literals_and_emits_result_errors() {
     let ir = lower_to_ir(concat!(
         "pub fn main() -> Result(String, String) effects []\n",

@@ -296,6 +296,60 @@ fn duplicate_record_field_names_are_static_errors() {
 }
 
 #[test]
+fn duplicate_pattern_bindings_are_static_errors() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(input: {left: Int, right: Int}) -> Int\n",
+            "  match input\n",
+            "    {left: value, right: value} => value\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.duplicate"
+                && diagnostic.message == "duplicate pattern binding name `value`"
+                && diagnostic.related.len() == 1
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn duplicate_record_pattern_field_names_are_static_errors() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(input: {value: Int}) -> Int\n",
+            "  match input\n",
+            "    {value: first, value: second} => first\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.duplicate"
+                && diagnostic.message == "duplicate record pattern field name `value`"
+                && diagnostic.related.len() == 1
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn reports_hole_with_declared_return_expected_type() {
     let source = SourceFile::new("main.veln", "fn todo() -> Result((), AppError)\n  _\nend\n");
     let parsed = parse(&source);
@@ -963,6 +1017,130 @@ fn infers_prelude_helper_calls_from_expected_types() {
             ..
         } if name == "list_len"
     ));
+}
+
+#[test]
+fn lowers_function_declarations_as_callable_values() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn stringify(value: Int) -> String effects []\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn main(items: List(Int)) -> List(String) effects []\n",
+            "  list_map(items, stringify)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("tail expression should lower as call");
+    };
+    assert!(matches!(
+        &args[1].kind,
+        CoreExprKind::FunctionValue(name) if name == "stringify"
+    ));
+    assert_eq!(
+        args[1].ty,
+        CoreType::Function {
+            params: vec![CoreType::int()],
+            return_type: Box::new(CoreType::string()),
+            effects: Vec::new()
+        }
+    );
+
+    let ir = lowered.ir.expect("complete core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    let IrExprKind::Call { args, .. } = &value.kind else {
+        panic!("tail expression should lower as IR call");
+    };
+    assert!(matches!(
+        &args[1].kind,
+        IrExprKind::FunctionValue(name) if name == "stringify"
+    ));
+}
+
+#[test]
+fn call_resolution_prefers_local_callable_over_function_declaration() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn stringify(value: Int) -> String effects []\n",
+            "  \"function\"\n",
+            "end\n",
+            "pub fn main(stringify: fn(Int) -> String effects []) -> String effects []\n",
+            "  stringify(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { target, args } = &expr.kind else {
+        panic!("tail expression should lower as call");
+    };
+    assert_eq!(target, &CoreCallTarget::Value("stringify".to_string()));
+    assert!(matches!(&args[0].kind, CoreExprKind::IntLiteral(value) if value == "1"));
+}
+
+#[test]
+fn non_callable_local_shadow_blocks_function_call_resolution() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn stringify(value: Int) -> String effects []\n",
+            "  \"function\"\n",
+            "end\n",
+            "pub fn main(stringify: Int) -> String effects []\n",
+            "  stringify(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved call_target `stringify`"
+        }),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

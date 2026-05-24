@@ -57,7 +57,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   four string-only stdio output functions and capture deterministic
   source-linked stdout/stderr events for tests.
 - Resolved by
-  [Scoping and Name Resolution](result-scoping-and-name-resolution.md): use
+  [Scoping and Name Resolution](../../reference/source-decisions/result-scoping-and-name-resolution.md): use
   lexical scope with explicit namespaces, reject duplicate declarations in the
   same scope and namespace, resolve nearest lexical value declarations
   deterministically, and keep named-hole labels outside semantic name

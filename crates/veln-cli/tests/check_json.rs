@@ -298,6 +298,33 @@ fn check_json_reports_missing_module_identity_for_imports() {
 }
 
 #[test]
+fn check_human_reports_duplicate_pattern_binding_origin() {
+    let project = TestProject::new("check-human-duplicate-pattern-binding");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(input: {left: Int, right: Int}) -> Int\n",
+            "  match input\n",
+            "    {left: value, right: value} => value\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "main.veln:3:26: error[name.duplicate]: duplicate pattern binding name `value`",
+            "  note: main.veln:3:12: First pattern binding with this name is here.",
+        ],
+    );
+}
+
+#[test]
 fn fmt_formats_first_slice_golden_and_is_idempotent() {
     let project = TestProject::new("fmt-golden");
     project.write(

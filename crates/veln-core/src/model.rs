@@ -80,6 +80,7 @@ pub enum CoreExprKind {
     IntLiteral(String),
     FloatLiteral(String),
     Unit,
+    FunctionValue(String),
     ResultOk(Box<CoreExpr>),
     ResultErr(Box<CoreExpr>),
     OptionSome(Box<CoreExpr>),

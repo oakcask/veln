@@ -27,3 +27,4 @@ categorized specification files. The full implemented decision index is
 - [AST Phase Boundary](../source-decisions/result-ast-phase-boundary.md)
 - [AST Implementation Representation](../source-decisions/result-ast-implementation-representation.md)
 - [Runtime Value Freeze Boundary](../source-decisions/result-runtime-value-freeze-boundary.md)
+- [Scoping and Name Resolution](../source-decisions/result-scoping-and-name-resolution.md)

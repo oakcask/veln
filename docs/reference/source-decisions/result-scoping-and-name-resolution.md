@@ -1,6 +1,6 @@
 # Discussion Result: Scoping and Name Resolution
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 
@@ -91,6 +91,10 @@ allowing the checker to include local scope information in hole diagnostics.
   allowed because each occurrence remains a separate missing expression, but
   the checker may emit a style hint when repeated labels in one function make
   repair targeting unclear.
+- Pattern bindings declare value names for the match arm. Duplicate pattern
+  binding names in one arm are errors, including names that duplicate values
+  already visible at the arm. Record pattern field names are also unique within
+  one record pattern.
 - Unresolved-name, duplicate-definition, ambiguous-import, and shadowing
   diagnostics should report the namespace, candidate declaration spans, and a
   stable node ID for the reference when one exists.
@@ -107,12 +111,6 @@ If examples show that accidental local shadowing is common, the checker can
 promote same-function shadowing from a hint to a warning without changing name
 resolution semantics.
 
-Pattern-binding rules are deferred until the pattern grammar is broader than
-the current first-slice needs. When pattern binding is added, pattern variables
-should follow the same scope-and-namespace rule: duplicates in the same pattern
-scope are errors, while nested pattern scopes must define their shadowing
-behavior explicitly.
-
 ## Consequence
 
 The checker gets one coherent binding model before parser, type, contract, and
@@ -122,17 +120,17 @@ errors without treating hole labels as semantic variables.
 
 ## References
 
-- Neron, P., Tolmach, A., Visser, E., & Wachsmuth, G. (2015). A Theory of Name
+- Neron, P., Tolmach, A., Visser, E., & Wachsmuth, G. A Theory of Name
   Resolution. *Programming Languages and Systems*, 205-231.
   https://doi.org/10.1007/978-3-662-46669-8_9
-- van Antwerpen, H., Bach Poulsen, C., Rouvoet, A., & Visser, E. (2018).
+- van Antwerpen, H., Bach Poulsen, C., Rouvoet, A., & Visser, E.
   Scopes as Types. *Proceedings of the ACM on Programming Languages*,
   2(OOPSLA), Article 114. https://doi.org/10.1145/3276484
-- The Rust Reference contributors. (2026). *Name resolution*. The Rust
+- The Rust Reference contributors. *Name resolution*. The Rust
   Reference.
   https://doc.rust-lang.org/reference/names/name-resolution.html
-- Barik, T., Ford, D., Murphy-Hill, E., & Parnin, C. (2018). How Should
-  Compilers Explain Problems to Developers? *ESEC/FSE 2018*.
+- Barik, T., Ford, D., Murphy-Hill, E., & Parnin, C. How Should
+  Compilers Explain Problems to Developers? *ESEC/FSE*.
   https://doi.org/10.1145/3236024.3236040
-- GHC contributors. (2026). *Typed Holes*. Glasgow Haskell Compiler User's
+- GHC contributors. *Typed Holes*. Glasgow Haskell Compiler User's
   Guide. https://ghc.gitlab.haskell.org/ghc/doc/users_guide/exts/typed_holes.html
