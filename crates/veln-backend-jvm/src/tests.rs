@@ -334,13 +334,16 @@ fn sanitizes_java_keywords_and_colliding_identifiers() {
 #[test]
 fn generates_runtime_calls_for_value_call_prefix_and_binary_ops() {
     let ir = lower_to_ir(concat!(
+        "fn inc(value: Int) -> Int\n",
+        "  value + 1\n",
+        "end\n",
         "pub fn main(callback: fn(Int) -> Int, a: Int, b: Int, flag: Bool) -> {",
         "called: Int, negated: Int, inverted: Bool, add: Int, sub: Int, mul: Int, div: Int, ",
         "eq: Bool, ne: Bool, lt: Bool, le: Bool, gt: Bool, ge: Bool, anded: Bool, ored: Bool, piped: Int",
         "} effects []\n",
         "  {called: callback(1), negated: -a, inverted: not flag, add: a + b, sub: a - b, ",
         "mul: a * b, div: a / b, eq: a == b, ne: a != b, lt: a < b, le: a <= b, ",
-        "gt: a > b, ge: a >= b, anded: flag and false, ored: flag or true, piped: a |> b}\n",
+        "gt: a > b, ge: a >= b, anded: flag and false, ored: flag or true, piped: a |> inc()}\n",
         "end\n",
     ));
 
@@ -364,7 +367,7 @@ fn generates_runtime_calls_for_value_call_prefix_and_binary_ops() {
     assert!(program.contains("\"ge\", VelnRuntime.greaterEqual(p_a, p_b)"));
     assert!(program.contains("\"anded\", VelnRuntime.and(p_flag, Boolean.FALSE)"));
     assert!(program.contains("\"ored\", VelnRuntime.or(p_flag, Boolean.TRUE)"));
-    assert!(program.contains("\"piped\", VelnRuntime.pipe(p_a, p_b)"));
+    assert!(program.contains("\"piped\", fn_inc(p_a)"));
 }
 
 #[test]

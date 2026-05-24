@@ -1593,6 +1593,10 @@ impl<'a> FunctionChecker<'a> {
         right: &Expr,
         expected_result: Option<&ExpectedType>,
     ) -> Type {
+        if op == BinaryOp::PipeGreater {
+            return self.infer_pipeline(left, right, expected_result);
+        }
+
         let numeric_type = if is_ordering_op(op) {
             self.numeric_operand_type(None, &[left, right])
         } else {
@@ -1615,7 +1619,7 @@ impl<'a> FunctionChecker<'a> {
             BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
                 (numeric_type.clone(), numeric_type)
             }
-            BinaryOp::PipeGreater => (Type::Unknown, Type::Unknown),
+            BinaryOp::PipeGreater => unreachable!("pipeline handled before binary operators"),
         };
         let expected = ExpectedType {
             ty: operand_type,
@@ -1641,6 +1645,38 @@ impl<'a> FunctionChecker<'a> {
             "operator_operand",
         );
         result_type
+    }
+
+    fn infer_pipeline(
+        &mut self,
+        left: &Expr,
+        right: &Expr,
+        expected_result: Option<&ExpectedType>,
+    ) -> Type {
+        let ExprKind::Call { callee, args } = &right.kind else {
+            self.infer_expr(left, None);
+            self.infer_expr(right, None);
+            self.diagnostics.push(Diagnostic::new(
+                "type.pipeline_target",
+                Severity::Error,
+                DiagnosticKind::Type,
+                "pipeline target is not a call",
+                Some(right.span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("type")),
+                    ("node_id", JsonValue::string(right.node_id.display("expr"))),
+                    ("expected", JsonValue::string("call")),
+                    ("actual", JsonValue::string("expression")),
+                    ("constraint", JsonValue::string("pipeline_target")),
+                ]),
+            ));
+            return Type::Unknown;
+        };
+
+        let mut piped_args = Vec::with_capacity(args.len() + 1);
+        piped_args.push(left.clone());
+        piped_args.extend(args.iter().cloned());
+        self.infer_call(right, callee, &piped_args, expected_result)
     }
 
     fn infer_builtin_unary_call(&mut self, name: &str, arg: &Expr) -> Type {

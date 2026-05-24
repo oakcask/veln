@@ -739,6 +739,60 @@ fn infers_non_constructor_calls_from_local_function_signatures() {
 }
 
 #[test]
+fn pipeline_inserts_left_value_as_first_call_argument() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn add(left: Int, right: Int) -> Int\n",
+            "  left + right\n",
+            "end\n",
+            "pub fn main() -> Int effects []\n",
+            "  1 |> add(2)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { target, args } = &expr.kind else {
+        panic!("pipeline should lower as a call");
+    };
+    assert_eq!(target, &CoreCallTarget::Function("add".to_string()));
+    assert_eq!(args.len(), 2);
+    assert!(matches!(&args[0].kind, CoreExprKind::IntLiteral(value) if value == "1"));
+    assert!(matches!(&args[1].kind, CoreExprKind::IntLiteral(value) if value == "2"));
+}
+
+#[test]
+fn pipeline_requires_call_target() {
+    let source = SourceFile::new(
+        "main.veln",
+        "pub fn main() -> Int effects []\n  1 |> 2\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.pipeline_target"
+            && diagnostic.message == "pipeline target is not a call"
+    }));
+}
+
+#[test]
 fn infers_prelude_helper_calls_from_expected_types() {
     let source = SourceFile::new(
         "main.veln",

@@ -93,9 +93,9 @@ Implemented operator typing:
   operand is clearly `Float`.
 - `==` and `!=` return `Bool` and do not currently require matching operand
   types.
-- `|>` is parsed and lowered as a binary operator with unknown operand and
-  result types. It has no special call-rewrite semantics in the implemented
-  slice. The current JVM runtime helper returns the right operand.
+- `|>` requires a call expression on the right. The left expression is checked
+  as the first argument of that call, and the pipeline result is the call
+  result. A non-call target reports `type.pipeline_target`.
 
 Operator typing permits `Int` operands where a selected `Float` operator
 expects a numeric operand. This widening is limited to numeric operators;

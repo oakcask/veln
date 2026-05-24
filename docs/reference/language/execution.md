@@ -23,6 +23,8 @@ The JVM backend generates Java source for the implemented IR subset:
 - record field access
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls
+- pipelines lowered to calls with the left expression inserted as the first
+  argument
 - integer and boolean operators used by the implemented type rules
 
 Generated runtime helpers may use mutable builders while constructing records,

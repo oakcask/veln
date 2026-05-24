@@ -90,6 +90,10 @@ and type-mismatch diagnostics:
 - `constraint`
 - `origin_node_ids`
 
+`type.pipeline_target` reports a non-call expression on the right side of
+`|>`. Its `details` include `phase`, `node_id`, `expected`, `actual`, and
+`constraint: "pipeline_target"`.
+
 Effect diagnostic `details` are stable for `effect.missing_public`:
 
 - `phase`

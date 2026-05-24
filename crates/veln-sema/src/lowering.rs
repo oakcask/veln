@@ -235,6 +235,10 @@ impl<'a> CoreLowerer<'a> {
                 )
             }
             ExprKind::Binary { op, left, right } => {
+                if *op == BinaryOp::PipeGreater {
+                    return self.lower_pipeline(expr, left, right, expected);
+                }
+
                 let numeric_type = if is_ordering_op(*op) {
                     self.numeric_operand_type(None, &[left, right])
                 } else {
@@ -276,7 +280,9 @@ impl<'a> CoreLowerer<'a> {
                     BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
                         (numeric_type.clone(), numeric_type)
                     }
-                    BinaryOp::PipeGreater => (CoreType::Unknown, CoreType::Unknown),
+                    BinaryOp::PipeGreater => {
+                        unreachable!("pipeline handled before binary lowering")
+                    }
                 };
                 let left = self.lower_expr(left, Some(&operand));
                 let right = self.lower_expr(right, Some(&operand));
@@ -291,6 +297,29 @@ impl<'a> CoreLowerer<'a> {
                 )
             }
         }
+    }
+
+    fn lower_pipeline(
+        &mut self,
+        expr: &Expr,
+        left: &Expr,
+        right: &Expr,
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        let ExprKind::Call { callee, args } = &right.kind else {
+            self.blockers.push(CoreBlocker::UnsupportedExpression {
+                node_id: right.node_id,
+                reason: "pipeline_target_not_call".to_string(),
+            });
+            self.lower_expr(left, None);
+            self.lower_expr(right, None);
+            return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
+        };
+
+        let mut piped_args = Vec::with_capacity(args.len() + 1);
+        piped_args.push(left.clone());
+        piped_args.extend(args.iter().cloned());
+        self.lower_call(expr, callee, &piped_args, expected)
     }
 
     fn numeric_operand_type(&self, expected: Option<&CoreType>, operands: &[&Expr]) -> CoreType {

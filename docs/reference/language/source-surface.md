@@ -77,14 +77,20 @@ Implemented expressions:
 - match expressions over literals, bindings, `_`, and built-in constructors
   `Some`, `None`, `Ok`, and `Err`
 - prefix operators: `not`, `-`
-- binary operators: `|>`, `or`, `and`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`,
-  `-`, `*`, `/`
+- pipelines: `expr |> target(args...)`
+- binary operators: `or`, `and`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`, `-`,
+  `*`, `/`
 - postfix result propagation: `expr?`
 - parenthesized expressions
 
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
 is visible only inside the suffix predicate.
+
+Pipelines require a call expression on the right. The piped expression is
+inserted as the first argument of that call, so `value |> target(extra)` is
+checked and executed as `target(value, extra)`. A non-call pipeline target
+reports `type.pipeline_target`.
 
 `match` arms are tried in source order. The implemented pattern subset covers
 wildcard `_`, binding names, literals, and the built-in constructors `Some`,

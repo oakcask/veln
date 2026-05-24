@@ -17,6 +17,7 @@ categorized specification files. The full implemented decision index is
 - [Transitive Effect Diagnostics](../source-decisions/result-transitive-effect-diagnostics.md)
 - [First-Slice Prelude Helpers](../source-decisions/result-first-slice-prelude-helpers.md)
 - [Prelude Complexity Guarantees](../source-decisions/result-prelude-complexity-guarantees.md)
+- [Pipeline Style](../source-decisions/result-pipeline-style.md)
 - [Minimum Type System for Holes](../source-decisions/result-minimum-type-system-for-holes.md)
 - [Hole Satisfy Source Syntax](../source-decisions/result-hole-satisfy-source-syntax.md)
 - [Postcondition Result Binding](../source-decisions/result-postcondition-result-binding.md)
