@@ -65,21 +65,29 @@ Hole details include:
 - `local_bindings`
 - `candidate_queries`
 
-Candidate query records are advisory only. Each query carries
-`candidate_status: "query_only"` and
-`application_policy: "manual_review_required"` to make clear that the checker
-has not authorized an edit.
+Candidate query records are unapplied repair records. Each query carries
+`candidate_status: "query_only"` and an `application_policy` value. The default
+policy is `manual_review_required`.
 
 When a hole has a known expected type, the symbol query may include ranked
 visible binding candidates. A ranked candidate records a binding name, rendered
-binding type, rank, match reason, the same manual review application policy,
-and a concrete replacement edit for the hole span. Exact type matches rank
-before broader assignable matches, and nearer visible bindings rank before
-older bindings with the same match quality.
+binding type, rank, match reason, application policy, and a concrete replacement
+edit for the hole span. Exact type matches rank before broader assignable
+matches, and nearer visible bindings rank before older bindings with the same
+match quality.
 
 Named holes such as `_port` are diagnostic and repair labels, not bindings.
 The `satisfy candidate => predicate` suffix contributes a repair constraint; it
 does not bind `candidate` outside the suffix predicate.
+
+For the implemented safe repair subset, a symbol candidate is marked
+`application_policy: "safe_repair_candidate"` when the satisfy predicate is a
+direct equality between the satisfy candidate and the same visible binding,
+such as `candidate == fallback` or `fallback == candidate`. That candidate also
+uses `satisfy_status: "statically_satisfied"`. Other candidates for a
+satisfy-constrained hole remain unapplied, use
+`application_policy: "manual_review_required"`, and carry
+`satisfy_status: "blocked_until_discharged"`.
 
 `satisfy` suffixes must include one candidate binding and `=>`. Missing
 candidate bindings report `parse.satisfy_candidate`; missing arrows report

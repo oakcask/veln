@@ -183,6 +183,11 @@ Each `candidate_queries` entry is advisory and contains:
 - `application_policy`
 - `query`
 
+For satisfy-constrained holes, a candidate query also contains:
+
+- `satisfy_predicate`
+- `satisfy_candidate_binding`
+
 For hole symbol queries with visible assignable bindings, an entry also
 contains `candidates`. Each candidate contains:
 
@@ -195,8 +200,11 @@ contains `candidates`. Each candidate contains:
 - `edits`
 
 Each edit contains `kind: "replace"`, `span`, and `replacement`. The edits are
-concrete but still advisory; `application_policy` remains
-`manual_review_required`.
+concrete but unapplied. The default `application_policy` remains
+`manual_review_required`; the direct equality satisfy subset may use
+`safe_repair_candidate`. Candidates for satisfy-constrained holes also contain
+`satisfy_status`, either `statically_satisfied` or
+`blocked_until_discharged`.
 
 Doc diagnostic `details` are stable for doctest metadata diagnostics:
 

@@ -18,9 +18,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   known and ranks visible assignable symbol candidates when available.
 - `satisfy` suffix parsing, formatting, constraint exposure, missing candidate
   diagnostics, missing `=>` diagnostics, candidate shadowing diagnostics, and
-  unused candidate diagnostics are implemented. Concrete repair generation for
-  satisfy-constrained holes remains follow-up work before formatter
-  stabilization.
+  unused candidate diagnostics are implemented. Direct equality
+  satisfy-constrained symbol repair candidates are generated as unapplied safe
+  repair candidates. Richer satisfy predicate discharge remains follow-up work
+  before formatter stabilization.
 
 ## Effects And Contracts
 

@@ -418,6 +418,42 @@ fn ranks_visible_symbol_candidates_for_hole_expected_type() {
 }
 
 #[test]
+fn marks_satisfy_equality_hole_candidate_as_safe_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int) -> Int\n",
+            "  let fallback = 1\n",
+            "  _value satisfy candidate => candidate == fallback\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"satisfy_candidate_binding\":\"candidate\""));
+    assert!(details.contains("\"satisfy_predicate\":\"candidate == fallback\""));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"fallback\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"blocked_until_discharged\""));
+}
+
+#[test]
 fn reports_return_type_mismatch() {
     let source = SourceFile::new("main.veln", "fn bad() -> Int\n  \"no\"\nend\n");
     let parsed = parse(&source);

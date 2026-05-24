@@ -2032,7 +2032,7 @@ impl<'a> FunctionChecker<'a> {
         let expected_source =
             expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source);
         let candidate_queries =
-            self.candidate_queries(expected.map(|expected| &expected.ty), &expr.span);
+            self.candidate_queries(expected.map(|expected| &expected.ty), &expr.span, satisfy);
         let constraints = self.hole_constraints(satisfy);
         let mut diagnostic = Diagnostic::new(
             "hole.unfilled",
@@ -2148,7 +2148,12 @@ impl<'a> FunctionChecker<'a> {
         constraints
     }
 
-    fn candidate_queries(&self, expected: Option<&Type>, hole_span: &SourceSpan) -> Vec<JsonValue> {
+    fn candidate_queries(
+        &self,
+        expected: Option<&Type>,
+        hole_span: &SourceSpan,
+        satisfy: Option<&SatisfyClause>,
+    ) -> Vec<JsonValue> {
         let Some(expected) = expected.filter(|expected| **expected != Type::Unknown) else {
             return Vec::new();
         };
@@ -2158,7 +2163,9 @@ impl<'a> FunctionChecker<'a> {
             .map(|binding| binding.ty.render())
             .collect::<Vec<_>>()
             .join(", ");
-        let ranked_candidates = self.ranked_symbol_candidates(expected, hole_span);
+        let repair_constraint = satisfy.and_then(SatisfyRepairConstraint::from_satisfy);
+        let ranked_candidates =
+            self.ranked_symbol_candidates(expected, hole_span, repair_constraint.as_ref());
         let mut query = vec![
             ("kind", JsonValue::string("symbol")),
             ("candidate_status", JsonValue::string("query_only")),
@@ -2171,13 +2178,31 @@ impl<'a> FunctionChecker<'a> {
                 JsonValue::string(format!("fn({argument_types}) -> {}", expected.render())),
             ),
         ];
+        if let Some(satisfy) = satisfy {
+            query.push((
+                "satisfy_predicate",
+                JsonValue::string(satisfy.predicate.clone()),
+            ));
+            query.push((
+                "satisfy_candidate_binding",
+                satisfy
+                    .candidate
+                    .as_ref()
+                    .map_or(JsonValue::Null, |candidate| JsonValue::string(candidate)),
+            ));
+        }
         if !ranked_candidates.is_empty() {
             query.push(("candidates", JsonValue::array(ranked_candidates)));
         }
         vec![JsonValue::object(query)]
     }
 
-    fn ranked_symbol_candidates(&self, expected: &Type, hole_span: &SourceSpan) -> Vec<JsonValue> {
+    fn ranked_symbol_candidates(
+        &self,
+        expected: &Type,
+        hole_span: &SourceSpan,
+        satisfy: Option<&SatisfyRepairConstraint>,
+    ) -> Vec<JsonValue> {
         let mut candidates = self
             .bindings
             .iter()
@@ -2200,7 +2225,10 @@ impl<'a> FunctionChecker<'a> {
             .take(5)
             .enumerate()
             .map(|(index, (score, _, binding))| {
-                JsonValue::object([
+                let static_satisfy = satisfy.is_some_and(|satisfy| {
+                    satisfy.allowed_binding.as_deref() == Some(binding.name.as_str())
+                });
+                let mut candidate = vec![
                     (
                         "candidate_id",
                         JsonValue::string(format!("symbol-{}", index + 1)),
@@ -2211,14 +2239,22 @@ impl<'a> FunctionChecker<'a> {
                     (
                         "reason",
                         JsonValue::string(if score == 0 {
-                            "exact_type_match"
+                            if static_satisfy {
+                                "satisfy_equality_match"
+                            } else {
+                                "exact_type_match"
+                            }
                         } else {
                             "assignable_type_match"
                         }),
                     ),
                     (
                         "application_policy",
-                        JsonValue::string("manual_review_required"),
+                        JsonValue::string(if static_satisfy {
+                            "safe_repair_candidate"
+                        } else {
+                            "manual_review_required"
+                        }),
                     ),
                     (
                         "edits",
@@ -2228,10 +2264,56 @@ impl<'a> FunctionChecker<'a> {
                             ("replacement", JsonValue::string(binding.name.clone())),
                         ])]),
                     ),
-                ])
+                ];
+                if satisfy.is_some() {
+                    candidate.push((
+                        "satisfy_status",
+                        JsonValue::string(if static_satisfy {
+                            "statically_satisfied"
+                        } else {
+                            "blocked_until_discharged"
+                        }),
+                    ));
+                }
+                JsonValue::object(candidate)
             })
             .collect()
     }
+}
+
+struct SatisfyRepairConstraint {
+    allowed_binding: Option<String>,
+}
+
+impl SatisfyRepairConstraint {
+    fn from_satisfy(satisfy: &SatisfyClause) -> Option<Self> {
+        let candidate = satisfy.candidate.as_ref()?;
+        equality_operand(&satisfy.predicate, candidate).map(|allowed_binding| Self {
+            allowed_binding: Some(allowed_binding.to_string()),
+        })
+    }
+}
+
+fn equality_operand<'a>(predicate: &'a str, candidate: &str) -> Option<&'a str> {
+    let (left, right) = predicate.split_once("==")?;
+    let left = left.trim();
+    let right = right.trim();
+    if left == candidate && is_plain_identifier(right) {
+        Some(right)
+    } else if right == candidate && is_plain_identifier(left) {
+        Some(left)
+    } else {
+        None
+    }
+}
+
+fn is_plain_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
 fn is_ordering_op(op: BinaryOp) -> bool {
