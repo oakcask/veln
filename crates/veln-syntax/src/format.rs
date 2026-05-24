@@ -105,7 +105,7 @@ fn format_function(out: &mut String, function: &FunctionDecl) {
                 ..
             } => {
                 out.push_str("let ");
-                out.push_str(name.as_deref().unwrap_or("<missing>"));
+                out.push_str(name.as_deref().unwrap_or("_"));
                 if let Some(annotation) = annotation {
                     out.push_str(": ");
                     out.push_str(&canonical_type_text(annotation));

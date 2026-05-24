@@ -56,6 +56,28 @@ fn parses_omitted_signature_annotations_as_recoverable_ast_facts() {
 }
 
 #[test]
+fn parses_wildcard_let_without_binding_a_name() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn discard(value: Int) -> ()\n  let _: Int = value\n  ()\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(format_tree(&output.tree), source.text());
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Let {
+        name, annotation, ..
+    } = &function.body[0]
+    else {
+        panic!("first body line should be a let statement");
+    };
+    assert_eq!(name, &None);
+    assert_eq!(annotation.as_deref(), Some("Int"));
+}
+
+#[test]
 fn reports_missing_end() {
     let source = SourceFile::new("main.veln", "fn broken() -> ()\n  _\n");
     let output = parse(&source);

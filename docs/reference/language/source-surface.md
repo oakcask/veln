@@ -23,7 +23,8 @@ ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
 Contract      ::= ("require" | "ensure") ContractPredicate NL
 BodyLine      ::= LetLine | ExprLine
-LetLine       ::= "let" Name (":" TypeText)? "=" Expr NL
+LetLine       ::= "let" LetTarget (":" TypeText)? "=" Expr NL
+LetTarget     ::= Name | "_"
 ExprLine      ::= Expr NL
 Record        ::= "{" (Name ":" Expr) ("," Name ":" Expr)* ","? "}"
 Dict          ::= "{" Expr ":" Expr ("," Expr ":" Expr)* ","? "}"
@@ -52,6 +53,11 @@ header and closing `end`. Expression newlines end the current body line except
 inside grouping forms. Parentheses, brackets, braces, and `match` expressions
 keep their inner newlines within the same expression; indentation is formatting
 only and does not define parse structure.
+
+`let _ = expr` evaluates the expression and discards the resulting value. It
+does not introduce a local binding, and later expressions cannot reference the
+discard target. A type annotation on the wildcard target still checks the
+right-hand expression against that type.
 
 A return may name the returned value for postconditions with `-> name: Type`.
 The binding is contract-facing only: it is visible to `ensure` clauses for the
@@ -132,8 +138,8 @@ Method-call-shaped syntax, such as `value.field(args)`, is rejected during
 parsing with `parse.method_call`. Use a plain function call like
 `field(value, args)` and reserve `value.field` for record field access.
 
-`match` arms are tried in source order. The implemented pattern subset covers
-wildcard `_`, binding names, literals, record patterns, and the built-in
+`match` arms are tried in source order. The implemented match-pattern subset
+covers wildcard `_`, binding names, literals, record patterns, and the built-in
 constructors `Some`, `None`, `Ok`, and `Err`. Record patterns match when the
 scrutinee is a record containing every named pattern field and every nested
 field pattern matches. Pattern bindings in one arm must not duplicate another

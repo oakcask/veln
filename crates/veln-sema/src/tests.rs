@@ -2015,6 +2015,45 @@ fn lowers_runnable_checked_program_to_core_and_typed_ir() {
 }
 
 #[test]
+fn wildcard_let_lowers_to_discarding_expression_statement() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(value: Int) -> () effects []\n",
+            "  let _: Int = value\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Expr { expr } = &main.body[0].kind else {
+        panic!("wildcard let should lower as a discarded expression");
+    };
+    assert_eq!(expr.ty, CoreType::int());
+    assert!(matches!(expr.kind, CoreExprKind::Local(ref name) if name == "value"));
+    assert!(matches!(main.body[1].kind, CoreStmtKind::Return { .. }));
+
+    let ir = lowered.ir.expect("complete core should lower to typed IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    assert!(matches!(main.body[0].kind, IrStmtKind::Expr { .. }));
+}
+
+#[test]
 fn match_expression_binds_constructor_payloads() {
     let source = SourceFile::new(
         "main.veln",

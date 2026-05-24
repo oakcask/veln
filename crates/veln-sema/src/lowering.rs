@@ -205,20 +205,27 @@ impl<'a> CoreLowerer<'a> {
                         .map(|annotation| core_type(&parse_type_or_unknown(Some(annotation))));
                     let lowered = self.lower_expr(expr, expected.as_ref());
                     let ty = expected.unwrap_or_else(|| lowered.ty.clone());
-                    let name = name.clone().unwrap_or_else(|| "<missing>".to_string());
-                    self.bindings.push(CoreBinding {
-                        name: name.clone(),
-                        ty: ty.clone(),
-                    });
-                    body.push(CoreStmt {
-                        node_id: line.node_id,
-                        kind: CoreStmtKind::Let {
-                            name,
-                            ty,
-                            expr: lowered,
-                        },
-                        span: line.span.clone(),
-                    });
+                    if let Some(name) = name {
+                        self.bindings.push(CoreBinding {
+                            name: name.clone(),
+                            ty: ty.clone(),
+                        });
+                        body.push(CoreStmt {
+                            node_id: line.node_id,
+                            kind: CoreStmtKind::Let {
+                                name: name.clone(),
+                                ty,
+                                expr: lowered,
+                            },
+                            span: line.span.clone(),
+                        });
+                    } else {
+                        body.push(CoreStmt {
+                            node_id: line.node_id,
+                            kind: CoreStmtKind::Expr { expr: lowered },
+                            span: line.span.clone(),
+                        });
+                    }
                 }
                 BodyLineKind::Expr { expr } => {
                     let is_tail = index + 1 == self.function.body.len();

@@ -352,7 +352,12 @@ impl<'a> Parser<'a> {
         let start = self.current().range;
         if self.at(TokenKind::Let) {
             self.bump();
-            let name = self.expect_ident("let_statement", "binding name");
+            let name = if self.at(TokenKind::Underscore) {
+                self.bump();
+                None
+            } else {
+                self.expect_ident("let_statement", "binding name")
+            };
             let annotation = if self.eat(TokenKind::Colon).is_some() {
                 Some(self.collect_type_until(
                     "let_statement",

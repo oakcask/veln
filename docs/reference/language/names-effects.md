@@ -25,6 +25,10 @@ declaration reported as related context.
 Local value bindings shadow discovered function declarations for both bare
 values and calls.
 
+A wildcard let target, `_`, evaluates its expression without declaring a local
+name. It can be annotated for type checking, but it is never a resolvable
+binding.
+
 Current duplicate checks reject:
 
 - duplicate import aliases, where the alias is the final segment of the

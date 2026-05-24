@@ -48,6 +48,8 @@ Expected types flow into holes and subexpressions from:
 - record pattern field bindings
 
 Record field access gets its result type from the inferred base record type.
+Wildcard lets use the same annotation rule as named lets but do not add a
+binding to the local environment.
 
 `match` infers the scrutinee first. A binding pattern has the scrutinee type.
 `Some(value)`, `Ok(value)`, and `Err(error)` bind their payload patterns to
