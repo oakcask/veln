@@ -27,10 +27,7 @@ pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnos
                 "type.public_signature_missing",
                 Severity::Error,
                 DiagnosticKind::Type,
-                format!(
-                    "public function parameter `{}` must declare a type",
-                    param.name
-                ),
+                format!("public parameter `{}` has no type annotation", param.name),
                 Some(param.span.clone()),
                 type_details(
                     param.node_id.display("param"),
@@ -50,7 +47,7 @@ pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnos
             "type.public_signature_missing",
             Severity::Error,
             DiagnosticKind::Type,
-            "public function must declare a return type",
+            "public function has no return type annotation",
             Some(function.span.clone()),
             type_details(
                 function.node_id.display("fn"),
@@ -65,14 +62,22 @@ pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnos
     }
 
     if function.effects.is_none() {
-        diagnostics.push(Diagnostic::new(
+        let mut diagnostic = Diagnostic::new(
             "effect.missing_public",
             Severity::Error,
             DiagnosticKind::Effect,
-            "public function must declare effects, use `effects []` for pure functions",
+            "public function has no effects annotation",
             Some(function.span.clone()),
             effect_details(function.node_id.display("fn")),
-        ));
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("repair_hint")),
+            (
+                "message",
+                JsonValue::string("Use `effects []` for a pure public function."),
+            ),
+        ]));
+        diagnostics.push(diagnostic);
     }
 
     diagnostics
@@ -194,7 +199,7 @@ impl<'a> FunctionChecker<'a> {
                         "contract.type_mismatch",
                         Severity::Error,
                         DiagnosticKind::Contract,
-                        "contract predicate must produce `Bool`",
+                        "contract predicate is not `Bool`",
                         Some(contract.span.clone()),
                         contract_details(
                             contract.node_id.display("contract"),
@@ -288,7 +293,7 @@ impl<'a> FunctionChecker<'a> {
                 "effect.missing_public",
                 Severity::Error,
                 DiagnosticKind::Effect,
-                format!("public function must declare `{effect}` in its effects list"),
+                format!("public function uses undeclared effect `{effect}`"),
                 Some(self.function.span.clone()),
                 effect_missing_public_details(
                     self.function.node_id.display("fn"),
@@ -304,7 +309,10 @@ impl<'a> FunctionChecker<'a> {
                     ("kind", JsonValue::string("effect_provenance")),
                     (
                         "message",
-                        JsonValue::string(format!("Effect required by `{}`.", effect_use.symbol)),
+                        JsonValue::string(format!(
+                            "Call to `{}` requires this effect.",
+                            effect_use.symbol
+                        )),
                     ),
                     ("span", span_json(&effect_use.span)),
                 ]));

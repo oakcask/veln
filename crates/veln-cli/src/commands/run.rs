@@ -37,7 +37,8 @@ pub(crate) fn run_entry(entry: String, inputs: Vec<PathBuf>) -> Result<ExitCode,
         return Ok(ExitCode::from(1));
     };
     if !entry_function.params.is_empty() {
-        eprintln!("veln: run entry `{entry}` must not declare parameters in this slice");
+        eprintln!("veln: run entry `{entry}` has parameters");
+        eprintln!("veln: note: this slice only executes zero-argument entries");
         return Ok(ExitCode::from(1));
     }
 

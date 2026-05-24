@@ -342,7 +342,7 @@ fn check_json_reports_public_function_boundary_errors() {
             "\"id\":\"type.public_signature_missing\",",
             "\"severity\":\"error\",",
             "\"kind\":\"type\",",
-            "\"message\":\"public function parameter `value` must declare a type\",",
+            "\"message\":\"public parameter `value` has no type annotation\",",
             "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":13,\"offset\":12},\"end\":{\"line\":1,\"column\":18,\"offset\":17}},",
             "\"details\":{\"phase\":\"type\",\"node_id\":\"param-2\",\"expected_type\":\"explicit\",\"actual_type\":\"missing\",",
             "\"expected_type_source\":\"declared_parameter\",\"actual_type_source\":\"source\",",
@@ -351,7 +351,7 @@ fn check_json_reports_public_function_boundary_errors() {
             "\"id\":\"type.public_signature_missing\",",
             "\"severity\":\"error\",",
             "\"kind\":\"type\",",
-            "\"message\":\"public function must declare a return type\",",
+            "\"message\":\"public function has no return type annotation\",",
             "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":31}},",
             "\"details\":{\"phase\":\"type\",\"node_id\":\"fn-1\",\"expected_type\":\"explicit\",\"actual_type\":\"missing\",",
             "\"expected_type_source\":\"declared_return\",\"actual_type_source\":\"source\",",
@@ -360,12 +360,12 @@ fn check_json_reports_public_function_boundary_errors() {
             "\"id\":\"effect.missing_public\",",
             "\"severity\":\"error\",",
             "\"kind\":\"effect\",",
-            "\"message\":\"public function must declare effects, use `effects []` for pure functions\",",
+            "\"message\":\"public function has no effects annotation\",",
             "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":31}},",
             "\"details\":{\"phase\":\"effect\",\"node_id\":\"fn-1\",\"effect\":\"unknown\",",
             "\"boundary\":\"public_function\",\"declared_effects\":[],\"inferred_effects\":[],",
             "\"provenance\":[],\"provenance_truncated\":false},",
-            "\"related\":[]}],",
+            "\"related\":[{\"kind\":\"repair_hint\",\"message\":\"Use `effects []` for a pure public function.\"}]}],",
             "\"summary\":{\"diagnostic_count\":3,\"by_severity\":{\"error\":3},\"by_kind\":{\"effect\":1,\"type\":2}}}\n"
         )
     );
@@ -507,12 +507,55 @@ fn check_json_reports_missing_public_stdio_effect_with_provenance() {
         &[
             "\"id\":\"effect.missing_public\"",
             "\"kind\":\"effect\"",
-            "\"message\":\"public function must declare `stdio` in its effects list\"",
+            "\"message\":\"public function uses undeclared effect `stdio`\"",
             "\"details\":{\"phase\":\"effect\",\"node_id\":\"fn-1\",\"effect\":\"stdio\",",
             "\"declared_effects\":[],\"inferred_effects\":[\"stdio\"]",
             "\"provenance\":[{\"node_id\":\"call-3\",\"kind\":\"direct_call\",\"symbol\":\"stdio::println\"}]",
             "\"related\":[{\"kind\":\"effect_provenance\"",
         ],
+    );
+}
+
+#[test]
+fn check_human_reports_missing_public_effect_cause() {
+    let project = TestProject::new("effect-human-provenance");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> Unit effects []\n",
+            "  stdio::println(\"hello\")\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_eq!(
+        stdout(&output),
+        concat!(
+            "main.veln:1:1: error[effect.missing_public]: public function uses undeclared effect `stdio`\n",
+            "  note: main.veln:2:3: Call to `stdio::println` requires this effect.\n",
+        ),
+    );
+}
+
+#[test]
+fn check_human_reports_public_effect_annotation_hint_as_note() {
+    let project = TestProject::new("effect-human-boundary-hint");
+    project.write("main.veln", "pub fn main() -> Unit\n  ()\nend\n");
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_eq!(
+        stdout(&output),
+        concat!(
+            "main.veln:1:1: error[effect.missing_public]: public function has no effects annotation\n",
+            "  note: Use `effects []` for a pure public function.\n",
+        ),
     );
 }
 
@@ -807,7 +850,10 @@ fn run_rejects_parameterized_entry_before_jdk_execution() {
     assert_eq!(stdout(&output), "");
     assert_eq!(
         stderr(&output),
-        "veln: run entry `main` must not declare parameters in this slice\n"
+        concat!(
+            "veln: run entry `main` has parameters\n",
+            "veln: note: this slice only executes zero-argument entries\n",
+        )
     );
 }
 

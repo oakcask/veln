@@ -17,14 +17,17 @@ fn public_function_requires_explicit_boundary() {
     assert_eq!(diagnostics.len(), 3);
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "type.public_signature_missing"
-            && diagnostic.message == "public function parameter `value` must declare a type"
+            && diagnostic.message == "public parameter `value` has no type annotation"
     }));
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "type.public_signature_missing"
-            && diagnostic.message == "public function must declare a return type"
+            && diagnostic.message == "public function has no return type annotation"
     }));
     assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "effect.missing_public" && diagnostic.kind == DiagnosticKind::Effect
+        diagnostic.id == "effect.missing_public"
+            && diagnostic.kind == DiagnosticKind::Effect
+            && diagnostic.message == "public function has no effects annotation"
+            && diagnostic.related.len() == 1
     }));
 }
 
@@ -250,7 +253,7 @@ fn reports_missing_public_effect_with_call_provenance() {
     assert_eq!(diagnostics[0].kind, DiagnosticKind::Effect);
     assert_eq!(
         diagnostics[0].message,
-        "public function must declare `stdio` in its effects list"
+        "public function uses undeclared effect `stdio`"
     );
     let details = diagnostics[0].details.to_json();
     assert!(details.contains("\"effect\":\"stdio\""));
@@ -280,6 +283,7 @@ fn reports_non_boolean_contract_predicate() {
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "contract.type_mismatch"
             && diagnostic.kind == DiagnosticKind::Contract
+            && diagnostic.message == "contract predicate is not `Bool`"
             && diagnostic
                 .details
                 .to_json()

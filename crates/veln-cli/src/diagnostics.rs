@@ -94,23 +94,8 @@ pub(crate) fn print_human(envelope: &DiagnosticEnvelope) {
     }
 
     for diagnostic in &envelope.diagnostics {
-        if let Some(span) = &diagnostic.span {
-            println!(
-                "{}:{}:{}: {}[{}]: {}",
-                span.file.as_str(),
-                span.start.line,
-                span.start.column,
-                diagnostic.severity.as_str(),
-                diagnostic.id,
-                diagnostic.message
-            );
-        } else {
-            println!(
-                "{}[{}]: {}",
-                diagnostic.severity.as_str(),
-                diagnostic.id,
-                diagnostic.message
-            );
+        for line in diagnostic_human_lines(diagnostic) {
+            println!("{line}");
         }
     }
 }
@@ -118,27 +103,8 @@ pub(crate) fn print_human(envelope: &DiagnosticEnvelope) {
 pub(crate) fn print_human_stderr(envelope: &DiagnosticEnvelope) -> Result<(), String> {
     let mut stderr = io::stderr();
     for diagnostic in &envelope.diagnostics {
-        if let Some(span) = &diagnostic.span {
-            writeln!(
-                stderr,
-                "{}:{}:{}: {}[{}]: {}",
-                span.file.as_str(),
-                span.start.line,
-                span.start.column,
-                diagnostic.severity.as_str(),
-                diagnostic.id,
-                diagnostic.message
-            )
-            .map_err(|error| error.to_string())?;
-        } else {
-            writeln!(
-                stderr,
-                "{}[{}]: {}",
-                diagnostic.severity.as_str(),
-                diagnostic.id,
-                diagnostic.message
-            )
-            .map_err(|error| error.to_string())?;
+        for line in diagnostic_human_lines(diagnostic) {
+            writeln!(stderr, "{line}").map_err(|error| error.to_string())?;
         }
     }
     Ok(())
@@ -146,4 +112,149 @@ pub(crate) fn print_human_stderr(envelope: &DiagnosticEnvelope) -> Result<(), St
 
 pub(crate) fn tool_info() -> ToolInfo {
     ToolInfo::new("veln", env!("CARGO_PKG_VERSION"))
+}
+
+fn diagnostic_human_lines(diagnostic: &Diagnostic) -> Vec<String> {
+    let mut lines = Vec::new();
+    if let Some(span) = &diagnostic.span {
+        lines.push(format!(
+            "{}:{}:{}: {}[{}]: {}",
+            span.file.as_str(),
+            span.start.line,
+            span.start.column,
+            diagnostic.severity.as_str(),
+            diagnostic.id,
+            diagnostic.message
+        ));
+    } else {
+        lines.push(format!(
+            "{}[{}]: {}",
+            diagnostic.severity.as_str(),
+            diagnostic.id,
+            diagnostic.message
+        ));
+    }
+
+    lines.extend(diagnostic.related.iter().filter_map(related_human_line));
+    lines
+}
+
+fn related_human_line(related: &JsonValue) -> Option<String> {
+    let JsonValue::Object(entries) = related else {
+        return None;
+    };
+    let message = object_string(entries, "message")?;
+    let span = object_value(entries, "span").and_then(span_json_human_prefix);
+    Some(match span {
+        Some(span) => format!("  note: {span}: {message}"),
+        None => format!("  note: {message}"),
+    })
+}
+
+fn span_json_human_prefix(value: &JsonValue) -> Option<String> {
+    let JsonValue::Object(entries) = value else {
+        return None;
+    };
+    let file = object_string(entries, "file")?;
+    let start = object_value(entries, "start")?;
+    let JsonValue::Object(start_entries) = start else {
+        return None;
+    };
+    let line = object_number(start_entries, "line")?;
+    let column = object_number(start_entries, "column")?;
+    Some(format!("{file}:{line}:{column}"))
+}
+
+fn object_value<'a>(entries: &'a [(String, JsonValue)], key: &str) -> Option<&'a JsonValue> {
+    entries
+        .iter()
+        .find_map(|(entry_key, value)| (entry_key == key).then_some(value))
+}
+
+fn object_string(entries: &[(String, JsonValue)], key: &str) -> Option<String> {
+    match object_value(entries, key)? {
+        JsonValue::String(value) => Some(value.clone()),
+        _ => None,
+    }
+}
+
+fn object_number(entries: &[(String, JsonValue)], key: &str) -> Option<i64> {
+    match object_value(entries, key)? {
+        JsonValue::Number(value) => Some(*value),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use veln_diagnostics::{DiagnosticKind, Severity};
+    use veln_source::{LineCol, SourcePath, SourceSpan};
+
+    use super::*;
+
+    #[test]
+    fn human_diagnostic_output_keeps_cause_in_related_note() {
+        let mut diagnostic = Diagnostic::new(
+            "effect.missing_public",
+            Severity::Error,
+            DiagnosticKind::Effect,
+            "public function uses undeclared effect `stdio`",
+            Some(span("main.veln", 1, 1)),
+            JsonValue::object(Vec::<(String, JsonValue)>::new()),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("effect_provenance")),
+            (
+                "message",
+                JsonValue::string("Call to `stdio::println` requires this effect."),
+            ),
+            ("span", span_json("main.veln", 2, 3)),
+        ]));
+
+        assert_eq!(
+            diagnostic_human_lines(&diagnostic),
+            vec![
+                "main.veln:1:1: error[effect.missing_public]: public function uses undeclared effect `stdio`",
+                "  note: main.veln:2:3: Call to `stdio::println` requires this effect.",
+            ]
+        );
+    }
+
+    fn span(file: &str, line: usize, column: usize) -> SourceSpan {
+        SourceSpan {
+            file: SourcePath::new(file),
+            start: LineCol {
+                line,
+                column,
+                offset: 0,
+            },
+            end: LineCol {
+                line,
+                column,
+                offset: 0,
+            },
+        }
+    }
+
+    fn span_json(file: &str, line: i64, column: i64) -> JsonValue {
+        JsonValue::object([
+            ("file", JsonValue::string(file)),
+            (
+                "start",
+                JsonValue::object([
+                    ("line", JsonValue::Number(line)),
+                    ("column", JsonValue::Number(column)),
+                    ("offset", JsonValue::Number(0)),
+                ]),
+            ),
+            (
+                "end",
+                JsonValue::object([
+                    ("line", JsonValue::Number(line)),
+                    ("column", JsonValue::Number(column)),
+                    ("offset", JsonValue::Number(0)),
+                ]),
+            ),
+        ])
+    }
 }

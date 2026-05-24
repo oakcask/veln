@@ -386,6 +386,12 @@ Implemented so far:
   `contract_predicate` namespace; and hole diagnostics now carry
   contract-derived and `satisfy` repair constraints with constraint-origin
   related entries.
+- Human diagnostics should keep the primary message focused on the specific
+  fact that failed, and use related notes for cause and provenance. Avoid
+  wording that makes a contextual boundary rule sound like an unconditional
+  source requirement. For example, a missing public effect should say that the
+  public function uses an undeclared effect, then point at the call that
+  required the effect.
 - Item 5 formatter slice: `veln fmt [path ...]` discovers the same `.veln`
   input set as `check`, parses each file, refuses to write any file when parse
   diagnostics are present, and otherwise writes deterministic first-slice
