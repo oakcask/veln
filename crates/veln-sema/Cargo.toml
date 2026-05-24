@@ -1,0 +1,19 @@
+[package]
+name = "veln-sema"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-ast.workspace = true
+veln-core.workspace = true
+veln-diagnostics.workspace = true
+veln-ir.workspace = true
+veln-project.workspace = true
+veln-source.workspace = true
+
+[dev-dependencies]
+veln-syntax.workspace = true
+
+[lints]
+workspace = true

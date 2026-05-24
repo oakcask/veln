@@ -1,0 +1,11 @@
+[package]
+name = "veln-project"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-source.workspace = true
+
+[lints]
+workspace = true

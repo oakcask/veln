@@ -1,0 +1,24 @@
+[package]
+name = "veln-cli"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-ast.workspace = true
+veln-backend-jvm.workspace = true
+veln-core.workspace = true
+veln-diagnostics.workspace = true
+veln-ir.workspace = true
+veln-project.workspace = true
+veln-sema.workspace = true
+veln-source.workspace = true
+veln-syntax.workspace = true
+veln-test.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "veln"
+path = "src/main.rs"

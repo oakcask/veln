@@ -1,0 +1,34 @@
+[workspace]
+members = [
+    "crates/veln-ast",
+    "crates/veln-backend-jvm",
+    "crates/veln-cli",
+    "crates/veln-core",
+    "crates/veln-diagnostics",
+    "crates/veln-ir",
+    "crates/veln-project",
+    "crates/veln-sema",
+    "crates/veln-source",
+    "crates/veln-syntax",
+    "crates/veln-test",
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+
+[workspace.dependencies]
+veln-ast = { path = "crates/veln-ast" }
+veln-backend-jvm = { path = "crates/veln-backend-jvm" }
+veln-core = { path = "crates/veln-core" }
+veln-diagnostics = { path = "crates/veln-diagnostics" }
+veln-ir = { path = "crates/veln-ir" }
+veln-project = { path = "crates/veln-project" }
+veln-sema = { path = "crates/veln-sema" }
+veln-source = { path = "crates/veln-source" }
+veln-syntax = { path = "crates/veln-syntax" }
+veln-test = { path = "crates/veln-test" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

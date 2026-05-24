@@ -1,0 +1,12 @@
+[package]
+name = "veln-core"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-ast.workspace = true
+veln-source.workspace = true
+
+[lints]
+workspace = true

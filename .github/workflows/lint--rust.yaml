@@ -1,0 +1,42 @@
+name: lint / rust
+
+on:
+  push:
+    paths:
+      - .github/workflows/lint--rust.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/**/Cargo.toml
+      - crates/**/*.rs
+  pull_request:
+    paths:
+      - .github/workflows/lint--rust.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/**/Cargo.toml
+      - crates/**/*.rs
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Install clippy
+        run: rustup component add clippy
+      - name: Check clippy lints
+        run: cargo clippy --workspace --all-targets -- -D warnings

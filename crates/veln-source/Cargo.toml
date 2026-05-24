@@ -1,0 +1,8 @@
+[package]
+name = "veln-source"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[lints]
+workspace = true

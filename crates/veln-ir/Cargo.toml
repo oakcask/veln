@@ -1,0 +1,12 @@
+[package]
+name = "veln-ir"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-ast.workspace = true
+veln-core.workspace = true
+
+[lints]
+workspace = true

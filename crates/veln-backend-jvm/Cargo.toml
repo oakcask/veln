@@ -1,0 +1,17 @@
+[package]
+name = "veln-backend-jvm"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-ast.workspace = true
+veln-ir.workspace = true
+
+[dev-dependencies]
+veln-sema.workspace = true
+veln-source.workspace = true
+veln-syntax.workspace = true
+
+[lints]
+workspace = true

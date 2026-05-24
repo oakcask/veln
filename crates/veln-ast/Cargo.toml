@@ -1,0 +1,12 @@
+[package]
+name = "veln-ast"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-source.workspace = true
+veln-syntax.workspace = true
+
+[lints]
+workspace = true

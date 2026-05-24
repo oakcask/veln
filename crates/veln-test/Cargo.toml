@@ -1,0 +1,13 @@
+[package]
+name = "veln-test"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-diagnostics.workspace = true
+veln-project.workspace = true
+veln-sema.workspace = true
+
+[lints]
+workspace = true
