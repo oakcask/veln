@@ -43,7 +43,25 @@ pub fn generate_java(program: &TypedProgram) -> JavaProgram {
 }
 
 pub fn generate_java_with_entry(program: &TypedProgram, entry_function: &str) -> JavaProgram {
-    generate_java_with_entry_options(program, entry_function, &JavaBackendOptions::default())
+    generate_java_with_entry_args_options(
+        program,
+        entry_function,
+        0,
+        &JavaBackendOptions::default(),
+    )
+}
+
+pub fn generate_java_with_entry_args(
+    program: &TypedProgram,
+    entry_function: &str,
+    entry_arg_count: usize,
+) -> JavaProgram {
+    generate_java_with_entry_args_options(
+        program,
+        entry_function,
+        entry_arg_count,
+        &JavaBackendOptions::default(),
+    )
 }
 
 pub fn generate_java_with_options(
@@ -63,12 +81,21 @@ pub fn generate_java_with_entry_options(
     entry_function: &str,
     options: &JavaBackendOptions,
 ) -> JavaProgram {
+    generate_java_with_entry_args_options(program, entry_function, 0, options)
+}
+
+pub fn generate_java_with_entry_args_options(
+    program: &TypedProgram,
+    entry_function: &str,
+    entry_arg_count: usize,
+    options: &JavaBackendOptions,
+) -> JavaProgram {
     let options = SanitizedOptions {
         program_class: java_type_identifier(&options.program_class),
         runtime_class: java_type_identifier(&options.runtime_class),
     };
     let emitter = ProgramEmitter::new(program, options);
-    emitter.emit_with_entry(entry_function)
+    emitter.emit_with_entry(entry_function, entry_arg_count)
 }
 
 #[derive(Clone, Debug)]

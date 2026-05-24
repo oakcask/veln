@@ -107,6 +107,96 @@ fn generated_runtime_freezes_container_values_at_public_boundaries() {
     assert!(runtime.contains("return freezeList(copy);"));
     assert!(runtime.contains("return freezeMap(copy);"));
     assert!(runtime.contains("return ok(freezeList(mapped));"));
+    assert!(runtime.contains("private static Object freezeValue(Object value)"));
+    assert!(runtime.contains("frozen.add(freezeValue(value));"));
+    assert!(runtime.contains("V value = (V) freezeValue(entry.getValue());"));
+}
+
+#[test]
+fn generated_runtime_transitively_freezes_nested_container_values() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> Result(List(List(String)), AppError) effects []\n",
+        "  Ok([[\"a\"]])\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+    let root = temp_dir("freeze-runtime");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("FreezeProbe.java"),
+        r#"public final class FreezeProbe {
+    private FreezeProbe() {}
+
+    public static void main(String[] args) {
+        java.util.ArrayList<Object> inner = new java.util.ArrayList<Object>();
+        inner.add("x");
+        java.util.List<Object> outer = VelnRuntime.list(inner);
+        java.util.List<Object> frozenInner = (java.util.List<Object>) outer.get(0);
+        expectFrozenList(outer);
+        expectFrozenList(frozenInner);
+
+        java.util.LinkedHashMap<Object, Object> mutable = new java.util.LinkedHashMap<Object, Object>();
+        mutable.put("items", inner);
+        VelnRuntime.Result result = VelnRuntime.ok(mutable);
+        java.util.Map<Object, Object> frozenMap = (java.util.Map<Object, Object>) result.value();
+        expectFrozenMap(frozenMap);
+        expectFrozenList((java.util.List<Object>) frozenMap.get("items"));
+    }
+
+    private static void expectFrozenList(java.util.List<Object> value) {
+        try {
+            value.add("mutated");
+            throw new AssertionError("list mutation succeeded");
+        } catch (UnsupportedOperationException expected) {
+        }
+    }
+
+    private static void expectFrozenMap(java.util.Map<Object, Object> value) {
+        try {
+            value.put("mutated", "value");
+            throw new AssertionError("map mutation succeeded");
+        } catch (UnsupportedOperationException expected) {
+        }
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnRuntime.java")
+        .arg("FreezeProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("FreezeProbe")
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        java.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&java.stdout),
+        String::from_utf8_lossy(&java.stderr)
+    );
 }
 
 #[test]

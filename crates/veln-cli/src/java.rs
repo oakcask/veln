@@ -14,8 +14,9 @@ pub(crate) enum JavaRunResult {
 pub(crate) fn compile_and_run_java(
     build_dir: &Path,
     java: &veln_backend_jvm::JavaProgram,
+    java_args: &[String],
 ) -> Result<ExitCode, String> {
-    let result = compile_and_run_java_capture(build_dir, java, "veln run")?;
+    let result = compile_and_run_java_capture(build_dir, java, "veln run", java_args)?;
     let output = match result {
         JavaRunResult::Ran(output) => output,
         JavaRunResult::ToolError(message) => {
@@ -31,8 +32,9 @@ pub(crate) fn compile_and_run_java_capture(
     build_dir: &Path,
     java: &veln_backend_jvm::JavaProgram,
     command_name: &str,
+    java_args: &[String],
 ) -> Result<JavaRunResult, String> {
-    compile_and_run_java_capture_with_env(build_dir, java, command_name, &[])
+    compile_and_run_java_capture_with_env(build_dir, java, command_name, &[], java_args)
 }
 
 pub(crate) fn compile_and_run_java_capture_with_env(
@@ -40,6 +42,7 @@ pub(crate) fn compile_and_run_java_capture_with_env(
     java: &veln_backend_jvm::JavaProgram,
     command_name: &str,
     java_env: &[(&str, &OsStr)],
+    java_args: &[String],
 ) -> Result<JavaRunResult, String> {
     for source in &java.sources {
         fs::write(build_dir.join(&source.path), &source.contents)
@@ -68,6 +71,7 @@ pub(crate) fn compile_and_run_java_capture_with_env(
 
     let mut command = ProcessCommand::new("java");
     command.arg("-cp").arg(build_dir).arg("VelnEntry");
+    command.args(java_args);
     for (name, value) in java_env {
         command.env(name, value);
     }

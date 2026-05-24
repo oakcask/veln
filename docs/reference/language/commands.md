@@ -36,21 +36,23 @@ prefix operators, binary operators, and postfix `?`.
 Files containing comments are preserved byte-for-byte until formatter comment
 attachment is implemented.
 
-## `veln run <entry> [path ...]`
+## `veln run <entry> [path ...] [-- arg ...]`
 
 `run` uses the same source discovery rule as `check`. Parse-clean files are
 combined into one surface module for entry resolution. It blocks before user
-code execution on parse errors, a missing entry function, an entry function
-with parameters, selected-entry semantic errors, reachable holes, or
-checked-core blockers.
+code execution on parse errors, a missing entry function, an entry argument
+count mismatch, a non-`String` entry parameter, selected-entry semantic
+errors, reachable holes, or checked-core blockers.
 
-The entry must be a discovered zero-argument function. The reachable program is
-semantically checked, lowered to checked core, then typed IR, then generated
-Java source. Semantic diagnostics in functions unreachable from the selected
-entry do not block `run`. The command writes generated Java artifacts to an
-isolated temporary build directory, invokes `javac`, invokes `java`, forwards
-process stdout and stderr, and returns the Java process status for runtime
-failures.
+The entry must be a discovered function. Arguments after `--` are entry
+arguments, not source inputs. Each entry argument is passed as a `String` value
+to the matching entry parameter, and this slice rejects entry parameters with
+other declared types. The reachable program is semantically checked, lowered to
+checked core, then typed IR, then generated Java source. Semantic diagnostics
+in functions unreachable from the selected entry do not block `run`. The
+command writes generated Java artifacts to an isolated temporary build
+directory, invokes `javac`, invokes `java`, forwards process stdout and stderr,
+and returns the Java process status for runtime failures.
 
 Missing `javac` before compilation or missing `java` after compilation
 succeeds is reported as a JDK setup error.

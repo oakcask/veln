@@ -116,7 +116,7 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     let expected = concat!(
         "veln check [--json] [path ...]\n",
         "veln fmt [path ...]\n",
-        "veln run <entry> [path ...]\n",
+        "veln run <entry> [path ...] [-- arg ...]\n",
         "veln test [--json] [target ...]\n",
     );
 
@@ -992,6 +992,30 @@ fn run_forwards_stdout_and_stderr_when_jdk_is_available() {
 }
 
 #[test]
+fn run_passes_string_entry_arguments_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-entry-args");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn greet(name: String) -> () effects [stdio]\n",
+            "  stdio::println(name)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["greet", "main.veln", "--", "Ada"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "Ada\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
 fn run_blocks_reachable_holes_before_jdk_execution() {
     let project = TestProject::new("run-hole");
     project.write(
@@ -1118,11 +1142,11 @@ fn run_reports_missing_entry_before_jdk_execution() {
 }
 
 #[test]
-fn run_rejects_parameterized_entry_before_jdk_execution() {
+fn run_rejects_wrong_entry_argument_count_before_jdk_execution() {
     let project = TestProject::new("run-entry-params");
     project.write(
         "main.veln",
-        "pub fn main(value: Int) -> Int effects []\n  value\nend\n",
+        "pub fn main(value: String) -> String effects []\n  value\nend\n",
     );
 
     let output = project.run(&["main", "main.veln"]);
@@ -1132,8 +1156,29 @@ fn run_rejects_parameterized_entry_before_jdk_execution() {
     assert_eq!(
         stderr(&output),
         concat!(
-            "veln: run entry `main` has parameters\n",
-            "veln: note: this slice only executes zero-argument entries\n",
+            "veln: run entry `main` expects 1 argument(s), got 0\n",
+            "veln: note: pass entry arguments after `--`\n",
+        )
+    );
+}
+
+#[test]
+fn run_rejects_non_string_entry_parameters_before_jdk_execution() {
+    let project = TestProject::new("run-entry-non-string-param");
+    project.write(
+        "main.veln",
+        "pub fn main(value: Int) -> Int effects []\n  value\nend\n",
+    );
+
+    let output = project.run(&["main", "main.veln", "--", "1"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(
+        stderr(&output),
+        concat!(
+            "veln: run entry parameter `value` is not a `String` parameter\n",
+            "veln: note: entry arguments are passed as strings in this slice\n",
         )
     );
 }

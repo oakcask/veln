@@ -1,10 +1,22 @@
 use std::path::PathBuf;
 
 pub(crate) enum Command {
-    Check { json: bool, inputs: Vec<PathBuf> },
-    Fmt { inputs: Vec<PathBuf> },
-    Run { entry: String, inputs: Vec<PathBuf> },
-    Test { json: bool, targets: Vec<PathBuf> },
+    Check {
+        json: bool,
+        inputs: Vec<PathBuf>,
+    },
+    Fmt {
+        inputs: Vec<PathBuf>,
+    },
+    Run {
+        entry: String,
+        inputs: Vec<PathBuf>,
+        entry_args: Vec<String>,
+    },
+    Test {
+        json: bool,
+        targets: Vec<PathBuf>,
+    },
     Help,
     Version,
 }
@@ -29,7 +41,7 @@ impl Command {
 pub(crate) fn print_help() {
     println!("veln check [--json] [path ...]");
     println!("veln fmt [path ...]");
-    println!("veln run <entry> [path ...]");
+    println!("veln run <entry> [path ...] [-- arg ...]");
     println!("veln test [--json] [target ...]");
 }
 
@@ -62,9 +74,16 @@ fn parse_fmt(args: impl Iterator<Item = String>) -> Result<Command, String> {
 fn parse_run(args: impl Iterator<Item = String>) -> Result<Command, String> {
     let mut entry = None;
     let mut inputs = Vec::new();
+    let mut entry_args = Vec::new();
+    let mut after_separator = false;
     for arg in args {
+        if after_separator {
+            entry_args.push(arg);
+            continue;
+        }
         match arg.as_str() {
             "--help" | "-h" => return Ok(Command::Help),
+            "--" => after_separator = true,
             flag if flag.starts_with('-') => return Err(format!("unknown run flag `{flag}`")),
             value if entry.is_none() => entry = Some(value.to_string()),
             path => inputs.push(PathBuf::from(path)),
@@ -73,7 +92,11 @@ fn parse_run(args: impl Iterator<Item = String>) -> Result<Command, String> {
     let Some(entry) = entry else {
         return Err("run requires an entry function name".to_string());
     };
-    Ok(Command::Run { entry, inputs })
+    Ok(Command::Run {
+        entry,
+        inputs,
+        entry_args,
+    })
 }
 
 fn parse_test(args: impl Iterator<Item = String>) -> Result<Command, String> {

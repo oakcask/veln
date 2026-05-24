@@ -42,6 +42,7 @@ read these records only for rationale or compatibility context.
 - [Prelude Complexity Guarantees](result-prelude-complexity-guarantees.md)
 - [Primary Check Command](result-primary-check-command.md)
 - [Public Function Type Boundaries](result-public-function-type-boundaries.md)
+- [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md)
 - [Satisfy Unknown Severity](result-satisfy-unknown-severity.md)
 - [Stdio API and Output Events](result-stdio-api-and-output-events.md)
 - [Test Declaration Syntax](result-test-declaration-syntax.md)

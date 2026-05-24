@@ -24,7 +24,11 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
     match command {
         Command::Check { json, inputs } => commands::check::check(json, inputs),
         Command::Fmt { inputs } => commands::fmt::fmt(inputs),
-        Command::Run { entry, inputs } => commands::run::run_entry(entry, inputs),
+        Command::Run {
+            entry,
+            inputs,
+            entry_args,
+        } => commands::run::run_entry(entry, inputs, entry_args),
         Command::Test { json, targets } => commands::test::test(json, targets),
         Command::Help => {
             cli::print_help();

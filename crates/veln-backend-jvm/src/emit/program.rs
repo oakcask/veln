@@ -45,11 +45,15 @@ impl<'a> ProgramEmitter<'a> {
         }
     }
 
-    pub(crate) fn emit_with_entry(&self, entry_function: &str) -> JavaProgram {
+    pub(crate) fn emit_with_entry(
+        &self,
+        entry_function: &str,
+        entry_arg_count: usize,
+    ) -> JavaProgram {
         let mut program = self.emit();
         program.sources.push(JavaSourceFile {
             path: "VelnEntry.java".to_string(),
-            contents: self.emit_entry_class(entry_function),
+            contents: self.emit_entry_class(entry_function, entry_arg_count),
         });
         program
     }
@@ -75,14 +79,18 @@ impl<'a> ProgramEmitter<'a> {
         out
     }
 
-    fn emit_entry_class(&self, entry_function: &str) -> String {
+    fn emit_entry_class(&self, entry_function: &str, entry_arg_count: usize) -> String {
         let function_name = self.function_name(entry_function);
+        let args = (0..entry_arg_count)
+            .map(|index| format!("args[{index}]"))
+            .collect::<Vec<_>>()
+            .join(", ");
         format!(
             r#"public final class VelnEntry {{
     private VelnEntry() {{}}
 
     public static void main(String[] args) {{
-        Object result = {program}.{function_name}();
+        Object result = {program}.{function_name}({entry_args});
         if ({runtime}.isErr(result)) {{
             System.err.println({runtime}.format(result));
             System.exit(1);
@@ -93,6 +101,7 @@ impl<'a> ProgramEmitter<'a> {
             program = self.options.program_class,
             runtime = self.options.runtime_class,
             function_name = function_name,
+            entry_args = args,
         )
     }
 
@@ -123,11 +132,11 @@ impl<'a> ProgramEmitter<'a> {
         }}
 
         public static Result ok(Object value) {{
-            return new Result(true, value);
+            return new Result(true, freezeValue(value));
         }}
 
         public static Result err(Object value) {{
-            return new Result(false, value);
+            return new Result(false, freezeValue(value));
         }}
 
         public boolean isOk() {{
@@ -154,7 +163,7 @@ impl<'a> ProgramEmitter<'a> {
         }}
 
         public static Option some(Object value) {{
-            return new Option(true, value);
+            return new Option(true, freezeValue(value));
         }}
 
         public static Option none() {{
@@ -310,11 +319,34 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     private static java.util.List<Object> freezeList(java.util.List<Object> values) {{
-        return java.util.Collections.unmodifiableList(values);
+        java.util.ArrayList<Object> frozen = new java.util.ArrayList<Object>(values.size());
+        for (Object value : values) {{
+            frozen.add(freezeValue(value));
+        }}
+        return java.util.Collections.unmodifiableList(frozen);
     }}
 
     private static <K, V> java.util.Map<K, V> freezeMap(java.util.Map<K, V> values) {{
-        return java.util.Collections.unmodifiableMap(values);
+        java.util.LinkedHashMap<K, V> frozen = new java.util.LinkedHashMap<K, V>();
+        for (java.util.Map.Entry<K, V> entry : values.entrySet()) {{
+            @SuppressWarnings("unchecked")
+            K key = (K) freezeValue(entry.getKey());
+            @SuppressWarnings("unchecked")
+            V value = (V) freezeValue(entry.getValue());
+            frozen.put(key, value);
+        }}
+        return java.util.Collections.unmodifiableMap(frozen);
+    }}
+
+    @SuppressWarnings("unchecked")
+    private static Object freezeValue(Object value) {{
+        if (value instanceof java.util.List) {{
+            return freezeList((java.util.List<Object>) value);
+        }}
+        if (value instanceof java.util.Map) {{
+            return freezeMap((java.util.Map<Object, Object>) value);
+        }}
+        return value;
     }}
 
     public static Object optionMap(Object option, Object fn) {{

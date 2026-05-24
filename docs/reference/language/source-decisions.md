@@ -22,3 +22,4 @@ categorized specification files. The full implemented decision index is
 - [Contract Predicate Parsing](../source-decisions/result-contract-predicate-parsing.md)
 - [AST Phase Boundary](../source-decisions/result-ast-phase-boundary.md)
 - [AST Implementation Representation](../source-decisions/result-ast-implementation-representation.md)
+- [Runtime Value Freeze Boundary](../source-decisions/result-runtime-value-freeze-boundary.md)

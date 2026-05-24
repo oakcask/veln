@@ -88,10 +88,11 @@ result_map_err(value: Result(A, E), f: fn(E) -> F) -> Result(A, F)
 result_and_then(value: Result(A, E), f: fn(A) -> Result(B, E)) -> Result(B, E)
 ```
 
-Container update helpers return new values. `list_try_map` evaluates items in
-source order, stops at the first `Err`, and otherwise returns `Ok` containing
-the mapped list in source order. `list_map`, `list_filter`, and `list_fold`
-also visit list items in source order.
+Container update helpers return new frozen values and do not mutate their input
+containers in place. `list_try_map` evaluates items in source order, stops at
+the first `Err`, and otherwise returns `Ok` containing the mapped frozen list in
+source order. `list_map`, `list_filter`, and `list_fold` also visit list items
+in source order.
 
 The language specification does not promise asymptotic complexity, allocation
 counts, representation identity, structural sharing, hashing, or tree-balancing

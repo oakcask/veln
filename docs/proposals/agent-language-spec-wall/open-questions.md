@@ -151,7 +151,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   structured tasks and bounded MPSC channels for concurrent data flow, and
   expose concurrency at public boundaries through a coarse effect label.
 - Resolved by
-  [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md):
+  [Runtime Value Freeze Boundary](../../reference/source-decisions/result-runtime-value-freeze-boundary.md):
   ordinary Veln values must be frozen, transitively immutable, and safely
   published before they cross task or channel boundaries; backend-owned
   resources require explicit send-safety metadata.

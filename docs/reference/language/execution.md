@@ -22,3 +22,13 @@ The JVM backend generates Java source for the implemented IR subset:
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls
 - integer and boolean operators used by the implemented type rules
+
+Generated runtime helpers may use mutable builders while constructing records,
+lists, and dictionary update results. Values returned to Veln user code are
+frozen at that boundary: records and dictionaries are exposed as unmodifiable
+maps, lists are exposed as unmodifiable lists, and prelude container updates
+return new frozen containers instead of mutating the input value in place.
+
+This freeze rule is an observable language boundary only through value
+immutability and update semantics. The exact JVM representation, copying
+strategy, and later structural-sharing choices remain backend details.

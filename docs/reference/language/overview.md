@@ -8,7 +8,7 @@ current Veln workspace.
 The following behavior is fixed for the implemented slice:
 
 - The standard edit loop is `veln fmt`, `veln check --json`,
-  `veln run <entry>`, and `veln test [--json]`.
+  `veln run <entry> [-- arg ...]`, and `veln test [--json]`.
 - Source paths in diagnostics and JSON are project-relative paths using `/`
   separators.
 - Diagnostics use the stable top-level check JSON envelope described in
@@ -29,4 +29,5 @@ The following behavior is not fixed by this reference:
 - The exact shape of kind-specific diagnostic `details` fields not listed in
   [diagnostics-json.md](diagnostics-json.md).
 - Runtime contract enforcement, package manifests, imports, modules beyond
-  source discovery, persistent build caches, and entry arguments.
+  source discovery, persistent build caches, and non-string entry argument
+  conversion.

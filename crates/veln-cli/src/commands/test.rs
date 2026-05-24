@@ -150,7 +150,8 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
     let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
     let event_file = build_dir.join("stdio-events.tsv");
     let event_env = [("VELN_STDIO_EVENTS", event_file.as_os_str())];
-    let result = compile_and_run_java_capture_with_env(&build_dir, &java, "veln test", &event_env);
+    let result =
+        compile_and_run_java_capture_with_env(&build_dir, &java, "veln test", &event_env, &[]);
     let event_trace = fs::read_to_string(&event_file).unwrap_or_default();
     let cleanup_result = fs::remove_dir_all(&build_dir);
     if let Err(error) = cleanup_result {

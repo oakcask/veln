@@ -1,6 +1,6 @@
 # Discussion Result: Runtime Value Freeze Boundary
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 
