@@ -165,6 +165,7 @@ impl AstBuilder {
                 SyntaxExprKind::StringLiteral(value) => ExprKind::StringLiteral(value.clone()),
                 SyntaxExprKind::IntLiteral(value) => ExprKind::IntLiteral(value.clone()),
                 SyntaxExprKind::FloatLiteral(value) => ExprKind::FloatLiteral(value.clone()),
+                SyntaxExprKind::BoolLiteral(value) => ExprKind::BoolLiteral(*value),
                 SyntaxExprKind::Unit => ExprKind::Unit,
                 SyntaxExprKind::Call { callee, args } => ExprKind::Call {
                     callee: Box::new(self.lower_expr(callee)),

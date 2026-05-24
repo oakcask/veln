@@ -559,6 +559,7 @@ fn collect_expr_effects(
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }
 }
@@ -772,6 +773,10 @@ impl<'a> TypeParser<'a> {
             fields.push((name, ty));
             self.skip_ws();
             if !self.eat(',') {
+                break;
+            }
+            self.skip_ws();
+            if self.at('}') {
                 break;
             }
         }
@@ -1095,6 +1100,13 @@ mod tests {
                 ("scores".to_string(), Type::list(Type::int())),
             ]))
         );
+        assert_eq!(
+            parse_type_annotation("{ name: String, scores: List(Int), }"),
+            Ok(Type::Record(vec![
+                ("name".to_string(), Type::string()),
+                ("scores".to_string(), Type::list(Type::int())),
+            ]))
+        );
     }
 
     #[test]
@@ -1104,7 +1116,7 @@ mod tests {
             ("(Int)", "expected `)` for unit type `()`"),
             ("Int trailing", "unexpected `trailing`"),
             ("{ : Int }", "expected record field name"),
-            ("{ name: String, }", "expected record field name"),
+            ("{ name: String,, }", "expected record field name"),
             (
                 "{ value: Int, value: String }",
                 "duplicate record field `value`",

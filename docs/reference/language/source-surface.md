@@ -189,6 +189,9 @@ Implemented expressions:
 - postfix result propagation: `expr?`
 - parenthesized expressions
 
+`true` and `false` are boolean literals in expression and pattern positions;
+they are not ordinary value names.
+
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
 is visible only inside the suffix predicate.

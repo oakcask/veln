@@ -996,6 +996,7 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::StringLiteral(_) => Type::string(),
             ExprKind::IntLiteral(_) => Type::int(),
             ExprKind::FloatLiteral(_) => Type::float(),
+            ExprKind::BoolLiteral(_) => Type::bool(),
             ExprKind::Unit => Type::unit(),
             ExprKind::Call { callee, args } => self.infer_call(expr, callee, args, expected),
             ExprKind::FieldAccess {
@@ -1022,7 +1023,6 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Type {
         match segments {
-            [name] if name == "true" || name == "false" => Type::bool(),
             segments if is_option_none_constructor(segments) => expected
                 .and_then(|expected| expected.ty.option_part().map(|_| expected.ty.clone()))
                 .unwrap_or_else(|| Type::named("Option", vec![Type::Unknown])),
@@ -1851,6 +1851,7 @@ impl<'a> FunctionChecker<'a> {
         match &expr.kind {
             ExprKind::IntLiteral(_) => Some(Type::int()),
             ExprKind::FloatLiteral(_) => Some(Type::float()),
+            ExprKind::BoolLiteral(_) => Some(Type::bool()),
             ExprKind::NamePath(segments) => match segments.as_slice() {
                 [name] => self
                     .bindings

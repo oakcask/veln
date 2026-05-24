@@ -119,6 +119,7 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }
 }
@@ -302,6 +303,14 @@ fn lowers_nested_expression_edge_cases() {
     );
     assert!(matches!(&args[0].kind, ExprKind::StringLiteral(value) if value == "\"ok\""));
     assert!(matches!(&args[1].kind, ExprKind::Unit));
+}
+
+#[test]
+fn lowers_boolean_literals_as_literals() {
+    let module = lower_source("fn main() -> Bool\n  true\nend\n");
+    let expr = expr_line(&module.functions[0], 0);
+
+    assert!(matches!(expr.kind, ExprKind::BoolLiteral(true)));
 }
 
 #[test]

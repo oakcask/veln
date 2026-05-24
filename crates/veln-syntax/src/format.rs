@@ -203,6 +203,8 @@ fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide) -> String {
         ExprKind::StringLiteral(value)
         | ExprKind::IntLiteral(value)
         | ExprKind::FloatLiteral(value) => value.clone(),
+        ExprKind::BoolLiteral(true) => "true".to_string(),
+        ExprKind::BoolLiteral(false) => "false".to_string(),
         ExprKind::Unit => "()".to_string(),
         ExprKind::Call { callee, args } => {
             let args = args.iter().map(format_expr).collect::<Vec<_>>().join(", ");

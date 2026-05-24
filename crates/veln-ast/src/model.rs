@@ -142,6 +142,7 @@ pub enum ExprKind {
     StringLiteral(String),
     IntLiteral(String),
     FloatLiteral(String),
+    BoolLiteral(bool),
     Unit,
     Call {
         callee: Box<Expr>,

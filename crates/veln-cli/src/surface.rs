@@ -300,6 +300,7 @@ fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mu
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }
 }

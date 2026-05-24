@@ -656,6 +656,69 @@ fn parses_records_lists_and_formats_precedence() {
 }
 
 #[test]
+fn parses_boolean_literals_as_literals() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main(flag: Bool) -> Bool\n  true and false or flag\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(format_tree(&output.tree), source.text());
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Binary { left, right, .. } = &expr.kind else {
+        panic!("expected boolean binary expression");
+    };
+    assert!(
+        matches!(&right.kind, ExprKind::NamePath(segments) if segments == &vec!["flag".to_string()])
+    );
+    let ExprKind::Binary { left, right, .. } = &left.kind else {
+        panic!("expected nested boolean binary expression");
+    };
+    assert!(matches!(left.kind, ExprKind::BoolLiteral(true)));
+    assert!(matches!(right.kind, ExprKind::BoolLiteral(false)));
+}
+
+#[test]
+fn parses_boolean_literals_as_patterns() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(flag: Bool) -> String\n",
+            "  match flag\n",
+            "    true => \"yes\"\n",
+            "    false => \"no\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(format_tree(&output.tree), source.text());
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("expected match expression");
+    };
+    assert!(matches!(
+        arms[0].pattern.kind,
+        PatternKind::BoolLiteral(true)
+    ));
+    assert!(matches!(
+        arms[1].pattern.kind,
+        PatternKind::BoolLiteral(false)
+    ));
+}
+
+#[test]
 fn parses_dictionary_literals_with_expression_keys() {
     let source = SourceFile::new(
         "main.veln",

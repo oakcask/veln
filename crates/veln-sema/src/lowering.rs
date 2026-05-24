@@ -392,6 +392,9 @@ impl<'a> CoreLowerer<'a> {
                 CoreType::float(),
                 CoreExprKind::FloatLiteral(value.clone()),
             ),
+            ExprKind::BoolLiteral(value) => {
+                self.core_expr(expr, CoreType::bool(), CoreExprKind::BoolLiteral(*value))
+            }
             ExprKind::Unit => self.core_expr(expr, CoreType::unit(), CoreExprKind::Unit),
             ExprKind::Call { callee, args } => self.lower_call(expr, callee, args, expected),
             ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
@@ -535,6 +538,7 @@ impl<'a> CoreLowerer<'a> {
         match &expr.kind {
             ExprKind::IntLiteral(_) => Some(CoreType::int()),
             ExprKind::FloatLiteral(_) => Some(CoreType::float()),
+            ExprKind::BoolLiteral(_) => Some(CoreType::bool()),
             ExprKind::NamePath(segments) => match segments.as_slice() {
                 [name] => self
                     .bindings
@@ -558,12 +562,6 @@ impl<'a> CoreLowerer<'a> {
         expected: Option<&CoreType>,
     ) -> CoreExpr {
         match segments {
-            [name] if name == "true" => {
-                self.core_expr(expr, CoreType::bool(), CoreExprKind::BoolLiteral(true))
-            }
-            [name] if name == "false" => {
-                self.core_expr(expr, CoreType::bool(), CoreExprKind::BoolLiteral(false))
-            }
             segments if is_option_none_constructor(segments) => self.core_expr(
                 expr,
                 expected

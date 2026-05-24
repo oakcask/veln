@@ -10,10 +10,10 @@ decisions. Historical rationale remains in the linked discussion results.
 This document describes the language target. It is not a claim that every
 production is implemented in the current parser, AST, lowering, or backend.
 Record patterns, wildcard and record `let` patterns, `match` expressions in
-nested expression positions, and qualified built-in constructor expressions and
-patterns from this target are implemented in the current workspace. Literal and
-constructor patterns in `let` remain match-only and report a diagnostic when
-used as refutable let patterns.
+nested expression positions, boolean literal expressions, and qualified
+built-in constructor expressions and patterns from this target are implemented
+in the current workspace. Literal and constructor patterns in `let` remain
+match-only and report a diagnostic when used as refutable let patterns.
 
 For the fixed reference of behavior implemented in the current workspace, read
 [../reference/README.md](../reference/README.md).

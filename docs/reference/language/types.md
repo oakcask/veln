@@ -15,6 +15,9 @@ Implemented type annotations:
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
 
+Record type field lists may include a trailing comma, as in
+`{name: String, count: Int,}`.
+
 One record type annotation cannot declare the same field name twice. A
 duplicate field in a record type annotation is an invalid type annotation.
 

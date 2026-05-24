@@ -1445,6 +1445,18 @@ impl<'a> ExprParser<'a> {
                 break;
             }
         }
+        if segments == ["true"] {
+            return Expr {
+                kind: ExprKind::BoolLiteral(true),
+                span: self.source.span(start.cover(end)),
+            };
+        }
+        if segments == ["false"] {
+            return Expr {
+                kind: ExprKind::BoolLiteral(false),
+                span: self.source.span(start.cover(end)),
+            };
+        }
         Expr {
             kind: ExprKind::NamePath(segments),
             span: self.source.span(start.cover(end)),

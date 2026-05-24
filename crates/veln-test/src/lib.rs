@@ -361,6 +361,7 @@ fn collect_stdio_call_spans(expr: &Expr, spans: &mut BTreeMap<(String, String), 
         | ExprKind::StringLiteral(_)
         | ExprKind::IntLiteral(_)
         | ExprKind::FloatLiteral(_)
+        | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
     }
 }

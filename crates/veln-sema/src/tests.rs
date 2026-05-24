@@ -824,6 +824,40 @@ fn accepts_float_numeric_operators() {
 }
 
 #[test]
+fn lowers_boolean_literals_through_core_and_ir() {
+    let source = SourceFile::new("main.veln", "fn main() -> Bool\n  true\nend\n");
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert_eq!(expr.ty, CoreType::bool());
+    assert!(matches!(expr.kind, CoreExprKind::BoolLiteral(true)));
+
+    let ir = lowered.ir.expect("checked core should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert_eq!(value.ty, CoreType::bool());
+    assert!(matches!(value.kind, IrExprKind::BoolLiteral(true)));
+}
+
+#[test]
 fn infers_float_numeric_operators_from_call_results() {
     let source = SourceFile::new(
         "main.veln",
