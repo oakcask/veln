@@ -5,7 +5,10 @@ use veln_core::{
 };
 
 use crate::effects::stdio_signature;
-use crate::prelude::core_prelude_signature;
+use crate::prelude::{
+    core_prelude_signature, float_arithmetic_prelude_name, float_comparison_prelude_name,
+    float_prefix_prelude_name,
+};
 use crate::types::{TypeEnvironment, core_type, parse_type_annotation, parse_type_or_unknown};
 
 struct CoreBinding {
@@ -198,8 +201,21 @@ impl<'a> CoreLowerer<'a> {
             ExprKind::Prefix { op, expr: inner } => {
                 let expected_operand = match op {
                     veln_ast::PrefixOp::Not => CoreType::bool(),
-                    veln_ast::PrefixOp::Negate => CoreType::int(),
+                    veln_ast::PrefixOp::Negate => self.numeric_operand_type(expected, &[inner]),
                 };
+                if expected_operand == CoreType::float() {
+                    if let Some(name) = float_prefix_prelude_name(*op) {
+                        let arg = self.lower_expr(inner, Some(&CoreType::float()));
+                        return self.core_expr(
+                            expr,
+                            CoreType::float(),
+                            CoreExprKind::Call {
+                                target: CoreCallTarget::PreludeBuiltin(name.to_string()),
+                                args: vec![arg],
+                            },
+                        );
+                    }
+                }
                 let lowered = self.lower_expr(inner, Some(&expected_operand));
                 self.core_expr(
                     expr,
@@ -211,15 +227,46 @@ impl<'a> CoreLowerer<'a> {
                 )
             }
             ExprKind::Binary { op, left, right } => {
+                let numeric_type = if is_ordering_op(*op) {
+                    self.numeric_operand_type(None, &[left, right])
+                } else {
+                    self.numeric_operand_type(expected, &[left, right])
+                };
+                if numeric_type == CoreType::float() {
+                    if let Some(name) = float_comparison_prelude_name(*op) {
+                        let left = self.lower_expr(left, Some(&CoreType::float()));
+                        let right = self.lower_expr(right, Some(&CoreType::float()));
+                        return self.core_expr(
+                            expr,
+                            CoreType::bool(),
+                            CoreExprKind::Call {
+                                target: CoreCallTarget::PreludeBuiltin(name.to_string()),
+                                args: vec![left, right],
+                            },
+                        );
+                    }
+                    if let Some(name) = float_arithmetic_prelude_name(*op) {
+                        let left = self.lower_expr(left, Some(&CoreType::float()));
+                        let right = self.lower_expr(right, Some(&CoreType::float()));
+                        return self.core_expr(
+                            expr,
+                            CoreType::float(),
+                            CoreExprKind::Call {
+                                target: CoreCallTarget::PreludeBuiltin(name.to_string()),
+                                args: vec![left, right],
+                            },
+                        );
+                    }
+                }
                 let (operand, result) = match op {
                     BinaryOp::Or | BinaryOp::And => (CoreType::bool(), CoreType::bool()),
                     BinaryOp::Equal | BinaryOp::NotEqual => (CoreType::Unknown, CoreType::bool()),
                     BinaryOp::Less
                     | BinaryOp::LessEqual
                     | BinaryOp::Greater
-                    | BinaryOp::GreaterEqual => (CoreType::int(), CoreType::bool()),
+                    | BinaryOp::GreaterEqual => (numeric_type, CoreType::bool()),
                     BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
-                        (CoreType::int(), CoreType::int())
+                        (numeric_type.clone(), numeric_type)
                     }
                     BinaryOp::PipeGreater => (CoreType::Unknown, CoreType::Unknown),
                 };
@@ -235,6 +282,39 @@ impl<'a> CoreLowerer<'a> {
                     },
                 )
             }
+        }
+    }
+
+    fn numeric_operand_type(&self, expected: Option<&CoreType>, operands: &[&Expr]) -> CoreType {
+        if expected.is_some_and(|expected| expected == &CoreType::float()) {
+            return CoreType::float();
+        }
+        if operands.iter().any(|expr| {
+            self.shallow_expr_type(expr)
+                .is_some_and(|ty| ty == CoreType::float())
+        }) {
+            return CoreType::float();
+        }
+        CoreType::int()
+    }
+
+    fn shallow_expr_type(&self, expr: &Expr) -> Option<CoreType> {
+        match &expr.kind {
+            ExprKind::IntLiteral(_) => Some(CoreType::int()),
+            ExprKind::FloatLiteral(_) => Some(CoreType::float()),
+            ExprKind::NamePath(segments) => match segments.as_slice() {
+                [name] => self
+                    .bindings
+                    .iter()
+                    .rev()
+                    .find(|binding| binding.name == *name)
+                    .map(|binding| binding.ty.clone()),
+                _ => None,
+            },
+            ExprKind::Call { callee, .. } => self
+                .core_call_signature(callee, None)
+                .map(|signature| signature.return_type),
+            _ => None,
         }
     }
 
@@ -575,4 +655,11 @@ fn callee_symbol(callee: &Expr) -> Option<String> {
         ExprKind::NamePath(segments) => Some(segments.join("::")),
         _ => None,
     }
+}
+
+fn is_ordering_op(op: BinaryOp) -> bool {
+    matches!(
+        op,
+        BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual
+    )
 }

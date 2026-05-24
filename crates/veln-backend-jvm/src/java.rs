@@ -14,6 +14,15 @@ pub(crate) fn stdio_method(name: &str) -> &'static str {
 
 pub(crate) fn prelude_method(name: &str) -> &'static str {
     match name {
+        "float_negate" => "floatNegate",
+        "float_add" => "floatAdd",
+        "float_subtract" => "floatSubtract",
+        "float_multiply" => "floatMultiply",
+        "float_divide" => "floatDivide",
+        "float_less" => "floatLess",
+        "float_less_equal" => "floatLessEqual",
+        "float_greater" => "floatGreater",
+        "float_greater_equal" => "floatGreaterEqual",
         "list_len" => "listLen",
         "list_is_empty" => "listIsEmpty",
         "list_push" => "listPush",

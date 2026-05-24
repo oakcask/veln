@@ -212,6 +212,116 @@ fn generates_runtime_calls_for_value_call_prefix_and_binary_ops() {
 }
 
 #[test]
+fn generates_runtime_support_for_float_numeric_ops() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main(left: Float, right: Float) -> {negated: Float, sum: Float, ordered: Bool} effects []\n",
+        "  {negated: -left, sum: left + right, ordered: left <= right}\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("\"negated\", VelnRuntime.floatNegate(p_left)"));
+    assert!(program.contains("\"sum\", VelnRuntime.floatAdd(p_left, p_right)"));
+    assert!(program.contains("\"ordered\", VelnRuntime.floatLessEqual(p_left, p_right)"));
+    assert!(runtime.contains("public static Object floatAdd(Object left, Object right)"));
+    assert!(runtime.contains("public static Object floatLessEqual(Object left, Object right)"));
+    assert!(runtime.contains("requireFloatOperands(left, right);"));
+    assert!(runtime.contains("return Double.valueOf(asDouble(left) + asDouble(right));"));
+    assert!(runtime.contains("return Boolean.valueOf(asDouble(left) <= asDouble(right));"));
+}
+
+#[test]
+fn generated_float_comparison_rejects_nan_operands() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> Bool effects []\n",
+        "  0.0 / 0.0 < 1.0\n",
+        "end\n",
+    ));
+    let java = generate_java_with_entry(&ir, "main");
+    let root = temp_dir("float-comparison-nan");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("VelnEntry.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("VelnEntry")
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(!java.status.success());
+    assert!(
+        String::from_utf8_lossy(&java.stderr).contains("Float operator requires non-NaN operands")
+    );
+}
+
+#[test]
+fn generated_float_arithmetic_rejects_nan_operands() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> Float effects []\n",
+        "  0.0 / 0.0 + 1.0\n",
+        "end\n",
+    ));
+    let java = generate_java_with_entry(&ir, "main");
+    let root = temp_dir("float-arithmetic-nan");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("VelnEntry.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("VelnEntry")
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(!java.status.success());
+    assert!(
+        String::from_utf8_lossy(&java.stderr).contains("Float operator requires non-NaN operands")
+    );
+}
+
+#[test]
 fn generates_runtime_calls_for_prelude_helpers() {
     let ir = lower_to_ir(concat!(
         "pub fn main(items: List(Int), table: Dict(String, Int), mapper: fn(Int) -> String) -> {",

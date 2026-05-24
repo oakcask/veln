@@ -348,6 +348,51 @@ impl<'a> ProgramEmitter<'a> {
         return call(fn, value.value());
     }}
 
+    public static Object floatNegate(Object value) {{
+        requireFloatOperand(value);
+        return Double.valueOf(-asDouble(value));
+    }}
+
+    public static Object floatAdd(Object left, Object right) {{
+        requireFloatOperands(left, right);
+        return Double.valueOf(asDouble(left) + asDouble(right));
+    }}
+
+    public static Object floatSubtract(Object left, Object right) {{
+        requireFloatOperands(left, right);
+        return Double.valueOf(asDouble(left) - asDouble(right));
+    }}
+
+    public static Object floatMultiply(Object left, Object right) {{
+        requireFloatOperands(left, right);
+        return Double.valueOf(asDouble(left) * asDouble(right));
+    }}
+
+    public static Object floatDivide(Object left, Object right) {{
+        requireFloatOperands(left, right);
+        return Double.valueOf(asDouble(left) / asDouble(right));
+    }}
+
+    public static Object floatLess(Object left, Object right) {{
+        requireFloatOperands(left, right);
+        return Boolean.valueOf(asDouble(left) < asDouble(right));
+    }}
+
+    public static Object floatLessEqual(Object left, Object right) {{
+        requireFloatOperands(left, right);
+        return Boolean.valueOf(asDouble(left) <= asDouble(right));
+    }}
+
+    public static Object floatGreater(Object left, Object right) {{
+        requireFloatOperands(left, right);
+        return Boolean.valueOf(asDouble(left) > asDouble(right));
+    }}
+
+    public static Object floatGreaterEqual(Object left, Object right) {{
+        requireFloatOperands(left, right);
+        return Boolean.valueOf(asDouble(left) >= asDouble(right));
+    }}
+
     private static int stdioSequence = 0;
 
     public static Object stdioPrint(Object value) {{
@@ -408,22 +453,37 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     public static Object negate(Object value) {{
+        if (isFloating(value)) {{
+            return floatNegate(value);
+        }}
         return Long.valueOf(-asLong(value));
     }}
 
     public static Object add(Object left, Object right) {{
+        if (isFloating(left) || isFloating(right)) {{
+            return floatAdd(left, right);
+        }}
         return Long.valueOf(asLong(left) + asLong(right));
     }}
 
     public static Object subtract(Object left, Object right) {{
+        if (isFloating(left) || isFloating(right)) {{
+            return floatSubtract(left, right);
+        }}
         return Long.valueOf(asLong(left) - asLong(right));
     }}
 
     public static Object multiply(Object left, Object right) {{
+        if (isFloating(left) || isFloating(right)) {{
+            return floatMultiply(left, right);
+        }}
         return Long.valueOf(asLong(left) * asLong(right));
     }}
 
     public static Object divide(Object left, Object right) {{
+        if (isFloating(left) || isFloating(right)) {{
+            return floatDivide(left, right);
+        }}
         return Long.valueOf(asLong(left) / asLong(right));
     }}
 
@@ -436,18 +496,30 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     public static Object less(Object left, Object right) {{
+        if (isFloating(left) || isFloating(right)) {{
+            return floatLess(left, right);
+        }}
         return Boolean.valueOf(asLong(left) < asLong(right));
     }}
 
     public static Object lessEqual(Object left, Object right) {{
+        if (isFloating(left) || isFloating(right)) {{
+            return floatLessEqual(left, right);
+        }}
         return Boolean.valueOf(asLong(left) <= asLong(right));
     }}
 
     public static Object greater(Object left, Object right) {{
+        if (isFloating(left) || isFloating(right)) {{
+            return floatGreater(left, right);
+        }}
         return Boolean.valueOf(asLong(left) > asLong(right));
     }}
 
     public static Object greaterEqual(Object left, Object right) {{
+        if (isFloating(left) || isFloating(right)) {{
+            return floatGreaterEqual(left, right);
+        }}
         return Boolean.valueOf(asLong(left) >= asLong(right));
     }}
 
@@ -521,6 +593,26 @@ impl<'a> ProgramEmitter<'a> {
 
     private static long asLong(Object value) {{
         return ((Number) value).longValue();
+    }}
+
+    private static double asDouble(Object value) {{
+        return ((Number) value).doubleValue();
+    }}
+
+    private static boolean isFloating(Object value) {{
+        return value instanceof Double || value instanceof Float;
+    }}
+
+    private static void requireFloatOperand(Object value) {{
+        if (Double.isNaN(asDouble(value))) {{
+            throw new IllegalStateException("Float operator requires non-NaN operands");
+        }}
+    }}
+
+    private static void requireFloatOperands(Object left, Object right) {{
+        if (Double.isNaN(asDouble(left)) || Double.isNaN(asDouble(right))) {{
+            throw new IllegalStateException("Float operator requires non-NaN operands");
+        }}
     }}
 
     @SuppressWarnings("unchecked")

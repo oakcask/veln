@@ -16,7 +16,10 @@ use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, span_json, type_details,
 };
 use crate::effects::stdio_signature;
-use crate::prelude::prelude_signature;
+use crate::prelude::{
+    float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
+    prelude_signature,
+};
 use crate::types::{
     Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type, TypeEnvironment,
     is_assignable, parse_type_annotation,
@@ -785,8 +788,8 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::Try(inner) => self.infer_try(expr, inner, expected),
             ExprKind::Record(fields) => self.infer_record(expr, fields, expected),
             ExprKind::List(items) => self.infer_list(expr, items, expected),
-            ExprKind::Prefix { op, expr } => self.infer_prefix(*op, expr),
-            ExprKind::Binary { op, left, right } => self.infer_binary(*op, left, right),
+            ExprKind::Prefix { op, expr } => self.infer_prefix(*op, expr, expected),
+            ExprKind::Binary { op, left, right } => self.infer_binary(*op, left, right, expected),
         }
     }
 
@@ -1229,30 +1232,61 @@ impl<'a> FunctionChecker<'a> {
         value_type
     }
 
-    fn infer_prefix(&mut self, op: veln_ast::PrefixOp, expr: &Expr) -> Type {
+    fn infer_prefix(
+        &mut self,
+        op: veln_ast::PrefixOp,
+        expr: &Expr,
+        expected_result: Option<&ExpectedType>,
+    ) -> Type {
+        let operand_type = match op {
+            veln_ast::PrefixOp::Not => Type::bool(),
+            veln_ast::PrefixOp::Negate => self.numeric_operand_type(expected_result, &[expr]),
+        };
+        if operand_type == Type::float() {
+            if let Some(name) = float_prefix_prelude_name(op) {
+                return self.infer_builtin_unary_call(name, expr);
+            }
+        }
         let expected = ExpectedType {
-            ty: match op {
-                veln_ast::PrefixOp::Not => Type::bool(),
-                veln_ast::PrefixOp::Negate => Type::int(),
-            },
+            ty: operand_type,
             source: ExpectedTypeSource::Inferred,
             origin_node_id: expr.node_id,
             origin_span: Some(expr.span.clone()),
             origin_message: "Operator operand type inferred here.",
         };
-        self.infer_expr(expr, Some(&expected));
+        let actual = self.infer_expr(expr, Some(&expected));
+        self.check_assignable(expr, &expected.ty, &actual, &expected, "operator_operand");
         expected.ty
     }
 
-    fn infer_binary(&mut self, op: BinaryOp, left: &Expr, right: &Expr) -> Type {
+    fn infer_binary(
+        &mut self,
+        op: BinaryOp,
+        left: &Expr,
+        right: &Expr,
+        expected_result: Option<&ExpectedType>,
+    ) -> Type {
+        let numeric_type = if is_ordering_op(op) {
+            self.numeric_operand_type(None, &[left, right])
+        } else {
+            self.numeric_operand_type(expected_result, &[left, right])
+        };
+        if numeric_type == Type::float() {
+            if let Some(name) = float_comparison_prelude_name(op) {
+                return self.infer_builtin_binary_call(name, left, right);
+            }
+            if let Some(name) = float_arithmetic_prelude_name(op) {
+                return self.infer_builtin_binary_call(name, left, right);
+            }
+        }
         let (operand_type, result_type) = match op {
             BinaryOp::Or | BinaryOp::And => (Type::bool(), Type::bool()),
             BinaryOp::Equal | BinaryOp::NotEqual => (Type::Unknown, Type::bool()),
             BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => {
-                (Type::int(), Type::bool())
+                (numeric_type, Type::bool())
             }
             BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
-                (Type::int(), Type::int())
+                (numeric_type.clone(), numeric_type)
             }
             BinaryOp::PipeGreater => (Type::Unknown, Type::Unknown),
         };
@@ -1263,9 +1297,97 @@ impl<'a> FunctionChecker<'a> {
             origin_span: Some(left.span.clone()),
             origin_message: "Operator operand type inferred here.",
         };
-        self.infer_expr(left, Some(&expected));
-        self.infer_expr(right, Some(&expected));
+        let actual_left = self.infer_expr(left, Some(&expected));
+        self.check_assignable(
+            left,
+            &expected.ty,
+            &actual_left,
+            &expected,
+            "operator_operand",
+        );
+        let actual_right = self.infer_expr(right, Some(&expected));
+        self.check_assignable(
+            right,
+            &expected.ty,
+            &actual_right,
+            &expected,
+            "operator_operand",
+        );
         result_type
+    }
+
+    fn infer_builtin_unary_call(&mut self, name: &str, arg: &Expr) -> Type {
+        let Some((params, return_type)) = prelude_signature(name, None) else {
+            return Type::Unknown;
+        };
+        let Some(param_type) = params.first() else {
+            return return_type;
+        };
+        let expected = ExpectedType {
+            ty: param_type.clone(),
+            source: ExpectedTypeSource::Inferred,
+            origin_node_id: arg.node_id,
+            origin_span: Some(arg.span.clone()),
+            origin_message: "Builtin operator parameter type inferred here.",
+        };
+        let actual = self.infer_expr(arg, Some(&expected));
+        self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
+        return_type
+    }
+
+    fn infer_builtin_binary_call(&mut self, name: &str, left: &Expr, right: &Expr) -> Type {
+        let Some((params, return_type)) = prelude_signature(name, None) else {
+            return Type::Unknown;
+        };
+        for (arg, param_type) in [left, right].into_iter().zip(params) {
+            let expected = ExpectedType {
+                ty: param_type,
+                source: ExpectedTypeSource::Inferred,
+                origin_node_id: arg.node_id,
+                origin_span: Some(arg.span.clone()),
+                origin_message: "Builtin operator parameter type inferred here.",
+            };
+            let actual = self.infer_expr(arg, Some(&expected));
+            self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
+        }
+        return_type
+    }
+
+    fn numeric_operand_type(
+        &self,
+        expected_result: Option<&ExpectedType>,
+        operands: &[&Expr],
+    ) -> Type {
+        if expected_result.is_some_and(|expected| expected.ty == Type::float()) {
+            return Type::float();
+        }
+        if operands.iter().any(|expr| {
+            self.shallow_expr_type(expr)
+                .is_some_and(|ty| ty == Type::float())
+        }) {
+            return Type::float();
+        }
+        Type::int()
+    }
+
+    fn shallow_expr_type(&self, expr: &Expr) -> Option<Type> {
+        match &expr.kind {
+            ExprKind::IntLiteral(_) => Some(Type::int()),
+            ExprKind::FloatLiteral(_) => Some(Type::float()),
+            ExprKind::NamePath(segments) => match segments.as_slice() {
+                [name] => self
+                    .bindings
+                    .iter()
+                    .rev()
+                    .find(|binding| binding.name == *name)
+                    .map(|binding| binding.ty.clone()),
+                _ => None,
+            },
+            ExprKind::Call { callee, .. } => self
+                .call_signature(callee)
+                .map(|(_, return_type, _)| return_type),
+            _ => None,
+        }
     }
 
     fn check_assignable(
@@ -1596,4 +1718,11 @@ impl<'a> FunctionChecker<'a> {
             ),
         ])]
     }
+}
+
+fn is_ordering_op(op: BinaryOp) -> bool {
+    matches!(
+        op,
+        BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual
+    )
 }

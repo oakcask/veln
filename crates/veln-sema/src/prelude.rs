@@ -1,3 +1,4 @@
+use veln_ast::{BinaryOp, PrefixOp};
 use veln_core::{CoreCallTarget, CoreType};
 
 use crate::types::Type;
@@ -25,6 +26,13 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
         });
 
     match name {
+        "float_negate" => Some((vec![Type::float()], Type::float())),
+        "float_add" | "float_subtract" | "float_multiply" | "float_divide" => {
+            Some((vec![Type::float(), Type::float()], Type::float()))
+        }
+        "float_less" | "float_less_equal" | "float_greater" | "float_greater_equal" => {
+            Some((vec![Type::float(), Type::float()], Type::bool()))
+        }
         "list_len" => Some((vec![Type::list(unknown)], Type::int())),
         "list_is_empty" => Some((vec![Type::list(unknown)], Type::bool())),
         "list_push" => Some((
@@ -175,6 +183,33 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
     }
 }
 
+pub(crate) fn float_prefix_prelude_name(op: PrefixOp) -> Option<&'static str> {
+    match op {
+        PrefixOp::Negate => Some("float_negate"),
+        _ => None,
+    }
+}
+
+pub(crate) fn float_arithmetic_prelude_name(op: BinaryOp) -> Option<&'static str> {
+    match op {
+        BinaryOp::Add => Some("float_add"),
+        BinaryOp::Subtract => Some("float_subtract"),
+        BinaryOp::Multiply => Some("float_multiply"),
+        BinaryOp::Divide => Some("float_divide"),
+        _ => None,
+    }
+}
+
+pub(crate) fn float_comparison_prelude_name(op: BinaryOp) -> Option<&'static str> {
+    match op {
+        BinaryOp::Less => Some("float_less"),
+        BinaryOp::LessEqual => Some("float_less_equal"),
+        BinaryOp::Greater => Some("float_greater"),
+        BinaryOp::GreaterEqual => Some("float_greater_equal"),
+        _ => None,
+    }
+}
+
 pub(crate) fn core_prelude_signature(
     name: &str,
     expected: Option<&CoreType>,
@@ -201,6 +236,14 @@ pub(crate) fn core_prelude_signature(
         });
 
     let signature = match name {
+        "float_negate" => (vec![CoreType::float()], CoreType::float()),
+        "float_add" | "float_subtract" | "float_multiply" | "float_divide" => (
+            vec![CoreType::float(), CoreType::float()],
+            CoreType::float(),
+        ),
+        "float_less" | "float_less_equal" | "float_greater" | "float_greater_equal" => {
+            (vec![CoreType::float(), CoreType::float()], CoreType::bool())
+        }
         "list_len" => (vec![CoreType::list(unknown)], CoreType::int()),
         "list_is_empty" => (vec![CoreType::list(unknown)], CoreType::bool()),
         "list_push" => (

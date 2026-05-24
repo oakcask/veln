@@ -17,7 +17,8 @@ stays in
 - `match` expressions are not implemented yet. Expected-type flow through
   match branches and match lowering remain follow-up work.
 - Broader runtime semantics still need dictionary values, match lowering,
-  richer numeric behavior, and stable callable value construction.
+  stable callable value construction, and numeric behavior beyond matching
+  `Int` or matching `Float` operator operands.
 
 ## Repair Loop
 

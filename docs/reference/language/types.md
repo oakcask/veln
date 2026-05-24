@@ -66,12 +66,26 @@ name, with the base expression reported as related context.
 Implemented operator typing:
 
 - `not` expects `Bool` and returns `Bool`.
-- Unary `-` expects `Int` and returns `Int`.
+- Unary `-` expects `Int` and returns `Int`, or expects `Float` and returns
+  `Float` when the expected result type or operand is clearly `Float`.
 - `or` and `and` expect `Bool` operands and return `Bool`.
-- comparisons other than equality expect `Int` operands and return `Bool`.
-- `+`, `-`, `*`, and `/` expect `Int` operands and return `Int`.
+- comparisons other than equality expect matching `Int` operands or matching
+  `Float` operands and return `Bool`. Float comparison operands must be
+  non-NaN. A `Float` expected result does not apply to comparisons, so `Float`
+  comparison is selected from the operand types.
+- `+`, `-`, `*`, and `/` expect matching `Int` operands and return `Int`, or
+  expect matching `Float` operands and return `Float` when the expected result
+  type or either operand is clearly `Float`. Float arithmetic operands must be
+  non-NaN.
 - `==` and `!=` return `Bool` and do not currently require matching operand
   types.
 - `|>` is parsed and lowered as a binary operator with unknown operand and
   result types. It has no special call-rewrite semantics in the implemented
   slice. The current JVM runtime helper returns the right operand.
+
+There is no implicit `Int` to `Float` promotion in operator typing. Mixed
+numeric operands report a type mismatch at the non-matching operand.
+
+Float arithmetic and comparison operators lower as calls to compiler-known
+prelude functions so the non-NaN precondition belongs to the same boundary as
+ordinary built-in function calls.
