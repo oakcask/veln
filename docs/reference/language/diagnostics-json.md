@@ -100,6 +100,22 @@ Effect diagnostic `details` are stable for `effect.missing_public`:
 - `inferred_effects`
 - `provenance`
 - `provenance_truncated`
+- `provenance_paths`
+
+Each `provenance_paths` entry contains:
+
+- `effect`
+- `entries`
+- `truncated`
+- `hidden_frame_count`
+- `omitted_path_count`
+
+Each path entry contains:
+
+- `kind`
+- `node_id`
+- `symbol`
+- `span`
 
 Contract diagnostic `details` are stable for implemented contract validation:
 

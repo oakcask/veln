@@ -84,16 +84,19 @@ pub(crate) fn module_details(
 
 pub(crate) fn effect_missing_public_details(
     node_id: String,
+    boundary_symbol: &str,
+    boundary_span: &SourceSpan,
     effect: &str,
     boundary: &'static str,
     declared_effects: &[String],
     inferred_effects: &[String],
     provenance: &[EffectUse],
     provenance_truncated: bool,
+    omitted_path_count: usize,
 ) -> JsonValue {
     JsonValue::object([
         ("phase", JsonValue::string("effect")),
-        ("node_id", JsonValue::string(node_id)),
+        ("node_id", JsonValue::string(node_id.clone())),
         ("effect", JsonValue::string(effect)),
         ("boundary", JsonValue::string(boundary)),
         (
@@ -120,6 +123,50 @@ pub(crate) fn effect_missing_public_details(
         (
             "provenance_truncated",
             JsonValue::Bool(provenance_truncated),
+        ),
+        (
+            "provenance_paths",
+            JsonValue::array(provenance.iter().enumerate().map(|(index, effect_use)| {
+                JsonValue::object([
+                    ("effect", JsonValue::string(effect)),
+                    (
+                        "entries",
+                        JsonValue::array([
+                            JsonValue::object([
+                                (
+                                    "kind",
+                                    JsonValue::string(match boundary {
+                                        "test_declaration" => "test_boundary",
+                                        _ => "public_boundary",
+                                    }),
+                                ),
+                                ("node_id", JsonValue::string(node_id.clone())),
+                                ("symbol", JsonValue::string(boundary_symbol)),
+                                ("span", span_json(boundary_span)),
+                            ]),
+                            JsonValue::object([
+                                ("kind", JsonValue::string(effect_use.kind)),
+                                (
+                                    "node_id",
+                                    JsonValue::string(effect_use.node_id.display("call")),
+                                ),
+                                ("symbol", JsonValue::string(effect_use.symbol.clone())),
+                                ("span", span_json(&effect_use.span)),
+                            ]),
+                        ]),
+                    ),
+                    ("truncated", JsonValue::Bool(provenance_truncated)),
+                    ("hidden_frame_count", JsonValue::Number(0)),
+                    (
+                        "omitted_path_count",
+                        JsonValue::Number(if index == 0 {
+                            omitted_path_count as i64
+                        } else {
+                            0
+                        }),
+                    ),
+                ])
+            })),
         ),
     ])
 }

@@ -848,7 +848,35 @@ fn reports_missing_public_effect_with_call_provenance() {
     assert!(details.contains("\"declared_effects\":[]"));
     assert!(details.contains("\"inferred_effects\":[\"stdio\"]"));
     assert!(details.contains("\"symbol\":\"stdio::println\""));
+    assert!(details.contains("\"provenance_paths\":[{\"effect\":\"stdio\""));
+    assert!(details.contains("\"kind\":\"public_boundary\""));
+    assert!(details.contains("\"hidden_frame_count\":0"));
+    assert!(details.contains("\"omitted_path_count\":0"));
     assert_eq!(diagnostics[0].related.len(), 1);
+}
+
+#[test]
+fn effect_provenance_reports_omitted_equivalent_paths() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> () effects []\n",
+            "  stdio::print(\"one\")\n",
+            "  stdio::println(\"two\")\n",
+            "  stdio::eprint(\"three\")\n",
+            "  stdio::eprintln(\"four\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"provenance_truncated\":true"));
+    assert!(details.contains("\"omitted_path_count\":1"));
 }
 
 #[test]

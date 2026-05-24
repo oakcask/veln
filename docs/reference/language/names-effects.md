@@ -56,7 +56,11 @@ whose declared effects omit an inferred effect reports `effect.missing_public`
 with related provenance pointing at bounded call sites.
 
 Transitive effect inference through helper functions is limited to discovered
-function signatures. Rich transitive provenance fields remain future work.
+function signatures. Effect diagnostics include bounded structured provenance
+paths. Each path records the boundary entry, the effect-causing call entry,
+whether the path set was truncated, how many frames were hidden, and how many
+equivalent paths were omitted. For the current direct-call and signature-based
+inference, hidden frame counts are zero.
 
 ## Prelude Helpers
 

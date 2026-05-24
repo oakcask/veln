@@ -638,6 +638,12 @@ impl<'a> FunctionChecker<'a> {
                 .take(3)
                 .cloned()
                 .collect::<Vec<_>>();
+            let matching_path_count = self
+                .inferred_effects
+                .iter()
+                .filter(|effect_use| &effect_use.effect == effect)
+                .count();
+            let omitted_path_count = matching_path_count.saturating_sub(provenance.len());
             let mut diagnostic = Diagnostic::new(
                 diagnostic_id,
                 Severity::Error,
@@ -648,12 +654,15 @@ impl<'a> FunctionChecker<'a> {
                     self.function
                         .node_id
                         .display(self.function.kind.node_prefix()),
+                    self.function.name.as_deref().unwrap_or("<missing>"),
+                    &self.function.span,
                     effect,
                     boundary,
                     declared_effects,
                     &inferred_effects,
                     &provenance,
-                    self.inferred_effects.len() > provenance.len(),
+                    matching_path_count > provenance.len(),
+                    omitted_path_count,
                 ),
             );
             for effect_use in provenance {

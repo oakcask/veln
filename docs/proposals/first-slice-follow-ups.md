@@ -32,10 +32,10 @@ stays in
 
 ## Effects And Contracts
 
-- Direct stdio calls are recognized as compiler-known effectful prelude calls.
-  Richer transitive-effect path fields such as hidden-frame counts, omitted
-  path counts, and expanded path entries remain follow-up work for transitive
-  helper inference.
+- Direct stdio calls are recognized as compiler-known effectful prelude calls,
+  and effect diagnostics expose bounded path entries with hidden-frame and
+  omitted-path counts. Broader transitive helper inference beyond discovered
+  function signatures remains follow-up work.
 - The checker validates the first-slice pure boolean contract subset, but
   runtime contract discharge remains deferred.
 - Contract predicates now parse through a dedicated first-slice predicate
