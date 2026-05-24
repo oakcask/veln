@@ -40,6 +40,12 @@ module and use headers, function signatures, contract clauses, let statements,
 tail expressions, holes with `satisfy`, records, lists, calls, literals, paths,
 prefix operators, binary operators, and postfix `?`.
 
+Formatting accepts multiple parse-clean input files in one invocation and
+writes each selected file only after all selected files have parsed without
+diagnostics. The implemented golden coverage includes `ensure` clauses, prefix
+and binary precedence, postfix `?`, nested records, lists, calls, and
+idempotent formatting across multiple input files.
+
 Files containing comments are preserved byte-for-byte until formatter comment
 attachment is implemented.
 

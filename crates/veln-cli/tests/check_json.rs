@@ -541,6 +541,85 @@ fn fmt_formats_first_slice_golden_and_is_idempotent() {
 }
 
 #[test]
+fn fmt_formats_focused_first_slice_forms_across_multiple_files() {
+    let project = TestProject::new("fmt-focused-golden");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn parse ( raw : String ) -> Result ( Int , AppError ) effects [ ]\n",
+            " Ok ( 1 )\n",
+            "end\n",
+            "pub fn main ( raw : String ) -> Result ( { value : Int, tags : List(String) } , AppError ) effects [ ]\n",
+            " ensure output.value >= 0 and not ( output.value == - 1 )\n",
+            " let parsed : Int = parse ( raw ) ?\n",
+            " { value : parsed + 1 * ( 2 + 3 ) , tags : [ choose ( raw , \"fallback\" ) , \"done\" ] }\n",
+            "end\n",
+        ),
+    );
+    project.write(
+        "helpers.veln",
+        concat!(
+            "fn choose ( value : String , fallback : String ) -> String effects [ ]\n",
+            " if_missing ( { primary : value, nested : { fallback : fallback } } )\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.fmt(&["main.veln", "helpers.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+            "  Ok(1)\n",
+            "end\n",
+            "\n",
+            "pub fn main(raw: String) -> Result({ value : Int, tags : List(String) }, AppError) effects []\n",
+            "  ensure output.value >= 0 and not(output.value == - 1)\n",
+            "  let parsed: Int = parse(raw)?\n",
+            "  { value: parsed + 1 * (2 + 3), tags: [choose(raw, \"fallback\"), \"done\"] }\n",
+            "end\n",
+        )
+    );
+    assert_eq!(
+        project.read("helpers.veln"),
+        concat!(
+            "fn choose(value: String, fallback: String) -> String effects []\n",
+            "  if_missing({ primary: value, nested: { fallback: fallback } })\n",
+            "end\n",
+        )
+    );
+
+    let second_output = project.fmt(&["main.veln", "helpers.veln"]);
+
+    assert!(second_output.status.success(), "{}", stderr(&second_output));
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+            "  Ok(1)\n",
+            "end\n",
+            "\n",
+            "pub fn main(raw: String) -> Result({ value : Int, tags : List(String) }, AppError) effects []\n",
+            "  ensure output.value >= 0 and not(output.value == - 1)\n",
+            "  let parsed: Int = parse(raw)?\n",
+            "  { value: parsed + 1 * (2 + 3), tags: [choose(raw, \"fallback\"), \"done\"] }\n",
+            "end\n",
+        )
+    );
+    assert_eq!(
+        project.read("helpers.veln"),
+        concat!(
+            "fn choose(value: String, fallback: String) -> String effects []\n",
+            "  if_missing({ primary: value, nested: { fallback: fallback } })\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn fmt_rejects_unknown_flags_before_writing_files() {
     let project = TestProject::new("fmt-unknown-flag");
     let text = "fn   ok ( ) -> ()\n()\nend\n";
@@ -1212,6 +1291,34 @@ fn run_converts_primitive_entry_arguments_when_jdk_is_available() {
     );
 
     let output = project.run(&["main", "main.veln", "--", "41", "1.5", "false"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
+fn run_executes_function_typed_value_calls_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-function-typed-value-call");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn increment(value: Int) -> Int effects []\n",
+            "  value + 1\n",
+            "end\n",
+            "pub fn main() -> output: Int effects []\n",
+            "  ensure output == 2\n",
+            "  let callback: fn(Int) -> Int effects [] = increment\n",
+            "  callback(1)\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
 
     assert!(output.status.success(), "{}", stderr(&output));
     assert_eq!(stdout(&output), "");

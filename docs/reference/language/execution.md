@@ -9,6 +9,9 @@ IR is produced only when checked core is complete. Reachable holes, missing
 expressions, constructor arity gaps, and call arity gaps block executable IR.
 For selected `run` and `test` entries, reachability includes direct function
 calls and bare function declaration values used inside reachable expressions.
+The implemented execution fixtures cover function declarations used as
+function-typed values, function-typed value calls, and selected-entry
+reachable-hole blocking before JVM execution.
 
 The typed IR is runtime-neutral. JVM class names, Java method names, boxed
 runtime representation, generated artifact paths, and runtime helper layout are

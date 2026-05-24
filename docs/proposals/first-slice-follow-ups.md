@@ -44,15 +44,11 @@ No accepted language and type coverage follow-up is currently tracked here.
 
 - Comment-bearing files are currently preserved byte-for-byte. Comment
   attachment is still required before those files can be safely reformatted.
-- Formatter stabilization still needs focused golden and idempotence fixtures
-  for `ensure`, prefix and binary precedence, postfix `?`, nested
-  records/lists/calls, multiple input files without parse errors, and
-  comment attachment once comments stop being no-op preserved.
+- Formatter stabilization still needs comment attachment once comment-bearing
+  files stop being no-op preserved.
 
 ## Lowering And Execution
 
-- Broader lowering stabilization still needs focused fixtures for
-  function-typed value calls and selected-entry reachable-hole handling.
 - Reachable-hole blocking follows the selected entry, direct function-name
   calls, and bare function declaration values used in reachable expressions.
   Broader conservative handling for future higher-order values, module
