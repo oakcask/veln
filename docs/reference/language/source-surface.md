@@ -89,9 +89,10 @@ syntax:
 
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
 contract predicates before semantic checking. A syntactically valid predicate
-may still fail contract validation; for example, all call-like syntax is
-currently rejected by the contract checker, and field access must resolve
-through record-typed values visible to the clause.
+may still fail contract validation. Function calls must resolve to discovered
+pure functions, call arguments must be assignable to declared parameter types,
+and field access must resolve through record-typed values visible to the
+clause.
 
 ## Not Implemented
 

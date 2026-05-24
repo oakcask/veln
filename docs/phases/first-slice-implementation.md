@@ -793,5 +793,5 @@ first slice using
 - [Stdio API and Output Events](../reference/source-decisions/result-stdio-api-and-output-events.md)
 - [Check JSON Details Fields](../reference/source-decisions/result-check-json-details-fields.md)
 - [Transitive Effect Diagnostics](../proposals/agent-language-spec-wall/result-transitive-effect-diagnostics.md)
-- [Contract Predicate Parsing](../proposals/agent-language-spec-wall/result-contract-predicate-parsing.md)
+- [Contract Predicate Parsing](../reference/source-decisions/result-contract-predicate-parsing.md)
 - [Hole Satisfy Source Syntax](../reference/source-decisions/result-hole-satisfy-source-syntax.md)

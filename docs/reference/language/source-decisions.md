@@ -18,5 +18,7 @@ categorized specification files. The full implemented decision index is
 - [Minimum Type System for Holes](../source-decisions/result-minimum-type-system-for-holes.md)
 - [Hole Satisfy Source Syntax](../source-decisions/result-hole-satisfy-source-syntax.md)
 - [Postcondition Result Binding](../source-decisions/result-postcondition-result-binding.md)
+- [Contract Expression Language](../source-decisions/result-contract-expression-language.md)
+- [Contract Predicate Parsing](../source-decisions/result-contract-predicate-parsing.md)
 - [AST Phase Boundary](../source-decisions/result-ast-phase-boundary.md)
 - [AST Implementation Representation](../source-decisions/result-ast-implementation-representation.md)

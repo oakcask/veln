@@ -973,6 +973,172 @@ fn contract_boolean_field_access_is_a_boolean_predicate() {
 }
 
 #[test]
+fn contract_predicate_accepts_pure_boolean_function_calls() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn positive(value: Int) -> Bool effects []\n",
+            "  value > 0\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require positive(value)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_predicate_accepts_pure_function_calls_inside_comparisons() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn same(value: Int) -> Int effects []\n",
+            "  value\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require same(value) > 0\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_predicate_accepts_nested_pure_function_call_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn same(value: Int) -> Int effects []\n",
+            "  value\n",
+            "end\n",
+            "fn positive(value: Int) -> Bool effects []\n",
+            "  value > 0\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require positive(same(value))\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_predicate_rejects_effectful_function_calls() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn noisy(value: Int) -> Bool effects [stdio]\n",
+            "  stdio::println(\"checking\")\n",
+            "  value > 0\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require noisy(value)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.unsupported_construct"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"effectful_operation\"")
+    }));
+}
+
+#[test]
+fn contract_predicate_rejects_non_boolean_function_calls() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn same(value: Int) -> Int effects []\n",
+            "  value\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require same(value)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.type_mismatch"
+            && diagnostic.kind == DiagnosticKind::Contract
+            && diagnostic.message == "contract predicate is not `Bool`"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"non_boolean_predicate\"")
+    }));
+}
+
+#[test]
+fn contract_predicate_rejects_non_boolean_function_calls_in_boolean_position() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn same(value: Int) -> Int effects []\n",
+            "  value\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require same(value) and true\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.type_mismatch"
+            && diagnostic.kind == DiagnosticKind::Contract
+            && diagnostic.message == "contract predicate is not `Bool`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch"
+            && diagnostic
+                .message
+                .contains("expected `Bool`, but found `Int`")
+    }));
+}
+
+#[test]
 fn contract_missing_record_field_reports_contract_diagnostic() {
     let source = SourceFile::new(
         "main.veln",

@@ -5,7 +5,7 @@
 - Claim: first-slice contracts should use a pure, side-effect-free boolean
   specification-expression subset rather than arbitrary executable expressions.
 - Discussion result:
-  [Contract Expression Language](../../proposals/agent-language-spec-wall/result-contract-expression-language.md)
+  [Contract Expression Language](../source-decisions/result-contract-expression-language.md)
 - Supporting references:
   `meyer1997-object-oriented-software-construction`,
   `findler2002-higher-order-contracts`, `rondon2008-liquid-types`,

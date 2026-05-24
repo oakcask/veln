@@ -10,6 +10,13 @@ pub(crate) enum ContractValidation {
     MissingField { base_type: String, field: String },
 }
 
+pub(crate) struct ContractCall {
+    pub(crate) callee: String,
+    pub(crate) args: Vec<String>,
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+}
+
 pub(crate) fn contract_kind_text(kind: ContractKind) -> &'static str {
     match kind {
         ContractKind::Require => "require",
@@ -17,11 +24,35 @@ pub(crate) fn contract_kind_text(kind: ContractKind) -> &'static str {
     }
 }
 
-pub(crate) fn contains_call_like_construct(predicate: &str) -> bool {
+pub(crate) fn contract_calls(predicate: &str) -> Vec<ContractCall> {
     let bytes = predicate.as_bytes();
-    bytes.windows(1).enumerate().any(|(index, window)| {
-        window == b"(" && index > 0 && predicate[..index].trim_end().ends_with_identifier()
-    })
+    let mut calls = Vec::new();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if bytes[index] != b'('
+            || index == 0
+            || !predicate[..index].trim_end().ends_with_identifier()
+        {
+            index += 1;
+            continue;
+        }
+        let Some(callee_start) = callee_start(predicate, index) else {
+            index += 1;
+            continue;
+        };
+        let Some(close) = matching_close(predicate, index) else {
+            index += 1;
+            continue;
+        };
+        calls.push(ContractCall {
+            callee: predicate[callee_start..index].trim().to_string(),
+            args: split_call_args(&predicate[index + 1..close]),
+            start: callee_start,
+            end: close + 1,
+        });
+        index += 1;
+    }
+    calls
 }
 
 trait EndsWithIdentifier {
@@ -35,6 +66,63 @@ impl EndsWithIdentifier for str {
             .next()
             .is_some_and(|ch| ch.is_ascii_alphanumeric() || ch == '_')
     }
+}
+
+fn callee_start(predicate: &str, open: usize) -> Option<usize> {
+    let bytes = predicate.as_bytes();
+    let mut index = open;
+    while index > 0 {
+        let ch = bytes[index - 1] as char;
+        if ch.is_ascii_alphanumeric() || ch == '_' || ch == ':' {
+            index -= 1;
+        } else {
+            break;
+        }
+    }
+    (index < open).then_some(index)
+}
+
+fn matching_close(predicate: &str, open: usize) -> Option<usize> {
+    let bytes = predicate.as_bytes();
+    let mut depth = 0usize;
+    for (index, byte) in bytes.iter().enumerate().skip(open) {
+        match byte {
+            b'(' => depth += 1,
+            b')' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn split_call_args(text: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0usize;
+    for (index, ch) in text.char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                let arg = text[start..index].trim();
+                if !arg.is_empty() {
+                    args.push(arg.to_string());
+                }
+                start = index + ch.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    let arg = text[start..].trim();
+    if !arg.is_empty() {
+        args.push(arg.to_string());
+    }
+    args
 }
 
 pub(crate) fn referenced_names(predicate: &str) -> Vec<String> {

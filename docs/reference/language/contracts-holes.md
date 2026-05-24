@@ -23,13 +23,16 @@ After parsing, the checker validates a small pure boolean subset:
 - `and`, `or`, and `not`
 - comparison and equality operators
 - field access on record-typed bindings visible to the clause
+- calls to discovered pure functions when arguments are assignable to the
+  declared parameter types and the return type fits the predicate position
 - visible parameter bindings
 - explicit result bindings in `ensure` clauses
 
-Contract predicates containing `stdio::`, call-like syntax, empty predicates,
-missing record fields, non-boolean predicates, or unresolved names produce
-diagnostics. Valid contracts are recorded and may contribute hole repair
-constraints, but runtime contract enforcement is not implemented.
+Contract predicates containing `stdio::`, effectful function calls,
+unsupported call targets, empty predicates, missing record fields, non-boolean
+predicates, or unresolved names produce diagnostics. Valid contracts are
+recorded and may contribute hole repair constraints, but runtime contract
+enforcement is not implemented.
 
 An `ensure` clause may refer to the returned value only when the function return
 position names it with `-> name: Type`. That name is not visible to `require`

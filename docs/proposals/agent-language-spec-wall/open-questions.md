@@ -24,7 +24,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   small always-present prototype `details` payloads keyed by phase, node
   identity, expected/actual facts, recovery or provenance evidence, and repair
   context.
-- Resolved by [Contract Predicate Parsing](result-contract-predicate-parsing.md):
+- Resolved by [Contract Predicate Parsing](../../reference/source-decisions/result-contract-predicate-parsing.md):
   parse `require`, `ensure`, and future `invariant` clauses through a narrow
   contract predicate production from the start, while keeping ordinary
   expression-like spelling and later semantic validation.
@@ -159,7 +159,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
 ## Contracts
 
 - Resolved by
-  [Contract Expression Language](result-contract-expression-language.md):
+  [Contract Expression Language](../../reference/source-decisions/result-contract-expression-language.md):
   `require`, `ensure`, and future `invariant` clauses should use a restricted
   pure boolean expression subset rather than arbitrary executable core-language
   expressions.

@@ -122,7 +122,7 @@ Record expressions and record patterns intentionally require explicit
 rest patterns, spreads, and update syntax remain open syntax questions.
 
 Contract clauses use a narrower predicate production than full `Expr`; see
-[Contract Predicate Parsing](result-contract-predicate-parsing.md) for the
+[Contract Predicate Parsing](../../reference/source-decisions/result-contract-predicate-parsing.md) for the
 implementation rule.
 
 The grammar sketch allows record types with `{ field: Type }`, but the parser

@@ -16,6 +16,8 @@ read these records only for rationale or compatibility context.
 - [Check JSON Details Fields](result-check-json-details-fields.md)
 - [Compact Function Form](result-compact-function-form.md)
 - [Contract Blame Boundary](result-contract-blame-boundary.md)
+- [Contract Expression Language](result-contract-expression-language.md)
+- [Contract Predicate Parsing](result-contract-predicate-parsing.md)
 - [Effect Access Modes](result-effect-access-modes.md)
 - [Effect Declaration Boundary](result-effect-declaration-boundary.md)
 - [Error Type Inference](result-error-type-inference.md)

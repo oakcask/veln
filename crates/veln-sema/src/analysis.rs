@@ -8,7 +8,7 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::contracts::{
-    ContractValidation, contains_call_like_construct, contract_kind_text, is_contract_keyword,
+    ContractCall, ContractValidation, contract_calls, contract_kind_text, is_contract_keyword,
     missing_contract_field, predicate_is_boolean, predicate_rendered_type, referenced_names,
 };
 use crate::diagnostics::{
@@ -698,13 +698,67 @@ impl<'a> FunctionChecker<'a> {
                 reason: "effectful_operation",
             };
         }
-        if contains_call_like_construct(trimmed) {
-            return ContractValidation::UnsupportedConstruct {
-                reason: "unsupported_call",
+        let calls = contract_calls(trimmed);
+        for (call_index, call) in calls.iter().enumerate() {
+            if call.callee.contains("::") {
+                return ContractValidation::UnsupportedConstruct {
+                    reason: "unsupported_call",
+                };
+            }
+            let Some(signature) = self.environment.function(&call.callee) else {
+                return ContractValidation::UnresolvedName {
+                    name: call.callee.clone(),
+                };
             };
+            if !signature.effects.is_empty() {
+                return ContractValidation::UnsupportedConstruct {
+                    reason: "effectful_operation",
+                };
+            }
+            if signature.return_type != Type::bool()
+                && !contract_call_result_is_compared(trimmed, call.start, call.end)
+                && !contract_call_is_argument(&calls, call_index)
+            {
+                return ContractValidation::NonBoolean {
+                    actual_type: signature.return_type.render(),
+                };
+            }
+            if call.args.len() != signature.params.len() {
+                return ContractValidation::UnsupportedConstruct {
+                    reason: "call_arity",
+                };
+            }
+            for (arg, expected) in call.args.iter().zip(&signature.params) {
+                let arg_calls = contract_calls(arg);
+                for name in referenced_names(arg) {
+                    if is_contract_keyword(&name) || name == "true" || name == "false" {
+                        continue;
+                    }
+                    if arg_calls.iter().any(|call| call.callee == name) {
+                        continue;
+                    }
+                    if self
+                        .contract_bindings(kind)
+                        .iter()
+                        .any(|binding| binding.name == name)
+                    {
+                        continue;
+                    }
+                    return ContractValidation::UnresolvedName { name };
+                }
+                let actual_type = self.contract_arg_type(kind, arg);
+                if !is_assignable(expected, &actual_type) {
+                    return ContractValidation::UnsupportedConstruct {
+                        reason: "call_argument_type",
+                    };
+                }
+            }
         }
         for name in referenced_names(trimmed) {
             if is_contract_keyword(&name) || name == "true" || name == "false" {
+                continue;
+            }
+            if calls.iter().any(|call| call.callee == name) {
                 continue;
             }
             if self
@@ -715,6 +769,23 @@ impl<'a> FunctionChecker<'a> {
                 continue;
             }
             return ContractValidation::UnresolvedName { name };
+        }
+        if let Some(call) = calls
+            .iter()
+            .find(|call| call.start == 0 && call.end == trimmed.len())
+        {
+            let return_type = self
+                .environment
+                .function(&call.callee)
+                .map(|signature| signature.return_type.clone())
+                .unwrap_or(Type::Unknown);
+            return if return_type == Type::bool() {
+                ContractValidation::Valid
+            } else {
+                ContractValidation::NonBoolean {
+                    actual_type: return_type.render(),
+                }
+            };
         }
         if let Some((base_type, field)) =
             missing_contract_field(trimmed, &self.contract_bindings(kind))
@@ -728,6 +799,47 @@ impl<'a> FunctionChecker<'a> {
                 actual_type: predicate_rendered_type(trimmed, &self.contract_bindings(kind)),
             }
         }
+    }
+
+    fn contract_arg_type(&self, kind: ContractKind, arg: &str) -> Type {
+        let trimmed = arg.trim();
+        if trimmed.starts_with('"') {
+            return Type::string();
+        }
+        if trimmed.chars().all(|ch| ch.is_ascii_digit()) {
+            return Type::int();
+        }
+        if matches!(trimmed, "true" | "false") {
+            return Type::bool();
+        }
+        if let [call] = contract_calls(trimmed).as_slice() {
+            if call.start == 0 && call.end == trimmed.len() {
+                return self
+                    .environment
+                    .function(&call.callee)
+                    .map(|signature| signature.return_type.clone())
+                    .unwrap_or(Type::Unknown);
+            }
+        }
+        let mut parts = trimmed.split('.');
+        let Some(base) = parts.next() else {
+            return Type::Unknown;
+        };
+        let Some(binding) = self
+            .contract_bindings(kind)
+            .into_iter()
+            .find(|binding| binding.name == base)
+        else {
+            return Type::Unknown;
+        };
+        let mut current = binding.ty;
+        for field in parts {
+            let Some(next) = current.record_field(field) else {
+                return Type::Unknown;
+            };
+            current = next.clone();
+        }
+        current
     }
 
     fn contract_referenced_bindings(&self, kind: ContractKind, predicate: &str) -> Vec<JsonValue> {
@@ -1782,4 +1894,28 @@ fn is_ordering_op(op: BinaryOp) -> bool {
         op,
         BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual
     )
+}
+
+fn contract_call_result_is_compared(predicate: &str, start: usize, end: usize) -> bool {
+    let before = predicate[..start].trim_end();
+    let after = predicate[end..].trim_start();
+    before.ends_with("==")
+        || before.ends_with("!=")
+        || before.ends_with("<=")
+        || before.ends_with(">=")
+        || before.ends_with('<')
+        || before.ends_with('>')
+        || after.starts_with("==")
+        || after.starts_with("!=")
+        || after.starts_with("<=")
+        || after.starts_with(">=")
+        || after.starts_with('<')
+        || after.starts_with('>')
+}
+
+fn contract_call_is_argument(calls: &[ContractCall], call_index: usize) -> bool {
+    let call = &calls[call_index];
+    calls.iter().enumerate().any(|(index, outer)| {
+        index != call_index && outer.start < call.start && call.end < outer.end
+    })
 }

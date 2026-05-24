@@ -21,8 +21,6 @@ current workspace. Implemented decisions were moved to
 - [ADR-Lite Decision Location](result-adr-lite-decision-location.md)
 - [Channel-First Concurrency Runtime](result-channel-first-concurrency-runtime.md)
 - [Comparison Example Task](result-comparison-example-task.md)
-- [Contract Expression Language](result-contract-expression-language.md)
-- [Contract Predicate Parsing](result-contract-predicate-parsing.md)
 - [Contract Static Runtime Boundary](result-contract-static-runtime-boundary.md)
 - [Doctest Error Type Fence Syntax](result-doctest-error-type-fence-syntax.md)
 - [Doctest Expected Output Syntax](result-doctest-expected-output-syntax.md)
