@@ -34,10 +34,8 @@ fn parse_manifest(source: &SourceFile) -> ProjectManifest {
     for line in source.text().split_inclusive('\n') {
         let line_without_newline = line.trim_end_matches(['\r', '\n']);
         let trimmed = line_without_newline.trim();
-        if trimmed == "[modules]" {
-            in_modules = true;
-        } else if trimmed.starts_with('[') {
-            in_modules = false;
+        if let Some(section) = section_name(trimmed) {
+            in_modules = section == "modules";
         } else if in_modules {
             if let Some(module) = parse_module_entry(source, offset, line_without_newline) {
                 modules.push(module);
@@ -50,6 +48,12 @@ fn parse_manifest(source: &SourceFile) -> ProjectManifest {
         path: source.path().clone(),
         modules,
     }
+}
+
+fn section_name(text: &str) -> Option<&str> {
+    let rest = text.strip_prefix('[')?;
+    let end = rest.find(']')?;
+    Some(&rest[..end])
 }
 
 fn parse_module_entry(

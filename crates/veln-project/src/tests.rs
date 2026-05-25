@@ -296,6 +296,32 @@ fn read_manifest_accepts_modules_header_without_entries() {
 }
 
 #[test]
+fn read_manifest_accepts_trailing_text_after_section_headers() {
+    let temp = TempProject::new("manifest-section-header-trailing-text");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[package] # ignored section\n",
+            "\"ignored.veln\" = \"ignored.module\"\n",
+            "[modules] # source modules\n",
+            "\"src/main.veln\" = \"app.main\"\n",
+            "[other] # ignored again\n",
+            "\"ignored-again.veln\" = \"ignored.again\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(manifest.modules.len(), 1);
+    assert_eq!(manifest.modules[0].path, "src/main.veln");
+    assert_eq!(manifest.modules[0].name, "app.main");
+    assert_eq!(manifest.modules[0].path_span.start.line, 4);
+    assert_eq!(manifest.modules[0].name_span.start.column, 20);
+}
+
+#[test]
 fn read_manifest_ignores_malformed_module_entries() {
     let temp = TempProject::new("manifest-malformed-entries");
     temp.write(
