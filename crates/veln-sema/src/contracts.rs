@@ -59,6 +59,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_complementary_top_level_clauses(predicate, "or") {
         return StaticBooleanValue::True;
     }
+    if has_inclusive_total_order_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
     if has_total_order_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
@@ -128,6 +131,24 @@ fn has_total_order_top_level_or(predicate: &str) -> bool {
                 mask | other.relation.bit()
             })
             == OrderRelation::ALL_BITS
+    })
+}
+
+fn has_inclusive_total_order_top_level_or(predicate: &str) -> bool {
+    let clauses = flattened_keyword_clauses(predicate, "or");
+    if clauses.len() < 2 {
+        return false;
+    }
+    clauses.iter().enumerate().any(|(index, clause)| {
+        let Some(first) = comparison_shape(clause) else {
+            return false;
+        };
+        first.operator == ">="
+            && clauses.iter().skip(index + 1).any(|other| {
+                comparison_shape(other).is_some_and(|other| {
+                    other.operator == ">=" && other.left == first.right && other.right == first.left
+                })
+            })
     })
 }
 

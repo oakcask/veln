@@ -106,6 +106,10 @@ after whitespace normalization and commuted ordering normalization, such as
 It also recognizes top-level ordering trichotomy over the same operands, such
 as `value < limit or value == limit or value > limit`, after whitespace
 normalization and commuted ordering normalization.
+Inclusive ordering totality over the same operands is statically proven, such
+as `value <= limit or limit <= value` and
+`value >= limit or limit >= value`, after whitespace normalization and
+commuted ordering normalization.
 It also treats a negated top-level `and` between the same pure boolean
 predicate and its negation as statically true, such as
 `not (flag and not flag)` or
@@ -253,12 +257,21 @@ tautological after whitespace normalization and commuted ordering
 normalization. For example,
 `candidate < limit or candidate == limit or candidate > limit` ranks every
 type-compatible visible binding as a safe tautology repair candidate.
+Inclusive ordering totality disjuncts that reference the candidate are also
+tautological after whitespace normalization and commuted ordering
+normalization. For example,
+`candidate <= limit or limit <= candidate` ranks every type-compatible visible
+binding as a safe tautology repair candidate.
 A negated top-level `and` with complementary candidate-referencing branches is
 also tautological for repair ranking. For example,
 `not (candidate.ready and limit.ready and not candidate.ready)` ranks every
 type-compatible visible binding as a safe tautology repair candidate.
 Parenthesized nested `and` branches are flattened for this identity, so
 `not (candidate.ready and (limit.ready and not candidate.ready))` also ranks
+every type-compatible visible binding as a safe tautology repair candidate.
+Negated top-level `and` predicates with mutually exclusive ordering
+trichotomy clauses rooted at the candidate are also tautological for repair
+ranking. For example, `not (candidate < limit and candidate == limit)` ranks
 every type-compatible visible binding as a safe tautology repair candidate.
 Nested `or` clauses with a literal `true` branch are ignored inside
 tautological `and` clauses, so

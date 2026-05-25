@@ -3022,11 +3022,23 @@ fn tautological_candidate_predicate(
             reason: "satisfy_tautology",
         });
     }
+    if negated_and_clauses(predicate)
+        .is_some_and(|clauses| has_exclusive_order_candidate_conjuncts(&clauses, candidate))
+    {
+        return Some(TautologicalCandidatePredicate {
+            reason: "satisfy_tautology",
+        });
+    }
     let disjuncts = repair_relevant_or_clauses(predicate);
     if disjuncts.is_empty() {
         return None;
     }
     if has_complementary_candidate_disjuncts(&disjuncts, candidate) {
+        return Some(TautologicalCandidatePredicate {
+            reason: "satisfy_tautology",
+        });
+    }
+    if has_inclusive_total_order_candidate_disjuncts(&disjuncts, candidate) {
         return Some(TautologicalCandidatePredicate {
             reason: "satisfy_tautology",
         });
@@ -3100,6 +3112,40 @@ fn complementary_candidate_comparisons(left: &str, right: &str, candidate: &str)
     }
 }
 
+fn has_inclusive_total_order_candidate_disjuncts(disjuncts: &[&str], candidate: &str) -> bool {
+    disjuncts.iter().enumerate().any(|(index, left)| {
+        let Some(left) = inclusive_total_order_candidate_clause(left, candidate) else {
+            return false;
+        };
+        disjuncts
+            .iter()
+            .skip(index + 1)
+            .filter_map(|right| inclusive_total_order_candidate_clause(right, candidate))
+            .any(|right| left.left == right.right && left.right == right.left)
+    })
+}
+
+struct InclusiveTotalOrderCandidateClause {
+    left: String,
+    right: String,
+}
+
+fn inclusive_total_order_candidate_clause(
+    disjunct: &str,
+    candidate: &str,
+) -> Option<InclusiveTotalOrderCandidateClause> {
+    if !expression_references_identifier(disjunct, candidate) {
+        return None;
+    }
+    let parsed = NormalizedRepairComparison::parse(disjunct)?;
+    if parsed.operator != "<=" {
+        return None;
+    }
+    let left = compact_predicate_text(parsed.left);
+    let right = compact_predicate_text(parsed.right);
+    (left != right).then_some(InclusiveTotalOrderCandidateClause { left, right })
+}
+
 fn has_total_order_candidate_disjuncts(disjuncts: &[&str], candidate: &str) -> bool {
     if disjuncts.len() < 3 {
         return false;
@@ -3120,7 +3166,27 @@ fn has_total_order_candidate_disjuncts(disjuncts: &[&str], candidate: &str) -> b
     })
 }
 
-#[derive(Clone, Copy)]
+fn has_exclusive_order_candidate_conjuncts(conjuncts: &[&str], candidate: &str) -> bool {
+    if conjuncts.len() < 2 {
+        return false;
+    }
+    conjuncts.iter().enumerate().any(|(index, conjunct)| {
+        let Some(first) = total_order_candidate_clause(conjunct, candidate) else {
+            return false;
+        };
+        conjuncts
+            .iter()
+            .skip(index + 1)
+            .filter_map(|other| total_order_candidate_clause(other, candidate))
+            .any(|other| {
+                other.left == first.left
+                    && other.right == first.right
+                    && other.relation != first.relation
+            })
+    })
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum TotalOrderRelation {
     Less,
     Equal,
@@ -3428,15 +3494,7 @@ fn repair_relevant_or_clauses(predicate: &str) -> Vec<&str> {
 }
 
 fn repair_relevant_negated_and_clauses(predicate: &str) -> Option<Vec<String>> {
-    let trimmed = predicate.trim();
-    let negated = if let Some(negated) = trimmed.strip_prefix("not ") {
-        negated
-    } else {
-        trimmed
-            .strip_prefix("not(")
-            .map(|negated| negated.strip_suffix(')').unwrap_or(negated).trim())?
-    };
-    let conjuncts = flattened_repair_keyword_clauses(negated, "and");
+    let conjuncts = negated_and_clauses(predicate)?;
     if conjuncts.len() <= 1 {
         return None;
     }
@@ -3456,6 +3514,18 @@ fn repair_relevant_negated_and_clauses(predicate: &str) -> Option<Vec<String>> {
     } else {
         clauses
     })
+}
+
+fn negated_and_clauses(predicate: &str) -> Option<Vec<&str>> {
+    let trimmed = predicate.trim();
+    let negated = if let Some(negated) = trimmed.strip_prefix("not ") {
+        negated
+    } else {
+        trimmed
+            .strip_prefix("not(")
+            .map(|negated| negated.strip_suffix(')').unwrap_or(negated).trim())?
+    };
+    Some(flattened_repair_keyword_clauses(negated, "and"))
 }
 
 fn flattened_repair_keyword_clauses<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str> {
