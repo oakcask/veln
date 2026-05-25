@@ -108,6 +108,11 @@ and type-mismatch diagnostics:
 When a body omits its final expression line, return checking uses `()` with
 `actual_type_source: "implicit_unit"`.
 
+`type.private_inference_incomplete` reports a private parameter or private
+return type whose omitted annotation did not infer to a concrete type. Its
+`details` include `phase`, `node_id`, `boundary: "private_function"`,
+`missing_fact`, and `inferred_type`. Repair hints are related notes.
+
 `type.pipeline_target` reports a target on the right side of `|>` that is not
 a call, or is a call whose callee is not a name path. Its `details` include
 `phase`, `node_id`, `expected`, `actual`, and

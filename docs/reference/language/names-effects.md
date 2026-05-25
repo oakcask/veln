@@ -172,6 +172,10 @@ unchanged context value as the first callback argument. `list_map`,
 integer spelling and returns the original input string in `Err` when parsing
 fails. `int_to_string` renders an integer for display and string composition.
 
+When `list_map` receives a callback whose return type is `Result`, the checker
+reports the ordinary callback type mismatch and adds a repair hint to use
+`list_try_map` for fallible traversal.
+
 The language specification does not promise asymptotic complexity, allocation
 counts, representation identity, structural sharing, hashing, or tree-balancing
 behavior for these helpers. Those are implementation details until a concrete

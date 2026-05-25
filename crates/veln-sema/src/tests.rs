@@ -35,14 +35,43 @@ fn public_function_requires_explicit_boundary() {
 }
 
 #[test]
-fn private_function_may_omit_boundary_annotations() {
-    let source = SourceFile::new("main.veln", "fn helper(value)\n  value\nend\n");
+fn private_function_may_omit_boundary_annotations_when_inference_is_complete() {
+    let source = SourceFile::new("main.veln", "fn answer()\n  1\nend\n");
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.is_empty());
+}
+
+#[test]
+fn private_function_reports_incomplete_annotation_inference() {
+    let source = SourceFile::new("main.veln", "fn helper(value)\n  value\nend\n");
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 2);
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.private_inference_incomplete"
+            && diagnostic.message == "private parameter `value` has no inferred type"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"missing_fact\":\"parameter_type\"")
+            && diagnostic.related.len() == 1
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.private_inference_incomplete"
+            && diagnostic.message == "private function has no inferred return type"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"missing_fact\":\"return_type\"")
+            && diagnostic.related.len() == 1
+    }));
 }
 
 #[test]
@@ -1456,6 +1485,40 @@ fn infers_prelude_helper_calls_from_expected_types() {
             ..
         } if name == "list_len"
     ));
+}
+
+#[test]
+fn suggests_list_try_map_for_result_returning_map_callback() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn parse(value: Int) -> Result(String, AppError) effects []\n",
+            "  Ok(\"ok\")\n",
+            "end\n",
+            "pub fn main(items: List(Int)) -> List(String) effects []\n",
+            "  list_map(items, parse)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.mismatch")
+        .expect("callback type mismatch should be reported");
+    assert_eq!(
+        diagnostic.message,
+        "expected `fn(unknown) -> String`, but found `fn(Int) -> Result(String, AppError)`"
+    );
+    assert!(
+        diagnostic
+            .related
+            .iter()
+            .any(|related| { related.to_json().contains("Use `list_try_map`") })
+    );
 }
 
 #[test]

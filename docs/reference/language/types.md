@@ -27,8 +27,10 @@ One record type annotation cannot declare the same field name twice. A
 duplicate field in a record type annotation is an invalid type annotation.
 
 Public functions must annotate every parameter, annotate the return type, and
-provide an explicit `effects [...]` clause. Private functions may omit these
-annotations.
+provide an explicit `effects [...]` clause. Private functions may omit a
+parameter or return annotation only when local inference produces a concrete
+type for the omitted fact. If the checker still has `unknown`, it reports
+`type.private_inference_incomplete`.
 
 The optional result binding in `-> name: Type` names the return value for
 postconditions, but the type annotation remains `Type`.

@@ -331,6 +331,7 @@ struct FunctionChecker<'a> {
     bindings: Vec<Binding>,
     local_names: BTreeMap<String, (String, SourceSpan)>,
     inferred_effects: Vec<EffectUse>,
+    inferred_return_type: Option<Type>,
     diagnostics: Vec<Diagnostic>,
 }
 
@@ -349,6 +350,7 @@ impl<'a> FunctionChecker<'a> {
             bindings: Vec::new(),
             local_names: BTreeMap::new(),
             inferred_effects: Vec::new(),
+            inferred_return_type: None,
             diagnostics: Vec::new(),
         }
     }
@@ -400,6 +402,7 @@ impl<'a> FunctionChecker<'a> {
                     let expected = self.return_expected(line.node_id);
                     let actual = self.infer_expr(expr, expected.as_ref());
                     if index + 1 == self.function.body.len() {
+                        self.inferred_return_type = Some(actual.clone());
                         if let Some(expected) = &expected {
                             self.check_assignable(
                                 expr,
@@ -414,6 +417,7 @@ impl<'a> FunctionChecker<'a> {
             }
         }
         self.check_implicit_unit_return();
+        self.check_private_inference_complete();
         self.check_effect_boundaries();
     }
 
@@ -425,6 +429,7 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         let Some(expected) = self.return_expected(self.function.node_id) else {
+            self.inferred_return_type = Some(Type::unit());
             return;
         };
         let actual = Type::unit();
@@ -454,6 +459,82 @@ impl<'a> FunctionChecker<'a> {
                 ],
             ),
         ));
+    }
+
+    fn check_private_inference_complete(&mut self) {
+        if self.function.visibility == Visibility::Public
+            || self.function.kind != FunctionKind::Function
+        {
+            return;
+        }
+        for param in &self.function.params {
+            if param.ty.is_some() {
+                continue;
+            }
+            let inferred = self
+                .bindings
+                .iter()
+                .rev()
+                .find(|binding| binding.name == param.name)
+                .map(|binding| &binding.ty)
+                .unwrap_or(&Type::Unknown);
+            if inferred == &Type::Unknown {
+                let mut diagnostic = Diagnostic::new(
+                    "type.private_inference_incomplete",
+                    Severity::Error,
+                    DiagnosticKind::Type,
+                    format!("private parameter `{}` has no inferred type", param.name),
+                    Some(param.span.clone()),
+                    JsonValue::object([
+                        ("phase", JsonValue::string("type_check")),
+                        ("node_id", JsonValue::string(param.node_id.display("param"))),
+                        ("boundary", JsonValue::string("private_function")),
+                        ("missing_fact", JsonValue::string("parameter_type")),
+                        ("inferred_type", JsonValue::string("unknown")),
+                    ]),
+                );
+                diagnostic.related.push(JsonValue::object([
+                    ("kind", JsonValue::string("repair_hint")),
+                    (
+                        "message",
+                        JsonValue::string("Add a parameter type annotation."),
+                    ),
+                    ("span", span_json(&param.span)),
+                ]));
+                self.diagnostics.push(diagnostic);
+            }
+        }
+        if self.function.return_type.is_some() {
+            return;
+        }
+        if self.inferred_return_type.as_ref() == Some(&Type::Unknown) {
+            let mut diagnostic = Diagnostic::new(
+                "type.private_inference_incomplete",
+                Severity::Error,
+                DiagnosticKind::Type,
+                "private function has no inferred return type",
+                Some(self.function.span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("type_check")),
+                    (
+                        "node_id",
+                        JsonValue::string(self.function.node_id.display("fn")),
+                    ),
+                    ("boundary", JsonValue::string("private_function")),
+                    ("missing_fact", JsonValue::string("return_type")),
+                    ("inferred_type", JsonValue::string("unknown")),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("repair_hint")),
+                (
+                    "message",
+                    JsonValue::string("Add a return type annotation."),
+                ),
+                ("span", span_json(&self.function.span)),
+            ]));
+            self.diagnostics.push(diagnostic);
+        }
     }
 
     fn check_let_pattern_supported(&mut self, pattern: &Pattern) {
@@ -1154,12 +1235,8 @@ impl<'a> FunctionChecker<'a> {
                             origin_message: "Prelude helper parameter type inferred here.",
                         };
                         let actual = self.infer_expr(arg, Some(&expected));
-                        self.check_assignable(
-                            arg,
-                            &expected.ty,
-                            &actual,
-                            &expected,
-                            "call_argument",
+                        self.check_prelude_argument_assignable(
+                            name, index, arg, &expected, &actual,
                         );
                     }
                     return return_type;
@@ -1916,6 +1993,58 @@ impl<'a> FunctionChecker<'a> {
             return;
         }
         self.check_assignable(expr, expected, actual, expected_context, "operator_operand");
+    }
+
+    fn check_prelude_argument_assignable(
+        &mut self,
+        helper_name: &str,
+        arg_index: usize,
+        arg: &Expr,
+        expected: &ExpectedType,
+        actual: &Type,
+    ) {
+        if is_assignable(&expected.ty, actual) {
+            return;
+        }
+        let mut diagnostic = Diagnostic::new(
+            "type.mismatch",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "expected `{}`, but found `{}`",
+                expected.ty.render(),
+                actual.render()
+            ),
+            Some(arg.span.clone()),
+            type_details(
+                arg.node_id.display("expr"),
+                expected.ty.render(),
+                actual.render(),
+                expected.source.as_type_source(),
+                "inferred_expression",
+                "call_argument",
+                [
+                    self.function.node_id.display("fn"),
+                    expected.origin_node_id.display("expr"),
+                    arg.node_id.display("expr"),
+                ],
+            ),
+        );
+        if helper_name == "list_map"
+            && arg_index == 1
+            && function_returns_result(&expected.ty).is_none()
+            && function_returns_result(actual).is_some()
+        {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("repair_hint")),
+                (
+                    "message",
+                    JsonValue::string("Use `list_try_map` when the callback returns `Result`."),
+                ),
+                ("span", span_json(&arg.span)),
+            ]));
+        }
+        self.diagnostics.push(diagnostic);
     }
 
     fn numeric_operand_type(
@@ -2777,6 +2906,11 @@ fn type_applied_name_path(callee: &Expr) -> Option<(&[String], &[String])> {
         }
         _ => None,
     }
+}
+
+fn function_returns_result(ty: &Type) -> Option<(&Type, &Type)> {
+    let (_, return_type) = ty.function_parts()?;
+    return_type.result_parts()
 }
 
 fn is_option_some_constructor(segments: &[String]) -> bool {

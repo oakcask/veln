@@ -19,7 +19,9 @@ callable effects. Bodies may omit the final expression line, in which case the
 omitted tail expression returns `()`. Literal and constructor patterns in
 `let` remain match-only and report a diagnostic when used as refutable let
 patterns. Pipeline targets are restricted to named or qualified calls. Runtime
-`ensure` checks run before ordinary returns and `?` early returns.
+`ensure` checks run before ordinary returns and `?` early returns. Private
+functions now report incomplete inference when an omitted parameter or return
+annotation remains `unknown`.
 
 For the fixed reference of behavior implemented in the current workspace, read
 [../reference/README.md](../reference/README.md).
