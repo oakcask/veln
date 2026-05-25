@@ -7,10 +7,8 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 ## Read First
 
 - [language/README.md](language/README.md): current language behavior.
-- [source-decisions/README.md](source-decisions/README.md): implemented
-  rationale and compatibility context.
-- [bibliography/README.md](bibliography/README.md): research-source routes
-  behind source decisions.
+- [language/source-decisions.md](language/source-decisions.md): short route to
+  rationale when current behavior needs context.
 
 ## Read When
 
@@ -28,6 +26,8 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 - Rationale: [language/source-decisions.md](language/source-decisions.md) first,
   then [source-decisions/README.md](source-decisions/README.md) if detail is
   needed.
+- Research-source routes behind source decisions:
+  [bibliography/README.md](bibliography/README.md).
 - Planning, review, or proposal work: use `../proposals/`, `../phases/`, or
   `../reviews/` after checking the current reference.
 

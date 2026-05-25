@@ -1913,6 +1913,41 @@ mod tests {
     }
 
     #[test]
+    fn missing_doctest_output_stream_reports_diagnostic() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln\n",
+                "/// stdio::println(\"ready\")\n",
+                "/// ```\n",
+                "/// ```veln-output\n",
+                "/// ready\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        let expected = doctests
+            .expected_outputs
+            .get("doctest_1")
+            .expect("doctest should keep an empty expectation record");
+        assert_eq!(expected.stdout, None);
+        assert_eq!(expected.stderr, None);
+        assert_eq!(doctests.diagnostics.len(), 1);
+        assert_eq!(doctests.diagnostics[0].id, "doctest.invalid_metadata");
+        assert_eq!(
+            doctests.diagnostics[0].message,
+            "missing doctest output stream"
+        );
+        assert_eq!(
+            doctests.diagnostics[0].details.to_json(),
+            "{\"kind\":\"doctest_metadata\",\"attribute\":\"stream\"}"
+        );
+    }
+
+    #[test]
     fn ignores_non_runnable_doctest_fences() {
         let source = SourceFile::new(
             "main.veln",
@@ -2060,6 +2095,38 @@ mod tests {
         assert_eq!(
             doctests.diagnostics[0].details.to_json(),
             "{\"kind\":\"doctest_metadata\",\"attribute\":\"skip\",\"fence\":\"veln\"}"
+        );
+    }
+
+    #[test]
+    fn empty_doctest_error_type_reports_diagnostic() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln error=\n",
+                "/// let value = parse(\"1\")?\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  let value = parse(\"1\")?\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        assert_eq!(doctests.diagnostics.len(), 1);
+        assert_eq!(doctests.diagnostics[0].id, "doctest.invalid_metadata");
+        assert_eq!(doctests.diagnostics[0].message, "empty doctest error type");
+        assert_eq!(
+            doctests.diagnostics[0].details.to_json(),
+            "{\"kind\":\"doctest_metadata\",\"attribute\":\"error\"}"
         );
     }
 
@@ -2279,6 +2346,33 @@ mod tests {
     }
 
     #[test]
+    fn stdio_trace_skips_malformed_lines() {
+        let source_file = SourceFile::new(
+            "main_test.veln",
+            "test first() -> () effects []\n  ()\nend\n",
+        );
+        let source = TestCaseSource {
+            file: "main_test.veln".to_string(),
+            node_id: "test-1".to_string(),
+            span: source_file.span(TextRange::new(0, source_file.len())),
+        };
+
+        let events = stdio_events_from_trace(
+            concat!(
+                "not-a-sequence\tstdout\tprint\tnone\t\t\t7265616479\n",
+                "1\tstdout\tprint\tnone\t\t\tinvalid-hex\n",
+                "2\tstdout\tprint\tnone\t\t\t6f6b\n",
+            ),
+            &BTreeMap::new(),
+            &source,
+        );
+
+        assert_eq!(events.len(), 1);
+        assert!(events[0].to_json().contains("\"sequence\":2"));
+        assert!(events[0].to_json().contains("\"text\":\"ok\""));
+    }
+
+    #[test]
     fn contract_trace_becomes_structured_test_failure() {
         let trace = "contract\trequire\t66616c7365\t72656a65637473\tcaller\t636f6e74726163742d32\t6d61696e5f746573742e76656c6e\t2\t1\t2\t14\n";
 
@@ -2302,6 +2396,18 @@ mod tests {
                 "\"end\":{\"line\":2,\"column\":14,\"offset\":0}}}}"
             )
         );
+    }
+
+    #[test]
+    fn contract_trace_skips_non_contract_and_malformed_lines() {
+        let trace = concat!(
+            "stdio\tstdout\tprint\n",
+            "contract\trequire\tinvalid-hex\t72656a65637473\tcaller\t636f6e74726163742d32\t6d61696e5f746573742e76656c6e\t2\t1\t2\t14\n",
+        );
+
+        let failure = contract_failure_from_trace(trace);
+
+        assert!(failure.is_none());
     }
 
     #[test]
@@ -2442,6 +2548,31 @@ mod tests {
         assert!(failure_json.contains("\"stream\":\"stderr\""));
         assert!(failure_json.contains("\"expected\":\"warn\""));
         assert!(failure_json.contains("\"actual\":\"error\\n\""));
+    }
+
+    #[test]
+    fn source_to_test_convention_records_plural_note() {
+        let selection = TestSelection {
+            mode_name: "explicit".to_string(),
+            targets: vec!["app.veln".to_string(), "app_test.veln".to_string()],
+            confidence: "complete".to_string(),
+            reason: "user_selected".to_string(),
+            notes: Vec::new(),
+        }
+        .source_to_test_convention(2);
+
+        assert_eq!(selection.confidence, "partial");
+        assert_eq!(selection.reason, "source_to_test_convention");
+        assert_eq!(
+            selection.notes,
+            vec!["added 2 test files by source-to-test convention"]
+        );
+        assert!(
+            selection
+                .to_json()
+                .to_json()
+                .contains("\"notes\":[\"added 2 test files by source-to-test convention\"]")
+        );
     }
 
     #[test]

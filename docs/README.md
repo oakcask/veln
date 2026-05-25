@@ -5,10 +5,10 @@ the experimental Veln implementation.
 
 ## Read First
 
-- [reference/README.md](reference/README.md): current implemented behavior.
-- [proposals/README.md](proposals/README.md): accepted or open work not yet
-  fully implemented.
-- [reviews/README.md](reviews/README.md): gaps and verification evidence.
+- [reference/language/README.md](reference/language/README.md): current
+  implemented language behavior.
+- [proposals/README.md](proposals/README.md): accepted or open implementation
+  targets.
 - [document-status.md](document-status.md): placement rules when moving text
   between proposal, review, phase, and reference areas.
 

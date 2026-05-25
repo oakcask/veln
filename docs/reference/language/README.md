@@ -7,11 +7,8 @@ target tracked in `../../proposals/`.
 ## Read First
 
 - [overview.md](overview.md): stability boundary and explicit non-goals.
-- [source-surface.md](source-surface.md): route into implemented modules,
-  items, expressions, tests, and grammar.
-- [types.md](types.md): annotations, local inference, assignment, and operators.
-- [commands.md](commands.md): source discovery, check, run, test, and format
-  gates.
+- [source-surface.md](source-surface.md): implemented modules, items,
+  expressions, tests, and grammar.
 
 ## Update When
 
@@ -26,6 +23,10 @@ Leave rationale in [source-decisions.md](source-decisions.md) or
 
 ## Read When
 
+- Types, annotations, inference, assignment, and operators:
+  [types.md](types.md).
+- Commands, source discovery, check, run, test, and format gates:
+  [commands.md](commands.md).
 - Names, stdio, prelude, and effects:
   [names-effects.md](names-effects.md).
 - Contracts and holes: start with
@@ -42,6 +43,8 @@ Leave rationale in [source-decisions.md](source-decisions.md) or
 
 - Use `source-surface.md` for the implemented source grammar before checking
   older proposal history.
+- Use [overview.md](overview.md) only when you need the stability boundary or
+  explicit non-goals.
 - Use `*-full.md` files only after their short routing page identifies the
   relevant section.
 - Use `../source-decisions/`, `../../proposals/`, `../../phases/`, or
