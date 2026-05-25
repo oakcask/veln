@@ -10,8 +10,8 @@ use veln_source::SourceSpan;
 use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text, is_contract_keyword,
     missing_contract_field, predicate_is_boolean_with_calls, predicate_is_statically_false,
-    predicate_is_statically_true, predicate_rendered_type_with_calls, predicate_type_with_calls,
-    referenced_names,
+    predicate_is_statically_true, predicate_is_statically_true_with_literal_bounds,
+    predicate_rendered_type_with_calls, predicate_type_with_calls, referenced_names,
 };
 use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, module_details, span_json,
@@ -2793,7 +2793,7 @@ impl<'a> FunctionChecker<'a> {
                 .iter()
                 .filter(|binding| {
                     let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
-                    predicate_is_statically_true(&replaced)
+                    predicate_is_statically_true_with_literal_bounds(&replaced)
                 })
                 .map(|binding| SatisfyAllowedBinding {
                     name: binding.name.clone(),
@@ -2893,7 +2893,9 @@ impl SatisfyRepairConstraint {
                 reason: tautology.reason,
             });
         }
-        if allow_static_truth && predicate_is_statically_true(&satisfy.predicate) {
+        if allow_static_truth
+            && predicate_is_statically_true_with_literal_bounds(&satisfy.predicate)
+        {
             return Some(Self {
                 allowed_bindings: None,
                 reason: "satisfy_tautology",

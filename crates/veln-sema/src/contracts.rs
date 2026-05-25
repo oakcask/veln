@@ -29,6 +29,10 @@ pub(crate) fn predicate_is_statically_true(predicate: &str) -> bool {
     static_boolean_value(predicate) == StaticBooleanValue::True
 }
 
+pub(crate) fn predicate_is_statically_true_with_literal_bounds(predicate: &str) -> bool {
+    static_boolean_value_for_contract(predicate) == StaticBooleanValue::True
+}
+
 pub(crate) fn contract_predicate_is_statically_true(predicate: &str) -> bool {
     static_boolean_value_for_contract(predicate) == StaticBooleanValue::True
 }

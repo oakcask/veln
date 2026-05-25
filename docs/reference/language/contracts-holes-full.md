@@ -406,6 +406,9 @@ implemented static truth identities from contract obligation classification.
 For example,
 `candidate.ready or (not candidate.ready and true)` ranks every type-compatible
 visible binding as a safe tautology repair candidate.
+This includes numeric literal-bound contradictions, so
+`not (candidate > 10 and candidate < 5)` ranks every type-compatible visible
+binding as a safe tautology repair candidate after validation.
 The same static truth reuse covers negated conjunctions where every branch of
 a nested disjunction is contradicted by another conjunct, such as
 `not ((candidate.ready or candidate.paid) and not candidate.ready and not candidate.paid)`.

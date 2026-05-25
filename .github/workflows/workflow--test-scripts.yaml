@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - .github/workflows/workflow--test-scripts.yaml
+      - docs/**/*.md
       - workflow-scripts/**/*.mjs
   pull_request:
     paths:
       - .github/workflows/workflow--test-scripts.yaml
+      - docs/**/*.md
       - workflow-scripts/**/*.mjs
 
 permissions:

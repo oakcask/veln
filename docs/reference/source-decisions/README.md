@@ -26,6 +26,12 @@ read these records only for rationale or compatibility context.
 - [process-rationale.md](process-rationale.md): decision placement, comparison
   tasks, and repair policy.
 
+## History
+
+- [result-index.md](result-index.md): exhaustive record index for audits,
+  deduplication, or moving a record between categories. Do not start there for
+  ordinary implementation work.
+
 ## Boundary
 
 If a decision record includes open details or future extensions, the
