@@ -130,7 +130,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   disequality `satisfy` clauses against numeric literals excluded by the bound,
   while equal inclusive bounds do not discharge disequality against the
   endpoint. Numeric literal equality requirements discharge weaker numeric
-  literal bound `satisfy` clauses over the same subject. Numeric disequality
+  literal bound `satisfy` clauses over the same subject. Numeric literal bounds
+  may include pure literal arithmetic subexpressions. Numeric disequality
   requirements discharge strict ordering disjunctions around the excluded
   literal, including through equality aliases. Statically satisfied repair
   candidates are retained even when they sort after the ordinary manual-review

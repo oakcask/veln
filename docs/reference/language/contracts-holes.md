@@ -394,6 +394,9 @@ numeric literal bounds over the same subject, so `require max == 10`
 guarantees `candidate > 0` after substituting `max`, and `require min == 10`
 guarantees `candidate < 20` after substituting `min`. Numeric literal ordering
 uses exact decimal literal ordering rather than binary floating-point rounding.
+Numeric literal bounds in repair matching may include pure literal `+`, `-`,
+`*`, and exactly representable `/` subexpressions, so
+`require max > 1 + 1` guarantees `candidate > 2` after substituting `max`.
 Numeric literal bounds also discharge disequality against excluded numeric
 literals over the same subject. For example, `require max > 10` guarantees
 `candidate != 0` after substituting `max`, and `require ratio <= -0.5`

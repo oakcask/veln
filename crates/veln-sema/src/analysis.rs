@@ -4239,10 +4239,92 @@ fn repair_literals_are_distinct(left: &str, right: &str) -> bool {
 }
 
 fn repair_numeric_literal(text: &str) -> Option<RepairNumber> {
+    if let Some(value) = repair_numeric_expression(text) {
+        return Some(value);
+    }
     match RepairLiteral::parse(text.trim())? {
         RepairLiteral::Number(value) => Some(value),
         RepairLiteral::Bool(_) | RepairLiteral::String(_) => None,
     }
+}
+
+fn repair_numeric_expression(predicate: &str) -> Option<RepairNumber> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if predicate.is_empty() {
+        return None;
+    }
+    if let Some(number) = parse_repair_number_literal(predicate) {
+        return Some(number);
+    }
+    for operator in ["+", "-"] {
+        if let Some((left, right)) = split_repair_numeric_operator(predicate, operator) {
+            let left = repair_numeric_expression(left)?;
+            let right = repair_numeric_expression(right)?;
+            return match operator {
+                "+" => left.add(right),
+                "-" => left.sub(right),
+                _ => None,
+            };
+        }
+    }
+    for operator in ["*", "/"] {
+        if let Some((left, right)) = split_repair_numeric_operator(predicate, operator) {
+            let left = repair_numeric_expression(left)?;
+            let right = repair_numeric_expression(right)?;
+            return match operator {
+                "*" => left.mul(right),
+                "/" => left.div(right),
+                _ => None,
+            };
+        }
+    }
+    if let Some(rest) = predicate.strip_prefix('-') {
+        return repair_numeric_expression(rest)?.negate();
+    }
+    None
+}
+
+fn split_repair_numeric_operator<'a>(
+    predicate: &'a str,
+    operator: &str,
+) -> Option<(&'a str, &'a str)> {
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, ch) in predicate.char_indices().rev() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            ')' => depth += 1,
+            '(' => depth = depth.saturating_sub(1),
+            _ if depth == 0 && predicate[index..].starts_with(operator) => {
+                let left = predicate[..index].trim();
+                let right = predicate[index + operator.len()..].trim();
+                if !left.is_empty() && !right.is_empty() && operator_is_binary(left, operator) {
+                    return Some((left, right));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn operator_is_binary(left: &str, operator: &str) -> bool {
+    operator != "-"
+        || left
+            .chars()
+            .next_back()
+            .is_some_and(|ch| ch.is_ascii_digit() || ch == ')' || ch == '"')
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -4306,6 +4388,103 @@ impl RepairNumber {
         let integer = if integer.is_empty() { "0" } else { integer };
         (integer.to_string(), digits[split..].to_string())
     }
+
+    fn from_raw(mut mantissa: i128, mut scale: u32) -> Self {
+        while scale > 0 && mantissa % 10 == 0 {
+            mantissa /= 10;
+            scale -= 1;
+        }
+        Self { mantissa, scale }
+    }
+
+    fn negate(self) -> Option<Self> {
+        Some(Self {
+            mantissa: self.mantissa.checked_neg()?,
+            scale: self.scale,
+        })
+    }
+
+    fn add(self, other: Self) -> Option<Self> {
+        let scale = self.scale.max(other.scale);
+        let left = self.scaled_mantissa(scale)?;
+        let right = other.scaled_mantissa(scale)?;
+        Some(Self::from_raw(left.checked_add(right)?, scale))
+    }
+
+    fn sub(self, other: Self) -> Option<Self> {
+        self.add(other.negate()?)
+    }
+
+    fn mul(self, other: Self) -> Option<Self> {
+        Some(Self::from_raw(
+            self.mantissa.checked_mul(other.mantissa)?,
+            self.scale.checked_add(other.scale)?,
+        ))
+    }
+
+    fn div(self, other: Self) -> Option<Self> {
+        if other.mantissa == 0 {
+            return None;
+        }
+
+        let mut numerator = self
+            .mantissa
+            .checked_mul(10_i128.checked_pow(other.scale)?)?;
+        let mut denominator = other
+            .mantissa
+            .checked_mul(10_i128.checked_pow(self.scale)?)?;
+        if denominator < 0 {
+            numerator = numerator.checked_neg()?;
+            denominator = denominator.checked_neg()?;
+        }
+
+        let divisor = repair_gcd_i128(numerator, denominator)?;
+        numerator /= divisor;
+        denominator /= divisor;
+
+        let mut twos = 0u32;
+        while denominator % 2 == 0 {
+            denominator /= 2;
+            twos += 1;
+        }
+        let mut fives = 0u32;
+        while denominator % 5 == 0 {
+            denominator /= 5;
+            fives += 1;
+        }
+        if denominator != 1 {
+            return None;
+        }
+
+        let scale = twos.max(fives);
+        let scale_up = 10_i128.checked_pow(scale)?;
+        let mantissa = numerator
+            .checked_mul(scale_up)?
+            .checked_div(repair_divisor_scale(twos, fives)?)?;
+        Some(Self::from_raw(mantissa, scale))
+    }
+
+    fn scaled_mantissa(self, scale: u32) -> Option<i128> {
+        let extra_scale = scale.checked_sub(self.scale)?;
+        self.mantissa.checked_mul(10_i128.checked_pow(extra_scale)?)
+    }
+}
+
+fn repair_divisor_scale(twos: u32, fives: u32) -> Option<i128> {
+    let twos = 2_i128.checked_pow(twos)?;
+    let fives = 5_i128.checked_pow(fives)?;
+    twos.checked_mul(fives)
+}
+
+fn repair_gcd_i128(left: i128, right: i128) -> Option<i128> {
+    let mut left = left.checked_abs()?;
+    let mut right = right.checked_abs()?;
+    while right != 0 {
+        let remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    (left != 0).then_some(left)
 }
 
 #[derive(PartialEq, Eq)]
