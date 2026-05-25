@@ -64,17 +64,20 @@ before `?` returns an error result early. Runtime `require` failures blame the
 caller; runtime `ensure` failures blame the implementation.
 
 The implemented obligation classification is conservative. Valid predicates
-made only from boolean literals, parentheses, `not`, `and`, and `or` are
-classified as `statically_proven` when they evaluate to `true`; the runtime
-does not emit a check for them. The same static truth folding also accepts
-boolean identity cases where one side of `or` is provably `true`, even if the
-other side is not itself statically known, and propagates that result through
-literal-only `and` and `not` wrappers. For example,
-`true or value > 0` and `(output >= value or true) and not false` are
-statically proven after the predicate has passed validation. Other valid
-predicates are classified as `runtime_required`. Invalid predicates fail the
-static contract gate instead of becoming runtime-only checks. No contract is
-currently classified as statically disproven.
+made from boolean literals, literal comparisons, parentheses, `not`, `and`,
+and `or` are classified as `statically_proven` when they evaluate to `true`;
+the runtime does not emit a check for them. Literal comparisons include
+boolean and string equality or disequality and numeric equality, disequality,
+and ordering, using exact decimal literal ordering. The same static truth
+folding also accepts boolean identity cases where one side of `or` is provably
+`true`, even if the other side is not itself statically known, and propagates
+that result through literal-only `and` and `not` wrappers. For example,
+`true or value > 0`, `(output >= value or true) and not false`, and
+`1 < 2 and "ready" != "pending"` are statically proven after the predicate has
+passed validation. Other valid predicates are classified as
+`runtime_required`. Invalid predicates fail the static contract gate instead
+of becoming runtime-only checks. No contract is currently classified as
+statically disproven.
 
 An `ensure` clause may refer to the returned value only when the function return
 position names it with `-> name: Type`. That name is not visible to `require`

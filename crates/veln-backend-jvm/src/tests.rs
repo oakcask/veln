@@ -1535,6 +1535,27 @@ fn omits_boolean_identity_contract_checks() {
 }
 
 #[test]
+fn omits_statically_proven_literal_comparison_contract_checks() {
+    let ir = lower_to_ir(concat!(
+        "pub fn constant() -> output: Int effects []\n",
+        "  require 1 < 2 and \"ready\" != \"pending\"\n",
+        "  ensure true == true and 0.5 <= 1.50\n",
+        "  1\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+
+    assert!(!program.contains("VelnRuntime.checkContract("));
+    assert!(!program.contains("\"require\", \"1 < 2 and"));
+    assert!(!program.contains("\"ensure\", \"true == true and"));
+    assert!(program.contains("return Long.valueOf(1L);"));
+}
+
+#[test]
 fn emits_ensure_checks_before_try_early_return() {
     let ir = lower_to_ir(concat!(
         "fn fail() -> Result(Int, String) effects []\n",

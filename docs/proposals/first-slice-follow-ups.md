@@ -158,10 +158,11 @@ No accepted language and type coverage follow-up is currently tracked here.
   literal on either side, and validates pure prelude helper calls inside
   contract and `satisfy` predicates. Contract obligation classification also
   statically proves boolean identity cases where one side of `or` is already
-  true and propagates that truth through literal-only boolean wrappers. The
-  current implemented predicate subset is specified in the language reference.
-  Richer predicate semantics beyond these static truth identities remain
-  follow-up work.
+  true, literal-only comparisons that evaluate to true, and propagation of
+  those truths through literal-only boolean wrappers. The current implemented
+  predicate subset is specified in the language reference. Richer predicate
+  semantics beyond these static truth identities and literal comparisons
+  remain follow-up work.
 
 ## Formatting
 

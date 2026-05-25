@@ -61,6 +61,12 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
         return static_boolean_value(left).and(static_boolean_value(right));
     }
+    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            return static_literal_comparison(left, operator, right)
+                .map_or(StaticBooleanValue::Unknown, StaticBooleanValue::from);
+        }
+    }
     StaticBooleanValue::Unknown
 }
 
@@ -90,6 +96,170 @@ impl StaticBooleanValue {
             (Self::Unknown, Self::Unknown) => Self::Unknown,
         }
     }
+}
+
+impl From<bool> for StaticBooleanValue {
+    fn from(value: bool) -> Self {
+        if value { Self::True } else { Self::False }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq)]
+enum StaticLiteral {
+    Bool(bool),
+    Number(StaticNumber),
+    String(String),
+}
+
+fn static_literal_comparison(left: &str, operator: &str, right: &str) -> Option<bool> {
+    let left = StaticLiteral::parse(left.trim())?;
+    let right = StaticLiteral::parse(right.trim())?;
+    match (left, right) {
+        (StaticLiteral::Bool(left), StaticLiteral::Bool(right)) => match operator {
+            "==" => Some(left == right),
+            "!=" => Some(left != right),
+            _ => None,
+        },
+        (StaticLiteral::Number(left), StaticLiteral::Number(right)) => Some(match operator {
+            "==" => left == right,
+            "!=" => left != right,
+            "<" => left < right,
+            "<=" => left <= right,
+            ">" => left > right,
+            ">=" => left >= right,
+            _ => return None,
+        }),
+        (StaticLiteral::String(left), StaticLiteral::String(right)) => match operator {
+            "==" => Some(left == right),
+            "!=" => Some(left != right),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+impl StaticLiteral {
+    fn parse(text: &str) -> Option<Self> {
+        match text {
+            "true" => return Some(Self::Bool(true)),
+            "false" => return Some(Self::Bool(false)),
+            _ => {}
+        }
+        if let Some(number) = StaticNumber::parse(text) {
+            return Some(Self::Number(number));
+        }
+        parse_static_string_literal(text).map(Self::String)
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct StaticNumber {
+    mantissa: i128,
+    scale: u32,
+}
+
+impl Ord for StaticNumber {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self.mantissa.is_negative(), other.mantissa.is_negative()) {
+            (true, false) => return std::cmp::Ordering::Less,
+            (false, true) => return std::cmp::Ordering::Greater,
+            _ => {}
+        }
+        let ordering = self.abs_cmp(other);
+        if self.mantissa.is_negative() {
+            ordering.reverse()
+        } else {
+            ordering
+        }
+    }
+}
+
+impl PartialOrd for StaticNumber {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl StaticNumber {
+    fn parse(text: &str) -> Option<Self> {
+        let (negative, digits) = text
+            .strip_prefix('-')
+            .map_or((false, text), |digits| (true, digits.trim_start()));
+        if digits.is_empty() {
+            return None;
+        }
+        let (integer, fraction) = digits.split_once('.').map_or((digits, ""), |parts| parts);
+        if integer.is_empty()
+            || !integer.chars().all(|ch| ch.is_ascii_digit())
+            || !fraction.chars().all(|ch| ch.is_ascii_digit())
+            || (digits.contains('.') && fraction.is_empty())
+        {
+            return None;
+        }
+        let mut scale = fraction.len() as u32;
+        let signed_digits = if negative {
+            format!("-{integer}{fraction}")
+        } else {
+            format!("{integer}{fraction}")
+        };
+        let mut mantissa = signed_digits.parse::<i128>().ok()?;
+        while scale > 0 && mantissa % 10 == 0 {
+            mantissa /= 10;
+            scale -= 1;
+        }
+        Some(Self { mantissa, scale })
+    }
+
+    fn abs_cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let (left_integer, left_fraction) = self.abs_parts();
+        let (right_integer, right_fraction) = other.abs_parts();
+        left_integer
+            .len()
+            .cmp(&right_integer.len())
+            .then_with(|| left_integer.cmp(&right_integer))
+            .then_with(|| {
+                let scale = left_fraction.len().max(right_fraction.len());
+                let mut left_fraction = left_fraction;
+                let mut right_fraction = right_fraction;
+                left_fraction.extend(std::iter::repeat('0').take(scale - left_fraction.len()));
+                right_fraction.extend(std::iter::repeat('0').take(scale - right_fraction.len()));
+                left_fraction.cmp(&right_fraction)
+            })
+    }
+
+    fn abs_parts(&self) -> (String, String) {
+        let mut digits = self.mantissa.unsigned_abs().to_string();
+        if self.scale == 0 {
+            return (digits, String::new());
+        }
+        let scale = self.scale as usize;
+        if digits.len() <= scale {
+            let padding = "0".repeat(scale + 1 - digits.len());
+            digits = format!("{padding}{digits}");
+        }
+        let split = digits.len() - scale;
+        let integer = digits[..split].trim_start_matches('0');
+        let integer = if integer.is_empty() { "0" } else { integer };
+        (integer.to_string(), digits[split..].to_string())
+    }
+}
+
+fn parse_static_string_literal(text: &str) -> Option<String> {
+    if !text.starts_with('"') || !text.ends_with('"') {
+        return None;
+    }
+    let mut value = String::new();
+    let mut chars = text[1..text.len() - 1].chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            value.push(chars.next()?);
+        } else if ch == '"' {
+            return None;
+        } else {
+            value.push(ch);
+        }
+    }
+    Some(value)
 }
 
 pub(crate) fn contract_calls(predicate: &str) -> Vec<ContractCall> {

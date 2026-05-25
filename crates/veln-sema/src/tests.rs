@@ -6148,6 +6148,33 @@ fn contract_predicate_boolean_identity_is_statically_proven() {
 }
 
 #[test]
+fn contract_predicate_literal_comparisons_are_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn constant() -> output: Int effects []\n",
+            "require 1 < 2 and \"ready\" != \"pending\"\n",
+            "ensure true == true and 0.5 <= 1.50\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn satisfy_predicate_ignores_names_inside_string_literals() {
     let source = SourceFile::new(
         "main.veln",
