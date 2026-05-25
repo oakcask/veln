@@ -9,8 +9,8 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 - [language/README.md](language/README.md): current language behavior.
 - [source-decisions/README.md](source-decisions/README.md): implemented
   rationale and compatibility context.
-- [bibliography/README.md](bibliography/README.md): research references behind
-  source decisions.
+- [bibliography/README.md](bibliography/README.md): research-source routes
+  behind source decisions.
 
 ## Read When
 
