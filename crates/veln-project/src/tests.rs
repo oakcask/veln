@@ -53,6 +53,18 @@ fn discovers_veln_files_from_explicit_directories() {
 }
 
 #[test]
+fn discovers_veln_files_from_absolute_directory_inputs() {
+    let temp = TempProject::new("absolute-directory-input");
+    temp.write("src/main.veln", "main");
+    temp.write("tests/case.veln", "case");
+    temp.write("tests/case.txt", "ignored");
+
+    let paths = discover_source_paths(temp.root(), &[temp.path("tests")]).unwrap();
+
+    assert_eq!(paths, vec![temp.path("tests/case.veln")]);
+}
+
+#[test]
 fn keeps_explicit_non_veln_files() {
     let temp = TempProject::new("explicit-non-veln");
     temp.write("notes.txt", "notes");
@@ -60,6 +72,28 @@ fn keeps_explicit_non_veln_files() {
     let paths = discover_source_paths(temp.root(), &[PathBuf::from("notes.txt")]).unwrap();
 
     assert_eq!(paths, vec![temp.path("notes.txt")]);
+}
+
+#[test]
+fn keeps_absolute_explicit_files_sorted_and_unique() {
+    let temp = TempProject::new("absolute-file-input");
+    temp.write("src/a.veln", "a");
+    temp.write("src/b.veln", "b");
+
+    let paths = discover_source_paths(
+        temp.root(),
+        &[
+            temp.path("src/b.veln"),
+            temp.path("src/a.veln"),
+            temp.path("src/a.veln"),
+        ],
+    )
+    .unwrap();
+
+    assert_eq!(
+        paths,
+        vec![temp.path("src/a.veln"), temp.path("src/b.veln")]
+    );
 }
 
 #[test]
