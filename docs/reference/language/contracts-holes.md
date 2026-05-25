@@ -68,8 +68,13 @@ made from boolean literals, literal comparisons, parentheses, `not`, `and`,
 and `or` are classified as `statically_proven` when they evaluate to `true`;
 the runtime does not emit a check for them. Literal comparisons include
 boolean and string equality or disequality and numeric equality, disequality,
-and ordering, using exact decimal literal ordering. The same static truth
-folding also accepts boolean identity cases where one side of `or` is provably
+and ordering, using exact decimal literal ordering. Numeric literal
+comparisons may include pure literal `+`, `-`, and `*` subexpressions, such as
+`1 + 1 == 2`, `10 - 4 == 6`, `0.5 + 2.0 == 2.5`, and `3 * 4 >= 12`.
+They may also include `/` when the result is exactly representable as a finite
+decimal, such as `8 / 4 == 2` and `1 / 2 == 0.5`.
+The same static truth folding also accepts boolean identity cases where one
+side of `or` is provably
 `true`, even if the other side is not itself statically known, and propagates
 that result through literal-only `and` and `not` wrappers. Same-shape
 comparisons are statically known after whitespace normalization:

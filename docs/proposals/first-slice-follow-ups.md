@@ -184,9 +184,11 @@ No accepted language and type coverage follow-up is currently tracked here.
   whitespace normalization and commuted ordering normalization. The current
   implemented predicate subset is specified in the language reference.
   Same-shape comparison predicates are also statically evaluated after
-  whitespace normalization. Richer predicate semantics beyond these static
-  truth identities, literal comparisons, same-shape comparisons,
-  complementary boolean and comparison disjunctions, and negated
+  whitespace normalization. Literal numeric `+`, `-`, `*`, and exactly
+  representable `/` subexpressions inside comparisons are also statically
+  evaluated. Richer predicate semantics beyond these static truth identities,
+  literal comparisons, literal numeric arithmetic comparisons, same-shape
+  comparisons, complementary boolean and comparison disjunctions, and negated
   complementary boolean and comparison conjunctions remain follow-up work.
 
 ## Formatting

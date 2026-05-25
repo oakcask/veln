@@ -1099,6 +1099,33 @@ fn check_json_reports_missing_public_stdio_effect_with_provenance() {
 }
 
 #[test]
+fn check_json_reports_unknown_effect_label_details() {
+    let project = TestProject::new("effect-json-unknown-label");
+    project.write(
+        "main.veln",
+        "pub fn main() -> () effects [telepathy]\n  ()\nend\n",
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"effect.unknown\"",
+            "\"kind\":\"effect\"",
+            "\"message\":\"declared effect `telepathy` is not known\"",
+            "\"details\":{\"phase\":\"effect\",\"node_id\":\"fn-1\",\"effect\":\"telepathy\",",
+            "\"boundary\":\"public_function\"",
+            "\"declared_effects\":[\"telepathy\"]",
+            "\"known_effects\":[\"stdio\",\"fs\",\"net\",\"db\",\"time\",\"random\",\"process\",\"concurrency\"]",
+            "\"related\":[{\"kind\":\"repair_hint\",\"message\":\"Use a known effect label or remove the declaration.\"}]",
+        ],
+    );
+}
+
+#[test]
 fn check_human_reports_missing_public_effect_cause() {
     let project = TestProject::new("effect-human-provenance");
     project.write(
@@ -1137,6 +1164,27 @@ fn check_human_reports_public_effect_annotation_hint_as_note() {
         concat!(
             "main.veln:1:1: error[effect.missing_public]: public function has no effects annotation\n",
             "  note: Use `effects []` for a pure public function.\n",
+        ),
+    );
+}
+
+#[test]
+fn check_human_reports_unknown_effect_label_hint_as_note() {
+    let project = TestProject::new("effect-human-unknown-label");
+    project.write(
+        "main.veln",
+        "pub fn main() -> () effects [telepathy]\n  ()\nend\n",
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_eq!(
+        stdout(&output),
+        concat!(
+            "main.veln:1:1: error[effect.unknown]: declared effect `telepathy` is not known\n",
+            "  note: Use a known effect label or remove the declaration.\n",
         ),
     );
 }

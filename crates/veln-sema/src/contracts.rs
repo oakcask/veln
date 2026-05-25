@@ -297,23 +297,28 @@ enum StaticLiteral {
 }
 
 fn static_literal_comparison(left: &str, operator: &str, right: &str) -> Option<bool> {
-    let left = StaticLiteral::parse(left.trim())?;
-    let right = StaticLiteral::parse(right.trim())?;
-    match (left, right) {
+    let left_literal = StaticLiteral::parse(left.trim());
+    let right_literal = StaticLiteral::parse(right.trim());
+    if let (Some(StaticLiteral::Number(left)), Some(StaticLiteral::Number(right))) =
+        (&left_literal, &right_literal)
+    {
+        return Some(static_number_comparison(*left, operator, *right)?);
+    }
+    if let (Some(left), Some(right)) = (
+        static_numeric_expression(left),
+        static_numeric_expression(right),
+    ) {
+        return Some(static_number_comparison(left, operator, right)?);
+    }
+    match (left_literal?, right_literal?) {
         (StaticLiteral::Bool(left), StaticLiteral::Bool(right)) => match operator {
             "==" => Some(left == right),
             "!=" => Some(left != right),
             _ => None,
         },
-        (StaticLiteral::Number(left), StaticLiteral::Number(right)) => Some(match operator {
-            "==" => left == right,
-            "!=" => left != right,
-            "<" => left < right,
-            "<=" => left <= right,
-            ">" => left > right,
-            ">=" => left >= right,
-            _ => return None,
-        }),
+        (StaticLiteral::Number(left), StaticLiteral::Number(right)) => {
+            static_number_comparison(left, operator, right)
+        }
         (StaticLiteral::String(left), StaticLiteral::String(right)) => match operator {
             "==" => Some(left == right),
             "!=" => Some(left != right),
@@ -321,6 +326,58 @@ fn static_literal_comparison(left: &str, operator: &str, right: &str) -> Option<
         },
         _ => None,
     }
+}
+
+fn static_numeric_expression(predicate: &str) -> Option<StaticNumber> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if predicate.is_empty() {
+        return None;
+    }
+    if let Some(number) = StaticNumber::parse(predicate) {
+        return Some(number);
+    }
+    for operator in ["+", "-"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let left = static_numeric_expression(left)?;
+            let right = static_numeric_expression(right)?;
+            return match operator {
+                "+" => left.add(right),
+                "-" => left.sub(right),
+                _ => None,
+            };
+        }
+    }
+    for operator in ["*", "/"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let left = static_numeric_expression(left)?;
+            let right = static_numeric_expression(right)?;
+            return match operator {
+                "*" => left.mul(right),
+                "/" => left.div(right),
+                _ => None,
+            };
+        }
+    }
+    if let Some(rest) = predicate.strip_prefix('-') {
+        return static_numeric_expression(rest)?.negate();
+    }
+    None
+}
+
+fn static_number_comparison(
+    left: StaticNumber,
+    operator: &str,
+    right: StaticNumber,
+) -> Option<bool> {
+    Some(match operator {
+        "==" => left == right,
+        "!=" => left != right,
+        "<" => left < right,
+        "<=" => left <= right,
+        ">" => left > right,
+        ">=" => left >= right,
+        _ => return None,
+    })
 }
 
 impl StaticLiteral {
@@ -427,6 +484,103 @@ impl StaticNumber {
         let integer = if integer.is_empty() { "0" } else { integer };
         (integer.to_string(), digits[split..].to_string())
     }
+
+    fn from_raw(mut mantissa: i128, mut scale: u32) -> Self {
+        while scale > 0 && mantissa % 10 == 0 {
+            mantissa /= 10;
+            scale -= 1;
+        }
+        Self { mantissa, scale }
+    }
+
+    fn negate(self) -> Option<Self> {
+        Some(Self {
+            mantissa: self.mantissa.checked_neg()?,
+            scale: self.scale,
+        })
+    }
+
+    fn add(self, other: Self) -> Option<Self> {
+        let scale = self.scale.max(other.scale);
+        let left = self.scaled_mantissa(scale)?;
+        let right = other.scaled_mantissa(scale)?;
+        Some(Self::from_raw(left.checked_add(right)?, scale))
+    }
+
+    fn sub(self, other: Self) -> Option<Self> {
+        self.add(other.negate()?)
+    }
+
+    fn mul(self, other: Self) -> Option<Self> {
+        Some(Self::from_raw(
+            self.mantissa.checked_mul(other.mantissa)?,
+            self.scale.checked_add(other.scale)?,
+        ))
+    }
+
+    fn div(self, other: Self) -> Option<Self> {
+        if other.mantissa == 0 {
+            return None;
+        }
+
+        let mut numerator = self
+            .mantissa
+            .checked_mul(10_i128.checked_pow(other.scale)?)?;
+        let mut denominator = other
+            .mantissa
+            .checked_mul(10_i128.checked_pow(self.scale)?)?;
+        if denominator < 0 {
+            numerator = numerator.checked_neg()?;
+            denominator = denominator.checked_neg()?;
+        }
+
+        let divisor = gcd_i128(numerator, denominator)?;
+        numerator /= divisor;
+        denominator /= divisor;
+
+        let mut twos = 0u32;
+        while denominator % 2 == 0 {
+            denominator /= 2;
+            twos += 1;
+        }
+        let mut fives = 0u32;
+        while denominator % 5 == 0 {
+            denominator /= 5;
+            fives += 1;
+        }
+        if denominator != 1 {
+            return None;
+        }
+
+        let scale = twos.max(fives);
+        let scale_up = 10_i128.checked_pow(scale)?;
+        let mantissa = numerator
+            .checked_mul(scale_up)?
+            .checked_div(divisor_scale(twos, fives)?)?;
+        Some(Self::from_raw(mantissa, scale))
+    }
+
+    fn scaled_mantissa(self, scale: u32) -> Option<i128> {
+        let extra_scale = scale.checked_sub(self.scale)?;
+        self.mantissa.checked_mul(10_i128.checked_pow(extra_scale)?)
+    }
+}
+
+fn divisor_scale(twos: u32, fives: u32) -> Option<i128> {
+    let twos = 2_i128.checked_pow(twos)?;
+    let fives = 5_i128.checked_pow(fives)?;
+    twos.checked_mul(fives)
+}
+
+fn gcd_i128(left: i128, right: i128) -> Option<i128> {
+    let mut left = left.checked_abs()?;
+    let mut right = right.checked_abs()?;
+    while right != 0 {
+        let remainder = left % right;
+        left = right;
+        right = remainder;
+    }
+    (left != 0).then_some(left)
 }
 
 fn parse_static_string_literal(text: &str) -> Option<String> {

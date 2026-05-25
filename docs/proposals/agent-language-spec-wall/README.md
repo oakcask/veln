@@ -26,6 +26,9 @@ The implemented bounded-channel concurrency decision lives in
 Future concurrency surface work is tracked in
 [../first-slice-follow-ups.md](../first-slice-follow-ups.md).
 
+The implemented coarse effect label declaration slice is specified in
+[Names And Effects](../../reference/language/names-effects.md).
+
 Implemented rationale such as
 [Comparison Example Task](../../reference/source-decisions/result-comparison-example-task.md)
 lives in the reference decision index.

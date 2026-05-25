@@ -91,6 +91,68 @@ pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnos
     diagnostics
 }
 
+pub(crate) fn check_declared_effect_labels(function: &Function) -> Vec<Diagnostic> {
+    const KNOWN_EFFECTS: &[&str] = &[
+        "stdio",
+        "fs",
+        "net",
+        "db",
+        "time",
+        "random",
+        "process",
+        "concurrency",
+    ];
+
+    let Some(declared_effects) = &function.effects else {
+        return Vec::new();
+    };
+    let boundary = match function.kind {
+        FunctionKind::Test => "test_declaration",
+        FunctionKind::Function if function.visibility == Visibility::Public => "public_function",
+        FunctionKind::Function => "private_function",
+    };
+    let node_prefix = function.kind.node_prefix();
+
+    declared_effects
+        .iter()
+        .filter(|effect| !KNOWN_EFFECTS.contains(&effect.as_str()))
+        .map(|effect| {
+            let mut diagnostic = Diagnostic::new(
+                "effect.unknown",
+                Severity::Error,
+                DiagnosticKind::Effect,
+                format!("declared effect `{effect}` is not known"),
+                Some(function.span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("effect")),
+                    (
+                        "node_id",
+                        JsonValue::string(function.node_id.display(node_prefix)),
+                    ),
+                    ("effect", JsonValue::string(effect.clone())),
+                    ("boundary", JsonValue::string(boundary)),
+                    (
+                        "declared_effects",
+                        JsonValue::array(declared_effects.iter().cloned().map(JsonValue::string)),
+                    ),
+                    (
+                        "known_effects",
+                        JsonValue::array(KNOWN_EFFECTS.iter().copied().map(JsonValue::string)),
+                    ),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("repair_hint")),
+                (
+                    "message",
+                    JsonValue::string("Use a known effect label or remove the declaration."),
+                ),
+            ]));
+            diagnostic
+        })
+        .collect()
+}
+
 pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut seen = BTreeMap::<String, (String, SourceSpan)>::new();

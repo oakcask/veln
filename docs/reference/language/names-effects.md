@@ -67,6 +67,23 @@ does not affect name resolution.
 
 ## Stdio Calls
 
+Implemented effect labels are:
+
+- `stdio`
+- `fs`
+- `net`
+- `db`
+- `time`
+- `random`
+- `process`
+- `concurrency`
+
+Function and test `effects [...]` declarations may name these labels. A
+declaration that names any other effect reports `effect.unknown` at the
+function or test declaration. The checker currently infers only `stdio` and
+`concurrency` from compiler-known calls; the other labels are reserved
+coarse-grained public boundary labels for source compatibility.
+
 The implemented compiler-known stdio calls are:
 
 ```veln

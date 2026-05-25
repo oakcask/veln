@@ -63,7 +63,10 @@ The first slice should be deliberately small:
   require explicit signatures on public functions.
 - `Result` propagation with `?` and explicit diagnostics for invalid `map` use.
 - Contracts limited to boolean expressions in `require` and `ensure`.
-- Coarse effect labels parsed and reported, even if enforcement is shallow.
+- Resolved by
+  [Names And Effects](../../reference/language/names-effects.md): coarse effect
+  labels are parsed, unknown labels are reported, and first-slice enforcement
+  remains shallow.
 - `veln check --json` as the first agent-facing command.
 - Golden tests for diagnostics, especially typed-hole output and `?` behavior.
 

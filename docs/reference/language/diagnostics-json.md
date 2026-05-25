@@ -179,6 +179,15 @@ Each path entry contains:
 - `symbol`
 - `span`
 
+Effect diagnostic `details` are stable for `effect.unknown`:
+
+- `phase`
+- `node_id`
+- `effect`
+- `boundary`
+- `declared_effects`
+- `known_effects`
+
 Contract diagnostic `details` are stable for implemented contract validation:
 
 - `phase`

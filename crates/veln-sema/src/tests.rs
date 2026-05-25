@@ -138,6 +138,47 @@ fn test_declaration_checks_declared_effect_boundary() {
 }
 
 #[test]
+fn public_function_rejects_unknown_declared_effect_label() {
+    let source = SourceFile::new(
+        "main.veln",
+        "pub fn main() -> () effects [telepathy]\n  ()\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.unknown");
+    assert_eq!(
+        diagnostics[0].message,
+        "declared effect `telepathy` is not known"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"boundary\":\"public_function\""));
+    assert!(details.contains("\"effect\":\"telepathy\""));
+    assert!(details.contains("\"known_effects\":[\"stdio\",\"fs\",\"net\",\"db\",\"time\",\"random\",\"process\",\"concurrency\"]"));
+}
+
+#[test]
+fn accepts_coarse_declared_effect_labels() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> () effects [stdio, fs, net, db, time, random, process, concurrency]\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty());
+}
+
+#[test]
 fn test_declarations_are_not_callable_functions() {
     let source = SourceFile::new(
         "main.veln",
@@ -6457,6 +6498,36 @@ fn contract_predicate_literal_comparisons_are_statically_proven() {
     let core = lowered.core.expect("valid module should lower to core");
     let contracts = &core.functions[0].contracts;
     assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_literal_arithmetic_comparisons_are_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn constant() -> output: Int effects []\n",
+            "require 1 + 1 == 2 and 3 * 4 >= 12\n",
+            "require 0.5 + 2.0 == 2.5\n",
+            "require 10 - 4 == 6 and 8 / 4 == 2\n",
+            "require 1 / 2 == 0.5\n",
+            "ensure 2 * 3 == 6\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 5);
     assert!(contracts.iter().all(|contract| {
         contract.obligation_status == ContractObligationStatus::StaticallyProven
     }));
