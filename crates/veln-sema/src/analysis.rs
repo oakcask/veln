@@ -2640,14 +2640,7 @@ impl<'a> FunctionChecker<'a> {
             .iter()
             .filter(|binding| {
                 let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
-                let satisfy_clauses = normalized_and_clauses(&replaced);
-                !satisfy_clauses.is_empty()
-                    && satisfy_clauses.iter().all(|clause| {
-                        let canonical = canonical_repair_clause(clause);
-                        required_clauses
-                            .iter()
-                            .any(|required| required == &canonical)
-                    })
+                predicate_guaranteed_by_required_clauses(&replaced, &required_clauses)
             })
             .map(|binding| binding.name.clone())
             .collect::<Vec<_>>();
@@ -2802,14 +2795,29 @@ fn reflexive_path_binding(left: &[&str], right: &[&str], candidate: &str) -> Opt
 }
 
 fn normalized_and_clauses(predicate: &str) -> Vec<String> {
-    split_top_level_and(strip_balanced_outer_parens(predicate))
+    split_top_level_keyword(strip_balanced_outer_parens(predicate), "and")
         .into_iter()
         .map(normalized_predicate_clause)
         .filter(|clause| !clause.is_empty())
         .collect()
 }
 
-fn split_top_level_and(predicate: &str) -> Vec<&str> {
+fn predicate_guaranteed_by_required_clauses(predicate: &str, required_clauses: &[String]) -> bool {
+    split_top_level_keyword(strip_balanced_outer_parens(predicate), "or")
+        .into_iter()
+        .map(normalized_and_clauses)
+        .any(|disjunct_clauses| {
+            !disjunct_clauses.is_empty()
+                && disjunct_clauses.iter().all(|clause| {
+                    let canonical = canonical_repair_clause(clause);
+                    required_clauses
+                        .iter()
+                        .any(|required| required == &canonical)
+                })
+        })
+}
+
+fn split_top_level_keyword<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str> {
     let mut clauses = Vec::new();
     let mut start = 0;
     let mut depth = 0usize;
@@ -2838,12 +2846,12 @@ fn split_top_level_and(predicate: &str) -> Vec<&str> {
             '"' => in_string = true,
             '(' => depth += 1,
             ')' => depth = depth.saturating_sub(1),
-            'a' if depth == 0 && predicate[cursor..].starts_with("and") => {
-                let and_end = cursor + "and".len();
-                if is_word_boundary(predicate, cursor, and_end) {
+            _ if depth == 0 && predicate[cursor..].starts_with(keyword) => {
+                let keyword_end = cursor + keyword.len();
+                if is_word_boundary(predicate, cursor, keyword_end) {
                     clauses.push(&predicate[start..cursor]);
-                    start = and_end;
-                    cursor = and_end;
+                    start = keyword_end;
+                    cursor = keyword_end;
                     continue;
                 }
             }
