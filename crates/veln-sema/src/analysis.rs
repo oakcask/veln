@@ -2788,11 +2788,65 @@ fn is_plain_identifier(value: &str) -> bool {
 }
 
 fn normalized_and_clauses(predicate: &str) -> Vec<String> {
-    predicate
-        .split(" and ")
+    split_top_level_and(strip_balanced_outer_parens(predicate))
+        .into_iter()
         .map(normalized_predicate_clause)
         .filter(|clause| !clause.is_empty())
         .collect()
+}
+
+fn split_top_level_and(predicate: &str) -> Vec<&str> {
+    let mut clauses = Vec::new();
+    let mut start = 0;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut cursor = 0;
+
+    while cursor < predicate.len() {
+        let ch = predicate[cursor..]
+            .chars()
+            .next()
+            .expect("cursor should stay on a char boundary");
+        let end = cursor + ch.len_utf8();
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            cursor = end;
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            'a' if depth == 0 && predicate[cursor..].starts_with("and") => {
+                let and_end = cursor + "and".len();
+                if is_word_boundary(predicate, cursor, and_end) {
+                    clauses.push(&predicate[start..cursor]);
+                    start = and_end;
+                    cursor = and_end;
+                    continue;
+                }
+            }
+            _ => {}
+        }
+        cursor = end;
+    }
+
+    clauses.push(&predicate[start..]);
+    clauses
+}
+
+fn is_word_boundary(text: &str, start: usize, end: usize) -> bool {
+    let before = text[..start].chars().next_back();
+    let after = text[end..].chars().next();
+    before.map_or(true, |ch| !is_ident_continue(ch))
+        && after.map_or(true, |ch| !is_ident_continue(ch))
 }
 
 fn normalized_predicate_clause(predicate: &str) -> String {

@@ -30,8 +30,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   predicates whose candidate substitution is already guaranteed by a valid
   `require` clause mark the matching visible binding as an unapplied safe
   repair candidate, including string-literal clauses and simple direct,
-  commuted, and parenthesized comparison clauses. Broader repair discharge
-  remains follow-up work before formatter stabilization.
+  commuted, parenthesized comparison clauses, and whole parenthesized
+  `and` conjunctions. Broader repair discharge remains follow-up work before
+  formatter stabilization.
 
 ## Effects And Contracts
 

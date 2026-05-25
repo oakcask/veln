@@ -101,7 +101,8 @@ clauses with string literals, such as matching `candidate != ""` against
 `name != ""` after substituting `name`. Simple direct and commuted comparison
 clauses are treated as the same requirement, such as matching
 `candidate > 0` against `0 < max` after substituting `max`; wrapping these
-simple clauses in parentheses does not change the repair match. Every
+simple clauses or the whole `and` conjunction in parentheses does not change
+the repair match. Every
 type-compatible visible binding candidate for the tautological subset uses
 `reason: "satisfy_tautology"`. A statically accepted candidate also uses
 `satisfy_status: "statically_satisfied"`. Other candidates for a
