@@ -79,17 +79,21 @@ boolean predicate and its negation is also statically true after validation,
 such as `flag or not flag` or
 `output.ready or not(output.ready)`. The complementary `or` identity may span
 more than two top-level branches, so `flag or extra or not flag` is also
-statically proven. Top-level `or` also recognizes complementary comparison
-pairs over the same operands after whitespace normalization and commuted
-ordering normalization, such as `value == limit or value != limit`,
-`value < limit or value >= limit`, and `value < limit or limit <= value`.
+statically proven. Parenthesized nested `or` branches are flattened for this
+identity, so `flag or (extra or not flag)` is also statically proven. Top-level
+`or` also recognizes complementary comparison pairs over the same operands
+after whitespace normalization and commuted ordering normalization, such as
+`value == limit or value != limit`, `value < limit or value >= limit`, and
+`value < limit or limit <= value`.
 It also treats a negated top-level `and` between the same pure boolean
 predicate and its negation as statically true, such as
 `not (flag and not flag)` or
 `not(output.ready and not output.ready)`. For example,
 `not (flag and extra and not flag)` is statically proven because the inner
-conjunction contains complementary branches. The same negated-`and` identity
-applies to complementary comparison pairs, such as
+conjunction contains complementary branches. Parenthesized nested `and`
+branches are flattened for this identity, so
+`not (flag and (extra and not flag))` is also statically proven. The same
+negated-`and` identity applies to complementary comparison pairs, such as
 `not (value == limit and limit != value)` and
 `not(output < limit and output >= limit)`. For example, `true or value > 0`,
 `(output >= value or true) and not false`, and `1 < 2 and "ready" != "pending"`

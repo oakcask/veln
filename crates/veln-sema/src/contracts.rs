@@ -90,7 +90,7 @@ fn complementary_predicates(left: &str, right: &str) -> bool {
 }
 
 fn has_complementary_top_level_clauses(predicate: &str, keyword: &str) -> bool {
-    let clauses = split_top_level_keyword(predicate, keyword);
+    let clauses = flattened_keyword_clauses(predicate, keyword);
     if clauses.len() <= 2 {
         return false;
     }
@@ -100,6 +100,17 @@ fn has_complementary_top_level_clauses(predicate: &str, keyword: &str) -> bool {
             .skip(index + 1)
             .any(|right| complementary_predicates(left, right))
     })
+}
+
+fn flattened_keyword_clauses<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str> {
+    let clauses = split_top_level_keyword(strip_balanced_outer_parens(predicate), keyword);
+    if clauses.len() <= 1 {
+        return clauses;
+    }
+    clauses
+        .into_iter()
+        .flat_map(|clause| flattened_keyword_clauses(clause, keyword))
+        .collect()
 }
 
 fn negated_predicate_shape(predicate: &str) -> Option<String> {
