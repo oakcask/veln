@@ -144,8 +144,10 @@ runtime boundary.
 Executable-command reachability also follows bare and `use`-alias qualified
 function declaration values in reachable expressions, pure helper calls used
 in reachable contract predicates, and function declaration values passed as
-contract call arguments, so blockers inside those helpers are reported before
-the selected entry runs.
+contract call arguments. Calls through function-typed local bindings and
+parameters conservatively include visible same-arity function declarations when
+the surface graph does not identify one concrete target, so blockers inside
+possible helpers are reported before the selected entry runs.
 
 A public function whose declared effects omit an inferred effect reports
 `effect.missing_public` with related provenance pointing at bounded call sites.

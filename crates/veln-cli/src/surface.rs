@@ -194,6 +194,7 @@ pub(crate) fn reachable_entry_module(
             Some(FunctionTarget {
                 name: function.name.clone()?,
                 module_name: function.module_name.clone(),
+                arity: function.params.len(),
             })
         })
         .collect::<Vec<_>>();
@@ -258,6 +259,13 @@ struct ReachableFunction {
 struct FunctionTarget {
     name: String,
     module_name: Option<String>,
+    arity: usize,
+}
+
+#[derive(Clone, Debug)]
+struct LocalBinding {
+    name: String,
+    function_arity: Option<usize>,
 }
 
 fn direct_function_callees(
@@ -270,7 +278,10 @@ fn direct_function_callees(
     let mut local_bindings = function
         .params
         .iter()
-        .map(|param| param.name.clone())
+        .map(|param| LocalBinding {
+            name: param.name.clone(),
+            function_arity: param.ty.as_deref().and_then(function_type_arity),
+        })
         .collect::<Vec<_>>();
     for contract in &function.contracts {
         collect_contract_callees(
@@ -283,7 +294,11 @@ fn direct_function_callees(
     }
     for line in &function.body {
         match &line.kind {
-            veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
+            veln_ast::BodyLineKind::Let {
+                pattern,
+                annotation,
+                expr,
+            } => {
                 collect_function_callees(
                     expr,
                     current_module,
@@ -292,7 +307,11 @@ fn direct_function_callees(
                     &local_bindings,
                     &mut callees,
                 );
-                collect_pattern_bindings(pattern, &mut local_bindings);
+                collect_pattern_bindings(
+                    pattern,
+                    annotation.as_deref().and_then(function_type_arity),
+                    &mut local_bindings,
+                );
             }
             veln_ast::BodyLineKind::Expr { expr } => {
                 collect_function_callees(
@@ -421,7 +440,7 @@ fn collect_function_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
-    local_bindings: &[String],
+    local_bindings: &[LocalBinding],
     callees: &mut Vec<ReachableFunction>,
 ) {
     match &expr.kind {
@@ -548,7 +567,7 @@ fn collect_function_callees(
             );
             for arm in arms {
                 let mut arm_bindings = local_bindings.to_vec();
-                collect_pattern_bindings(&arm.pattern, &mut arm_bindings);
+                collect_pattern_bindings(&arm.pattern, None, &mut arm_bindings);
                 collect_function_callees(
                     &arm.expr,
                     current_module,
@@ -597,17 +616,24 @@ fn collect_function_callees(
     }
 }
 
-fn collect_pattern_bindings(pattern: &Pattern, bindings: &mut Vec<String>) {
+fn collect_pattern_bindings(
+    pattern: &Pattern,
+    function_arity: Option<usize>,
+    bindings: &mut Vec<LocalBinding>,
+) {
     match &pattern.kind {
-        PatternKind::Binding(name) => bindings.push(name.clone()),
+        PatternKind::Binding(name) => bindings.push(LocalBinding {
+            name: name.clone(),
+            function_arity,
+        }),
         PatternKind::Record(fields) => {
             for field in fields {
-                collect_pattern_bindings(&field.pattern, bindings);
+                collect_pattern_bindings(&field.pattern, None, bindings);
             }
         }
         PatternKind::Constructor { args, .. } => {
             for arg in args {
-                collect_pattern_bindings(arg, bindings);
+                collect_pattern_bindings(arg, None, bindings);
             }
         }
         PatternKind::Wildcard
@@ -627,16 +653,107 @@ fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {
     }
 }
 
+fn collect_opaque_function_value_callees(
+    arity: usize,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    function_targets: &[FunctionTarget],
+    callees: &mut Vec<ReachableFunction>,
+) {
+    for target in function_targets.iter().filter(|target| {
+        target.arity == arity
+            && visible_from_current_module(target.module_name.as_deref(), current_module, uses)
+    }) {
+        push_reachable(
+            callees,
+            ReachableFunction {
+                kind: FunctionKind::Function,
+                name: target.name.clone(),
+                module_name: target.module_name.clone(),
+            },
+        );
+    }
+}
+
+fn visible_from_current_module(
+    target_module: Option<&str>,
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+) -> bool {
+    if current_module.is_none() || target_module == current_module {
+        return true;
+    }
+    target_module
+        .is_some_and(|module_name| uses.iter().any(|use_decl| use_decl.name == module_name))
+}
+
+fn function_type_arity(annotation: &str) -> Option<usize> {
+    let params = annotation.trim().strip_prefix("fn")?.trim_start();
+    let params = params.strip_prefix('(')?;
+    let mut depth = 0usize;
+    let mut split_at = None;
+    for (index, ch) in params.char_indices() {
+        match ch {
+            '(' | '[' | '{' => depth += 1,
+            ')' if depth == 0 => {
+                split_at = Some(index);
+                break;
+            }
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    let params = &params[..split_at?].trim();
+    if params.is_empty() {
+        return Some(0);
+    }
+    Some(split_top_level_commas(params).len())
+}
+
+fn split_top_level_commas(text: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0usize;
+    for (index, ch) in text.char_indices() {
+        match ch {
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                parts.push(text[start..index].trim());
+                start = index + 1;
+            }
+            _ => {}
+        }
+    }
+    parts.push(text[start..].trim());
+    parts
+}
+
 fn collect_function_name_reference(
     segments: &[String],
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
-    local_bindings: &[String],
+    local_bindings: &[LocalBinding],
     callees: &mut Vec<ReachableFunction>,
 ) {
-    if matches!(segments, [name] if local_bindings.iter().rev().any(|binding| binding == name)) {
-        return;
+    if let [name] = segments {
+        if let Some(binding) = local_bindings
+            .iter()
+            .rev()
+            .find(|binding| binding.name == *name)
+        {
+            if let Some(arity) = binding.function_arity {
+                collect_opaque_function_value_callees(
+                    arity,
+                    current_module,
+                    uses,
+                    function_targets,
+                    callees,
+                );
+            }
+            return;
+        }
     }
     for callee in resolve_function_reference(segments, current_module, uses, function_targets) {
         push_reachable(callees, callee);
@@ -765,6 +882,112 @@ mod tests {
             vec![
                 (FunctionKind::Test, Some("foo")),
                 (FunctionKind::Function, Some("stringify")),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_entry_conservatively_reaches_opaque_function_value_call_targets() {
+        let module = lower(concat!(
+            "test foo() -> Bool effects []\n",
+            "  invoke(ready)\n",
+            "end\n",
+            "fn invoke(job: fn() -> Bool) -> Bool effects []\n",
+            "  job()\n",
+            "end\n",
+            "fn ready() -> Bool effects []\n",
+            "  true\n",
+            "end\n",
+            "fn risky() -> Bool effects []\n",
+            "  _\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "foo", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (FunctionKind::Test, Some("foo")),
+                (FunctionKind::Function, Some("invoke")),
+                (FunctionKind::Function, Some("ready")),
+                (FunctionKind::Function, Some("risky")),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_entry_reaches_opaque_function_value_call_targets_with_spaced_type() {
+        let module = lower(concat!(
+            "test foo() -> Bool effects []\n",
+            "  invoke(ready)\n",
+            "end\n",
+            "fn invoke(job: fn () -> Bool) -> Bool effects []\n",
+            "  job()\n",
+            "end\n",
+            "fn ready() -> Bool effects []\n",
+            "  true\n",
+            "end\n",
+            "fn risky() -> Bool effects []\n",
+            "  _\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "foo", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (FunctionKind::Test, Some("foo")),
+                (FunctionKind::Function, Some("invoke")),
+                (FunctionKind::Function, Some("ready")),
+                (FunctionKind::Function, Some("risky")),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_entry_conservatively_reaches_opaque_local_function_value_call_targets() {
+        let module = lower(concat!(
+            "test foo() -> Bool effects []\n",
+            "  invoke()\n",
+            "end\n",
+            "fn invoke() -> Bool effects []\n",
+            "  let job: fn() -> Bool = ready\n",
+            "  job()\n",
+            "end\n",
+            "fn ready() -> Bool effects []\n",
+            "  true\n",
+            "end\n",
+            "fn risky() -> Bool effects []\n",
+            "  _\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "foo", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (FunctionKind::Test, Some("foo")),
+                (FunctionKind::Function, Some("invoke")),
+                (FunctionKind::Function, Some("ready")),
+                (FunctionKind::Function, Some("risky")),
             ]
         );
     }

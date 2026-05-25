@@ -12,7 +12,10 @@ reachability includes direct function calls, bare and `use` alias-qualified
 function declaration values used inside reachable expressions, and function
 calls in reachable contract predicates. Reachability also follows bare and
 `use` alias-qualified function declaration values passed as contract call
-arguments. In a named source module, a bare function reference resolves
+arguments. Calls through a function-typed local binding or parameter are
+conservative: when the surface graph does not identify one concrete function
+declaration, reachability includes visible function declarations with the same
+argument count. In a named source module, a bare function reference resolves
 reachability only to functions owned by that same source module. Qualified
 calls and function values resolved through selected-file `use` aliases keep
 the imported module identity, so same-named functions from other modules are
@@ -21,10 +24,11 @@ parameters, and match-pattern bindings shadow same-named function declarations
 for selected-entry reachability; a shadowed bare name is treated as the local
 value, not as a function declaration value. The implemented execution fixtures
 cover function declarations used as function-typed values, function-typed value
-calls, contract helper reachability, contract function value reachability,
-imported-call reachable-hole blocking, selected-entry reachable-hole blocking,
-local shadowing of function declarations, and selected-entry concurrency
-blockers before JVM execution.
+calls, opaque function-typed value call reachability, contract helper
+reachability, contract function value reachability, imported-call
+reachable-hole blocking, selected-entry reachable-hole blocking, local
+shadowing of function declarations, and selected-entry concurrency blockers
+before JVM execution.
 When a function or test body omits the final expression line, checked core and
 typed IR materialize that omission as an explicit `()` return.
 

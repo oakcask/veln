@@ -1739,6 +1739,75 @@ fn run_blocks_holes_reachable_through_qualified_function_values_before_jdk_execu
 }
 
 #[test]
+fn run_blocks_holes_reachable_through_opaque_function_value_calls_before_jdk_execution() {
+    let project = TestProject::new("run-opaque-function-value-hole");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn invoke(job: fn() -> Bool) -> Bool effects []\n",
+            "  job()\n",
+            "end\n",
+            "fn ready() -> Bool effects []\n",
+            "  true\n",
+            "end\n",
+            "fn risky() -> Bool effects []\n",
+            "  _\n",
+            "end\n",
+            "pub fn main() -> Bool effects []\n",
+            "  invoke(ready)\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "hint[hole.unfilled]: hole requires a `Bool` value",
+            "veln: run blocked: checked program is not executable",
+        ],
+    );
+}
+
+#[test]
+fn run_blocks_holes_reachable_through_opaque_local_function_value_calls_before_jdk_execution() {
+    let project = TestProject::new("run-opaque-local-function-value-hole");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn invoke() -> Bool effects []\n",
+            "  let job: fn() -> Bool = ready\n",
+            "  job()\n",
+            "end\n",
+            "fn ready() -> Bool effects []\n",
+            "  true\n",
+            "end\n",
+            "fn risky() -> Bool effects []\n",
+            "  _\n",
+            "end\n",
+            "pub fn main() -> Bool effects []\n",
+            "  invoke()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "hint[hole.unfilled]: hole requires a `Bool` value",
+            "veln: run blocked: checked program is not executable",
+        ],
+    );
+}
+
+#[test]
 fn run_blocks_holes_reachable_through_contract_helpers_before_jdk_execution() {
     let project = TestProject::new("run-contract-helper-hole");
     project.write(

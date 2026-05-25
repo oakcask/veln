@@ -144,19 +144,7 @@ No accepted formatting follow-up is currently tracked here.
 
 ## Lowering And Execution
 
-- Reachable-hole blocking follows the selected entry, direct function-name
-  calls, bare and `use` alias-qualified function declaration values used in
-  reachable expressions, function calls in contract predicates, and bare or
-  `use` alias-qualified function declaration values passed as contract call
-  arguments. Bare function references from a named source module now resolve
-  reachability only to functions owned by that same module. Qualified calls and
-  qualified function values through `use` aliases resolve reachability to
-  functions in the imported source module without including same-named
-  functions from other modules. Local bindings, parameters, and match-pattern
-  bindings now shadow same-named function declarations during selected-entry
-  reachability. Broader conservative handling for future higher-order values
-  beyond visible declaration values and module initializers remains follow-up
-  work.
+No accepted lowering and execution follow-up is currently tracked here.
 
 ## Test Discovery And Events
 
