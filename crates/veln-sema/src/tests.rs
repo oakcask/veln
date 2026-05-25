@@ -3581,6 +3581,184 @@ fn contract_predicate_accepts_nested_pure_function_call_arguments() {
 }
 
 #[test]
+fn contract_predicate_accepts_arithmetic_function_call_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn positive(value: Int) -> Bool effects []\n",
+            "  value > 0\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require positive(value + 1)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_predicate_accepts_arithmetic_function_call_comparisons() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn next(value: Int) -> Int effects []\n",
+            "  value + 1\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require next(value) + 1 > 0\n",
+            "require (next(value) * 2) > 0\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_predicate_accepts_arithmetic_comparisons() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int, ratio: Float) -> Int effects []\n",
+            "require value + 1 > 0\n",
+            "require ratio + 1.5 > 0.0\n",
+            "require not (value * 2 < 0)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_predicate_rejects_non_numeric_call_in_arithmetic_comparison() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn label(value: Int) -> String effects []\n",
+            "  \"item\"\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require label(value) + 1 > 0\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.type_mismatch"
+            && diagnostic.kind == DiagnosticKind::Contract
+            && diagnostic.message == "contract predicate is not `Bool`"
+    }));
+}
+
+#[test]
+fn contract_predicate_rejects_arithmetic_as_non_boolean_predicate() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require value + 1\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.type_mismatch"
+            && diagnostic.kind == DiagnosticKind::Contract
+            && diagnostic.message == "contract predicate is not `Bool`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch" && diagnostic.message == "expected `Bool`, but found `Int`"
+    }));
+}
+
+#[test]
+fn contract_predicate_rejects_arithmetic_function_call_as_non_boolean_predicate() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn next(value: Int) -> Int effects []\n",
+            "  value + 1\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require next(value) + 1\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.type_mismatch"
+            && diagnostic.kind == DiagnosticKind::Contract
+            && diagnostic.message == "contract predicate is not `Bool`"
+    }));
+}
+
+#[test]
+fn contract_predicate_rejects_not_on_non_boolean_arithmetic() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require not value + 1\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.type_mismatch"
+            && diagnostic.kind == DiagnosticKind::Contract
+            && diagnostic.message == "contract predicate is not `Bool`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.mismatch"
+            && diagnostic.message == "expected `Bool`, but found `unknown`"
+    }));
+}
+
+#[test]
 fn contract_predicate_rejects_effectful_function_calls() {
     let source = SourceFile::new(
         "main.veln",

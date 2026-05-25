@@ -9,7 +9,8 @@ use veln_source::SourceSpan;
 
 use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text, is_contract_keyword,
-    missing_contract_field, predicate_is_boolean, predicate_rendered_type, referenced_names,
+    missing_contract_field, predicate_is_boolean_with_calls, predicate_rendered_type_with_calls,
+    predicate_type_with_calls, referenced_names,
 };
 use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, module_details, span_json,
@@ -900,6 +901,7 @@ impl<'a> FunctionChecker<'a> {
             }
             if signature.return_type != Type::bool()
                 && !contract_call_result_is_compared(trimmed, call.start, call.end)
+                && !contract_call_result_feeds_boolean_predicate(trimmed, call.start, call.end)
                 && !contract_call_is_argument(&calls, call_index)
             {
                 return ContractValidation::NonBoolean {
@@ -965,11 +967,19 @@ impl<'a> FunctionChecker<'a> {
         if let Some((base_type, field)) = missing_contract_field(trimmed, bindings) {
             return ContractValidation::MissingField { base_type, field };
         }
-        if predicate_is_boolean(trimmed, bindings) {
+        if predicate_is_boolean_with_calls(trimmed, bindings, &|callee| {
+            self.environment
+                .function_path(&contract_callee_segments(callee))
+                .map(|signature| signature.return_type.clone())
+        }) {
             ContractValidation::Valid
         } else {
             ContractValidation::NonBoolean {
-                actual_type: predicate_rendered_type(trimmed, bindings),
+                actual_type: predicate_rendered_type_with_calls(trimmed, bindings, &|callee| {
+                    self.environment
+                        .function_path(&contract_callee_segments(callee))
+                        .map(|signature| signature.return_type.clone())
+                }),
             }
         }
     }
@@ -993,6 +1003,13 @@ impl<'a> FunctionChecker<'a> {
                     .map(|signature| signature.return_type.clone())
                     .unwrap_or(Type::Unknown);
             }
+        }
+        if let Some(ty) = predicate_type_with_calls(trimmed, bindings, &|callee| {
+            self.environment
+                .function_path(&contract_callee_segments(callee))
+                .map(|signature| signature.return_type.clone())
+        }) {
+            return ty;
         }
         let mut parts = trimmed.split('.');
         let Some(base) = parts.next() else {
@@ -3456,6 +3473,82 @@ fn contract_call_result_is_compared(predicate: &str, start: usize, end: usize) -
         || after.starts_with(">=")
         || after.starts_with('<')
         || after.starts_with('>')
+}
+
+fn contract_call_result_feeds_boolean_predicate(predicate: &str, start: usize, end: usize) -> bool {
+    let Some(call_depth) = paren_depth_before(predicate, start) else {
+        return false;
+    };
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, ch) in predicate.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            _ if index < start || index >= end => {
+                if depth <= call_depth && predicate[index..].starts_with_comparison_operator() {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn paren_depth_before(text: &str, offset: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, ch) in text.char_indices() {
+        if index >= offset {
+            return Some(depth);
+        }
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+    }
+    Some(depth)
+}
+
+trait StartsWithComparisonOperator {
+    fn starts_with_comparison_operator(&self) -> bool;
+}
+
+impl StartsWithComparisonOperator for str {
+    fn starts_with_comparison_operator(&self) -> bool {
+        self.starts_with("==")
+            || self.starts_with("!=")
+            || self.starts_with("<=")
+            || self.starts_with(">=")
+            || self.starts_with('<')
+            || self.starts_with('>')
+    }
 }
 
 fn contract_call_is_argument(calls: &[ContractCall], call_index: usize) -> bool {

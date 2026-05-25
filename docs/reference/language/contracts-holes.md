@@ -21,7 +21,8 @@ After parsing, the checker validates a small pure boolean subset:
 - `true` and `false`
 - boolean bindings visible to the clause
 - `and`, `or`, and `not`
-- comparison and equality operators
+- arithmetic expressions over numeric literals and visible numeric bindings
+- comparison and equality operators over compatible operands
 - field access on record-typed bindings visible to the clause
 - calls to discovered pure functions when arguments are assignable to the
   declared parameter types and the return type fits the predicate position
@@ -29,10 +30,18 @@ After parsing, the checker validates a small pure boolean subset:
 - visible parameter bindings
 - explicit result bindings in `ensure` clauses
 
+Contract call arguments may use the same validated pure subset, including
+numeric arithmetic and field access. A bare arithmetic expression such as
+`value + 1` is valid syntax but not a boolean predicate, so it reports a
+non-boolean contract diagnostic instead of becoming a runtime obligation.
+Pure function calls that return numeric values may participate in arithmetic
+operands of comparison predicates, such as `next(value) + 1 > 0`.
+
 Contract predicates containing `stdio::`, effectful function calls,
-unsupported call targets, empty predicates, missing record fields, non-boolean
-predicates, or unresolved names produce diagnostics. Valid contracts are
-recorded and may contribute hole repair constraints.
+unsupported call targets, empty predicates, missing record fields,
+type-incompatible call arguments, non-boolean predicates, or unresolved names
+produce diagnostics. Valid contracts are recorded and may contribute hole
+repair constraints.
 
 Valid contract clauses are runtime obligations for executable `run` and `test`
 entry paths. `require` clauses are checked when a function is entered.

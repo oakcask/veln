@@ -259,8 +259,9 @@ contract predicates before semantic checking. A syntactically valid predicate
 may still fail contract validation. Function calls must resolve to discovered
 pure functions. Bare calls resolve against the current program's function
 names, and qualified calls resolve through `use` aliases. Call arguments must
-be assignable to declared parameter types, and field access must resolve
-through record-typed values visible to the clause.
+be assignable to declared parameter types. Numeric return values from pure
+calls may be used inside arithmetic operands of comparison predicates. Field
+access must resolve through record-typed values visible to the clause.
 
 Valid clauses are executable obligations. `require` is checked at function
 entry. `ensure` is checked before an ordinary tail-expression return and may

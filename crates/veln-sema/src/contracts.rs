@@ -185,37 +185,99 @@ pub(crate) fn missing_contract_field(
     None
 }
 
-pub(crate) fn predicate_is_boolean(predicate: &str, bindings: &[Binding]) -> bool {
+pub(crate) fn predicate_is_boolean_with_calls(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> bool {
     let trimmed = predicate.trim();
-    if matches!(trimmed, "true" | "false") {
-        return true;
-    }
-    if trimmed.contains(" and ")
-        || trimmed.contains(" or ")
-        || trimmed.starts_with("not ")
-        || ["==", "!=", "<=", ">=", "<", ">"]
-            .iter()
-            .any(|operator| trimmed.contains(operator))
-    {
-        return true;
-    }
-    predicate_type(trimmed, bindings).is_some_and(
+    predicate_type_with_calls(trimmed, bindings, call_type).is_some_and(
         |ty| matches!(ty, Type::Named { name, args } if name == "Bool" && args.is_empty()),
     )
 }
 
-pub(crate) fn predicate_rendered_type(predicate: &str, bindings: &[Binding]) -> String {
+pub(crate) fn predicate_rendered_type_with_calls(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> String {
     let trimmed = predicate.trim();
-    if trimmed.starts_with('"') {
-        return Type::string().render();
-    }
-    if trimmed.chars().all(|ch| ch.is_ascii_digit()) {
-        return Type::int().render();
-    }
-    predicate_type(trimmed, bindings).map_or_else(|| "unknown".to_string(), |ty| ty.render())
+    predicate_type_with_calls(trimmed, bindings, call_type)
+        .map_or_else(|| "unknown".to_string(), |ty| ty.render())
 }
 
-fn predicate_type(predicate: &str, bindings: &[Binding]) -> Option<Type> {
+pub(crate) fn predicate_type_with_calls(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if predicate.is_empty() {
+        return None;
+    }
+    if matches!(predicate, "true" | "false") {
+        return Some(Type::bool());
+    }
+    if predicate == "()" {
+        return Some(Type::unit());
+    }
+    if predicate.starts_with('"') {
+        return Some(Type::string());
+    }
+    if predicate.chars().all(|ch| ch.is_ascii_digit()) {
+        return Some(Type::int());
+    }
+    if is_float_literal(predicate) {
+        return Some(Type::float());
+    }
+    if let Some(rest) = predicate.strip_prefix("not ") {
+        return (predicate_type_with_calls(rest, bindings, call_type)? == Type::bool())
+            .then(Type::bool);
+    }
+    if let Some(rest) = predicate.strip_prefix("not(") {
+        let inner = rest.strip_suffix(')')?;
+        return (predicate_type_with_calls(inner, bindings, call_type)? == Type::bool())
+            .then(Type::bool);
+    }
+    if let Some(rest) = predicate.strip_prefix('-') {
+        let ty = predicate_type_with_calls(rest, bindings, call_type)?;
+        return matches!(ty, Type::Named { ref name, ref args } if args.is_empty() && (name == "Int" || name == "Float"))
+            .then_some(ty);
+    }
+    for operator in [" or ", " and "] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let left = predicate_type_with_calls(left, bindings, call_type)?;
+            let right = predicate_type_with_calls(right, bindings, call_type)?;
+            return (left == Type::bool() && right == Type::bool()).then(Type::bool);
+        }
+    }
+    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let left = predicate_type_with_calls(left, bindings, call_type)?;
+            let right = predicate_type_with_calls(right, bindings, call_type)?;
+            return comparable_predicate_operands(&left, &right).then(Type::bool);
+        }
+    }
+    for operator in ["+", "-"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let left = predicate_type_with_calls(left, bindings, call_type)?;
+            let right = predicate_type_with_calls(right, bindings, call_type)?;
+            return numeric_result_type(&left, &right);
+        }
+    }
+    for operator in ["*", "/"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let left = predicate_type_with_calls(left, bindings, call_type)?;
+            let right = predicate_type_with_calls(right, bindings, call_type)?;
+            return numeric_result_type(&left, &right);
+        }
+    }
+    if let [call] = contract_calls(predicate).as_slice()
+        && call.start == 0
+        && call.end == predicate.len()
+    {
+        return call_type(&call.callee);
+    }
     if let Some(binding) = bindings.iter().find(|binding| binding.name == predicate) {
         return Some(binding.ty.clone());
     }
@@ -227,6 +289,95 @@ fn predicate_type(predicate: &str, bindings: &[Binding]) -> Option<Type> {
         current = current.record_field(field)?.clone();
     }
     Some(current)
+}
+
+fn comparable_predicate_operands(left: &Type, right: &Type) -> bool {
+    left == right || (is_numeric_type(left) && is_numeric_type(right))
+}
+
+fn numeric_result_type(left: &Type, right: &Type) -> Option<Type> {
+    if !is_numeric_type(left) || !is_numeric_type(right) {
+        return None;
+    }
+    if left == &Type::float() || right == &Type::float() {
+        Some(Type::float())
+    } else {
+        Some(Type::int())
+    }
+}
+
+fn is_numeric_type(ty: &Type) -> bool {
+    ty == &Type::int() || ty == &Type::float()
+}
+
+fn is_float_literal(text: &str) -> bool {
+    let Some((left, right)) = text.split_once('.') else {
+        return false;
+    };
+    !left.is_empty()
+        && !right.is_empty()
+        && left.chars().all(|ch| ch.is_ascii_digit())
+        && right.chars().all(|ch| ch.is_ascii_digit())
+}
+
+fn split_top_level_operator<'a>(predicate: &'a str, operator: &str) -> Option<(&'a str, &'a str)> {
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, ch) in predicate.char_indices().rev() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            ')' => depth += 1,
+            '(' => depth = depth.saturating_sub(1),
+            _ if depth == 0 && predicate[index..].starts_with(operator) => {
+                let left = predicate[..index].trim();
+                let right = predicate[index + operator.len()..].trim();
+                if !left.is_empty() && !right.is_empty() {
+                    return Some((left, right));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn strip_balanced_outer_parens(text: &str) -> &str {
+    let mut trimmed = text.trim();
+    loop {
+        if !(trimmed.starts_with('(') && trimmed.ends_with(')')) {
+            return trimmed;
+        }
+        let mut depth = 0usize;
+        let mut balanced_outer = true;
+        for (index, ch) in trimmed.char_indices() {
+            match ch {
+                '(' => depth += 1,
+                ')' => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 && index != trimmed.len() - 1 {
+                        balanced_outer = false;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        if !balanced_outer || depth != 0 {
+            return trimmed;
+        }
+        trimmed = trimmed[1..trimmed.len() - 1].trim();
+    }
 }
 
 struct FieldAccess {
