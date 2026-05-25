@@ -90,6 +90,7 @@ The checker recognizes these channel-operation call targets for static type and
 effect checking:
 
 ```veln
+channel::bounded(capacity: Int) -> {tx: Sender(T), rx: Receiver(T)} effects [concurrency]
 channel::send(tx: Sender(T), value: T) -> Result((), SendError) effects [concurrency]
 channel::recv(rx: Receiver(T)) -> Option(T) effects [concurrency]
 channel::close(tx: Sender(T)) -> () effects [concurrency]
@@ -97,10 +98,16 @@ channel::close(tx: Sender(T)) -> () effects [concurrency]
 
 Direct calls to these functions infer the `concurrency` effect. A public
 function or test that calls one of them must declare `concurrency` in its
-`effects [...]` list. The channel runtime is not executable in the implemented
-slice; a selected entry that otherwise passes static checking but reaches one
-of these calls blocks executable IR with
-`core.concurrency_runtime_unsupported`.
+`effects [...]` list.
+
+`channel::bounded(capacity)` creates a bounded channel pair. Its item type is
+inferred from the expected record type, such as
+`{tx: Sender(String), rx: Receiver(String)}`. `channel::send` returns `Ok(())`
+when the value is queued and `Err(SendError)` when the sender cannot accept the
+value. `channel::recv` returns `Some(value)` for a queued value and `None` when
+no value is currently available. A zero-capacity channel has no queue storage,
+so the current non-blocking runtime rejects an unpaired send instead of
+buffering it. `channel::close` closes the sender endpoint and returns `()`.
 
 Executable-command reachability also follows pure helper calls used in
 reachable contract predicates, so blockers inside those helpers are reported

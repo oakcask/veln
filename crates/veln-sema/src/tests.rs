@@ -1627,12 +1627,17 @@ fn channel_calls_require_concurrency_effect() {
 }
 
 #[test]
-fn declared_concurrency_calls_block_executable_core_until_runtime_exists() {
+fn declared_concurrency_calls_lower_to_executable_ir() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(rx: Receiver(String)) -> Option(String) effects [concurrency]\n",
-            "  channel::recv(rx)\n",
+            "pub fn main() -> String effects [concurrency]\n",
+            "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let _ = channel::send(pair.tx, \"hello\")\n",
+            "  match channel::recv(pair.rx)\n",
+            "    Some(value) => value\n",
+            "    None => \"missing\"\n",
+            "  end\n",
             "end\n",
         ),
     );
@@ -1641,22 +1646,27 @@ fn declared_concurrency_calls_block_executable_core_until_runtime_exists() {
 
     let lowered = lower_checked_surface_module(&module);
 
-    assert_eq!(lowered.diagnostics.len(), 1, "{:#?}", lowered.diagnostics);
-    assert_eq!(
-        lowered.diagnostics[0].id,
-        "core.concurrency_runtime_unsupported"
-    );
-    let core = lowered.core.expect("blocked checked core should be built");
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
     assert!(matches!(
-        core.readiness,
-        CoreReadiness::Blocked(ref blockers)
+        lowered
+            .core
+            .expect("checked core should be built")
+            .readiness,
+        CoreReadiness::Complete
+    ));
+    let ir = lowered.ir.expect("concurrency calls should lower to IR");
+    let main = &ir.functions[0];
+    assert!(matches!(
+        &main.body[0].kind,
+        IrStmtKind::Let { value, .. }
             if matches!(
-                blockers.as_slice(),
-                [CoreBlocker::UnsupportedExpression { reason, .. }]
-                    if reason == "concurrency_runtime_unsupported"
+                &value.kind,
+                IrExprKind::Call {
+                    target: IrCallTarget::ConcurrencyBuiltin(name),
+                    ..
+                } if name == "channel::bounded"
             )
     ));
-    assert!(lowered.ir.is_none());
 }
 
 #[test]

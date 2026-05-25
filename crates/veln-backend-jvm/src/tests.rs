@@ -88,6 +88,106 @@ fn generates_runtime_values_for_dictionary_literals() {
 }
 
 #[test]
+fn generates_runtime_calls_for_bounded_channels() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> String effects [concurrency]\n",
+        "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  let _ = channel::send(pair.tx, \"hello\")\n",
+        "  match channel::recv(pair.rx)\n",
+        "    Some(value) => value\n",
+        "    None => \"missing\"\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("VelnRuntime.channelBounded(Long.valueOf(1L))"));
+    assert!(program.contains("VelnRuntime.channelSend("));
+    assert!(program.contains("VelnRuntime.channelRecv("));
+    assert!(runtime.contains("public static final class Channel"));
+    assert!(runtime.contains("private final long capacity;"));
+    assert!(runtime.contains("public static Object channelBounded"));
+}
+
+#[test]
+fn generated_runtime_treats_zero_capacity_channel_as_rendezvous() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [concurrency]\n",
+        "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(0)\n",
+        "  let _ = channel::send(pair.tx, \"hello\")\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+    let root = temp_dir("zero-capacity-channel");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("ChannelProbe.java"),
+        r#"public final class ChannelProbe {
+    private ChannelProbe() {}
+
+    public static void main(String[] args) {
+        Object pair = VelnRuntime.channelBounded(Long.valueOf(0L));
+        Object tx = VelnRuntime.recordField(pair, "tx");
+        Object rx = VelnRuntime.recordField(pair, "rx");
+        Object send = VelnRuntime.channelSend(tx, "hello");
+        if (!VelnRuntime.isErr(send)) {
+            throw new AssertionError("zero-capacity send should not enqueue without receiver");
+        }
+        if (!VelnRuntime.isNone(VelnRuntime.channelRecv(rx))) {
+            throw new AssertionError("zero-capacity channel should remain empty");
+        }
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("ChannelProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("ChannelProbe")
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        java.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&java.stdout),
+        String::from_utf8_lossy(&java.stderr)
+    );
+}
+
+#[test]
 fn generates_record_pattern_matching() {
     let ir = lower_to_ir(concat!(
         "pub fn main(value: {count: Int, label: String}) -> String effects []\n",

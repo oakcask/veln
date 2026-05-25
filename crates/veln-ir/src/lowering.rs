@@ -221,6 +221,9 @@ fn lower_call_target(
     match target {
         CoreCallTarget::Function(name) => Ok(IrCallTarget::Function(name.clone())),
         CoreCallTarget::StdioBuiltin(name) => Ok(IrCallTarget::StdioBuiltin(name.clone())),
+        CoreCallTarget::ConcurrencyBuiltin(name) => {
+            Ok(IrCallTarget::ConcurrencyBuiltin(name.clone()))
+        }
         CoreCallTarget::PreludeBuiltin(name) => Ok(IrCallTarget::PreludeBuiltin(name.clone())),
         CoreCallTarget::Value(name) => Ok(IrCallTarget::Value(name.clone())),
         CoreCallTarget::Unresolved(symbol) => Err(IrLowerError::UnresolvedCallTarget {

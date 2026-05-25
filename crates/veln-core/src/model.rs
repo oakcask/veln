@@ -123,6 +123,7 @@ pub enum CoreExprKind {
 pub enum CoreCallTarget {
     Function(String),
     StdioBuiltin(String),
+    ConcurrencyBuiltin(String),
     PreludeBuiltin(String),
     Value(String),
     Unresolved(String),

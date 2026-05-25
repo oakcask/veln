@@ -31,7 +31,7 @@ The JVM backend generates Java source for the implemented IR subset:
 - record field access
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls
-- static recognition of channel concurrency calls as non-executable blockers
+- bounded channel construction, send, receive, and close calls
 - pipelines with named or qualified call targets lowered to calls with the
   left expression inserted as the first argument
 - runtime `require` checks at function entry and runtime `ensure` checks before
@@ -43,6 +43,15 @@ lists, and dictionary update results. Values returned to Veln user code are
 frozen at that boundary: records and dictionaries are exposed as unmodifiable
 maps, lists are exposed as unmodifiable lists, and prelude container updates
 return new frozen containers instead of mutating the input value in place.
+
+Bounded channel values are backend-owned runtime handles. `channel::bounded`
+returns a record with `tx` and `rx` fields. Sending freezes the sent value
+before it crosses the channel boundary. Receiving is non-blocking in the
+implemented runtime: it returns `Some(value)` when a queued value exists and
+`None` otherwise. A capacity of zero creates a no-buffer channel; because the
+implemented runtime has no blocking rendezvous scheduling, a direct send on
+that channel returns `Err(SendError)` when no receiver is already paired.
+Closing the sender endpoint prevents later sends from succeeding.
 
 This freeze rule is an observable language boundary only through value
 immutability and update semantics. The exact JVM representation, copying

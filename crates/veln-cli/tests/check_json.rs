@@ -406,13 +406,18 @@ fn check_json_reports_checked_core_missing_expression_blocker() {
 }
 
 #[test]
-fn check_json_reports_checked_core_concurrency_runtime_blocker() {
+fn check_json_accepts_executable_concurrency_runtime_calls() {
     let project = TestProject::new("check-json-core-concurrency-runtime");
     project.write(
         "main.veln",
         concat!(
-            "pub fn main(rx: Receiver(String)) -> Option(String) effects [concurrency]\n",
-            "  channel::recv(rx)\n",
+            "pub fn main() -> String effects [concurrency]\n",
+            "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let _ = channel::send(pair.tx, \"hello\")\n",
+            "  match channel::recv(pair.rx)\n",
+            "    Some(value) => value\n",
+            "    None => \"missing\"\n",
+            "  end\n",
             "end\n",
         ),
     );
@@ -420,18 +425,13 @@ fn check_json_reports_checked_core_concurrency_runtime_blocker() {
     let output = project.check_json(&["main.veln"]);
     let stdout = stdout(&output);
 
-    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert!(output.status.success(), "{}", stderr(&output));
     assert_contains_all(
         stdout,
         &[
-            "\"id\":\"core.concurrency_runtime_unsupported\"",
-            "\"severity\":\"error\"",
-            "\"kind\":\"type\"",
-            "\"message\":\"concurrency call `channel::recv` is not executable yet\"",
-            "\"details\":{\"phase\":\"core_lowering\"",
-            "\"reason\":\"concurrency_runtime_unsupported\"",
-            "\"symbol\":\"channel::recv\"",
-            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"type\":1}}",
+            "\"status\":\"ok\"",
+            "\"diagnostics\":[]",
+            "\"summary\":{\"diagnostic_count\":0,\"by_severity\":{},\"by_kind\":{}}",
         ],
     );
 }
@@ -480,27 +480,27 @@ fn check_human_reports_checked_core_missing_expression_blocker() {
 }
 
 #[test]
-fn check_human_reports_checked_core_concurrency_runtime_blocker() {
+fn check_human_accepts_executable_concurrency_runtime_calls() {
     let project = TestProject::new("check-human-core-concurrency-runtime");
     project.write(
         "main.veln",
         concat!(
-            "pub fn main(rx: Receiver(String)) -> Option(String) effects [concurrency]\n",
-            "  channel::recv(rx)\n",
+            "pub fn main() -> String effects [concurrency]\n",
+            "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let _ = channel::send(pair.tx, \"hello\")\n",
+            "  match channel::recv(pair.rx)\n",
+            "    Some(value) => value\n",
+            "    None => \"missing\"\n",
+            "  end\n",
             "end\n",
         ),
     );
 
     let output = project.veln(&["check"], &["main.veln"]);
 
-    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert!(output.status.success(), "{}", stderr(&output));
     assert_eq!(stderr(&output), "");
-    assert_contains_all(
-        stdout(&output),
-        &[
-            "main.veln:2:3: error[core.concurrency_runtime_unsupported]: concurrency call `channel::recv` is not executable yet",
-        ],
-    );
+    assert_eq!(stdout(&output), "ok\n");
 }
 
 #[test]
@@ -1448,6 +1448,36 @@ fn run_executes_function_typed_value_calls_when_jdk_is_available() {
 
     assert!(output.status.success(), "{}", stderr(&output));
     assert_eq!(stdout(&output), "");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
+fn run_executes_bounded_channel_send_and_receive_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-bounded-channel");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> () effects [concurrency, stdio]\n",
+            "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let _ = channel::send(pair.tx, \"hello\")\n",
+            "  let output: String = match channel::recv(pair.rx)\n",
+            "    Some(value) => value\n",
+            "    None => \"missing\"\n",
+            "  end\n",
+            "  stdio::println(output)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "hello\n");
     assert_eq!(stderr(&output), "");
 }
 

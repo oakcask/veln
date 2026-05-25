@@ -621,6 +621,29 @@ impl<'a> CoreLowerer<'a> {
             }
             if is_concurrency_call(segments) {
                 let signature = core_concurrency_signature(segments, expected);
+                if let Some((params, _)) = &signature {
+                    if args.len() != params.len() {
+                        self.unsupported_expression(
+                            expr,
+                            "call_arity_mismatch",
+                            format!(
+                                "call expects {} argument(s), but got {}",
+                                params.len(),
+                                args.len()
+                            ),
+                            Some(JsonValue::object([
+                                (
+                                    "expected_argument_count",
+                                    JsonValue::Number(params.len() as i64),
+                                ),
+                                (
+                                    "actual_argument_count",
+                                    JsonValue::Number(args.len() as i64),
+                                ),
+                            ])),
+                        );
+                    }
+                }
                 let lowered_args = args
                     .iter()
                     .enumerate()
@@ -629,25 +652,13 @@ impl<'a> CoreLowerer<'a> {
                         self.lower_expr(arg, expected)
                     })
                     .collect();
-                self.unsupported_expression(
-                    expr,
-                    "concurrency_runtime_unsupported",
-                    format!(
-                        "concurrency call `{}` is not executable yet",
-                        segments.join("::")
-                    ),
-                    Some(JsonValue::object([(
-                        "symbol",
-                        JsonValue::string(segments.join("::")),
-                    )])),
-                );
                 return self.core_expr(
                     expr,
                     signature
                         .map(|(_, return_type)| return_type)
                         .unwrap_or(CoreType::Unknown),
                     CoreExprKind::Call {
-                        target: CoreCallTarget::Unresolved(segments.join("::")),
+                        target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
                         args: lowered_args,
                     },
                 );
@@ -1061,6 +1072,14 @@ impl<'a> CoreLowerer<'a> {
                 target: CoreCallTarget::StdioBuiltin(segments.join("::")),
                 params: vec![CoreType::string()],
                 return_type: CoreType::unit(),
+            });
+        }
+        if is_concurrency_call(segments) {
+            let (params, return_type) = core_concurrency_signature(segments, expected)?;
+            return Some(CoreCallSignature {
+                target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
+                params,
+                return_type,
             });
         }
         if let [name] = segments.as_slice() {

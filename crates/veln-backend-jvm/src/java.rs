@@ -45,6 +45,16 @@ pub(crate) fn prelude_method(name: &str) -> &'static str {
     }
 }
 
+pub(crate) fn concurrency_method(name: &str) -> &'static str {
+    match name {
+        "channel::bounded" => "channelBounded",
+        "channel::send" => "channelSend",
+        "channel::recv" => "channelRecv",
+        "channel::close" => "channelClose",
+        _ => "channelRecv",
+    }
+}
+
 pub(crate) fn binary_method(op: BinaryOp) -> &'static str {
     match op {
         BinaryOp::PipeGreater => "pipe",

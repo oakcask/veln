@@ -109,6 +109,7 @@ pub enum IrExprKind {
 pub enum IrCallTarget {
     Function(String),
     StdioBuiltin(String),
+    ConcurrencyBuiltin(String),
     PreludeBuiltin(String),
     Value(String),
 }

@@ -269,6 +269,37 @@ impl<'a> ProgramEmitter<'a> {
         Object call(Object... args);
     }}
 
+    public static final class Channel {{
+        private final java.util.ArrayDeque<Object> queue;
+        private final long capacity;
+        private boolean closed;
+
+        private Channel(long capacity) {{
+            if (capacity < 0L || capacity > Integer.MAX_VALUE) {{
+                throw new IllegalArgumentException("channel capacity is out of range");
+            }}
+            this.queue = new java.util.ArrayDeque<Object>();
+            this.capacity = capacity;
+            this.closed = false;
+        }}
+    }}
+
+    public static final class Sender {{
+        private final Channel channel;
+
+        private Sender(Channel channel) {{
+            this.channel = channel;
+        }}
+    }}
+
+    public static final class Receiver {{
+        private final Channel channel;
+
+        private Receiver(Channel channel) {{
+            this.channel = channel;
+        }}
+    }}
+
     public static Result ok(Object value) {{
         return Result.ok(value);
     }}
@@ -283,6 +314,44 @@ impl<'a> ProgramEmitter<'a> {
 
     public static Option none() {{
         return Option.none();
+    }}
+
+    public static Object channelBounded(Object capacity) {{
+        Channel channel = new Channel(asLong(capacity));
+        return record("tx", new Sender(channel), "rx", new Receiver(channel));
+    }}
+
+    public static Object channelSend(Object sender, Object value) {{
+        Sender tx = (Sender) sender;
+        synchronized (tx.channel) {{
+            if (tx.channel.closed) {{
+                return err("closed");
+            }}
+            if (tx.channel.queue.size() >= tx.channel.capacity) {{
+                return err("full");
+            }}
+            tx.channel.queue.addLast(freezeValue(value));
+            return ok(UNIT);
+        }}
+    }}
+
+    public static Object channelRecv(Object receiver) {{
+        Receiver rx = (Receiver) receiver;
+        synchronized (rx.channel) {{
+            Object value = rx.channel.queue.pollFirst();
+            if (value == null) {{
+                return none();
+            }}
+            return some(value);
+        }}
+    }}
+
+    public static Object channelClose(Object sender) {{
+        Sender tx = (Sender) sender;
+        synchronized (tx.channel) {{
+            tx.channel.closed = true;
+        }}
+        return UNIT;
     }}
 
     public static boolean isErr(Object value) {{
