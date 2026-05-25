@@ -670,12 +670,12 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
             Type::Function {
                 params: expected_params,
                 return_type: expected_return,
-                ..
+                effects: expected_effects,
             },
             Type::Function {
                 params: actual_params,
                 return_type: actual_return,
-                ..
+                effects: actual_effects,
             },
         ) => {
             expected_params.len() == actual_params.len()
@@ -684,9 +684,16 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
                     .zip(actual_params)
                     .all(|(expected, actual)| is_assignable(expected, actual))
                 && is_assignable(expected_return, actual_return)
+                && effects_are_assignable(expected_effects, actual_effects)
         }
         _ => false,
     }
+}
+
+fn effects_are_assignable(expected: &[String], actual: &[String]) -> bool {
+    actual
+        .iter()
+        .all(|effect| expected.iter().any(|expected| expected == effect))
 }
 
 pub(crate) fn parse_type_or_unknown(text: Option<&str>) -> Type {
@@ -1063,15 +1070,25 @@ mod tests {
             ),
         ]);
         let wrong_record = Type::Record(vec![("name".to_string(), Type::int())]);
-        let expected_function = Type::Function {
+        let expected_pure_function = Type::Function {
             params: vec![Type::int()],
             return_type: Box::new(Type::bool()),
             effects: Vec::new(),
         };
-        let actual_function = Type::Function {
+        let actual_effectful_function = Type::Function {
             params: vec![Type::int()],
             return_type: Box::new(Type::bool()),
             effects: vec!["stdio".to_string()],
+        };
+        let expected_effectful_function = Type::Function {
+            params: vec![Type::int()],
+            return_type: Box::new(Type::bool()),
+            effects: vec!["stdio".to_string()],
+        };
+        let actual_pure_function = Type::Function {
+            params: vec![Type::int()],
+            return_type: Box::new(Type::bool()),
+            effects: Vec::new(),
         };
         let wrong_function = Type::Function {
             params: vec![Type::int(), Type::int()],
@@ -1083,8 +1100,15 @@ mod tests {
         assert!(is_assignable(&Type::string(), &Type::Unknown));
         assert!(is_assignable(&expected_record, &actual_record));
         assert!(!is_assignable(&expected_record, &wrong_record));
-        assert!(is_assignable(&expected_function, &actual_function));
-        assert!(!is_assignable(&expected_function, &wrong_function));
+        assert!(is_assignable(
+            &expected_effectful_function,
+            &actual_pure_function
+        ));
+        assert!(!is_assignable(
+            &expected_pure_function,
+            &actual_effectful_function
+        ));
+        assert!(!is_assignable(&expected_pure_function, &wrong_function));
         assert!(!is_assignable(&Type::int(), &Type::float()));
     }
 

@@ -1422,6 +1422,33 @@ fn lowers_function_return_types_with_effects() {
 }
 
 #[test]
+fn function_return_effects_must_cover_actual_callable_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn printer(text: String) -> () effects [stdio]\n",
+            "  stdio::println(text)\n",
+            "  ()\n",
+            "end\n",
+            "pub fn callback_factory() -> fn(String) -> () effects [] effects []\n",
+            "  printer\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `fn(String) -> ()`, but found `fn(String) -> () effects [stdio]`"
+    );
+}
+
+#[test]
 fn call_resolution_prefers_local_callable_over_function_declaration() {
     let source = SourceFile::new(
         "main.veln",
