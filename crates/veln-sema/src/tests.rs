@@ -3510,6 +3510,30 @@ fn contract_boolean_field_access_is_a_boolean_predicate() {
 }
 
 #[test]
+fn contract_predicate_accepts_pure_call_result_field_access() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn summary(value: Int) -> {total: Int, ready: Bool} effects []\n",
+            "  {total: value, ready: true}\n",
+            "end\n",
+            "pub fn identity(value: Int) -> output: Int effects []\n",
+            "require summary(value).ready\n",
+            "ensure summary(output).total >= value\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn contract_predicate_accepts_pure_boolean_function_calls() {
     let source = SourceFile::new(
         "main.veln",
@@ -3895,6 +3919,37 @@ fn contract_missing_record_field_reports_contract_diagnostic() {
         concat!(
             "pub fn identity(value: {total: Int}) -> output: {total: Int} effects []\n",
             "ensure output.missing == value.total\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "contract.field_missing"
+            && diagnostic.kind == DiagnosticKind::Contract
+            && diagnostic.message == "contract field `missing` is not present on `{total: Int}`"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"missing_field\"")
+    }));
+}
+
+#[test]
+fn contract_missing_call_result_field_reports_contract_diagnostic() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn summary(value: Int) -> {total: Int} effects []\n",
+            "  {total: value}\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require summary(value).missing == 1\n",
             "  value\n",
             "end\n",
         ),

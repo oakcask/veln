@@ -29,9 +29,11 @@ records, lists, pipelines, or `match`.
 - A pure function call may be used directly when it returns `Bool`.
 - A pure function call that returns another type may appear where its result is
   compared or passed as an argument to another pure call.
+- A pure function call that returns a record may feed field access, and the
+  selected field type determines whether the surrounding predicate is valid.
 - Call arguments must be assignable to the declared parameter types.
-- Effectful calls, qualified call targets, unresolved calls, arity mismatches,
-  and argument type mismatches are contract-language rejections.
+- Effectful calls, unresolved calls, arity mismatches, argument type
+  mismatches, and missing fields are contract-language rejections.
 - Contract diagnostics distinguish type failures from contract-language
   rejections so repair tooling can decide whether to change the predicate,
   adjust purity or effects, or move logic into a pure helper.

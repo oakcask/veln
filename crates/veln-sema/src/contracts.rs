@@ -169,17 +169,17 @@ pub(crate) fn is_contract_keyword(name: &str) -> bool {
 pub(crate) fn missing_contract_field(
     predicate: &str,
     bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<(String, String)> {
     for access in field_accesses(predicate) {
-        let Some(binding) = bindings.iter().find(|binding| binding.name == access.base) else {
+        let Some(mut current) = predicate_type_with_calls(&access.base, bindings, call_type) else {
             continue;
         };
-        let mut current = &binding.ty;
         for field in access.fields {
             let Some(next) = current.record_field(&field) else {
                 return Some((current.render(), field));
             };
-            current = next;
+            current = next.clone();
         }
     }
     None
@@ -271,6 +271,13 @@ pub(crate) fn predicate_type_with_calls(
             let right = predicate_type_with_calls(right, bindings, call_type)?;
             return numeric_result_type(&left, &right);
         }
+    }
+    if let Some(access) = split_field_access(predicate) {
+        let mut current = predicate_type_with_calls(access.base, bindings, call_type)?;
+        for field in access.fields {
+            current = current.record_field(field)?.clone();
+        }
+        return Some(current);
     }
     if let [call] = contract_calls(predicate).as_slice()
         && call.start == 0
@@ -385,9 +392,91 @@ struct FieldAccess {
     fields: Vec<String>,
 }
 
+struct FieldAccessRef<'a> {
+    base: &'a str,
+    fields: Vec<&'a str>,
+}
+
+fn split_field_access(predicate: &str) -> Option<FieldAccessRef<'_>> {
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut first_dot = None;
+    let mut fields = Vec::new();
+    let mut index = 0usize;
+    while index < predicate.len() {
+        let ch = predicate[index..].chars().next()?;
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            index += ch.len_utf8();
+            continue;
+        }
+        match ch {
+            '"' => {
+                in_string = true;
+                index += ch.len_utf8();
+            }
+            '(' => {
+                depth += 1;
+                index += ch.len_utf8();
+            }
+            ')' => {
+                depth = depth.saturating_sub(1);
+                index += ch.len_utf8();
+            }
+            '.' if depth == 0 => {
+                let field_start = index + ch.len_utf8();
+                let Some(field_first) = predicate[field_start..].chars().next() else {
+                    return None;
+                };
+                if !(field_first.is_ascii_alphabetic() || field_first == '_') {
+                    return None;
+                }
+                let mut field_end = field_start + field_first.len_utf8();
+                while field_end < predicate.len() {
+                    let next = predicate[field_end..].chars().next()?;
+                    if next.is_ascii_alphanumeric() || next == '_' {
+                        field_end += next.len_utf8();
+                    } else {
+                        break;
+                    }
+                }
+                first_dot.get_or_insert(index);
+                fields.push(&predicate[field_start..field_end]);
+                index = field_end;
+                let rest = predicate[index..].trim_start();
+                if rest.is_empty() {
+                    break;
+                }
+                if !rest.starts_with('.') {
+                    return None;
+                }
+            }
+            _ => index += ch.len_utf8(),
+        }
+    }
+    let dot = first_dot?;
+    let base = predicate[..dot].trim();
+    (!base.is_empty() && !fields.is_empty()).then_some(FieldAccessRef { base, fields })
+}
+
 fn field_accesses(predicate: &str) -> Vec<FieldAccess> {
     let bytes = predicate.as_bytes();
     let mut accesses = Vec::new();
+    for call in contract_calls(predicate) {
+        if let Some(fields) = field_suffix(&predicate[call.end..]) {
+            accesses.push(FieldAccess {
+                base: predicate[call.start..call.end].to_string(),
+                fields,
+            });
+        }
+    }
     let mut index = 0usize;
     while index < bytes.len() {
         let ch = bytes[index] as char;
@@ -441,4 +530,27 @@ fn field_accesses(predicate: &str) -> Vec<FieldAccess> {
         }
     }
     accesses
+}
+
+fn field_suffix(text: &str) -> Option<Vec<String>> {
+    let mut fields = Vec::new();
+    let mut rest = text.trim_start();
+    while let Some(after_dot) = rest.strip_prefix('.') {
+        let mut chars = after_dot.char_indices();
+        let (_, first) = chars.next()?;
+        if !(first.is_ascii_alphabetic() || first == '_') {
+            return None;
+        }
+        let mut end = first.len_utf8();
+        for (index, ch) in chars {
+            if ch.is_ascii_alphanumeric() || ch == '_' {
+                end = index + ch.len_utf8();
+            } else {
+                break;
+            }
+        }
+        fields.push(after_dot[..end].to_string());
+        rest = after_dot[end..].trim_start();
+    }
+    (!fields.is_empty()).then_some(fields)
 }

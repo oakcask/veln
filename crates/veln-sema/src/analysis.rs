@@ -902,6 +902,7 @@ impl<'a> FunctionChecker<'a> {
             if signature.return_type != Type::bool()
                 && !contract_call_result_is_compared(trimmed, call.start, call.end)
                 && !contract_call_result_feeds_boolean_predicate(trimmed, call.start, call.end)
+                && !contract_call_result_has_field_access(trimmed, call.end)
                 && !contract_call_is_argument(&calls, call_index)
             {
                 return ContractValidation::NonBoolean {
@@ -964,7 +965,11 @@ impl<'a> FunctionChecker<'a> {
                 }
             };
         }
-        if let Some((base_type, field)) = missing_contract_field(trimmed, bindings) {
+        if let Some((base_type, field)) = missing_contract_field(trimmed, bindings, &|callee| {
+            self.environment
+                .function_path(&contract_callee_segments(callee))
+                .map(|signature| signature.return_type.clone())
+        }) {
             return ContractValidation::MissingField { base_type, field };
         }
         if predicate_is_boolean_with_calls(trimmed, bindings, &|callee| {
@@ -3517,6 +3522,10 @@ fn contract_call_result_feeds_boolean_predicate(predicate: &str, start: usize, e
         }
     }
     false
+}
+
+fn contract_call_result_has_field_access(predicate: &str, end: usize) -> bool {
+    predicate[end..].trim_start().starts_with('.')
 }
 
 fn paren_depth_before(text: &str, offset: usize) -> Option<usize> {

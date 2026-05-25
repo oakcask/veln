@@ -26,6 +26,7 @@ After parsing, the checker validates a small pure boolean subset:
 - field access on record-typed bindings visible to the clause
 - calls to discovered pure functions when arguments are assignable to the
   declared parameter types and the return type fits the predicate position
+- field access on record-typed values returned by discovered pure functions
 - qualified calls to discovered pure functions through `use` aliases
 - visible parameter bindings
 - explicit result bindings in `ensure` clauses
@@ -35,7 +36,9 @@ numeric arithmetic and field access. A bare arithmetic expression such as
 `value + 1` is valid syntax but not a boolean predicate, so it reports a
 non-boolean contract diagnostic instead of becoming a runtime obligation.
 Pure function calls that return numeric values may participate in arithmetic
-operands of comparison predicates, such as `next(value) + 1 > 0`.
+operands of comparison predicates, such as `next(value) + 1 > 0`. Pure
+function calls that return records may feed field access, such as
+`summary(value).ready`.
 
 Contract predicates containing `stdio::`, effectful function calls,
 unsupported call targets, empty predicates, missing record fields,

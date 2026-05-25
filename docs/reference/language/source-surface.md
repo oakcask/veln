@@ -260,8 +260,10 @@ may still fail contract validation. Function calls must resolve to discovered
 pure functions. Bare calls resolve against the current program's function
 names, and qualified calls resolve through `use` aliases. Call arguments must
 be assignable to declared parameter types. Numeric return values from pure
-calls may be used inside arithmetic operands of comparison predicates. Field
-access must resolve through record-typed values visible to the clause.
+calls may be used inside arithmetic operands of comparison predicates.
+Record-typed return values from pure calls may feed field access, such as
+`summary(value).ready`. Field access must resolve through record-typed values
+visible to the clause or returned by a pure call.
 
 Valid clauses are executable obligations. `require` is checked at function
 entry. `ensure` is checked before an ordinary tail-expression return and may
