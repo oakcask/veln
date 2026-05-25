@@ -140,9 +140,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   variant, rotating ready-receiver tie breaking, explicit left-priority
   selection, and result-returning selection variants that report cooperative
   cancellation separately from closed or timed-out selection.
-- The checker validates the first-slice pure boolean contract subset. Runtime
-  contract discharge is implemented for function-entry `require` checks and
-  `ensure` checks before both ordinary returns and `?` early returns.
+- The checker validates the first-slice pure boolean contract subset. Literal
+  boolean contract predicates that evaluate to `true` are statically discharged.
+  Runtime contract discharge is implemented for function-entry `require` checks
+  and `ensure` checks before both ordinary returns and `?` early returns.
   `veln test --json` reports runtime contract failures inside selected test
   cases as structured failed-case details, and `veln run --json` reports
   runtime contract failures as top-level structured errors.

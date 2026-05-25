@@ -24,6 +24,37 @@ pub(crate) fn contract_kind_text(kind: ContractKind) -> &'static str {
     }
 }
 
+pub(crate) fn predicate_is_statically_true(predicate: &str) -> bool {
+    literal_boolean_value(predicate) == Some(true)
+}
+
+fn literal_boolean_value(predicate: &str) -> Option<bool> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if predicate.is_empty() {
+        return None;
+    }
+    if predicate == "true" {
+        return Some(true);
+    }
+    if predicate == "false" {
+        return Some(false);
+    }
+    if let Some(rest) = predicate.strip_prefix("not ") {
+        return literal_boolean_value(rest).map(|value| !value);
+    }
+    if let Some(rest) = predicate.strip_prefix("not(") {
+        let inner = rest.strip_suffix(')')?;
+        return literal_boolean_value(inner).map(|value| !value);
+    }
+    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
+        return Some(literal_boolean_value(left)? || literal_boolean_value(right)?);
+    }
+    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
+        return Some(literal_boolean_value(left)? && literal_boolean_value(right)?);
+    }
+    None
+}
+
 pub(crate) fn contract_calls(predicate: &str) -> Vec<ContractCall> {
     let bytes = predicate.as_bytes();
     let mut calls = Vec::new();

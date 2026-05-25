@@ -142,10 +142,10 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
     }
 
     fn has_ensure_contracts(&self) -> bool {
-        self.function
-            .contracts
-            .iter()
-            .any(|contract| contract.kind == ContractKind::Ensure)
+        self.function.contracts.iter().any(|contract| {
+            contract.kind == ContractKind::Ensure
+                && contract.obligation_status == ContractObligationStatus::RuntimeRequired
+        })
     }
 
     fn emit_ensure_checks_for_result(&mut self, out: &mut String, result: &str) {
@@ -168,6 +168,9 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             .contracts
             .iter()
             .filter(|contract| contract.kind == ContractKind::Ensure)
+            .filter(|contract| {
+                contract.obligation_status == ContractObligationStatus::RuntimeRequired
+            })
             .filter_map(|contract| self.contract_check_line(contract))
             .collect::<Vec<_>>();
         if let Some((binding, old)) = previous {

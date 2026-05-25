@@ -43,6 +43,7 @@ pub struct CoreContract {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ContractObligationStatus {
     RuntimeRequired,
+    StaticallyProven,
 }
 
 #[derive(Clone, Debug, PartialEq)]
