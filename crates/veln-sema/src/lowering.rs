@@ -10,7 +10,7 @@ use veln_core::{
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
-use crate::effects::stdio_signature;
+use crate::effects::{core_concurrency_signature, is_concurrency_call, stdio_signature};
 use crate::prelude::{
     core_prelude_signature, float_arithmetic_prelude_name, float_comparison_prelude_name,
     float_prefix_prelude_name,
@@ -609,6 +609,39 @@ impl<'a> CoreLowerer<'a> {
             }
             if is_option_some_constructor(segments) {
                 return self.lower_option_constructor(expr, args, expected);
+            }
+            if is_concurrency_call(segments) {
+                let signature = core_concurrency_signature(segments, expected);
+                let lowered_args = args
+                    .iter()
+                    .enumerate()
+                    .map(|(index, arg)| {
+                        let expected = signature.as_ref().and_then(|(params, _)| params.get(index));
+                        self.lower_expr(arg, expected)
+                    })
+                    .collect();
+                self.unsupported_expression(
+                    expr,
+                    "concurrency_runtime_unsupported",
+                    format!(
+                        "concurrency call `{}` is not executable yet",
+                        segments.join("::")
+                    ),
+                    Some(JsonValue::object([(
+                        "symbol",
+                        JsonValue::string(segments.join("::")),
+                    )])),
+                );
+                return self.core_expr(
+                    expr,
+                    signature
+                        .map(|(_, return_type)| return_type)
+                        .unwrap_or(CoreType::Unknown),
+                    CoreExprKind::Call {
+                        target: CoreCallTarget::Unresolved(segments.join("::")),
+                        args: lowered_args,
+                    },
+                );
             }
         }
 

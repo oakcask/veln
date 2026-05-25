@@ -109,9 +109,11 @@ Checked-core executable blockers that `check` can prove before runtime are
 reported as error diagnostics with `kind: "type"`. The implemented blockers
 are `core.missing_expression`, `core.call_arity_mismatch`,
 `core.result_constructor_arity_mismatch`, and
-`core.option_constructor_arity_mismatch`. For missing expressions, the primary
-span is the missing expression placeholder. For arity mismatches, the primary
-span is the blocked call or constructor expression. Their `details` include:
+`core.option_constructor_arity_mismatch`, and
+`core.concurrency_runtime_unsupported`. For missing expressions, the primary
+span is the missing expression placeholder. For arity mismatches and
+unsupported concurrency calls, the primary span is the blocked call or
+constructor expression. Their `details` include:
 
 - `phase: "core_lowering"`
 - `node_id`
@@ -124,6 +126,8 @@ Arity mismatch details also include:
 
 - `facts.expected_argument_count`
 - `facts.actual_argument_count`
+
+Concurrency runtime blockers also include `facts.symbol`.
 
 Effect diagnostic `details` are stable for `effect.missing_public`:
 

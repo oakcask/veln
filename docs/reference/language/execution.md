@@ -6,13 +6,14 @@ This file specifies the implemented execution boundary.
 
 Checked core is produced only after semantic diagnostics have no errors. Typed
 IR is produced only when checked core is complete. Reachable holes, missing
-expressions, constructor arity gaps, and call arity gaps block executable IR.
-For selected `run` and `test` entries, reachability includes direct function
-calls, bare function declaration values used inside reachable expressions, and
-function calls in reachable contract predicates. The implemented execution
-fixtures cover function declarations used as function-typed values,
-function-typed value calls, contract helper reachability, and selected-entry
-reachable-hole blocking before JVM execution.
+expressions, constructor arity gaps, call arity gaps, and recognized channel
+concurrency calls block executable IR. For selected `run` and `test` entries,
+reachability includes direct function calls, bare function declaration values
+used inside reachable expressions, and function calls in reachable contract
+predicates. The implemented execution fixtures cover function declarations
+used as function-typed values, function-typed value calls, contract helper
+reachability, selected-entry reachable-hole blocking, and selected-entry
+channel concurrency blockers before JVM execution.
 
 The typed IR is runtime-neutral. JVM class names, Java method names, boxed
 runtime representation, generated artifact paths, and runtime helper layout are
@@ -30,6 +31,7 @@ The JVM backend generates Java source for the implemented IR subset:
 - record field access
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls
+- static recognition of channel concurrency calls as non-executable blockers
 - pipelines lowered to calls with the left expression inserted as the first
   argument
 - runtime `require` checks at function entry and runtime `ensure` checks before

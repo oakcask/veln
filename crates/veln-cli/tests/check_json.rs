@@ -379,6 +379,37 @@ fn check_json_reports_checked_core_missing_expression_blocker() {
 }
 
 #[test]
+fn check_json_reports_checked_core_concurrency_runtime_blocker() {
+    let project = TestProject::new("check-json-core-concurrency-runtime");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main(rx: Receiver(String)) -> Option(String) effects [concurrency]\n",
+            "  channel::recv(rx)\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"core.concurrency_runtime_unsupported\"",
+            "\"severity\":\"error\"",
+            "\"kind\":\"type\"",
+            "\"message\":\"concurrency call `channel::recv` is not executable yet\"",
+            "\"details\":{\"phase\":\"core_lowering\"",
+            "\"reason\":\"concurrency_runtime_unsupported\"",
+            "\"symbol\":\"channel::recv\"",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"type\":1}}",
+        ],
+    );
+}
+
+#[test]
 fn check_human_reports_checked_core_call_arity_blocker() {
     let project = TestProject::new("check-human-core-call-arity");
     project.write(
@@ -418,6 +449,30 @@ fn check_human_reports_checked_core_missing_expression_blocker() {
     assert_contains_all(
         stdout(&output),
         &["main.veln:4:1: error[core.missing_expression]: expression is missing"],
+    );
+}
+
+#[test]
+fn check_human_reports_checked_core_concurrency_runtime_blocker() {
+    let project = TestProject::new("check-human-core-concurrency-runtime");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main(rx: Receiver(String)) -> Option(String) effects [concurrency]\n",
+            "  channel::recv(rx)\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "main.veln:2:3: error[core.concurrency_runtime_unsupported]: concurrency call `channel::recv` is not executable yet",
+        ],
     );
 }
 

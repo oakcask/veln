@@ -7,6 +7,8 @@ use veln_ast::{
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
+use crate::effects::is_concurrency_call;
+
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
     uses: Vec<UseDecl>,
@@ -427,6 +429,8 @@ fn collect_expr_effects(
             if let ExprKind::NamePath(segments) = &callee.kind {
                 if segments.as_slice().is_stdio_call() {
                     push_unique_effect(inferred, "stdio");
+                } else if is_concurrency_call(segments) {
+                    push_unique_effect(inferred, "concurrency");
                 } else {
                     for effect in effects_for_callee_path(
                         segments,

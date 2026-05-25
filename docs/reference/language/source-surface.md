@@ -178,6 +178,9 @@ Implemented expressions:
 - callable function declaration values by bare name
 - constructors: `Ok(value)`, `Err(error)`, `Some(value)`, `None`, and their
   `Result::` or `Option::` qualified forms
+- channel effect calls: `channel::send(tx, value)`, `channel::recv(rx)`, and
+  `channel::close(tx)`, recognized for static type and effect checking but not
+  executable in the current runtime
 - prelude helpers as bare calls such as `list_len(items)`
 - records: `{name: value, ...}`
 - dictionaries: `{key_expr: value_expr, ...}` when the first entry is not a
@@ -251,6 +254,7 @@ read an explicit result binding.
 
 Implemented lowering and execution do not include user-defined ADT
 declarations, method calls, loops, mutation, classes, traits, macros,
-comprehensions, anonymous functions, custom operators, package manifest fields
-beyond `[modules]`, foreign declarations, or doctest metadata other than
-`error`, `ignore`, `fail`, and `veln-output` stream selection.
+comprehensions, anonymous functions, custom operators, executable channel
+runtime operations, package manifest fields beyond `[modules]`, foreign
+declarations, or doctest metadata other than `error`, `ignore`, `fail`, and
+`veln-output` stream selection.

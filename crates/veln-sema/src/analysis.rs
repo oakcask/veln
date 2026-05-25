@@ -15,7 +15,7 @@ use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, module_details, span_json,
     type_details,
 };
-use crate::effects::stdio_signature;
+use crate::effects::{concurrency_origin, concurrency_signature, stdio_signature};
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
     prelude_signature,
@@ -1065,7 +1065,13 @@ impl<'a> FunctionChecker<'a> {
             }
         }
 
-        if let Some((params, return_type, origin)) = self.call_signature(callee) {
+        if let Some((params, return_type, origin)) = self.call_signature(
+            callee,
+            expected.map(|expected| &expected.ty),
+            args.first()
+                .and_then(|arg| self.shallow_expr_type(arg))
+                .as_ref(),
+        ) {
             for effect in &origin.effects {
                 self.inferred_effects.push(EffectUse {
                     effect: effect.clone(),
@@ -1182,11 +1188,21 @@ impl<'a> FunctionChecker<'a> {
         Type::Unknown
     }
 
-    fn call_signature(&self, callee: &Expr) -> Option<(Vec<Type>, Type, CallOrigin)> {
+    fn call_signature(
+        &self,
+        callee: &Expr,
+        expected: Option<&Type>,
+        handle_type: Option<&Type>,
+    ) -> Option<(Vec<Type>, Type, CallOrigin)> {
         match &callee.kind {
             ExprKind::NamePath(segments) => {
                 if let Some(origin) = stdio_signature(segments, callee) {
                     return Some((vec![Type::string()], Type::unit(), origin));
+                }
+                if let Some(origin) = concurrency_origin(segments, callee) {
+                    let (params, return_type) =
+                        concurrency_signature(segments, expected, handle_type)?;
+                    return Some((params, return_type, origin));
                 }
                 if let [name] = segments.as_slice() {
                     if let Some(binding) = self
@@ -1862,7 +1878,7 @@ impl<'a> FunctionChecker<'a> {
                 _ => None,
             },
             ExprKind::Call { callee, .. } => self
-                .call_signature(callee)
+                .call_signature(callee, None, None)
                 .map(|(_, return_type, _)| return_type),
             _ => None,
         }

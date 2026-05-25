@@ -1576,6 +1576,132 @@ fn reports_missing_public_effect_with_call_provenance() {
 }
 
 #[test]
+fn channel_calls_require_concurrency_effect() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(tx: Sender(String)) -> Result((), SendError) effects []\n",
+            "  channel::send(tx, \"hello\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `concurrency`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"concurrency\""));
+    assert!(details.contains("\"inferred_effects\":[\"concurrency\"]"));
+    assert!(details.contains("\"symbol\":\"channel::send\""));
+}
+
+#[test]
+fn declared_concurrency_calls_block_executable_core_until_runtime_exists() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(rx: Receiver(String)) -> Option(String) effects [concurrency]\n",
+            "  channel::recv(rx)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 1, "{:#?}", lowered.diagnostics);
+    assert_eq!(
+        lowered.diagnostics[0].id,
+        "core.concurrency_runtime_unsupported"
+    );
+    let core = lowered.core.expect("blocked checked core should be built");
+    assert!(matches!(
+        core.readiness,
+        CoreReadiness::Blocked(ref blockers)
+            if matches!(
+                blockers.as_slice(),
+                [CoreBlocker::UnsupportedExpression { reason, .. }]
+                    if reason == "concurrency_runtime_unsupported"
+            )
+    ));
+    assert!(lowered.ir.is_none());
+}
+
+#[test]
+fn channel_send_checks_value_against_sender_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(tx: Sender(String)) -> Result((), SendError) effects [concurrency]\n",
+            "  channel::send(tx, 1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `String`, but found `Int`");
+}
+
+#[test]
+fn channel_recv_checks_receiver_against_expected_option_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(rx: Receiver(Int)) -> Option(String) effects [concurrency]\n",
+            "  channel::recv(rx)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `Receiver(String)`, but found `Receiver(Int)`"
+    );
+}
+
+#[test]
+fn channel_close_requires_sender_handle() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(rx: Receiver(String)) -> () effects [concurrency]\n",
+            "  channel::close(rx)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `Sender(unknown)`, but found `Receiver(String)`"
+    );
+}
+
+#[test]
 fn infers_transitive_private_helper_effects_from_body() {
     let source = SourceFile::new(
         "main.veln",

@@ -1,6 +1,7 @@
 # Discussion Result: Channel-First Concurrency Runtime
 
 Status: accepted-proposal
+Implementation: partially implemented
 
 ## Picked Question
 
@@ -136,3 +137,11 @@ a small, repairable source model. Ordinary concurrent programs communicate
 through typed bounded channels, public APIs expose concurrency through effects,
 and lower-level synchronization remains available for later design without
 becoming the default programming style.
+
+## Implemented Slice
+
+The current workspace statically recognizes `channel::send`, `channel::recv`,
+and `channel::close` as `concurrency` effect calls. Public functions and tests
+that reach these calls must declare `effects [concurrency]`. The channel
+runtime, channel construction syntax, `spawn`, task handles, cancellation,
+join, and selection remain follow-up work.

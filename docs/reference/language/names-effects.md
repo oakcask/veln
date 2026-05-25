@@ -84,6 +84,24 @@ follows direct bare function calls and `use` alias qualified function calls
 until a fixed point. Calls through a local binding with a function type infer
 the effects written in that function type.
 
+## Concurrency Calls
+
+The checker recognizes these channel-operation call targets for static type and
+effect checking:
+
+```veln
+channel::send(tx: Sender(T), value: T) -> Result((), SendError) effects [concurrency]
+channel::recv(rx: Receiver(T)) -> Option(T) effects [concurrency]
+channel::close(tx: Sender(T)) -> () effects [concurrency]
+```
+
+Direct calls to these functions infer the `concurrency` effect. A public
+function or test that calls one of them must declare `concurrency` in its
+`effects [...]` list. The channel runtime is not executable in the implemented
+slice; a selected entry that otherwise passes static checking but reaches one
+of these calls blocks executable IR with
+`core.concurrency_runtime_unsupported`.
+
 Executable-command reachability also follows pure helper calls used in
 reachable contract predicates, so blockers inside those helpers are reported
 before the selected entry runs.
