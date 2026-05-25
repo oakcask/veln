@@ -8400,6 +8400,36 @@ fn contract_predicate_negated_conjunction_prefix_requires_runtime_check() {
 }
 
 #[test]
+fn contract_predicate_small_boolean_formula_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "require not (value.ready and not extra) or not (not value.ready and not extra)\n",
+            "ensure not (output.ready and not extra) or not (not output.ready and not extra)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(
+        contracts.iter().all(|contract| {
+            contract.obligation_status == ContractObligationStatus::StaticallyProven
+        }),
+        "{contracts:#?}"
+    );
+}
+
+#[test]
 fn contract_predicate_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",

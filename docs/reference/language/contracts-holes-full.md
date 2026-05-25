@@ -84,6 +84,11 @@ include pure literal `+`, `-`, and `*` subexpressions, such as `1 + 1 == 2`,
 `10 - 4 == 6`, `0.5 + 2.0 == 2.5`, and `3 * 4 >= 12`.
 They may also include `/` when the result is exactly representable as a finite
 decimal, such as `8 / 4 == 2` and `1 / 2 == 0.5`.
+Small boolean formulas over up to eight otherwise unknown pure predicates are
+also classified by exhaustive truth-table evaluation after literal and
+comparison folding. This covers nested `and`, `or`, and `not` tautologies such
+as
+`not (flag and not ready) or not (not flag and not ready)`.
 The same static truth folding also accepts boolean identity cases where one
 side of `or` is provably
 `true`, even if the other side is not itself statically known, and propagates

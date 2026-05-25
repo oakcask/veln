@@ -220,6 +220,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   over the same operands, and negated conjunctions with opposite inclusive and
   strict ordering bounds over the same operands, are also statically evaluated
   after whitespace normalization and commuted ordering normalization.
+  Small boolean formulas over up to eight otherwise unknown pure predicates are
+  also statically evaluated by exhaustive truth-table checking after literal
+  and comparison folding.
   Negated conjunctions with one disjunction branch whose non-static disjuncts
   are all covered by complement conjuncts are also statically evaluated.
   Case-split top-level `or` predicates whose complemented branch only adds

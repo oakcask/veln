@@ -40,6 +40,8 @@ enum StaticBooleanValue {
     Unknown,
 }
 
+const MAX_STATIC_BOOLEAN_ATOMS: usize = 8;
+
 fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() {
@@ -50,6 +52,11 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     }
     if predicate == "false" {
         return StaticBooleanValue::False;
+    }
+    if let Some(value @ (StaticBooleanValue::True | StaticBooleanValue::False)) =
+        static_boolean_truth_table_value(predicate)
+    {
+        return value;
     }
     if let Some(inner) = negated_predicate_inner(predicate) {
         return static_boolean_value(inner).negate();
@@ -144,6 +151,102 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
         }
     }
     StaticBooleanValue::Unknown
+}
+
+fn static_boolean_truth_table_value(predicate: &str) -> Option<StaticBooleanValue> {
+    let mut atoms = Vec::new();
+    collect_boolean_formula_atoms(predicate, &mut atoms)?;
+    if atoms.is_empty() || atoms.len() > MAX_STATIC_BOOLEAN_ATOMS {
+        return None;
+    }
+
+    let mut saw_true = false;
+    let mut saw_false = false;
+    for mask in 0..(1usize << atoms.len()) {
+        match eval_boolean_formula(predicate, &atoms, mask)? {
+            true => saw_true = true,
+            false => saw_false = true,
+        }
+        if saw_true && saw_false {
+            return Some(StaticBooleanValue::Unknown);
+        }
+    }
+
+    Some(if saw_true {
+        StaticBooleanValue::True
+    } else {
+        StaticBooleanValue::False
+    })
+}
+
+fn collect_boolean_formula_atoms<'a>(predicate: &'a str, atoms: &mut Vec<String>) -> Option<()> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if predicate.is_empty() || matches!(predicate, "true" | "false") {
+        return Some(());
+    }
+    if let Some(inner) = whole_negated_predicate_inner(predicate) {
+        return collect_boolean_formula_atoms(inner, atoms);
+    }
+    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
+        collect_boolean_formula_atoms(left, atoms)?;
+        collect_boolean_formula_atoms(right, atoms)?;
+        return Some(());
+    }
+    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
+        collect_boolean_formula_atoms(left, atoms)?;
+        collect_boolean_formula_atoms(right, atoms)?;
+        return Some(());
+    }
+    if static_comparison_value(predicate).is_some() {
+        return Some(());
+    }
+
+    let (shape, _) = normalized_predicate_polarity(predicate);
+    if !atoms.iter().any(|atom| atom == &shape) {
+        atoms.push(shape);
+    }
+    Some(())
+}
+
+fn eval_boolean_formula(predicate: &str, atoms: &[String], mask: usize) -> Option<bool> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if predicate == "true" {
+        return Some(true);
+    }
+    if predicate == "false" {
+        return Some(false);
+    }
+    if let Some(inner) = whole_negated_predicate_inner(predicate) {
+        return eval_boolean_formula(inner, atoms, mask).map(|value| !value);
+    }
+    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
+        return Some(
+            eval_boolean_formula(left, atoms, mask)? || eval_boolean_formula(right, atoms, mask)?,
+        );
+    }
+    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
+        return Some(
+            eval_boolean_formula(left, atoms, mask)? && eval_boolean_formula(right, atoms, mask)?,
+        );
+    }
+    if let Some(value) = static_comparison_value(predicate) {
+        return Some(value);
+    }
+
+    let (shape, polarity) = normalized_predicate_polarity(predicate);
+    let index = atoms.iter().position(|atom| atom == &shape)?;
+    Some(((mask & (1usize << index)) != 0) == polarity)
+}
+
+fn static_comparison_value(predicate: &str) -> Option<bool> {
+    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            return static_literal_comparison(left, operator, right)
+                .or_else(|| static_complementary_predicate_comparison(left, operator, right))
+                .or_else(|| static_same_shape_comparison(left, operator, right));
+        }
+    }
+    None
 }
 
 fn complementary_predicates(left: &str, right: &str) -> bool {
@@ -853,6 +956,19 @@ fn negated_predicate_inner(predicate: &str) -> Option<&str> {
     None
 }
 
+fn whole_negated_predicate_inner(predicate: &str) -> Option<&str> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    let rest = predicate.strip_prefix("not")?;
+    if !(rest.starts_with(char::is_whitespace) || rest.starts_with('(')) {
+        return None;
+    }
+    let rest = rest.trim();
+    if rest.starts_with('(') {
+        return (strip_balanced_outer_parens(rest) != rest).then_some(rest);
+    }
+    is_single_negation_operand(rest).then_some(rest)
+}
+
 fn is_single_negation_operand(predicate: &str) -> bool {
     split_top_level_keyword(predicate, "and").len() == 1
         && split_top_level_keyword(predicate, "or").len() == 1
@@ -1134,6 +1250,24 @@ mod tests {
 
         assert!(!has_complementary_top_level_clauses(predicate, "or"));
         assert!(!predicate_is_statically_true(predicate));
+    }
+
+    #[test]
+    fn small_boolean_truth_table_proves_nested_tautology() {
+        let predicate = "not (value.ready and not extra) or not (not value.ready and not extra)";
+        let mut atoms = Vec::new();
+        collect_boolean_formula_atoms(predicate, &mut atoms);
+
+        assert_eq!(atoms, vec!["value.ready".to_string(), "extra".to_string()]);
+        assert_eq!(eval_boolean_formula(predicate, &atoms, 0), Some(true));
+        assert_eq!(eval_boolean_formula(predicate, &atoms, 1), Some(true));
+        assert_eq!(eval_boolean_formula(predicate, &atoms, 2), Some(true));
+        assert_eq!(eval_boolean_formula(predicate, &atoms, 3), Some(true));
+        assert_eq!(
+            static_boolean_truth_table_value(predicate),
+            Some(StaticBooleanValue::True)
+        );
+        assert!(predicate_is_statically_true(predicate));
     }
 }
 
