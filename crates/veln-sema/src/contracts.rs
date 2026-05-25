@@ -76,6 +76,7 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     for operator in ["==", "!=", "<=", ">=", "<", ">"] {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {
             return static_literal_comparison(left, operator, right)
+                .or_else(|| static_same_shape_comparison(left, operator, right))
                 .map_or(StaticBooleanValue::Unknown, StaticBooleanValue::from);
         }
     }
@@ -150,6 +151,41 @@ fn predicate_shape(predicate: &str) -> String {
         shape.push(ch);
     }
     shape
+}
+
+fn static_same_shape_comparison(left: &str, operator: &str, right: &str) -> Option<bool> {
+    if compact_predicate_text(left) != compact_predicate_text(right) {
+        return None;
+    }
+    match operator {
+        "==" | "<=" | ">=" => Some(true),
+        "!=" | "<" | ">" => Some(false),
+        _ => None,
+    }
+}
+
+fn compact_predicate_text(predicate: &str) -> String {
+    let mut output = String::with_capacity(predicate.len());
+    let mut chars = predicate.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '"' {
+            output.push(ch);
+            let mut escaped = false;
+            for string_ch in chars.by_ref() {
+                output.push(string_ch);
+                if escaped {
+                    escaped = false;
+                } else if string_ch == '\\' {
+                    escaped = true;
+                } else if string_ch == '"' {
+                    break;
+                }
+            }
+        } else if !ch.is_whitespace() {
+            output.push(ch);
+        }
+    }
+    output
 }
 
 impl StaticBooleanValue {

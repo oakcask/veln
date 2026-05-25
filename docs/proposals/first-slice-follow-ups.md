@@ -172,10 +172,11 @@ No accepted language and type coverage follow-up is currently tracked here.
   top-level complementary boolean disjunctions such as `flag or not flag` after
   validation, and negated top-level complementary boolean conjunctions such as
   `not (flag and not flag)`. The current implemented predicate subset is
-  specified in the language reference. Richer predicate semantics beyond these
-  static truth identities, literal comparisons, complementary boolean
-  disjunctions, and negated complementary boolean conjunctions remain follow-up
-  work.
+  specified in the language reference. Same-shape comparison predicates are
+  also statically evaluated after whitespace normalization. Richer predicate
+  semantics beyond these static truth identities, literal comparisons,
+  same-shape comparisons, complementary boolean disjunctions, and negated
+  complementary boolean conjunctions remain follow-up work.
 
 ## Formatting
 

@@ -71,9 +71,12 @@ boolean and string equality or disequality and numeric equality, disequality,
 and ordering, using exact decimal literal ordering. The same static truth
 folding also accepts boolean identity cases where one side of `or` is provably
 `true`, even if the other side is not itself statically known, and propagates
-that result through literal-only `and` and `not` wrappers. It also treats a
-top-level `or` between the same pure boolean predicate and its negation as
-statically true after validation, such as `flag or not flag` or
+that result through literal-only `and` and `not` wrappers. Same-shape
+comparisons are statically known after whitespace normalization:
+`value + 1 == value + 1`, `output >= output`, and `not(value < value)` are
+statically proven after validation. A top-level `or` between the same pure
+boolean predicate and its negation is also statically true after validation,
+such as `flag or not flag` or
 `output.ready or not(output.ready)`. The complementary `or` identity may span
 more than two top-level branches, so `flag or extra or not flag` is also
 statically proven. It also treats a negated top-level `and` between the same

@@ -1600,13 +1600,36 @@ fn omits_statically_proven_literal_comparison_contract_checks() {
 }
 
 #[test]
+fn omits_statically_proven_same_shape_contract_checks() {
+    let ir = lower_to_ir(concat!(
+        "pub fn identity(value: Int, label: String) -> output: Int effects []\n",
+        "  require value + 1 == value + 1\n",
+        "  require not(value < value)\n",
+        "  ensure label == label and output >= output\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+
+    assert!(!program.contains("VelnRuntime.checkContract("));
+    assert!(!program.contains("\"require\", \"value + 1 == value + 1\""));
+    assert!(!program.contains("\"require\", \"not(value < value)\""));
+    assert!(!program.contains("\"ensure\", \"label == label and output >= output\""));
+    assert!(program.contains("return p_value;"));
+}
+
+#[test]
 fn emits_ensure_checks_before_try_early_return() {
     let ir = lower_to_ir(concat!(
         "fn fail() -> Result(Int, String) effects []\n",
         "  Err(\"bad\")\n",
         "end\n",
-        "pub fn main() -> output: Result(Int, String) effects []\n",
-        "  ensure output == output\n",
+        "pub fn main(flag: Bool) -> output: Result(Int, String) effects []\n",
+        "  ensure flag and output == output\n",
         "  let value: Int = fail()?\n",
         "  Ok(value)\n",
         "end\n",
@@ -1621,7 +1644,7 @@ fn emits_ensure_checks_before_try_early_return() {
         .find("if (VelnRuntime.isErr(__try0))")
         .expect("try early return should be generated");
     let ensure = program[early_return..]
-        .find("\"ensure\", \"output == output\", \"main\", \"implementation\"")
+        .find("\"ensure\", \"flag and output == output\", \"main\", \"implementation\"")
         .expect("ensure check should be generated for the early return");
     let return_err = program[early_return..]
         .find("return __try0;")
