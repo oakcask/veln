@@ -150,7 +150,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   whitespace normalization and commuted ordering normalization.
   Negated top-level `and` predicates with mutually exclusive ordering
   trichotomy clauses rooted at the satisfy candidate are also treated as
-  tautological repair constraints.
+  tautological repair constraints. Negated top-level `and` predicates with
+  opposite inclusive and strict ordering bounds rooted at the satisfy
+  candidate are also treated as tautological repair constraints.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.
@@ -206,8 +208,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   relations over the same operands, are also statically evaluated after
   whitespace normalization and
   commuted ordering normalization. Inclusive ordering totality disjunctions
-  over the same operands are also statically evaluated after whitespace
-  normalization and commuted ordering normalization. Richer
+  over the same operands, and negated conjunctions with opposite inclusive and
+  strict ordering bounds over the same operands, are also statically evaluated
+  after whitespace normalization and commuted ordering normalization. Richer
   predicate semantics beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, complementary predicate comparisons,

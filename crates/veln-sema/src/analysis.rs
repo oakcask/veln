@@ -3029,6 +3029,13 @@ fn tautological_candidate_predicate(
             reason: "satisfy_tautology",
         });
     }
+    if negated_and_clauses(predicate).is_some_and(|clauses| {
+        has_exclusive_inclusive_order_candidate_conjuncts(&clauses, candidate)
+    }) {
+        return Some(TautologicalCandidatePredicate {
+            reason: "satisfy_tautology",
+        });
+    }
     let disjuncts = repair_relevant_or_clauses(predicate);
     if disjuncts.is_empty() {
         return None;
@@ -3183,6 +3190,58 @@ fn has_exclusive_order_candidate_conjuncts(conjuncts: &[&str], candidate: &str) 
                     && other.right == first.right
                     && other.relation != first.relation
             })
+    })
+}
+
+fn has_exclusive_inclusive_order_candidate_conjuncts(conjuncts: &[&str], candidate: &str) -> bool {
+    if conjuncts.len() < 2 {
+        return false;
+    }
+    conjuncts.iter().enumerate().any(|(index, conjunct)| {
+        let Some(first) = order_bound_candidate_clause(conjunct, candidate) else {
+            return false;
+        };
+        conjuncts
+            .iter()
+            .skip(index + 1)
+            .filter_map(|other| order_bound_candidate_clause(other, candidate))
+            .any(|other| {
+                first.left == other.right
+                    && first.right == other.left
+                    && (first.strict || other.strict)
+            })
+    })
+}
+
+struct OrderBoundCandidateClause {
+    left: String,
+    right: String,
+    strict: bool,
+}
+
+fn order_bound_candidate_clause(
+    conjunct: &str,
+    candidate: &str,
+) -> Option<OrderBoundCandidateClause> {
+    let conjunct = strip_balanced_outer_parens(conjunct);
+    if !expression_references_identifier(conjunct, candidate) {
+        return None;
+    }
+    let parsed = ParsedRepairComparison::parse(conjunct)?;
+    let mut left = compact_predicate_text(parsed.left);
+    let mut right = compact_predicate_text(parsed.right);
+    if left == right {
+        return None;
+    }
+    match parsed.operator {
+        ">" | ">=" => std::mem::swap(&mut left, &mut right),
+        "<" | "<=" => {}
+        _ => return None,
+    }
+    Some(OrderBoundCandidateClause {
+        left,
+        right,
+        strict: matches!(parsed.operator, "<" | ">"),
     })
 }
 

@@ -74,6 +74,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_complementary_top_level_clauses(predicate, "and") {
         return StaticBooleanValue::False;
     }
+    if has_exclusive_inclusive_order_top_level_and(predicate) {
+        return StaticBooleanValue::False;
+    }
     if has_exclusive_order_top_level_and(predicate) {
         return StaticBooleanValue::False;
     }
@@ -171,6 +174,55 @@ fn has_exclusive_order_top_level_and(predicate: &str) -> bool {
                     && other.relation != first.relation
             })
     })
+}
+
+fn has_exclusive_inclusive_order_top_level_and(predicate: &str) -> bool {
+    let clauses = flattened_keyword_clauses(predicate, "and");
+    if clauses.len() < 2 {
+        return false;
+    }
+    clauses.iter().enumerate().any(|(index, clause)| {
+        let Some(first) = order_bound_shape(clause) else {
+            return false;
+        };
+        clauses
+            .iter()
+            .skip(index + 1)
+            .filter_map(|other| order_bound_shape(other))
+            .any(|other| {
+                first.left == other.right
+                    && first.right == other.left
+                    && (first.strict || other.strict)
+            })
+    })
+}
+
+struct OrderBoundShape {
+    left: String,
+    right: String,
+    strict: bool,
+}
+
+fn order_bound_shape(predicate: &str) -> Option<OrderBoundShape> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    for operator in ["<=", ">=", "<", ">"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let mut left = compact_predicate_text(left);
+            let mut right = compact_predicate_text(right);
+            if left == right {
+                return None;
+            }
+            if matches!(operator, ">" | ">=") {
+                std::mem::swap(&mut left, &mut right);
+            }
+            return Some(OrderBoundShape {
+                left,
+                right,
+                strict: matches!(operator, "<" | ">"),
+            });
+        }
+    }
+    None
 }
 
 fn flattened_keyword_clauses<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str> {

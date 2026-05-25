@@ -124,7 +124,9 @@ negated-`and` identity applies to complementary comparison pairs, such as
 exclusive ordering trichotomy relations over the same operands, such as
 `not (value < limit and value == limit)`,
 `not (value < limit and value > limit)`, and
-`not(output == limit and output > limit)`. For example,
+`not(output == limit and output > limit)`. It also applies when opposite
+inclusive and strict bounds cannot both hold, such as
+`not (value <= limit and limit < value)`. For example,
 `true or value > 0`, `(output >= value or true) and not false`, and
 `1 < 2 and "ready" != "pending"` are statically proven after the predicate has
 passed validation. Other valid
@@ -273,6 +275,9 @@ Negated top-level `and` predicates with mutually exclusive ordering
 trichotomy clauses rooted at the candidate are also tautological for repair
 ranking. For example, `not (candidate < limit and candidate == limit)` ranks
 every type-compatible visible binding as a safe tautology repair candidate.
+The same repair tautology applies when opposite inclusive and strict bounds
+rooted at the candidate cannot both hold, such as
+`not (candidate <= limit and limit < candidate)`.
 Nested `or` clauses with a literal `true` branch are ignored inside
 tautological `and` clauses, so
 `candidate == candidate and (candidate > candidate or true)` is ranked as a
