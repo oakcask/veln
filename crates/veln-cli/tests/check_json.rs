@@ -160,6 +160,9 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
 
     let empty_output = project.veln(&[], &[]);
     let check_help_output = project.veln(&["check"], &["--help"]);
+    let fmt_help_output = project.veln(&["fmt"], &["--help"]);
+    let run_help_output = project.veln(&["run"], &["--help"]);
+    let test_help_output = project.veln(&["test"], &["--help"]);
     let explain_help_output = project.veln(&["explain"], &["--help"]);
     let explain_short_help_output = project.veln(&["explain"], &["-h"]);
 
@@ -173,6 +176,27 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     );
     assert_eq!(stdout(&check_help_output), expected);
     assert_eq!(stderr(&check_help_output), "");
+    assert!(
+        fmt_help_output.status.success(),
+        "{}",
+        stderr(&fmt_help_output)
+    );
+    assert_eq!(stdout(&fmt_help_output), expected);
+    assert_eq!(stderr(&fmt_help_output), "");
+    assert!(
+        run_help_output.status.success(),
+        "{}",
+        stderr(&run_help_output)
+    );
+    assert_eq!(stdout(&run_help_output), expected);
+    assert_eq!(stderr(&run_help_output), "");
+    assert!(
+        test_help_output.status.success(),
+        "{}",
+        stderr(&test_help_output)
+    );
+    assert_eq!(stdout(&test_help_output), expected);
+    assert_eq!(stderr(&test_help_output), "");
     assert!(
         explain_help_output.status.success(),
         "{}",

@@ -11,8 +11,10 @@ reviews, and phase history for the experimental Veln implementation.
   route from task area to the relevant language reference.
 - [proposals/README.md](proposals/README.md): accepted or open implementation
   targets.
+- [document-status.md](document-status.md): where durable text belongs when a
+  proposal, review, or phase note changes status.
 
-## Routes
+## Task Routes
 
 - Changing syntax, types, effects, contracts, holes, commands, JSON output,
   runtime behavior, or examples:
@@ -31,6 +33,17 @@ reviews, and phase history for the experimental Veln implementation.
   then [reference/source-decisions/README.md](reference/source-decisions/README.md).
 - Reading incomplete design-wall rationale:
   [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md).
+
+## Reading Order
+
+- Current behavior work: `reference/language/README.md` first, then the
+  topic-specific short page, then the matching `*-full.md` file only if named.
+- Implementation target work: `proposals/target-queue.md` first, then the
+  selected proposal route, then current reference pages for comparison.
+- Rationale work: current reference page first, then
+  `reference/language/source-decisions.md`, then one source-decision category.
+- Status or movement work: `document-status.md` before editing labels or moving
+  text between directories.
 
 ## Directory Map
 

@@ -14,6 +14,20 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 - [source-decisions/topic-map.md](source-decisions/topic-map.md): task-oriented
   route to implemented rationale categories.
 
+## Common Tasks
+
+- Changing user-visible language behavior: start with
+  [language/topic-map.md](language/topic-map.md), update the smallest matching
+  topic page, and open a `*-full.md` companion only when the short page routes
+  there.
+- Explaining an implemented boundary: start with
+  [language/source-decisions.md](language/source-decisions.md), then use one
+  source-decision category instead of scanning records.
+- Updating source-decision routing: use
+  [source-decisions/topic-map.md](source-decisions/topic-map.md) and keep
+  [source-decisions/result-index.md](source-decisions/result-index.md) as an
+  audit route, not a normal reading path.
+
 ## Read When
 
 - Source language, contract, hole, command, JSON-output, runtime, or example

@@ -9,8 +9,18 @@ target tracked in `../../proposals/`.
 - [overview.md](overview.md): stability boundary and explicit non-goals.
 - [topic-map.md](topic-map.md): choose the smallest topic page for a source,
   command, JSON, runtime, contract, or hole change.
-- Use the short topic pages below first; open `*-full.md` only after the short
-  page names the relevant detail.
+- Use the short topic pages below first; open a `*-full.md` companion only
+  after the short page names the relevant detail.
+
+## Fast Routes
+
+- Source files, grammar, names, types, effects, contracts, or holes:
+  [topic-map.md#source-surface](topic-map.md#source-surface) and
+  [topic-map.md#contracts-and-holes](topic-map.md#contracts-and-holes).
+- CLI behavior, diagnostics, run output, or test output:
+  [topic-map.md#commands-and-output](topic-map.md#commands-and-output).
+- Runtime behavior, examples, or rationale:
+  [topic-map.md#runtime-examples-and-rationale](topic-map.md#runtime-examples-and-rationale).
 
 ## Update When
 

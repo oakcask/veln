@@ -13,6 +13,14 @@ not fully implemented in the current workspace.
 - [../document-status.md](../document-status.md) defines promotion and
   supersession labels when proposal text moves into reference material.
 
+## Implementation Route
+
+- Choose one target from [target-queue.md](target-queue.md).
+- Compare the selected proposal with current behavior through
+  [../reference/language/topic-map.md](../reference/language/topic-map.md).
+- After implementation, promote the resulting behavior into
+  `../reference/language/` and leave only remaining proposal work here.
+
 ## Read When
 
 - Selecting an accepted implementation target:
