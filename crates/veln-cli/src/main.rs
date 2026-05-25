@@ -31,6 +31,10 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             entry_args,
         } => commands::run::run_entry(json, entry, inputs, entry_args),
         Command::Test { json, targets } => commands::test::test(json, targets),
+        Command::Explain {
+            list,
+            diagnostic_id,
+        } => commands::explain::explain(list, diagnostic_id),
         Command::Help => {
             cli::print_help();
             Ok(ExitCode::SUCCESS)

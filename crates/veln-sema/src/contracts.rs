@@ -47,13 +47,7 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if predicate == "false" {
         return StaticBooleanValue::False;
     }
-    if let Some(rest) = predicate.strip_prefix("not ") {
-        return static_boolean_value(rest).negate();
-    }
-    if let Some(rest) = predicate.strip_prefix("not(") {
-        let Some(inner) = rest.strip_suffix(')') else {
-            return StaticBooleanValue::Unknown;
-        };
+    if let Some(inner) = negated_predicate_inner(predicate) {
         return static_boolean_value(inner).negate();
     }
     if has_complementary_top_level_clauses(predicate, "or") {
@@ -86,6 +80,12 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_exhaustive_sext_case_split_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
+    if has_exhaustive_sept_case_split_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
+    if has_exhaustive_oct_case_split_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
     if has_case_split_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
@@ -102,6 +102,15 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
         return static_boolean_value(left).or(static_boolean_value(right));
     }
     if has_complementary_top_level_clauses(predicate, "and") {
+        return StaticBooleanValue::False;
+    }
+    if has_negated_disjunction_top_level_and(predicate) {
+        return StaticBooleanValue::False;
+    }
+    if has_disjunction_covered_by_complement_conjuncts(predicate) {
+        return StaticBooleanValue::False;
+    }
+    if has_resolved_complementary_disjunctions_top_level_and(predicate) {
         return StaticBooleanValue::False;
     }
     if has_exclusive_inclusive_order_top_level_and(predicate) {
@@ -169,6 +178,29 @@ fn negated_conjunction_contains(negated: &str, predicate: &str) -> bool {
             .any(|clause| same_predicate(clause, predicate))
 }
 
+fn has_negated_disjunction_top_level_and(predicate: &str) -> bool {
+    let clauses = flattened_keyword_clauses(predicate, "and");
+    if clauses.len() < 2 {
+        return false;
+    }
+    clauses.iter().enumerate().any(|(index, left)| {
+        clauses.iter().skip(index + 1).any(|right| {
+            negated_disjunction_contains(left, right) || negated_disjunction_contains(right, left)
+        })
+    })
+}
+
+fn negated_disjunction_contains(negated: &str, predicate: &str) -> bool {
+    let Some(inner) = negated_predicate_inner(negated) else {
+        return false;
+    };
+    let clauses = flattened_keyword_clauses(inner, "or");
+    clauses.len() > 1
+        && clauses
+            .iter()
+            .any(|clause| same_predicate(clause, predicate))
+}
+
 fn has_conjunction_covered_by_complement_disjuncts(predicate: &str) -> bool {
     let disjuncts = flattened_keyword_clauses(predicate, "or");
     if disjuncts.len() < 3 {
@@ -185,6 +217,69 @@ fn has_conjunction_covered_by_complement_disjuncts(predicate: &str) -> bool {
                 disjuncts.iter().enumerate().any(|(other_index, other)| {
                     index != other_index && complementary_predicates(conjunct, other)
                 })
+            })
+    })
+}
+
+fn has_disjunction_covered_by_complement_conjuncts(predicate: &str) -> bool {
+    let conjuncts = flattened_keyword_clauses(predicate, "and");
+    if conjuncts.len() < 3 {
+        return false;
+    }
+    conjuncts.iter().enumerate().any(|(index, conjunct)| {
+        let disjuncts = flattened_keyword_clauses(conjunct, "or");
+        let non_static_disjuncts: Vec<_> = disjuncts
+            .into_iter()
+            .filter(|disjunct| static_boolean_value(disjunct) != StaticBooleanValue::False)
+            .collect();
+        non_static_disjuncts.len() > 1
+            && non_static_disjuncts.iter().all(|disjunct| {
+                conjuncts.iter().enumerate().any(|(other_index, other)| {
+                    index != other_index && complementary_predicates(disjunct, other)
+                })
+            })
+    })
+}
+
+fn has_resolved_complementary_disjunctions_top_level_and(predicate: &str) -> bool {
+    let conjuncts = flattened_keyword_clauses(predicate, "and");
+    if conjuncts.len() < 3 {
+        return false;
+    }
+    conjuncts.iter().enumerate().any(|(left_index, left)| {
+        let left_disjuncts = flattened_keyword_clauses(left, "or");
+        left_disjuncts.len() == 2
+            && conjuncts
+                .iter()
+                .enumerate()
+                .skip(left_index + 1)
+                .any(|(_, right)| {
+                    let right_disjuncts = flattened_keyword_clauses(right, "or");
+                    right_disjuncts.len() == 2
+                        && resolvable_disjunction_pair_is_contradicted(
+                            &conjuncts,
+                            &left_disjuncts,
+                            &right_disjuncts,
+                        )
+                })
+    })
+}
+
+fn resolvable_disjunction_pair_is_contradicted(
+    conjuncts: &[&str],
+    left: &[&str],
+    right: &[&str],
+) -> bool {
+    left.iter().enumerate().any(|(left_index, left_disjunct)| {
+        right
+            .iter()
+            .enumerate()
+            .any(|(right_index, right_disjunct)| {
+                same_predicate(left_disjunct, right_disjunct)
+                    && complementary_predicates(left[1 - left_index], right[1 - right_index])
+                    && conjuncts
+                        .iter()
+                        .any(|conjunct| complementary_predicates(left_disjunct, conjunct))
             })
     })
 }
@@ -337,6 +432,14 @@ fn has_exhaustive_sext_case_split_top_level_or(predicate: &str) -> bool {
     has_exhaustive_case_split_top_level_or(predicate, 6)
 }
 
+fn has_exhaustive_sept_case_split_top_level_or(predicate: &str) -> bool {
+    has_exhaustive_case_split_top_level_or(predicate, 7)
+}
+
+fn has_exhaustive_oct_case_split_top_level_or(predicate: &str) -> bool {
+    has_exhaustive_case_split_top_level_or(predicate, 8)
+}
+
 fn has_exhaustive_case_split_top_level_or(predicate: &str, arity: usize) -> bool {
     let disjuncts = flattened_keyword_clauses(predicate, "or");
     let Some(expected_clause_count) = 1usize.checked_shl(arity as u32) else {
@@ -345,12 +448,6 @@ fn has_exhaustive_case_split_top_level_or(predicate: &str, arity: usize) -> bool
     if arity == 0 || disjuncts.len() < expected_clause_count {
         return false;
     }
-    let Some(all_masks) = 1u128
-        .checked_shl(expected_clause_count as u32)
-        .map(|mask| mask - 1)
-    else {
-        return false;
-    };
     disjuncts.iter().any(|candidate| {
         let bases = non_static_conjuncts(candidate);
         bases.len() == arity
@@ -359,15 +456,21 @@ fn has_exhaustive_case_split_top_level_or(predicate: &str, arity: usize) -> bool
                     !same_predicate(base, other) && !complementary_predicates(base, other)
                 })
             })
-            && exhaustive_case_split_masks(&disjuncts, &bases) == all_masks
+            && exhaustive_case_split_is_complete(&disjuncts, &bases)
     })
 }
 
-fn exhaustive_case_split_masks(disjuncts: &[&str], bases: &[&str]) -> u128 {
-    disjuncts.iter().fold(0, |masks, disjunct| {
+fn exhaustive_case_split_is_complete(disjuncts: &[&str], bases: &[&str]) -> bool {
+    let Some(expected_clause_count) = 1usize.checked_shl(bases.len() as u32) else {
+        return false;
+    };
+    let mut covered = vec![false; expected_clause_count];
+    let mut covered_count = 0;
+
+    'disjuncts: for disjunct in disjuncts {
         let conjuncts = non_static_conjuncts(disjunct);
         if conjuncts.len() != bases.len() {
-            return masks;
+            continue;
         }
         let mut polarities = vec![None; bases.len()];
         for conjunct in conjuncts {
@@ -382,21 +485,29 @@ fn exhaustive_case_split_masks(disjuncts: &[&str], bases: &[&str]) -> u128 {
                 }
             }
             if !matched {
-                return masks;
+                continue 'disjuncts;
             }
         }
-        let mut mask = 0u32;
+        let mut mask = 0usize;
         for polarity in polarities {
             match polarity {
                 Some(polarity) => {
-                    mask = (mask << 1) | u32::from(polarity);
+                    mask = (mask << 1) | usize::from(polarity);
                     continue;
                 }
-                None => return masks,
+                None => continue 'disjuncts,
             }
         }
-        masks | (1u128 << mask)
-    })
+        if !covered[mask] {
+            covered[mask] = true;
+            covered_count += 1;
+            if covered_count == expected_clause_count {
+                return true;
+            }
+        }
+    }
+
+    false
 }
 
 fn predicate_polarity_against(predicate: &str, base: &str) -> Option<bool> {
@@ -592,12 +703,21 @@ fn negated_predicate_shape(predicate: &str) -> Option<String> {
 fn negated_predicate_inner(predicate: &str) -> Option<&str> {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if let Some(rest) = predicate.strip_prefix("not ") {
-        return Some(rest);
+        let rest = rest.trim();
+        if rest.starts_with('(') || is_single_negation_operand(rest) {
+            return Some(rest);
+        }
+        return None;
     }
     if let Some(rest) = predicate.strip_prefix("not(") {
         return rest.strip_suffix(')');
     }
     None
+}
+
+fn is_single_negation_operand(predicate: &str) -> bool {
+    split_top_level_keyword(predicate, "and").len() == 1
+        && split_top_level_keyword(predicate, "or").len() == 1
 }
 
 fn same_predicate(left: &str, right: &str) -> bool {
@@ -839,6 +959,19 @@ impl StaticBooleanValue {
 impl From<bool> for StaticBooleanValue {
     fn from(value: bool) -> Self {
         if value { Self::True } else { Self::False }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn negation_prefix_does_not_capture_following_conjunction() {
+        let predicate = "(not value.ready and value.paid) or (value.ready and value.paid)";
+
+        assert!(!has_complementary_top_level_clauses(predicate, "or"));
+        assert!(!predicate_is_statically_true(predicate));
     }
 }
 

@@ -211,6 +211,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   over the same operands, and negated conjunctions with opposite inclusive and
   strict ordering bounds over the same operands, are also statically evaluated
   after whitespace normalization and commuted ordering normalization.
+  Negated conjunctions with one disjunction branch whose non-static disjuncts
+  are all covered by complement conjuncts are also statically evaluated.
   Case-split top-level `or` predicates whose complemented branch only adds
   statically true conjuncts are also statically evaluated, including boolean
   atoms and direct comparison complements. Top-level `or` predicates whose
@@ -236,6 +238,16 @@ No accepted language and type coverage follow-up is currently tracked here.
   thirty-two top-level conjunction branches are also statically evaluated.
   Exhaustive sext case splits that cover both polarities of six non-static
   predicates across sixty-four top-level conjunction branches are also
+  statically evaluated. Exhaustive sept case splits that cover both polarities
+  of seven non-static predicates across one hundred twenty-eight top-level
+  conjunction branches are also statically evaluated. Exhaustive oct case
+  splits that cover both polarities of eight non-static predicates across two
+  hundred fifty-six top-level conjunction branches are also statically
+  evaluated.
+  Negated conjunctions where a nested disjunction repeats one outer conjunct,
+  such as `not (flag and not (flag or ready))`, are also statically evaluated.
+  Resolved complementary disjunctions contradicted by another conjunct, such
+  as `not (flag and (not flag or ready) and (not flag or not ready))`, are also
   statically evaluated.
   Richer predicate semantics beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,

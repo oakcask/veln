@@ -152,3 +152,22 @@ Doctest output mismatches become failed cases with `failure.kind: "output"` and
 expected text, actual text, first differing logical line, bounded captured
 stdio events for the actual stream, and the expected-output fence span when
 available.
+
+## `veln explain [--list] [diagnostic-id]`
+
+`explain` is a read-only diagnostic catalog command. It does not discover,
+parse, check, lower, compile, or run source files.
+
+With a known diagnostic ID, it prints the diagnostic title, a short meaning,
+and a repair-oriented note. With `--list`, it prints the IDs available in the
+implemented catalog. Unknown IDs and an invocation without either `--list` or
+a diagnostic ID are command-line errors.
+
+The implemented catalog covers the first diagnostic families used most often
+in the typed-hole and predicate repair loop:
+
+- `hole.unfilled`
+- `hole.satisfy_type_mismatch`
+- `hole.satisfy_candidate_shadow`
+- `parse.contract_predicate`
+- `parse.satisfy_predicate`

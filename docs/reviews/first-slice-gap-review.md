@@ -2,9 +2,9 @@
 
 Scope:
 
-- `docs/phases/first-slice-implementation.md`
-- `docs/proposals/agent-language-spec-wall/README.md`
-- `docs/reference/source-decisions/README.md`
+- [First-Slice Implementation Memo](../phases/first-slice-implementation.md)
+- [Agent-Language Spec Wall Proposals](../proposals/agent-language-spec-wall/README.md)
+- [Implemented Source Decisions](../reference/source-decisions/README.md)
 - Current Rust workspace and sample commands
 
 ## Summary
@@ -16,7 +16,8 @@ runtime contract enforcement, first-slice grammar and prelude coverage, test
 module ownership, and captured stdio event fidelity.
 
 Treat this review as the current correction list before relying on the
-completion claims in `docs/phases/first-slice-implementation.md`.
+completion claims in
+[First-Slice Implementation Memo](../phases/first-slice-implementation.md).
 
 ## Implemented Shape
 
@@ -322,6 +323,7 @@ The previous `veln check` hang was not reproduced by this command.
 ## Documentation Follow-Up
 
 - Revisit the "Current Implementation Position" section in
-  `docs/phases/first-slice-implementation.md` after the gaps above are fixed.
+  [First-Slice Implementation Memo](../phases/first-slice-implementation.md)
+  after the gaps above are fixed.
 - Until then, avoid treating the existing "items 1 through 9 are complete"
   wording as the current implementation status.

@@ -19,7 +19,8 @@ verification command for examples and test files.
 
 Delay `doc`, `graph`, `explain`, and `repair` until the core diagnostics are
 stable enough for those commands to be thin views or workflows over existing
-analysis results.
+analysis results. The implemented `explain` command now follows that boundary
+as a read-only diagnostic catalog.
 
 ## Rationale
 
@@ -51,8 +52,10 @@ machine-readable shape later aligned with `check`.
   the hole runtime boundary before user code starts.
 - `veln test` is required, but the first version may support only explicit test
   files and doctest-like examples that the parser already understands.
-- `veln doc`, `veln graph`, `veln explain`, and `veln repair` are not required
-  first-slice commands.
+- `veln doc`, `veln graph`, and `veln repair` are not required first-slice
+  commands.
+- `veln explain` is optional in the first slice and, when present, must remain
+  a read-only view over diagnostic catalog data.
 - Deferred commands should consume the same analysis data as `check` when they
   are introduced rather than defining separate parsers or diagnostic formats.
 

@@ -106,6 +106,17 @@ recognizes a conjunction whose non-static conjuncts are all covered by
 complement disjuncts, such as
 `(flag and ready) or not flag or not ready` and
 `(value < limit and ready) or value >= limit or not ready`. It also recognizes
+negated conjunctions where one disjunction branch is completely covered by
+complement conjuncts, such as
+`not ((flag or ready) and not flag and not ready)` and
+`not ((value < limit or ready) and value >= limit and not ready)`.
+It also recognizes a negated disjunction repeated by an outer conjunction,
+such as `not (flag and not (flag or ready))` and
+`not (value < limit and not (value < limit or ready))`.
+It also recognizes resolved complementary disjunctions contradicted by another
+conjunct, such as
+`not (flag and (not flag or ready) and (not flag or not ready))`.
+It also recognizes
 factored case splits when two conjunction branches differ only by one
 complementary predicate and the remaining shared predicates are covered by
 complement disjuncts, such as
@@ -129,6 +140,12 @@ It also recognizes exhaustive quint case splits where thirty-two top-level
 conjunction branches cover both polarities of five non-static predicates.
 It also recognizes exhaustive sext case splits where sixty-four top-level
 conjunction branches cover both polarities of six non-static predicates.
+It also recognizes exhaustive sept case splits where one hundred twenty-eight
+top-level conjunction branches cover both polarities of seven non-static
+predicates.
+It also recognizes exhaustive oct case splits where two hundred fifty-six
+top-level conjunction branches cover both polarities of eight non-static
+predicates.
 Top-level `or` also recognizes complementary comparison pairs over the same
 operands after whitespace normalization and commuted ordering normalization,
 such as `value == limit or value != limit`,
@@ -323,6 +340,12 @@ implemented static truth identities from contract obligation classification.
 For example,
 `candidate.ready or (not candidate.ready and true)` ranks every type-compatible
 visible binding as a safe tautology repair candidate.
+The same static truth reuse covers negated conjunctions where every branch of
+a nested disjunction is contradicted by another conjunct, such as
+`not ((candidate.ready or candidate.paid) and not candidate.ready and not candidate.paid)`.
+It also covers negated conjunctions whose nested disjunction repeats an outer
+conjunct, such as
+`not (candidate.ready and not (candidate.ready or limit.ready))`.
 Nested `or` clauses with a literal `true` branch are ignored inside
 tautological `and` clauses, so
 `candidate == candidate and (candidate > candidate or true)` is ranked as a

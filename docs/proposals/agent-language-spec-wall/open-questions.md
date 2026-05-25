@@ -222,7 +222,8 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
 - Resolved by
   [First Implementation Commands](../../reference/source-decisions/result-first-implementation-commands.md):
   require `check`, `fmt`, `run`, and `test` in the first implementation; defer
-  `doc`, `graph`, `explain`, and `repair`.
+  `doc`, `graph`, and `repair`. The implemented `explain` command is specified
+  in [Commands](../../reference/language/commands.md).
 - Resolved by [Test JSON Shape](../../reference/source-decisions/result-test-json-shape.md): `veln test --json`
   should emit one run-level native JSON result with deterministic summary
   counts, top-level gate diagnostics, suite errors, per-case records, and

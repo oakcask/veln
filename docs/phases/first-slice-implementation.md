@@ -2,7 +2,8 @@
 
 This memo turns the current first-slice design decisions into an implementation
 shape. It is a working plan, not a replacement for the decision records under
-`docs/reference/source-decisions/` and `docs/proposals/agent-language-spec-wall/`.
+[reference source decisions](../reference/source-decisions/README.md) and the
+[agent-language spec wall](../proposals/agent-language-spec-wall/README.md).
 Remaining accepted targets that are not fully implemented are tracked in
 [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md).
 

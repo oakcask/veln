@@ -4437,6 +4437,68 @@ fn marks_static_case_split_satisfy_predicate_as_tautology_repair() {
 }
 
 #[test]
+fn marks_static_negated_disjunction_covered_satisfy_predicate_as_tautology_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(primary: {ready: Bool, paid: Bool}, fallback: {ready: Bool, paid: Bool}) -> {ready: Bool, paid: Bool}\n",
+            "  _value satisfy candidate => not ((candidate.ready or candidate.paid) and not candidate.ready and not candidate.paid)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"{ready: Bool, paid: Bool}\",\"rank\":1,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"primary\",",
+        "\"type\":\"{ready: Bool, paid: Bool}\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn marks_static_negated_disjunction_repeat_satisfy_predicate_as_tautology_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(primary: {ready: Bool}, fallback: {ready: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => not (candidate.ready and not (candidate.ready or primary.ready))\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
 fn marks_static_triple_case_split_satisfy_predicate_as_tautology_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -4594,6 +4656,58 @@ fn marks_static_sext_case_split_satisfy_predicate_as_tautology_repair() {
         "\"type\":\"{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool}\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
         "\"application_policy\":\"safe_repair_candidate\","
     )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn marks_static_sept_case_split_satisfy_predicate_as_tautology_repair() {
+    let predicate =
+        exhaustive_case_split_predicate("candidate", &["a", "b", "c", "d", "e", "f", "g"]);
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn main(primary: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool}}, fallback: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool}}) -> {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool}}\n  _value satisfy candidate => {predicate}\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn marks_static_oct_case_split_satisfy_predicate_as_tautology_repair() {
+    let predicate =
+        exhaustive_case_split_predicate("candidate", &["a", "b", "c", "d", "e", "f", "g", "h"]);
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn main(primary: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool, h: Bool}}, fallback: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool, h: Bool}}) -> {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool, h: Bool}}\n  _value satisfy candidate => {predicate}\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
     assert_eq!(
         details
             .matches("\"satisfy_status\":\"statically_satisfied\"")
@@ -7362,6 +7476,115 @@ fn contract_predicate_conjunction_covered_by_complement_disjuncts_is_statically_
 }
 
 #[test]
+fn contract_predicate_negated_disjunction_covered_by_complement_conjuncts_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "require not ((value.ready or extra) and not value.ready and not extra)\n",
+            "require not ((limit < 10 or value.ready or false) and limit >= 10 and not value.ready)\n",
+            "ensure not ((output.ready or extra) and not output.ready and not extra)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_negated_disjunction_with_repeated_branch_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "require not (value.ready and not (value.ready or extra))\n",
+            "ensure not (output.ready and extra and not (output.ready or value.ready))\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_resolved_complementary_disjunctions_are_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "require not (value.ready and (not value.ready or extra) and (not value.ready or not extra))\n",
+            "ensure not (not output.ready and (output.ready or extra) and (output.ready or not extra))\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_partial_negated_disjunction_requires_runtime_check() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "require not ((value.ready or extra) and not value.ready)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 1);
+    assert_eq!(
+        contracts[0].obligation_status,
+        ContractObligationStatus::RuntimeRequired
+    );
+}
+
+#[test]
 fn contract_predicate_factored_case_split_covered_by_complements_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
@@ -7573,6 +7796,82 @@ fn contract_predicate_exhaustive_sext_case_split_or_is_statically_proven() {
     assert!(contracts.iter().all(|contract| {
         contract.obligation_status == ContractObligationStatus::StaticallyProven
     }));
+}
+
+#[test]
+fn contract_predicate_exhaustive_sept_case_split_or_is_statically_proven() {
+    let predicate = exhaustive_case_split_predicate("value", &["a", "b", "c", "d", "e", "f", "g"]);
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool}} effects []\nrequire {predicate}\n  value\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 1);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_exhaustive_oct_case_split_or_is_statically_proven() {
+    let predicate =
+        exhaustive_case_split_predicate("value", &["a", "b", "c", "d", "e", "f", "g", "h"]);
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool, h: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool, h: Bool}} effects []\nrequire {predicate}\n  value\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 1);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_negated_conjunction_prefix_requires_runtime_check() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool, paid: Bool}) -> output: {ready: Bool, paid: Bool} effects []\n",
+            "require (not value.ready and value.paid) or (value.ready and value.paid)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 1);
+    assert_eq!(
+        contracts[0].obligation_status,
+        ContractObligationStatus::RuntimeRequired
+    );
 }
 
 #[test]

@@ -5,23 +5,22 @@ the experimental Veln implementation.
 
 ## Read First
 
-- [reference/README.md](reference/README.md) is the stable reference entry
-  point for behavior implemented in the current workspace.
-- [proposals/README.md](proposals/README.md) routes accepted and open design
-  targets that are not fully implemented.
-- [reviews/README.md](reviews/README.md) routes implementation gap reviews and
-  verification evidence.
+- [reference/README.md](reference/README.md): implemented behavior.
+- [proposals/README.md](proposals/README.md): accepted or open targets that
+  are not fully implemented.
+- [reviews/README.md](reviews/README.md): implementation gaps and verification
+  evidence.
 
 ## Read When
 
-- Use [reference/language/README.md](reference/language/README.md) before
-  changing code, tests, diagnostics, or samples.
-- Use [phases/README.md](phases/README.md) for implementation order,
-  completion notes, and working plans.
+- Use [reference/language/README.md](reference/language/README.md) before code,
+  test, diagnostic, or sample changes.
+- Use [phases/README.md](phases/README.md) for implementation order and working
+  plans.
 - Use [reference/source-decisions/README.md](reference/source-decisions/README.md)
-  for implemented discussion results and compatibility context.
+  for implemented decision rationale.
 - Use [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md)
-  for accepted or open design-wall decisions that are not fully implemented.
+  for planned or incomplete design-wall rationale.
 
 ## Skip Unless Needed
 
@@ -41,12 +40,6 @@ the experimental Veln implementation.
 - Put implementation order, completion notes, and working plans in `phases/`.
 - Put implementation gaps, verification evidence, and correction lists in
   `reviews/`.
-- When a proposal becomes fully implemented, move its stable behavior into
-  `reference/` and its implemented decision rationale into
-  `reference/source-decisions/`; do not leave the implemented proposal under
-  `proposals/`.
-- When a document mixes implemented and planned behavior, either split it or
-  label the planned sections and link them from `proposals/`.
 - Treat `reference/language/` as the current behavior source before changing
   code, tests, diagnostics, or samples.
 
@@ -59,14 +52,3 @@ Use these status labels at the top of durable specification documents:
   commitment.
 - `superseded`: another document replaces this one.
 - `rejected`: the project decided not to pursue this design.
-
-## Conventions
-
-- Put exploratory proposal logs in `proposals/`.
-- Put implementation review findings and correction lists in `reviews/`.
-- Put stable language reference material in `reference/`.
-- Put planned but not fully implemented specification targets in `proposals/`.
-- Prefer small, purpose-labeled files so later agents can read only the relevant
-  context.
-- When a proposal accumulates implemented decision results, move those result
-  bodies into `reference/source-decisions/`.

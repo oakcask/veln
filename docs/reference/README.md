@@ -8,24 +8,16 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 
 - [language/README.md](language/README.md) routes the categorized language
   specification for the implemented first slice.
-- [language/overview.md](language/overview.md) defines the implemented
-  stability boundary.
-- [language/source-surface.md](language/source-surface.md) defines implemented
-  source syntax and grammar.
-- [language/types.md](language/types.md) defines implemented annotations,
-  inference, assignment, and operator typing.
-- [language/diagnostics-json.md](language/diagnostics-json.md) defines
-  `veln check --json` output.
 - [source-decisions/README.md](source-decisions/README.md) lists implemented
   decision records for rationale and compatibility context.
-- [bibliography/source-families.md](bibliography/source-families.md) groups the
-  research references that support design decisions.
+- [bibliography/README.md](bibliography/README.md) routes research references
+  that support design decisions.
 
 ## Read When
 
 - Use `language/` before changing code, tests, diagnostics, or samples.
-- Use `language/source-surface.md` when you need the implemented first-slice
-  source grammar.
+- Use `language/source-surface.md` for implemented first-slice source grammar.
+- Use `language/diagnostics-json.md` for `veln check --json` output.
 - Use `source-decisions/` for implemented decision rationale.
 - Use `../proposals/agent-language-spec-wall/` for planned or incomplete
   decision rationale.

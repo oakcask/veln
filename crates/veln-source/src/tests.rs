@@ -20,6 +20,22 @@ fn normalizes_source_paths() {
 }
 
 #[test]
+fn preserves_internal_relative_segments_when_normalizing_source_paths() {
+    let path = SourcePath::new(".\\src\\..\\main.veln");
+
+    assert_eq!(path.as_str(), "src/../main.veln");
+}
+
+#[test]
+fn normalizes_only_leading_current_directory_segments() {
+    let current_dir = SourcePath::new("././");
+    let bare_current_dir = SourcePath::new(".");
+
+    assert_eq!(current_dir.as_str(), "");
+    assert_eq!(bare_current_dir.as_str(), ".");
+}
+
+#[test]
 fn maps_offsets_to_one_based_lines_and_columns() {
     let source = SourceFile::new("src/main.veln", "a\nbc\n");
 

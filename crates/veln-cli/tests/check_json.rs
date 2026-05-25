@@ -155,10 +155,13 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
         "veln fmt [path ...]\n",
         "veln run [--json] <entry> [path ...] [-- arg ...]\n",
         "veln test [--json] [target ...]\n",
+        "veln explain [--list] [diagnostic-id]\n",
     );
 
     let empty_output = project.veln(&[], &[]);
     let check_help_output = project.veln(&["check"], &["--help"]);
+    let explain_help_output = project.veln(&["explain"], &["--help"]);
+    let explain_short_help_output = project.veln(&["explain"], &["-h"]);
 
     assert!(empty_output.status.success(), "{}", stderr(&empty_output));
     assert_eq!(stdout(&empty_output), expected);
@@ -170,6 +173,82 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     );
     assert_eq!(stdout(&check_help_output), expected);
     assert_eq!(stderr(&check_help_output), "");
+    assert!(
+        explain_help_output.status.success(),
+        "{}",
+        stderr(&explain_help_output)
+    );
+    assert_eq!(stdout(&explain_help_output), expected);
+    assert_eq!(stderr(&explain_help_output), "");
+    assert!(
+        explain_short_help_output.status.success(),
+        "{}",
+        stderr(&explain_short_help_output)
+    );
+    assert_eq!(stdout(&explain_short_help_output), expected);
+    assert_eq!(stderr(&explain_short_help_output), "");
+}
+
+#[test]
+fn explain_reports_diagnostic_help() {
+    let project = TestProject::new("cli-explain");
+
+    let output = project.veln(&["explain"], &["hole.unfilled"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout(&output).contains("hole.unfilled: unfilled typed hole"));
+    assert!(stdout(&output).contains("Meaning:"));
+    assert!(stdout(&output).contains("Repair:"));
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
+fn explain_lists_known_diagnostics() {
+    let project = TestProject::new("cli-explain-list");
+
+    let output = project.veln(&["explain"], &["--list"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout(&output).contains("hole.unfilled - unfilled typed hole"));
+    assert!(
+        stdout(&output)
+            .contains("parse.contract_predicate - unsupported contract predicate syntax")
+    );
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
+fn explain_list_takes_precedence_over_diagnostic_id() {
+    let project = TestProject::new("cli-explain-list-with-id");
+
+    let output = project.veln(&["explain"], &["--list", "hole.unfilled"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(stdout.contains("hole.unfilled - unfilled typed hole"));
+    assert!(!stdout.contains("Meaning:"));
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
+fn explain_reports_missing_and_unknown_diagnostic_ids() {
+    let project = TestProject::new("cli-explain-errors");
+
+    let missing = project.veln(&["explain"], &[]);
+    let unknown = project.veln(&["explain"], &["unknown.id"]);
+
+    assert_eq!(missing.status.code(), Some(2));
+    assert_eq!(
+        stderr(&missing),
+        "veln: explain requires a diagnostic id or --list\n"
+    );
+    assert_eq!(stdout(&missing), "");
+    assert_eq!(unknown.status.code(), Some(2));
+    assert_eq!(
+        stderr(&unknown),
+        "veln: no explanation for diagnostic `unknown.id`\n"
+    );
+    assert_eq!(stdout(&unknown), "");
 }
 
 #[test]
@@ -191,6 +270,8 @@ fn cli_reports_parser_errors_before_project_discovery() {
     let unknown_check_flag = project.veln(&["check"], &["--wat"]);
     let unknown_run_flag = project.veln(&["run"], &["--wat"]);
     let unknown_test_flag = project.veln(&["test"], &["--wat"]);
+    let unknown_explain_flag = project.veln(&["explain"], &["--wat"]);
+    let unexpected_explain_argument = project.veln(&["explain"], &["hole.unfilled", "extra"]);
     let missing_run_entry = project.veln(&["run"], &[]);
 
     assert_eq!(unknown_command.status.code(), Some(2));
@@ -216,6 +297,20 @@ fn cli_reports_parser_errors_before_project_discovery() {
     assert_eq!(
         stderr(&unknown_test_flag),
         "veln: unknown test flag `--wat`\n"
+    );
+
+    assert_eq!(unknown_explain_flag.status.code(), Some(2));
+    assert_eq!(stdout(&unknown_explain_flag), "");
+    assert_eq!(
+        stderr(&unknown_explain_flag),
+        "veln: unknown explain flag `--wat`\n"
+    );
+
+    assert_eq!(unexpected_explain_argument.status.code(), Some(2));
+    assert_eq!(stdout(&unexpected_explain_argument), "");
+    assert_eq!(
+        stderr(&unexpected_explain_argument),
+        "veln: unexpected explain argument `extra`\n"
     );
 
     assert_eq!(missing_run_entry.status.code(), Some(2));

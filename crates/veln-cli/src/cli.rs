@@ -18,6 +18,10 @@ pub(crate) enum Command {
         json: bool,
         targets: Vec<PathBuf>,
     },
+    Explain {
+        list: bool,
+        diagnostic_id: Option<String>,
+    },
     Help,
     Version,
 }
@@ -32,6 +36,7 @@ impl Command {
             "fmt" => parse_fmt(args.into_iter().skip(1)),
             "run" => parse_run(args.into_iter().skip(1)),
             "test" => parse_test(args.into_iter().skip(1)),
+            "explain" => parse_explain(args.into_iter().skip(1)),
             "--help" | "-h" | "help" => Ok(Self::Help),
             "--version" | "-V" | "version" => Ok(Self::Version),
             command => Err(format!("unknown command `{command}`")),
@@ -44,6 +49,7 @@ pub(crate) fn print_help() {
     println!("veln fmt [path ...]");
     println!("veln run [--json] <entry> [path ...] [-- arg ...]");
     println!("veln test [--json] [target ...]");
+    println!("veln explain [--list] [diagnostic-id]");
 }
 
 fn parse_check(args: impl Iterator<Item = String>) -> Result<Command, String> {
@@ -115,4 +121,22 @@ fn parse_test(args: impl Iterator<Item = String>) -> Result<Command, String> {
         }
     }
     Ok(Command::Test { json, targets })
+}
+
+fn parse_explain(args: impl Iterator<Item = String>) -> Result<Command, String> {
+    let mut list = false;
+    let mut diagnostic_id = None;
+    for arg in args {
+        match arg.as_str() {
+            "--list" => list = true,
+            "--help" | "-h" => return Ok(Command::Help),
+            flag if flag.starts_with('-') => return Err(format!("unknown explain flag `{flag}`")),
+            id if diagnostic_id.is_none() => diagnostic_id = Some(id.to_string()),
+            id => return Err(format!("unexpected explain argument `{id}`")),
+        }
+    }
+    Ok(Command::Explain {
+        list,
+        diagnostic_id,
+    })
 }
