@@ -155,6 +155,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   Top-level ordering trichotomy disjuncts that reference the satisfy candidate
   are also treated as tautological repair constraints after whitespace
   normalization and commuted ordering normalization.
+  Binding-specific satisfy repair also reuses static truth classification after
+  substituting a visible symbol for the satisfy candidate, so predicates that
+  become statically true for one binding are accepted without accepting
+  unrelated bindings.
   Top-level inclusive ordering totality disjuncts that reference the satisfy
   candidate are also treated as tautological repair constraints after
   whitespace normalization and commuted ordering normalization.

@@ -906,6 +906,38 @@ fn marks_same_shape_expression_satisfy_comparison_as_safe_repair() {
 }
 
 #[test]
+fn marks_binding_substituted_static_satisfy_candidate_as_safe_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}, fallback: {ready: Bool, paid: Bool}) -> {ready: Bool, paid: Bool}\n",
+            "  _value satisfy candidate => not ((candidate.ready and order.paid) and not (order.ready and order.paid))\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"{ready: Bool, paid: Bool}\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"order\",",
+        "\"type\":\"{ready: Bool, paid: Bool}\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"order\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn marks_negated_strict_satisfy_comparison_candidate_as_safe_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -7632,9 +7664,12 @@ fn contract_predicate_boolean_formula_comparisons_are_statically_proven() {
     let core = lowered.core.expect("valid module should lower to core");
     let contracts = &core.functions[0].contracts;
     assert_eq!(contracts.len(), 3);
-    assert!(contracts.iter().all(|contract| {
-        contract.obligation_status == ContractObligationStatus::StaticallyProven
-    }), "{contracts:#?}");
+    assert!(
+        contracts.iter().all(|contract| {
+            contract.obligation_status == ContractObligationStatus::StaticallyProven
+        }),
+        "{contracts:#?}"
+    );
 }
 
 #[test]

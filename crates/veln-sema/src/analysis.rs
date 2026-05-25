@@ -2779,10 +2779,8 @@ impl<'a> FunctionChecker<'a> {
         satisfy: &SatisfyClause,
         expected: &Type,
     ) -> Option<SatisfyRepairConstraint> {
-        let direct_constraint = SatisfyRepairConstraint::from_satisfy(
-            satisfy,
-            self.valid_static_satisfy_predicate(satisfy, expected),
-        );
+        let allow_static_truth = self.valid_static_satisfy_predicate(satisfy, expected);
+        let direct_constraint = SatisfyRepairConstraint::from_satisfy(satisfy, allow_static_truth);
         if direct_constraint
             .as_ref()
             .is_some_and(SatisfyRepairConstraint::allows_any_binding)
@@ -2790,6 +2788,21 @@ impl<'a> FunctionChecker<'a> {
             return direct_constraint;
         }
         let candidate = satisfy.candidate.as_ref()?;
+        let static_allowed_bindings = if allow_static_truth {
+            self.bindings
+                .iter()
+                .filter(|binding| {
+                    let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
+                    predicate_is_statically_true(&replaced)
+                })
+                .map(|binding| SatisfyAllowedBinding {
+                    name: binding.name.clone(),
+                    reason: "satisfy_tautology",
+                })
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
         let required_predicates = self
             .function
             .contracts
@@ -2804,6 +2817,16 @@ impl<'a> FunctionChecker<'a> {
             .map(|contract| contract.text.clone())
             .collect::<Vec<_>>();
         if required_predicates.is_empty() {
+            if !static_allowed_bindings.is_empty() {
+                let Some(mut constraint) = direct_constraint else {
+                    return Some(SatisfyRepairConstraint {
+                        allowed_bindings: Some(static_allowed_bindings),
+                        reason: "satisfy_tautology",
+                    });
+                };
+                constraint.extend_allowed_bindings(static_allowed_bindings);
+                return Some(constraint);
+            }
             return direct_constraint;
         }
         let require_allowed_bindings = self
@@ -2819,11 +2842,14 @@ impl<'a> FunctionChecker<'a> {
             })
             .collect::<Vec<_>>();
         let Some(mut constraint) = direct_constraint else {
-            return (!require_allowed_bindings.is_empty()).then_some(SatisfyRepairConstraint {
-                allowed_bindings: Some(require_allowed_bindings),
+            let mut allowed_bindings = static_allowed_bindings;
+            allowed_bindings.extend(require_allowed_bindings);
+            return (!allowed_bindings.is_empty()).then_some(SatisfyRepairConstraint {
+                allowed_bindings: Some(allowed_bindings),
                 reason: "satisfy_require_match",
             });
         };
+        constraint.extend_allowed_bindings(static_allowed_bindings);
         constraint.extend_allowed_bindings(require_allowed_bindings);
         Some(constraint)
     }

@@ -411,6 +411,13 @@ tautology. Nested complementary `or` clauses rooted at the satisfy candidate
 are ignored the same way, so
 `candidate.ready == candidate.ready and
 (candidate.ready or not candidate.ready)` is ranked as a tautology.
+For binding-specific repairs, the checker also substitutes each visible symbol
+for the satisfy candidate and reuses contract static truth classification on
+the substituted predicate. If that substituted predicate is statically true,
+the visible symbol is a safe tautology repair candidate. For example,
+`not ((candidate.ready and order.paid) and not (order.ready and order.paid))`
+marks `order` safe after substitution without marking unrelated record
+bindings safe.
 A candidate is also safe when replacing the
 satisfy candidate binding with the visible symbol makes every non-`true` `and`
 clause match a valid `require` clause already in force for the function; such
