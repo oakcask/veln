@@ -3446,6 +3446,13 @@ fn repair_clause_implies(required: &str, wanted: &str) -> bool {
     if literal_bound_implies_disequality(&required, &wanted, &RepairEquivalences::default()) {
         return true;
     }
+    if boolean_literal_comparison_implies_comparison(
+        &required,
+        &wanted,
+        &RepairEquivalences::default(),
+    ) {
+        return true;
+    }
     required.operator == "=="
         && wanted.operator == "<="
         && same_repair_operands_unordered(required.left, required.right, wanted.left, wanted.right)
@@ -3735,6 +3742,7 @@ fn repair_clause_implies_with_equivalences(
             literal_order_comparison_implies(&required, wanted, equivalences)
                 || literal_equality_implies_order_comparison(&required, wanted, equivalences)
                 || literal_bound_implies_disequality(&required, wanted, equivalences)
+                || boolean_literal_comparison_implies_comparison(&required, wanted, equivalences)
         }
     }
 }
@@ -4007,6 +4015,21 @@ fn boolean_atom_implies_literal_comparison(
     equivalences: &RepairEquivalences,
 ) -> bool {
     let Some((required_atom, required_truth)) = boolean_atom_truth(required_atom) else {
+        return false;
+    };
+    let Some((wanted_atom, wanted_truth)) = boolean_literal_comparison_truth(wanted) else {
+        return false;
+    };
+    required_truth == wanted_truth
+        && repair_operands_equivalent(required_atom, wanted_atom, equivalences)
+}
+
+fn boolean_literal_comparison_implies_comparison(
+    required: &ParsedRepairComparison<'_>,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some((required_atom, required_truth)) = boolean_literal_comparison_truth(required) else {
         return false;
     };
     let Some((wanted_atom, wanted_truth)) = boolean_literal_comparison_truth(wanted) else {

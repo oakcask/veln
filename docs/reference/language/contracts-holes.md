@@ -351,6 +351,10 @@ also apply to boolean atom clauses, so `require max == fallback` plus
 `require flag` guarantees `candidate == true` and `candidate != false` after
 substituting `flag`, `require not flag` guarantees `candidate == false`, and
 `require flag.ready == true` guarantees `candidate.ready` after substitution.
+Equivalent literal boolean comparisons also discharge each other, so
+`require flag != false` guarantees `candidate == true`, and
+`require flag == true` guarantees `candidate != false` after substituting
+`flag`.
 Inclusive transitive ordering plus endpoint disequality guarantees a
 strict comparison in repair matching, so `require low <= mid`,
 `require mid <= max`, and `require max != low` guarantee `candidate > low`
