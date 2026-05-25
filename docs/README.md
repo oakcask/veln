@@ -15,12 +15,27 @@ the experimental Veln implementation.
 
 - Use [reference/language/README.md](reference/language/README.md) before code,
   test, diagnostic, or sample changes.
+- Use [reference/language/source-surface.md](reference/language/source-surface.md)
+  for implemented syntax, expression, and source grammar questions.
+- Use [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md),
+  [reference/language/run-json.md](reference/language/run-json.md), or
+  [reference/language/test-json.md](reference/language/test-json.md) before
+  changing human or machine-readable command output.
 - Use [phases/README.md](phases/README.md) for implementation order and working
   plans.
 - Use [reference/source-decisions/README.md](reference/source-decisions/README.md)
   for implemented decision rationale.
 - Use [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md)
   for planned or incomplete design-wall rationale.
+
+## Current Shape
+
+- `reference/language/` is the first stop for implemented behavior.
+- `reference/source-decisions/` is historical rationale grouped by topic.
+- `phases/` and `reviews/` contain longer working records; read their README
+  files before opening the long detail documents.
+- `proposals/` contains accepted or open targets that still need promotion into
+  the reference after implementation.
 
 ## Skip Unless Needed
 

@@ -11,6 +11,13 @@ This directory keeps implementation-phase plans and working notes.
   current first-slice architecture memo for the processor, standard library,
   runtime boundary, and implementation order.
 
+## Skip Unless Needed
+
+- Do not read the full implementation memo before the language reference when
+  you only need current syntax or command behavior.
+- Do not use a phase note as proof that behavior is implemented; check
+  `../reference/language/` and `../reviews/` first.
+
 ## Read When
 
 - Use this directory when starting or reviewing implementation work.
