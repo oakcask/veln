@@ -1711,6 +1711,31 @@ fn channel_bounded_accepts_explicit_item_type_argument() {
 }
 
 #[test]
+fn channel_clone_preserves_sender_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(tx: Sender(String)) -> Result((), SendError) effects [concurrency]\n",
+            "  let clone = channel::clone(tx)\n",
+            "  channel::send(clone, \"hello\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = &core.functions[0];
+    let CoreStmtKind::Let { expr, .. } = &main.body[0].kind else {
+        panic!("expected cloned sender binding");
+    };
+    assert_eq!(expr.ty, CoreType::named("Sender", vec![CoreType::string()]));
+}
+
+#[test]
 fn channel_send_checks_value_against_sender_item_type() {
     let source = SourceFile::new(
         "main.veln",

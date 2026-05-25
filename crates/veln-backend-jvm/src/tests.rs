@@ -92,7 +92,8 @@ fn generates_runtime_calls_for_bounded_channels() {
     let ir = lower_to_ir(concat!(
         "pub fn main() -> String effects [concurrency]\n",
         "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
-        "  let _ = channel::send(pair.tx, \"hello\")\n",
+        "  let producer = channel::clone(pair.tx)\n",
+        "  let _ = channel::send(producer, \"hello\")\n",
         "  match channel::recv(pair.rx)\n",
         "    Some(value) => value\n",
         "    None => \"missing\"\n",
@@ -109,11 +110,13 @@ fn generates_runtime_calls_for_bounded_channels() {
         .expect("runtime source should exist");
 
     assert!(program.contains("VelnRuntime.channelBounded(Long.valueOf(1L))"));
+    assert!(program.contains("VelnRuntime.channelClone("));
     assert!(program.contains("VelnRuntime.channelSend("));
     assert!(program.contains("VelnRuntime.channelRecv("));
     assert!(runtime.contains("public static final class Channel"));
     assert!(runtime.contains("private final long capacity;"));
     assert!(runtime.contains("public static Object channelBounded"));
+    assert!(runtime.contains("public static Object channelClone"));
 }
 
 #[test]

@@ -321,6 +321,11 @@ impl<'a> ProgramEmitter<'a> {
         return record("tx", new Sender(channel), "rx", new Receiver(channel));
     }}
 
+    public static Object channelClone(Object sender) {{
+        Sender tx = (Sender) sender;
+        return new Sender(tx.channel);
+    }}
+
     public static Object channelSend(Object sender, Object value) {{
         Sender tx = (Sender) sender;
         synchronized (tx.channel) {{

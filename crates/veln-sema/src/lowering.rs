@@ -623,7 +623,9 @@ impl<'a> CoreLowerer<'a> {
                 return self.lower_option_constructor(expr, args, expected);
             }
             if is_concurrency_call(segments) {
-                let signature = core_concurrency_signature(segments, expected, None);
+                let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
+                let signature =
+                    core_concurrency_signature(segments, expected, handle_type.as_ref(), None);
                 if let Some((params, _)) = &signature {
                     if args.len() != params.len() {
                         self.unsupported_expression(
@@ -674,7 +676,7 @@ impl<'a> CoreLowerer<'a> {
                     .and_then(|type_arg| parse_type_annotation(type_arg).ok())
                     .map(|ty| core_type(&ty));
                 let signature =
-                    core_concurrency_signature(segments, expected, explicit_item.as_ref());
+                    core_concurrency_signature(segments, expected, None, explicit_item.as_ref());
                 if let Some((params, _)) = &signature {
                     if args.len() != params.len() {
                         self.unsupported_expression(
@@ -1129,7 +1131,7 @@ impl<'a> CoreLowerer<'a> {
             });
         }
         if is_concurrency_call(segments) {
-            let (params, return_type) = core_concurrency_signature(segments, expected, None)?;
+            let (params, return_type) = core_concurrency_signature(segments, expected, None, None)?;
             return Some(CoreCallSignature {
                 target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
                 params,

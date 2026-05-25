@@ -181,8 +181,8 @@ Implemented expressions:
 - constructors: `Ok(value)`, `Err(error)`, `Some(value)`, `None`, and their
   `Result::` or `Option::` qualified forms
 - channel effect calls: `channel::bounded(capacity)`,
-  `channel::bounded[Item](capacity)`, `channel::send(tx, value)`,
-  `channel::recv(rx)`, and `channel::close(tx)`
+  `channel::bounded[Item](capacity)`, `channel::clone(tx)`,
+  `channel::send(tx, value)`, `channel::recv(rx)`, and `channel::close(tx)`
 - prelude helpers as bare calls such as `list_len(items)`
 - records: `{name: value, ...}`
 - dictionaries: `{key_expr: value_expr, ...}` when the first entry is not a

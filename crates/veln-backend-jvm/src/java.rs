@@ -48,6 +48,7 @@ pub(crate) fn prelude_method(name: &str) -> &'static str {
 pub(crate) fn concurrency_method(name: &str) -> &'static str {
     match name {
         "channel::bounded" => "channelBounded",
+        "channel::clone" => "channelClone",
         "channel::send" => "channelSend",
         "channel::recv" => "channelRecv",
         "channel::close" => "channelClose",

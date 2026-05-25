@@ -23,7 +23,12 @@ pub(crate) fn concurrency_origin(segments: &[String], callee: &Expr) -> Option<C
     let [module, name] = segments else {
         return None;
     };
-    if module != "channel" || !matches!(name.as_str(), "bounded" | "send" | "recv" | "close") {
+    if module != "channel"
+        || !matches!(
+            name.as_str(),
+            "bounded" | "clone" | "send" | "recv" | "close"
+        )
+    {
         return None;
     }
     Some(CallOrigin {
@@ -61,6 +66,16 @@ pub(crate) fn concurrency_signature(
                 ]),
             ))
         }
+        "clone" => {
+            let item = handle_type
+                .and_then(|ty| named_type_argument(ty, "Sender"))
+                .cloned()
+                .unwrap_or(Type::Unknown);
+            Some((
+                vec![Type::named("Sender", vec![item.clone()])],
+                Type::named("Sender", vec![item]),
+            ))
+        }
         "send" => {
             let item = handle_type
                 .and_then(|ty| named_type_argument(ty, "Sender"))
@@ -96,6 +111,7 @@ fn named_type_argument<'a>(ty: &'a Type, expected_name: &str) -> Option<&'a Type
 pub(crate) fn core_concurrency_signature(
     segments: &[String],
     expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
     explicit_item: Option<&CoreType>,
 ) -> Option<(Vec<CoreType>, CoreType)> {
     let [module, name] = segments else {
@@ -120,6 +136,16 @@ pub(crate) fn core_concurrency_signature(
                     ),
                     ("rx".to_string(), CoreType::named("Receiver", vec![item])),
                 ]),
+            ))
+        }
+        "clone" => {
+            let item = handle_type
+                .and_then(|ty| core_named_type_argument(ty, "Sender"))
+                .cloned()
+                .unwrap_or(CoreType::Unknown);
+            Some((
+                vec![CoreType::named("Sender", vec![item.clone()])],
+                CoreType::named("Sender", vec![item]),
             ))
         }
         "send" => Some((
@@ -151,7 +177,8 @@ pub(crate) fn is_concurrency_call(segments: &[String]) -> bool {
     matches!(
         segments,
         [module, name]
-            if module == "channel" && matches!(name.as_str(), "bounded" | "send" | "recv" | "close")
+            if module == "channel"
+                && matches!(name.as_str(), "bounded" | "clone" | "send" | "recv" | "close")
     )
 }
 

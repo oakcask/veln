@@ -92,6 +92,7 @@ effect checking:
 ```veln
 channel::bounded(capacity: Int) -> {tx: Sender(T), rx: Receiver(T)} effects [concurrency]
 channel::bounded[T](capacity: Int) -> {tx: Sender(T), rx: Receiver(T)} effects [concurrency]
+channel::clone(tx: Sender(T)) -> Sender(T) effects [concurrency]
 channel::send(tx: Sender(T), value: T) -> Result((), SendError) effects [concurrency]
 channel::recv(rx: Receiver(T)) -> Option(T) effects [concurrency]
 channel::close(tx: Sender(T)) -> () effects [concurrency]
@@ -105,7 +106,9 @@ function or test that calls one of them must declare `concurrency` in its
 inferred from the expected record type, such as
 `{tx: Sender(String), rx: Receiver(String)}`. `channel::bounded[T](capacity)`
 uses the explicit item type when no expected record type is present.
-`channel::send` returns `Ok(())` when the value is queued and
+`channel::clone` returns another sender endpoint for the same channel and
+preserves the sender item type. `channel::send` returns `Ok(())` when the value
+is queued and
 `Err(SendError)` when the sender cannot accept the value. `channel::recv`
 waits for a queued value or sender close, returns `Some(value)` for a received
 value, and returns `None` after the channel is closed and drained. A
