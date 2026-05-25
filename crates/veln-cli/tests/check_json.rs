@@ -913,6 +913,36 @@ fn check_json_keeps_sema_for_other_files_when_one_file_has_parse_errors() {
 }
 
 #[test]
+fn check_json_resolves_imported_calls_across_selected_files() {
+    let project = TestProject::new("check-shared-project-analysis");
+    project.write(
+        "util.veln",
+        "mod app.util\npub fn value() -> Int effects []\n  1\nend\n",
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.util\n",
+            "pub fn main() -> Int effects []\n",
+            "  util::value()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&[]);
+
+    assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "\"diagnostics\":[]",
+            "\"summary\":{\"diagnostic_count\":0,\"by_severity\":{},\"by_kind\":{}}",
+        ],
+    );
+}
+
+#[test]
 fn check_json_reports_return_type_mismatch() {
     let project = TestProject::new("return-mismatch");
     project.write(

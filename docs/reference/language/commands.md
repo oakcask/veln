@@ -4,12 +4,12 @@ This file specifies implemented CLI behavior for the first slice.
 
 ## `veln check [--json] [path ...]`
 
-`check` discovers source files, parses them, lowers each parse-clean file to the
-surface AST, runs semantic diagnostics for that file, and then lowers each
-error-free file far enough to report checked-core executable blockers such as
-missing expressions plus call and constructor arity mismatches. With `--json`,
-it prints the check JSON envelope. Without `--json`, it prints human
-diagnostics or `ok`.
+`check` discovers source files, parses them, combines parse-clean files into one
+surface module, runs semantic diagnostics for that module, and then lowers it
+far enough to report checked-core executable blockers such as missing
+expressions plus call and constructor arity mismatches. With `--json`, it
+prints the check JSON envelope. Without `--json`, it prints human diagnostics
+or `ok`.
 
 Inputs are files or directories. If no path is provided, discovery recursively
 selects `.veln` files below the current project root, skipping `.git` and
@@ -23,11 +23,9 @@ the selected set and do not override source `mod` declarations.
 
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic
-diagnostics.
-
-This command currently analyzes files independently. Cross-file semantic
-analysis is an implementation gap, not an implied part of the fixed check
-behavior.
+diagnostics. Cross-file facts from parse-clean selected files, including
+source-level imports and imported qualified calls, participate in the same
+semantic analysis used by `run` and `test`.
 
 ## `veln fmt [path ...]`
 

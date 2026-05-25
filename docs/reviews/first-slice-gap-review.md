@@ -37,6 +37,7 @@ completion claims in `docs/phases/first-slice-implementation.md`.
 
 ### 1. Shared Analysis Pipeline
 
+Status: partially resolved
 Severity: high
 
 Expected:
@@ -48,7 +49,9 @@ Expected:
 
 Observed:
 
-- `check` parses and analyzes each file independently.
+- `check` now combines parse-clean selected files into one surface module before
+  semantic analysis, while retaining parse diagnostics from files that could not
+  be lowered.
 - `run` and `test` load all parse-clean files into one `SurfaceModule`, then
   run a separate module-level analysis and lowering path.
 - `SurfaceModule` currently carries functions only; module declarations, use
@@ -62,21 +65,21 @@ Why it matters:
 - A program can plausibly pass one command and fail another for reasons outside
   the documented phase boundary.
 
-Fix direction:
+Remaining fix direction:
 
 - Add one shared project analysis entry point that returns parse diagnostics,
   surface modules, semantic diagnostics, checked core, and typed IR readiness.
-- Make `check`, `run`, and `test` call that shared entry point, then apply only
-  command-specific output and execution policy.
+- Make `check`, `run`, and `test` call that shared entry point directly, then
+  apply only command-specific output and execution policy.
 - Preserve source module/import facts in the project or AST boundary before
   cross-file resolution grows further.
 
 Acceptance checks:
 
-- Add a multi-file fixture where one file calls a function in another file.
-  `check`, `run`, and `test` should agree on the resolved facts.
-- Add a fixture with a parse error in one file and semantic facts in another;
-  the behavior should be intentionally documented and shared.
+- A multi-file `check --json` fixture where one file calls an imported function
+  in another file resolves without isolated-file name diagnostics.
+- A fixture with a parse error in one file and semantic facts in another keeps
+  the parse-clean file's semantic diagnostics.
 
 ### 2. Runtime Contract Enforcement
 
