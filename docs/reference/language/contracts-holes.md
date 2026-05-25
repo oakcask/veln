@@ -74,13 +74,17 @@ folding also accepts boolean identity cases where one side of `or` is provably
 that result through literal-only `and` and `not` wrappers. It also treats a
 top-level `or` between the same pure boolean predicate and its negation as
 statically true after validation, such as `flag or not flag` or
-`output.ready or not(output.ready)`. It also treats a negated top-level `and`
-between the same pure boolean predicate and its negation as statically true,
-such as `not (flag and not flag)` or
+`output.ready or not(output.ready)`. The complementary `or` identity may span
+more than two top-level branches, so `flag or extra or not flag` is also
+statically proven. It also treats a negated top-level `and` between the same
+pure boolean predicate and its negation as statically true, such as
+`not (flag and not flag)` or
 `not(output.ready and not output.ready)`. For example,
-`true or value > 0`, `(output >= value or true) and not false`, and
-`1 < 2 and "ready" != "pending"` are statically proven after the predicate has
-passed validation. Other valid predicates are classified as
+`not (flag and extra and not flag)` is statically proven because the inner
+conjunction contains complementary branches. For example, `true or value > 0`,
+`(output >= value or true) and not false`, and `1 < 2 and "ready" != "pending"`
+are statically proven after the predicate has passed validation. Other valid
+predicates are classified as
 `runtime_required`. Invalid predicates fail the static contract gate instead
 of becoming runtime-only checks. No contract is currently classified as
 statically disproven.

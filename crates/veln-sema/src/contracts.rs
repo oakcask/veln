@@ -55,11 +55,17 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
         };
         return static_boolean_value(inner).negate();
     }
+    if has_complementary_top_level_clauses(predicate, "or") {
+        return StaticBooleanValue::True;
+    }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
         if complementary_predicates(left, right) {
             return StaticBooleanValue::True;
         }
         return static_boolean_value(left).or(static_boolean_value(right));
+    }
+    if has_complementary_top_level_clauses(predicate, "and") {
+        return StaticBooleanValue::False;
     }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
         if complementary_predicates(left, right) {
@@ -79,6 +85,19 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
 fn complementary_predicates(left: &str, right: &str) -> bool {
     negated_predicate_shape(left).is_some_and(|left| left == predicate_shape(right))
         || negated_predicate_shape(right).is_some_and(|right| right == predicate_shape(left))
+}
+
+fn has_complementary_top_level_clauses(predicate: &str, keyword: &str) -> bool {
+    let clauses = split_top_level_keyword(predicate, keyword);
+    if clauses.len() <= 2 {
+        return false;
+    }
+    clauses.iter().enumerate().any(|(index, left)| {
+        clauses
+            .iter()
+            .skip(index + 1)
+            .any(|right| complementary_predicates(left, right))
+    })
 }
 
 fn negated_predicate_shape(predicate: &str) -> Option<String> {
@@ -705,6 +724,53 @@ fn split_top_level_keyword_operator<'a>(
         }
     }
     None
+}
+
+fn split_top_level_keyword<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str> {
+    let mut clauses = Vec::new();
+    let mut start = 0;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut cursor = 0;
+
+    while cursor < predicate.len() {
+        let ch = predicate[cursor..]
+            .chars()
+            .next()
+            .expect("cursor should stay on a char boundary");
+        let end = cursor + ch.len_utf8();
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            cursor = end;
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            _ if depth == 0 && predicate[cursor..].starts_with(keyword) => {
+                let keyword_end = cursor + keyword.len();
+                if is_keyword_boundary(predicate, cursor, keyword_end) {
+                    clauses.push(predicate[start..cursor].trim());
+                    start = keyword_end;
+                    cursor = keyword_end;
+                    continue;
+                }
+            }
+            _ => {}
+        }
+        cursor = end;
+    }
+
+    clauses.push(predicate[start..].trim());
+    clauses
 }
 
 fn is_keyword_boundary(text: &str, start: usize, end: usize) -> bool {
