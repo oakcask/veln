@@ -118,7 +118,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   bounds do not discharge strict bounds. Numeric literal bounds also discharge
   disequality `satisfy` clauses against numeric literals excluded by the bound,
   while equal inclusive bounds do not discharge disequality against the
-  endpoint.
+  endpoint. Numeric literal equality requirements discharge weaker numeric
+  literal bound `satisfy` clauses over the same subject.
   Nested complementary `or` clauses rooted at the satisfy candidate are
   treated as tautological surplus clauses inside direct and tautological
   `satisfy` conjunctions.

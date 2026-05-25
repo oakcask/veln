@@ -3400,6 +3400,10 @@ fn repair_clause_implies(required: &str, wanted: &str) -> bool {
     if literal_order_comparison_implies(&required, &wanted, &RepairEquivalences::default()) {
         return true;
     }
+    if literal_equality_implies_order_comparison(&required, &wanted, &RepairEquivalences::default())
+    {
+        return true;
+    }
     if literal_bound_implies_disequality(&required, &wanted, &RepairEquivalences::default()) {
         return true;
     }
@@ -3636,6 +3640,7 @@ fn repair_clause_implies_with_equivalences(
         ),
         _ => {
             literal_order_comparison_implies(&required, wanted, equivalences)
+                || literal_equality_implies_order_comparison(&required, wanted, equivalences)
                 || literal_bound_implies_disequality(&required, wanted, equivalences)
         }
     }
@@ -3693,6 +3698,68 @@ fn literal_upper_bound_implies(
             wanted.operator,
             false,
         )
+}
+
+fn literal_equality_implies_order_comparison(
+    required: &ParsedRepairComparison<'_>,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    if required.operator != "==" || !matches!(wanted.operator, "<" | "<=") {
+        return false;
+    }
+    literal_equality_implies_lower_bound(required, wanted, equivalences)
+        || literal_equality_implies_upper_bound(required, wanted, equivalences)
+}
+
+fn literal_equality_implies_lower_bound(
+    required: &ParsedRepairComparison<'_>,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some((required_subject, required_literal)) = literal_equality_subject(required) else {
+        return false;
+    };
+    let Some(wanted_literal) = repair_numeric_literal(wanted.left) else {
+        return false;
+    };
+    repair_operands_equivalent(required_subject, wanted.right, equivalences)
+        && literal_order_strength_implies(
+            required_literal,
+            "<=",
+            wanted_literal,
+            wanted.operator,
+            true,
+        )
+}
+
+fn literal_equality_implies_upper_bound(
+    required: &ParsedRepairComparison<'_>,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some((required_subject, required_literal)) = literal_equality_subject(required) else {
+        return false;
+    };
+    let Some(wanted_literal) = repair_numeric_literal(wanted.right) else {
+        return false;
+    };
+    repair_operands_equivalent(required_subject, wanted.left, equivalences)
+        && literal_order_strength_implies(
+            required_literal,
+            "<=",
+            wanted_literal,
+            wanted.operator,
+            false,
+        )
+}
+
+fn literal_equality_subject<'a>(
+    required: &'a ParsedRepairComparison<'a>,
+) -> Option<(&'a str, RepairNumber)> {
+    repair_numeric_literal(required.left)
+        .map(|literal| (required.right, literal))
+        .or_else(|| repair_numeric_literal(required.right).map(|literal| (required.left, literal)))
 }
 
 fn literal_order_strength_implies(
