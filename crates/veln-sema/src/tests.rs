@@ -4804,6 +4804,104 @@ fn marks_disjunctive_alias_branches_as_satisfy_repair_evidence() {
 }
 
 #[test]
+fn marks_boolean_disequality_alias_as_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(flag: Bool, ready: Bool, fallback: Bool) -> Bool\n",
+            "  require flag != ready\n",
+            "  require ready == false\n",
+            "  _value satisfy candidate => candidate == true\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"flag\",",
+        "\"type\":\"Bool\",\"rank\":3,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn marks_reversed_boolean_disequality_alias_as_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(flag: Bool, ready: Bool, fallback: Bool) -> Bool\n",
+            "  require ready != flag\n",
+            "  require ready == false\n",
+            "  _value satisfy candidate => candidate == true\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"flag\",",
+        "\"type\":\"Bool\",\"rank\":3,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn does_not_mark_boolean_disequality_alias_when_literal_conflicts() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(flag: Bool, ready: Bool, fallback: Bool) -> Bool\n",
+            "  require flag != ready\n",
+            "  require ready == true\n",
+            "  _value satisfy candidate => candidate == true\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Bool\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(!details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"flag\",",
+        "\"type\":\"Bool\",\"rank\":3,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+}
+
+#[test]
 fn marks_static_case_split_satisfy_predicate_as_tautology_repair() {
     let source = SourceFile::new(
         "main.veln",

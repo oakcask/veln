@@ -3896,6 +3896,9 @@ fn repair_clause_set_implies_comparison(
     {
         return true;
     }
+    if boolean_disequality_alias_implies_comparison(required_clauses, wanted, &equivalences) {
+        return true;
+    }
     if ordering_path_implies_clause(required_clauses, wanted, &equivalences) {
         return true;
     }
@@ -4479,6 +4482,51 @@ fn boolean_literal_comparison_implies_comparison(
     };
     required_truth == wanted_truth
         && repair_operands_equivalent(required_atom, wanted_atom, equivalences)
+}
+
+fn boolean_disequality_alias_implies_comparison(
+    required_clauses: &[String],
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some((wanted_atom, wanted_truth)) = boolean_literal_comparison_truth(wanted) else {
+        return false;
+    };
+    required_clauses.iter().any(|required| {
+        let Some(required) = ParsedRepairComparison::parse(required) else {
+            return false;
+        };
+        if required.operator != "!=" {
+            return false;
+        }
+        if repair_operands_equivalent(required.left, wanted_atom, equivalences) {
+            return boolean_literal_value_for_operand(
+                required_clauses,
+                required.right,
+                equivalences,
+            ) == Some(!wanted_truth);
+        }
+        if repair_operands_equivalent(required.right, wanted_atom, equivalences) {
+            return boolean_literal_value_for_operand(
+                required_clauses,
+                required.left,
+                equivalences,
+            ) == Some(!wanted_truth);
+        }
+        false
+    })
+}
+
+fn boolean_literal_value_for_operand(
+    required_clauses: &[String],
+    operand: &str,
+    equivalences: &RepairEquivalences,
+) -> Option<bool> {
+    required_clauses.iter().find_map(|required| {
+        let required = ParsedRepairComparison::parse(required)?;
+        let (atom, truth) = boolean_literal_comparison_truth(&required)?;
+        repair_operands_equivalent(atom, operand, equivalences).then_some(truth)
+    })
 }
 
 fn boolean_literal_comparison_truth<'a>(
