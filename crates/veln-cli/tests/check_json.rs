@@ -137,6 +137,16 @@ impl Drop for TestProject {
     }
 }
 
+fn repo_file(path: &str) -> String {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(|path| path.parent())
+        .expect("crate should live under repository root")
+        .join(path)
+        .to_string_lossy()
+        .into_owned()
+}
+
 #[test]
 fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     let project = TestProject::new("cli-help");
@@ -2729,6 +2739,53 @@ fn test_explicit_target_runs_same_file_test_declaration_when_jdk_is_available() 
             "\"name\":\"example\"",
         ],
     );
+}
+
+#[test]
+fn comparison_line_item_order_summary_example_runs_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("comparison-line-item-order-summary");
+    let complete = repo_file("examples/comparison/line_item_order_summary.veln");
+    let hole = repo_file("examples/comparison/line_item_order_summary_hole.veln");
+
+    let check_output = project.veln(&["check"], &[complete.as_str()]);
+    assert!(check_output.status.success(), "{}", stderr(&check_output));
+    assert_eq!(stdout(&check_output), "ok\n");
+    assert_eq!(stderr(&check_output), "");
+
+    let test_output = project.test(&[complete.as_str()]);
+    assert!(test_output.status.success(), "{}", stderr(&test_output));
+    assert_contains_all(
+        stdout(&test_output),
+        &[
+            "ok summarizes_success",
+            "ok rejects_malformed_input",
+            "ok rejects_bad_quantity",
+            "ok rejects_unknown_sku",
+        ],
+    );
+    assert_eq!(stderr(&test_output), "");
+
+    let run_output = project.run(&["main", complete.as_str()]);
+    assert!(run_output.status.success(), "{}", stderr(&run_output));
+    assert_eq!(stdout(&run_output), "900\n");
+    assert_eq!(stderr(&run_output), "");
+
+    let hole_output = project.check_json(&[hole.as_str()]);
+    assert!(hole_output.status.success(), "{}", stderr(&hole_output));
+    assert_contains_all(
+        stdout(&hole_output),
+        &[
+            "\"status\":\"partial\"",
+            "\"id\":\"hole.unfilled\"",
+            "\"expected_type\":\"Int\"",
+            "\"text\":\"candidate > 0\"",
+        ],
+    );
+    assert_eq!(stderr(&hole_output), "");
 }
 
 fn stdout(output: &Output) -> &str {

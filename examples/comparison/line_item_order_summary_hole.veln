@@ -1,0 +1,9 @@
+fn parse_line_hole(catalog: Dict(String, Int), line: String) -> Result({sku: String, quantity: Int, unit_cents: Int}, {kind: String, input: String})
+  match string_split_once(line, ",")
+  Some(parts) => match dict_get(catalog, parts.left)
+    Some(price) => Ok({sku: parts.left, quantity: _quantity satisfy candidate => candidate > 0, unit_cents: price})
+    None => Err({kind: "unknown_sku", input: parts.left})
+  end
+  None => Err({kind: "malformed", input: line})
+  end
+end

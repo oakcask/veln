@@ -464,6 +464,32 @@ impl<'a> ProgramEmitter<'a> {
         return Long.valueOf(asList(items).size());
     }}
 
+    public static Object stringSplitOnce(Object text, Object separator) {{
+        String input = asString(text);
+        String needle = asString(separator);
+        int index = input.indexOf(needle);
+        if (index < 0) {{
+            return none();
+        }}
+        java.util.LinkedHashMap<String, Object> parts = new java.util.LinkedHashMap<String, Object>();
+        parts.put("left", input.substring(0, index));
+        parts.put("right", input.substring(index + needle.length()));
+        return some(freezeMap(parts));
+    }}
+
+    public static Object stringParseInt(Object text) {{
+        String input = asString(text);
+        try {{
+            return ok(Long.valueOf(input));
+        }} catch (NumberFormatException error) {{
+            return err(input);
+        }}
+    }}
+
+    public static Object intToString(Object value) {{
+        return String.valueOf(asLong(value));
+    }}
+
     public static Object listIsEmpty(Object items) {{
         return Boolean.valueOf(asList(items).isEmpty());
     }}
@@ -510,6 +536,18 @@ impl<'a> ProgramEmitter<'a> {
         java.util.ArrayList<Object> mapped = new java.util.ArrayList<Object>();
         for (Object item : asList(items)) {{
             Object result = call(fn, item);
+            if (isErr(result)) {{
+                return result;
+            }}
+            mapped.add(unwrapOk(result));
+        }}
+        return ok(freezeList(mapped));
+    }}
+
+    public static Object listTryMapWith(Object context, Object items, Object fn) {{
+        java.util.ArrayList<Object> mapped = new java.util.ArrayList<Object>();
+        for (Object item : asList(items)) {{
+            Object result = call(fn, context, item);
             if (isErr(result)) {{
                 return result;
             }}
@@ -889,6 +927,10 @@ impl<'a> ProgramEmitter<'a> {
 
     private static double asDouble(Object value) {{
         return ((Number) value).doubleValue();
+    }}
+
+    private static String asString(Object value) {{
+        return (String) value;
     }}
 
     private static boolean isFloating(Object value) {{

@@ -33,6 +33,21 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
         "float_less" | "float_less_equal" | "float_greater" | "float_greater_equal" => {
             Some((vec![Type::float(), Type::float()], Type::bool()))
         }
+        "string_split_once" => Some((
+            vec![Type::string(), Type::string()],
+            Type::named(
+                "Option",
+                vec![Type::Record(vec![
+                    ("left".to_string(), Type::string()),
+                    ("right".to_string(), Type::string()),
+                ])],
+            ),
+        )),
+        "string_parse_int" => Some((
+            vec![Type::string()],
+            Type::result(Type::int(), Type::string()),
+        )),
+        "int_to_string" => Some((vec![Type::int()], Type::string())),
         "list_len" => Some((vec![Type::list(unknown)], Type::int())),
         "list_is_empty" => Some((vec![Type::list(unknown)], Type::bool())),
         "list_push" => Some((
@@ -84,6 +99,24 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
                     Type::list(Type::Unknown),
                     Type::Function {
                         params: vec![Type::Unknown],
+                        return_type: Box::new(Type::result(
+                            mapped_item.clone(),
+                            result_error.clone(),
+                        )),
+                        effects: Vec::new(),
+                    },
+                ],
+                Type::result(Type::list(mapped_item), result_error),
+            ))
+        }
+        "list_try_map_with" => {
+            let mapped_item = result_value.list_part().cloned().unwrap_or(Type::Unknown);
+            Some((
+                vec![
+                    Type::Unknown,
+                    Type::list(Type::Unknown),
+                    Type::Function {
+                        params: vec![Type::Unknown, Type::Unknown],
                         return_type: Box::new(Type::result(
                             mapped_item.clone(),
                             result_error.clone(),
@@ -244,6 +277,18 @@ pub(crate) fn core_prelude_signature(
         "float_less" | "float_less_equal" | "float_greater" | "float_greater_equal" => {
             (vec![CoreType::float(), CoreType::float()], CoreType::bool())
         }
+        "string_split_once" => (
+            vec![CoreType::string(), CoreType::string()],
+            CoreType::option(CoreType::Record(vec![
+                ("left".to_string(), CoreType::string()),
+                ("right".to_string(), CoreType::string()),
+            ])),
+        ),
+        "string_parse_int" => (
+            vec![CoreType::string()],
+            CoreType::result(CoreType::int(), CoreType::string()),
+        ),
+        "int_to_string" => (vec![CoreType::int()], CoreType::string()),
         "list_len" => (vec![CoreType::list(unknown)], CoreType::int()),
         "list_is_empty" => (vec![CoreType::list(unknown)], CoreType::bool()),
         "list_push" => (
@@ -301,6 +346,27 @@ pub(crate) fn core_prelude_signature(
                     CoreType::list(CoreType::Unknown),
                     CoreType::Function {
                         params: vec![CoreType::Unknown],
+                        return_type: Box::new(CoreType::result(
+                            mapped_item.clone(),
+                            result_error.clone(),
+                        )),
+                        effects: Vec::new(),
+                    },
+                ],
+                CoreType::result(CoreType::list(mapped_item), result_error),
+            )
+        }
+        "list_try_map_with" => {
+            let mapped_item = result_value
+                .list_part()
+                .cloned()
+                .unwrap_or(CoreType::Unknown);
+            (
+                vec![
+                    CoreType::Unknown,
+                    CoreType::list(CoreType::Unknown),
+                    CoreType::Function {
+                        params: vec![CoreType::Unknown, CoreType::Unknown],
                         return_type: Box::new(CoreType::result(
                             mapped_item.clone(),
                             result_error.clone(),

@@ -1,6 +1,8 @@
 # Discussion Result: Comparison Example Task
 
 Status: accepted-proposal
+Implementation: Veln support implemented; cross-language examples remain
+outside this workspace.
 
 ## Picked Question
 

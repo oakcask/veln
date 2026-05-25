@@ -142,6 +142,7 @@ list_map(items: List(A), f: fn(A) -> B) -> List(B)
 list_filter(items: List(A), f: fn(A) -> Bool) -> List(A)
 list_fold(items: List(A), initial: B, f: fn(B, A) -> B) -> B
 list_try_map(items: List(A), f: fn(A) -> Result(B, E)) -> Result(List(B), E)
+list_try_map_with(context: C, items: List(A), f: fn(C, A) -> Result(B, E)) -> Result(List(B), E)
 dict_get(dict: Dict(K, V), key: K) -> Option(V)
 dict_contains(dict: Dict(K, V), key: K) -> Bool
 dict_insert(dict: Dict(K, V), key: K, value: V) -> Dict(K, V)
@@ -152,13 +153,22 @@ option_unwrap_or(value: Option(A), fallback: A) -> A
 result_map(value: Result(A, E), f: fn(A) -> B) -> Result(B, E)
 result_map_err(value: Result(A, E), f: fn(E) -> F) -> Result(A, F)
 result_and_then(value: Result(A, E), f: fn(A) -> Result(B, E)) -> Result(B, E)
+string_split_once(text: String, separator: String) -> Option({left: String, right: String})
+string_parse_int(text: String) -> Result(Int, String)
+int_to_string(value: Int) -> String
 ```
 
 Container update helpers return new frozen values and do not mutate their input
 containers in place. `list_try_map` evaluates items in source order, stops at
 the first `Err`, and otherwise returns `Ok` containing the mapped frozen list in
-source order. `list_map`, `list_filter`, and `list_fold` also visit list items
-in source order.
+source order. `list_try_map_with` follows the same traversal and passes the
+unchanged context value as the first callback argument. `list_map`,
+`list_filter`, and `list_fold` also visit list items in source order.
+
+`string_split_once` splits at the first occurrence of `separator`, returning
+`None` when the separator is absent. `string_parse_int` accepts the backend
+integer spelling and returns the original input string in `Err` when parsing
+fails. `int_to_string` renders an integer for display and string composition.
 
 The language specification does not promise asymptotic complexity, allocation
 counts, representation identity, structural sharing, hashing, or tree-balancing
