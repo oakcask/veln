@@ -479,6 +479,49 @@ fn check_human_reports_manifest_module_name_drift() {
 }
 
 #[test]
+fn check_human_reports_manifest_module_without_source_owner() {
+    let project = TestProject::new("check-human-manifest-without-source-owner");
+    project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
+    project.write(
+        "main.veln",
+        concat!("pub fn main() -> () effects []\n", "  ()\n", "end\n"),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "veln.toml:2:16: error[module.metadata_drift]: manifest module name `app.manifest` has no source `mod` owner",
+            "  note: Add a `mod` declaration to the source file or remove the manifest module name.",
+        ],
+    );
+}
+
+#[test]
+fn check_human_accepts_matching_manifest_module_name() {
+    let project = TestProject::new("check-human-matching-manifest-module");
+    project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.main\"\n");
+    project.write(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "ok\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
 fn check_json_reports_manifest_module_name_drift() {
     let project = TestProject::new("check-json-manifest-name-drift");
     project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");

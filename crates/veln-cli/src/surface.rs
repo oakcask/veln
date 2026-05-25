@@ -1518,6 +1518,37 @@ mod tests {
         );
     }
 
+    #[test]
+    fn matching_manifest_module_name_does_not_report_drift() {
+        let source = SourceFile::new(
+            "src/main.veln",
+            "mod app.main\nfn main() -> () effects []\n  ()\nend\n",
+        );
+        let project = Project {
+            root: ".".into(),
+            files: vec![source],
+            manifest: Some(ProjectManifest {
+                path: SourcePath::new("veln.toml"),
+                modules: vec![ManifestModule {
+                    path: "src/main.veln".to_string(),
+                    name: "app.main".to_string(),
+                    path_span: span("veln.toml", 2, 2, 11),
+                    name_span: span("veln.toml", 2, 20, 28),
+                }],
+            }),
+        };
+
+        let (module, diagnostics) = load_surface_module(&project);
+
+        assert_eq!(module.module.as_ref().unwrap().name, "app.main");
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "module.metadata_drift"),
+            "{diagnostics:#?}"
+        );
+    }
+
     fn span(file: &str, line: usize, start_column: usize, end_column: usize) -> SourceSpan {
         SourceSpan {
             file: SourcePath::new(file),
