@@ -47,14 +47,14 @@ clause and the nearest useful call or implementation span when available.
   `details.blame: "caller"`.
 - `ensure` failures default to `kind: "contract"` diagnostics with
   `details.blame: "implementation"`.
+- `invariant` runtime failures use caller blame at function entry and
+  implementation blame at function return. Static invariant diagnostics use
+  `details.blame: "caller_or_implementation"`.
 - Diagnostics should include the failed clause text or structured expression,
   the clause span, and a related span for the likely repair location when one is
   available.
 - Static contract diagnostics should use the same blame values when analysis can
   prove or strongly suspect a violation without running code.
-- `invariant` blame is not decided here. Until invariants are specified, report
-  them as contract diagnostics without assigning caller or implementation blame
-  unless the violated invariant is clearly attached to a boundary rule.
 - Blame metadata is routing guidance for repair tools and reviewers. It must not
   suppress related spans or make the diagnostic message claim certainty beyond
   the available evidence.

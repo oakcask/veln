@@ -86,6 +86,7 @@ pub struct ContractClause {
 pub enum ContractKind {
     Require,
     Ensure,
+    Invariant,
 }
 
 #[derive(Clone, Debug)]

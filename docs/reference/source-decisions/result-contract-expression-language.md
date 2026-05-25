@@ -4,8 +4,8 @@ Status: implemented
 
 ## Picked Question
 
-- Should `require`, `ensure`, and future `invariant` clauses use arbitrary
-  executable expressions or a restricted contract language?
+- Should contract clauses use arbitrary executable expressions or a restricted
+  contract language?
 
 ## Decision
 
@@ -23,7 +23,8 @@ records, lists, pipelines, or `match`.
 
 ## First-Slice Rules
 
-- `require` and `ensure` clauses must validate as `Bool` predicates.
+- `require`, `ensure`, and `invariant` clauses must validate as `Bool`
+  predicates.
 - Function calls in contract predicates must resolve to discovered functions
   with no effects.
 - A pure function call may be used directly when it returns `Bool`.

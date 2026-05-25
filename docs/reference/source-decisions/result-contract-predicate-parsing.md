@@ -28,7 +28,7 @@ classification.
 - `ContractPredicate` accepts literals, names, qualified names, grouping, field
   access, plain or qualified call syntax, prefix `not` and `-`, arithmetic,
   comparisons, equality, `and`, and `or`.
-- Unsupported predicate syntax in `require` or `ensure` reports
+- Unsupported predicate syntax in contract clauses reports
   `parse.contract_predicate`.
 - Unsupported predicate syntax in a hole `satisfy` suffix reports
   `parse.satisfy_predicate`.

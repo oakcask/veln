@@ -59,9 +59,10 @@ owned.
 Contracts and invariant-oriented systems such as JML and Dafny show that
 invariants are useful when they are checked as specifications, not when they
 are mandatory decorative fields. Veln already has contract decisions for
-`require`, `ensure`, and future `invariant` clauses. Making module invariants
-optional in the first slice keeps the checker small while preserving a path to
-stronger module-level specifications once examples show the useful grammar.
+`require`, `ensure`, and function-level `invariant` clauses. Making module
+invariants optional in the first slice keeps the checker small while preserving
+a path to stronger module-level specifications once examples show the useful
+grammar.
 
 Purpose statements, examples, tests, and ADR-lite decisions are valuable for
 human and agent context, but they are weaker as universal syntactic

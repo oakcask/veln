@@ -25,9 +25,10 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   identity, expected/actual facts, recovery or provenance evidence, and repair
   context.
 - Resolved by [Contract Predicate Parsing](../../reference/source-decisions/result-contract-predicate-parsing.md):
-  parse `require`, `ensure`, and future `invariant` clauses through a narrow
-  contract predicate production from the start, while keeping ordinary
-  expression-like spelling and later semantic validation.
+  parse contract clauses through a narrow contract predicate production from
+  the start, while keeping ordinary expression-like spelling and later
+  semantic validation. Implemented `invariant` behavior is specified in
+  [Contracts And Holes](../../reference/language/contracts-holes.md).
 - Resolved by
   [Runtime Contract Failure Reporting](../../reference/source-decisions/result-runtime-contract-failure-reporting.md):
   use a structured runtime contract error as the common representation; map it
@@ -161,9 +162,10 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
 
 - Resolved by
   [Contract Expression Language](../../reference/source-decisions/result-contract-expression-language.md):
-  `require`, `ensure`, and future `invariant` clauses should use a restricted
-  pure boolean expression subset rather than arbitrary executable core-language
-  expressions.
+  `require`, `ensure`, and `invariant` clauses use a restricted pure boolean
+  expression subset rather than arbitrary executable core-language
+  expressions. Implemented `invariant` behavior is specified in
+  [Contracts And Holes](../../reference/language/contracts-holes.md).
 - Resolved by
   [Contract Static Runtime Boundary](../../reference/source-decisions/result-contract-static-runtime-boundary.md):
   all contracts are statically validated and exposed to diagnostics, but only a

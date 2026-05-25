@@ -116,6 +116,7 @@ impl AstBuilder {
                     kind: match contract.kind {
                         SyntaxContractKind::Require => ContractKind::Require,
                         SyntaxContractKind::Ensure => ContractKind::Ensure,
+                        SyntaxContractKind::Invariant => ContractKind::Invariant,
                     },
                     text: contract.text.clone(),
                     span: contract.span.clone(),

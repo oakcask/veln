@@ -49,7 +49,7 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             .function
             .contracts
             .iter()
-            .filter(|contract| contract.kind == ContractKind::Require)
+            .filter(|contract| contract.kind != ContractKind::Ensure)
         {
             self.emit_contract_check(out, contract);
         }
@@ -112,17 +112,23 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
     }
 
     fn contract_check_line(&self, contract: &IrContract) -> Option<String> {
+        let blame = match contract.kind {
+            ContractKind::Require => "caller",
+            ContractKind::Ensure => "implementation",
+            ContractKind::Invariant => "caller",
+        };
+        self.contract_check_line_with_blame(contract, blame)
+    }
+
+    fn contract_check_line_with_blame(&self, contract: &IrContract, blame: &str) -> Option<String> {
         let Some(predicate) = ContractParser::new(&contract.predicate).parse() else {
             return None;
         };
         let java_predicate = self.emit_contract_expr(&predicate);
-        let blame = match contract.kind {
-            ContractKind::Require => "caller",
-            ContractKind::Ensure => "implementation",
-        };
         let clause = match contract.kind {
             ContractKind::Require => "require",
             ContractKind::Ensure => "ensure",
+            ContractKind::Invariant => "invariant",
         };
         Some(format!(
             "{}.checkContract({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});",
@@ -143,8 +149,10 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
 
     fn has_ensure_contracts(&self) -> bool {
         self.function.contracts.iter().any(|contract| {
-            contract.kind == ContractKind::Ensure
-                && contract.obligation_status == ContractObligationStatus::RuntimeRequired
+            matches!(
+                contract.kind,
+                ContractKind::Ensure | ContractKind::Invariant
+            ) && contract.obligation_status == ContractObligationStatus::RuntimeRequired
         })
     }
 
@@ -167,11 +175,22 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             .function
             .contracts
             .iter()
-            .filter(|contract| contract.kind == ContractKind::Ensure)
+            .filter(|contract| {
+                matches!(
+                    contract.kind,
+                    ContractKind::Ensure | ContractKind::Invariant
+                )
+            })
             .filter(|contract| {
                 contract.obligation_status == ContractObligationStatus::RuntimeRequired
             })
-            .filter_map(|contract| self.contract_check_line(contract))
+            .filter_map(|contract| {
+                let blame = match contract.kind {
+                    ContractKind::Require => "caller",
+                    ContractKind::Ensure | ContractKind::Invariant => "implementation",
+                };
+                self.contract_check_line_with_blame(contract, blame)
+            })
             .collect::<Vec<_>>();
         if let Some((binding, old)) = previous {
             if let Some(old) = old {

@@ -21,7 +21,7 @@ Param         ::= Name (":" TypeText)?
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
-Contract      ::= ("require" | "ensure") ContractPredicate NL
+Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
 Body          ::= LetLine* ExprLine?
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
 LetPattern    ::= "_" | BindingName | RecordPattern
@@ -266,8 +266,8 @@ current slice.
 
 ## Contract Predicates
 
-`require`, `ensure`, and hole `satisfy` predicates accept this implemented
-syntax:
+`require`, `ensure`, `invariant`, and hole `satisfy` predicates accept this
+implemented syntax:
 
 - literals, names, qualified names, and `()`
 - grouping with parentheses
@@ -294,7 +294,9 @@ pure call.
 
 Valid clauses are executable obligations. `require` is checked at function
 entry. `ensure` is checked before an ordinary tail-expression return and may
-read an explicit result binding.
+read an explicit result binding. `invariant` is checked both at function entry
+and before an ordinary tail-expression return or `?` early return; it uses the
+same visible bindings as `require` and cannot read an explicit result binding.
 
 ## Not Implemented
 

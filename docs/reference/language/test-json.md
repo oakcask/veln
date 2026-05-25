@@ -84,10 +84,11 @@ Runtime contract failures inside a selected test case are reported as failed
 cases with `failure.kind: "contract"`. The failure details use
 `kind: "contract"` and `phase: "runtime"` and include:
 
-- `clause`: `require` or `ensure`
+- `clause`: `require`, `ensure`, or `invariant`
 - `predicate`: the failed clause text
 - `function`: the checked function or test boundary
-- `blame`: `caller` for `require`, or `implementation` for `ensure`
+- `blame`: `caller` for `require`, `implementation` for `ensure`, and either
+  value for `invariant` depending on entry or return failure
 - `node_id`: the contract node identifier
 - `span`: the source span for the failed clause
 

@@ -12,10 +12,11 @@
 Runtime contract failures use `error.kind: "contract"`. The error details use
 `kind: "contract"` and `phase: "runtime"` and include:
 
-- `clause`: `require` or `ensure`
+- `clause`: `require`, `ensure`, or `invariant`
 - `predicate`: the failed clause text
 - `function`: the checked function boundary
-- `blame`: `caller` for `require`, or `implementation` for `ensure`
+- `blame`: `caller` for `require`, `implementation` for `ensure`, and either
+  value for `invariant` depending on entry or return failure
 - `node_id`: the contract node identifier
 - `span`: the source span for the failed clause
 

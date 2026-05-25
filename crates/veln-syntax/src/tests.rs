@@ -453,6 +453,7 @@ fn token_kind_labels_cover_every_surface_token() {
         (TokenKind::End, "end"),
         (TokenKind::Require, "require"),
         (TokenKind::Ensure, "ensure"),
+        (TokenKind::Invariant, "invariant"),
         (TokenKind::Mod, "mod"),
         (TokenKind::Use, "use"),
         (TokenKind::Match, "match"),

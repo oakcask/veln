@@ -68,13 +68,14 @@ the failure as a harness error.
 - Runtime contract failures use `kind: "contract"` and `phase: "runtime"` in
   structured output.
 - Runtime contract error details must include the failed clause identity, the
-  clause kind (`require` or `ensure`), the failed clause text or structured
-  predicate, the clause span, the function or boundary being checked, and
-  `blame` when known.
+  clause kind, the failed clause text or structured predicate, the clause span,
+  the function or boundary being checked, and `blame` when known.
 - `require` failures keep `details.blame: "caller"` unless later evidence
   supports a narrower rule.
 - `ensure` failures keep `details.blame: "implementation"` unless later
   evidence supports a narrower rule.
+- `invariant` failures keep caller blame at entry and implementation blame at
+  return.
 - `veln run` maps a runtime contract error to a non-zero process exit and one
   top-level runtime error record.
 - `veln test` maps a runtime contract error inside a test case or executable

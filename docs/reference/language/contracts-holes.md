@@ -5,16 +5,16 @@ repair constraints.
 
 ## Contracts
 
-Implemented contract clauses are `require` and `ensure` lines attached to a
-function. The parser first checks a narrow contract predicate syntax. It
+Implemented contract clauses are `require`, `ensure`, and `invariant` lines
+attached to a function. The parser first checks a narrow contract predicate syntax. It
 accepts literals, names, qualified names, grouping, field access syntax,
 plain or qualified call syntax, prefix operators, arithmetic operators,
 comparisons, equality, and boolean operators.
 
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
-contract predicates. Unsupported contract syntax in `require` or `ensure`
-reports `parse.contract_predicate`; unsupported syntax in a hole `satisfy`
-predicate reports `parse.satisfy_predicate`.
+contract predicates. Unsupported contract syntax in `require`, `ensure`, or
+`invariant` reports `parse.contract_predicate`; unsupported syntax in a hole
+`satisfy` predicate reports `parse.satisfy_predicate`.
 
 After parsing, the checker validates a small pure boolean subset:
 
@@ -60,8 +60,11 @@ repair constraints.
 Valid contract clauses are runtime obligations for executable `run` and `test`
 entry paths. `require` clauses are checked when a function is entered.
 `ensure` clauses are checked before returning through the tail expression and
-before `?` returns an error result early. Runtime `require` failures blame the
-caller; runtime `ensure` failures blame the implementation.
+before `?` returns an error result early. `invariant` clauses are checked both
+when a function is entered and before returning through the tail expression or
+through a `?` early return. Runtime `require` failures blame the caller;
+runtime `ensure` failures blame the implementation. Runtime `invariant`
+failures blame the caller at entry and the implementation at return.
 
 The implemented obligation classification is conservative. Valid predicates
 made from boolean literals, literal comparisons, parentheses, `not`, `and`,
@@ -122,8 +125,9 @@ statically disproven.
 
 An `ensure` clause may refer to the returned value only when the function return
 position names it with `-> name: Type`. That name is not visible to `require`
-clauses or the function body. The identifier `result` is ordinary: without an
-explicit binding named `result`, it reports an unresolved-name diagnostic.
+or `invariant` clauses or the function body. The identifier `result` is
+ordinary: without an explicit binding named `result`, it reports an
+unresolved-name diagnostic.
 
 ## Holes
 

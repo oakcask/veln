@@ -1473,6 +1473,7 @@ fn emits_runtime_contract_checks() {
     let ir = lower_to_ir(concat!(
         "pub fn clamp(value: Int) -> result: Int effects []\n",
         "  require value >= 0\n",
+        "  invariant value >= 0\n",
         "  ensure result >= value\n",
         "  value\n",
         "end\n",
@@ -1488,6 +1489,8 @@ fn emits_runtime_contract_checks() {
 
     assert!(program.contains("VelnRuntime.checkContract("));
     assert!(program.contains("\"require\", \"value >= 0\", \"clamp\", \"caller\""));
+    assert!(program.contains("\"invariant\", \"value >= 0\", \"clamp\", \"caller\""));
+    assert!(program.contains("\"invariant\", \"value >= 0\", \"clamp\", \"implementation\""));
     assert!(program.contains("\"ensure\", \"result >= value\", \"clamp\", \"implementation\""));
     assert!(runtime.contains("public static final class ContractFailure"));
 }
@@ -1497,6 +1500,7 @@ fn omits_statically_proven_contract_checks() {
     let ir = lower_to_ir(concat!(
         "pub fn constant() -> output: Int effects []\n",
         "  require true\n",
+        "  invariant true\n",
         "  ensure not false\n",
         "  1\n",
         "end\n",
@@ -1509,6 +1513,7 @@ fn omits_statically_proven_contract_checks() {
 
     assert!(!program.contains("VelnRuntime.checkContract("));
     assert!(!program.contains("\"require\", \"true\", \"constant\", \"caller\""));
+    assert!(!program.contains("\"invariant\", \"true\", \"constant\", \"caller\""));
     assert!(!program.contains("\"ensure\", \"not false\", \"constant\", \"implementation\""));
     assert!(program.contains("return Long.valueOf(1L);"));
 }

@@ -194,6 +194,7 @@ pub(crate) fn contract_details(
             JsonValue::string(match kind {
                 ContractKind::Require => "caller",
                 ContractKind::Ensure => "implementation",
+                ContractKind::Invariant => "caller_or_implementation",
             }),
         ),
         ("runtime_required", JsonValue::Bool(runtime_required)),

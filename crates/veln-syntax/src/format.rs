@@ -98,6 +98,7 @@ fn format_function(out: &mut String, comments: &LineComments, function: &Functio
         line.push_str(match contract.kind {
             ContractKind::Require => "require",
             ContractKind::Ensure => "ensure",
+            ContractKind::Invariant => "invariant",
         });
         if !contract.text.is_empty() {
             line.push(' ');

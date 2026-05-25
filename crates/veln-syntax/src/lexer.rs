@@ -221,6 +221,7 @@ fn read_ident_or_keyword(
         "end" => TokenKind::End,
         "require" => TokenKind::Require,
         "ensure" => TokenKind::Ensure,
+        "invariant" => TokenKind::Invariant,
         "mod" => TokenKind::Mod,
         "use" => TokenKind::Use,
         "match" => TokenKind::Match,

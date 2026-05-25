@@ -7389,6 +7389,28 @@ fn require_cannot_reference_result_binding() {
 }
 
 #[test]
+fn invariant_cannot_reference_result_binding() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> output: Int effects []\n",
+            "invariant output > 0\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved contract_predicate `output`"
+    }));
+}
+
+#[test]
 fn bare_result_has_no_ensure_special_case() {
     let source = SourceFile::new(
         "main.veln",

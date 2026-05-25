@@ -240,7 +240,10 @@ impl<'a> Parser<'a> {
         self.expect_newline(context);
 
         let mut contracts = Vec::new();
-        while self.at(TokenKind::Require) || self.at(TokenKind::Ensure) {
+        while self.at(TokenKind::Require)
+            || self.at(TokenKind::Ensure)
+            || self.at(TokenKind::Invariant)
+        {
             contracts.push(self.parse_contract());
         }
 
@@ -337,7 +340,8 @@ impl<'a> Parser<'a> {
         let start_token = self.bump();
         let kind = match start_token.kind {
             TokenKind::Require => ContractKind::Require,
-            _ => ContractKind::Ensure,
+            TokenKind::Ensure => ContractKind::Ensure,
+            _ => ContractKind::Invariant,
         };
         let (text, predicate_tokens, end) = self.collect_until_newline();
         self.diagnostics.extend(

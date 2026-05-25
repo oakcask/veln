@@ -195,6 +195,7 @@ fn lowers_function_metadata_contracts_and_let_lines() {
     let module = lower_source(concat!(
         "pub fn publish(user: User, count: Int) -> output: Result((), Error) effects [db, log]\n",
         "  require count >= 0\n",
+        "  invariant count >= 0\n",
         "  ensure output == output\n",
         "  let message: String = \"ready\"\n",
         "  message\n",
@@ -223,11 +224,13 @@ fn lowers_function_metadata_contracts_and_let_lines() {
     assert_eq!(function.params[1].name, "count");
     assert_eq!(function.params[1].ty.as_deref(), Some("Int"));
 
-    assert_eq!(function.contracts.len(), 2);
+    assert_eq!(function.contracts.len(), 3);
     assert_eq!(function.contracts[0].kind, ContractKind::Require);
     assert_eq!(function.contracts[0].text, "count >= 0");
-    assert_eq!(function.contracts[1].kind, ContractKind::Ensure);
-    assert_eq!(function.contracts[1].text, "output == output");
+    assert_eq!(function.contracts[1].kind, ContractKind::Invariant);
+    assert_eq!(function.contracts[1].text, "count >= 0");
+    assert_eq!(function.contracts[2].kind, ContractKind::Ensure);
+    assert_eq!(function.contracts[2].text, "output == output");
 
     let (pattern, annotation, expr) = let_line(function, 0);
     assert!(matches!(&pattern.kind, PatternKind::Binding(name) if name == "message"));

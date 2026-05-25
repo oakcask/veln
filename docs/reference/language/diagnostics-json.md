@@ -201,6 +201,10 @@ Contract diagnostic `details` are stable for implemented contract validation:
 - `runtime_required`
 - `referenced_bindings`
 
+Static diagnostic `blame` is `caller` for `require`, `implementation` for
+`ensure`, and `caller_or_implementation` for `invariant`; runtime invariant
+failures report the concrete entry or return blame.
+
 Hole diagnostic `details` are stable for unfilled holes:
 
 - `phase`

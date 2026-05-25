@@ -21,6 +21,7 @@ pub(crate) fn contract_kind_text(kind: ContractKind) -> &'static str {
     match kind {
         ContractKind::Require => "require",
         ContractKind::Ensure => "ensure",
+        ContractKind::Invariant => "invariant",
     }
 }
 

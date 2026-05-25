@@ -2788,7 +2788,7 @@ impl<'a> FunctionChecker<'a> {
             .function
             .contracts
             .iter()
-            .filter(|contract| contract.kind == ContractKind::Require)
+            .filter(|contract| contract.kind != ContractKind::Ensure)
             .filter(|contract| {
                 matches!(
                     self.validate_contract_predicate(contract.kind, &contract.text),
