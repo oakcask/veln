@@ -220,7 +220,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   statically evaluated. Factored case-split top-level `or` predicates are also
   statically evaluated when two conjunction branches differ by one
   complementary predicate and the remaining shared predicates are covered by
-  complement disjuncts. Case-split top-level `or`
+  complement disjuncts. Case-split top-level `or` predicates with shorter
+  branches that cover the remaining assignments for the same predicate set are
+  also statically evaluated. Case-split top-level `or`
   predicates where both branches are conjunctions with one complementary
   non-static variant and otherwise statically true conjuncts are also
   statically evaluated. Exhaustive pair case splits that cover both polarities

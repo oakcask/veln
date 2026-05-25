@@ -68,6 +68,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_factored_case_split_covered_by_complements(predicate) {
         return StaticBooleanValue::True;
     }
+    if has_partial_case_split_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
     if has_exhaustive_pair_case_split_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
@@ -231,6 +234,78 @@ fn has_factored_case_split_covered_by_complements(predicate: &str) -> bool {
                     })
             })
     })
+}
+
+fn has_partial_case_split_top_level_or(predicate: &str) -> bool {
+    let disjuncts = flattened_keyword_clauses(predicate, "or");
+    if disjuncts.len() < 3 {
+        return false;
+    }
+    let mut bases: Vec<&str> = Vec::new();
+    for disjunct in &disjuncts {
+        for conjunct in non_static_conjuncts(disjunct) {
+            if bases.iter().all(|base| {
+                !same_predicate(base, conjunct) && !complementary_predicates(base, conjunct)
+            }) {
+                bases.push(conjunct);
+                if bases.len() > 3 {
+                    return false;
+                }
+            }
+        }
+    }
+    if bases.len() < 2 {
+        return false;
+    }
+
+    let all_masks = (1u16 << (1u16 << bases.len())) - 1;
+    let mut covered = 0u16;
+    for disjunct in disjuncts {
+        let Some(mask) = partial_case_split_coverage_mask(disjunct, &bases) else {
+            continue;
+        };
+        covered |= mask;
+        if covered == all_masks {
+            return true;
+        }
+    }
+    false
+}
+
+fn partial_case_split_coverage_mask(disjunct: &str, bases: &[&str]) -> Option<u16> {
+    let mut constrained_mask = 0u8;
+    let mut required_bits = 0u8;
+    for conjunct in non_static_conjuncts(disjunct) {
+        let mut matched = false;
+        for (index, base) in bases.iter().enumerate() {
+            let bit = 1u8 << index;
+            if let Some(polarity) = predicate_polarity_against(conjunct, base) {
+                if constrained_mask & bit != 0 {
+                    return None;
+                }
+                constrained_mask |= bit;
+                if polarity {
+                    required_bits |= bit;
+                }
+                matched = true;
+                break;
+            }
+        }
+        if !matched {
+            return None;
+        }
+    }
+    if constrained_mask == 0 {
+        return None;
+    }
+
+    let mut coverage = 0u16;
+    for assignment in 0..(1u8 << bases.len()) {
+        if assignment & constrained_mask == required_bits {
+            coverage |= 1u16 << assignment;
+        }
+    }
+    Some(coverage)
 }
 
 fn has_exhaustive_pair_case_split_top_level_or(predicate: &str) -> bool {
