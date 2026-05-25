@@ -59,6 +59,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_complementary_top_level_clauses(predicate, "or") {
         return StaticBooleanValue::True;
     }
+    if has_case_split_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
     if has_inclusive_total_order_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
@@ -114,6 +117,30 @@ fn has_complementary_top_level_clauses(predicate: &str, keyword: &str) -> bool {
             .skip(index + 1)
             .any(|right| complementary_predicates(left, right))
     })
+}
+
+fn has_case_split_top_level_or(predicate: &str) -> bool {
+    let disjuncts = flattened_keyword_clauses(predicate, "or");
+    if disjuncts.len() < 2 {
+        return false;
+    }
+    disjuncts.iter().enumerate().any(|(index, left)| {
+        disjuncts.iter().enumerate().any(|(other_index, right)| {
+            index != other_index && disjunct_case_splits_to_true(left, right)
+        })
+    })
+}
+
+fn disjunct_case_splits_to_true(left: &str, right: &str) -> bool {
+    let right_clauses = flattened_keyword_clauses(right, "and");
+    right_clauses.len() > 1
+        && right_clauses
+            .iter()
+            .any(|clause| complementary_predicates(left, clause))
+        && right_clauses.iter().all(|clause| {
+            complementary_predicates(left, clause)
+                || static_boolean_value(clause) == StaticBooleanValue::True
+        })
 }
 
 fn has_total_order_top_level_or(predicate: &str) -> bool {

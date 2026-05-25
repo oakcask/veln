@@ -7051,6 +7051,36 @@ fn contract_predicate_nested_complementary_or_is_statically_proven() {
 }
 
 #[test]
+fn contract_predicate_case_split_or_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, limit: Int) -> output: {ready: Bool} effects []\n",
+            "require value.ready or (not value.ready and true)\n",
+            "require value.ready or (1 == 1 and not value.ready)\n",
+            "ensure output.ready or (not output.ready and 1 < 2)\n",
+            "ensure output.ready or (not output.ready and (1 + 1 == 2))\n",
+            "require limit < 10 or (limit >= 10 and true)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 5);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_complementary_comparison_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",

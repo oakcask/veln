@@ -210,14 +210,16 @@ No accepted language and type coverage follow-up is currently tracked here.
   commuted ordering normalization. Inclusive ordering totality disjunctions
   over the same operands, and negated conjunctions with opposite inclusive and
   strict ordering bounds over the same operands, are also statically evaluated
-  after whitespace normalization and commuted ordering normalization. Richer
-  predicate semantics beyond these static truth identities, literal
+  after whitespace normalization and commuted ordering normalization.
+  Case-split top-level `or` predicates whose complemented branch only adds
+  statically true conjuncts are also statically evaluated, including boolean
+  atoms and direct comparison complements. Richer predicate semantics beyond
+  these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, complementary predicate comparisons,
-  complementary boolean and comparison
-  disjunctions, ordering trichotomy disjunctions, negated complementary
-  boolean and comparison conjunctions, and negated mutually exclusive order
-  conjunctions remain follow-up work.
+  complementary boolean and comparison disjunctions, ordering trichotomy
+  disjunctions, negated complementary boolean and comparison conjunctions, and
+  negated mutually exclusive order conjunctions remain follow-up work.
 
 ## Formatting
 

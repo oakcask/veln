@@ -110,6 +110,13 @@ Inclusive ordering totality over the same operands is statically proven, such
 as `value <= limit or limit <= value` and
 `value >= limit or limit >= value`, after whitespace normalization and
 commuted ordering normalization.
+Top-level `or` also proves case-split predicates when one branch is the
+complement of another branch and every other conjunct in that branch is
+statically true. For example,
+`flag or (not flag and true)`,
+`flag or (not flag and 1 + 1 == 2)`, and
+`value < limit or (value >= limit and true)` are statically proven after
+validation.
 It also treats a negated top-level `and` between the same pure boolean
 predicate and its negation as statically true, such as
 `not (flag and not flag)` or
