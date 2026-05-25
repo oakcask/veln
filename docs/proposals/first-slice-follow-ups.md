@@ -18,20 +18,14 @@ opening the full follow-up record.
 
 ## Read When
 
-- Use [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md) when a
-  target area below points to historical details or when checking why a target
-  remains open.
-
-## Language And Type Coverage
-
-No accepted language and type coverage follow-up is currently tracked here.
-Use [the full record](first-slice-follow-ups-full.md#language-and-type-coverage)
-when checking historical context.
+- Use this page to choose a target area.
+- Open [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md) only for
+  the selected area's historical details.
 
 ## Repair Loop
 
-The remaining repair-loop work is broader repair discharge beyond the
-normalized direct and `require`-matched cases already implemented. Read
+Remaining work is broader repair discharge beyond normalized direct and
+`require`-matched cases. Read
 [the full repair-loop record](first-slice-follow-ups-full.md#repair-loop)
 before changing candidate ranking or safe repair generation.
 
@@ -43,23 +37,29 @@ contract subset. Read
 before changing effect propagation, runtime contracts, or predicate
 classification.
 
+## Language And Type Coverage
+
+No accepted follow-up is currently tracked here. Use
+[the full record](first-slice-follow-ups-full.md#language-and-type-coverage)
+only for historical context.
+
 ## Formatting
 
-No accepted formatting follow-up is currently tracked here. Use
-[the full record](first-slice-follow-ups-full.md#formatting) when checking
+No accepted follow-up is currently tracked here. Use
+[the full record](first-slice-follow-ups-full.md#formatting) only for
 historical context.
 
 ## Lowering And Execution
 
-No accepted lowering and execution follow-up is currently tracked here. Use
-[the full record](first-slice-follow-ups-full.md#lowering-and-execution) when
-checking historical context.
+No accepted follow-up is currently tracked here. Use
+[the full record](first-slice-follow-ups-full.md#lowering-and-execution) only
+for historical context.
 
 ## Test Discovery And Events
 
-No accepted test discovery follow-up is currently tracked here. Use
+No accepted follow-up is currently tracked here. Use
 [the full record](first-slice-follow-ups-full.md#test-discovery-and-events)
-when checking historical context.
+only for historical context.
 
 ## Skip Unless Needed
 
