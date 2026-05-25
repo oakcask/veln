@@ -164,11 +164,13 @@ together with `require max >= 10` and `require max == fallback` guarantees
 Valid non-disjunctive ordering requirements may also be chained transitively
 for repair discharge. A chain with at least one strict edge guarantees a
 strict ordering predicate and disequality for the endpoints; an all-inclusive
-chain guarantees an inclusive ordering predicate. For example,
+chain guarantees an inclusive ordering predicate. Inclusive chains in both
+directions also guarantee endpoint equality. For example,
 `require low < mid` together with `require mid <= max` guarantees
 `candidate > low` after substituting `max`, and `require low <= mid` together
 with `require mid < max` guarantees `candidate != low` after substituting
-`max`.
+`max`. `require low <= mid` together with `require mid <= max` and
+`require max <= low` guarantees `candidate == low` after substituting `max`.
 If a substituted `satisfy` predicate has top-level `or` clauses, a candidate
 is also safe when any one `or` branch is fully guaranteed by valid `require`
 clauses.
@@ -186,7 +188,11 @@ when every `or` branch discharges that clause, such as
 branches inside `satisfy` conjunctions are accepted when at least one branch is
 guaranteed; for example, `require max > 0 and max <= 10` guarantees
 `(candidate > 0 or candidate == 0) and candidate <= 10` after substituting
-`max`. Every type-compatible visible binding candidate for the tautological
+`max`. Negated top-level `or` predicates in valid `require` clauses are
+normalized through their direct comparison branches before repair matching.
+For example, `require not (max < 0 or max > 10)` guarantees both
+`candidate >= 0` and `candidate <= 10` after substituting `max`. Every
+type-compatible visible binding candidate for the tautological
 subset uses `reason: "satisfy_tautology"`. A statically accepted candidate also
 uses `satisfy_status: "statically_satisfied"`. Other candidates for a
 satisfy-constrained hole remain unapplied, use

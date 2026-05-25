@@ -2639,8 +2639,12 @@ impl<'a> FunctionChecker<'a> {
         &self,
         satisfy: &SatisfyClause,
     ) -> Option<SatisfyRepairConstraint> {
-        if let Some(constraint) = SatisfyRepairConstraint::from_satisfy(satisfy) {
-            return Some(constraint);
+        let direct_constraint = SatisfyRepairConstraint::from_satisfy(satisfy);
+        if direct_constraint
+            .as_ref()
+            .is_some_and(SatisfyRepairConstraint::allows_any_binding)
+        {
+            return direct_constraint;
         }
         let candidate = satisfy.candidate.as_ref()?;
         let required_predicates = self
@@ -2657,21 +2661,28 @@ impl<'a> FunctionChecker<'a> {
             .map(|contract| contract.text.clone())
             .collect::<Vec<_>>();
         if required_predicates.is_empty() {
-            return None;
+            return direct_constraint;
         }
-        let allowed_bindings = self
+        let require_allowed_bindings = self
             .bindings
             .iter()
             .filter(|binding| {
                 let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
                 predicate_guaranteed_by_required_predicates(&replaced, &required_predicates)
             })
-            .map(|binding| binding.name.clone())
+            .map(|binding| SatisfyAllowedBinding {
+                name: binding.name.clone(),
+                reason: "satisfy_require_match",
+            })
             .collect::<Vec<_>>();
-        (!allowed_bindings.is_empty()).then_some(SatisfyRepairConstraint {
-            allowed_bindings: Some(allowed_bindings),
-            reason: "satisfy_require_match",
-        })
+        let Some(mut constraint) = direct_constraint else {
+            return (!require_allowed_bindings.is_empty()).then_some(SatisfyRepairConstraint {
+                allowed_bindings: Some(require_allowed_bindings),
+                reason: "satisfy_require_match",
+            });
+        };
+        constraint.extend_allowed_bindings(require_allowed_bindings);
+        Some(constraint)
     }
 }
 
@@ -2680,7 +2691,12 @@ fn contract_callee_segments(callee: &str) -> Vec<String> {
 }
 
 struct SatisfyRepairConstraint {
-    allowed_bindings: Option<Vec<String>>,
+    allowed_bindings: Option<Vec<SatisfyAllowedBinding>>,
+    reason: &'static str,
+}
+
+struct SatisfyAllowedBinding {
+    name: String,
     reason: &'static str,
 }
 
@@ -2694,7 +2710,10 @@ impl SatisfyRepairConstraint {
             });
         }
         reflexive_candidate_binding(&satisfy.predicate, candidate).map(|allowed| Self {
-            allowed_bindings: Some(vec![allowed.binding]),
+            allowed_bindings: Some(vec![SatisfyAllowedBinding {
+                name: allowed.binding,
+                reason: allowed.reason,
+            }]),
             reason: allowed.reason,
         })
     }
@@ -2703,9 +2722,24 @@ impl SatisfyRepairConstraint {
         match &self.allowed_bindings {
             Some(allowed) => allowed
                 .iter()
-                .any(|allowed_binding| allowed_binding == binding)
-                .then_some(self.reason),
+                .find(|allowed_binding| allowed_binding.name == binding)
+                .map(|allowed_binding| allowed_binding.reason),
             None => Some(self.reason),
+        }
+    }
+
+    fn allows_any_binding(&self) -> bool {
+        self.allowed_bindings.is_none()
+    }
+
+    fn extend_allowed_bindings(&mut self, bindings: Vec<SatisfyAllowedBinding>) {
+        let Some(allowed) = &mut self.allowed_bindings else {
+            return;
+        };
+        for binding in bindings {
+            if !allowed.iter().any(|existing| existing.name == binding.name) {
+                allowed.push(binding);
+            }
         }
     }
 }
@@ -3026,9 +3060,34 @@ fn non_disjunctive_repair_clauses(predicate: &str) -> Vec<String> {
             if repair_relevant_or_clauses(clause).len() > 1 {
                 Vec::new()
             } else {
-                vec![canonical_repair_clause(clause)]
+                canonical_non_disjunctive_repair_clauses(clause)
             }
         })
+        .collect()
+}
+
+fn canonical_non_disjunctive_repair_clauses(clause: &str) -> Vec<String> {
+    canonical_negated_disjunction_repair_clauses(clause)
+        .unwrap_or_else(|| vec![canonical_repair_clause(clause)])
+}
+
+fn canonical_negated_disjunction_repair_clauses(clause: &str) -> Option<Vec<String>> {
+    let trimmed = clause.trim();
+    let negated = if let Some(negated) = trimmed.strip_prefix("not ") {
+        negated
+    } else {
+        trimmed
+            .strip_prefix("not(")
+            .map(|negated| negated.strip_suffix(')').unwrap_or(negated).trim())?
+    };
+    let negated = strip_balanced_outer_parens(negated);
+    let disjuncts = repair_relevant_or_clauses(negated);
+    if disjuncts.len() <= 1 {
+        return None;
+    }
+    disjuncts
+        .into_iter()
+        .map(|disjunct| canonical_negated_repair_clause(&format!("not ({disjunct})")))
         .collect()
 }
 
@@ -3106,6 +3165,21 @@ fn ordering_path_implies_clause(
     equivalences: &RepairEquivalences,
 ) -> bool {
     match wanted.operator {
+        "==" => {
+            ordering_path_exists(
+                required_clauses,
+                wanted.left,
+                wanted.right,
+                false,
+                equivalences,
+            ) && ordering_path_exists(
+                required_clauses,
+                wanted.right,
+                wanted.left,
+                false,
+                equivalences,
+            )
+        }
         "<" => ordering_path_exists(
             required_clauses,
             wanted.left,

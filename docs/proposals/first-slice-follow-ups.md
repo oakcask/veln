@@ -56,6 +56,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   `false` disjuncts do not affect direct, tautological, or `require`-matched
   repair status. Top-level literal `true` disjuncts make a `satisfy` predicate
   tautological for repair ranking.
+  Transitive inclusive ordering paths in both directions discharge equality
+  `satisfy` clauses for the endpoints. Negated top-level `or` predicates in
+  valid `require` clauses discharge direct comparison `satisfy` clauses through
+  their inverted branches.
   Broader repair discharge remains follow-up work before formatter
   stabilization.
 

@@ -31,7 +31,9 @@ create non-disjunctive operand aliases for repair discharge, including alias
 preservation for strict-ordering disequality evidence and paired inclusive
 bound equality evidence. Valid non-disjunctive `require` ordering chains
 discharge endpoint ordering and disequality `satisfy` clauses for safe repair
-ranking when the chained comparison is strong enough.
+ranking when the chained comparison is strong enough. Negated top-level `or`
+predicates in valid `require` clauses discharge direct comparison `satisfy`
+clauses through their inverted branches.
 
 For the fixed reference of behavior implemented in the current workspace, read
 [../reference/README.md](../reference/README.md).

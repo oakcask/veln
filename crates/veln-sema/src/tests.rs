@@ -1621,6 +1621,39 @@ fn marks_nested_disjunctive_satisfy_as_require_discharged_repair() {
 }
 
 #[test]
+fn marks_negated_disjunctive_require_as_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int) -> Int\n",
+            "  require not (max < 0 or max > 10)\n",
+            "  _value satisfy candidate => candidate >= 0 and candidate <= 10\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"max\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn marks_paired_inclusive_require_bounds_as_equality_repair_evidence() {
     let source = SourceFile::new(
         "main.veln",
@@ -1843,6 +1876,36 @@ fn marks_transitive_strict_order_as_disequality_satisfy_repair_evidence() {
             "  require low <= mid\n",
             "  require mid < max\n",
             "  _value satisfy candidate => candidate != low\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"max\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn marks_transitive_inclusive_bounds_as_equality_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(low: Int, mid: Int, max: Int, fallback: Int) -> Int\n",
+            "  require low <= mid\n",
+            "  require mid <= max\n",
+            "  require max <= low\n",
+            "  _value satisfy candidate => candidate == low\n",
             "end\n",
         ),
     );
