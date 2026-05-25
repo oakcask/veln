@@ -1577,6 +1577,42 @@ fn marks_complementary_satisfy_disjuncts_as_tautological_repair() {
 }
 
 #[test]
+fn marks_boolean_literal_alias_satisfy_disjuncts_as_tautological_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: {ready: Bool}, fallback: {ready: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => candidate.ready == true or not candidate.ready\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":1,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
 fn marks_complementary_comparison_satisfy_disjuncts_as_tautological_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -7360,6 +7396,34 @@ fn contract_predicate_complementary_or_is_statically_proven() {
     let core = lowered.core.expect("valid module should lower to core");
     let contracts = &core.functions[0].contracts;
     assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_boolean_literal_alias_or_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}) -> output: {ready: Bool} effects []\n",
+            "require value.ready == true or not value.ready\n",
+            "require false == value.ready or value.ready\n",
+            "ensure output.ready != false or output.ready == false\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
     assert!(contracts.iter().all(|contract| {
         contract.obligation_status == ContractObligationStatus::StaticallyProven
     }));

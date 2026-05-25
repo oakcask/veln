@@ -137,9 +137,21 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
 }
 
 fn complementary_predicates(left: &str, right: &str) -> bool {
-    negated_predicate_shape(left).is_some_and(|left| left == predicate_shape(right))
-        || negated_predicate_shape(right).is_some_and(|right| right == predicate_shape(left))
+    let (left_shape, left_polarity) = normalized_predicate_polarity(left);
+    let (right_shape, right_polarity) = normalized_predicate_polarity(right);
+    (left_shape == right_shape && left_polarity != right_polarity)
         || complementary_comparisons(left, right)
+}
+
+fn normalized_predicate_polarity(predicate: &str) -> (String, bool) {
+    if let Some(inner) = negated_predicate_inner(predicate) {
+        let (shape, polarity) = normalized_predicate_polarity(inner);
+        return (shape, !polarity);
+    }
+    if let Some(alias) = boolean_literal_alias_shape(predicate) {
+        return alias;
+    }
+    (predicate_shape(predicate), true)
 }
 
 fn has_complementary_top_level_clauses(predicate: &str, keyword: &str) -> bool {
@@ -696,10 +708,6 @@ fn flattened_keyword_clauses<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a s
         .collect()
 }
 
-fn negated_predicate_shape(predicate: &str) -> Option<String> {
-    negated_predicate_inner(predicate).map(predicate_shape)
-}
-
 fn negated_predicate_inner(predicate: &str) -> Option<&str> {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if let Some(rest) = predicate.strip_prefix("not ") {
@@ -763,6 +771,30 @@ fn predicate_shape(predicate: &str) -> String {
         shape.push(ch);
     }
     shape
+}
+
+fn boolean_literal_alias_shape(predicate: &str) -> Option<(String, bool)> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    for operator in ["==", "!="] {
+        let Some((left, right)) = split_top_level_operator(predicate, operator) else {
+            continue;
+        };
+        if let Some(value) = boolean_literal(right) {
+            return Some((predicate_shape(left), value == (operator == "==")));
+        }
+        if let Some(value) = boolean_literal(left) {
+            return Some((predicate_shape(right), value == (operator == "==")));
+        }
+    }
+    None
+}
+
+fn boolean_literal(predicate: &str) -> Option<bool> {
+    match strip_balanced_outer_parens(predicate.trim()) {
+        "true" => Some(true),
+        "false" => Some(false),
+        _ => None,
+    }
 }
 
 #[derive(PartialEq, Eq)]

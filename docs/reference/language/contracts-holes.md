@@ -95,7 +95,10 @@ also classified statically after validation, such as
 A top-level `or` between the same pure
 boolean predicate and its negation is also statically true after validation,
 such as `flag or not flag` or
-`output.ready or not(output.ready)`. The complementary `or` identity may span
+`output.ready or not(output.ready)`. Boolean literal aliases participate in
+the same identity, so `flag == true or not flag`, `false == flag or flag`, and
+`flag != false or flag == false` are statically proven. The complementary
+`or` identity may span
 more than two top-level branches, so `flag or extra or not flag` is also
 statically proven. Parenthesized nested `or` branches are flattened for this
 identity, so `flag or (extra or not flag)` is also statically proven. Top-level
