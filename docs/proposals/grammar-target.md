@@ -29,7 +29,9 @@ accepts top-level `or` branches when every branch names the same visible
 binding and becomes reflexive after substitution. Equality `require` clauses
 create non-disjunctive operand aliases for repair discharge, including alias
 preservation for strict-ordering disequality evidence and paired inclusive
-bound equality evidence.
+bound equality evidence. Valid non-disjunctive `require` ordering chains
+discharge endpoint ordering and disequality `satisfy` clauses for safe repair
+ranking when the chained comparison is strong enough.
 
 For the fixed reference of behavior implemented in the current workspace, read
 [../reference/README.md](../reference/README.md).

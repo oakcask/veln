@@ -2997,6 +2997,9 @@ fn required_predicate_set_implies_clause(required_predicates: &[String], wanted:
     {
         return true;
     }
+    if ordering_path_implies_clause(&required_clauses, &wanted, &equivalences) {
+        return true;
+    }
     if wanted.operator != "==" {
         return false;
     }
@@ -3095,6 +3098,85 @@ fn repair_clause_implies_with_equivalences(
         ),
         _ => false,
     }
+}
+
+fn ordering_path_implies_clause(
+    required_clauses: &[String],
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    match wanted.operator {
+        "<" => ordering_path_exists(
+            required_clauses,
+            wanted.left,
+            wanted.right,
+            true,
+            equivalences,
+        ),
+        "<=" => ordering_path_exists(
+            required_clauses,
+            wanted.left,
+            wanted.right,
+            false,
+            equivalences,
+        ),
+        "!=" => {
+            ordering_path_exists(
+                required_clauses,
+                wanted.left,
+                wanted.right,
+                true,
+                equivalences,
+            ) || ordering_path_exists(
+                required_clauses,
+                wanted.right,
+                wanted.left,
+                true,
+                equivalences,
+            )
+        }
+        _ => false,
+    }
+}
+
+fn ordering_path_exists(
+    required_clauses: &[String],
+    from: &str,
+    to: &str,
+    needs_strict: bool,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let edges = required_clauses
+        .iter()
+        .filter_map(|clause| {
+            let parsed = ParsedRepairComparison::parse(clause)?;
+            matches!(parsed.operator, "<" | "<=").then_some((
+                parsed.left,
+                parsed.right,
+                parsed.operator == "<",
+            ))
+        })
+        .collect::<Vec<_>>();
+    let mut pending = vec![(from, false)];
+    let mut visited = Vec::<(String, bool)>::new();
+    while let Some((current, has_strict)) = pending.pop() {
+        if equivalences.equivalent(current, to) && (!needs_strict || has_strict) {
+            return true;
+        }
+        if visited
+            .iter()
+            .any(|(operand, strict)| operand == current && *strict == has_strict)
+        {
+            continue;
+        }
+        visited.push((current.to_string(), has_strict));
+        for (left, right, edge_strict) in &edges {
+            if equivalences.equivalent(current, left) {
+                pending.push((right, has_strict || *edge_strict));
+            }
+        }
+    }
+    false
 }
 
 fn repair_equivalences(clauses: &[String]) -> RepairEquivalences {

@@ -161,6 +161,14 @@ paired-inclusive-bounds-to-equality rule. For example, those same requirements
 guarantee `candidate != 0` after substituting `max`; `require fallback <= 10`
 together with `require max >= 10` and `require max == fallback` guarantees
 `candidate == 10` after substituting either `max` or `fallback`.
+Valid non-disjunctive ordering requirements may also be chained transitively
+for repair discharge. A chain with at least one strict edge guarantees a
+strict ordering predicate and disequality for the endpoints; an all-inclusive
+chain guarantees an inclusive ordering predicate. For example,
+`require low < mid` together with `require mid <= max` guarantees
+`candidate > low` after substituting `max`, and `require low <= mid` together
+with `require mid < max` guarantees `candidate != low` after substituting
+`max`.
 If a substituted `satisfy` predicate has top-level `or` clauses, a candidate
 is also safe when any one `or` branch is fully guaranteed by valid `require`
 clauses.
