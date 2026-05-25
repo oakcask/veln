@@ -110,10 +110,13 @@ simple clauses or the whole `and` conjunction in parentheses does not change
 the repair match. Negated equality and disequality clauses are normalized
 before matching; for example, `not (candidate == 0)` matches `max != 0` after
 substituting `max`, and `not (max == 0)` guarantees `candidate != 0` after the
-same substitution. Strict ordering requirements also discharge the matching
-inclusive ordering predicate for the same operands. For example, a
-`require max > 0` clause guarantees `candidate >= 0` after substituting `max`,
-and a `require max < 10` clause guarantees `candidate <= 10`. Strict ordering
+same substitution. Negated ordering clauses normalize into their inverse
+comparisons before matching; for example, `not (candidate < 0)` matches
+`max >= 0` after substituting `max`, and `not (candidate <= 0)` matches
+`max > 0`. Strict ordering requirements also discharge the matching inclusive
+ordering predicate for the same operands. For example, a `require max > 0`
+clause guarantees `candidate >= 0` after substituting `max`, and a
+`require max < 10` clause guarantees `candidate <= 10`. Strict ordering
 requirements also discharge disequality for the same operands, such as
 `require max > 0` guaranteeing `candidate != 0` after substituting `max`.
 Equality requirements also discharge inclusive ordering predicates over the

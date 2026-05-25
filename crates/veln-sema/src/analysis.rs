@@ -3108,7 +3108,14 @@ fn canonical_negated_repair_clause(clause: &str) -> Option<String> {
             .map(|negated| negated.strip_suffix(')').unwrap_or(negated).trim())?
     };
     let negated = strip_balanced_outer_parens(negated);
-    for (operator, inverse) in [("==", "!="), ("!=", "==")] {
+    for (operator, inverse) in [
+        ("==", "!="),
+        ("!=", "=="),
+        ("<=", ">"),
+        ("<", ">="),
+        (">=", "<"),
+        (">", "<="),
+    ] {
         let Some((left, right)) = negated.split_once(operator) else {
             continue;
         };
@@ -3117,11 +3124,7 @@ fn canonical_negated_repair_clause(clause: &str) -> Option<String> {
         if left.is_empty() || right.is_empty() {
             return None;
         }
-        return Some(if right < left {
-            format!("{right} {inverse} {left}")
-        } else {
-            format!("{left} {inverse} {right}")
-        });
+        return Some(canonical_repair_clause(format!("{left} {inverse} {right}")));
     }
     None
 }

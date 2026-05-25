@@ -21,7 +21,9 @@ omitted tail expression returns `()`. Literal and constructor patterns in
 patterns. Pipeline targets are restricted to named or qualified calls. Runtime
 `ensure` checks run before ordinary returns and `?` early returns. Private
 functions now report incomplete inference when an omitted parameter or return
-annotation remains `unknown`.
+annotation remains `unknown`. Satisfy repair discharge normalizes negated
+ordering clauses into their inverse comparisons before matching valid
+`require` clauses.
 
 For the fixed reference of behavior implemented in the current workspace, read
 [../reference/README.md](../reference/README.md).
