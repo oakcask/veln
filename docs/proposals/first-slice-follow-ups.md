@@ -42,10 +42,7 @@ No accepted language and type coverage follow-up is currently tracked here.
 
 ## Formatting
 
-- Comment-bearing files are currently preserved byte-for-byte. Comment
-  attachment is still required before those files can be safely reformatted.
-- Formatter stabilization still needs comment attachment once comment-bearing
-  files stop being no-op preserved.
+No accepted formatting follow-up is currently tracked here.
 
 ## Lowering And Execution
 

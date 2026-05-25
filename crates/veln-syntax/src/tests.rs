@@ -882,16 +882,64 @@ fn rejects_method_call_shaped_syntax() {
 }
 
 #[test]
-fn format_tree_preserves_commented_source_losslessly() {
+fn format_tree_formats_attached_line_comments() {
     let source = SourceFile::new(
         "main.veln",
-        "// header\nfn main() -> ()\n  _ // hole\nend\n",
+        concat!(
+            "// header\n",
+            "fn   main ( ) -> ()\n",
+            "  _ // hole\n",
+            "// close docs\n",
+            "end // function end\n",
+        ),
     );
 
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty());
-    assert_eq!(format_tree(&output.tree), source.text());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "// header\n",
+            "fn main() -> ()\n",
+            "  _  // hole\n",
+            "  // close docs\n",
+            "end  // function end\n",
+        )
+    );
+}
+
+#[test]
+fn format_tree_attaches_standalone_comments_to_formatted_lines() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "// module docs\n",
+            "mod   app\n",
+            "/// helper docs\n",
+            "fn   helper ( value : Unit ) -> Unit\n",
+            "// body docs\n",
+            "()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "// module docs\n",
+            "mod app\n",
+            "\n",
+            "/// helper docs\n",
+            "fn helper(value: ()) -> ()\n",
+            "  // body docs\n",
+            "  ()\n",
+            "end\n",
+        )
+    );
 }
 
 #[test]

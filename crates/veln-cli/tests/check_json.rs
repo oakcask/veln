@@ -651,20 +651,64 @@ fn fmt_preserves_files_when_any_input_has_parse_errors() {
 }
 
 #[test]
-fn fmt_preserves_comment_bearing_files_byte_for_byte() {
+fn fmt_formats_comment_bearing_files() {
     let project = TestProject::new("fmt-comments");
     let text = concat!(
         "// keep leading comment\n",
         "fn   main ( ) -> ()\n",
         "  () // keep trailing comment\n",
-        "end\n",
+        "// keep closing comment\n",
+        "end // keep end comment\n",
     );
     project.write("main.veln", text);
 
     let output = project.fmt(&["main.veln"]);
 
     assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(project.read("main.veln"), text);
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "// keep leading comment\n",
+            "fn main() -> ()\n",
+            "  ()  // keep trailing comment\n",
+            "  // keep closing comment\n",
+            "end  // keep end comment\n",
+        )
+    );
+}
+
+#[test]
+fn fmt_formats_files_with_attached_standalone_comments() {
+    let project = TestProject::new("fmt-attached-comments");
+    project.write(
+        "main.veln",
+        concat!(
+            "// module docs\n",
+            "mod   app\n",
+            "/// public docs\n",
+            "pub  fn   main ( value : Unit ) -> Unit effects [stdio]\n",
+            "// return docs\n",
+            "()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.fmt(&["main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "// module docs\n",
+            "mod app\n",
+            "\n",
+            "/// public docs\n",
+            "pub fn main(value: ()) -> () effects [stdio]\n",
+            "  // return docs\n",
+            "  ()\n",
+            "end\n",
+        )
+    );
 }
 
 #[test]

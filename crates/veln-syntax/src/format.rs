@@ -4,23 +4,29 @@ use crate::{
 };
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
-    if tree
-        .lossless_tokens()
-        .any(|token| token.kind == TokenKind::Comment)
-    {
-        return tree
-            .lossless_tokens()
-            .filter(|token| token.kind != TokenKind::Eof)
-            .map(|token| token.text.as_str())
-            .collect();
+    let comments = LineComments::from_tree(tree);
+    if comments.requires_lossless_preservation {
+        return lossless_text(tree);
     }
 
     let mut out = String::new();
     if let Some(module) = &tree.module {
-        push_line(&mut out, format_args!("mod {}", module.name));
+        push_source_line(
+            &mut out,
+            &comments,
+            module.span.start.line,
+            0,
+            format!("mod {}", module.name),
+        );
     }
     for use_decl in &tree.uses {
-        push_line(&mut out, format_args!("use {}", use_decl.name));
+        push_source_line(
+            &mut out,
+            &comments,
+            use_decl.span.start.line,
+            0,
+            format!("use {}", use_decl.name),
+        );
     }
     if (tree.module.is_some() || !tree.uses.is_empty()) && !tree.items.is_empty() {
         out.push('\n');
@@ -31,7 +37,11 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
             out.push('\n');
         }
         let SyntaxItem::Function(function) = item;
-        format_function(&mut out, function);
+        format_function(&mut out, &comments, function);
+    }
+
+    if !comments.all_emitted() {
+        return lossless_text(tree);
     }
 
     if !out.is_empty() && !out.ends_with('\n') {
@@ -40,92 +50,231 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
     out
 }
 
-fn format_function(out: &mut String, function: &FunctionDecl) {
+fn format_function(out: &mut String, comments: &LineComments, function: &FunctionDecl) {
+    let mut signature = String::new();
     if function.kind == FunctionKind::Test {
-        out.push_str("test ");
+        signature.push_str("test ");
     } else {
         if function.visibility == Visibility::Public {
-            out.push_str("pub ");
+            signature.push_str("pub ");
         }
-        out.push_str("fn ");
+        signature.push_str("fn ");
     }
-    out.push_str(function.name.as_deref().unwrap_or("<missing>"));
-    out.push('(');
+    signature.push_str(function.name.as_deref().unwrap_or("<missing>"));
+    signature.push('(');
     for (index, param) in function.params.iter().enumerate() {
         if index > 0 {
-            out.push_str(", ");
+            signature.push_str(", ");
         }
-        out.push_str(&param.name);
+        signature.push_str(&param.name);
         if let Some(ty) = &param.ty {
-            out.push_str(": ");
-            out.push_str(&canonical_type_text(ty));
+            signature.push_str(": ");
+            signature.push_str(&canonical_type_text(ty));
         }
     }
-    out.push(')');
+    signature.push(')');
     if let Some(return_type) = &function.return_type {
-        out.push_str(" -> ");
+        signature.push_str(" -> ");
         if let Some(result_binding) = &function.return_binding {
-            out.push_str(&result_binding.name);
-            out.push_str(": ");
+            signature.push_str(&result_binding.name);
+            signature.push_str(": ");
         }
-        out.push_str(&canonical_type_text(return_type));
+        signature.push_str(&canonical_type_text(return_type));
     }
     if let Some(effects) = &function.effects {
-        out.push_str(" effects [");
+        signature.push_str(" effects [");
         for (index, effect) in effects.iter().enumerate() {
             if index > 0 {
-                out.push_str(", ");
+                signature.push_str(", ");
             }
-            out.push_str(effect);
+            signature.push_str(effect);
         }
-        out.push(']');
+        signature.push(']');
     }
-    out.push('\n');
+    push_source_line(out, comments, function.span.start.line, 0, signature);
 
     for contract in &function.contracts {
-        out.push_str("  ");
-        out.push_str(match contract.kind {
+        let mut line = String::new();
+        line.push_str(match contract.kind {
             ContractKind::Require => "require",
             ContractKind::Ensure => "ensure",
         });
         if !contract.text.is_empty() {
-            out.push(' ');
-            out.push_str(&contract.text);
+            line.push(' ');
+            line.push_str(&contract.text);
         }
-        out.push('\n');
+        push_source_line(out, comments, contract.span.start.line, 2, line);
     }
 
     for line in &function.body {
-        out.push_str("  ");
-        match line {
+        let (source_line, content) = match line {
             BodyLine::Let {
                 pattern,
                 annotation,
                 expr,
-                ..
+                span,
             } => {
-                out.push_str("let ");
-                out.push_str(&format_pattern(pattern));
+                let mut content = String::from("let ");
+                content.push_str(&format_pattern(pattern));
                 if let Some(annotation) = annotation {
-                    out.push_str(": ");
-                    out.push_str(&canonical_type_text(annotation));
+                    content.push_str(": ");
+                    content.push_str(&canonical_type_text(annotation));
                 }
-                out.push_str(" = ");
-                out.push_str(&format_expr(expr));
+                content.push_str(" = ");
+                content.push_str(&format_expr(expr));
+                (span.start.line, content)
             }
-            BodyLine::Expr { expr, .. } => out.push_str(&format_expr(expr)),
-        }
-        out.push('\n');
+            BodyLine::Expr { expr, span } => (span.start.line, format_expr(expr)),
+        };
+        push_source_line(out, comments, source_line, 2, content);
     }
-    out.push_str("end\n");
+    let end_line = function_end_line(function);
+    comments.emit_before_first_after(function_body_end_line(function), end_line, out, 2);
+    push_source_line(out, comments, end_line, 0, String::from("end"));
 }
 
-fn push_line(out: &mut String, args: std::fmt::Arguments<'_>) {
-    use std::fmt::Write as _;
+fn lossless_text(tree: &SyntaxTree) -> String {
+    tree.lossless_tokens()
+        .filter(|token| token.kind != TokenKind::Eof)
+        .map(|token| token.text.as_str())
+        .collect()
+}
 
-    out.write_fmt(args)
-        .expect("writing to String should not fail");
+fn push_source_line(
+    out: &mut String,
+    comments: &LineComments,
+    source_line: usize,
+    indent: usize,
+    content: String,
+) {
+    comments.emit_before(source_line, out, indent);
+    out.push_str(&" ".repeat(indent));
+    out.push_str(&content);
+    comments.emit_after(source_line, out);
     out.push('\n');
+}
+
+#[derive(Default)]
+struct LineComments {
+    before: std::cell::RefCell<std::collections::BTreeMap<usize, Vec<String>>>,
+    after: std::cell::RefCell<std::collections::BTreeMap<usize, Vec<String>>>,
+    requires_lossless_preservation: bool,
+}
+
+impl LineComments {
+    fn from_tree(tree: &SyntaxTree) -> Self {
+        let mut line = 1usize;
+        let mut seen_code_on_line = false;
+        let mut pending = Vec::new();
+        let mut before = std::collections::BTreeMap::<usize, Vec<String>>::new();
+        let mut after = std::collections::BTreeMap::<usize, Vec<String>>::new();
+        let mut requires_lossless_preservation = false;
+
+        for token in tree.lossless_tokens() {
+            match token.kind {
+                TokenKind::Newline => {
+                    line += 1;
+                    seen_code_on_line = false;
+                }
+                TokenKind::Whitespace => {}
+                TokenKind::Comment => {
+                    if seen_code_on_line {
+                        after
+                            .entry(line)
+                            .or_default()
+                            .push(token.text.trim_start().to_string());
+                    } else {
+                        pending.push(token.text.trim_start().to_string());
+                    }
+                }
+                TokenKind::Eof => {}
+                _ => {
+                    if !seen_code_on_line && !pending.is_empty() {
+                        before.entry(line).or_default().append(&mut pending);
+                    }
+                    seen_code_on_line = true;
+                }
+            }
+        }
+
+        if !pending.is_empty() {
+            requires_lossless_preservation = true;
+        }
+
+        Self {
+            before: std::cell::RefCell::new(before),
+            after: std::cell::RefCell::new(after),
+            requires_lossless_preservation,
+        }
+    }
+
+    fn emit_before(&self, source_line: usize, out: &mut String, indent: usize) {
+        let Some(comments) = self.before.borrow_mut().remove(&source_line) else {
+            return;
+        };
+        for comment in comments {
+            out.push_str(&" ".repeat(indent));
+            out.push_str(&comment);
+            out.push('\n');
+        }
+    }
+
+    fn emit_before_first_after(
+        &self,
+        after_line: usize,
+        through_line: usize,
+        out: &mut String,
+        indent: usize,
+    ) {
+        let Some(line) = self
+            .before
+            .borrow()
+            .keys()
+            .copied()
+            .find(|line| *line > after_line && *line <= through_line)
+        else {
+            return;
+        };
+        self.emit_before(line, out, indent);
+    }
+
+    fn emit_after(&self, source_line: usize, out: &mut String) {
+        let Some(comments) = self.after.borrow_mut().remove(&source_line) else {
+            return;
+        };
+        for comment in comments {
+            out.push_str("  ");
+            out.push_str(&comment);
+        }
+    }
+
+    fn all_emitted(&self) -> bool {
+        self.before.borrow().is_empty() && self.after.borrow().is_empty()
+    }
+}
+
+fn function_body_end_line(function: &FunctionDecl) -> usize {
+    function
+        .body
+        .last()
+        .map(|line| match line {
+            BodyLine::Let { span, .. } | BodyLine::Expr { span, .. } => span.start.line,
+        })
+        .or_else(|| {
+            function
+                .contracts
+                .last()
+                .map(|contract| contract.span.start.line)
+        })
+        .unwrap_or(function.span.start.line)
+}
+
+fn function_end_line(function: &FunctionDecl) -> usize {
+    if function.end_present && function.span.end.column == 1 {
+        function.span.end.line.saturating_sub(1)
+    } else {
+        function.span.end.line
+    }
 }
 
 fn canonical_type_text(text: &str) -> String {

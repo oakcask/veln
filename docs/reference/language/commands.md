@@ -46,8 +46,11 @@ diagnostics. The implemented golden coverage includes `ensure` clauses, prefix
 and binary precedence, postfix `?`, nested records, lists, calls, and
 idempotent formatting across multiple input files.
 
-Files containing comments are preserved byte-for-byte until formatter comment
-attachment is implemented.
+Standalone line comments attach to the next parsed source line during
+formatting. The formatter preserves the comment text and emits it with the
+same indentation as the formatted module header, import, function signature,
+contract clause, body line, or closing `end` line it documents. Trailing line
+comments after source code stay on the same formatted source line.
 
 ## `veln run [--json] <entry> [path ...] [-- arg ...]`
 
