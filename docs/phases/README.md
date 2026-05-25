@@ -11,13 +11,6 @@ This directory keeps implementation-phase plans and working notes.
   first-slice implementation notes. It points to the current reference, review
   evidence, follow-up targets, and the full historical memo.
 
-## Skip Unless Needed
-
-- Do not read the full implementation memo before the language reference when
-  you only need current syntax or command behavior.
-- Do not use a phase note as proof that behavior is implemented; check
-  `../reference/language/` and `../reviews/` first.
-
 ## Read When
 
 - Use this directory when starting or reviewing implementation work.
@@ -28,3 +21,10 @@ This directory keeps implementation-phase plans and working notes.
   incomplete decision rationale.
 - Use `../reference/` when a decision has been promoted to stable reference
   material.
+
+## Skip Unless Needed
+
+- Do not read the full implementation memo before the language reference when
+  you only need current syntax or command behavior.
+- Do not use a phase note as proof that behavior is implemented; check
+  `../reference/language/` and `../reviews/` first.

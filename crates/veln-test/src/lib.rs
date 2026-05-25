@@ -1869,6 +1869,125 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_stderr_doctest_output_stream_reports_diagnostic() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln\n",
+                "/// stdio::eprintln(\"warn\")\n",
+                "/// ```\n",
+                "/// ```veln-output stream=stderr\n",
+                "/// warn\n",
+                "/// ```\n",
+                "/// ```veln-output stream=stderr\n",
+                "/// duplicate\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        let expected = doctests
+            .expected_outputs
+            .get("doctest_1")
+            .expect("expected stderr output should be captured");
+        assert_eq!(expected.stderr.as_deref(), Some("warn"));
+        assert_eq!(doctests.diagnostics.len(), 1);
+        assert_eq!(doctests.diagnostics[0].id, "doctest.duplicate_output");
+        assert_eq!(
+            doctests.diagnostics[0].message,
+            "duplicate expected stderr output fence"
+        );
+        assert_eq!(
+            doctests.diagnostics[0].details.to_json(),
+            "{\"kind\":\"doctest_metadata\",\"stream\":\"stderr\"}"
+        );
+        assert_eq!(doctests.diagnostics[0].related.len(), 1);
+    }
+
+    #[test]
+    fn consecutive_veln_doctest_fences_create_separate_sources() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln\n",
+                "/// stdio::println(\"first\")\n",
+                "/// ```\n",
+                "/// ```veln\n",
+                "/// stdio::println(\"second\")\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 2);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  stdio::println(\"first\")\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        assert_eq!(
+            doctests.sources[1].text(),
+            concat!(
+                "test doctest_2() -> () effects [stdio]\n",
+                "  stdio::println(\"second\")\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
+    fn doctest_output_fence_without_pending_doctest_is_ignored() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln-output stream=stdout\n",
+                "/// orphaned\n",
+                "/// ```\n",
+                "/// ```veln\n",
+                "/// stdio::println(\"ready\")\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  stdio::println(\"ready\")\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        let expected = doctests
+            .expected_outputs
+            .get("doctest_1")
+            .expect("doctest should have an output entry");
+        assert_eq!(expected.stdout, None);
+        assert_eq!(expected.stderr, None);
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
     fn unknown_doctest_output_attribute_reports_diagnostic() {
         let source = SourceFile::new(
             "main.veln",

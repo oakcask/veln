@@ -1,59 +1,40 @@
 # Reference
 
-Stable reference material lives here. Read these files when you need behavior
-implemented in the current workspace without the historical discussion that led
-to it. Use these files before changing code, tests, diagnostics, or samples.
+Stable reference material lives here. Use this directory for behavior
+implemented in the current workspace; leave planned work in `../proposals/`
+until code and tests support it.
 
 ## Read First
 
 - [language/README.md](language/README.md): current language behavior.
 - [language/topic-map.md](language/topic-map.md): task-oriented route to the
   smallest language reference page.
-- [language/source-decisions.md](language/source-decisions.md): short route to
+- [language/source-decisions.md](language/source-decisions.md): route to
   rationale when current behavior needs context.
-- [source-decisions/topic-map.md](source-decisions/topic-map.md): task-oriented
-  route to implemented rationale categories.
-
-## Common Tasks
-
-- Changing user-visible language behavior: start with
-  [language/topic-map.md](language/topic-map.md), update the smallest matching
-  topic page, and open a `*-full.md` companion only when the short page routes
-  there.
-- Explaining an implemented boundary: start with
-  [language/source-decisions.md](language/source-decisions.md), then use one
-  source-decision category instead of scanning records.
-- Updating source-decision routing: use
-  [source-decisions/topic-map.md](source-decisions/topic-map.md) and keep
-  [source-decisions/result-index.md](source-decisions/result-index.md) as an
-  audit route, not a normal reading path.
 
 ## Read When
 
 - Source language, contract, hole, command, JSON-output, runtime, or example
-  changes: use [language/topic-map.md](language/topic-map.md), then open the
-  selected short reference page before any full detail file.
-- Rationale: [language/source-decisions.md](language/source-decisions.md) first,
-  then [source-decisions/topic-map.md](source-decisions/topic-map.md) if detail is
-  needed.
+  changes: use [language/topic-map.md](language/topic-map.md).
+- Implemented rationale: start with
+  [language/source-decisions.md](language/source-decisions.md), then use
+  [source-decisions/topic-map.md](source-decisions/topic-map.md).
 - Research-source routes behind source decisions:
   [bibliography/README.md](bibliography/README.md).
-- Planning, review, or proposal work: use `../proposals/`, `../phases/`, or
-  `../reviews/` after checking the current reference.
 
 ## Route Boundaries
 
 - Use `language/` for behavior users can rely on in the current workspace.
 - Use `source-decisions/` only when implemented behavior needs rationale.
-- Use `bibliography/` only when auditing source support behind the rationale.
-- Use proposal, phase, or review directories when the behavior is planned,
-  disputed, or being verified rather than already implemented.
+- Use `bibliography/` only when auditing research support behind the rationale.
+- Use proposal, phase, or review directories when behavior is planned, disputed,
+  or being verified rather than already implemented.
 
-## Status Boundary
+## Skip Unless Needed
 
-The split language files describe implemented behavior only. Planned grammar,
-discussion outcomes that are not implemented, package manifests beyond
-implemented module validation, imports beyond current aliases, and persistent
-build caches are outside this reference unless a categorized file states
-otherwise. Use [../document-status.md](../document-status.md) when moving text
-between proposal, review, phase, and reference areas.
+- Do not open `*-full.md` files before a short route page names the needed
+  section.
+- Do not scan individual source-decision records before a topic route points to
+  one.
+- Use [../document-status.md](../document-status.md) before moving text between
+  proposal, review, phase, and reference areas.
