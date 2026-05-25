@@ -93,7 +93,7 @@ pub(crate) fn concurrency_signature(
                 Type::named("Option", vec![item]),
             ))
         }
-        ("channel", "select") => {
+        ("channel", "select" | "select_timeout") => {
             let item = expected
                 .and_then(Type::option_part)
                 .and_then(select_result_value_type)
@@ -104,11 +104,15 @@ pub(crate) fn concurrency_signature(
                         .cloned()
                 })
                 .unwrap_or(Type::Unknown);
+            let mut params = vec![
+                Type::named("Receiver", vec![item.clone()]),
+                Type::named("Receiver", vec![item.clone()]),
+            ];
+            if name == "select_timeout" {
+                params.push(Type::int());
+            }
             Some((
-                vec![
-                    Type::named("Receiver", vec![item.clone()]),
-                    Type::named("Receiver", vec![item.clone()]),
-                ],
+                params,
                 Type::named(
                     "Option",
                     vec![Type::Record(vec![
@@ -224,7 +228,7 @@ pub(crate) fn core_concurrency_signature(
                 CoreType::option(item),
             ))
         }
-        ("channel", "select") => {
+        ("channel", "select" | "select_timeout") => {
             let item = expected
                 .and_then(CoreType::option_part)
                 .and_then(core_select_result_value_type)
@@ -235,11 +239,15 @@ pub(crate) fn core_concurrency_signature(
                         .cloned()
                 })
                 .unwrap_or(CoreType::Unknown);
+            let mut params = vec![
+                CoreType::named("Receiver", vec![item.clone()]),
+                CoreType::named("Receiver", vec![item.clone()]),
+            ];
+            if name == "select_timeout" {
+                params.push(CoreType::int());
+            }
             Some((
-                vec![
-                    CoreType::named("Receiver", vec![item.clone()]),
-                    CoreType::named("Receiver", vec![item.clone()]),
-                ],
+                params,
                 CoreType::option(CoreType::Record(vec![
                     ("index".to_string(), CoreType::int()),
                     ("value".to_string(), item),
@@ -292,7 +300,10 @@ pub(crate) fn is_concurrency_call(segments: &[String]) -> bool {
         segments,
         [module, name]
             if (module == "channel"
-                && matches!(name.as_str(), "bounded" | "clone" | "send" | "recv" | "select" | "close"))
+                && matches!(
+                    name.as_str(),
+                    "bounded" | "clone" | "send" | "recv" | "select" | "select_timeout" | "close"
+                ))
                 || (module == "task" && matches!(name.as_str(), "spawn" | "join" | "cancel"))
     )
 }

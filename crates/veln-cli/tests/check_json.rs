@@ -1622,6 +1622,37 @@ fn run_executes_explicit_type_argument_bounded_channel_when_jdk_is_available() {
 }
 
 #[test]
+fn run_executes_channel_select_timeout_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-channel-select-timeout");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> () effects [concurrency, stdio]\n",
+            "  let left: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let right: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let _ = channel::send(right.tx, \"hello\")\n",
+            "  let output: String = match channel::select_timeout(left.rx, right.rx, 10)\n",
+            "    Some(selected) => selected.value\n",
+            "    None => \"missing\"\n",
+            "  end\n",
+            "  stdio::println(output)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "hello\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
 fn run_executes_task_spawn_and_join_when_jdk_is_available() {
     if !jdk_is_available() {
         return;

@@ -199,7 +199,10 @@ Implemented expressions:
   `Result::` or `Option::` qualified forms
 - channel effect calls: `channel::bounded(capacity)`,
   `channel::bounded[Item](capacity)`, `channel::clone(tx)`,
-  `channel::send(tx, value)`, `channel::recv(rx)`, and `channel::close(tx)`
+  `channel::send(tx, value)`, `channel::recv(rx)`,
+  `channel::select(left, right)`,
+  `channel::select_timeout(left, right, timeout_ms)`, and
+  `channel::close(tx)`
 - task effect calls: `task::spawn(job)`, `task::spawn[Item](job)`,
   `task::join(task)`, and `task::cancel(task)`
 - prelude helpers as bare calls such as `list_len(items)`

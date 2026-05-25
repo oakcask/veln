@@ -147,6 +147,32 @@ fn generates_runtime_calls_for_channel_select() {
 }
 
 #[test]
+fn generates_runtime_calls_for_channel_select_timeout() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> String effects [concurrency]\n",
+        "  let left: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  let right: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  match channel::select_timeout(left.rx, right.rx, 0)\n",
+        "    Some(selected) => selected.value\n",
+        "    None => \"missing\"\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("VelnRuntime.channelSelectTimeout("));
+    assert!(runtime.contains("public static Object channelSelectTimeout"));
+    assert!(runtime.contains("private static Object channelSelectWithTimeout"));
+}
+
+#[test]
 fn generates_runtime_calls_for_tasks() {
     let ir = lower_to_ir(concat!(
         "fn produce() -> String effects []\n",

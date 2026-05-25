@@ -454,10 +454,32 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     public static Object channelSelect(Object leftReceiver, Object rightReceiver) {{
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L);
+    }}
+
+    public static Object channelSelectTimeout(
+        Object leftReceiver,
+        Object rightReceiver,
+        Object timeoutMillis
+    ) {{
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, asLong(timeoutMillis));
+    }}
+
+    private static Object channelSelectWithTimeout(
+        Object leftReceiver,
+        Object rightReceiver,
+        long timeoutMillis
+    ) {{
         Receiver left = (Receiver) leftReceiver;
         Receiver right = (Receiver) rightReceiver;
         Receiver[] receivers = new Receiver[] {{ left, right }};
         boolean[] registered = new boolean[] {{ false, false }};
+        long startNanos = timeoutMillis >= 0L ? System.nanoTime() : 0L;
+        long timeoutNanos = timeoutMillis >= 0L
+            ? (timeoutMillis > Long.MAX_VALUE / 1000000L
+                ? Long.MAX_VALUE
+                : timeoutMillis * 1000000L)
+            : -1L;
         try {{
             for (int i = 0; i < receivers.length; i += 1) {{
                 Channel channel = receivers[i].channel;
@@ -480,6 +502,9 @@ impl<'a> ProgramEmitter<'a> {
                     }}
                 }}
                 if (allClosed) {{
+                    return none();
+                }}
+                if (timeoutNanos >= 0L && System.nanoTime() - startNanos >= timeoutNanos) {{
                     return none();
                 }}
                 try {{

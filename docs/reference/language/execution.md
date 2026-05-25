@@ -57,7 +57,7 @@ The JVM backend generates Java source for the implemented IR subset:
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls
 - bounded channel construction, sender clone, send, receive, and close calls
-- two-receiver channel selection calls
+- two-receiver channel selection calls with optional timeout
 - task spawn, join, and cancellation calls
 - pipelines with named or qualified call targets lowered to calls with the
   left expression inserted as the first argument
@@ -90,6 +90,10 @@ It returns the first ready value as `Some({index, value})`, using `0` for the
 left receiver and `1` for the right receiver, and returns `None` only after
 both receivers are closed and drained. If both receivers are ready during one
 runtime poll, the lower index wins.
+`channel::select_timeout(left, right, timeout_ms)` has the same receiver,
+return, and lower-index tie-breaking behavior. It also returns `None` when no
+value is selected before the non-negative millisecond timeout elapses. A
+negative timeout waits without a timeout, matching `channel::select`.
 
 Task values are backend-owned runtime handles. `task::spawn` starts a
 zero-argument callable on a JVM thread and freezes the returned value before it
