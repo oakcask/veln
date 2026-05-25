@@ -882,7 +882,10 @@ impl<'a> FunctionChecker<'a> {
                 reason: "effectful_operation",
             };
         }
-        let calls = contract_calls(trimmed);
+        let calls = contract_calls(trimmed)
+            .into_iter()
+            .filter(|call| !is_contract_keyword(&call.callee))
+            .collect::<Vec<_>>();
         for (call_index, call) in calls.iter().enumerate() {
             let callee_segments = contract_callee_segments(&call.callee);
             let Some(signature) = self.environment.function_path(&callee_segments) else {
@@ -2853,6 +2856,12 @@ fn repair_clause_implies(required: &str, wanted: &str) -> bool {
     {
         return true;
     }
+    if required.operator == "<"
+        && wanted.operator == "!="
+        && same_repair_operands_unordered(required.left, required.right, wanted.left, wanted.right)
+    {
+        return true;
+    }
     required.operator == "=="
         && wanted.operator == "<="
         && same_repair_operands_unordered(required.left, required.right, wanted.left, wanted.right)
@@ -2986,7 +2995,10 @@ fn strip_balanced_outer_parens(mut predicate: &str) -> &str {
 }
 
 fn canonical_repair_clause(clause: impl AsRef<str>) -> String {
-    let clause = clause.as_ref();
+    let clause = strip_balanced_outer_parens(clause.as_ref());
+    if let Some(negated) = canonical_negated_repair_clause(clause) {
+        return negated;
+    }
     for operator in ["==", "!=", "<=", ">=", "<", ">"] {
         let Some((left, right)) = clause.split_once(operator) else {
             continue;
@@ -3004,6 +3016,34 @@ fn canonical_repair_clause(clause: impl AsRef<str>) -> String {
         };
     }
     clause.to_string()
+}
+
+fn canonical_negated_repair_clause(clause: &str) -> Option<String> {
+    let trimmed = clause.trim();
+    let negated = if let Some(negated) = trimmed.strip_prefix("not ") {
+        negated
+    } else {
+        trimmed
+            .strip_prefix("not(")
+            .map(|negated| negated.strip_suffix(')').unwrap_or(negated).trim())?
+    };
+    let negated = strip_balanced_outer_parens(negated);
+    for (operator, inverse) in [("==", "!="), ("!=", "==")] {
+        let Some((left, right)) = negated.split_once(operator) else {
+            continue;
+        };
+        let left = left.trim();
+        let right = right.trim();
+        if left.is_empty() || right.is_empty() {
+            return None;
+        }
+        return Some(if right < left {
+            format!("{right} {inverse} {left}")
+        } else {
+            format!("{left} {inverse} {right}")
+        });
+    }
+    None
 }
 
 fn replace_identifier(predicate: &str, target: &str, replacement: &str) -> String {

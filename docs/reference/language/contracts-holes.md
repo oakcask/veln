@@ -104,21 +104,27 @@ clauses with string literals, such as matching `candidate != ""` against
 clauses are treated as the same requirement, such as matching
 `candidate > 0` against `0 < max` after substituting `max`; wrapping these
 simple clauses or the whole `and` conjunction in parentheses does not change
-the repair match. Strict ordering requirements also discharge the matching
+the repair match. Negated equality and disequality clauses are normalized
+before matching; for example, `not (candidate == 0)` matches `max != 0` after
+substituting `max`, and `not (max == 0)` guarantees `candidate != 0` after the
+same substitution. Strict ordering requirements also discharge the matching
 inclusive ordering predicate for the same operands. For example, a
 `require max > 0` clause guarantees `candidate >= 0` after substituting `max`,
-and a `require max < 10` clause guarantees `candidate <= 10`. Equality
-requirements also discharge inclusive ordering predicates over the same
-operands in either direction; for example, `require max == 0` guarantees both
-`candidate <= 0` and `candidate >= 0` after substituting `max`. If a substituted
-`satisfy` predicate has top-level `or` clauses, a candidate is also safe when
-any one `or` branch is fully guaranteed by valid `require` clauses. For
-example, `candidate > 0 or candidate == 0` is guaranteed for a visible binding
-`max` when the function already has `require max > 0`. A `require` predicate
-with top-level `or` also guarantees a substituted `satisfy` clause when every
-`or` branch discharges that clause, such as `require max > 0 or max == 0`
-guaranteeing `candidate >= 0` after substituting `max`. The same rule applies
-inside conjunctions: `(max > 0 or max == 0) and max <= 10` guarantees
+and a `require max < 10` clause guarantees `candidate <= 10`. Strict ordering
+requirements also discharge disequality for the same operands, such as
+`require max > 0` guaranteeing `candidate != 0` after substituting `max`.
+Equality requirements also discharge inclusive ordering predicates over the
+same operands in either direction; for example, `require max == 0` guarantees
+both `candidate <= 0` and `candidate >= 0` after substituting `max`. If a
+substituted `satisfy` predicate has top-level `or` clauses, a candidate is also
+safe when any one `or` branch is fully guaranteed by valid `require` clauses.
+For example, `candidate > 0 or candidate == 0` is guaranteed for a visible
+binding `max` when the function already has `require max > 0`. A `require`
+predicate with top-level `or` also guarantees a substituted `satisfy` clause
+when every `or` branch discharges that clause, such as
+`require max > 0 or max == 0` guaranteeing `candidate >= 0` after substituting
+`max`. The same rule applies inside conjunctions:
+`(max > 0 or max == 0) and max <= 10` guarantees
 `candidate >= 0 and candidate <= 10` after substituting `max`. Every
 type-compatible visible binding candidate for the tautological subset uses
 `reason: "satisfy_tautology"`. A statically accepted candidate also uses
