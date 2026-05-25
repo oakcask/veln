@@ -62,6 +62,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
         return static_boolean_value(left).or(static_boolean_value(right));
     }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
+        if complementary_predicates(left, right) {
+            return StaticBooleanValue::False;
+        }
         return static_boolean_value(left).and(static_boolean_value(right));
     }
     for operator in ["==", "!=", "<=", ">=", "<", ">"] {

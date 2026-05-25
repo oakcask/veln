@@ -1535,6 +1535,27 @@ fn omits_boolean_identity_contract_checks() {
 }
 
 #[test]
+fn omits_negated_complementary_and_contract_checks() {
+    let ir = lower_to_ir(concat!(
+        "pub fn identity(value: {ready: Bool}) -> output: {ready: Bool} effects []\n",
+        "  require not (value.ready and not value.ready)\n",
+        "  ensure not((output.ready) and not(output.ready))\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+
+    assert!(!program.contains("VelnRuntime.checkContract("));
+    assert!(!program.contains("\"require\", \"not (value.ready and not value.ready)\""));
+    assert!(!program.contains("\"ensure\", \"not((output.ready) and not(output.ready))\""));
+    assert!(program.contains("return p_value;"));
+}
+
+#[test]
 fn omits_statically_proven_literal_comparison_contract_checks() {
     let ir = lower_to_ir(concat!(
         "pub fn constant() -> output: Int effects []\n",
