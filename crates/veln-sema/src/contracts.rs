@@ -29,6 +29,10 @@ pub(crate) fn predicate_is_statically_true(predicate: &str) -> bool {
     static_boolean_value(predicate) == StaticBooleanValue::True
 }
 
+pub(crate) fn predicate_is_statically_false(predicate: &str) -> bool {
+    static_boolean_value(predicate) == StaticBooleanValue::False
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum StaticBooleanValue {
     True,

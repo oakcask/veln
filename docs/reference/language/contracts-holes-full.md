@@ -5,10 +5,12 @@ repair constraints.
 
 ## Contracts
 
+### Predicate Syntax And Validation
+
 Implemented contract clauses are `require`, `ensure`, and `invariant` lines
-attached to a function. The parser first checks a narrow contract predicate syntax. It
-accepts literals, names, qualified names, grouping, field access syntax,
-plain or qualified call syntax, prefix operators, arithmetic operators,
+attached to a function. The parser first checks a narrow contract predicate
+syntax. It accepts literals, names, qualified names, grouping, field access
+syntax, plain or qualified call syntax, prefix operators, arithmetic operators,
 comparisons, equality, and boolean operators.
 
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
@@ -57,6 +59,8 @@ type-incompatible call arguments, non-boolean predicates, or unresolved names
 produce diagnostics. Valid contracts are recorded and may contribute hole
 repair constraints.
 
+### Runtime Obligations
+
 Valid contract clauses are runtime obligations for executable `run` and `test`
 entry paths. `require` clauses are checked when a function is entered.
 `ensure` clauses are checked before returning through the tail expression and
@@ -65,6 +69,8 @@ when a function is entered and before returning through the tail expression or
 through a `?` early return. Runtime `require` failures blame the caller;
 runtime `ensure` failures blame the implementation. Runtime `invariant`
 failures blame the caller at entry and the implementation at return.
+
+### Static Obligation Classification
 
 The implemented obligation classification is conservative. Valid predicates
 made from boolean literals, literal comparisons, parentheses, `not`, `and`,
@@ -206,6 +212,8 @@ predicates are classified as
 of becoming runtime-only checks. No contract is currently classified as
 statically disproven.
 
+### Result Binding
+
 An `ensure` clause may refer to the returned value only when the function return
 position names it with `-> name: Type`. That name is not visible to `require`
 or `invariant` clauses or the function body. The identifier `result` is
@@ -213,6 +221,8 @@ ordinary: without an explicit binding named `result`, it reports an
 unresolved-name diagnostic.
 
 ## Holes
+
+### Hole Diagnostics
 
 Holes produce `hole.unfilled` diagnostics with severity `hint`. A check result
 with only non-error hole diagnostics has top-level status `partial`.
@@ -227,6 +237,8 @@ Hole details include:
 - `constraints`
 - `local_bindings`
 - `candidate_queries`
+
+### Repair Candidates
 
 Candidate query records are unapplied repair records. Each query carries
 `candidate_status: "query_only"` and an `application_policy` value. The default
@@ -245,6 +257,8 @@ Named holes such as `_port` are diagnostic and repair labels, not bindings.
 The `satisfy candidate => predicate` suffix contributes a repair constraint; it
 does not bind `candidate` outside the suffix predicate.
 
+### Satisfy Constraints
+
 For the implemented safe repair subset, a symbol candidate is marked
 `application_policy: "safe_repair_candidate"` when substituting the candidate
 symbol into every directly checked `satisfy` clause makes the predicate
@@ -258,9 +272,14 @@ clauses that all name the same binding. Top-level `or` also checks each direct
 branch independently. A visible binding is safe when at least one branch
 becomes reflexive after substituting that binding, such as `fallback` in
 `candidate == fallback or candidate == other`.
-Literal `false` disjuncts do not affect direct repair matching, so
-`false or candidate == fallback` has the same repair status as
-`candidate == fallback`.
+False disjuncts do not affect direct repair matching. This includes literal
+`false` and predicates that the contract classifier proves false, so
+`(flag and not flag) or candidate == fallback` has the same repair status as
+`candidate == fallback`. The same rule applies inside direct `and`
+conjunctions when the nested `or` has one non-false direct branch, so
+`candidate == fallback and (false or candidate >= fallback)` has the same
+direct repair status as
+`candidate == fallback and candidate >= fallback`.
 Wrapping each direct clause in balanced parentheses does not change this
 repair match. Negated direct equality, disequality, and ordering clauses are
 normalized before direct repair matching, so `not (candidate != fallback)` and
@@ -273,11 +292,13 @@ affect direct repair matching, so
 comparison clauses are accepted when replacing the satisfy candidate with one
 visible binding makes both sides textually identical after whitespace
 normalization, such as `candidate + 1 == fallback + 1` and
-`candidate + 1 <= fallback + 1`. A nested `or` clause inside a direct `and`
-conjunction is ignored when it contains a literal `true` branch, so
-`candidate == fallback and (candidate > fallback or true)` has the same direct
-repair status as `candidate == fallback`. A nested complementary `or` clause
-rooted at the satisfy candidate is also ignored inside direct `and`
+`candidate + 1 <= fallback + 1`. Statically true conjuncts also do not affect
+direct repair matching, so `candidate == fallback and (flag or not flag)` has
+the same repair status as `candidate == fallback`. A nested `or` clause inside
+a direct `and` conjunction is ignored when it contains a literal `true` branch,
+so `candidate == fallback and (candidate > fallback or true)` has the same
+direct repair status as `candidate == fallback`. A nested complementary `or`
+clause rooted at the satisfy candidate is also ignored inside direct `and`
 conjunctions, so `candidate.ready == fallback.ready and
 (candidate.ready or not candidate.ready)` has the same direct repair status as
 `candidate.ready == fallback.ready`. A negated disjunction of direct

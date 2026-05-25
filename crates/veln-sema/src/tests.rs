@@ -1000,6 +1000,99 @@ fn ignores_false_disjuncts_in_direct_satisfy_repair() {
 }
 
 #[test]
+fn ignores_static_false_disjuncts_in_direct_satisfy_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(flag: Bool, fallback: Int) -> Int\n",
+            "  _value satisfy candidate => (flag and not flag) or candidate == fallback\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"fallback\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn ignores_trailing_false_disjuncts_in_direct_satisfy_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int) -> Int\n",
+            "  let fallback = 1\n",
+            "  _value satisfy candidate => candidate == fallback or false\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"fallback\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+}
+
+#[test]
+fn ignores_nested_false_disjuncts_in_direct_satisfy_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int) -> Int\n",
+            "  let fallback = 1\n",
+            "  _value satisfy candidate => candidate == fallback and (false or candidate >= fallback)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_reflexive_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"fallback\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+}
+
+#[test]
 fn marks_reflexive_direct_satisfy_disjuncts_for_different_bindings() {
     let source = SourceFile::new(
         "main.veln",
@@ -1077,6 +1170,33 @@ fn ignores_true_conjuncts_in_satisfy_reflexive_repair() {
             "fn main(limit: Int) -> Int\n",
             "  let fallback = 1\n",
             "  _value satisfy candidate => candidate == fallback and true\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"fallback\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn ignores_static_true_conjuncts_in_satisfy_reflexive_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(flag: Bool, fallback: Int) -> Int\n",
+            "  _value satisfy candidate => candidate == fallback and (flag or not flag)\n",
             "end\n",
         ),
     );

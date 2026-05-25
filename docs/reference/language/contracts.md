@@ -5,11 +5,13 @@ combined detail until the contract body is split further.
 
 ## Read First
 
-- [Contract clauses and predicate validation](contracts-holes-full.md#contracts)
+- [Predicate syntax and validation](contracts-holes-full.md#predicate-syntax-and-validation)
   defines implemented `require`, `ensure`, and `invariant` clauses.
-- [Runtime obligations](contracts-holes-full.md#contracts) defines contract
-  enforcement, blame, and static obligation classification.
-- [Explicit result bindings](contracts-holes-full.md#contracts) defines when
+- [Runtime obligations](contracts-holes-full.md#runtime-obligations) defines
+  contract enforcement and blame.
+- [Static obligation classification](contracts-holes-full.md#static-obligation-classification)
+  defines static proof limits.
+- [Explicit result bindings](contracts-holes-full.md#result-binding) defines when
   `ensure` predicates may name the returned value.
 
 ## Read When

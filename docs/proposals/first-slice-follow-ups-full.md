@@ -58,7 +58,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   Nested `or` branches inside `satisfy` `and` conjunctions are recognized when
   at least one branch is guaranteed by valid `require` clauses. Literal
   `false` disjuncts do not affect direct, tautological, or `require`-matched
-  repair status. Top-level literal `true` disjuncts make a `satisfy` predicate
+  repair status, and statically false disjuncts are ignored for direct repair
+  matching. Top-level literal `true` disjuncts make a `satisfy` predicate
   tautological for repair ranking. Top-level disjuncts that are tautological
   for the satisfy candidate also make the whole `satisfy` predicate
   tautological for repair ranking.
@@ -145,6 +146,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   Nested complementary `or` clauses rooted at the satisfy candidate are
   treated as tautological surplus clauses inside direct and tautological
   `satisfy` conjunctions.
+  Statically true surplus conjuncts are also ignored inside direct `satisfy`
+  conjunctions.
   Top-level complementary comparison disjuncts that reference the satisfy
   candidate are also treated as tautological repair constraints after
   whitespace normalization and commuted ordering normalization.

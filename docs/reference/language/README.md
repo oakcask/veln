@@ -7,8 +7,8 @@ target tracked in `../../proposals/`.
 ## Read First
 
 - [overview.md](overview.md): stability boundary and explicit non-goals.
-- [source-surface.md](source-surface.md): implemented modules, items,
-  expressions, tests, and grammar.
+- [source-surface.md](source-surface.md): route into implemented modules,
+  items, expressions, tests, and grammar.
 - [types.md](types.md): annotations, local inference, assignment, and operators.
 - [commands.md](commands.md): source discovery, check, run, test, and format
   gates.
@@ -42,6 +42,8 @@ Leave rationale in [source-decisions.md](source-decisions.md) or
 
 - Use `source-surface.md` for the implemented source grammar before checking
   older proposal history.
+- Use `*-full.md` files only after their short routing page identifies the
+  relevant section.
 - Use `../source-decisions/`, `../../proposals/`, `../../phases/`, or
   `../../reviews/` only after the current behavior page does not answer the
   question.

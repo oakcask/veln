@@ -9,8 +9,9 @@ use veln_source::SourceSpan;
 
 use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text, is_contract_keyword,
-    missing_contract_field, predicate_is_boolean_with_calls, predicate_is_statically_true,
-    predicate_rendered_type_with_calls, predicate_type_with_calls, referenced_names,
+    missing_contract_field, predicate_is_boolean_with_calls, predicate_is_statically_false,
+    predicate_is_statically_true, predicate_rendered_type_with_calls, predicate_type_with_calls,
+    referenced_names,
 };
 use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, module_details, span_json,
@@ -3361,10 +3362,12 @@ fn is_candidate_tautology_disjunct(predicate: &str, candidate: &str) -> bool {
 
 fn is_surplus_tautology_clause(clause: &str, candidate: &str) -> bool {
     has_true_disjunct(clause)
+        || predicate_is_statically_true(clause)
         || has_complementary_candidate_disjuncts(&repair_relevant_or_clauses(clause), candidate)
 }
 
 fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
+    let predicate = single_repair_relevant_clause(predicate).unwrap_or(predicate);
     let predicate = canonical_repair_clause(predicate);
     ["==", "<="].iter().any(|operator| {
         let Some((left, right)) = predicate.split_once(operator) else {
@@ -3389,6 +3392,7 @@ fn tautological_candidate_expression(left: &str, right: &str, candidate: &str) -
 }
 
 fn direct_reflexive_clause(predicate: &str, candidate: &str) -> Option<ReflexiveCandidateBinding> {
+    let predicate = single_repair_relevant_clause(predicate).unwrap_or(predicate);
     let predicate = canonical_repair_clause(predicate);
     if let Some(binding) = reflexive_operand(&predicate, candidate, "==") {
         return Some(ReflexiveCandidateBinding {
@@ -3572,10 +3576,23 @@ fn repair_relevant_and_clauses(predicate: &str) -> Vec<String> {
 }
 
 fn repair_relevant_or_clauses(predicate: &str) -> Vec<&str> {
-    split_top_level_keyword(strip_balanced_outer_parens(predicate), "or")
+    let clauses = split_top_level_keyword(strip_balanced_outer_parens(predicate), "or");
+    let has_disjunction = clauses.len() > 1;
+    clauses
         .into_iter()
-        .filter(|clause| normalized_predicate_clause(clause) != "false")
+        .filter(|clause| {
+            normalized_predicate_clause(clause) != "false"
+                && (!has_disjunction || !predicate_is_statically_false(clause))
+        })
         .collect()
+}
+
+fn single_repair_relevant_clause(predicate: &str) -> Option<&str> {
+    let clauses = repair_relevant_or_clauses(predicate);
+    match clauses.as_slice() {
+        [clause] => Some(*clause),
+        _ => None,
+    }
 }
 
 fn repair_relevant_negated_and_clauses(predicate: &str) -> Option<Vec<String>> {

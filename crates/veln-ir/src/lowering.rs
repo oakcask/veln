@@ -237,11 +237,14 @@ fn lower_call_target(
 mod tests {
     use super::*;
     use veln_ast::{
-        BinaryOp, BodyLine, BodyLineKind, Expr, ExprKind, Function, PrefixOp, RecordField,
-        SurfaceModule, Visibility, lower_surface_ast,
+        BinaryOp, BodyLine, BodyLineKind, ContractKind, DictEntry, Expr, ExprKind, Function,
+        MatchArm, Pattern, PatternField, PatternKind, PrefixOp, RecordField, SurfaceModule,
+        Visibility, lower_surface_ast,
     };
     use veln_core::{
-        CoreFunction, CoreParam, CoreReadiness, CoreRecordField, CoreStmtKind, CoreType,
+        ContractObligationStatus, CoreContract, CoreDictEntry, CoreFunction, CoreMatchArm,
+        CoreParam, CorePattern, CorePatternField, CorePatternKind, CoreReadiness, CoreRecordField,
+        CoreStmtKind, CoreType,
     };
     use veln_source::SourceFile;
     use veln_syntax::parse;
@@ -361,6 +364,52 @@ mod tests {
             .iter()
             .find(|field| field.name == name)
             .expect("record field should exist")
+    }
+
+    fn dict_entries(expr: &Expr) -> &[DictEntry] {
+        let ExprKind::Dict(entries) = &expr.kind else {
+            panic!("expected dictionary expression");
+        };
+        entries
+    }
+
+    fn match_parts(expr: &Expr) -> (&Expr, &[MatchArm]) {
+        let ExprKind::Match { scrutinee, arms } = &expr.kind else {
+            panic!("expected match expression");
+        };
+        (scrutinee, arms)
+    }
+
+    fn core_pattern(pattern: &Pattern) -> CorePattern {
+        CorePattern {
+            node_id: pattern.node_id,
+            kind: match &pattern.kind {
+                PatternKind::Wildcard => CorePatternKind::Wildcard,
+                PatternKind::Binding(name) => CorePatternKind::Binding(name.clone()),
+                PatternKind::StringLiteral(value) => CorePatternKind::StringLiteral(value.clone()),
+                PatternKind::IntLiteral(value) => CorePatternKind::IntLiteral(value.clone()),
+                PatternKind::FloatLiteral(value) => CorePatternKind::FloatLiteral(value.clone()),
+                PatternKind::BoolLiteral(value) => CorePatternKind::BoolLiteral(*value),
+                PatternKind::Unit => CorePatternKind::Unit,
+                PatternKind::Record(fields) => CorePatternKind::Record(
+                    fields.iter().map(core_pattern_field).collect::<Vec<_>>(),
+                ),
+                PatternKind::Constructor { name, args } => CorePatternKind::Constructor {
+                    name: name.clone(),
+                    args: args.iter().map(core_pattern).collect(),
+                },
+            },
+            span: pattern.span.clone(),
+        }
+    }
+
+    fn core_pattern_field(field: &PatternField) -> CorePatternField {
+        CorePatternField {
+            node_id: field.node_id,
+            name: field.name.clone(),
+            pattern: core_pattern(&field.pattern),
+            span: field.span.clone(),
+        }
     }
 
     fn main_function(module: &SurfaceModule) -> &Function {
@@ -770,6 +819,283 @@ mod tests {
             fields[7].value.kind,
             IrExprKind::FloatLiteral("1.5".to_string())
         );
+    }
+
+    #[test]
+    fn lower_preserves_contracts_result_binding_dict_match_and_builtin_targets() {
+        let module = lower_source(concat!(
+            "pub fn main(input: Option(Int), receiver: Receiver(Int), count: Int) -> result: () effects [concurrency, stdio]\n",
+            "  ensure result == ()\n",
+            "  let selected: Int = match input\n",
+            "    Some(value) => value\n",
+            "    None => 0\n",
+            "  end\n",
+            "  let table: Dict(String, Int) = {\"selected\": selected}\n",
+            "  channel::recv(receiver)\n",
+            "  stdio::println(list::len(table))\n",
+            "  None\n",
+            "end\n",
+        ));
+        let surface = main_function(&module);
+        let selected_line = &surface.body[0];
+        let table_line = &surface.body[1];
+        let recv_line = &surface.body[2];
+        let print_line = &surface.body[3];
+        let none_line = &surface.body[4];
+        let selected_match = let_expr(selected_line);
+        let (match_scrutinee, match_arms) = match_parts(selected_match);
+        let table_dict = let_expr(table_line);
+        let table_entries = dict_entries(table_dict);
+        let (recv_callee, recv_args) = call_parts(expr_line(recv_line));
+        let (print_callee, print_args) = call_parts(expr_line(print_line));
+        let len_call = &print_args[0];
+        let (_len_callee, len_args) = call_parts(len_call);
+
+        let program = complete_program(vec![CoreFunction {
+            params: vec![
+                CoreParam {
+                    node_id: surface.params[0].node_id,
+                    name: "input".to_string(),
+                    ty: CoreType::option(CoreType::int()),
+                    span: surface.params[0].span.clone(),
+                },
+                CoreParam {
+                    node_id: surface.params[1].node_id,
+                    name: "receiver".to_string(),
+                    ty: CoreType::named("Receiver", vec![CoreType::int()]),
+                    span: surface.params[1].span.clone(),
+                },
+                CoreParam {
+                    node_id: surface.params[2].node_id,
+                    name: "count".to_string(),
+                    ty: CoreType::int(),
+                    span: surface.params[2].span.clone(),
+                },
+            ],
+            return_binding: Some("result".to_string()),
+            effects: vec!["concurrency".to_string(), "stdio".to_string()],
+            contracts: vec![CoreContract {
+                node_id: surface.contracts[0].node_id,
+                kind: ContractKind::Ensure,
+                predicate: "result == ()".to_string(),
+                obligation_status: ContractObligationStatus::RuntimeRequired,
+                span: surface.contracts[0].span.clone(),
+            }],
+            body: vec![
+                core_stmt(
+                    selected_line,
+                    CoreStmtKind::Let {
+                        name: "selected".to_string(),
+                        ty: CoreType::int(),
+                        expr: core_expr(
+                            selected_match,
+                            CoreType::int(),
+                            CoreExprKind::Match {
+                                scrutinee: Box::new(local(
+                                    match_scrutinee,
+                                    "input",
+                                    CoreType::option(CoreType::int()),
+                                )),
+                                arms: vec![
+                                    CoreMatchArm {
+                                        node_id: match_arms[0].node_id,
+                                        pattern: core_pattern(&match_arms[0].pattern),
+                                        expr: local(&match_arms[0].expr, "value", CoreType::int()),
+                                        span: match_arms[0].span.clone(),
+                                    },
+                                    CoreMatchArm {
+                                        node_id: match_arms[1].node_id,
+                                        pattern: core_pattern(&match_arms[1].pattern),
+                                        expr: core_expr(
+                                            &match_arms[1].expr,
+                                            CoreType::int(),
+                                            CoreExprKind::IntLiteral("0".to_string()),
+                                        ),
+                                        span: match_arms[1].span.clone(),
+                                    },
+                                ],
+                            },
+                        ),
+                    },
+                ),
+                core_stmt(
+                    table_line,
+                    CoreStmtKind::Let {
+                        name: "table".to_string(),
+                        ty: CoreType::dict(CoreType::string(), CoreType::int()),
+                        expr: core_expr(
+                            table_dict,
+                            CoreType::dict(CoreType::string(), CoreType::int()),
+                            CoreExprKind::Dict(vec![CoreDictEntry {
+                                node_id: table_entries[0].node_id,
+                                key: core_expr(
+                                    &table_entries[0].key,
+                                    CoreType::string(),
+                                    CoreExprKind::StringLiteral("selected".to_string()),
+                                ),
+                                value: local(&table_entries[0].value, "selected", CoreType::int()),
+                                span: table_entries[0].span.clone(),
+                            }]),
+                        ),
+                    },
+                ),
+                core_stmt(
+                    recv_line,
+                    CoreStmtKind::Expr {
+                        expr: core_expr(
+                            expr_line(recv_line),
+                            CoreType::option(CoreType::int()),
+                            CoreExprKind::Call {
+                                target: CoreCallTarget::ConcurrencyBuiltin(
+                                    "channel::recv".to_string(),
+                                ),
+                                args: vec![local(
+                                    &recv_args[0],
+                                    "receiver",
+                                    CoreType::named("Receiver", vec![CoreType::int()]),
+                                )],
+                            },
+                        ),
+                    },
+                ),
+                core_stmt(
+                    print_line,
+                    CoreStmtKind::Expr {
+                        expr: core_expr(
+                            expr_line(print_line),
+                            CoreType::unit(),
+                            CoreExprKind::Call {
+                                target: CoreCallTarget::StdioBuiltin("stdio::println".to_string()),
+                                args: vec![core_expr(
+                                    len_call,
+                                    CoreType::int(),
+                                    CoreExprKind::Call {
+                                        target: CoreCallTarget::PreludeBuiltin(
+                                            "list::len".to_string(),
+                                        ),
+                                        args: vec![local(
+                                            &len_args[0],
+                                            "table",
+                                            CoreType::dict(CoreType::string(), CoreType::int()),
+                                        )],
+                                    },
+                                )],
+                            },
+                        ),
+                    },
+                ),
+                core_stmt(
+                    none_line,
+                    CoreStmtKind::Return {
+                        expr: core_expr(
+                            expr_line(none_line),
+                            CoreType::option(CoreType::int()),
+                            CoreExprKind::OptionNone,
+                        ),
+                    },
+                ),
+            ],
+            ..function_shell(surface)
+        }]);
+
+        assert_ne!(recv_callee.node_id, expr_line(recv_line).node_id);
+        assert_ne!(print_callee.node_id, expr_line(print_line).node_id);
+
+        let ir = lower_checked_core(&program).expect("complete core should lower");
+        let function = &ir.functions[0];
+
+        assert_eq!(function.return_binding.as_deref(), Some("result"));
+        assert_eq!(function.effects, vec!["concurrency", "stdio"]);
+        assert_eq!(function.contracts.len(), 1);
+        assert_eq!(function.contracts[0].kind, ContractKind::Ensure);
+        assert_eq!(
+            function.contracts[0].obligation_status,
+            ContractObligationStatus::RuntimeRequired
+        );
+
+        let IrStmtKind::Let { value, .. } = &function.body[0].kind else {
+            panic!("selected should lower as let");
+        };
+        assert!(matches!(&value.kind, IrExprKind::Match { arms, .. } if arms.len() == 2));
+        let IrExprKind::Match { scrutinee, arms } = &value.kind else {
+            panic!("selected value should lower as match");
+        };
+        assert_eq!(scrutinee.kind, IrExprKind::Local("input".to_string()));
+        assert!(matches!(
+            &arms[0].pattern.kind,
+            IrPatternKind::Constructor { name, args }
+                if name == &vec!["Some".to_string()]
+                    && matches!(
+                        args.as_slice(),
+                        [IrPattern {
+                            kind: IrPatternKind::Binding(binding),
+                            ..
+                        }] if binding == "value"
+                    )
+        ));
+        assert!(matches!(
+            &arms[1].pattern.kind,
+            IrPatternKind::Constructor { name, args }
+                if name == &vec!["None".to_string()] && args.is_empty()
+        ));
+
+        let IrStmtKind::Let { value, .. } = &function.body[1].kind else {
+            panic!("table should lower as let");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Dict(entries)
+                if matches!(
+                    entries.as_slice(),
+                    [IrDictEntry {
+                        key: IrExpr {
+                            kind: IrExprKind::StringLiteral(key),
+                            ..
+                        },
+                        value: IrExpr {
+                            kind: IrExprKind::Local(value),
+                            ..
+                        },
+                        ..
+                    }] if key == "selected" && value == "selected"
+                )
+        ));
+
+        let IrStmtKind::Expr { value } = &function.body[2].kind else {
+            panic!("recv should lower as expression");
+        };
+        assert!(matches!(
+            value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::ConcurrencyBuiltin(_),
+                ..
+            }
+        ));
+
+        let IrStmtKind::Expr { value } = &function.body[3].kind else {
+            panic!("print should lower as expression");
+        };
+        assert!(matches!(
+            &value.kind,
+            IrExprKind::Call {
+                target: IrCallTarget::StdioBuiltin(_),
+                args
+            } if matches!(
+                args.as_slice(),
+                [IrExpr {
+                    kind: IrExprKind::Call {
+                        target: IrCallTarget::PreludeBuiltin(_),
+                        ..
+                    },
+                    ..
+                }]
+            )
+        ));
+
+        let IrStmtKind::Return { value } = &function.body[4].kind else {
+            panic!("none should lower as return");
+        };
+        assert_eq!(value.kind, IrExprKind::OptionNone);
     }
 
     #[test]
