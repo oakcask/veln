@@ -11,6 +11,8 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
   smallest language reference page.
 - [language/source-decisions.md](language/source-decisions.md): short route to
   rationale when current behavior needs context.
+- [source-decisions/topic-map.md](source-decisions/topic-map.md): task-oriented
+  route to implemented rationale categories.
 
 ## Read When
 
@@ -18,7 +20,7 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
   changes: use [language/topic-map.md](language/topic-map.md), then open the
   selected short reference page before any full detail file.
 - Rationale: [language/source-decisions.md](language/source-decisions.md) first,
-  then [source-decisions/README.md](source-decisions/README.md) if detail is
+  then [source-decisions/topic-map.md](source-decisions/topic-map.md) if detail is
   needed.
 - Research-source routes behind source decisions:
   [bibliography/README.md](bibliography/README.md).

@@ -12,11 +12,15 @@ read these records only for rationale or compatibility context.
 - [../language/README.md](../language/README.md) for implemented behavior.
 - [../language/source-decisions.md](../language/source-decisions.md) for the
   short language-facing rationale route.
+- [topic-map.md](topic-map.md) when you know the task area but not the right
+  decision category.
 
 ## Read When
 
 - Choose the first category that matches the task. Do not scan individual
   `result-*.md` files before a category page points to one.
+- [topic-map.md](topic-map.md): fastest route from a task area to the relevant
+  category section.
 - [language-surface.md](language-surface.md): syntax, names, typing,
   contracts, holes, and effects.
 - [commands-output.md](commands-output.md): CLI behavior, JSON schemas, test

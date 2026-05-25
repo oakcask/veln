@@ -10,6 +10,8 @@ categorized specification files. The full implemented decision index is
 - Choose one categorized route instead of scanning `result-*.md` records
   directly. Return to the language reference when you need implemented
   behavior rather than rationale.
+- [Source decision topic map](../source-decisions/topic-map.md): fastest route
+  when you know the task area but not the decision category.
 - [Language surface decisions](../source-decisions/language-surface.md):
   syntax, names, types, contracts, holes, effects, tests, and source grammar.
 - [Command and output decisions](../source-decisions/commands-output.md):

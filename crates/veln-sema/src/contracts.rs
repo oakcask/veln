@@ -61,7 +61,7 @@ fn static_boolean_value_for_contract(predicate: &str) -> StaticBooleanValue {
 
 fn static_boolean_value_inner(
     predicate: &str,
-    classify_numeric_literal_bounds: bool,
+    classify_contract_contradictions: bool,
 ) -> StaticBooleanValue {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() {
@@ -86,7 +86,7 @@ fn static_boolean_value_inner(
         }
     }
     if let Some(inner) = negated_predicate_inner(predicate) {
-        return static_boolean_value_inner(inner, classify_numeric_literal_bounds).negate();
+        return static_boolean_value_inner(inner, classify_contract_contradictions).negate();
     }
     if has_complementary_top_level_clauses(predicate, "or") {
         return StaticBooleanValue::True;
@@ -122,8 +122,8 @@ fn static_boolean_value_inner(
         if complementary_predicates(left, right) {
             return StaticBooleanValue::True;
         }
-        return static_boolean_value_inner(left, classify_numeric_literal_bounds).or(
-            static_boolean_value_inner(right, classify_numeric_literal_bounds),
+        return static_boolean_value_inner(left, classify_contract_contradictions).or(
+            static_boolean_value_inner(right, classify_contract_contradictions),
         );
     }
     if has_complementary_top_level_clauses(predicate, "and") {
@@ -141,8 +141,12 @@ fn static_boolean_value_inner(
     if has_resolved_complementary_disjunctions_top_level_and(predicate) {
         return StaticBooleanValue::False;
     }
-    if classify_numeric_literal_bounds
+    if classify_contract_contradictions
         && has_exclusive_numeric_literal_bounds_top_level_and(predicate)
+    {
+        return StaticBooleanValue::False;
+    }
+    if classify_contract_contradictions && has_exclusive_literal_equalities_top_level_and(predicate)
     {
         return StaticBooleanValue::False;
     }
@@ -156,8 +160,8 @@ fn static_boolean_value_inner(
         if complementary_predicates(left, right) {
             return StaticBooleanValue::False;
         }
-        return static_boolean_value_inner(left, classify_numeric_literal_bounds).and(
-            static_boolean_value_inner(right, classify_numeric_literal_bounds),
+        return static_boolean_value_inner(left, classify_contract_contradictions).and(
+            static_boolean_value_inner(right, classify_contract_contradictions),
         );
     }
     for operator in ["==", "!=", "<=", ">=", "<", ">"] {
@@ -1029,6 +1033,40 @@ fn literal_bounds_do_not_overlap(left: &NumericLiteralBound, right: &NumericLite
         || (lower.value == upper.value && (!lower.inclusive || !upper.inclusive))
 }
 
+struct LiteralEqualityShape {
+    subject: String,
+    value: StaticLiteral,
+}
+
+fn has_exclusive_literal_equalities_top_level_and(predicate: &str) -> bool {
+    let equalities: Vec<_> = flattened_keyword_clauses(predicate, "and")
+        .into_iter()
+        .filter_map(literal_equality_shape)
+        .collect();
+
+    equalities.iter().enumerate().any(|(index, left)| {
+        equalities[index + 1..]
+            .iter()
+            .any(|right| left.subject == right.subject && left.value != right.value)
+    })
+}
+
+fn literal_equality_shape(predicate: &str) -> Option<LiteralEqualityShape> {
+    let (left, right) = split_top_level_operator(predicate, "==")?;
+    literal_equality_shape_from_parts(left, right)
+        .or_else(|| literal_equality_shape_from_parts(right, left))
+}
+
+fn literal_equality_shape_from_parts(subject: &str, value: &str) -> Option<LiteralEqualityShape> {
+    if StaticLiteral::parse(subject.trim()).is_some() {
+        return None;
+    }
+    Some(LiteralEqualityShape {
+        subject: compact_predicate_text(subject),
+        value: StaticLiteral::parse(value.trim())?,
+    })
+}
+
 struct OrderBoundShape {
     left: String,
     right: String,
@@ -1643,6 +1681,50 @@ mod tests {
             "not (value > 10 and value < 5)"
         ));
         assert!(!predicate_is_statically_false("value > 10 and value < 5"));
+    }
+
+    #[test]
+    fn contract_static_truth_classifies_exclusive_literal_equalities() {
+        for predicate in [
+            "not (value == \"ready\" and value == \"done\")",
+            "not (1 == value and value == 2)",
+            "not ((value.ready) == true and false == value.ready)",
+        ] {
+            assert!(
+                contract_predicate_is_statically_true(predicate),
+                "{predicate}"
+            );
+        }
+    }
+
+    #[test]
+    fn general_static_truth_leaves_literal_equality_shapes_unknown() {
+        assert!(!predicate_is_statically_true(
+            "not (value == \"ready\" and value == \"done\")"
+        ));
+        assert!(!predicate_is_statically_false(
+            "value == \"ready\" and value == \"done\""
+        ));
+    }
+
+    #[test]
+    fn contract_static_truth_keeps_compatible_literal_equalities_runtime_checked() {
+        for predicate in [
+            "value == \"ready\" and value == \"ready\"",
+            "value == \"ready\" and other == \"done\"",
+        ] {
+            assert!(
+                !has_exclusive_literal_equalities_top_level_and(predicate),
+                "{predicate}"
+            );
+            assert!(
+                !contract_predicate_is_statically_true(&format!("not ({predicate})")),
+                "{predicate}"
+            );
+        }
+        assert!(!has_exclusive_literal_equalities_top_level_and(
+            "\"ready\" == \"done\" and value == \"ready\""
+        ));
     }
 
     #[test]
