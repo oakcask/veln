@@ -58,6 +58,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   tautological for repair ranking. Top-level disjuncts that are tautological
   for the satisfy candidate also make the whole `satisfy` predicate
   tautological for repair ranking.
+  Same-shape direct expression equality and inclusive comparison clauses are
+  accepted when replacing the satisfy candidate with one visible binding makes
+  both sides textually identical after whitespace normalization.
   Transitive inclusive ordering paths in both directions discharge equality
   `satisfy` clauses for the endpoints. Negated top-level `or` predicates in
   valid `require` clauses discharge direct comparison `satisfy` clauses through
@@ -65,11 +68,23 @@ No accepted language and type coverage follow-up is currently tracked here.
   `satisfy` conjunctions and `require`-matched `satisfy` conjunctions are
   treated as tautological surplus clauses for repair ranking. Negated
   disjunctions of direct `satisfy` comparison clauses are normalized into their
-  inverted comparison clauses before direct repair matching. Disjunctive
+  inverted comparison clauses before direct repair matching. Negated
+  conjunctions of direct `satisfy` comparison clauses are normalized into
+  disjunctive direct branches before direct repair matching and before
+  `require`-matched repair discharge. Disjunctive
   `require` clauses contribute transitive ordering evidence when every branch
   guarantees the same weaker comparison, such as treating
   `require low < mid or low == mid` as an inclusive `low <= mid` edge for
-  repair discharge.
+  repair discharge. Literal boolean negation is normalized during repair
+  matching, so `not false` participates as a tautological clause and
+  `not true` participates as a false disjunct. Double negation around direct
+  comparison clauses is normalized before direct and `require`-matched repair
+  ranking. Nested literal `true` disjuncts inside tautological `satisfy`
+  conjunctions are treated as tautological surplus clauses for repair ranking.
+  Same-shape expression tautologies rooted at the satisfy candidate are
+  accepted after whitespace normalization.
+  Same-shape expression operands in `require`-matched repair comparisons are
+  compared after whitespace normalization.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.

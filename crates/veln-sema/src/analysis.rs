@@ -2806,7 +2806,11 @@ fn reflexive_candidate_binding(
     predicate: &str,
     candidate: &str,
 ) -> Option<ReflexiveCandidateBinding> {
-    let disjuncts = repair_relevant_or_clauses(predicate);
+    let expanded_disjuncts = repair_relevant_negated_and_clauses(predicate);
+    let disjuncts = expanded_disjuncts.as_deref().map_or_else(
+        || repair_relevant_or_clauses(predicate),
+        |clauses| clauses.iter().map(String::as_str).collect(),
+    );
     if disjuncts.is_empty() {
         return None;
     }
@@ -2901,9 +2905,9 @@ fn has_true_disjunct(predicate: &str) -> bool {
 fn is_candidate_tautology_disjunct(predicate: &str, candidate: &str) -> bool {
     let clauses = repair_relevant_and_clauses(predicate);
     !clauses.is_empty()
-        && clauses
-            .iter()
-            .all(|clause| is_candidate_tautology_clause(clause, candidate))
+        && clauses.iter().all(|clause| {
+            has_true_disjunct(clause) || is_candidate_tautology_clause(clause, candidate)
+        })
 }
 
 fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
@@ -2912,6 +2916,9 @@ fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
         let Some((left, right)) = predicate.split_once(operator) else {
             return false;
         };
+        if tautological_candidate_expression(left, right, candidate) {
+            return true;
+        }
         let Some(left) = operand_path(left) else {
             return false;
         };
@@ -2922,6 +2929,11 @@ fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
     })
 }
 
+fn tautological_candidate_expression(left: &str, right: &str, candidate: &str) -> bool {
+    compact_predicate_text(left) == compact_predicate_text(right)
+        && expression_references_identifier(left, candidate)
+}
+
 fn direct_reflexive_clause(predicate: &str, candidate: &str) -> Option<ReflexiveCandidateBinding> {
     let predicate = canonical_repair_clause(predicate);
     if let Some(binding) = reflexive_operand(&predicate, candidate, "==") {
@@ -2930,7 +2942,19 @@ fn direct_reflexive_clause(predicate: &str, candidate: &str) -> Option<Reflexive
             reason: "satisfy_equality_match",
         });
     }
+    if let Some(binding) = reflexive_expression_operand(&predicate, candidate, "==") {
+        return Some(ReflexiveCandidateBinding {
+            binding,
+            reason: "satisfy_equality_match",
+        });
+    }
     if let Some(binding) = reflexive_operand(&predicate, candidate, "<=") {
+        return Some(ReflexiveCandidateBinding {
+            binding,
+            reason: "satisfy_reflexive_match",
+        });
+    }
+    if let Some(binding) = reflexive_expression_operand(&predicate, candidate, "<=") {
         return Some(ReflexiveCandidateBinding {
             binding,
             reason: "satisfy_reflexive_match",
@@ -2975,6 +2999,106 @@ fn reflexive_path_binding(left: &[&str], right: &[&str], candidate: &str) -> Opt
     (left[1..] == right[1..]).then(|| (*right_base).to_string())
 }
 
+fn reflexive_expression_operand(
+    predicate: &str,
+    candidate: &str,
+    operator: &str,
+) -> Option<String> {
+    let (left, right) = predicate.split_once(operator)?;
+    reflexive_expression_binding(left, right, candidate)
+        .or_else(|| reflexive_expression_binding(right, left, candidate))
+}
+
+fn reflexive_expression_binding(
+    candidate_expr: &str,
+    binding_expr: &str,
+    candidate: &str,
+) -> Option<String> {
+    if !expression_references_identifier(candidate_expr, candidate)
+        || expression_references_identifier(binding_expr, candidate)
+    {
+        return None;
+    }
+    let matching_bindings = expression_identifiers(binding_expr)
+        .into_iter()
+        .filter(|binding| *binding != candidate)
+        .filter(|binding| {
+            is_plain_identifier(binding)
+                && compact_predicate_text(&replace_identifier(candidate_expr, candidate, binding))
+                    == compact_predicate_text(binding_expr)
+        })
+        .collect::<Vec<_>>();
+    match matching_bindings.as_slice() {
+        [binding] => Some((*binding).to_string()),
+        _ => None,
+    }
+}
+
+fn expression_references_identifier(expression: &str, name: &str) -> bool {
+    expression_identifiers(expression)
+        .into_iter()
+        .any(|identifier| identifier == name)
+}
+
+fn expression_identifiers(expression: &str) -> Vec<&str> {
+    let mut identifiers = Vec::new();
+    let mut chars = expression.char_indices().peekable();
+    while let Some((start, ch)) = chars.next() {
+        if ch == '"' {
+            let mut escaped = false;
+            for (_, string_ch) in chars.by_ref() {
+                if escaped {
+                    escaped = false;
+                } else if string_ch == '\\' {
+                    escaped = true;
+                } else if string_ch == '"' {
+                    break;
+                }
+            }
+        } else if is_ident_start(ch) {
+            let mut end = start + ch.len_utf8();
+            while let Some((next, next_ch)) = chars.peek().copied() {
+                if !is_ident_continue(next_ch) {
+                    break;
+                }
+                chars.next();
+                end = next + next_ch.len_utf8();
+            }
+            let ident = &expression[start..end];
+            if is_value_identifier_position(expression, start, end)
+                && !identifiers.iter().any(|existing| existing == &ident)
+            {
+                identifiers.push(ident);
+            }
+        }
+    }
+    identifiers
+}
+
+fn compact_predicate_text(predicate: &str) -> String {
+    let mut output = String::with_capacity(predicate.len());
+    let mut chars = predicate.chars();
+    while let Some(ch) = chars.next() {
+        if ch == '"' {
+            output.push(ch);
+            let mut escaped = false;
+            for string_ch in chars.by_ref() {
+                output.push(string_ch);
+                if escaped {
+                    escaped = false;
+                } else if string_ch == '\\' {
+                    escaped = true;
+                } else if string_ch == '"' {
+                    break;
+                }
+            }
+        } else if !ch.is_whitespace() {
+            output.push(ch);
+        }
+    }
+    output
+}
+
 fn normalized_and_clauses(predicate: &str) -> Vec<String> {
     split_top_level_keyword(strip_balanced_outer_parens(predicate), "and")
         .into_iter()
@@ -3000,19 +3124,48 @@ fn repair_relevant_or_clauses(predicate: &str) -> Vec<&str> {
         .collect()
 }
 
+fn repair_relevant_negated_and_clauses(predicate: &str) -> Option<Vec<String>> {
+    let trimmed = predicate.trim();
+    let negated = if let Some(negated) = trimmed.strip_prefix("not ") {
+        negated
+    } else {
+        trimmed
+            .strip_prefix("not(")
+            .map(|negated| negated.strip_suffix(')').unwrap_or(negated).trim())?
+    };
+    let negated = strip_balanced_outer_parens(negated);
+    let conjuncts = split_top_level_keyword(negated, "and");
+    if conjuncts.len() <= 1 {
+        return None;
+    }
+    conjuncts
+        .into_iter()
+        .map(|conjunct| canonical_negated_repair_clause(&format!("not ({conjunct})")))
+        .collect()
+}
+
 fn predicate_guaranteed_by_required_predicates(
     predicate: &str,
     required_predicates: &[String],
 ) -> bool {
-    repair_relevant_or_clauses(predicate)
+    repair_relevant_or_clause_strings(predicate)
         .into_iter()
-        .map(repair_relevant_and_clauses)
+        .map(|disjunct| repair_relevant_and_clauses(&disjunct))
         .any(|disjunct_clauses| {
             !disjunct_clauses.is_empty()
                 && disjunct_clauses.iter().all(|clause| {
                     repair_clause_guaranteed_by_required_predicates(clause, required_predicates)
                 })
         })
+}
+
+fn repair_relevant_or_clause_strings(predicate: &str) -> Vec<String> {
+    repair_relevant_negated_and_clauses(predicate).unwrap_or_else(|| {
+        repair_relevant_or_clauses(predicate)
+            .into_iter()
+            .map(ToString::to_string)
+            .collect()
+    })
 }
 
 fn repair_clause_guaranteed_by_required_predicates(
@@ -3453,8 +3606,8 @@ fn repair_operands_equivalent_ordered(
     wanted_right: &str,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    equivalences.equivalent(required_left, wanted_left)
-        && equivalences.equivalent(required_right, wanted_right)
+    repair_operands_equivalent(required_left, wanted_left, equivalences)
+        && repair_operands_equivalent(required_right, wanted_right, equivalences)
 }
 
 fn repair_operands_equivalent_unordered(
@@ -3477,6 +3630,15 @@ fn repair_operands_equivalent_unordered(
         wanted_left,
         equivalences,
     )
+}
+
+fn repair_operands_equivalent(
+    required: &str,
+    wanted: &str,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    equivalences.equivalent(required, wanted)
+        || compact_predicate_text(required) == compact_predicate_text(wanted)
 }
 
 struct ParsedRepairComparison<'a> {
@@ -3561,10 +3723,24 @@ fn is_word_boundary(text: &str, start: usize, end: usize) -> bool {
 }
 
 fn normalized_predicate_clause(predicate: &str) -> String {
-    strip_balanced_outer_parens(predicate)
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
+    let predicate = strip_balanced_outer_parens(predicate);
+    if let Some(negated) = stripped_not_operand(predicate) {
+        return match normalized_predicate_clause(negated).as_str() {
+            "true" => "false".to_string(),
+            "false" => "true".to_string(),
+            _ => predicate.split_whitespace().collect::<Vec<_>>().join(" "),
+        };
+    }
+    predicate.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn stripped_not_operand(predicate: &str) -> Option<&str> {
+    if let Some(negated) = predicate.strip_prefix("not ") {
+        return Some(negated);
+    }
+    predicate
+        .strip_prefix("not(")
+        .map(|negated| negated.strip_suffix(')').unwrap_or(negated).trim())
 }
 
 fn strip_balanced_outer_parens(mut predicate: &str) -> &str {
@@ -3630,6 +3806,9 @@ fn canonical_negated_repair_clause(clause: &str) -> Option<String> {
             .map(|negated| negated.strip_suffix(')').unwrap_or(negated).trim())?
     };
     let negated = strip_balanced_outer_parens(negated);
+    if let Some(double_negated) = stripped_not_operand(negated) {
+        return Some(canonical_repair_clause(double_negated));
+    }
     for (operator, inverse) in [
         ("==", "!="),
         ("!=", "=="),

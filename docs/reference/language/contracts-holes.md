@@ -119,10 +119,16 @@ Literal `false` disjuncts do not affect direct repair matching, so
 Wrapping each direct clause in balanced parentheses does not change this
 repair match. Negated direct equality, disequality, and ordering clauses are
 normalized before direct repair matching, so `not (candidate != fallback)` and
-`not (candidate < fallback)` both mark `fallback` as safe. Literal `true`
-conjuncts do not affect direct repair matching, so
+`not (candidate < fallback)` both mark `fallback` as safe. Double negation is
+also normalized, so `not (not (candidate == fallback))` has the same direct
+repair status as `candidate == fallback`. Literal `true` conjuncts do not
+affect direct repair matching, so
 `candidate == fallback and true` has the same repair status as
-`candidate == fallback`. A nested `or` clause inside a direct `and`
+`candidate == fallback`. Same-shape expression equality and inclusive
+comparison clauses are accepted when replacing the satisfy candidate with one
+visible binding makes both sides textually identical after whitespace
+normalization, such as `candidate + 1 == fallback + 1` and
+`candidate + 1 <= fallback + 1`. A nested `or` clause inside a direct `and`
 conjunction is ignored when it contains a literal `true` branch, so
 `candidate == fallback and (candidate > fallback or true)` has the same direct
 repair status as `candidate == fallback`. A negated disjunction of direct
@@ -138,16 +144,24 @@ compare the satisfy candidate with itself using `==`, `<=`, or `>=`, such as
 `candidate == candidate`; their negated inverse forms, such as
 `not (candidate != candidate)`, are also accepted. The same rule applies to
 matching field-access paths rooted at the candidate, such as
-`candidate.count == candidate.count`. `and` may join only tautological clauses
-or literal `true` clauses. Wrapping each tautological clause in balanced
-parentheses does not change this repair match. Literal
+`candidate.count == candidate.count`. Same-shape expression tautologies that
+reference the satisfy candidate are also accepted after whitespace
+normalization, such as `candidate + 1 == candidate + 1`. `and` may join only
+tautological clauses or literal `true` clauses. Wrapping each tautological
+clause in balanced parentheses does not change this repair match. Literal
 `false` disjuncts do not affect tautological repair matching. A top-level
 literal `true` disjunct makes the whole `satisfy` predicate tautological for
 repair ranking, so every type-compatible visible binding is a safe repair
-candidate. A top-level disjunct that is itself tautological for the satisfy
-candidate has the same effect; for example,
+candidate. Literal boolean negation is normalized before this check, so
+`not false` is treated like `true` and `not true` is treated like `false`.
+A top-level disjunct that is itself tautological for the satisfy candidate has
+the same effect; for example,
 `candidate == candidate or candidate == fallback` ranks every type-compatible
 visible binding as a safe tautology repair candidate.
+Nested `or` clauses with a literal `true` branch are ignored inside
+tautological `and` clauses, so
+`candidate == candidate and (candidate > candidate or true)` is ranked as a
+tautology.
 A candidate is also safe when replacing the
 satisfy candidate binding with the visible symbol makes every non-`true` `and`
 clause match a valid `require` clause already in force for the function; such
@@ -160,13 +174,16 @@ simple clauses or the whole `and` conjunction in parentheses does not change
 the repair match. Negated equality and disequality clauses are normalized
 before matching; for example, `not (candidate == 0)` matches `max != 0` after
 substituting `max`, and `not (max == 0)` guarantees `candidate != 0` after the
-same substitution. Negated ordering clauses normalize into their inverse
-comparisons before matching; for example, `not (candidate < 0)` matches
-`max >= 0` after substituting `max`, and `not (candidate <= 0)` matches
-`max > 0`. Strict ordering requirements also discharge the matching inclusive
-ordering predicate for the same operands. For example, a `require max > 0`
-clause guarantees `candidate >= 0` after substituting `max`, and a
-`require max < 10` clause guarantees `candidate <= 10`. Strict ordering
+same substitution. Double negation is also normalized during requirement
+matching; for example, `require not (not (max > 0))` guarantees
+`candidate > 0` after substituting `max`. Negated ordering clauses normalize
+into their inverse comparisons before matching; for example,
+`not (candidate < 0)` matches `max >= 0` after substituting `max`, and
+`not (candidate <= 0)` matches `max > 0`. Strict ordering requirements also
+discharge the matching inclusive ordering predicate for the same operands. For
+example, a `require max > 0` clause guarantees `candidate >= 0` after
+substituting `max`, and a `require max < 10` clause guarantees
+`candidate <= 10`. Strict ordering
 requirements also discharge disequality for the same operands, such as
 `require max > 0` guaranteeing `candidate != 0` after substituting `max`.
 Equality requirements also discharge inclusive ordering predicates over the
@@ -223,7 +240,14 @@ candidate <= 10` is guaranteed by `require max <= 10` after substituting
 `max`. Negated top-level `or` predicates in valid `require` clauses are
 normalized through their direct comparison branches before repair matching.
 For example, `require not (max < 0 or max > 10)` guarantees both
-`candidate >= 0` and `candidate <= 10` after substituting `max`. Every
+`candidate >= 0` and `candidate <= 10` after substituting `max`. Negated
+top-level `and` predicates in `satisfy` clauses are normalized into their
+inverted `or` branches before `require` matching. For example,
+`not (candidate <= 0 and candidate > 10)` is guaranteed by `require max > 0`
+after substituting `max`, because one inverted branch is guaranteed. Every
+same-shape expression operand in `require`-matched repair is compared after
+whitespace normalization, so `require max + 1 <= fallback + 1` guarantees
+`candidate+1 <= fallback+1` after substituting `max`. Every
 type-compatible visible binding candidate for the tautological
 subset uses `reason: "satisfy_tautology"`. A statically accepted candidate also
 uses `satisfy_status: "statically_satisfied"`. Other candidates for a
