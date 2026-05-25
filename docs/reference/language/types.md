@@ -15,6 +15,11 @@ Implemented type annotations:
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
 
+In a function or test return annotation, a returned function type may carry its
+own effect list before the enclosing declaration's effect list. For example,
+`-> fn(String) -> () effects [stdio] effects []` returns a callback that may
+perform `stdio` while the factory declaration itself is pure.
+
 Record type field lists may include a trailing comma, as in
 `{name: String, count: Int,}`.
 

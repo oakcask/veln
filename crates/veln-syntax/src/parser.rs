@@ -223,7 +223,7 @@ impl<'a> Parser<'a> {
             } else {
                 None
             };
-            let return_type = self.collect_type_until(
+            let return_type = self.collect_return_type_until(
                 return_context,
                 &[TokenKind::Effects, TokenKind::Newline, TokenKind::Eof],
             );
@@ -415,15 +415,83 @@ impl<'a> Parser<'a> {
             }
             parts.push(self.bump().text);
         }
-        parts
-            .join(" ")
-            .replace(" :: ", "::")
-            .replace(" (", "(")
-            .replace("( ", "(")
-            .replace(" )", ")")
-            .replace("[ ", "[")
-            .replace(" ]", "]")
-            .replace(" ,", ",")
+        normalize_collected_text(parts)
+    }
+
+    fn collect_return_type_until(&mut self, context: &'static str, stop: &[TokenKind]) -> String {
+        let mut ty = self.collect_type_until(context, stop);
+        if return_type_can_take_effects(&ty)
+            && self.at(TokenKind::Effects)
+            && self.after_effect_clause_is(TokenKind::Effects)
+        {
+            let effects = self.collect_effect_clause_text();
+            if !effects.is_empty() {
+                ty.push(' ');
+                ty.push_str(&effects);
+            }
+        }
+        ty
+    }
+
+    fn after_effect_clause_is(&self, expected: TokenKind) -> bool {
+        if !self.at(TokenKind::Effects) {
+            return false;
+        }
+        let mut cursor = self.cursor + 1;
+        if !self
+            .tokens
+            .get(cursor)
+            .is_some_and(|token| token.kind == TokenKind::LBracket)
+        {
+            return false;
+        }
+        cursor += 1;
+        let mut depth = 1usize;
+        while let Some(token) = self.tokens.get(cursor) {
+            match token.kind {
+                TokenKind::LBracket => depth += 1,
+                TokenKind::RBracket => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        return self
+                            .tokens
+                            .get(cursor + 1)
+                            .is_some_and(|next| next.kind == expected);
+                    }
+                }
+                _ => {}
+            }
+            cursor += 1;
+        }
+        false
+    }
+
+    fn collect_effect_clause_text(&mut self) -> String {
+        let mut parts = Vec::new();
+        if !self.at(TokenKind::Effects) {
+            return String::new();
+        }
+        parts.push(self.bump().text);
+        if !self.at(TokenKind::LBracket) {
+            return normalize_collected_text(parts);
+        }
+        let mut depth = 0usize;
+        while !self.at(TokenKind::Eof) {
+            match self.current().kind {
+                TokenKind::LBracket => depth += 1,
+                TokenKind::RBracket => {
+                    depth = depth.saturating_sub(1);
+                    parts.push(self.bump().text);
+                    if depth == 0 {
+                        break;
+                    }
+                    continue;
+                }
+                _ => {}
+            }
+            parts.push(self.bump().text);
+        }
+        normalize_collected_text(parts)
     }
 
     fn collect_until_newline(&mut self) -> (String, Vec<Token>, TextRange) {
@@ -2008,12 +2076,17 @@ fn pattern_range(pattern: &Pattern) -> TextRange {
     TextRange::new(pattern.span.start.offset, pattern.span.end.offset)
 }
 
+fn return_type_can_take_effects(ty: &str) -> bool {
+    ty.trim_start().starts_with("fn")
+}
+
 fn normalize_collected_text(parts: Vec<String>) -> String {
     parts
         .join(" ")
         .replace(" :: ", "::")
         .replace(" (", "(")
         .replace("( ", "(")
+        .replace("->(", "-> (")
         .replace(" )", ")")
         .replace(" . ", ".")
         .replace("[ ", "[")

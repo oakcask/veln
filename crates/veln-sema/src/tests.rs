@@ -1322,6 +1322,43 @@ fn lowers_function_declarations_as_callable_values() {
 }
 
 #[test]
+fn lowers_function_return_types_with_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn printer(text: String) -> () effects [stdio]\n",
+            "  stdio::println(text)\n",
+            "  ()\n",
+            "end\n",
+            "pub fn callback_factory() -> fn(String) -> () effects [stdio] effects []\n",
+            "  printer\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let factory = core
+        .functions
+        .iter()
+        .find(|function| function.name == "callback_factory")
+        .expect("factory should be lowered");
+    assert_eq!(
+        factory.return_type,
+        CoreType::Function {
+            params: vec![CoreType::string()],
+            return_type: Box::new(CoreType::unit()),
+            effects: vec!["stdio".to_string()],
+        }
+    );
+    assert_eq!(factory.effects, Vec::<String>::new());
+}
+
+#[test]
 fn call_resolution_prefers_local_callable_over_function_declaration() {
     let source = SourceFile::new(
         "main.veln",

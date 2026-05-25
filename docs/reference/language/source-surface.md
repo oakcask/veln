@@ -57,6 +57,12 @@ inside grouping forms. Parentheses, brackets, braces, and `match` expressions
 keep their inner newlines within the same expression; indentation is formatting
 only and does not define parse structure.
 
+When a declaration returns a function type that itself carries effects, write
+the function-type effect list before the declaration effect list:
+`-> fn(String) -> () effects [stdio] effects []`. The first `effects [...]`
+belongs to the returned function type; the second belongs to the enclosing
+declaration.
+
 `let _ = expr` evaluates the expression and discards the resulting value. It
 does not introduce a local binding, and later expressions cannot reference the
 discard target. A type annotation on the wildcard target still checks the

@@ -416,6 +416,34 @@ fn parses_module_use_nested_types_and_multiple_effects() {
 }
 
 #[test]
+fn parses_function_return_type_effects_before_declaration_effects() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn callback_factory() -> fn(String) -> () effects [stdio] effects []\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    assert_eq!(
+        function.return_type.as_deref(),
+        Some("fn(String) -> () effects [stdio]")
+    );
+    assert_eq!(function.effects.as_ref().unwrap(), &Vec::<String>::new());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "pub fn callback_factory() -> fn(String) -> () effects [stdio] effects []\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn parses_and_formats_result_binding() {
     let source = SourceFile::new(
         "main.veln",
