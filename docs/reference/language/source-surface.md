@@ -201,6 +201,7 @@ Implemented expressions:
   `channel::bounded[Item](capacity)`, `channel::clone(tx)`,
   `channel::send(tx, value)`, `channel::recv(rx)`,
   `channel::select(left, right)`,
+  `channel::select_priority(left, right)`,
   `channel::select_timeout(left, right, timeout_ms)`, and
   `channel::close(tx)`
 - task effect calls: `task::spawn(job)`, `task::spawn[Item](job)`,

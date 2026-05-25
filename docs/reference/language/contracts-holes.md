@@ -297,7 +297,10 @@ also apply to boolean atom clauses, so `require max == fallback` plus
 `max`. Inclusive transitive ordering plus endpoint disequality guarantees a
 strict comparison in repair matching, so `require low <= mid`,
 `require mid <= max`, and `require max != low` guarantee `candidate > low`
-after substituting `max`. Every
+after substituting `max`. A disequality between two operands on the inclusive
+path also makes the endpoint comparison strict, so `require low <= mid`,
+`require mid <= max`, and `require low != mid` also guarantee
+`candidate > low` after substituting `max`. Every
 type-compatible visible binding candidate for the tautological
 subset uses `reason: "satisfy_tautology"`. A statically accepted candidate also
 uses `satisfy_status: "statically_satisfied"`. Other candidates for a

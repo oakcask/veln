@@ -271,6 +271,8 @@ impl<'a> ProgramEmitter<'a> {
 
     private static final Object SELECT_PENDING = new Object();
     private static final Object SELECT_CLOSED = new Object();
+    private static final java.util.concurrent.atomic.AtomicInteger SELECT_CURSOR =
+        new java.util.concurrent.atomic.AtomicInteger(0);
 
     public static final class Channel {{
         private final java.util.ArrayDeque<Object> queue;
@@ -454,7 +456,11 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     public static Object channelSelect(Object leftReceiver, Object rightReceiver) {{
-        return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L);
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L, true);
+    }}
+
+    public static Object channelSelectPriority(Object leftReceiver, Object rightReceiver) {{
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L, false);
     }}
 
     public static Object channelSelectTimeout(
@@ -462,13 +468,14 @@ impl<'a> ProgramEmitter<'a> {
         Object rightReceiver,
         Object timeoutMillis
     ) {{
-        return channelSelectWithTimeout(leftReceiver, rightReceiver, asLong(timeoutMillis));
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, asLong(timeoutMillis), true);
     }}
 
     private static Object channelSelectWithTimeout(
         Object leftReceiver,
         Object rightReceiver,
-        long timeoutMillis
+        long timeoutMillis,
+        boolean rotateTies
     ) {{
         Receiver left = (Receiver) leftReceiver;
         Receiver right = (Receiver) rightReceiver;
@@ -491,9 +498,13 @@ impl<'a> ProgramEmitter<'a> {
                     }}
                 }}
             }}
+            int start = rotateTies
+                ? Math.floorMod(SELECT_CURSOR.getAndIncrement(), receivers.length)
+                : 0;
             while (true) {{
                 boolean allClosed = true;
-                for (int i = 0; i < receivers.length; i += 1) {{
+                for (int offset = 0; offset < receivers.length; offset += 1) {{
+                    int i = (start + offset) % receivers.length;
                     Object selected = channelSelectPoll(receivers[i], i);
                     if (selected == SELECT_PENDING) {{
                         allClosed = false;

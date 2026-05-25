@@ -89,9 +89,12 @@ waiting receivers.
 It returns the first ready value as `Some({index, value})`, using `0` for the
 left receiver and `1` for the right receiver, and returns `None` only after
 both receivers are closed and drained. If both receivers are ready during one
-runtime poll, the lower index wins.
+runtime poll, repeated selections rotate the first polled receiver so that
+ties alternate between `0` and `1`.
+`channel::select_priority(left, right)` has the same receiver and return
+behavior, except ties in one runtime poll always choose the left receiver.
 `channel::select_timeout(left, right, timeout_ms)` has the same receiver,
-return, and lower-index tie-breaking behavior. It also returns `None` when no
+return, and rotating tie-breaking behavior. It also returns `None` when no
 value is selected before the non-negative millisecond timeout elapses. A
 negative timeout waits without a timeout, matching `channel::select`.
 

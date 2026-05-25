@@ -96,6 +96,7 @@ channel::clone(tx: Sender(T)) -> Sender(T) effects [concurrency]
 channel::send(tx: Sender(T), value: T) -> Result((), SendError) effects [concurrency]
 channel::recv(rx: Receiver(T)) -> Option(T) effects [concurrency]
 channel::select(left: Receiver(T), right: Receiver(T)) -> Option({index: Int, value: T}) effects [concurrency]
+channel::select_priority(left: Receiver(T), right: Receiver(T)) -> Option({index: Int, value: T}) effects [concurrency]
 channel::select_timeout(left: Receiver(T), right: Receiver(T), timeout_ms: Int) -> Option({index: Int, value: T}) effects [concurrency]
 channel::close(tx: Sender(T)) -> () effects [concurrency]
 ```
@@ -121,7 +122,11 @@ transfers the value directly.
 close. If a value is available, it returns `Some({index, value})`; `index` is
 `0` for the left receiver and `1` for the right receiver. When both receivers
 are closed and drained, it returns `None`. When both receivers are ready in the
-same poll, the lower index wins.
+same poll, repeated selections rotate the first polled receiver so ties
+alternate between index `0` and index `1`.
+`channel::select_priority(left, right)` has the same receiver and return typing
+as `channel::select`, but when both receivers are ready in the same poll the
+left receiver wins.
 `channel::select_timeout(left, right, timeout_ms)` has the same receiver and
 return typing as `channel::select`, plus an `Int` millisecond timeout. It
 returns `None` when the timeout elapses before a value is selected. Negative

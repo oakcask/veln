@@ -173,6 +173,201 @@ fn generates_runtime_calls_for_channel_select_timeout() {
 }
 
 #[test]
+fn generates_runtime_calls_for_channel_select_priority() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> String effects [concurrency]\n",
+        "  let left: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  let right: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  match channel::select_priority(left.rx, right.rx)\n",
+        "    Some(selected) => selected.value\n",
+        "    None => \"missing\"\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("VelnRuntime.channelSelectPriority("));
+    assert!(runtime.contains("public static Object channelSelectPriority"));
+}
+
+#[test]
+fn generated_runtime_rotates_select_tie_breaking() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects []\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+    assert!(runtime.contains("SELECT_CURSOR"));
+
+    let root = temp_dir("select-tie-breaking");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("SelectProbe.java"),
+        r#"public final class SelectProbe {
+    private SelectProbe() {}
+
+    public static void main(String[] args) {
+        Object leftPair = VelnRuntime.channelBounded(Long.valueOf(4L));
+        Object rightPair = VelnRuntime.channelBounded(Long.valueOf(4L));
+        java.util.Map<?, ?> left = (java.util.Map<?, ?>) leftPair;
+        java.util.Map<?, ?> right = (java.util.Map<?, ?>) rightPair;
+        Object leftTx = left.get("tx");
+        Object leftRx = left.get("rx");
+        Object rightTx = right.get("tx");
+        Object rightRx = right.get("rx");
+
+        VelnRuntime.channelSend(leftTx, "left-1");
+        VelnRuntime.channelSend(rightTx, "right-1");
+        long first = selectedIndex(VelnRuntime.channelSelect(leftRx, rightRx));
+
+        VelnRuntime.channelSend(leftTx, "left-2");
+        VelnRuntime.channelSend(rightTx, "right-2");
+        long second = selectedIndex(VelnRuntime.channelSelect(leftRx, rightRx));
+
+        if (first == second) {
+            throw new AssertionError("select should rotate ready-receiver tie breaking");
+        }
+    }
+
+    private static long selectedIndex(Object selected) {
+        if (!VelnRuntime.isSome(selected)) {
+            throw new AssertionError("select should produce a value");
+        }
+        java.util.Map<?, ?> record = (java.util.Map<?, ?>) VelnRuntime.optionValue(selected);
+        return ((Long) record.get("index")).longValue();
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("SelectProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "javac failed: {}",
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("SelectProbe")
+        .current_dir(&root)
+        .output()
+        .expect("java should run");
+    assert!(
+        java.status.success(),
+        "java failed: {}",
+        String::from_utf8_lossy(&java.stderr)
+    );
+}
+
+#[test]
+fn generated_runtime_prioritizes_left_select_receiver() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects []\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+
+    let root = temp_dir("select-priority");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("SelectPriorityProbe.java"),
+        r#"public final class SelectPriorityProbe {
+    private SelectPriorityProbe() {}
+
+    public static void main(String[] args) {
+        Object leftPair = VelnRuntime.channelBounded(Long.valueOf(4L));
+        Object rightPair = VelnRuntime.channelBounded(Long.valueOf(4L));
+        java.util.Map<?, ?> left = (java.util.Map<?, ?>) leftPair;
+        java.util.Map<?, ?> right = (java.util.Map<?, ?>) rightPair;
+        Object leftTx = left.get("tx");
+        Object leftRx = left.get("rx");
+        Object rightTx = right.get("tx");
+        Object rightRx = right.get("rx");
+
+        VelnRuntime.channelSend(leftTx, "left-1");
+        VelnRuntime.channelSend(rightTx, "right-1");
+        long first = selectedIndex(VelnRuntime.channelSelectPriority(leftRx, rightRx));
+
+        VelnRuntime.channelSend(leftTx, "left-2");
+        VelnRuntime.channelSend(rightTx, "right-2");
+        long second = selectedIndex(VelnRuntime.channelSelectPriority(leftRx, rightRx));
+
+        if (first != 0L || second != 0L) {
+            throw new AssertionError("priority select should prefer the left receiver");
+        }
+    }
+
+    private static long selectedIndex(Object selected) {
+        if (!VelnRuntime.isSome(selected)) {
+            throw new AssertionError("select should produce a value");
+        }
+        java.util.Map<?, ?> record = (java.util.Map<?, ?>) VelnRuntime.optionValue(selected);
+        return ((Long) record.get("index")).longValue();
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("SelectPriorityProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "javac failed: {}",
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("SelectPriorityProbe")
+        .current_dir(&root)
+        .output()
+        .expect("java should run");
+    assert!(
+        java.status.success(),
+        "java failed: {}",
+        String::from_utf8_lossy(&java.stderr)
+    );
+}
+
+#[test]
 fn generates_runtime_calls_for_tasks() {
     let ir = lower_to_ir(concat!(
         "fn produce() -> String effects []\n",

@@ -114,8 +114,8 @@ Later task scheduling may replace that with lightweight suspension as long as
 the observable source semantics, cancellation behavior, and diagnostics remain
 stable.
 
-`select` or an equivalent multi-channel wait form is likely needed, but it
-should be designed separately because fairness, priority, timeout, cancellation,
+`select` or an equivalent multi-channel wait form is likely needed, but richer
+selection policy should be designed separately because priority, cancellation,
 and diagnostic reporting all interact.
 
 Concurrent stdio and test event ordering need a separate decision. Captured
@@ -151,9 +151,11 @@ from `channel::bounded[T](capacity)`. The runtime supports direct send with
 positive-capacity backpressure, sender clone, blocking receive, close on a
 single channel pair, and zero-capacity rendezvous transfer between a waiting
 sender and receiver. Two-receiver selection returns
-`Option({index: Int, value: T})`, choosing the lower index when both receivers
-are ready in the same poll and returning `None` only after both receivers are
-closed and drained. The task runtime starts zero-argument callables on JVM
-threads, freezes task results before they cross the task boundary, joins with
+`Option({index: Int, value: T})`, rotating the first polled receiver when both
+receivers are ready in the same poll and returning `None` only after both
+receivers are closed and drained. `channel::select_priority` exposes an
+explicit left-priority variant for callers that need deterministic receiver
+preference. The task runtime starts zero-argument callables on JVM threads,
+freezes task results before they cross the task boundary, joins with
 `Result(T, JoinError)`, and treats cancellation as a cooperative interruption
-request. Richer selection policy remains follow-up work.
+request. Cancellation-specific selection reporting remains follow-up work.

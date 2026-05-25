@@ -3715,12 +3715,17 @@ fn ordering_path_implies_clause(
                 wanted.right,
                 false,
                 equivalences,
-            ) && disequality_clause_exists(
+            ) && (disequality_clause_exists(
                 required_clauses,
                 wanted.left,
                 wanted.right,
                 equivalences,
-            ))
+            ) || ordering_path_contains_disequality(
+                required_clauses,
+                wanted.left,
+                wanted.right,
+                equivalences,
+            )))
         }
         "<=" => ordering_path_exists(
             required_clauses,
@@ -3746,6 +3751,56 @@ fn ordering_path_implies_clause(
         }
         _ => false,
     }
+}
+
+fn ordering_path_contains_disequality(
+    required_clauses: &[String],
+    from: &str,
+    to: &str,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    required_clauses.iter().any(|clause| {
+        let Some(parsed) = ParsedRepairComparison::parse(clause) else {
+            return false;
+        };
+        if parsed.operator != "!=" {
+            return false;
+        }
+        disequality_lies_on_ordering_path(
+            required_clauses,
+            from,
+            to,
+            parsed.left,
+            parsed.right,
+            equivalences,
+        ) || disequality_lies_on_ordering_path(
+            required_clauses,
+            from,
+            to,
+            parsed.right,
+            parsed.left,
+            equivalences,
+        )
+    })
+}
+
+fn disequality_lies_on_ordering_path(
+    required_clauses: &[String],
+    from: &str,
+    to: &str,
+    disequal_left: &str,
+    disequal_right: &str,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    ordering_path_exists(required_clauses, from, disequal_left, false, equivalences)
+        && ordering_path_exists(
+            required_clauses,
+            disequal_left,
+            disequal_right,
+            false,
+            equivalences,
+        )
+        && ordering_path_exists(required_clauses, disequal_right, to, false, equivalences)
 }
 
 fn disequality_clause_exists(

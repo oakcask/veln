@@ -93,7 +93,7 @@ pub(crate) fn concurrency_signature(
                 Type::named("Option", vec![item]),
             ))
         }
-        ("channel", "select" | "select_timeout") => {
+        ("channel", "select" | "select_priority" | "select_timeout") => {
             let item = expected
                 .and_then(Type::option_part)
                 .and_then(select_result_value_type)
@@ -228,7 +228,7 @@ pub(crate) fn core_concurrency_signature(
                 CoreType::option(item),
             ))
         }
-        ("channel", "select" | "select_timeout") => {
+        ("channel", "select" | "select_priority" | "select_timeout") => {
             let item = expected
                 .and_then(CoreType::option_part)
                 .and_then(core_select_result_value_type)
@@ -302,7 +302,14 @@ pub(crate) fn is_concurrency_call(segments: &[String]) -> bool {
             if (module == "channel"
                 && matches!(
                     name.as_str(),
-                    "bounded" | "clone" | "send" | "recv" | "select" | "select_timeout" | "close"
+                    "bounded"
+                        | "clone"
+                        | "send"
+                        | "recv"
+                        | "select"
+                        | "select_priority"
+                        | "select_timeout"
+                        | "close"
                 ))
                 || (module == "task" && matches!(name.as_str(), "spawn" | "join" | "cancel"))
     )

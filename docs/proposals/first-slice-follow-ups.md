@@ -122,8 +122,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   handles, cancellation, and join. Test-visible stdio event capture now
   serializes each output operation with its event sequence. The executable
   two-receiver channel selection slice is implemented, including a timeout
-  variant. Broader selection policy, including fairness, priority, and
-  cancellation-specific reporting, remains future concurrency surface work.
+  variant, rotating ready-receiver tie breaking, and explicit left-priority
+  selection. Cancellation-specific selection reporting remains future
+  concurrency surface work.
 - The checker validates the first-slice pure boolean contract subset. Runtime
   contract discharge is implemented for function-entry `require` checks and
   `ensure` checks before both ordinary returns and `?` early returns.

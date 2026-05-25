@@ -3161,6 +3161,35 @@ fn marks_inclusive_order_with_disequality_as_strict_satisfy_repair() {
 }
 
 #[test]
+fn marks_inclusive_order_with_path_disequality_as_strict_satisfy_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(low: Int, mid: Int, max: Int, fallback: Int) -> Int\n",
+            "  require low <= mid\n",
+            "  require mid <= max\n",
+            "  require low != mid\n",
+            "  _value satisfy candidate => candidate > low\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn reports_return_type_mismatch() {
     let source = SourceFile::new("main.veln", "fn bad() -> Int\n  \"no\"\nend\n");
     let parsed = parse(&source);
@@ -4846,6 +4875,36 @@ fn channel_select_checks_both_receivers_against_same_item_type() {
     assert_eq!(
         diagnostics[0].message,
         "expected `Receiver(String)`, but found `Receiver(Int)`"
+    );
+}
+
+#[test]
+fn channel_select_priority_preserves_receiver_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(left: Receiver(String), right: Receiver(String)) -> Option({index: Int, value: String}) effects [concurrency]\n",
+            "  channel::select_priority(left, right)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = &core.functions[0];
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("expected select priority return");
+    };
+    assert_eq!(
+        expr.ty,
+        CoreType::option(CoreType::Record(vec![
+            ("index".to_string(), CoreType::int()),
+            ("value".to_string(), CoreType::string()),
+        ]))
     );
 }
 
