@@ -9,11 +9,13 @@ IR is produced only when checked core is complete. Reachable holes, missing
 expressions, constructor arity gaps, call arity gaps, and recognized channel
 concurrency calls block executable IR. For selected `run` and `test` entries,
 reachability includes direct function calls, bare function declaration values
-used inside reachable expressions, and function calls in reachable contract
-predicates. The implemented execution fixtures cover function declarations
-used as function-typed values, function-typed value calls, contract helper
-reachability, selected-entry reachable-hole blocking, and selected-entry
-channel concurrency blockers before JVM execution.
+used inside reachable expressions, function calls in reachable contract
+predicates, and qualified calls resolved through selected-file `use` aliases to
+functions in the imported source module. The implemented execution fixtures
+cover function declarations used as function-typed values, function-typed value
+calls, contract helper reachability, imported-call reachable-hole blocking,
+selected-entry reachable-hole blocking, and selected-entry channel concurrency
+blockers before JVM execution.
 
 The typed IR is runtime-neutral. JVM class names, Java method names, boxed
 runtime representation, generated artifact paths, cache keys, and runtime

@@ -1,4 +1,4 @@
-use veln_ast::{Expr, ExprKind, Function, FunctionKind, SurfaceModule, lower_surface_ast};
+use veln_ast::{Expr, ExprKind, Function, FunctionKind, SurfaceModule, UseDecl, lower_surface_ast};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_project::ManifestModule;
 use veln_project::Project;
@@ -183,16 +183,22 @@ pub(crate) fn reachable_entry_module(
     entry: &str,
     entry_kind: FunctionKind,
 ) -> SurfaceModule {
-    let function_names = module
+    let function_targets = module
         .functions
         .iter()
         .filter(|function| function.kind == FunctionKind::Function)
-        .filter_map(|function| function.name.clone())
+        .filter_map(|function| {
+            Some(FunctionTarget {
+                name: function.name.clone()?,
+                module_name: function.module_name.clone(),
+            })
+        })
         .collect::<Vec<_>>();
     let mut reachable = Vec::<ReachableFunction>::new();
     let mut stack = vec![ReachableFunction {
         kind: entry_kind,
         name: entry.to_string(),
+        module_name: None,
     }];
 
     while let Some(key) = stack.pop() {
@@ -201,13 +207,14 @@ pub(crate) fn reachable_entry_module(
         }
         reachable.push(key.clone());
         for function in module.functions.iter().filter(|function| {
-            function.name.as_deref() == Some(key.name.as_str()) && function.kind == key.kind
+            function.name.as_deref() == Some(key.name.as_str())
+                && function.kind == key.kind
+                && key
+                    .module_name
+                    .as_ref()
+                    .is_none_or(|module_name| function.module_name.as_ref() == Some(module_name))
         }) {
-            for callee in direct_function_callees(function, &function_names) {
-                let callee = ReachableFunction {
-                    kind: FunctionKind::Function,
-                    name: callee,
-                };
+            for callee in direct_function_callees(function, &module.uses, &function_targets) {
                 if !reachable.iter().any(|known| known == &callee) {
                     stack.push(callee);
                 }
@@ -237,24 +244,40 @@ pub(crate) fn reachable_entry_module(
 struct ReachableFunction {
     kind: FunctionKind,
     name: String,
+    module_name: Option<String>,
 }
 
-fn direct_function_callees(function: &Function, function_names: &[String]) -> Vec<String> {
+#[derive(Clone, Debug)]
+struct FunctionTarget {
+    name: String,
+    module_name: Option<String>,
+}
+
+fn direct_function_callees(
+    function: &Function,
+    uses: &[UseDecl],
+    function_targets: &[FunctionTarget],
+) -> Vec<ReachableFunction> {
     let mut callees = Vec::new();
     for contract in &function.contracts {
-        collect_contract_callees(&contract.text, function_names, &mut callees);
+        collect_contract_callees(&contract.text, uses, function_targets, &mut callees);
     }
     for line in &function.body {
         match &line.kind {
             veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
-                collect_function_callees(expr, function_names, &mut callees);
+                collect_function_callees(expr, uses, function_targets, &mut callees);
             }
         }
     }
     callees
 }
 
-fn collect_contract_callees(predicate: &str, function_names: &[String], callees: &mut Vec<String>) {
+fn collect_contract_callees(
+    predicate: &str,
+    uses: &[UseDecl],
+    function_targets: &[FunctionTarget],
+    callees: &mut Vec<ReachableFunction>,
+) {
     let source = SourceFile::new("<contract>", predicate);
     let tokens = lex(&source)
         .tokens
@@ -284,64 +307,72 @@ fn collect_contract_callees(predicate: &str, function_names: &[String], callees:
             index += 1;
             continue;
         }
-        if function_names
-            .iter()
-            .any(|function_name| function_name == &callee)
-            && !callees.iter().any(|known| known == &callee)
-        {
-            callees.push(callee);
+        let segments = if callee == name.text {
+            vec![callee]
+        } else {
+            vec![name.text.clone(), callee]
+        };
+        for callee in resolve_function_reference(&segments, uses, function_targets) {
+            push_reachable(callees, callee);
         }
         index = next_index + 1;
     }
 }
 
-fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mut Vec<String>) {
+fn collect_function_callees(
+    expr: &Expr,
+    uses: &[UseDecl],
+    function_targets: &[FunctionTarget],
+    callees: &mut Vec<ReachableFunction>,
+) {
     match &expr.kind {
         ExprKind::NamePath(segments) => {
-            collect_function_name_reference(segments, function_names, callees);
+            collect_function_name_reference(segments, uses, function_targets, callees);
         }
         ExprKind::TypeApply { callee, .. } => {
-            collect_function_callees(callee, function_names, callees);
+            collect_function_callees(callee, uses, function_targets, callees);
         }
         ExprKind::Call { callee, args } => {
             if let Some(segments) = callee_name_path(callee) {
-                collect_function_name_reference(segments, function_names, callees);
+                collect_function_name_reference(segments, uses, function_targets, callees);
             }
-            collect_function_callees(callee, function_names, callees);
+            collect_function_callees(callee, uses, function_targets, callees);
             for arg in args {
-                collect_function_callees(arg, function_names, callees);
+                collect_function_callees(arg, uses, function_targets, callees);
             }
         }
         ExprKind::FieldAccess { base, .. } => {
-            collect_function_callees(base, function_names, callees);
+            collect_function_callees(base, uses, function_targets, callees);
         }
-        ExprKind::Try(inner) => collect_function_callees(inner, function_names, callees),
+        ExprKind::Try(inner) => collect_function_callees(inner, uses, function_targets, callees),
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_function_callees(&field.expr, function_names, callees);
+                collect_function_callees(&field.expr, uses, function_targets, callees);
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_function_callees(&entry.key, function_names, callees);
-                collect_function_callees(&entry.value, function_names, callees);
+                collect_function_callees(&entry.key, uses, function_targets, callees);
+                collect_function_callees(&entry.value, uses, function_targets, callees);
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_function_callees(item, function_names, callees);
+                collect_function_callees(item, uses, function_targets, callees);
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_function_callees(scrutinee, function_names, callees);
+            collect_function_callees(scrutinee, uses, function_targets, callees);
             for arm in arms {
-                collect_function_callees(&arm.expr, function_names, callees);
+                collect_function_callees(&arm.expr, uses, function_targets, callees);
             }
         }
-        ExprKind::Prefix { expr, .. } => collect_function_callees(expr, function_names, callees),
+        ExprKind::Prefix { expr, .. } => {
+            collect_function_callees(expr, uses, function_targets, callees);
+        }
         ExprKind::Binary { left, right, .. } => {
-            collect_function_callees(left, function_names, callees);
-            collect_function_callees(right, function_names, callees);
+            collect_function_callees(left, uses, function_targets, callees);
+            collect_function_callees(right, uses, function_targets, callees);
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -363,18 +394,57 @@ fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {
 
 fn collect_function_name_reference(
     segments: &[String],
-    function_names: &[String],
-    callees: &mut Vec<String>,
+    uses: &[UseDecl],
+    function_targets: &[FunctionTarget],
+    callees: &mut Vec<ReachableFunction>,
 ) {
-    let Some(name) = segments.last() else {
-        return;
-    };
-    if function_names
-        .iter()
-        .any(|function_name| function_name == name)
-        && !callees.iter().any(|callee| callee == name)
-    {
-        callees.push(name.clone());
+    for callee in resolve_function_reference(segments, uses, function_targets) {
+        push_reachable(callees, callee);
+    }
+}
+
+fn resolve_function_reference(
+    segments: &[String],
+    uses: &[UseDecl],
+    function_targets: &[FunctionTarget],
+) -> Vec<ReachableFunction> {
+    match segments {
+        [name] => function_targets
+            .iter()
+            .filter(|target| target.name == *name)
+            .map(|target| ReachableFunction {
+                kind: FunctionKind::Function,
+                name: target.name.clone(),
+                module_name: target.module_name.clone(),
+            })
+            .collect(),
+        [alias, name] => {
+            let Some(module_name) = uses
+                .iter()
+                .find(|use_decl| use_decl.alias == *alias)
+                .map(|use_decl| use_decl.name.as_str())
+            else {
+                return Vec::new();
+            };
+            function_targets
+                .iter()
+                .filter(|target| {
+                    target.name == *name && target.module_name.as_deref() == Some(module_name)
+                })
+                .map(|target| ReachableFunction {
+                    kind: FunctionKind::Function,
+                    name: target.name.clone(),
+                    module_name: target.module_name.clone(),
+                })
+                .collect()
+        }
+        _ => Vec::new(),
+    }
+}
+
+fn push_reachable(callees: &mut Vec<ReachableFunction>, callee: ReachableFunction) {
+    if !callees.iter().any(|known| known == &callee) {
+        callees.push(callee);
     }
 }
 
@@ -483,15 +553,118 @@ mod tests {
 
     #[test]
     fn run_entry_can_reach_qualified_contract_helper() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "mod app.main\n",
+                        "use app.rules\n",
+                        "pub fn main(value: Int) -> output: Int effects []\n",
+                        "  ensure rules::positive(output)\n",
+                        "  value\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "rules.veln",
+                    concat!(
+                        "mod app.rules\n",
+                        "fn positive(value: Int) -> Bool effects []\n",
+                        "  value > 0\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("app.main"), FunctionKind::Function, Some("main")),
+                (Some("app.rules"), FunctionKind::Function, Some("positive")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_imported_qualified_call() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "mod app.main\n",
+                        "use app.util\n",
+                        "pub fn main() -> Int effects []\n",
+                        "  util::value()\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "util.veln",
+                    concat!(
+                        "mod app.util\n",
+                        "fn value() -> Int effects []\n",
+                        "  1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("app.main"), FunctionKind::Function, Some("main")),
+                (Some("app.util"), FunctionKind::Function, Some("value")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_does_not_reach_qualified_call_without_import_alias() {
         let module = lower(concat!(
             "mod app.main\n",
-            "use app.rules\n",
-            "fn positive(value: Int) -> Bool effects []\n",
-            "  value > 0\n",
+            "pub fn main() -> Int effects []\n",
+            "  util::value()\n",
             "end\n",
-            "pub fn main(value: Int) -> output: Int effects []\n",
-            "  ensure rules::positive(output)\n",
-            "  value\n",
+            "fn value() -> Int effects []\n",
+            "  _\n",
             "end\n",
         ));
 
@@ -502,13 +675,7 @@ mod tests {
             .map(|function| (function.kind, function.name.as_deref()))
             .collect::<Vec<_>>();
 
-        assert_eq!(
-            functions,
-            vec![
-                (FunctionKind::Function, Some("positive")),
-                (FunctionKind::Function, Some("main")),
-            ]
-        );
+        assert_eq!(functions, vec![(FunctionKind::Function, Some("main"))]);
     }
 
     #[test]

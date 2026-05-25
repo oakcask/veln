@@ -65,8 +65,10 @@ arguments, not source inputs. Entry parameters may be declared as `String`,
 `Int` arguments parse as decimal signed integers, `Float` arguments parse as
 JVM double-precision decimal text, and `Bool` arguments must be exactly `true`
 or `false`. The reachable program is semantically checked, lowered to checked
-core, then typed IR, then generated Java source. Semantic diagnostics in
-functions unreachable from the selected entry do not block `run`.
+core, then typed IR, then generated Java source. Reachability follows imported
+qualified calls by resolving the alias from selected-file `use` declarations to
+the imported source module. Semantic diagnostics in functions unreachable from
+the selected entry do not block `run`.
 
 The command caches compiled Java artifacts by generated source content below
 the project-local build output area. On a cache miss it invokes `javac`; on a
