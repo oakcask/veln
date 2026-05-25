@@ -794,6 +794,55 @@ fn parses_records_lists_and_formats_precedence() {
 }
 
 #[test]
+fn parses_try_prefix_and_pipeline_precedence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(input: Int) -> ()\n",
+            "  -input? |> sink(\"ok\", ())\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(format_tree(&output.tree), source.text());
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Binary {
+        op: BinaryOp::PipeGreater,
+        left,
+        right,
+    } = &expr.kind
+    else {
+        panic!("expected pipeline expression");
+    };
+    assert!(matches!(
+        &left.kind,
+        ExprKind::Prefix {
+            op: PrefixOp::Negate,
+            expr,
+        } if matches!(
+            &expr.kind,
+            ExprKind::Try(inner)
+                if matches!(&inner.kind, ExprKind::NamePath(segments) if segments == &vec!["input".to_string()])
+        )
+    ));
+    let ExprKind::Call { callee, args } = &right.kind else {
+        panic!("expected call on right side of pipeline");
+    };
+    assert!(matches!(
+        &callee.kind,
+        ExprKind::NamePath(segments) if segments == &vec!["sink".to_string()]
+    ));
+    assert!(matches!(&args[0].kind, ExprKind::StringLiteral(value) if value == "\"ok\""));
+    assert!(matches!(&args[1].kind, ExprKind::Unit));
+}
+
+#[test]
 fn parses_boolean_literals_as_literals() {
     let source = SourceFile::new(
         "main.veln",
