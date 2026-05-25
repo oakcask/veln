@@ -3571,7 +3571,7 @@ fn repair_relevant_and_clauses(predicate: &str) -> Vec<String> {
         .flat_map(|clause| {
             canonical_negated_disjunction_repair_clauses(&clause).unwrap_or_else(|| vec![clause])
         })
-        .filter(|clause| clause != "true")
+        .filter(|clause| clause != "true" && !predicate_is_statically_true(clause))
         .collect()
 }
 

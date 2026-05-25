@@ -147,7 +147,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   treated as tautological surplus clauses inside direct and tautological
   `satisfy` conjunctions.
   Statically true surplus conjuncts are also ignored inside direct `satisfy`
-  conjunctions.
+  conjunctions. Statically true surplus conjuncts are also ignored during
+  `require`-matched repair discharge after candidate substitution.
   Top-level complementary comparison disjuncts that reference the satisfy
   candidate are also treated as tautological repair constraints after
   whitespace normalization and commuted ordering normalization.

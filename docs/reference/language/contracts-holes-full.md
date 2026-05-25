@@ -407,11 +407,14 @@ substituting `name`. Simple direct and commuted comparison clauses are treated
 as the same requirement, such as matching
 `candidate > 0` against `0 < max` after substituting `max`; wrapping these
 simple clauses or the whole `and` conjunction in parentheses does not change
-the repair match. Negated equality and disequality clauses are normalized
-before matching; for example, `not (candidate == 0)` matches `max != 0` after
-substituting `max`, and `not (max == 0)` guarantees `candidate != 0` after the
-same substitution. Double negation is also normalized during requirement
-matching; for example, `require not (not (max > 0))` guarantees
+the repair match. Statically true conjuncts do not affect requirement
+matching, so `candidate > 0 and candidate == candidate` is guaranteed by
+`require max > 0` after substituting `max`. Negated equality and disequality
+clauses are normalized before matching; for example, `not (candidate == 0)`
+matches `max != 0` after substituting `max`, and `not (max == 0)` guarantees
+`candidate != 0` after the same substitution. Double negation is also
+normalized during requirement matching; for example,
+`require not (not (max > 0))` guarantees
 `candidate > 0` after substituting `max`. Negated ordering clauses normalize
 into their inverse comparisons before matching; for example,
 `not (candidate < 0)` matches `max >= 0` after substituting `max`, and
