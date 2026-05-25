@@ -446,10 +446,13 @@ least one `satisfy` branch, so `require max > 0 or max == 0` guarantees
 Equality branches against distinct boolean, integer, or string literals
 also discharge disequality against another literal; for example,
 `require max == 1 or max == 2` guarantees `candidate != 0` after substituting
-`max`. The same literal-disequality rule participates through equality
-aliases, so `require max == fallback` together with `require fallback == 1`
-guarantees `candidate != 0` after substituting either binding. The same rule
-applies inside conjunctions:
+`max`. Numeric literal equality comparisons in this rule may use pure literal
+`+`, `-`, `*`, and exactly representable `/` subexpressions, so
+`require max == 1 + 1` guarantees `candidate != 3` after substituting `max`.
+The same literal-disequality rule participates through equality aliases, so
+`require max == fallback` together with `require fallback == 1` guarantees
+`candidate != 0` after substituting either binding. The same rule applies
+inside conjunctions:
 `(max > 0 or max == 0) and max <= 10` guarantees
 `candidate >= 0 and candidate <= 10` after substituting `max`. Nested `or`
 branches inside `satisfy` conjunctions are accepted when at least one branch is

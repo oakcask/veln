@@ -4475,6 +4475,10 @@ fn equality_side_excludes_wanted_literal(
 }
 
 fn repair_literals_are_distinct(left: &str, right: &str) -> bool {
+    if let (Some(left), Some(right)) = (repair_numeric_literal(left), repair_numeric_literal(right))
+    {
+        return left != right;
+    }
     let Some(left) = RepairLiteral::parse(left.trim()) else {
         return false;
     };
