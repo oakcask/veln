@@ -131,8 +131,18 @@ binding has valid inclusive bounds in both directions, those combined
 requirements also discharge equality after substituting the binding; for
 example, `require max <= 10` together with `require max >= 10` guarantees
 `candidate == 10` after substituting `max`. If a substituted `satisfy`
-predicate has top-level `or` clauses, a candidate is also safe when any one
-`or` branch is fully guaranteed by valid `require` clauses.
+predicate names an operand that is equated by a valid `require` clause, other
+valid non-disjunctive `require` clauses may discharge the substituted clause
+through that alias. For example, `require max == fallback` together with
+`require fallback > 0` guarantees `candidate > 0` after substituting `max`.
+Alias discharge also preserves the strict-ordering-to-disequality rule and the
+paired-inclusive-bounds-to-equality rule. For example, those same requirements
+guarantee `candidate != 0` after substituting `max`; `require fallback <= 10`
+together with `require max >= 10` and `require max == fallback` guarantees
+`candidate == 10` after substituting either `max` or `fallback`.
+If a substituted `satisfy` predicate has top-level `or` clauses, a candidate
+is also safe when any one `or` branch is fully guaranteed by valid `require`
+clauses.
 For example, `candidate > 0 or candidate == 0` is guaranteed for a visible
 binding `max` when the function already has `require max > 0`. A `require`
 predicate with top-level `or` also guarantees a substituted `satisfy` clause

@@ -2896,17 +2896,24 @@ fn required_predicate_set_implies_clause(required_predicates: &[String], wanted:
     let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
         return false;
     };
-    if wanted.operator != "==" {
-        return false;
-    }
     let required_clauses = required_predicates
         .iter()
         .flat_map(|predicate| non_disjunctive_repair_clauses(predicate))
         .collect::<Vec<_>>();
+    let equivalences = repair_equivalences(&required_clauses);
+    if required_clauses
+        .iter()
+        .any(|required| repair_clause_implies_with_equivalences(required, &wanted, &equivalences))
+    {
+        return true;
+    }
+    if wanted.operator != "==" {
+        return false;
+    }
     required_clauses.iter().any(|left| {
         required_clauses
             .iter()
-            .any(|right| inclusive_bounds_imply_equality(left, right, &wanted))
+            .any(|right| inclusive_bounds_imply_equality(left, right, &wanted, &equivalences))
     })
 }
 
@@ -2932,6 +2939,7 @@ fn inclusive_bounds_imply_equality(
     left: &str,
     right: &str,
     wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
 ) -> bool {
     let Some(left) = ParsedRepairComparison::parse(left) else {
         return false;
@@ -2941,10 +2949,114 @@ fn inclusive_bounds_imply_equality(
     };
     left.operator == "<="
         && right.operator == "<="
-        && left.left == wanted.left
-        && left.right == wanted.right
-        && right.left == wanted.right
-        && right.right == wanted.left
+        && repair_operands_equivalent_ordered(
+            left.left,
+            left.right,
+            wanted.left,
+            wanted.right,
+            equivalences,
+        )
+        && repair_operands_equivalent_ordered(
+            right.left,
+            right.right,
+            wanted.right,
+            wanted.left,
+            equivalences,
+        )
+}
+
+fn repair_clause_implies_with_equivalences(
+    required: &str,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some(required) = ParsedRepairComparison::parse(required) else {
+        return false;
+    };
+    if required.operator == wanted.operator
+        && repair_operands_equivalent_ordered(
+            required.left,
+            required.right,
+            wanted.left,
+            wanted.right,
+            equivalences,
+        )
+    {
+        return true;
+    }
+    match (required.operator, wanted.operator) {
+        ("<", "<=") => repair_operands_equivalent_ordered(
+            required.left,
+            required.right,
+            wanted.left,
+            wanted.right,
+            equivalences,
+        ),
+        ("<", "!=") | ("==", "<=") => repair_operands_equivalent_unordered(
+            required.left,
+            required.right,
+            wanted.left,
+            wanted.right,
+            equivalences,
+        ),
+        _ => false,
+    }
+}
+
+fn repair_equivalences(clauses: &[String]) -> RepairEquivalences {
+    let mut equivalences = RepairEquivalences::default();
+    for clause in clauses {
+        let Some(parsed) = ParsedRepairComparison::parse(clause) else {
+            continue;
+        };
+        if parsed.operator == "==" {
+            equivalences.union(parsed.left, parsed.right);
+        }
+    }
+    equivalences
+}
+
+#[derive(Default)]
+struct RepairEquivalences {
+    groups: Vec<Vec<String>>,
+}
+
+impl RepairEquivalences {
+    fn union(&mut self, left: &str, right: &str) {
+        if left == right {
+            return;
+        }
+        let left_index = self.group_index(left);
+        let right_index = self.group_index(right);
+        match (left_index, right_index) {
+            (Some(left_index), Some(right_index)) if left_index != right_index => {
+                let right_group = self.groups.remove(right_index);
+                let destination = if right_index < left_index {
+                    left_index - 1
+                } else {
+                    left_index
+                };
+                self.groups[destination].extend(right_group);
+            }
+            (Some(index), None) => self.groups[index].push(right.to_string()),
+            (None, Some(index)) => self.groups[index].push(left.to_string()),
+            (None, None) => self.groups.push(vec![left.to_string(), right.to_string()]),
+            _ => {}
+        }
+    }
+
+    fn equivalent(&self, left: &str, right: &str) -> bool {
+        left == right
+            || self.groups.iter().any(|group| {
+                group.iter().any(|item| item == left) && group.iter().any(|item| item == right)
+            })
+    }
+
+    fn group_index(&self, operand: &str) -> Option<usize> {
+        self.groups
+            .iter()
+            .position(|group| group.iter().any(|item| item == operand))
+    }
 }
 
 fn same_repair_operands_unordered(
@@ -2955,6 +3067,39 @@ fn same_repair_operands_unordered(
 ) -> bool {
     (required_left == wanted_left && required_right == wanted_right)
         || (required_left == wanted_right && required_right == wanted_left)
+}
+
+fn repair_operands_equivalent_ordered(
+    required_left: &str,
+    required_right: &str,
+    wanted_left: &str,
+    wanted_right: &str,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    equivalences.equivalent(required_left, wanted_left)
+        && equivalences.equivalent(required_right, wanted_right)
+}
+
+fn repair_operands_equivalent_unordered(
+    required_left: &str,
+    required_right: &str,
+    wanted_left: &str,
+    wanted_right: &str,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    repair_operands_equivalent_ordered(
+        required_left,
+        required_right,
+        wanted_left,
+        wanted_right,
+        equivalences,
+    ) || repair_operands_equivalent_ordered(
+        required_left,
+        required_right,
+        wanted_right,
+        wanted_left,
+        equivalences,
+    )
 }
 
 struct ParsedRepairComparison<'a> {
