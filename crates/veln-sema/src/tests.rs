@@ -8974,6 +8974,35 @@ fn contract_predicate_negated_exclusive_numeric_literal_bounds_are_statically_pr
 }
 
 #[test]
+fn contract_predicate_covering_numeric_literal_bounds_are_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn clamp(value: Int) -> output: Int effects []\n",
+            "require value <= 10 or value >= 5\n",
+            "require value > 2 or value <= 2\n",
+            "require 1 + 1 >= value or value >= 2\n",
+            "ensure output < 10 or 5 <= output\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 4);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_negated_exclusive_literal_equalities_are_statically_proven() {
     let source = SourceFile::new(
         "main.veln",

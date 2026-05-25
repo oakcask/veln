@@ -234,7 +234,11 @@ inclusive and strict bounds cannot both hold, such as
 literal bounds over the same subject are also statically proven when the lower
 bound is greater than the upper bound, or when equal bounds include at least
 one strict side, such as `not (value > 10 and value < 5)` and
-`not (value >= 10 and value < 10)`. Negated conjunctions of equality clauses
+`not (value >= 10 and value < 10)`. Top-level `or` predicates over numeric
+literal bounds on the same subject are statically proven when one lower bound
+and one upper bound cover every value, such as
+`value <= 10 or value >= 5` and `value > 2 or value <= 2`.
+Negated conjunctions of equality clauses
 that bind the same subject to distinct boolean, numeric, or string literals are
 also statically proven, such as `not (name == "Ada" and name == "Grace")`.
 For example,
