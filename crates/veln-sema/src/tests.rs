@@ -3643,6 +3643,33 @@ fn marks_lower_literal_bound_as_disequality_repair_evidence() {
 }
 
 #[test]
+fn keeps_safe_satisfy_candidate_beyond_top_five_ranked_bindings() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(target: Int, a: Int, b: Int, c: Int, d: Int, e: Int) -> Int\n",
+            "  require target > 0\n",
+            "  _value satisfy candidate => candidate > 0\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-6\",\"name\":\"target\",",
+        "\"type\":\"Int\",\"rank\":6,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn leaves_equal_inclusive_literal_bound_as_manual_for_disequality_repair() {
     let source = SourceFile::new(
         "main.veln",

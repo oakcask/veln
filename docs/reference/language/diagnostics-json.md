@@ -231,7 +231,9 @@ concrete but unapplied. The default `application_policy` remains
 `manual_review_required`; the direct reflexive, tautological, and
 `require`-matched satisfy subsets may use `safe_repair_candidate`. Candidates
 for satisfy-constrained holes also contain `satisfy_status`, either
-`statically_satisfied` or `blocked_until_discharged`.
+`statically_satisfied` or `blocked_until_discharged`. Implementations may bound
+ordinary manual-review candidates, but statically satisfied candidates are
+retained even when they sort after that ordinary bound.
 
 Semantic satisfy diagnostics use hole diagnostic detail objects with
 `phase: "hole"`, `node_id`, `candidate_binding`, and `predicate_text`. Type mismatch

@@ -2649,11 +2649,15 @@ impl<'a> FunctionChecker<'a> {
         });
         candidates
             .into_iter()
-            .take(5)
             .enumerate()
-            .map(|(index, (score, _, binding))| {
+            .filter_map(|(sorted_index, candidate)| {
                 let static_satisfy =
-                    satisfy.and_then(|satisfy| satisfy.reason_for(binding.name.as_str()));
+                    satisfy.and_then(|satisfy| satisfy.reason_for(candidate.2.name.as_str()));
+                (sorted_index < 5 || static_satisfy.is_some())
+                    .then_some((candidate, static_satisfy))
+            })
+            .enumerate()
+            .map(|(index, ((score, _, binding), static_satisfy))| {
                 let mut candidate = vec![
                     (
                         "candidate_id",

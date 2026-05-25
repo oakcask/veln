@@ -101,7 +101,9 @@ visible binding candidates. A ranked candidate records a binding name, rendered
 binding type, rank, match reason, application policy, and a concrete replacement
 edit for the hole span. Exact type matches rank before broader assignable
 matches, and nearer visible bindings rank before older bindings with the same
-match quality.
+match quality. The checker may bound ordinary manual-review candidates, but it
+keeps statically satisfied `satisfy` repair candidates even when they fall after
+that ordinary bound.
 
 Named holes such as `_port` are diagnostic and repair labels, not bindings.
 The `satisfy candidate => predicate` suffix contributes a repair constraint; it
