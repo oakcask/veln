@@ -2699,7 +2699,7 @@ fn reflexive_candidate_binding(
 ) -> Option<ReflexiveCandidateBinding> {
     let mut allowed_binding = None::<String>;
     let mut reason = "satisfy_equality_match";
-    for clause in normalized_and_clauses(predicate) {
+    for clause in repair_relevant_and_clauses(predicate) {
         let direct = direct_reflexive_clause(&clause, candidate)?;
         if let Some(existing) = &allowed_binding {
             if existing != &direct.binding {
@@ -2723,7 +2723,11 @@ fn tautological_candidate_predicate(
     predicate: &str,
     candidate: &str,
 ) -> Option<TautologicalCandidatePredicate> {
-    for clause in normalized_and_clauses(predicate) {
+    let clauses = repair_relevant_and_clauses(predicate);
+    if clauses.is_empty() {
+        return None;
+    }
+    for clause in clauses {
         if !is_candidate_tautology_clause(&clause, candidate) {
             return None;
         }
@@ -2804,22 +2808,42 @@ fn normalized_and_clauses(predicate: &str) -> Vec<String> {
         .collect()
 }
 
+fn repair_relevant_and_clauses(predicate: &str) -> Vec<String> {
+    normalized_and_clauses(predicate)
+        .into_iter()
+        .filter(|clause| clause != "true")
+        .collect()
+}
+
 fn predicate_guaranteed_by_required_predicates(
     predicate: &str,
     required_predicates: &[String],
 ) -> bool {
     split_top_level_keyword(strip_balanced_outer_parens(predicate), "or")
         .into_iter()
-        .map(normalized_and_clauses)
+        .map(repair_relevant_and_clauses)
         .any(|disjunct_clauses| {
             !disjunct_clauses.is_empty()
                 && disjunct_clauses.iter().all(|clause| {
-                    let canonical = canonical_repair_clause(clause);
-                    required_predicates
-                        .iter()
-                        .any(|required| required_predicate_implies_clause(required, &canonical))
+                    repair_clause_guaranteed_by_required_predicates(clause, required_predicates)
                 })
         })
+}
+
+fn repair_clause_guaranteed_by_required_predicates(
+    clause: &str,
+    required_predicates: &[String],
+) -> bool {
+    let disjuncts = split_top_level_keyword(strip_balanced_outer_parens(clause), "or");
+    if disjuncts.len() > 1 {
+        return disjuncts.into_iter().any(|disjunct| {
+            repair_clause_guaranteed_by_required_predicates(disjunct, required_predicates)
+        });
+    }
+    let canonical = canonical_repair_clause(clause);
+    required_predicates
+        .iter()
+        .any(|required| required_predicate_implies_clause(required, &canonical))
 }
 
 fn required_predicate_implies_clause(predicate: &str, wanted: &str) -> bool {

@@ -29,20 +29,23 @@ No accepted language and type coverage follow-up is currently tracked here.
   candidate, including parenthesized direct and tautological clauses. Satisfy
   predicates also recognize direct field-access reflexive clauses where the
   candidate and visible binding share the same field suffix. Satisfy
-  predicates whose candidate substitution is already guaranteed by a valid
-  `require` clause mark the matching visible binding as an unapplied safe
-  repair candidate, including string-literal clauses and simple direct,
-  commuted, parenthesized comparison clauses, and whole parenthesized
-  `and` conjunctions. Negated equality and disequality clauses normalize into
-  their inverse comparisons before matching. Strict ordering `require` clauses
-  also discharge the corresponding inclusive ordering and disequality
-  `satisfy` clauses for the same operands. Equality `require` clauses discharge
-  inclusive ordering `satisfy` clauses for the same operands in either
-  direction. They also accept top-level `or` predicates when at least one
-  branch is fully guaranteed by valid `require` clauses, and top-level `or` in
-  `require` predicates when every branch guarantees the substituted `satisfy`
-  clause. Nested `or` branches inside `and` conjunctions are also recognized
-  when every branch guarantees the same substituted clause.
+  predicates may include literal `true` conjuncts without changing direct,
+  tautological, or `require`-matched repair status. Satisfy predicates whose
+  candidate substitution is already guaranteed by a valid `require` clause mark
+  the matching visible binding as an unapplied safe repair candidate, including
+  string-literal clauses and simple direct, commuted, parenthesized comparison
+  clauses, and whole parenthesized `and` conjunctions. Negated equality and
+  disequality clauses normalize into their inverse comparisons before matching.
+  Strict ordering `require` clauses also discharge the corresponding inclusive
+  ordering and disequality `satisfy` clauses for the same operands. Equality
+  `require` clauses discharge inclusive ordering `satisfy` clauses for the same
+  operands in either direction. They also accept top-level `or` predicates when
+  at least one branch is fully guaranteed by valid `require` clauses, and
+  top-level `or` in `require` predicates when every branch guarantees the
+  substituted `satisfy` clause. Nested `or` branches inside `and` conjunctions
+  are also recognized when every branch guarantees the same substituted clause.
+  Nested `or` branches inside `satisfy` `and` conjunctions are recognized when
+  at least one branch is guaranteed by valid `require` clauses.
   Broader repair discharge remains follow-up work before formatter
   stabilization.
 

@@ -92,16 +92,19 @@ binding, such as
 are also accepted, such as `candidate.count == fallback.count`. `and` may join
 clauses that all name the same binding.
 Wrapping each direct clause in balanced parentheses does not change this
-repair match. The accepted tautological clauses compare the satisfy candidate
-with itself using `==`, `<=`, or `>=`, such as `candidate == candidate`; `and`
-may join only tautological clauses. Wrapping each tautological clause in
-balanced parentheses does not change this repair match. A candidate is also
-safe when replacing the satisfy candidate binding with the visible symbol makes
-every `and` clause match a valid `require` clause already in force for the
-function; such candidates use `reason: "satisfy_require_match"`. This includes
-clauses with string literals, such as matching `candidate != ""` against
-`name != ""` after substituting `name`. Simple direct and commuted comparison
-clauses are treated as the same requirement, such as matching
+repair match. Literal `true` conjuncts do not affect direct repair matching,
+so `candidate == fallback and true` has the same repair status as
+`candidate == fallback`. The accepted tautological clauses compare the satisfy
+candidate with itself using `==`, `<=`, or `>=`, such as
+`candidate == candidate`; `and` may join only tautological clauses or literal
+`true` clauses. Wrapping each tautological clause in balanced parentheses does
+not change this repair match. A candidate is also safe when replacing the
+satisfy candidate binding with the visible symbol makes every non-`true` `and`
+clause match a valid `require` clause already in force for the function; such
+candidates use `reason: "satisfy_require_match"`. This includes clauses with
+string literals, such as matching `candidate != ""` against `name != ""` after
+substituting `name`. Simple direct and commuted comparison clauses are treated
+as the same requirement, such as matching
 `candidate > 0` against `0 < max` after substituting `max`; wrapping these
 simple clauses or the whole `and` conjunction in parentheses does not change
 the repair match. Negated equality and disequality clauses are normalized
@@ -125,10 +128,13 @@ when every `or` branch discharges that clause, such as
 `require max > 0 or max == 0` guaranteeing `candidate >= 0` after substituting
 `max`. The same rule applies inside conjunctions:
 `(max > 0 or max == 0) and max <= 10` guarantees
-`candidate >= 0 and candidate <= 10` after substituting `max`. Every
-type-compatible visible binding candidate for the tautological subset uses
-`reason: "satisfy_tautology"`. A statically accepted candidate also uses
-`satisfy_status: "statically_satisfied"`. Other candidates for a
+`candidate >= 0 and candidate <= 10` after substituting `max`. Nested `or`
+branches inside `satisfy` conjunctions are accepted when at least one branch is
+guaranteed; for example, `require max > 0 and max <= 10` guarantees
+`(candidate > 0 or candidate == 0) and candidate <= 10` after substituting
+`max`. Every type-compatible visible binding candidate for the tautological
+subset uses `reason: "satisfy_tautology"`. A statically accepted candidate also
+uses `satisfy_status: "statically_satisfied"`. Other candidates for a
 satisfy-constrained hole remain unapplied, use
 `application_policy: "manual_review_required"`, and carry
 `satisfy_status: "blocked_until_discharged"`.
