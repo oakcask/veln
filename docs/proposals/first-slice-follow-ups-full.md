@@ -237,7 +237,7 @@ No accepted language and type coverage follow-up is currently tracked here.
   complementary predicate and the remaining shared predicates are covered by
   complement disjuncts. Case-split top-level `or` predicates with shorter
   branches that cover the remaining assignments for the same predicate set are
-  also statically evaluated across up to eight non-static predicates.
+  also statically evaluated across up to ten non-static predicates.
   Case-split top-level `or`
   predicates where both branches are conjunctions with one complementary
   non-static variant and otherwise statically true conjuncts are also

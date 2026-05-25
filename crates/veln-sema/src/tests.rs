@@ -8091,7 +8091,7 @@ fn contract_predicate_wide_partial_case_split_or_is_statically_proven() {
 
 #[test]
 fn contract_predicate_max_width_partial_case_split_or_is_statically_proven() {
-    let fields = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    let fields = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
     let record_type = bool_record_type(&fields);
     let predicate = partial_case_split_chain_predicate("value", &fields);
     let source = SourceFile::new(

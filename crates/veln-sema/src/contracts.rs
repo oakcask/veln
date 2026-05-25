@@ -41,6 +41,7 @@ enum StaticBooleanValue {
 }
 
 const MAX_STATIC_BOOLEAN_ATOMS: usize = 10;
+const MAX_PARTIAL_CASE_SPLIT_ATOMS: usize = 10;
 
 fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     let predicate = strip_balanced_outer_parens(predicate.trim());
@@ -499,7 +500,7 @@ fn has_partial_case_split_top_level_or(predicate: &str) -> bool {
                 !same_predicate(base, conjunct) && !complementary_predicates(base, conjunct)
             }) {
                 bases.push(conjunct);
-                if bases.len() > 8 {
+                if bases.len() > MAX_PARTIAL_CASE_SPLIT_ATOMS {
                     return false;
                 }
             }
@@ -582,7 +583,7 @@ fn has_partial_case_split_top_level_and(predicate: &str) -> bool {
                 !same_predicate(base, disjunct) && !complementary_predicates(base, disjunct)
             }) {
                 bases.push(disjunct);
-                if bases.len() > 8 {
+                if bases.len() > MAX_PARTIAL_CASE_SPLIT_ATOMS {
                     return false;
                 }
             }

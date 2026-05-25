@@ -30,7 +30,7 @@ truth rule feeds satisfy repair ranking for valid hole predicates.
 It also evaluates small boolean formulas over up to ten unknown pure
 predicates after literal and comparison folding.
 It also proves partial case-split `or` predicates with shorter branches that
-cover every assignment across up to eight non-static predicates.
+cover every assignment across up to ten non-static predicates.
 Negated partial case-split `and` predicates are also statically proven when
 their disjunctive branches reject every assignment for the same predicate set.
 It also proves top-level `or` implications where a negated conjunction of
