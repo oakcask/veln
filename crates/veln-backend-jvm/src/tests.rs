@@ -374,6 +374,104 @@ fn generated_runtime_blocks_receive_until_value_is_sent() {
 }
 
 #[test]
+fn generated_runtime_blocks_send_until_capacity_is_available() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [concurrency]\n",
+        "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  let _ = channel::send(pair.tx, \"hello\")\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+    let root = temp_dir("blocking-channel-send");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("BlockingSendProbe.java"),
+        r#"public final class BlockingSendProbe {
+    private BlockingSendProbe() {}
+
+    public static void main(String[] args) throws Exception {
+        Object pair = VelnRuntime.channelBounded(Long.valueOf(1L));
+        Object tx = VelnRuntime.recordField(pair, "tx");
+        Object rx = VelnRuntime.recordField(pair, "rx");
+        Object first = VelnRuntime.channelSend(tx, "first");
+        if (!VelnRuntime.isOk(first)) {
+            throw new AssertionError("initial send should fill channel");
+        }
+        final Object[] second = new Object[1];
+        Thread sender = new Thread(() -> {
+            second[0] = VelnRuntime.channelSend(tx, "second");
+        });
+        sender.start();
+        Thread.sleep(100L);
+        if (!sender.isAlive()) {
+            throw new AssertionError("send should wait while channel is full");
+        }
+        Object received = VelnRuntime.channelRecv(rx);
+        sender.join(1000L);
+        if (sender.isAlive()) {
+            throw new AssertionError("send should complete after receive frees capacity");
+        }
+        if (!VelnRuntime.isSome(received)) {
+            throw new AssertionError("receive should return the queued value");
+        }
+        if (!"first".equals(VelnRuntime.optionValue(received))) {
+            throw new AssertionError("received unexpected queued value");
+        }
+        if (!VelnRuntime.isOk(second[0])) {
+            throw new AssertionError("blocked send should succeed after capacity is available");
+        }
+        Object later = VelnRuntime.channelRecv(rx);
+        if (!VelnRuntime.isSome(later)) {
+            throw new AssertionError("second send should enqueue its value");
+        }
+        if (!"second".equals(VelnRuntime.optionValue(later))) {
+            throw new AssertionError("received unexpected second value");
+        }
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("BlockingSendProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("BlockingSendProbe")
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        java.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&java.stdout),
+        String::from_utf8_lossy(&java.stderr)
+    );
+}
+
+#[test]
 fn generates_record_pattern_matching() {
     let ir = lower_to_ir(concat!(
         "pub fn main(value: {count: Int, label: String}) -> String effects []\n",

@@ -47,13 +47,15 @@ return new frozen containers instead of mutating the input value in place.
 Bounded channel values are backend-owned runtime handles. `channel::bounded`
 and `channel::bounded[T]` return a record with `tx` and `rx` fields.
 `channel::clone(tx)` returns another sender endpoint for the same channel.
-Sending freezes the sent value before crossing the channel boundary. Receiving
-blocks until a queued value is available or the sender endpoint is closed. It
-returns `Some(value)` for a received value and `None` after the channel is
-closed and drained. A capacity of zero creates a no-buffer rendezvous channel.
-It has no queue storage: sending waits until a receiver is ready, transfers the
-value directly, and then returns `Ok(())`. A waiting receive on a zero-capacity
-channel returns `Some(value)` when the paired send transfers a value.
+Sending freezes the sent value before crossing the channel boundary. On a
+positive-capacity channel, sending waits while the queue is full and then
+returns `Ok(())` after the value is queued. Receiving blocks until a queued
+value is available or the sender endpoint is closed. It returns `Some(value)`
+for a received value and `None` after the channel is closed and drained. A
+capacity of zero creates a no-buffer rendezvous channel. It has no queue
+storage: sending waits until a receiver is ready, transfers the value directly,
+and then returns `Ok(())`. A waiting receive on a zero-capacity channel returns
+`Some(value)` when the paired send transfers a value.
 Closing the sender endpoint prevents later sends from succeeding and wakes
 waiting receivers.
 

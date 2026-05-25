@@ -107,13 +107,14 @@ inferred from the expected record type, such as
 `{tx: Sender(String), rx: Receiver(String)}`. `channel::bounded[T](capacity)`
 uses the explicit item type when no expected record type is present.
 `channel::clone` returns another sender endpoint for the same channel and
-preserves the sender item type. `channel::send` returns `Ok(())` when the value
-is queued or transferred through a zero-capacity rendezvous, and
-`Err(SendError)` when the sender cannot accept the value. `channel::recv`
-waits for a queued value, a rendezvous value, or sender close, returns
-`Some(value)` for a received value, and returns `None` after the channel is
-closed and drained. A zero-capacity channel has no queue storage; a send waits
-until a receiver is ready and then transfers the value directly.
+preserves the sender item type. `channel::send` waits while a positive-capacity
+channel is full, returns `Ok(())` when the value is queued or transferred
+through a zero-capacity rendezvous, and returns `Err(SendError)` when the
+sender cannot accept the value. `channel::recv` waits for a queued value, a
+rendezvous value, or sender close, returns `Some(value)` for a received value,
+and returns `None` after the channel is closed and drained. A zero-capacity
+channel has no queue storage; a send waits until a receiver is ready and then
+transfers the value directly.
 `channel::close` closes the sender endpoint, wakes waiting receivers, and
 returns `()`.
 

@@ -368,8 +368,16 @@ impl<'a> ProgramEmitter<'a> {
                 }}
                 return ok(UNIT);
             }}
-            if (tx.channel.queue.size() >= tx.channel.capacity) {{
-                return err("full");
+            while (!tx.channel.closed && tx.channel.queue.size() >= tx.channel.capacity) {{
+                try {{
+                    tx.channel.wait();
+                }} catch (InterruptedException interrupted) {{
+                    Thread.currentThread().interrupt();
+                    return err("interrupted");
+                }}
+            }}
+            if (tx.channel.closed) {{
+                return err("closed");
             }}
             tx.channel.queue.addLast(freezeValue(value));
             tx.channel.notifyAll();
@@ -424,6 +432,7 @@ impl<'a> ProgramEmitter<'a> {
             if (value == null) {{
                 return none();
             }}
+            rx.channel.notifyAll();
             return some(value);
         }}
     }}
