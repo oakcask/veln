@@ -71,9 +71,11 @@ made from boolean literals, literal comparisons, parentheses, `not`, `and`,
 and `or` are classified as `statically_proven` when they evaluate to `true`;
 the runtime does not emit a check for them. Literal comparisons include
 boolean and string equality or disequality and numeric equality, disequality,
-and ordering, using exact decimal literal ordering. Numeric literal
-comparisons may include pure literal `+`, `-`, and `*` subexpressions, such as
-`1 + 1 == 2`, `10 - 4 == 6`, `0.5 + 2.0 == 2.5`, and `3 * 4 >= 12`.
+and ordering, using exact decimal literal ordering. Balanced grouping around
+literal operands does not prevent static literal comparison, so
+`("ready") == "ready"` is statically proven. Numeric literal comparisons may
+include pure literal `+`, `-`, and `*` subexpressions, such as `1 + 1 == 2`,
+`10 - 4 == 6`, `0.5 + 2.0 == 2.5`, and `3 * 4 >= 12`.
 They may also include `/` when the result is exactly representable as a finite
 decimal, such as `8 / 4 == 2` and `1 / 2 == 0.5`.
 The same static truth folding also accepts boolean identity cases where one
@@ -86,6 +88,10 @@ statically proven after validation. Boolean equality and disequality over
 statically known boolean subexpressions are also classified statically, such
 as `(1 < 2) == true`, `(not false) == true`, and
 `(output == output) != false`.
+Equality and disequality comparisons between complementary pure predicates are
+also classified statically after validation, such as
+`flag != not flag`, `(value == limit) != (value != limit)`, and
+`output.ready != not(output.ready)`.
 A top-level `or` between the same pure
 boolean predicate and its negation is also statically true after validation,
 such as `flag or not flag` or

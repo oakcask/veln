@@ -6721,6 +6721,33 @@ fn contract_predicate_literal_comparisons_are_statically_proven() {
 }
 
 #[test]
+fn contract_predicate_grouped_string_literals_are_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: String) -> output: String effects []\n",
+            "require (\"ready\") == \"ready\"\n",
+            "ensure (\"done\") != (\"pending\")\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_static_boolean_comparisons_are_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
@@ -6730,6 +6757,34 @@ fn contract_predicate_static_boolean_comparisons_are_statically_proven() {
             "require (not false) == true and (1 > 2) == false\n",
             "ensure (output == output) != false\n",
             "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_complementary_boolean_comparisons_are_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, limit: Int) -> output: {ready: Bool} effects []\n",
+            "require value.ready != not value.ready\n",
+            "require (limit == 0) != (limit != 0)\n",
+            "ensure (output.ready) != not(output.ready)\n",
+            "  value\n",
             "end\n",
         ),
     );

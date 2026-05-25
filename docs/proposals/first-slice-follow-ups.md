@@ -190,15 +190,20 @@ No accepted language and type coverage follow-up is currently tracked here.
   Same-shape comparison predicates are also statically evaluated after
   whitespace normalization. Literal numeric `+`, `-`, `*`, and exactly
   representable `/` subexpressions inside comparisons are also statically
-  evaluated. Boolean equality and disequality over statically known boolean
-  subexpressions are also statically evaluated. Top-level ordering trichotomy
-  disjunctions over the same operands, and negated conjunctions containing
-  mutually exclusive ordering trichotomy relations over the same operands, are
-  also statically evaluated after whitespace normalization and
+  evaluated. Balanced grouping around literal comparison operands does not
+  prevent static literal comparison. Boolean equality and disequality over
+  statically known boolean subexpressions are also statically evaluated.
+  Equality and disequality comparisons between complementary pure predicates
+  are also statically evaluated after validation.
+  Top-level ordering trichotomy disjunctions over the same operands, and
+  negated conjunctions containing mutually exclusive ordering trichotomy
+  relations over the same operands, are also statically evaluated after
+  whitespace normalization and
   commuted ordering normalization. Richer
   predicate semantics beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
-  static boolean comparisons, complementary boolean and comparison
+  static boolean comparisons, complementary predicate comparisons,
+  complementary boolean and comparison
   disjunctions, ordering trichotomy disjunctions, negated complementary
   boolean and comparison conjunctions, and negated mutually exclusive order
   conjunctions remain follow-up work.

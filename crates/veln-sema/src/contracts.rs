@@ -83,6 +83,7 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     for operator in ["==", "!=", "<=", ">=", "<", ">"] {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {
             return static_literal_comparison(left, operator, right)
+                .or_else(|| static_complementary_predicate_comparison(left, operator, right))
                 .or_else(|| static_same_shape_comparison(left, operator, right))
                 .map_or(StaticBooleanValue::Unknown, StaticBooleanValue::from);
         }
@@ -342,6 +343,17 @@ fn static_same_shape_comparison(left: &str, operator: &str, right: &str) -> Opti
     }
 }
 
+fn static_complementary_predicate_comparison(
+    left: &str,
+    operator: &str,
+    right: &str,
+) -> Option<bool> {
+    if !matches!(operator, "==" | "!=") || !complementary_predicates(left, right) {
+        return None;
+    }
+    Some(operator == "!=")
+}
+
 fn compact_predicate_text(predicate: &str) -> String {
     let mut output = String::with_capacity(predicate.len());
     let mut chars = predicate.chars();
@@ -504,6 +516,7 @@ fn static_number_comparison(
 
 impl StaticLiteral {
     fn parse(text: &str) -> Option<Self> {
+        let text = strip_balanced_outer_parens(text.trim());
         match text {
             "true" => return Some(Self::Bool(true)),
             "false" => return Some(Self::Bool(false)),
