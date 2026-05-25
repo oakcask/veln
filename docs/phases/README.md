@@ -14,10 +14,10 @@ This directory keeps implementation-phase plans and working notes.
 ## Read When
 
 - Use this directory when starting or reviewing implementation work.
-- Use `docs/reviews/` before relying on a phase completion claim.
-- Use `docs/reference/source-decisions/` when you need implemented decision
+- Use `../reviews/` before relying on a phase completion claim.
+- Use `../reference/source-decisions/` when you need implemented decision
   rationale.
-- Use `docs/proposals/agent-language-spec-wall/` when you need planned or
+- Use `../proposals/agent-language-spec-wall/` when you need planned or
   incomplete decision rationale.
-- Use `docs/reference/` when a decision has been promoted to stable reference
+- Use `../reference/` when a decision has been promoted to stable reference
   material.

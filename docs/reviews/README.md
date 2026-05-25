@@ -12,6 +12,6 @@ gap lists that should guide follow-up work.
 ## Read When
 
 - Use this directory before claiming an implementation phase is complete.
-- Use `docs/phases/` for the implementation plan and intended ordering.
-- Use `docs/reference/source-decisions/` and
-  `docs/proposals/agent-language-spec-wall/` for original decision rationale.
+- Use `../phases/` for the implementation plan and intended ordering.
+- Use `../reference/source-decisions/` and
+  `../proposals/agent-language-spec-wall/` for original decision rationale.

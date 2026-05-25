@@ -30,8 +30,8 @@ target tracked in `../../proposals/`.
 - [execution.md](execution.md): checked-core and backend boundaries.
 - [examples.md](examples.md): complete examples that exercise implemented
   language behavior.
-- [source-decisions.md](source-decisions.md): dated discussion results that
-  support this specification.
+- [source-decisions.md](source-decisions.md): discussion results that support
+  this specification.
 
 ## Skip Unless Needed
 
