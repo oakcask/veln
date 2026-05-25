@@ -140,3 +140,68 @@ fn parse_explain(args: impl Iterator<Item = String>) -> Result<Command, String> 
         diagnostic_id,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Command;
+
+    fn parse(args: &[&str]) -> Result<Command, String> {
+        Command::parse(args.iter().map(|arg| arg.to_string()).collect())
+    }
+
+    #[test]
+    fn run_parser_preserves_entry_args_after_separator() {
+        let command = parse(&[
+            "run",
+            "--json",
+            "main",
+            "src/main.veln",
+            "--",
+            "--name",
+            "Ada",
+        ])
+        .expect("run command should parse");
+
+        let Command::Run {
+            json,
+            entry,
+            inputs,
+            entry_args,
+        } = command
+        else {
+            panic!("expected run command");
+        };
+
+        assert!(json);
+        assert_eq!(entry, "main");
+        assert_eq!(inputs, [std::path::PathBuf::from("src/main.veln")]);
+        assert_eq!(entry_args, ["--name", "Ada"]);
+    }
+
+    #[test]
+    fn run_parser_reports_flags_before_separator_as_run_flags() {
+        let error = match parse(&["run", "main", "--name"]) {
+            Ok(_) => panic!("flag before separator should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown run flag `--name`");
+    }
+
+    #[test]
+    fn explain_parser_accepts_list_with_diagnostic_id() {
+        let command =
+            parse(&["explain", "--list", "hole.unfilled"]).expect("explain command should parse");
+
+        let Command::Explain {
+            list,
+            diagnostic_id,
+        } = command
+        else {
+            panic!("expected explain command");
+        };
+
+        assert!(list);
+        assert_eq!(diagnostic_id.as_deref(), Some("hole.unfilled"));
+    }
+}
