@@ -1199,6 +1199,9 @@ impl<'a> FunctionChecker<'a> {
                 }
             }
             _ => {
+                if let Some(function) = self.environment.function_path(segments) {
+                    return function.ty();
+                }
                 let symbol = segments.join("::");
                 self.push_unresolved_name(expr.node_id, expr.span.clone(), &symbol, "value");
                 Type::Unknown
@@ -2153,7 +2156,12 @@ impl<'a> FunctionChecker<'a> {
                     .iter()
                     .rev()
                     .find(|binding| binding.name == *name)
-                    .map(|binding| binding.ty.clone()),
+                    .map(|binding| binding.ty.clone())
+                    .or_else(|| {
+                        self.environment
+                            .function(name)
+                            .map(|function| function.ty())
+                    }),
                 _ => None,
             },
             ExprKind::Call { callee, .. } => self
@@ -3582,6 +3590,53 @@ impl RepairEquivalences {
             })
     }
 
+    fn canonical_expression(&self, expression: &str) -> String {
+        let mut output = String::with_capacity(expression.len());
+        let mut chars = expression.char_indices().peekable();
+        while let Some((start, ch)) = chars.next() {
+            if ch == '"' {
+                output.push(ch);
+                let mut escaped = false;
+                for (_, string_ch) in chars.by_ref() {
+                    output.push(string_ch);
+                    if escaped {
+                        escaped = false;
+                    } else if string_ch == '\\' {
+                        escaped = true;
+                    } else if string_ch == '"' {
+                        break;
+                    }
+                }
+            } else if is_ident_start(ch) {
+                let mut end = start + ch.len_utf8();
+                while let Some((next, next_ch)) = chars.peek().copied() {
+                    if !is_ident_continue(next_ch) {
+                        break;
+                    }
+                    chars.next();
+                    end = next + next_ch.len_utf8();
+                }
+                let ident = &expression[start..end];
+                if is_value_identifier_position(expression, start, end) {
+                    output.push_str(self.canonical_operand(ident));
+                } else {
+                    output.push_str(ident);
+                }
+            } else if !ch.is_whitespace() {
+                output.push(ch);
+            }
+        }
+        output
+    }
+
+    fn canonical_operand<'a>(&'a self, operand: &'a str) -> &'a str {
+        self.groups
+            .iter()
+            .find(|group| group.iter().any(|item| item == operand))
+            .and_then(|group| group.iter().min().map(String::as_str))
+            .unwrap_or(operand)
+    }
+
     fn group_index(&self, operand: &str) -> Option<usize> {
         self.groups
             .iter()
@@ -3639,6 +3694,7 @@ fn repair_operands_equivalent(
 ) -> bool {
     equivalences.equivalent(required, wanted)
         || compact_predicate_text(required) == compact_predicate_text(wanted)
+        || equivalences.canonical_expression(required) == equivalences.canonical_expression(wanted)
 }
 
 struct ParsedRepairComparison<'a> {

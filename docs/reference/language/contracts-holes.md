@@ -19,6 +19,8 @@ predicate reports `parse.satisfy_predicate`.
 After parsing, the checker validates a small pure boolean subset:
 
 - `true` and `false`
+- string literals, including equality and disequality comparisons with the
+  string literal on either side
 - boolean bindings visible to the clause
 - `and`, `or`, and `not`
 - arithmetic expressions over numeric literals and visible numeric bindings
@@ -247,7 +249,10 @@ inverted `or` branches before `require` matching. For example,
 after substituting `max`, because one inverted branch is guaranteed. Every
 same-shape expression operand in `require`-matched repair is compared after
 whitespace normalization, so `require max + 1 <= fallback + 1` guarantees
-`candidate+1 <= fallback+1` after substituting `max`. Every
+`candidate+1 <= fallback+1` after substituting `max`. Equality requirements
+also apply inside same-shape expression operands before that comparison, so
+`require max == fallback` plus `require fallback + 1 <= limit + 1` guarantees
+`candidate + 1 <= limit + 1` after substituting `max`. Every
 type-compatible visible binding candidate for the tautological
 subset uses `reason: "satisfy_tautology"`. A statically accepted candidate also
 uses `satisfy_status: "statically_satisfied"`. Other candidates for a

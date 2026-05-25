@@ -2475,6 +2475,55 @@ fn marks_whitespace_normalized_expression_require_as_satisfy_repair_evidence() {
 }
 
 #[test]
+fn marks_aliased_expression_require_as_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int, limit: Int, other: Int) -> Int\n",
+            "  require max == fallback\n",
+            "  require fallback + 1 <= limit + 1\n",
+            "  _value satisfy candidate => candidate + 1 <= limit + 1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"other\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_reflexive_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":3,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-4\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":4,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"max\""));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        3
+    );
+}
+
+#[test]
 fn leaves_inclusive_transitive_order_as_manual_for_strict_satisfy_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -3218,6 +3267,56 @@ fn resolves_qualified_calls_through_import_aliases() {
 }
 
 #[test]
+fn resolves_qualified_function_values_through_import_aliases() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.text\n",
+            "pub fn main() -> List(String) effects []\n",
+            "  list_map([1], text::stringify)\n",
+            "end\n",
+        ),
+    );
+    let text_source = SourceFile::new(
+        "text.veln",
+        concat!(
+            "mod app.text\n",
+            "fn stringify(value: Int) -> String effects []\n",
+            "  \"ok\"\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let text = lower_surface_ast(&parse(&text_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        functions: main.functions.into_iter().chain(text.functions).collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("tail expression should lower as call");
+    };
+    assert!(matches!(
+        &args[1].kind,
+        CoreExprKind::FunctionValue(name) if name == "stringify"
+    ));
+}
+
+#[test]
 fn unresolved_qualified_calls_do_not_fall_back_to_bare_functions() {
     let source = SourceFile::new(
         "main.veln",
@@ -3849,6 +3948,91 @@ fn channel_calls_require_concurrency_effect() {
     assert!(details.contains("\"effect\":\"concurrency\""));
     assert!(details.contains("\"inferred_effects\":[\"concurrency\"]"));
     assert!(details.contains("\"symbol\":\"channel::send\""));
+}
+
+#[test]
+fn task_calls_require_concurrency_effect() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn produce() -> String effects []\n",
+            "  \"hello\"\n",
+            "end\n",
+            "pub fn main() -> Task(String) effects []\n",
+            "  task::spawn(produce)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `concurrency`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"concurrency\""));
+    assert!(details.contains("\"symbol\":\"task::spawn\""));
+}
+
+#[test]
+fn task_spawn_and_join_preserve_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn produce() -> String effects []\n",
+            "  \"hello\"\n",
+            "end\n",
+            "pub fn main() -> Result(String, JoinError) effects [concurrency]\n",
+            "  let task = task::spawn(produce)\n",
+            "  task::join(task)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Let { expr, .. } = &main.body[0].kind else {
+        panic!("expected task binding");
+    };
+    assert_eq!(expr.ty, CoreType::named("Task", vec![CoreType::string()]));
+    let CoreStmtKind::Return { expr } = &main.body[1].kind else {
+        panic!("expected joined return");
+    };
+    assert_eq!(
+        expr.ty,
+        CoreType::result(CoreType::string(), CoreType::named("JoinError", Vec::new()))
+    );
+    let ir = lowered.ir.expect("task calls should lower to IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should lower to IR");
+    assert!(matches!(
+        &main.body[0].kind,
+        IrStmtKind::Let { value, .. }
+            if matches!(
+                &value.kind,
+                IrExprKind::Call {
+                    target: IrCallTarget::ConcurrencyBuiltin(name),
+                    ..
+                } if name == "task::spawn"
+            )
+    ));
 }
 
 #[test]

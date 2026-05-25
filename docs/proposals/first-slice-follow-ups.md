@@ -84,7 +84,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   Same-shape expression tautologies rooted at the satisfy candidate are
   accepted after whitespace normalization.
   Same-shape expression operands in `require`-matched repair comparisons are
-  compared after whitespace normalization.
+  compared after whitespace normalization, including equality aliases inside
+  those expression operands.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.
@@ -95,9 +96,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   private helper body effects propagate to callers, and effect diagnostics
   expose bounded path entries with hidden-frame and omitted-path counts.
 - The executable bounded-channel slice is implemented and specified in the
-  language reference. `spawn`, task handles, cancellation, join, selection,
-  and concurrent stdio/test event ordering remain future concurrency surface
-  work.
+  language reference. The executable task slice now covers `spawn`, task
+  handles, cancellation, and join. Test-visible stdio event capture now
+  serializes each output operation with its event sequence. Selection remains
+  future concurrency surface work.
 - The checker validates the first-slice pure boolean contract subset. Runtime
   contract discharge is implemented for function-entry `require` checks and
   `ensure` checks before both ordinary returns and `?` early returns.
@@ -122,12 +124,14 @@ No accepted formatting follow-up is currently tracked here.
 ## Lowering And Execution
 
 - Reachable-hole blocking follows the selected entry, direct function-name
-  calls, bare function declaration values used in reachable expressions, and
-  function calls in contract predicates. Qualified calls through `use` aliases
-  now resolve reachability to functions in the imported source module without
-  including same-named functions from other modules. Broader conservative
-  handling for future higher-order values and module initializers remains
-  follow-up work.
+  calls, bare and `use` alias-qualified function declaration values used in
+  reachable expressions, and function calls in contract predicates. Bare
+  function references from a named source module now resolve reachability only
+  to functions owned by that same module. Qualified calls and qualified
+  function values through `use` aliases resolve reachability to functions in
+  the imported source module without including same-named functions from other
+  modules. Broader conservative handling for future higher-order values and
+  module initializers remains follow-up work.
 
 ## Test Discovery And Events
 
