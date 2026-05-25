@@ -123,7 +123,10 @@ clause in balanced parentheses does not change this repair match. Literal
 `false` disjuncts do not affect tautological repair matching. A top-level
 literal `true` disjunct makes the whole `satisfy` predicate tautological for
 repair ranking, so every type-compatible visible binding is a safe repair
-candidate.
+candidate. A top-level disjunct that is itself tautological for the satisfy
+candidate has the same effect; for example,
+`candidate == candidate or candidate == fallback` ranks every type-compatible
+visible binding as a safe tautology repair candidate.
 A candidate is also safe when replacing the
 satisfy candidate binding with the visible symbol makes every non-`true` `and`
 clause match a valid `require` clause already in force for the function; such

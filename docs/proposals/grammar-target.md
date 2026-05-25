@@ -26,7 +26,9 @@ ordering clauses into their inverse comparisons before matching valid
 `require` clauses, and normalizes negated direct `satisfy` equality and
 ordering clauses before direct repair matching. Direct `satisfy` repair also
 accepts top-level `or` branches when every branch names the same visible
-binding and becomes reflexive after substitution. Equality `require` clauses
+binding and becomes reflexive after substitution. Top-level `or` branches that
+are tautological for the satisfy candidate make every type-compatible visible
+binding a safe repair candidate. Equality `require` clauses
 create non-disjunctive operand aliases for repair discharge, including alias
 preservation for strict-ordering disequality evidence and paired inclusive
 bound equality evidence. Valid non-disjunctive `require` ordering chains

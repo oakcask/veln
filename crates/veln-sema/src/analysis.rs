@@ -2825,26 +2825,29 @@ fn tautological_candidate_predicate(
     if disjuncts.is_empty() {
         return None;
     }
-    for disjunct in disjuncts {
-        let clauses = repair_relevant_and_clauses(disjunct);
-        if clauses.is_empty() {
-            return None;
-        }
-        for clause in clauses {
-            if !is_candidate_tautology_clause(&clause, candidate) {
-                return None;
-            }
-        }
+    if disjuncts
+        .into_iter()
+        .any(|disjunct| is_candidate_tautology_disjunct(disjunct, candidate))
+    {
+        return Some(TautologicalCandidatePredicate {
+            reason: "satisfy_tautology",
+        });
     }
-    Some(TautologicalCandidatePredicate {
-        reason: "satisfy_tautology",
-    })
+    None
 }
 
 fn has_true_disjunct(predicate: &str) -> bool {
     split_top_level_keyword(strip_balanced_outer_parens(predicate), "or")
         .into_iter()
         .any(|clause| normalized_predicate_clause(clause) == "true")
+}
+
+fn is_candidate_tautology_disjunct(predicate: &str, candidate: &str) -> bool {
+    let clauses = repair_relevant_and_clauses(predicate);
+    !clauses.is_empty()
+        && clauses
+            .iter()
+            .all(|clause| is_candidate_tautology_clause(clause, candidate))
 }
 
 fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
