@@ -76,6 +76,33 @@ impl TestProject {
         bin
     }
 
+    #[cfg(unix)]
+    fn bin_dir_with_counting_jdk(&self) -> (PathBuf, PathBuf) {
+        let bin = self.root.join("bin");
+        fs::create_dir_all(&bin).expect("bin directory should be created");
+        let count_file = self.root.join("javac-count");
+        let javac = bin.join("javac");
+        fs::write(
+            &javac,
+            format!(
+                "#!/bin/sh\nif read count < '{}'; then :; else count=0; fi\ncount=$((count + 1))\nprintf '%s\\n' \"$count\" > '{}'\nexit 0\n",
+                count_file.display(),
+                count_file.display(),
+            ),
+        )
+        .expect("fake javac should be written");
+        let java = bin.join("java");
+        fs::write(&java, "#!/bin/sh\nexit 0\n").expect("fake java should be written");
+        for tool in [&javac, &java] {
+            let mut permissions = fs::metadata(tool)
+                .expect("fake tool metadata should be available")
+                .permissions();
+            permissions.set_mode(0o755);
+            fs::set_permissions(tool, permissions).expect("fake tool should be executable");
+        }
+        (bin, count_file)
+    }
+
     fn run_with_path(&self, args: &[&str], path: &str) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
         command.current_dir(&self.root);
@@ -1680,6 +1707,23 @@ fn run_reports_missing_javac_clearly() {
         stderr(&output),
         &["veln: `javac` was not found; install a JDK to use `veln run`"],
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn run_reuses_cached_java_compilation() {
+    let project = TestProject::new("run-build-cache");
+    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
+    let (bin, count_file) = project.bin_dir_with_counting_jdk();
+    let path = bin.to_str().expect("bin path should be UTF-8");
+
+    let first = project.run_with_path(&["main", "main.veln"], path);
+    let second = project.run_with_path(&["main", "main.veln"], path);
+
+    assert!(first.status.success(), "{}", stderr(&first));
+    assert!(second.status.success(), "{}", stderr(&second));
+    let count = fs::read_to_string(count_file).expect("javac count should be written");
+    assert_eq!(count.trim(), "1");
 }
 
 #[test]

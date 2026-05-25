@@ -16,8 +16,8 @@ reachability, selected-entry reachable-hole blocking, and selected-entry
 channel concurrency blockers before JVM execution.
 
 The typed IR is runtime-neutral. JVM class names, Java method names, boxed
-runtime representation, generated artifact paths, and runtime helper layout are
-backend details and are not language facts.
+runtime representation, generated artifact paths, cache keys, and runtime
+helper layout are backend details and are not language facts.
 
 ## JVM Backend
 
@@ -54,3 +54,8 @@ identity, and blame route. `veln run --json` reports one top-level structured
 runtime error record. `veln test --json` embeds runtime contract failures in
 the failed case with structured runtime contract details. `require` uses caller
 blame; `ensure` uses implementation blame.
+
+The JVM execution path keeps a persistent class cache for generated Java
+sources. Cache hits may skip `javac`, but command results, stdout, stderr,
+contract traces, and captured stdio events are defined as if the generated
+program was compiled for that invocation.

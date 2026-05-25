@@ -32,4 +32,4 @@ The following behavior is not fixed by this reference:
 - The exact shape of kind-specific diagnostic `details` fields not listed in
   [diagnostics-json.md](diagnostics-json.md).
 - Package manifests beyond implemented module validation, imports, modules
-  beyond source discovery, and persistent build caches.
+  beyond source discovery, and the exact on-disk layout of build caches.

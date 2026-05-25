@@ -52,7 +52,6 @@ No accepted formatting follow-up is currently tracked here.
   function calls in contract predicates. Broader conservative handling for
   future higher-order values, module initializers, imports, and ambiguous graph
   edges remains follow-up work.
-- A persistent build cache remains deferred.
 
 ## Test Discovery And Events
 

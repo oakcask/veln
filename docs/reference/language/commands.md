@@ -68,10 +68,14 @@ arguments, not source inputs. Entry parameters may be declared as `String`,
 JVM double-precision decimal text, and `Bool` arguments must be exactly `true`
 or `false`. The reachable program is semantically checked, lowered to checked
 core, then typed IR, then generated Java source. Semantic diagnostics in
-functions unreachable from the selected entry do not block `run`. The command
-writes generated Java artifacts to an isolated temporary build directory,
-invokes `javac`, invokes `java`, forwards process stdout and stderr in human
-mode, and returns the Java process status for runtime failures.
+functions unreachable from the selected entry do not block `run`.
+
+The command caches compiled Java artifacts by generated source content below
+the project-local build output area. On a cache miss it invokes `javac`; on a
+cache hit it reuses the cached classes and invokes `java` directly. Runtime
+trace files for JSON output remain isolated to the individual command
+invocation. Human mode forwards process stdout and stderr and returns the Java
+process status for runtime failures.
 
 With `--json`, `run` captures process stdout and stderr into the run JSON
 record instead of forwarding them separately. Runtime contract failures are
@@ -83,7 +87,8 @@ succeeds is reported as a JDK setup error.
 ## `veln test [--json] [target ...]`
 
 `test` reuses the parser, semantic diagnostics, checked-core lowering, typed IR,
-JVM backend, and Java execution path used by `run`.
+JVM backend, and Java execution path used by `run`, including the generated
+Java artifact cache.
 
 Like `run`, `test` combines parse-clean selected files into one surface module
 before semantic analysis.
