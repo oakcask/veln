@@ -88,7 +88,9 @@ reflexive or tautological. The accepted direct clauses are equality and
 inclusive comparison between the satisfy candidate and the same visible
 binding, such as
 `candidate == fallback`, `fallback == candidate`, `candidate <= fallback`, and
-`fallback >= candidate`; `and` may join clauses that all name the same binding.
+`fallback >= candidate`. Field-access forms with the same suffix on both sides
+are also accepted, such as `candidate.count == fallback.count`. `and` may join
+clauses that all name the same binding.
 Wrapping each direct clause in balanced parentheses does not change this
 repair match. The accepted tautological clauses compare the satisfy candidate
 with itself using `==`, `<=`, or `>=`, such as `candidate == candidate`; `and`

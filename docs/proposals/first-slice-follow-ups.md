@@ -27,6 +27,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   comparison predicates on the satisfy candidate itself mark every
   type-compatible visible binding candidate as an unapplied safe repair
   candidate, including parenthesized direct and tautological clauses. Satisfy
+  predicates also recognize direct field-access reflexive clauses where the
+  candidate and visible binding share the same field suffix. Satisfy
   predicates whose candidate substitution is already guaranteed by a valid
   `require` clause mark the matching visible binding as an unapplied safe
   repair candidate, including string-literal clauses and simple direct,

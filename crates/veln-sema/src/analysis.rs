@@ -2767,15 +2767,10 @@ fn direct_reflexive_clause(predicate: &str, candidate: &str) -> Option<Reflexive
 
 fn reflexive_operand(predicate: &str, candidate: &str, operator: &str) -> Option<String> {
     let (left, right) = predicate.split_once(operator)?;
-    let left = left.trim();
-    let right = right.trim();
-    if left == candidate && is_plain_identifier(right) {
-        Some(right.to_string())
-    } else if right == candidate && is_plain_identifier(left) {
-        Some(left.to_string())
-    } else {
-        None
-    }
+    let left = operand_path(left)?;
+    let right = operand_path(right)?;
+    reflexive_path_binding(&left, &right, candidate)
+        .or_else(|| reflexive_path_binding(&right, &left, candidate))
 }
 
 fn is_plain_identifier(value: &str) -> bool {
@@ -2785,6 +2780,25 @@ fn is_plain_identifier(value: &str) -> bool {
     };
     (first.is_ascii_alphabetic() || first == '_')
         && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn operand_path(value: &str) -> Option<Vec<&str>> {
+    value
+        .trim()
+        .split('.')
+        .map(str::trim)
+        .map(|segment| is_plain_identifier(segment).then_some(segment))
+        .collect()
+}
+
+fn reflexive_path_binding(left: &[&str], right: &[&str], candidate: &str) -> Option<String> {
+    let (Some(left_base), Some(right_base)) = (left.first(), right.first()) else {
+        return None;
+    };
+    if *left_base != candidate || *right_base == candidate || !is_plain_identifier(right_base) {
+        return None;
+    }
+    (left[1..] == right[1..]).then(|| (*right_base).to_string())
 }
 
 fn normalized_and_clauses(predicate: &str) -> Vec<String> {
