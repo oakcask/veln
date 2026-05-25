@@ -267,12 +267,16 @@ No accepted language and type coverage follow-up is currently tracked here.
   every assignment for the same predicate set are also statically evaluated.
   Boolean literal aliases such as `flag == true`, `false == flag`, and
   `flag != false` also participate in complementary static truth identities.
+  Top-level `or` predicates whose negated ordering-bound conjunction
+  transitively guarantees another ordering bound are also statically
+  evaluated.
   Richer predicate semantics beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, complementary predicate comparisons,
   complementary boolean and comparison disjunctions, ordering trichotomy
-  disjunctions, negated complementary boolean and comparison conjunctions, and
-  negated mutually exclusive order conjunctions remain follow-up work.
+  disjunctions, negated complementary boolean and comparison conjunctions,
+  negated mutually exclusive order conjunctions, and transitive ordering-bound
+  implications remain follow-up work.
 
 ## Formatting
 

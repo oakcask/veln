@@ -182,6 +182,11 @@ Inclusive ordering totality over the same operands is statically proven, such
 as `value <= limit or limit <= value` and
 `value >= limit or limit >= value`, after whitespace normalization and
 commuted ordering normalization.
+Top-level `or` also proves implications where a negated `and` of ordering
+bounds transitively guarantees another ordering bound. For example,
+`not (low <= mid and mid < high) or low < high` is statically proven because
+the antecedent guarantees the strict endpoint bound, while an all-inclusive
+path only proves an inclusive endpoint bound.
 Top-level `or` also proves case-split predicates when one branch is the
 complement of another branch and every other conjunct in that branch is
 statically true. For example,

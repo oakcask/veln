@@ -70,6 +70,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_negated_disjunction_covered_by_disjuncts(predicate) {
         return StaticBooleanValue::True;
     }
+    if has_order_bound_transitive_implication_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
     if has_conjunction_covered_by_complement_disjuncts(predicate) {
         return StaticBooleanValue::True;
     }
@@ -928,6 +931,62 @@ fn order_bound_shape(predicate: &str) -> Option<OrderBoundShape> {
         }
     }
     None
+}
+
+fn has_order_bound_transitive_implication_top_level_or(predicate: &str) -> bool {
+    let disjuncts = flattened_keyword_clauses(predicate, "or");
+    if disjuncts.len() < 2 {
+        return false;
+    }
+
+    disjuncts.iter().any(|antecedent| {
+        let Some(inner) = negated_predicate_inner(antecedent) else {
+            return false;
+        };
+        let edges: Vec<_> = flattened_keyword_clauses(inner, "and")
+            .into_iter()
+            .filter_map(order_bound_shape)
+            .collect();
+        if edges.len() < 2 {
+            return false;
+        }
+        disjuncts.iter().any(|consequent| {
+            !same_predicate(antecedent, consequent)
+                && order_bound_shape(consequent).is_some_and(|wanted| {
+                    order_bound_edges_imply(&edges, &wanted.left, &wanted.right, wanted.strict)
+                })
+        })
+    })
+}
+
+fn order_bound_edges_imply(
+    edges: &[OrderBoundShape],
+    left: &str,
+    right: &str,
+    strict: bool,
+) -> bool {
+    let mut stack = vec![(left.to_string(), false)];
+    let mut visited = Vec::new();
+
+    while let Some((current, path_strict)) = stack.pop() {
+        if visited
+            .iter()
+            .any(|(node, strictness)| node == &current && *strictness == path_strict)
+        {
+            continue;
+        }
+        visited.push((current.clone(), path_strict));
+
+        for edge in edges.iter().filter(|edge| edge.left == current) {
+            let next_strict = path_strict || edge.strict;
+            if edge.right == right && (!strict || next_strict) {
+                return true;
+            }
+            stack.push((edge.right.clone(), next_strict));
+        }
+    }
+
+    false
 }
 
 fn flattened_keyword_clauses<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str> {

@@ -33,6 +33,9 @@ It also proves partial case-split `or` predicates with shorter branches that
 cover every assignment across up to eight non-static predicates.
 Negated partial case-split `and` predicates are also statically proven when
 their disjunctive branches reject every assignment for the same predicate set.
+It also proves top-level `or` implications where a negated conjunction of
+ordering bounds transitively guarantees another ordering bound, such as
+`not (low <= mid and mid < high) or low < high`.
 
 ## Skip Unless Needed
 
