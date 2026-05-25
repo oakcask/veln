@@ -131,6 +131,9 @@ selects a same-directory `*_test.veln` file with the same base name when that
 paired file exists. The command reports this as `source_to_test_convention` in
 JSON output and prints a human selection note. The selection confidence is
 `partial` because the convention is narrower than a complete dependency graph.
+This pairing is part of test discovery before semantic analysis, so selected
+cases, static diagnostics, and JSON selection metadata all observe the expanded
+target set.
 
 Static diagnostics block the suite before Java execution. In JSON output,
 already discovered cases are marked `blocked` with reason `static_gate`.

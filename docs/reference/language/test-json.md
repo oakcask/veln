@@ -37,7 +37,8 @@ unless it adds paired tests by convention. If an explicit non-test `.veln` file 
 same-directory `*_test.veln` peer with the same base name, the peer is added to
 the selected targets, the run reports `reason: "source_to_test_convention"`,
 and `confidence: "partial"` because the mapping is conservative but not a full
-dependency graph.
+dependency graph. The reported `targets` array is the final expanded selection
+and is sorted after duplicate removal.
 
 ## Summary
 

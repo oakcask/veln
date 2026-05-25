@@ -84,6 +84,10 @@ follows direct bare function calls and `use` alias qualified function calls
 until a fixed point. Calls through a local binding with a function type infer
 the effects written in that function type.
 
+Executable-command reachability also follows pure helper calls used in
+reachable contract predicates, so blockers inside those helpers are reported
+before the selected entry runs.
+
 A public function whose declared effects omit an inferred effect reports
 `effect.missing_public` with related provenance pointing at bounded call sites.
 Effect diagnostics include bounded structured provenance paths. Each path

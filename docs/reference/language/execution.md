@@ -8,9 +8,10 @@ Checked core is produced only after semantic diagnostics have no errors. Typed
 IR is produced only when checked core is complete. Reachable holes, missing
 expressions, constructor arity gaps, and call arity gaps block executable IR.
 For selected `run` and `test` entries, reachability includes direct function
-calls and bare function declaration values used inside reachable expressions.
-The implemented execution fixtures cover function declarations used as
-function-typed values, function-typed value calls, and selected-entry
+calls, bare function declaration values used inside reachable expressions, and
+function calls in reachable contract predicates. The implemented execution
+fixtures cover function declarations used as function-typed values,
+function-typed value calls, contract helper reachability, and selected-entry
 reachable-hole blocking before JVM execution.
 
 The typed IR is runtime-neutral. JVM class names, Java method names, boxed

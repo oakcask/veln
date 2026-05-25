@@ -5,12 +5,77 @@
 //! ```
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
 use std::process::Output;
 
 use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, SurfaceModule};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
 use veln_project::Project;
 use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
+
+pub struct TestTargetExpansion {
+    pub targets: Vec<PathBuf>,
+    pub source_to_test_added_count: usize,
+}
+
+pub fn expand_test_targets(root: &Path, targets: &[PathBuf]) -> TestTargetExpansion {
+    if targets.is_empty() {
+        return TestTargetExpansion {
+            targets: Vec::new(),
+            source_to_test_added_count: 0,
+        };
+    }
+
+    let mut original_targets = targets.to_vec();
+    original_targets.sort();
+    original_targets.dedup();
+    let original_count = original_targets.len();
+    let mut expanded = targets.to_vec();
+    for target in targets {
+        if let Some(test_target) = paired_test_target(root, target) {
+            expanded.push(test_target);
+        }
+    }
+    expanded.sort();
+    expanded.dedup();
+    let source_to_test_added_count = expanded.len().saturating_sub(original_count);
+    TestTargetExpansion {
+        targets: expanded,
+        source_to_test_added_count,
+    }
+}
+
+fn paired_test_target(root: &Path, target: &Path) -> Option<PathBuf> {
+    let absolute = if target.is_absolute() {
+        target.to_path_buf()
+    } else {
+        root.join(target)
+    };
+    if absolute.is_dir()
+        || absolute
+            .extension()
+            .is_none_or(|extension| extension != "veln")
+    {
+        return None;
+    }
+    let file_name = absolute.file_name()?.to_str()?;
+    if file_name.ends_with("_test.veln") {
+        return None;
+    }
+    let stem = absolute.file_stem()?.to_str()?;
+    let candidate = absolute.with_file_name(format!("{stem}_test.veln"));
+    if !candidate.is_file() {
+        return None;
+    }
+    if target.is_absolute() {
+        Some(candidate)
+    } else {
+        candidate.strip_prefix(root).map_or_else(
+            |_| Some(candidate.clone()),
+            |relative| Some(relative.to_path_buf()),
+        )
+    }
+}
 
 pub fn selected_test_files(
     project: &Project,
@@ -1485,6 +1550,7 @@ fn line_col_to_json(line_col: LineCol) -> JsonValue {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::path::PathBuf;
     use std::process::{ExitStatus, Output};
 
@@ -1554,6 +1620,42 @@ mod tests {
 
         assert_eq!(selection.targets, vec!["main.veln"]);
         assert_eq!(selection.reason, "pattern_discovery");
+    }
+
+    #[test]
+    fn expands_explicit_source_target_to_paired_test_file() {
+        let root = test_root("paired-source");
+        fs::create_dir_all(&root).expect("create test root");
+        fs::write(root.join("app.veln"), "").expect("write source file");
+        fs::write(root.join("app_test.veln"), "").expect("write test file");
+
+        let expansion = expand_test_targets(&root, &[PathBuf::from("app.veln")]);
+
+        assert_eq!(
+            expansion.targets,
+            vec![PathBuf::from("app.veln"), PathBuf::from("app_test.veln")]
+        );
+        assert_eq!(expansion.source_to_test_added_count, 1);
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn does_not_expand_directory_or_test_file_targets() {
+        let root = test_root("direct-target");
+        fs::create_dir_all(root.join("cases")).expect("create test root");
+        fs::write(root.join("app_test.veln"), "").expect("write test file");
+
+        let expansion = expand_test_targets(
+            &root,
+            &[PathBuf::from("cases"), PathBuf::from("app_test.veln")],
+        );
+
+        assert_eq!(
+            expansion.targets,
+            vec![PathBuf::from("app_test.veln"), PathBuf::from("cases")]
+        );
+        assert_eq!(expansion.source_to_test_added_count, 0);
+        fs::remove_dir_all(root).expect("remove test root");
     }
 
     #[test]
@@ -2199,6 +2301,12 @@ mod tests {
                 "\"end\":{\"line\":2,\"column\":14,\"offset\":0}}}}"
             )
         );
+    }
+
+    fn test_root(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("veln-test-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        root
     }
 
     #[cfg(unix)]

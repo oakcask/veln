@@ -1,6 +1,5 @@
 use std::env;
 use std::fs;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -12,8 +11,8 @@ use veln_sema::{analyze_surface_module, lower_checked_surface_module};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
     attach_expected_outputs, compare_expected_output, contract_failure_from_trace,
-    discover_test_cases, doctest_sources, reconcile_expected_doctest_failures, selected_test_files,
-    stdio_call_spans, stdio_events_from_output, stdio_events_from_trace,
+    discover_test_cases, doctest_sources, expand_test_targets, reconcile_expected_doctest_failures,
+    selected_test_files, stdio_call_spans, stdio_events_from_output, stdio_events_from_trace,
 };
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
@@ -76,70 +75,6 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     } else {
         ExitCode::from(1)
     })
-}
-
-struct TestTargetExpansion {
-    targets: Vec<PathBuf>,
-    source_to_test_added_count: usize,
-}
-
-fn expand_test_targets(root: &Path, targets: &[PathBuf]) -> TestTargetExpansion {
-    if targets.is_empty() {
-        return TestTargetExpansion {
-            targets: Vec::new(),
-            source_to_test_added_count: 0,
-        };
-    }
-
-    let mut original_targets = targets.to_vec();
-    original_targets.sort();
-    original_targets.dedup();
-    let original_count = original_targets.len();
-    let mut expanded = targets.to_vec();
-    for target in targets {
-        if let Some(test_target) = paired_test_target(root, target) {
-            expanded.push(test_target);
-        }
-    }
-    expanded.sort();
-    expanded.dedup();
-    let source_to_test_added_count = expanded.len().saturating_sub(original_count);
-    TestTargetExpansion {
-        targets: expanded,
-        source_to_test_added_count,
-    }
-}
-
-fn paired_test_target(root: &Path, target: &Path) -> Option<PathBuf> {
-    let absolute = if target.is_absolute() {
-        target.to_path_buf()
-    } else {
-        root.join(target)
-    };
-    if absolute.is_dir()
-        || absolute
-            .extension()
-            .is_none_or(|extension| extension != "veln")
-    {
-        return None;
-    }
-    let file_name = absolute.file_name()?.to_str()?;
-    if file_name.ends_with("_test.veln") {
-        return None;
-    }
-    let stem = absolute.file_stem()?.to_str()?;
-    let candidate = absolute.with_file_name(format!("{stem}_test.veln"));
-    if !candidate.is_file() {
-        return None;
-    }
-    if target.is_absolute() {
-        Some(candidate)
-    } else {
-        candidate.strip_prefix(root).map_or_else(
-            |_| Some(candidate.clone()),
-            |relative| Some(relative.to_path_buf()),
-        )
-    }
 }
 
 fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), String> {

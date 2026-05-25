@@ -37,8 +37,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   `veln run --json` reports runtime contract failures as top-level structured
   errors. Non-local return refinements remain follow-up work.
 - Contract predicates now parse through a dedicated first-slice predicate
-  production. Pure calls to discovered effect-free functions are validated;
-  richer predicate semantics remain follow-up work.
+  production. Pure calls to discovered effect-free functions are validated and
+  participate in selected-entry reachability for executable commands. Richer
+  predicate semantics remain follow-up work.
 
 ## Formatting
 
@@ -47,24 +48,12 @@ No accepted formatting follow-up is currently tracked here.
 ## Lowering And Execution
 
 - Reachable-hole blocking follows the selected entry, direct function-name
-  calls, and bare function declaration values used in reachable expressions.
-  Broader conservative handling for future higher-order values, module
-  initializers, imports, and ambiguous graph edges remains follow-up work.
+  calls, bare function declaration values used in reachable expressions, and
+  function calls in contract predicates. Broader conservative handling for
+  future higher-order values, module initializers, imports, and ambiguous graph
+  edges remains follow-up work.
 - A persistent build cache remains deferred.
 
 ## Test Discovery And Events
 
-- Test discovery selects top-level `test` declarations from `*_test.veln`
-  files, explicit targets, and same-file declarations in other discovered
-  source files. Documentation comment `veln` doctest extraction and adjacent
-  `veln-output` expected-output comparison are implemented. Explicit doctest
-  `error=<TypePath>` metadata is implemented for generated result-returning
-  wrappers. Unknown and invalid metadata diagnostics are implemented for
-  executable doctest fences and expected-output fences. Doctests that contain
-  `?` infer the wrapper error type from the immediately documented public
-  function's explicit `Result(_, E)` return type when that context is
-  available or from known propagated function calls when every propagated call
-  has the same concrete error type. Non-runnable doctest examples are
-  implemented with `veln ignore`. Hidden setup is implemented with `# ` lines
-  inside executable doctest fences. Negative static examples are implemented
-  with `veln fail`.
+No accepted test discovery follow-up is currently tracked here.

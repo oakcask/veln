@@ -2,7 +2,8 @@ use veln_ast::{Expr, ExprKind, Function, FunctionKind, SurfaceModule, lower_surf
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_project::ManifestModule;
 use veln_project::Project;
-use veln_syntax::parse;
+use veln_source::SourceFile;
+use veln_syntax::{TokenKind, lex, parse};
 
 use crate::diagnostics::parse_diagnostic_to_envelope;
 
@@ -240,6 +241,9 @@ struct ReachableFunction {
 
 fn direct_function_callees(function: &Function, function_names: &[String]) -> Vec<String> {
     let mut callees = Vec::new();
+    for contract in &function.contracts {
+        collect_contract_callees(&contract.text, function_names, &mut callees);
+    }
     for line in &function.body {
         match &line.kind {
             veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
@@ -248,6 +252,29 @@ fn direct_function_callees(function: &Function, function_names: &[String]) -> Ve
         }
     }
     callees
+}
+
+fn collect_contract_callees(predicate: &str, function_names: &[String], callees: &mut Vec<String>) {
+    let source = SourceFile::new("<contract>", predicate);
+    let tokens = lex(&source)
+        .tokens
+        .into_iter()
+        .filter(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Comment))
+        .collect::<Vec<_>>();
+    for window in tokens.windows(2) {
+        let name = &window[0];
+        let next = &window[1];
+        if name.kind != TokenKind::Ident || next.kind != TokenKind::LParen {
+            continue;
+        }
+        if function_names
+            .iter()
+            .any(|function_name| function_name == &name.text)
+            && !callees.iter().any(|callee| callee == &name.text)
+        {
+            callees.push(name.text.clone());
+        }
+    }
 }
 
 fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mut Vec<String>) {
@@ -395,6 +422,56 @@ mod tests {
                 (FunctionKind::Function, Some("stringify")),
             ]
         );
+    }
+
+    #[test]
+    fn run_entry_can_reach_contract_helper() {
+        let module = lower(concat!(
+            "fn positive(value: Int) -> Bool effects []\n",
+            "  value > 0\n",
+            "end\n",
+            "pub fn main(value: Int) -> output: Int effects []\n",
+            "  ensure positive(output)\n",
+            "  value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (FunctionKind::Function, Some("positive")),
+                (FunctionKind::Function, Some("main")),
+            ]
+        );
+    }
+
+    #[test]
+    fn contract_reachability_ignores_function_names_inside_strings() {
+        let module = lower(concat!(
+            "fn positive(value: Int) -> Bool effects []\n",
+            "  value > 0\n",
+            "end\n",
+            "pub fn main() -> output: String effects []\n",
+            "  ensure \"positive(\" == output\n",
+            "  \"positive(\"\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(functions, vec![(FunctionKind::Function, Some("main"))]);
     }
 
     #[test]
