@@ -21,8 +21,12 @@ target tracked in `../../proposals/`.
   execution gates, and bootstrap test selection.
 - [names-effects.md](names-effects.md): name resolution, stdio calls, prelude
   helpers, and public effect diagnostics.
-- [contracts-holes.md](contracts-holes.md): implemented contract predicate
-  checking, hole diagnostics, and `satisfy` constraints.
+- [contracts-holes.md](contracts-holes.md): routing entry for contract and hole
+  behavior.
+- [contracts.md](contracts.md): implemented contract predicate checking,
+  runtime obligations, and explicit result bindings.
+- [holes.md](holes.md): implemented hole diagnostics, repair candidates, and
+  `satisfy` constraints.
 - [run-json.md](run-json.md): `veln run --json` schema and runtime error
   records.
 - [test-json.md](test-json.md): `veln test --json` schema, case shape, and

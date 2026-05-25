@@ -56,6 +56,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_negated_conjunction_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
+    if has_negated_disjunction_covered_by_disjuncts(predicate) {
+        return StaticBooleanValue::True;
+    }
     if has_conjunction_covered_by_complement_disjuncts(predicate) {
         return StaticBooleanValue::True;
     }
@@ -199,6 +202,25 @@ fn has_negated_disjunction_top_level_and(predicate: &str) -> bool {
         clauses.iter().skip(index + 1).any(|right| {
             negated_disjunction_contains(left, right) || negated_disjunction_contains(right, left)
         })
+    })
+}
+
+fn has_negated_disjunction_covered_by_disjuncts(predicate: &str) -> bool {
+    let disjuncts = flattened_keyword_clauses(predicate, "or");
+    if disjuncts.len() < 3 {
+        return false;
+    }
+    disjuncts.iter().any(|disjunct| {
+        let Some(inner) = negated_predicate_inner(disjunct) else {
+            return false;
+        };
+        let inner_disjuncts = non_static_disjuncts(inner);
+        inner_disjuncts.len() > 1
+            && inner_disjuncts.iter().all(|inner_disjunct| {
+                disjuncts
+                    .iter()
+                    .any(|outer_disjunct| same_predicate(inner_disjunct, outer_disjunct))
+            })
     })
 }
 
@@ -536,6 +558,13 @@ fn non_static_conjuncts(predicate: &str) -> Vec<&str> {
     flattened_keyword_clauses(predicate, "and")
         .into_iter()
         .filter(|conjunct| static_boolean_value(conjunct) != StaticBooleanValue::True)
+        .collect()
+}
+
+fn non_static_disjuncts(predicate: &str) -> Vec<&str> {
+    flattened_keyword_clauses(predicate, "or")
+        .into_iter()
+        .filter(|disjunct| static_boolean_value(disjunct) != StaticBooleanValue::False)
         .collect()
 }
 
@@ -1545,15 +1574,6 @@ pub(crate) fn predicate_type_with_calls(
     if is_float_literal(predicate) {
         return Some(Type::float());
     }
-    if let Some(rest) = predicate.strip_prefix("not ") {
-        return (predicate_type_with_calls(rest, bindings, call_type)? == Type::bool())
-            .then(Type::bool);
-    }
-    if let Some(rest) = predicate.strip_prefix("not(") {
-        let inner = rest.strip_suffix(')')?;
-        return (predicate_type_with_calls(inner, bindings, call_type)? == Type::bool())
-            .then(Type::bool);
-    }
     if let Some(rest) = predicate.strip_prefix('-') {
         let ty = predicate_type_with_calls(rest, bindings, call_type)?;
         return matches!(ty, Type::Named { ref name, ref args } if args.is_empty() && (name == "Int" || name == "Float"))
@@ -1565,6 +1585,15 @@ pub(crate) fn predicate_type_with_calls(
             let right = predicate_type_with_calls(right, bindings, call_type)?;
             return (left == Type::bool() && right == Type::bool()).then(Type::bool);
         }
+    }
+    if let Some(rest) = predicate.strip_prefix("not ") {
+        return (predicate_type_with_calls(rest, bindings, call_type)? == Type::bool())
+            .then(Type::bool);
+    }
+    if let Some(rest) = predicate.strip_prefix("not(") {
+        let inner = rest.strip_suffix(')')?;
+        return (predicate_type_with_calls(inner, bindings, call_type)? == Type::bool())
+            .then(Type::bool);
     }
     for operator in ["==", "!=", "<=", ">=", "<", ">"] {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {

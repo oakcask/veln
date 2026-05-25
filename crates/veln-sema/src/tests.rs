@@ -161,6 +161,50 @@ fn test_declaration_checks_declared_effect_boundary() {
 }
 
 #[test]
+fn test_declaration_accepts_result_unit_return() {
+    let source = SourceFile::new(
+        "main_test.veln",
+        concat!(
+            "test returns_result() -> Result((), String) effects []\n",
+            "  Ok(())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn test_declaration_requires_return_annotation() {
+    let source = SourceFile::new(
+        "main_test.veln",
+        concat!("test missing_return() effects []\n", "  ()\n", "end\n",),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "test.return_type");
+    assert_eq!(
+        diagnostics[0].message,
+        "test declaration has no return type annotation"
+    );
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"expected_type\":\"() or Result((), E)\",\"actual_type\":\"missing\"")
+    );
+    assert_eq!(diagnostics[0].related.len(), 1);
+}
+
+#[test]
 fn public_function_rejects_unknown_declared_effect_label() {
     let source = SourceFile::new(
         "main.veln",
@@ -4509,6 +4553,42 @@ fn marks_static_negated_disjunction_covered_satisfy_predicate_as_tautology_repai
 }
 
 #[test]
+fn marks_static_negated_disjunction_or_satisfy_predicate_as_tautology_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(primary: {ready: Bool, paid: Bool}, fallback: {ready: Bool, paid: Bool}) -> {ready: Bool, paid: Bool}\n",
+            "  _value satisfy candidate => not (candidate.ready or candidate.paid) or candidate.ready or candidate.paid\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"{ready: Bool, paid: Bool}\",\"rank\":1,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"primary\",",
+        "\"type\":\"{ready: Bool, paid: Bool}\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
 fn marks_static_negated_disjunction_repeat_satisfy_predicate_as_tautology_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -7478,6 +7558,34 @@ fn contract_predicate_nested_complementary_or_is_statically_proven() {
     let core = lowered.core.expect("valid module should lower to core");
     let contracts = &core.functions[0].contracts;
     assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_negated_disjunction_or_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool, paid: Bool}, limit: Int) -> output: {ready: Bool, paid: Bool} effects []\n",
+            "require not (value.ready or value.paid) or value.ready or value.paid\n",
+            "require (not (limit < 10 or value.ready)) or limit < 10 or value.ready\n",
+            "ensure (not (output.ready or output.paid)) or output.ready or output.paid\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
     assert!(contracts.iter().all(|contract| {
         contract.obligation_status == ContractObligationStatus::StaticallyProven
     }));
