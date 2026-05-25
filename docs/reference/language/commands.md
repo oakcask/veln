@@ -19,11 +19,8 @@ Open [commands-full.md](commands-full.md) for the command-specific rules.
 
 ## Read When
 
-- Use [diagnostics-json.md](diagnostics-json.md) for `check --json` envelope
-  and diagnostic field stability.
-- Use [run-json.md](run-json.md) for `run --json` output records.
-- Use [test-json.md](test-json.md) for `test --json` selection, case, summary,
-  failure, and error records.
+- Use [json-output.md](json-output.md) to choose the implemented reference for
+  `check --json`, `run --json`, or `test --json` output.
 - Use [source-surface.md](source-surface.md) when command behavior depends on
   source syntax, doctest fences, or module declarations.
 

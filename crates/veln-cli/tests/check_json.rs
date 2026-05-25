@@ -479,6 +479,40 @@ fn check_human_reports_manifest_module_name_drift() {
 }
 
 #[test]
+fn check_json_reports_manifest_module_name_drift() {
+    let project = TestProject::new("check-json-manifest-name-drift");
+    project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
+    project.write(
+        "main.veln",
+        concat!(
+            "mod app.source\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"module.metadata_drift\"",
+            "\"kind\":\"module\"",
+            "\"message\":\"manifest module name `app.manifest` does not match source module `app.source`\"",
+            "\"span\":{\"file\":\"veln.toml\",\"start\":{\"line\":2,\"column\":16,\"offset\":25},\"end\":{\"line\":2,\"column\":28,\"offset\":37}}",
+            "\"details\":{\"phase\":\"module\",\"field\":\"module_identity\",\"canonical_owner\":\"source\",\"derived_owner\":\"manifest\",\"expected_value\":\"app.source\",\"observed_value\":\"app.manifest\",\"manifest_path\":\"veln.toml\",\"source_path\":\"main.veln\"}",
+            "\"related\":[{\"kind\":\"canonical_owner\",\"message\":\"The source `mod` declaration owns the compiler-visible module name.\"",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":2,\"column\":1,\"offset\":15}}}",
+            "{\"message\":\"Update the manifest entry or remove the duplicated module name.\"}]",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"module\":1}}",
+        ],
+    );
+}
+
+#[test]
 fn check_json_reports_manifest_module_without_source_owner() {
     let project = TestProject::new("check-json-manifest-without-source-owner");
     project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");

@@ -33,8 +33,9 @@ Leave rationale in [source-decisions.md](source-decisions.md) or
   [contracts-holes.md](contracts-holes.md), then choose
   [contracts.md](contracts.md), [holes.md](holes.md), or
   [contracts-holes-full.md](contracts-holes-full.md).
-- Machine-readable output: [diagnostics-json.md](diagnostics-json.md),
-  [run-json.md](run-json.md), and [test-json.md](test-json.md).
+- Machine-readable output: start with [json-output.md](json-output.md), then
+  choose [diagnostics-json.md](diagnostics-json.md),
+  [run-json.md](run-json.md), or [test-json.md](test-json.md).
 - Runtime and examples: [execution.md](execution.md) and
   [examples.md](examples.md).
 - Rationale: [source-decisions.md](source-decisions.md).

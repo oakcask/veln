@@ -18,9 +18,8 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 - Contract or hole changes: [language/contracts-holes.md](language/contracts-holes.md)
   routes the short and full references.
 - Command and JSON-output changes: [language/commands.md](language/commands.md),
-  [language/diagnostics-json.md](language/diagnostics-json.md),
-  [language/run-json.md](language/run-json.md), and
-  [language/test-json.md](language/test-json.md).
+  [language/json-output.md](language/json-output.md), and the command-specific
+  JSON pages it routes.
 - Execution or examples: [language/execution.md](language/execution.md) and
   [language/examples.md](language/examples.md).
 - Rationale: [language/source-decisions.md](language/source-decisions.md) first,
