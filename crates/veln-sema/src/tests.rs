@@ -1033,6 +1033,42 @@ fn omitted_tail_expression_checks_declared_return_type() {
 }
 
 #[test]
+fn omitted_tail_expression_lowers_to_unit_return() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("fn main() -> () effects []\n", "  let value = 1\n", "end\n",),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    assert!(matches!(main.body[0].kind, CoreStmtKind::Let { .. }));
+    let CoreStmtKind::Return { expr } = &main.body[1].kind else {
+        panic!("omitted tail should lower as unit return");
+    };
+    assert!(matches!(expr.kind, CoreExprKind::Unit));
+
+    let ir = lowered.ir.expect("complete core should lower to typed IR");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[1].kind else {
+        panic!("omitted tail should lower as IR unit return");
+    };
+    assert!(matches!(value.kind, IrExprKind::Unit));
+}
+
+#[test]
 fn ok_constructor_accepts_declared_result_return() {
     let source = SourceFile::new(
         "main.veln",

@@ -18,6 +18,8 @@ fixtures cover function declarations used as function-typed values,
 function-typed value calls, contract helper reachability, imported-call
 reachable-hole blocking, selected-entry reachable-hole blocking, and
 selected-entry channel concurrency blockers before JVM execution.
+When a function or test body omits the final expression line, checked core and
+typed IR materialize that omission as an explicit `()` return.
 
 The typed IR is runtime-neutral. JVM class names, Java method names, boxed
 runtime representation, generated artifact paths, cache keys, and runtime

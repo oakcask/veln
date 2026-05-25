@@ -195,6 +195,7 @@ impl<'a> CoreLowerer<'a> {
 
     fn lower_body(&mut self, return_type: &CoreType) -> Vec<CoreStmt> {
         let mut body = Vec::new();
+        let mut has_tail_expression = false;
         for (index, line) in self.function.body.iter().enumerate() {
             match &line.kind {
                 BodyLineKind::Let {
@@ -218,6 +219,7 @@ impl<'a> CoreLowerer<'a> {
                 }
                 BodyLineKind::Expr { expr } => {
                     let is_tail = index + 1 == self.function.body.len();
+                    has_tail_expression = is_tail;
                     let expected = is_tail.then_some(return_type);
                     let lowered = self.lower_expr(expr, expected);
                     body.push(CoreStmt {
@@ -231,6 +233,20 @@ impl<'a> CoreLowerer<'a> {
                     });
                 }
             }
+        }
+        if !has_tail_expression {
+            body.push(CoreStmt {
+                node_id: self.function.node_id,
+                kind: CoreStmtKind::Return {
+                    expr: CoreExpr {
+                        node_id: self.function.node_id,
+                        ty: CoreType::unit(),
+                        kind: CoreExprKind::Unit,
+                        span: self.function.span.clone(),
+                    },
+                },
+                span: self.function.span.clone(),
+            });
         }
         body
     }
