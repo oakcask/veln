@@ -9,8 +9,8 @@ use veln_source::SourceSpan;
 
 use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text, is_contract_keyword,
-    missing_contract_field, predicate_is_boolean_with_calls, predicate_rendered_type_with_calls,
-    predicate_type_with_calls, referenced_names,
+    missing_contract_field, predicate_is_boolean_with_calls, predicate_is_statically_true,
+    predicate_rendered_type_with_calls, predicate_type_with_calls, referenced_names,
 };
 use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, module_details, span_json,
@@ -2652,7 +2652,8 @@ impl<'a> FunctionChecker<'a> {
             .map(|binding| binding.ty.render())
             .collect::<Vec<_>>()
             .join(", ");
-        let repair_constraint = satisfy.and_then(|satisfy| self.satisfy_repair_constraint(satisfy));
+        let repair_constraint =
+            satisfy.and_then(|satisfy| self.satisfy_repair_constraint(satisfy, expected));
         let ranked_candidates =
             self.ranked_symbol_candidates(expected, hole_span, repair_constraint.as_ref());
         let mut query = vec![
@@ -2775,8 +2776,12 @@ impl<'a> FunctionChecker<'a> {
     fn satisfy_repair_constraint(
         &self,
         satisfy: &SatisfyClause,
+        expected: &Type,
     ) -> Option<SatisfyRepairConstraint> {
-        let direct_constraint = SatisfyRepairConstraint::from_satisfy(satisfy);
+        let direct_constraint = SatisfyRepairConstraint::from_satisfy(
+            satisfy,
+            self.valid_static_satisfy_predicate(satisfy, expected),
+        );
         if direct_constraint
             .as_ref()
             .is_some_and(SatisfyRepairConstraint::allows_any_binding)
@@ -2821,6 +2826,21 @@ impl<'a> FunctionChecker<'a> {
         constraint.extend_allowed_bindings(require_allowed_bindings);
         Some(constraint)
     }
+
+    fn valid_static_satisfy_predicate(&self, satisfy: &SatisfyClause, expected: &Type) -> bool {
+        let Some(candidate) = satisfy.candidate.as_ref() else {
+            return false;
+        };
+        let mut predicate_bindings = self.bindings.clone();
+        predicate_bindings.push(Binding {
+            name: candidate.clone(),
+            ty: expected.clone(),
+        });
+        matches!(
+            self.validate_predicate_with_bindings(&satisfy.predicate, &predicate_bindings),
+            ContractValidation::Valid
+        )
+    }
 }
 
 fn contract_callee_segments(callee: &str) -> Vec<String> {
@@ -2838,12 +2858,18 @@ struct SatisfyAllowedBinding {
 }
 
 impl SatisfyRepairConstraint {
-    fn from_satisfy(satisfy: &SatisfyClause) -> Option<Self> {
+    fn from_satisfy(satisfy: &SatisfyClause, allow_static_truth: bool) -> Option<Self> {
         let candidate = satisfy.candidate.as_ref()?;
         if let Some(tautology) = tautological_candidate_predicate(&satisfy.predicate, candidate) {
             return Some(Self {
                 allowed_bindings: None,
                 reason: tautology.reason,
+            });
+        }
+        if allow_static_truth && predicate_is_statically_true(&satisfy.predicate) {
+            return Some(Self {
+                allowed_bindings: None,
+                reason: "satisfy_tautology",
             });
         }
         if let Some(bindings) = reflexive_candidate_disjunct_bindings(&satisfy.predicate, candidate)

@@ -306,6 +306,11 @@ every type-compatible visible binding as a safe tautology repair candidate.
 The same repair tautology applies when opposite inclusive and strict bounds
 rooted at the candidate cannot both hold, such as
 `not (candidate <= limit and limit < candidate)`.
+After predicate validation, `satisfy` repair tautology also reuses the
+implemented static truth identities from contract obligation classification.
+For example,
+`candidate.ready or (not candidate.ready and true)` ranks every type-compatible
+visible binding as a safe tautology repair candidate.
 Nested `or` clauses with a literal `true` branch are ignored inside
 tautological `and` clauses, so
 `candidate == candidate and (candidate > candidate or true)` is ranked as a
