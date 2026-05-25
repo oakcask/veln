@@ -84,7 +84,7 @@ include pure literal `+`, `-`, and `*` subexpressions, such as `1 + 1 == 2`,
 `10 - 4 == 6`, `0.5 + 2.0 == 2.5`, and `3 * 4 >= 12`.
 They may also include `/` when the result is exactly representable as a finite
 decimal, such as `8 / 4 == 2` and `1 / 2 == 0.5`.
-Small boolean formulas over up to nine otherwise unknown pure predicates are
+Small boolean formulas over up to ten otherwise unknown pure predicates are
 also classified by exhaustive truth-table evaluation after literal and
 comparison folding. This covers nested `and`, `or`, and `not` tautologies such
 as

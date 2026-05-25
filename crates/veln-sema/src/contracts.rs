@@ -40,7 +40,7 @@ enum StaticBooleanValue {
     Unknown,
 }
 
-const MAX_STATIC_BOOLEAN_ATOMS: usize = 9;
+const MAX_STATIC_BOOLEAN_ATOMS: usize = 10;
 
 fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     let predicate = strip_balanced_outer_parens(predicate.trim());
