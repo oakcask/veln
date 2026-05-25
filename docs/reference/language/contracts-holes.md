@@ -228,7 +228,8 @@ tautological after whitespace normalization and commuted ordering
 normalization. For example,
 `candidate == limit or candidate != limit` and
 `candidate < limit or limit <= candidate` rank every type-compatible visible
-binding as a safe tautology repair candidate.
+binding as a safe tautology repair candidate. The same rule covers the
+reversed inclusive spelling, such as `candidate <= limit or candidate > limit`.
 A negated top-level `and` with complementary candidate-referencing branches is
 also tautological for repair ranking. For example,
 `not (candidate.ready and limit.ready and not candidate.ready)` ranks every

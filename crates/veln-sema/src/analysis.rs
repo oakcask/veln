@@ -3088,7 +3088,9 @@ fn complementary_candidate_comparisons(left: &str, right: &str, candidate: &str)
     };
     match (left.operator, right.operator) {
         ("==", "!=") | ("!=", "==") => left.same_operands_unordered(&right),
-        ("<", "<=") | ("<=", "<") => left.same_operands_reversed(&right),
+        ("<", "<=") | ("<=", "<") => {
+            left.same_operands_reversed(&right) || left.same_operands_unordered(&right)
+        }
         _ => false,
     }
 }
