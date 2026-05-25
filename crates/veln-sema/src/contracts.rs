@@ -70,6 +70,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_complementary_top_level_clauses(predicate, "and") {
         return StaticBooleanValue::False;
     }
+    if has_exclusive_order_top_level_and(predicate) {
+        return StaticBooleanValue::False;
+    }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
         if complementary_predicates(left, right) {
             return StaticBooleanValue::False;
@@ -123,6 +126,27 @@ fn has_total_order_top_level_or(predicate: &str) -> bool {
                 mask | other.relation.bit()
             })
             == OrderRelation::ALL_BITS
+    })
+}
+
+fn has_exclusive_order_top_level_and(predicate: &str) -> bool {
+    let clauses = flattened_keyword_clauses(predicate, "and");
+    if clauses.len() < 2 {
+        return false;
+    }
+    clauses.iter().enumerate().any(|(index, clause)| {
+        let Some(first) = order_trichotomy_shape(clause) else {
+            return false;
+        };
+        clauses
+            .iter()
+            .skip(index + 1)
+            .filter_map(|other| order_trichotomy_shape(other))
+            .any(|other| {
+                other.left == first.left
+                    && other.right == first.right
+                    && other.relation != first.relation
+            })
     })
 }
 
@@ -196,7 +220,7 @@ struct ComparisonShape {
     right: String,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum OrderRelation {
     Less,
     Equal,

@@ -107,9 +107,14 @@ branches are flattened for this identity, so
 `not (flag and (extra and not flag))` is also statically proven. The same
 negated-`and` identity applies to complementary comparison pairs, such as
 `not (value == limit and limit != value)` and
-`not(output < limit and output >= limit)`. For example, `true or value > 0`,
-`(output >= value or true) and not false`, and `1 < 2 and "ready" != "pending"`
-are statically proven after the predicate has passed validation. Other valid
+`not(output < limit and output >= limit)`. It also applies to mutually
+exclusive ordering trichotomy relations over the same operands, such as
+`not (value < limit and value == limit)`,
+`not (value < limit and value > limit)`, and
+`not(output == limit and output > limit)`. For example,
+`true or value > 0`, `(output >= value or true) and not false`, and
+`1 < 2 and "ready" != "pending"` are statically proven after the predicate has
+passed validation. Other valid
 predicates are classified as
 `runtime_required`. Invalid predicates fail the static contract gate instead
 of becoming runtime-only checks. No contract is currently classified as

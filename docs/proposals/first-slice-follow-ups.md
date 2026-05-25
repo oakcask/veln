@@ -192,13 +192,16 @@ No accepted language and type coverage follow-up is currently tracked here.
   representable `/` subexpressions inside comparisons are also statically
   evaluated. Boolean equality and disequality over statically known boolean
   subexpressions are also statically evaluated. Top-level ordering trichotomy
-  disjunctions over the same operands are also statically evaluated after
-  whitespace normalization and commuted ordering normalization. Richer
+  disjunctions over the same operands, and negated conjunctions containing
+  mutually exclusive ordering trichotomy relations over the same operands, are
+  also statically evaluated after whitespace normalization and
+  commuted ordering normalization. Richer
   predicate semantics beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, complementary boolean and comparison
-  disjunctions, ordering trichotomy disjunctions, and negated complementary
-  boolean and comparison conjunctions remain follow-up work.
+  disjunctions, ordering trichotomy disjunctions, negated complementary
+  boolean and comparison conjunctions, and negated mutually exclusive order
+  conjunctions remain follow-up work.
 
 ## Formatting
 
