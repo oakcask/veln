@@ -310,6 +310,17 @@ fn static_literal_comparison(left: &str, operator: &str, right: &str) -> Option<
     ) {
         return Some(static_number_comparison(left, operator, right)?);
     }
+    if matches!(operator, "==" | "!=") {
+        let left = static_boolean_value(left);
+        let right = static_boolean_value(right);
+        if left != StaticBooleanValue::Unknown && right != StaticBooleanValue::Unknown {
+            return Some(match operator {
+                "==" => left == right,
+                "!=" => left != right,
+                _ => unreachable!("operator was already checked"),
+            });
+        }
+    }
     match (left_literal?, right_literal?) {
         (StaticLiteral::Bool(left), StaticLiteral::Bool(right)) => match operator {
             "==" => Some(left == right),

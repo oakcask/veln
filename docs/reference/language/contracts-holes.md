@@ -79,7 +79,11 @@ side of `or` is provably
 that result through literal-only `and` and `not` wrappers. Same-shape
 comparisons are statically known after whitespace normalization:
 `value + 1 == value + 1`, `output >= output`, and `not(value < value)` are
-statically proven after validation. A top-level `or` between the same pure
+statically proven after validation. Boolean equality and disequality over
+statically known boolean subexpressions are also classified statically, such
+as `(1 < 2) == true`, `(not false) == true`, and
+`(output == output) != false`.
+A top-level `or` between the same pure
 boolean predicate and its negation is also statically true after validation,
 such as `flag or not flag` or
 `output.ready or not(output.ready)`. The complementary `or` identity may span

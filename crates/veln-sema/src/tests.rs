@@ -6540,6 +6540,34 @@ fn contract_predicate_literal_comparisons_are_statically_proven() {
 }
 
 #[test]
+fn contract_predicate_static_boolean_comparisons_are_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn constant() -> output: Int effects []\n",
+            "require (1 < 2) == true\n",
+            "require (not false) == true and (1 > 2) == false\n",
+            "ensure (output == output) != false\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_literal_arithmetic_comparisons_are_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
