@@ -10,6 +10,8 @@ not fully implemented in the current workspace.
 - [implementation-route.md](implementation-route.md) explains how to compare a
   chosen target with current behavior and promote implemented behavior into
   the reference.
+- [../document-status.md](../document-status.md) defines promotion and
+  supersession labels when proposal text moves into reference material.
 
 ## Read When
 
@@ -21,6 +23,8 @@ not fully implemented in the current workspace.
   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md).
 - Checking review evidence about gaps or completion claims:
   [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md).
+- Moving, superseding, or rejecting proposal text:
+  [../document-status.md](../document-status.md).
 
 ## Skip Unless Needed
 
