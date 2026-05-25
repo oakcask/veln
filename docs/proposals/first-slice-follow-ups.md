@@ -126,9 +126,11 @@ No accepted language and type coverage follow-up is currently tracked here.
   disequality `satisfy` clauses against numeric literals excluded by the bound,
   while equal inclusive bounds do not discharge disequality against the
   endpoint. Numeric literal equality requirements discharge weaker numeric
-  literal bound `satisfy` clauses over the same subject. Statically satisfied
-  repair candidates are retained even when they sort after the ordinary
-  manual-review candidate bound.
+  literal bound `satisfy` clauses over the same subject. Numeric disequality
+  requirements discharge strict ordering disjunctions around the excluded
+  literal, including through equality aliases. Statically satisfied repair
+  candidates are retained even when they sort after the ordinary manual-review
+  candidate bound.
   Nested complementary `or` clauses rooted at the satisfy candidate are
   treated as tautological surplus clauses inside direct and tautological
   `satisfy` conjunctions.

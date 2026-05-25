@@ -360,7 +360,13 @@ guarantees `candidate != 0.5` after substituting `ratio`.
 Equal inclusive bounds do not discharge strict bounds, so `require max >= 10`
 does not guarantee `candidate > 10`. They also do not discharge disequality
 against the endpoint, so `require max >= 10` does not guarantee
-`candidate != 10`. Every
+`candidate != 10`.
+Numeric disequality requirements also discharge strict ordering disjunctions
+around the excluded literal, including through equality aliases. For example,
+`require max != 0` guarantees
+`candidate < 0 or candidate > 0` after substituting `max`, and
+`require max == fallback` together with `require fallback != 0` guarantees the
+same predicate after substituting either binding. Every
 type-compatible visible binding candidate for the tautological
 subset uses `reason: "satisfy_tautology"`. A statically accepted candidate also
 uses `satisfy_status: "statically_satisfied"`. Other candidates for a

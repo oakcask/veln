@@ -3285,6 +3285,9 @@ fn predicate_guaranteed_by_required_predicates(
     {
         return true;
     }
+    if required_predicate_set_implies_disjunctive_predicate(required_predicates, predicate) {
+        return true;
+    }
     repair_relevant_or_clause_strings(predicate)
         .into_iter()
         .map(|disjunct| repair_relevant_and_clauses(&disjunct))
@@ -3317,6 +3320,27 @@ fn required_predicate_implies_disjunctive_predicate(required: &str, wanted: &str
         wanted_disjuncts
             .iter()
             .any(|wanted_disjunct| repair_clause_implies(required_disjunct, wanted_disjunct))
+    })
+}
+
+fn required_predicate_set_implies_disjunctive_predicate(
+    required_predicates: &[String],
+    wanted: &str,
+) -> bool {
+    let wanted_disjuncts = repair_relevant_or_clauses(wanted)
+        .into_iter()
+        .map(canonical_repair_clause)
+        .collect::<Vec<_>>();
+    if wanted_disjuncts.len() <= 1 {
+        return false;
+    }
+    let required_clauses = required_predicates
+        .iter()
+        .flat_map(|predicate| repair_set_clauses(predicate))
+        .collect::<Vec<_>>();
+    let equivalences = repair_equivalences(&required_clauses);
+    required_clauses.iter().any(|required| {
+        disequality_implies_numeric_ordering_disjunction(required, &wanted_disjuncts, &equivalences)
     })
 }
 
@@ -3856,6 +3880,53 @@ fn repair_disequality_literal_for_operand(
         return repair_numeric_literal(wanted.left);
     }
     None
+}
+
+fn disequality_implies_numeric_ordering_disjunction(
+    required: &str,
+    wanted_disjuncts: &[String],
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some(required) = ParsedRepairComparison::parse(required) else {
+        return false;
+    };
+    if required.operator != "!=" {
+        return false;
+    }
+    let Some((subject, excluded)) = numeric_literal_comparison_side(&required) else {
+        return false;
+    };
+    let mut has_lower_side = false;
+    let mut has_upper_side = false;
+    for wanted in wanted_disjuncts {
+        let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
+            continue;
+        };
+        if wanted.operator != "<" {
+            continue;
+        }
+        if repair_operands_equivalent(wanted.left, subject, equivalences)
+            && repair_numeric_literal(wanted.right) == Some(excluded)
+        {
+            has_lower_side = true;
+        }
+        if repair_numeric_literal(wanted.left) == Some(excluded)
+            && repair_operands_equivalent(wanted.right, subject, equivalences)
+        {
+            has_upper_side = true;
+        }
+    }
+    has_lower_side && has_upper_side
+}
+
+fn numeric_literal_comparison_side<'a>(
+    comparison: &'a ParsedRepairComparison<'a>,
+) -> Option<(&'a str, RepairNumber)> {
+    repair_numeric_literal(comparison.left)
+        .map(|literal| (comparison.right, literal))
+        .or_else(|| {
+            repair_numeric_literal(comparison.right).map(|literal| (comparison.left, literal))
+        })
 }
 
 fn boolean_literal_comparison_implies_atom(
