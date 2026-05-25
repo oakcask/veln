@@ -2307,6 +2307,42 @@ fn run_rejects_invalid_typed_entry_argument_before_jdk_execution() {
 }
 
 #[test]
+fn run_rejects_invalid_float_entry_argument_before_jdk_execution() {
+    let project = TestProject::new("run-entry-invalid-float");
+    project.write(
+        "main.veln",
+        "pub fn main(value: Float) -> Float effects []\n  value\nend\n",
+    );
+
+    let output = project.run(&["main", "main.veln", "--", "not-float"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(
+        stderr(&output),
+        "veln: invalid Float argument for parameter `value`: `not-float`\n"
+    );
+}
+
+#[test]
+fn run_rejects_invalid_bool_entry_argument_before_jdk_execution() {
+    let project = TestProject::new("run-entry-invalid-bool");
+    project.write(
+        "main.veln",
+        "pub fn main(value: Bool) -> Bool effects []\n  value\nend\n",
+    );
+
+    let output = project.run(&["main", "main.veln", "--", "yes"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_eq!(
+        stderr(&output),
+        "veln: invalid Bool argument for parameter `value`: `yes`\n"
+    );
+}
+
+#[test]
 fn run_reports_missing_javac_clearly() {
     let project = TestProject::new("run-no-javac");
     project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
@@ -2318,6 +2354,31 @@ fn run_reports_missing_javac_clearly() {
     assert_contains_all(
         stderr(&output),
         &["veln: `javac` was not found; install a JDK to use `veln run`"],
+    );
+}
+
+#[test]
+fn run_json_reports_missing_javac_as_runner_error() {
+    let project = TestProject::new("run-json-no-javac");
+    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
+
+    let output = project.run_with_path(&["--json", "main", "main.veln"], "");
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"schema_version\":\"veln-run-json/v0\"",
+            "\"command\":\"run\"",
+            "\"status\":\"error\"",
+            "\"exit_code\":1",
+            "\"stdout\":\"\"",
+            "\"stderr\":\"\"",
+            "\"error\":{\"kind\":\"runner\",\"message\":\"veln: `javac` was not found; install a JDK to use `veln run`\"",
+            "\"details\":{\"phase\":\"tool\"}",
+        ],
     );
 }
 
