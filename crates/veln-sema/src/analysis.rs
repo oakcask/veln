@@ -2981,6 +2981,9 @@ fn tautological_candidate_predicate(
 }
 
 fn has_complementary_candidate_disjuncts(disjuncts: &[&str], candidate: &str) -> bool {
+    if has_complementary_candidate_comparison_disjuncts(disjuncts, candidate) {
+        return true;
+    }
     let mut positive = Vec::<String>::new();
     let mut negative = Vec::<String>::new();
     for disjunct in disjuncts {
@@ -2998,6 +3001,34 @@ fn has_complementary_candidate_disjuncts(disjuncts: &[&str], candidate: &str) ->
         }
     }
     false
+}
+
+fn has_complementary_candidate_comparison_disjuncts(disjuncts: &[&str], candidate: &str) -> bool {
+    disjuncts.iter().enumerate().any(|(index, left)| {
+        disjuncts
+            .iter()
+            .skip(index + 1)
+            .any(|right| complementary_candidate_comparisons(left, right, candidate))
+    })
+}
+
+fn complementary_candidate_comparisons(left: &str, right: &str, candidate: &str) -> bool {
+    if !expression_references_identifier(left, candidate)
+        && !expression_references_identifier(right, candidate)
+    {
+        return false;
+    }
+    let Some(left) = NormalizedRepairComparison::parse(left) else {
+        return false;
+    };
+    let Some(right) = NormalizedRepairComparison::parse(right) else {
+        return false;
+    };
+    match (left.operator, right.operator) {
+        ("==", "!=") | ("!=", "==") => left.same_operands_unordered(&right),
+        ("<", "<=") | ("<=", "<") => left.same_operands_reversed(&right),
+        _ => false,
+    }
 }
 
 fn complementary_disjunct_key(disjunct: &str, candidate: &str) -> Option<(bool, String)> {
@@ -4650,6 +4681,46 @@ impl<'a> ParsedRepairComparison<'a> {
             });
         }
         None
+    }
+}
+
+struct NormalizedRepairComparison<'a> {
+    left: &'a str,
+    operator: &'static str,
+    right: &'a str,
+}
+
+impl<'a> NormalizedRepairComparison<'a> {
+    fn parse(clause: &'a str) -> Option<Self> {
+        let parsed = ParsedRepairComparison::parse(strip_balanced_outer_parens(clause))?;
+        Some(match parsed.operator {
+            ">" => Self {
+                left: parsed.right,
+                operator: "<",
+                right: parsed.left,
+            },
+            ">=" => Self {
+                left: parsed.right,
+                operator: "<=",
+                right: parsed.left,
+            },
+            _ => Self {
+                left: parsed.left,
+                operator: parsed.operator,
+                right: parsed.right,
+            },
+        })
+    }
+
+    fn same_operands_unordered(&self, other: &Self) -> bool {
+        (compact_predicate_text(self.left) == compact_predicate_text(other.left)
+            && compact_predicate_text(self.right) == compact_predicate_text(other.right))
+            || self.same_operands_reversed(other)
+    }
+
+    fn same_operands_reversed(&self, other: &Self) -> bool {
+        compact_predicate_text(self.left) == compact_predicate_text(other.right)
+            && compact_predicate_text(self.right) == compact_predicate_text(other.left)
     }
 }
 

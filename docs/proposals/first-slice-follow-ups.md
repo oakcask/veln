@@ -138,6 +138,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   Nested complementary `or` clauses rooted at the satisfy candidate are
   treated as tautological surplus clauses inside direct and tautological
   `satisfy` conjunctions.
+  Top-level complementary comparison disjuncts that reference the satisfy
+  candidate are also treated as tautological repair constraints after
+  whitespace normalization and commuted ordering normalization.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.
