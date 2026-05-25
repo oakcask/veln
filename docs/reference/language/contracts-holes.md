@@ -117,7 +117,10 @@ candidate with itself using `==`, `<=`, or `>=`, such as
 `not (candidate != candidate)`, are also accepted. `and` may join only
 tautological clauses or literal `true` clauses. Wrapping each tautological
 clause in balanced parentheses does not change this repair match. Literal
-`false` disjuncts do not affect tautological repair matching.
+`false` disjuncts do not affect tautological repair matching. A top-level
+literal `true` disjunct makes the whole `satisfy` predicate tautological for
+repair ranking, so every type-compatible visible binding is a safe repair
+candidate.
 A candidate is also safe when replacing the
 satisfy candidate binding with the visible symbol makes every non-`true` `and`
 clause match a valid `require` clause already in force for the function; such

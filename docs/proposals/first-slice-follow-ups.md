@@ -54,7 +54,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   Nested `or` branches inside `satisfy` `and` conjunctions are recognized when
   at least one branch is guaranteed by valid `require` clauses. Literal
   `false` disjuncts do not affect direct, tautological, or `require`-matched
-  repair status.
+  repair status. Top-level literal `true` disjuncts make a `satisfy` predicate
+  tautological for repair ranking.
   Broader repair discharge remains follow-up work before formatter
   stabilization.
 
