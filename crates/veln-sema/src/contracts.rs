@@ -73,10 +73,17 @@ fn static_boolean_value_inner(
     if predicate == "false" {
         return StaticBooleanValue::False;
     }
-    if let Some(value @ (StaticBooleanValue::True | StaticBooleanValue::False)) =
-        static_boolean_truth_table_value(predicate)
+    let top_level_or_count = split_top_level_keyword(predicate, "or").len();
+    if top_level_or_count >= 512 && has_exhaustive_case_split_top_level_or_between(predicate, 2, 10)
     {
-        return value;
+        return StaticBooleanValue::True;
+    }
+    if top_level_or_count < 512 {
+        if let Some(value @ (StaticBooleanValue::True | StaticBooleanValue::False)) =
+            static_boolean_truth_table_value(predicate)
+        {
+            return value;
+        }
     }
     if let Some(inner) = negated_predicate_inner(predicate) {
         return static_boolean_value_inner(inner, classify_numeric_literal_bounds).negate();
@@ -100,27 +107,6 @@ fn static_boolean_value_inner(
         return StaticBooleanValue::True;
     }
     if has_partial_case_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_exhaustive_pair_case_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_exhaustive_triple_case_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_exhaustive_quad_case_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_exhaustive_quint_case_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_exhaustive_sext_case_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_exhaustive_sept_case_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_exhaustive_oct_case_split_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
     if has_case_split_top_level_or(predicate) {
@@ -716,45 +702,29 @@ fn partial_case_split_rejected_assignments(conjunct: &str, bases: &[&str]) -> Op
     Some(rejected)
 }
 
-fn has_exhaustive_pair_case_split_top_level_or(predicate: &str) -> bool {
-    has_exhaustive_case_split_top_level_or(predicate, 2)
-}
-
-fn has_exhaustive_triple_case_split_top_level_or(predicate: &str) -> bool {
-    has_exhaustive_case_split_top_level_or(predicate, 3)
-}
-
-fn has_exhaustive_quad_case_split_top_level_or(predicate: &str) -> bool {
-    has_exhaustive_case_split_top_level_or(predicate, 4)
-}
-
-fn has_exhaustive_quint_case_split_top_level_or(predicate: &str) -> bool {
-    has_exhaustive_case_split_top_level_or(predicate, 5)
-}
-
-fn has_exhaustive_sext_case_split_top_level_or(predicate: &str) -> bool {
-    has_exhaustive_case_split_top_level_or(predicate, 6)
-}
-
-fn has_exhaustive_sept_case_split_top_level_or(predicate: &str) -> bool {
-    has_exhaustive_case_split_top_level_or(predicate, 7)
-}
-
-fn has_exhaustive_oct_case_split_top_level_or(predicate: &str) -> bool {
-    has_exhaustive_case_split_top_level_or(predicate, 8)
-}
-
-fn has_exhaustive_case_split_top_level_or(predicate: &str, arity: usize) -> bool {
+fn has_exhaustive_case_split_top_level_or_between(
+    predicate: &str,
+    min_arity: usize,
+    max_arity: usize,
+) -> bool {
     let disjuncts = flattened_keyword_clauses(predicate, "or");
-    let Some(expected_clause_count) = 1usize.checked_shl(arity as u32) else {
+    if min_arity == 0 || min_arity > max_arity {
+        return false;
+    }
+    let Some(min_clause_count) = 1usize.checked_shl(min_arity as u32) else {
         return false;
     };
-    if arity == 0 || disjuncts.len() < expected_clause_count {
+    if disjuncts.len() < min_clause_count {
         return false;
     }
     disjuncts.iter().any(|candidate| {
         let bases = non_static_conjuncts(candidate);
-        bases.len() == arity
+        let arity = bases.len();
+        let Some(expected_clause_count) = 1usize.checked_shl(arity as u32) else {
+            return false;
+        };
+        (min_arity..=max_arity).contains(&arity)
+            && disjuncts.len() >= expected_clause_count
             && bases.iter().enumerate().all(|(index, base)| {
                 bases.iter().skip(index + 1).all(|other| {
                     !same_predicate(base, other) && !complementary_predicates(base, other)
@@ -1258,14 +1228,19 @@ fn order_bound_edges_imply_non_strict(edges: &[OrderBoundShape], left: &str, rig
 }
 
 fn flattened_keyword_clauses<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str> {
-    let clauses = split_top_level_keyword(strip_balanced_outer_parens(predicate), keyword);
-    if clauses.len() <= 1 {
-        return clauses;
+    let mut flattened = Vec::new();
+    let mut stack = vec![strip_balanced_outer_parens(predicate)];
+
+    while let Some(predicate) = stack.pop() {
+        let clauses = split_top_level_keyword(strip_balanced_outer_parens(predicate), keyword);
+        if clauses.len() <= 1 {
+            flattened.extend(clauses);
+            continue;
+        }
+        stack.extend(clauses.into_iter().rev());
     }
-    clauses
-        .into_iter()
-        .flat_map(|clause| flattened_keyword_clauses(clause, keyword))
-        .collect()
+
+    flattened
 }
 
 fn negated_predicate_inner(predicate: &str) -> Option<&str> {
@@ -1561,6 +1536,29 @@ impl From<bool> for StaticBooleanValue {
 mod tests {
     use super::*;
 
+    fn exhaustive_case_split_predicate(subject: &str, fields: &[&str]) -> String {
+        let assignment_count = 1usize << fields.len();
+        (0..assignment_count)
+            .map(|assignment| {
+                let conjuncts = fields
+                    .iter()
+                    .enumerate()
+                    .map(|(index, field)| {
+                        let bit = 1usize << (fields.len() - index - 1);
+                        if assignment & bit != 0 {
+                            format!("{subject}.{field}")
+                        } else {
+                            format!("not {subject}.{field}")
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" and ");
+                format!("({conjuncts})")
+            })
+            .collect::<Vec<_>>()
+            .join(" or ")
+    }
+
     #[test]
     fn negation_prefix_does_not_capture_following_conjunction() {
         let predicate = "(not value.ready and value.paid) or (value.ready and value.paid)";
@@ -1585,6 +1583,18 @@ mod tests {
             Some(StaticBooleanValue::True)
         );
         assert!(predicate_is_statically_true(predicate));
+    }
+
+    #[test]
+    fn exhaustive_nona_and_deca_case_splits_are_statically_true() {
+        for fields in [
+            &["a", "b", "c", "d", "e", "f", "g", "h", "i"][..],
+            &["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"][..],
+        ] {
+            let predicate = exhaustive_case_split_predicate("value", fields);
+
+            assert!(predicate_is_statically_true(&predicate));
+        }
     }
 
     #[test]

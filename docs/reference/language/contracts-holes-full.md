@@ -172,6 +172,8 @@ predicates.
 It also recognizes exhaustive oct case splits where two hundred fifty-six
 top-level conjunction branches cover both polarities of eight non-static
 predicates.
+It also recognizes exhaustive nona and deca case splits with the same shape for
+nine or ten non-static predicates.
 Top-level `or` also recognizes complementary comparison pairs over the same
 operands after whitespace normalization and commuted ordering normalization,
 such as `value == limit or value != limit`,
