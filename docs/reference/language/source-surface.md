@@ -120,6 +120,8 @@ uses a function declaration as a value, that referenced function is part of the
 selected executable slice. In a named source module, selected-entry
 reachability treats a bare function reference as a reference to the same source
 module. `use` alias-qualified references keep the imported module identity.
+Bare local bindings, parameters, and match-pattern bindings shadow same-named
+function declarations for this reachability rule.
 
 `test` is a top-level declaration keyword, not a visibility modifier. Test
 declarations are selected by `veln test` from `*_test.veln` files, explicit

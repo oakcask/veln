@@ -16,12 +16,15 @@ arguments. In a named source module, a bare function reference resolves
 reachability only to functions owned by that same source module. Qualified
 calls and function values resolved through selected-file `use` aliases keep
 the imported module identity, so same-named functions from other modules are
-not included only because their local name matches. The implemented execution
-fixtures cover function declarations used as function-typed values,
-function-typed value calls, contract helper reachability, contract function
-value reachability, imported-call reachable-hole blocking, selected-entry
-reachable-hole blocking, and selected-entry concurrency blockers before JVM
-execution.
+not included only because their local name matches. Bare local bindings,
+parameters, and match-pattern bindings shadow same-named function declarations
+for selected-entry reachability; a shadowed bare name is treated as the local
+value, not as a function declaration value. The implemented execution fixtures
+cover function declarations used as function-typed values, function-typed value
+calls, contract helper reachability, contract function value reachability,
+imported-call reachable-hole blocking, selected-entry reachable-hole blocking,
+local shadowing of function declarations, and selected-entry concurrency
+blockers before JVM execution.
 When a function or test body omits the final expression line, checked core and
 typed IR materialize that omission as an explicit `()` return.
 
@@ -50,6 +53,7 @@ The JVM backend generates Java source for the implemented IR subset:
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls
 - bounded channel construction, sender clone, send, receive, and close calls
+- two-receiver channel selection calls
 - task spawn, join, and cancellation calls
 - pipelines with named or qualified call targets lowered to calls with the
   left expression inserted as the first argument
@@ -77,6 +81,11 @@ and then returns `Ok(())`. A waiting receive on a zero-capacity channel returns
 `Some(value)` when the paired send transfers a value.
 Closing the sender endpoint prevents later sends from succeeding and wakes
 waiting receivers.
+`channel::select(left, right)` observes two receivers with the same item type.
+It returns the first ready value as `Some({index, value})`, using `0` for the
+left receiver and `1` for the right receiver, and returns `None` only after
+both receivers are closed and drained. If both receivers are ready during one
+runtime poll, the lower index wins.
 
 Task values are backend-owned runtime handles. `task::spawn` starts a
 zero-argument callable on a JVM thread and freezes the returned value before it

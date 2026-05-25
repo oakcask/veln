@@ -120,6 +120,33 @@ fn generates_runtime_calls_for_bounded_channels() {
 }
 
 #[test]
+fn generates_runtime_calls_for_channel_select() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> String effects [concurrency]\n",
+        "  let left: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  let right: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  let _ = channel::send(right.tx, \"hello\")\n",
+        "  match channel::select(left.rx, right.rx)\n",
+        "    Some(selected) => selected.value\n",
+        "    None => \"missing\"\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("VelnRuntime.channelSelect("));
+    assert!(runtime.contains("public static Object channelSelect"));
+    assert!(runtime.contains("private static Object channelSelectPoll"));
+}
+
+#[test]
 fn generates_runtime_calls_for_tasks() {
     let ir = lower_to_ir(concat!(
         "fn produce() -> String effects []\n",

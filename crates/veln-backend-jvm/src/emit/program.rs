@@ -269,6 +269,9 @@ impl<'a> ProgramEmitter<'a> {
         Object call(Object... args);
     }}
 
+    private static final Object SELECT_PENDING = new Object();
+    private static final Object SELECT_CLOSED = new Object();
+
     public static final class Channel {{
         private final java.util.ArrayDeque<Object> queue;
         private final long capacity;
@@ -447,6 +450,77 @@ impl<'a> ProgramEmitter<'a> {
             }}
             rx.channel.notifyAll();
             return some(value);
+        }}
+    }}
+
+    public static Object channelSelect(Object leftReceiver, Object rightReceiver) {{
+        Receiver left = (Receiver) leftReceiver;
+        Receiver right = (Receiver) rightReceiver;
+        Receiver[] receivers = new Receiver[] {{ left, right }};
+        boolean[] registered = new boolean[] {{ false, false }};
+        try {{
+            for (int i = 0; i < receivers.length; i += 1) {{
+                Channel channel = receivers[i].channel;
+                if (channel.capacity == 0L) {{
+                    synchronized (channel) {{
+                        channel.waitingReceivers += 1L;
+                        registered[i] = true;
+                        channel.notifyAll();
+                    }}
+                }}
+            }}
+            while (true) {{
+                boolean allClosed = true;
+                for (int i = 0; i < receivers.length; i += 1) {{
+                    Object selected = channelSelectPoll(receivers[i], i);
+                    if (selected == SELECT_PENDING) {{
+                        allClosed = false;
+                    }} else if (selected != SELECT_CLOSED) {{
+                        return selected;
+                    }}
+                }}
+                if (allClosed) {{
+                    return none();
+                }}
+                try {{
+                    Thread.sleep(1L);
+                }} catch (InterruptedException interrupted) {{
+                    Thread.currentThread().interrupt();
+                    return none();
+                }}
+            }}
+        }} finally {{
+            for (int i = 0; i < receivers.length; i += 1) {{
+                if (registered[i]) {{
+                    Channel channel = receivers[i].channel;
+                    synchronized (channel) {{
+                        channel.waitingReceivers -= 1L;
+                        channel.notifyAll();
+                    }}
+                }}
+            }}
+        }}
+    }}
+
+    private static Object channelSelectPoll(Receiver rx, int index) {{
+        synchronized (rx.channel) {{
+            Object value;
+            if (rx.channel.capacity == 0L) {{
+                if (rx.channel.hasRendezvousValue) {{
+                    value = rx.channel.rendezvousValue;
+                    rx.channel.rendezvousValue = null;
+                    rx.channel.hasRendezvousValue = false;
+                    rx.channel.notifyAll();
+                    return some(record("index", Long.valueOf(index), "value", value));
+                }}
+                return rx.channel.closed ? SELECT_CLOSED : SELECT_PENDING;
+            }}
+            value = rx.channel.queue.pollFirst();
+            if (value != null) {{
+                rx.channel.notifyAll();
+                return some(record("index", Long.valueOf(index), "value", value));
+            }}
+            return rx.channel.closed ? SELECT_CLOSED : SELECT_PENDING;
         }}
     }}
 

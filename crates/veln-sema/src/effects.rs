@@ -82,10 +82,40 @@ pub(crate) fn concurrency_signature(
             let item = expected
                 .and_then(Type::option_part)
                 .cloned()
+                .or_else(|| {
+                    handle_type
+                        .and_then(|ty| named_type_argument(ty, "Receiver"))
+                        .cloned()
+                })
                 .unwrap_or(Type::Unknown);
             Some((
                 vec![Type::named("Receiver", vec![item.clone()])],
                 Type::named("Option", vec![item]),
+            ))
+        }
+        ("channel", "select") => {
+            let item = expected
+                .and_then(Type::option_part)
+                .and_then(select_result_value_type)
+                .cloned()
+                .or_else(|| {
+                    handle_type
+                        .and_then(|ty| named_type_argument(ty, "Receiver"))
+                        .cloned()
+                })
+                .unwrap_or(Type::Unknown);
+            Some((
+                vec![
+                    Type::named("Receiver", vec![item.clone()]),
+                    Type::named("Receiver", vec![item.clone()]),
+                ],
+                Type::named(
+                    "Option",
+                    vec![Type::Record(vec![
+                        ("index".to_string(), Type::int()),
+                        ("value".to_string(), item),
+                    ])],
+                ),
             ))
         }
         ("channel", "close") => Some((vec![Type::named("Sender", vec![unknown])], Type::unit())),
@@ -183,10 +213,37 @@ pub(crate) fn core_concurrency_signature(
             let item = expected
                 .and_then(CoreType::option_part)
                 .cloned()
+                .or_else(|| {
+                    handle_type
+                        .and_then(|ty| core_named_type_argument(ty, "Receiver"))
+                        .cloned()
+                })
                 .unwrap_or(CoreType::Unknown);
             Some((
                 vec![CoreType::named("Receiver", vec![item.clone()])],
                 CoreType::option(item),
+            ))
+        }
+        ("channel", "select") => {
+            let item = expected
+                .and_then(CoreType::option_part)
+                .and_then(core_select_result_value_type)
+                .cloned()
+                .or_else(|| {
+                    handle_type
+                        .and_then(|ty| core_named_type_argument(ty, "Receiver"))
+                        .cloned()
+                })
+                .unwrap_or(CoreType::Unknown);
+            Some((
+                vec![
+                    CoreType::named("Receiver", vec![item.clone()]),
+                    CoreType::named("Receiver", vec![item.clone()]),
+                ],
+                CoreType::option(CoreType::Record(vec![
+                    ("index".to_string(), CoreType::int()),
+                    ("value".to_string(), item),
+                ])),
             ))
         }
         ("channel", "close") => Some((
@@ -235,7 +292,7 @@ pub(crate) fn is_concurrency_call(segments: &[String]) -> bool {
         segments,
         [module, name]
             if (module == "channel"
-                && matches!(name.as_str(), "bounded" | "clone" | "send" | "recv" | "close"))
+                && matches!(name.as_str(), "bounded" | "clone" | "send" | "recv" | "select" | "close"))
                 || (module == "task" && matches!(name.as_str(), "spawn" | "join" | "cancel"))
     )
 }
@@ -259,6 +316,10 @@ fn channel_pair_item_type(expected: Option<&Type>) -> Option<Type> {
     }
 }
 
+fn select_result_value_type(ty: &Type) -> Option<&Type> {
+    ty.record_field("value")
+}
+
 fn core_channel_pair_item_type(expected: Option<&CoreType>) -> Option<CoreType> {
     let tx = expected?.record_field("tx")?;
     let rx = expected?.record_field("rx")?;
@@ -269,6 +330,10 @@ fn core_channel_pair_item_type(expected: Option<&CoreType>) -> Option<CoreType> 
     } else {
         None
     }
+}
+
+fn core_select_result_value_type(ty: &CoreType) -> Option<&CoreType> {
+    ty.record_field("value")
 }
 
 fn core_named_type_argument<'a>(ty: &'a CoreType, expected_name: &str) -> Option<&'a CoreType> {

@@ -138,10 +138,11 @@ becoming the default programming style.
 
 The current workspace implements a minimal executable bounded-channel slice:
 `channel::bounded(capacity)`, `channel::bounded[T](capacity)`,
-`channel::clone(tx)`, `channel::send(tx, value)`, `channel::recv(rx)`, and
-`channel::close(tx)` are `concurrency` effect calls. Public functions and tests
-that reach these calls must declare `effects [concurrency]`. It also implements
-an executable task slice: `task::spawn(job)`, `task::spawn[T](job)`,
+`channel::clone(tx)`, `channel::send(tx, value)`, `channel::recv(rx)`,
+`channel::select(left, right)`, and `channel::close(tx)` are `concurrency`
+effect calls. Public functions and tests that reach these calls must declare
+`effects [concurrency]`. It also implements an executable task slice:
+`task::spawn(job)`, `task::spawn[T](job)`,
 `task::join(task)`, and `task::cancel(task)` are `concurrency` effect calls.
 
 The implemented constructor infers the item type from an expected
@@ -149,7 +150,10 @@ The implemented constructor infers the item type from an expected
 from `channel::bounded[T](capacity)`. The runtime supports direct send with
 positive-capacity backpressure, sender clone, blocking receive, close on a
 single channel pair, and zero-capacity rendezvous transfer between a waiting
-sender and receiver. The task runtime starts zero-argument callables on JVM
+sender and receiver. Two-receiver selection returns
+`Option({index: Int, value: T})`, choosing the lower index when both receivers
+are ready in the same poll and returning `None` only after both receivers are
+closed and drained. The task runtime starts zero-argument callables on JVM
 threads, freezes task results before they cross the task boundary, joins with
 `Result(T, JoinError)`, and treats cancellation as a cooperative interruption
-request. Selection remains follow-up work.
+request. Richer selection policy remains follow-up work.

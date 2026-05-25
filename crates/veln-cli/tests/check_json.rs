@@ -1899,6 +1899,37 @@ fn run_ignores_unreachable_semantic_diagnostics() {
 }
 
 #[test]
+fn run_ignores_function_shadowed_by_local_binding() {
+    let project = TestProject::new("run-local-shadowed-function");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn helper() -> Int effects []\n",
+            "  _\n",
+            "end\n",
+            "pub fn main() -> Int effects []\n",
+            "  let helper = 1\n",
+            "  helper\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run_with_path(&["main", "main.veln"], "");
+    let stderr = stderr(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr,
+        &["veln: `javac` was not found; install a JDK to use `veln run`"],
+    );
+    assert!(
+        !stderr.contains("hole.unfilled"),
+        "shadowed function should not be reachable: {stderr}"
+    );
+}
+
+#[test]
 fn run_does_not_block_unreachable_holes_when_jdk_is_available() {
     if !jdk_is_available() {
         return;

@@ -1,4 +1,7 @@
-use veln_ast::{Expr, ExprKind, Function, FunctionKind, SurfaceModule, UseDecl, lower_surface_ast};
+use veln_ast::{
+    Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind, SurfaceModule, UseDecl,
+    lower_surface_ast,
+};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_project::ManifestModule;
 use veln_project::Project;
@@ -264,6 +267,11 @@ fn direct_function_callees(
 ) -> Vec<ReachableFunction> {
     let mut callees = Vec::new();
     let current_module = function.module_name.as_deref();
+    let mut local_bindings = function
+        .params
+        .iter()
+        .map(|param| param.name.clone())
+        .collect::<Vec<_>>();
     for contract in &function.contracts {
         collect_contract_callees(
             &contract.text,
@@ -275,12 +283,24 @@ fn direct_function_callees(
     }
     for line in &function.body {
         match &line.kind {
-            veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
+            veln_ast::BodyLineKind::Let { pattern, expr, .. } => {
                 collect_function_callees(
                     expr,
                     current_module,
                     uses,
                     function_targets,
+                    &local_bindings,
+                    &mut callees,
+                );
+                collect_pattern_bindings(pattern, &mut local_bindings);
+            }
+            veln_ast::BodyLineKind::Expr { expr } => {
+                collect_function_callees(
+                    expr,
+                    current_module,
+                    uses,
+                    function_targets,
+                    &local_bindings,
                     &mut callees,
                 );
             }
@@ -401,6 +421,7 @@ fn collect_function_callees(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    local_bindings: &[String],
     callees: &mut Vec<ReachableFunction>,
 ) {
     match &expr.kind {
@@ -410,11 +431,19 @@ fn collect_function_callees(
                 current_module,
                 uses,
                 function_targets,
+                local_bindings,
                 callees,
             );
         }
         ExprKind::TypeApply { callee, .. } => {
-            collect_function_callees(callee, current_module, uses, function_targets, callees);
+            collect_function_callees(
+                callee,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
         }
         ExprKind::Call { callee, args } => {
             if let Some(segments) = callee_name_path(callee) {
@@ -423,20 +452,47 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    local_bindings,
                     callees,
                 );
             }
-            collect_function_callees(callee, current_module, uses, function_targets, callees);
+            collect_function_callees(
+                callee,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
             for arg in args {
-                collect_function_callees(arg, current_module, uses, function_targets, callees);
+                collect_function_callees(
+                    arg,
+                    current_module,
+                    uses,
+                    function_targets,
+                    local_bindings,
+                    callees,
+                );
             }
         }
         ExprKind::FieldAccess { base, .. } => {
-            collect_function_callees(base, current_module, uses, function_targets, callees);
+            collect_function_callees(
+                base,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
         }
-        ExprKind::Try(inner) => {
-            collect_function_callees(inner, current_module, uses, function_targets, callees)
-        }
+        ExprKind::Try(inner) => collect_function_callees(
+            inner,
+            current_module,
+            uses,
+            function_targets,
+            local_bindings,
+            callees,
+        ),
         ExprKind::Record(fields) => {
             for field in fields {
                 collect_function_callees(
@@ -444,6 +500,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    local_bindings,
                     callees,
                 );
             }
@@ -455,6 +512,7 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    local_bindings,
                     callees,
                 );
                 collect_function_callees(
@@ -462,33 +520,72 @@ fn collect_function_callees(
                     current_module,
                     uses,
                     function_targets,
+                    local_bindings,
                     callees,
                 );
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_function_callees(item, current_module, uses, function_targets, callees);
+                collect_function_callees(
+                    item,
+                    current_module,
+                    uses,
+                    function_targets,
+                    local_bindings,
+                    callees,
+                );
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_function_callees(scrutinee, current_module, uses, function_targets, callees);
+            collect_function_callees(
+                scrutinee,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
             for arm in arms {
+                let mut arm_bindings = local_bindings.to_vec();
+                collect_pattern_bindings(&arm.pattern, &mut arm_bindings);
                 collect_function_callees(
                     &arm.expr,
                     current_module,
                     uses,
                     function_targets,
+                    &arm_bindings,
                     callees,
                 );
             }
         }
         ExprKind::Prefix { expr, .. } => {
-            collect_function_callees(expr, current_module, uses, function_targets, callees);
+            collect_function_callees(
+                expr,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
         }
         ExprKind::Binary { left, right, .. } => {
-            collect_function_callees(left, current_module, uses, function_targets, callees);
-            collect_function_callees(right, current_module, uses, function_targets, callees);
+            collect_function_callees(
+                left,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
+            collect_function_callees(
+                right,
+                current_module,
+                uses,
+                function_targets,
+                local_bindings,
+                callees,
+            );
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -497,6 +594,28 @@ fn collect_function_callees(
         | ExprKind::FloatLiteral(_)
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
+    }
+}
+
+fn collect_pattern_bindings(pattern: &Pattern, bindings: &mut Vec<String>) {
+    match &pattern.kind {
+        PatternKind::Binding(name) => bindings.push(name.clone()),
+        PatternKind::Record(fields) => {
+            for field in fields {
+                collect_pattern_bindings(&field.pattern, bindings);
+            }
+        }
+        PatternKind::Constructor { args, .. } => {
+            for arg in args {
+                collect_pattern_bindings(arg, bindings);
+            }
+        }
+        PatternKind::Wildcard
+        | PatternKind::StringLiteral(_)
+        | PatternKind::IntLiteral(_)
+        | PatternKind::FloatLiteral(_)
+        | PatternKind::BoolLiteral(_)
+        | PatternKind::Unit => {}
     }
 }
 
@@ -513,8 +632,12 @@ fn collect_function_name_reference(
     current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
+    local_bindings: &[String],
     callees: &mut Vec<ReachableFunction>,
 ) {
+    if matches!(segments, [name] if local_bindings.iter().rev().any(|binding| binding == name)) {
+        return;
+    }
     for callee in resolve_function_reference(segments, current_module, uses, function_targets) {
         push_reachable(callees, callee);
     }
@@ -1028,6 +1151,52 @@ mod tests {
                 (Some("app.main"), FunctionKind::Function, Some("main")),
             ]
         );
+    }
+
+    #[test]
+    fn local_binding_shadowing_function_name_does_not_reach_function() {
+        let module = lower(concat!(
+            "fn helper() -> Int effects []\n",
+            "  _\n",
+            "end\n",
+            "pub fn main() -> Int effects []\n",
+            "  let helper = 1\n",
+            "  helper\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(functions, vec![(FunctionKind::Function, Some("main"))]);
+    }
+
+    #[test]
+    fn match_binding_shadowing_function_name_does_not_reach_function() {
+        let module = lower(concat!(
+            "fn helper() -> Int effects []\n",
+            "  _\n",
+            "end\n",
+            "pub fn main(value: Option(Int)) -> Int effects []\n",
+            "  match value\n",
+            "    Some(helper) => helper\n",
+            "    None => 0\n",
+            "  end\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(functions, vec![(FunctionKind::Function, Some("main"))]);
     }
 
     #[test]

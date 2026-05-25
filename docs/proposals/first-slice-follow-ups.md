@@ -116,8 +116,10 @@ No accepted language and type coverage follow-up is currently tracked here.
 - The executable bounded-channel slice is implemented and specified in the
   language reference. The executable task slice now covers `spawn`, task
   handles, cancellation, and join. Test-visible stdio event capture now
-  serializes each output operation with its event sequence. Selection remains
-  future concurrency surface work.
+  serializes each output operation with its event sequence. The executable
+  two-receiver channel selection slice is implemented. Broader selection
+  policy, including fairness, priority, timeout, and cancellation-specific
+  reporting, remains future concurrency surface work.
 - The checker validates the first-slice pure boolean contract subset. Runtime
   contract discharge is implemented for function-entry `require` checks and
   `ensure` checks before both ordinary returns and `?` early returns.
@@ -149,9 +151,11 @@ No accepted formatting follow-up is currently tracked here.
   reachability only to functions owned by that same module. Qualified calls and
   qualified function values through `use` aliases resolve reachability to
   functions in the imported source module without including same-named
-  functions from other modules. Broader conservative handling for future
-  higher-order values beyond visible declaration values and module initializers
-  remains follow-up work.
+  functions from other modules. Local bindings, parameters, and match-pattern
+  bindings now shadow same-named function declarations during selected-entry
+  reachability. Broader conservative handling for future higher-order values
+  beyond visible declaration values and module initializers remains follow-up
+  work.
 
 ## Test Discovery And Events
 
