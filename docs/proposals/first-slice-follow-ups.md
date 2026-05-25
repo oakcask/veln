@@ -33,9 +33,11 @@ No accepted language and type coverage follow-up is currently tracked here.
   `require` clause mark the matching visible binding as an unapplied safe
   repair candidate, including string-literal clauses and simple direct,
   commuted, parenthesized comparison clauses, and whole parenthesized
-  `and` conjunctions. They also accept top-level `or` predicates when at least
-  one branch is fully guaranteed by valid `require` clauses. Broader repair
-  discharge remains follow-up work before formatter stabilization.
+  `and` conjunctions. Strict ordering `require` clauses also discharge the
+  corresponding inclusive ordering `satisfy` clause for the same operands.
+  They also accept top-level `or` predicates when at least one branch is fully
+  guaranteed by valid `require` clauses. Broader repair discharge remains
+  follow-up work before formatter stabilization.
 
 ## Effects And Contracts
 

@@ -2812,9 +2812,51 @@ fn predicate_guaranteed_by_required_clauses(predicate: &str, required_clauses: &
                     let canonical = canonical_repair_clause(clause);
                     required_clauses
                         .iter()
-                        .any(|required| required == &canonical)
+                        .any(|required| repair_clause_implies(required, &canonical))
                 })
         })
+}
+
+fn repair_clause_implies(required: &str, wanted: &str) -> bool {
+    if required == wanted {
+        return true;
+    }
+    let Some(required) = ParsedRepairComparison::parse(required) else {
+        return false;
+    };
+    let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
+        return false;
+    };
+    required.left == wanted.left
+        && required.right == wanted.right
+        && matches!((required.operator, wanted.operator), ("<", "<="))
+}
+
+struct ParsedRepairComparison<'a> {
+    left: &'a str,
+    operator: &'static str,
+    right: &'a str,
+}
+
+impl<'a> ParsedRepairComparison<'a> {
+    fn parse(clause: &'a str) -> Option<Self> {
+        for operator in ["==", "!=", "<=", ">=", "<", ">"] {
+            let Some((left, right)) = clause.split_once(operator) else {
+                continue;
+            };
+            let left = left.trim();
+            let right = right.trim();
+            if left.is_empty() || right.is_empty() {
+                return None;
+            }
+            return Some(Self {
+                left,
+                operator,
+                right,
+            });
+        }
+        None
+    }
 }
 
 fn split_top_level_keyword<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str> {
