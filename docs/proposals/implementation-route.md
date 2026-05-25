@@ -6,8 +6,7 @@ proposal.
 
 ## Choose A Target
 
-- Choose from accepted targets in
-  [first-slice-follow-ups.md](first-slice-follow-ups.md) before opening broader
+- Choose from [target-queue.md](target-queue.md) before opening broader
   design-wall material.
 - Remaining first-slice implementation targets are tracked in
   [first-slice-follow-ups.md](first-slice-follow-ups.md), with full detail in

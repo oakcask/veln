@@ -288,6 +288,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   representable as a finite decimal.
   Negated conjunctions of impossible numeric literal lower and upper bounds
   over the same subject are also statically evaluated.
+  Negated conjunctions that bind the same subject to distinct boolean,
+  numeric, or string literals are also statically evaluated.
   Richer predicate semantics beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, small boolean formula comparisons,

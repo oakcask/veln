@@ -8974,6 +8974,60 @@ fn contract_predicate_negated_exclusive_numeric_literal_bounds_are_statically_pr
 }
 
 #[test]
+fn contract_predicate_negated_exclusive_literal_equalities_are_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(name: String, flag: Bool) -> output: String effects []\n",
+            "require not (name == \"Ada\" and name == \"Grace\")\n",
+            "require not (true == flag and flag == false)\n",
+            "ensure not (output == \"ok\" and \"err\" == output)\n",
+            "  name\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_matching_literal_equalities_require_runtime_check() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(name: String) -> String effects []\n",
+            "require not (name == \"Ada\" and name == \"Ada\")\n",
+            "  name\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contract = &core.functions[0].contracts[0];
+    assert_eq!(
+        contract.obligation_status,
+        ContractObligationStatus::RuntimeRequired
+    );
+}
+
+#[test]
 fn contract_predicate_overlapping_numeric_literal_bounds_require_runtime_check() {
     let source = SourceFile::new(
         "main.veln",

@@ -5,33 +5,22 @@ not fully implemented in the current workspace.
 
 ## Read First
 
-- [implementation-route.md](implementation-route.md) explains how to choose a
-  proposal target, compare it with current behavior, and promote implemented
-  behavior into the reference.
-- [first-slice-follow-ups.md](first-slice-follow-ups.md) gathers accepted
-  first-slice target areas that remain incomplete after the completed edit
-  loop and routes to the full details.
+- [target-queue.md](target-queue.md) is the shortest route for choosing an
+  accepted implementation target.
+- [implementation-route.md](implementation-route.md) explains how to compare a
+  chosen target with current behavior and promote implemented behavior into
+  the reference.
 
 ## Read When
 
 - Selecting an accepted implementation target:
-  [first-slice-follow-ups.md](first-slice-follow-ups.md).
+  [target-queue.md](target-queue.md).
 - Turning a proposal into reference behavior:
   [implementation-route.md](implementation-route.md).
 - Checking design-wall decisions that are accepted or still open:
   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md).
 - Checking review evidence about gaps or completion claims:
   [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md).
-
-## Accepted Target Queue
-
-- Repair behavior: start with
-  [first-slice-follow-ups.md#repair-loop](first-slice-follow-ups.md#repair-loop).
-- Effects and contracts: start with
-  [first-slice-follow-ups.md#effects-and-contracts](first-slice-follow-ups.md#effects-and-contracts).
-- Design-wall topics: use
-  [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) only
-  after the accepted target route does not match the implementation task.
 
 ## Skip Unless Needed
 

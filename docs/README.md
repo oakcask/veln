@@ -13,6 +13,8 @@ the experimental Veln implementation.
   route from task area to the relevant language reference.
 - [proposals/README.md](proposals/README.md): accepted or open implementation
   targets.
+- [proposals/target-queue.md](proposals/target-queue.md): shortest route for
+  selecting one accepted proposal to implement.
 - [document-status.md](document-status.md): placement rules when moving text
   between proposal, review, phase, and reference areas.
 
@@ -21,7 +23,7 @@ the experimental Veln implementation.
 - Changing syntax, types, effects, contracts, holes, commands, JSON output, or
   examples: start at [reference/language/topic-map.md](reference/language/topic-map.md).
 - Choosing an implementation target: start at
-  [proposals/README.md](proposals/README.md), then use
+  [proposals/target-queue.md](proposals/target-queue.md), then use
   [proposals/implementation-route.md](proposals/implementation-route.md) for the
   proposal-to-reference workflow.
 - Checking whether a target is still justified: use
