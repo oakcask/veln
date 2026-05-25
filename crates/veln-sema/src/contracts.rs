@@ -25,34 +25,71 @@ pub(crate) fn contract_kind_text(kind: ContractKind) -> &'static str {
 }
 
 pub(crate) fn predicate_is_statically_true(predicate: &str) -> bool {
-    literal_boolean_value(predicate) == Some(true)
+    static_boolean_value(predicate) == StaticBooleanValue::True
 }
 
-fn literal_boolean_value(predicate: &str) -> Option<bool> {
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum StaticBooleanValue {
+    True,
+    False,
+    Unknown,
+}
+
+fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() {
-        return None;
+        return StaticBooleanValue::Unknown;
     }
     if predicate == "true" {
-        return Some(true);
+        return StaticBooleanValue::True;
     }
     if predicate == "false" {
-        return Some(false);
+        return StaticBooleanValue::False;
     }
     if let Some(rest) = predicate.strip_prefix("not ") {
-        return literal_boolean_value(rest).map(|value| !value);
+        return static_boolean_value(rest).negate();
     }
     if let Some(rest) = predicate.strip_prefix("not(") {
-        let inner = rest.strip_suffix(')')?;
-        return literal_boolean_value(inner).map(|value| !value);
+        let Some(inner) = rest.strip_suffix(')') else {
+            return StaticBooleanValue::Unknown;
+        };
+        return static_boolean_value(inner).negate();
     }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
-        return Some(literal_boolean_value(left)? || literal_boolean_value(right)?);
+        return static_boolean_value(left).or(static_boolean_value(right));
     }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
-        return Some(literal_boolean_value(left)? && literal_boolean_value(right)?);
+        return static_boolean_value(left).and(static_boolean_value(right));
     }
-    None
+    StaticBooleanValue::Unknown
+}
+
+impl StaticBooleanValue {
+    fn negate(self) -> Self {
+        match self {
+            Self::True => Self::False,
+            Self::False => Self::True,
+            Self::Unknown => Self::Unknown,
+        }
+    }
+
+    fn or(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::True, _) | (_, Self::True) => Self::True,
+            (Self::False, Self::False) => Self::False,
+            (Self::False, value) | (value, Self::False) => value,
+            (Self::Unknown, Self::Unknown) => Self::Unknown,
+        }
+    }
+
+    fn and(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::False, _) | (_, Self::False) => Self::False,
+            (Self::True, Self::True) => Self::True,
+            (Self::True, value) | (value, Self::True) => value,
+            (Self::Unknown, Self::Unknown) => Self::Unknown,
+        }
+    }
 }
 
 pub(crate) fn contract_calls(predicate: &str) -> Vec<ContractCall> {

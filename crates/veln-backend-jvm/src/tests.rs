@@ -1514,6 +1514,27 @@ fn omits_statically_proven_contract_checks() {
 }
 
 #[test]
+fn omits_boolean_identity_contract_checks() {
+    let ir = lower_to_ir(concat!(
+        "pub fn identity(value: Int) -> output: Int effects []\n",
+        "  require true or value > 0\n",
+        "  ensure (output >= value or true) and not false\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+
+    assert!(!program.contains("VelnRuntime.checkContract("));
+    assert!(!program.contains("\"require\", \"true or value > 0\""));
+    assert!(!program.contains("\"ensure\", \"(output >= value or true) and not false\""));
+    assert!(program.contains("return p_value;"));
+}
+
+#[test]
 fn emits_ensure_checks_before_try_early_return() {
     let ir = lower_to_ir(concat!(
         "fn fail() -> Result(Int, String) effects []\n",

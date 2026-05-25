@@ -1,8 +1,8 @@
 use crate::*;
 use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_core::{
-    CoreBlocker, CoreCallTarget, CoreExprKind, CorePatternKind, CoreReadiness, CoreStmtKind,
-    CoreType,
+    ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreExprKind, CorePatternKind,
+    CoreReadiness, CoreStmtKind, CoreType,
 };
 use veln_diagnostics::DiagnosticKind;
 use veln_ir::{IrCallTarget, IrExprKind, IrPatternKind, IrStmtKind};
@@ -6118,6 +6118,33 @@ fn contract_predicate_accepts_left_string_literal_comparison() {
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_predicate_boolean_identity_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int) -> output: Int effects []\n",
+            "require true or value > 0\n",
+            "ensure (output >= value or true) and not false\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
 }
 
 #[test]
