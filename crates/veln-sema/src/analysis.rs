@@ -3652,10 +3652,10 @@ fn literal_lower_bound_implies(
     wanted: &ParsedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    let Some(required_literal) = repair_int_literal(required.left) else {
+    let Some(required_literal) = repair_numeric_literal(required.left) else {
         return false;
     };
-    let Some(wanted_literal) = repair_int_literal(wanted.left) else {
+    let Some(wanted_literal) = repair_numeric_literal(wanted.left) else {
         return false;
     };
     repair_operands_equivalent(required.right, wanted.right, equivalences)
@@ -3673,10 +3673,10 @@ fn literal_upper_bound_implies(
     wanted: &ParsedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    let Some(required_literal) = repair_int_literal(required.right) else {
+    let Some(required_literal) = repair_numeric_literal(required.right) else {
         return false;
     };
-    let Some(wanted_literal) = repair_int_literal(wanted.right) else {
+    let Some(wanted_literal) = repair_numeric_literal(wanted.right) else {
         return false;
     };
     repair_operands_equivalent(required.left, wanted.left, equivalences)
@@ -3690,9 +3690,9 @@ fn literal_upper_bound_implies(
 }
 
 fn literal_order_strength_implies(
-    required_literal: i128,
+    required_literal: RepairNumber,
     required_operator: &str,
-    wanted_literal: i128,
+    wanted_literal: RepairNumber,
     wanted_operator: &str,
     lower_bound: bool,
 ) -> bool {
@@ -3833,17 +3833,80 @@ fn repair_literals_are_distinct(left: &str, right: &str) -> bool {
     left != right
 }
 
-fn repair_int_literal(text: &str) -> Option<i128> {
+fn repair_numeric_literal(text: &str) -> Option<RepairNumber> {
     match RepairLiteral::parse(text.trim())? {
-        RepairLiteral::Int(value) => Some(value),
+        RepairLiteral::Number(value) => Some(value),
         RepairLiteral::Bool(_) | RepairLiteral::String(_) => None,
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct RepairNumber {
+    mantissa: i128,
+    scale: u32,
+}
+
+impl Ord for RepairNumber {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match (self.mantissa.is_negative(), other.mantissa.is_negative()) {
+            (true, false) => return std::cmp::Ordering::Less,
+            (false, true) => return std::cmp::Ordering::Greater,
+            _ => {}
+        }
+        let ordering = self.abs_cmp(other);
+        if self.mantissa.is_negative() {
+            ordering.reverse()
+        } else {
+            ordering
+        }
+    }
+}
+
+impl PartialOrd for RepairNumber {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl RepairNumber {
+    fn abs_cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let (left_integer, left_fraction) = self.abs_parts();
+        let (right_integer, right_fraction) = other.abs_parts();
+        left_integer
+            .len()
+            .cmp(&right_integer.len())
+            .then_with(|| left_integer.cmp(&right_integer))
+            .then_with(|| {
+                let scale = left_fraction.len().max(right_fraction.len());
+                let mut left_fraction = left_fraction;
+                let mut right_fraction = right_fraction;
+                left_fraction.extend(std::iter::repeat('0').take(scale - left_fraction.len()));
+                right_fraction.extend(std::iter::repeat('0').take(scale - right_fraction.len()));
+                left_fraction.cmp(&right_fraction)
+            })
+    }
+
+    fn abs_parts(&self) -> (String, String) {
+        let mut digits = self.mantissa.unsigned_abs().to_string();
+        if self.scale == 0 {
+            return (digits, String::new());
+        }
+        let scale = self.scale as usize;
+        if digits.len() <= scale {
+            let padding = "0".repeat(scale + 1 - digits.len());
+            digits = format!("{padding}{digits}");
+        }
+        let split = digits.len() - scale;
+        let integer = digits[..split].trim_start_matches('0');
+        let integer = if integer.is_empty() { "0" } else { integer };
+        (integer.to_string(), digits[split..].to_string())
     }
 }
 
 #[derive(PartialEq, Eq)]
 enum RepairLiteral {
     Bool(bool),
-    Int(i128),
+    Number(RepairNumber),
     String(String),
 }
 
@@ -3854,12 +3917,40 @@ impl RepairLiteral {
             "false" => return Some(Self::Bool(false)),
             _ => {}
         }
-        let digits = text.strip_prefix('-').unwrap_or(text);
-        if !digits.is_empty() && digits.chars().all(|ch| ch.is_ascii_digit()) {
-            return text.parse::<i128>().ok().map(Self::Int);
+        if let Some(number) = parse_repair_number_literal(text) {
+            return Some(Self::Number(number));
         }
         parse_repair_string_literal(text).map(Self::String)
     }
+}
+
+fn parse_repair_number_literal(text: &str) -> Option<RepairNumber> {
+    let (negative, digits) = text
+        .strip_prefix('-')
+        .map_or((false, text), |digits| (true, digits.trim_start()));
+    if digits.is_empty() {
+        return None;
+    }
+    let (integer, fraction) = digits.split_once('.').map_or((digits, ""), |parts| parts);
+    if integer.is_empty()
+        || !integer.chars().all(|ch| ch.is_ascii_digit())
+        || !fraction.chars().all(|ch| ch.is_ascii_digit())
+        || (digits.contains('.') && fraction.is_empty())
+    {
+        return None;
+    }
+    let mut scale = fraction.len() as u32;
+    let signed_digits = if negative {
+        format!("-{integer}{fraction}")
+    } else {
+        format!("{integer}{fraction}")
+    };
+    let mut mantissa = signed_digits.parse::<i128>().ok()?;
+    while scale > 0 && mantissa % 10 == 0 {
+        mantissa /= 10;
+        scale -= 1;
+    }
+    Some(RepairNumber { mantissa, scale })
 }
 
 fn parse_repair_string_literal(text: &str) -> Option<String> {

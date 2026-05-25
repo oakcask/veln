@@ -315,10 +315,14 @@ strict comparison in repair matching, so `require low <= mid`,
 after substituting `max`. A disequality between two operands on the inclusive
 path also makes the endpoint comparison strict, so `require low <= mid`,
 `require mid <= max`, and `require low != mid` also guarantee
-`candidate > low` after substituting `max`. Integer literal bounds also
-discharge weaker integer literal bounds over the same subject. For example,
-`require max >= 10` guarantees `candidate > 0` after substituting `max`, and
-`require min <= 10` guarantees `candidate < 20` after substituting `min`.
+`candidate > low` after substituting `max`. Numeric literal bounds also
+discharge weaker numeric literal bounds over the same subject. For example,
+`require max >= 10` guarantees `candidate > 0` after substituting `max`,
+`require ratio >= 10.5` guarantees `candidate > 0.5` after substituting
+`ratio`, `require ratio >= -0.5` guarantees `candidate > -1.5` after
+substituting `ratio`, and `require min <= 10` guarantees `candidate < 20`
+after substituting `min`. Numeric literal ordering uses exact decimal literal
+ordering rather than binary floating-point rounding.
 Equal inclusive bounds do not discharge strict bounds, so `require max >= 10`
 does not guarantee `candidate > 10`. Every
 type-compatible visible binding candidate for the tautological
