@@ -269,17 +269,21 @@ No accepted language and type coverage follow-up is currently tracked here.
   `flag != false` also participate in complementary static truth identities.
   Top-level `or` predicates whose negated ordering-bound conjunction
   transitively guarantees another ordering bound are also statically
-  evaluated.
+  evaluated. Equality clauses in that antecedent are treated as bidirectional
+  non-strict ordering edges for the same transitive implication check.
+  Equality and disequality comparisons between small boolean formulas are also
+  statically evaluated when every assignment gives the same comparison result.
   Numeric literal division in static comparisons and repair-bound comparison
   may compare exact rational values even when the division is not exactly
   representable as a finite decimal.
   Richer predicate semantics beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
-  static boolean comparisons, complementary predicate comparisons,
-  complementary boolean and comparison disjunctions, ordering trichotomy
-  disjunctions, negated complementary boolean and comparison conjunctions,
-  negated mutually exclusive order conjunctions, and transitive ordering-bound
-  implications remain follow-up work.
+  static boolean comparisons, small boolean formula comparisons,
+  complementary predicate comparisons, complementary boolean and comparison
+  disjunctions, ordering trichotomy disjunctions, negated complementary
+  boolean and comparison conjunctions, negated mutually exclusive order
+  conjunctions, and transitive ordering-bound implications remain follow-up
+  work.
 
 ## Formatting
 

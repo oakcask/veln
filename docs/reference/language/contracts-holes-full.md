@@ -187,7 +187,10 @@ Top-level `or` also proves implications where a negated `and` of ordering
 bounds transitively guarantees another ordering bound. For example,
 `not (low <= mid and mid < high) or low < high` is statically proven because
 the antecedent guarantees the strict endpoint bound, while an all-inclusive
-path only proves an inclusive endpoint bound.
+path only proves an inclusive endpoint bound. Equality clauses in the
+antecedent are treated as bidirectional non-strict edges for this transitive
+check, so `not (low < mid and mid == high) or low < high` and
+`not (low == mid and mid <= high) or low <= high` are also statically proven.
 Top-level `or` also proves case-split predicates when one branch is the
 complement of another branch and every other conjunct in that branch is
 statically true. For example,
@@ -217,8 +220,12 @@ inclusive and strict bounds cannot both hold, such as
 `not (value <= limit and limit < value)`. For example,
 `true or value > 0`, `(output >= value or true) and not false`, and
 `1 < 2 and "ready" != "pending"` are statically proven after the predicate has
-passed validation. Other valid
-predicates are classified as
+passed validation. Equality and disequality comparisons between small boolean
+formulas are also evaluated by assignment when every assignment gives the same
+comparison result, such as
+`(flag and ready) == (ready and flag)` and
+`(flag and not flag) != (ready or not ready)`. Other valid predicates are
+classified as
 `runtime_required`. Invalid predicates fail the static contract gate instead
 of becoming runtime-only checks. No contract is currently classified as
 statically disproven.

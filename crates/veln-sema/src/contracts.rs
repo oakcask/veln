@@ -150,6 +150,7 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {
             return static_literal_comparison(left, operator, right)
                 .or_else(|| static_complementary_predicate_comparison(left, operator, right))
+                .or_else(|| static_boolean_formula_comparison(left, operator, right))
                 .or_else(|| static_same_shape_comparison(left, operator, right))
                 .map_or(StaticBooleanValue::Unknown, StaticBooleanValue::from);
         }
@@ -247,10 +248,43 @@ fn static_comparison_value(predicate: &str) -> Option<bool> {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {
             return static_literal_comparison(left, operator, right)
                 .or_else(|| static_complementary_predicate_comparison(left, operator, right))
+                .or_else(|| static_boolean_formula_comparison(left, operator, right))
                 .or_else(|| static_same_shape_comparison(left, operator, right));
         }
     }
     None
+}
+
+fn static_boolean_formula_comparison(left: &str, operator: &str, right: &str) -> Option<bool> {
+    if !matches!(operator, "==" | "!=") {
+        return None;
+    }
+
+    let mut atoms = Vec::new();
+    collect_boolean_formula_atoms(left, &mut atoms)?;
+    collect_boolean_formula_atoms(right, &mut atoms)?;
+    if atoms.is_empty() || atoms.len() > MAX_STATIC_BOOLEAN_ATOMS {
+        return None;
+    }
+
+    let mut saw_true = false;
+    let mut saw_false = false;
+    for mask in 0..(1usize << atoms.len()) {
+        let left_value = eval_boolean_formula(left, &atoms, mask)?;
+        let right_value = eval_boolean_formula(right, &atoms, mask)?;
+        let comparison = match operator {
+            "==" => left_value == right_value,
+            "!=" => left_value != right_value,
+            _ => return None,
+        };
+        saw_true |= comparison;
+        saw_false |= !comparison;
+        if saw_true && saw_false {
+            return None;
+        }
+    }
+
+    Some(saw_true)
 }
 
 fn complementary_predicates(left: &str, right: &str) -> bool {
@@ -946,7 +980,7 @@ fn has_order_bound_transitive_implication_top_level_or(predicate: &str) -> bool 
         };
         let edges: Vec<_> = flattened_keyword_clauses(inner, "and")
             .into_iter()
-            .filter_map(order_bound_shape)
+            .flat_map(order_bound_transitive_edges)
             .collect();
         if edges.len() < 2 {
             return false;
@@ -958,6 +992,30 @@ fn has_order_bound_transitive_implication_top_level_or(predicate: &str) -> bool 
                 })
         })
     })
+}
+
+fn order_bound_transitive_edges(predicate: &str) -> Vec<OrderBoundShape> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if let Some((left, right)) = split_top_level_operator(predicate, "==") {
+        let left = compact_predicate_text(left);
+        let right = compact_predicate_text(right);
+        if left == right {
+            return Vec::new();
+        }
+        return vec![
+            OrderBoundShape {
+                left: left.clone(),
+                right: right.clone(),
+                strict: false,
+            },
+            OrderBoundShape {
+                left: right,
+                right: left,
+                strict: false,
+            },
+        ];
+    }
+    order_bound_shape(predicate).into_iter().collect()
 }
 
 fn order_bound_edges_imply(
@@ -1328,6 +1386,31 @@ mod tests {
             Some(StaticBooleanValue::True)
         );
         assert!(predicate_is_statically_true(predicate));
+    }
+
+    #[test]
+    fn boolean_formula_comparison_proves_commutative_conjunction() {
+        assert_eq!(
+            static_boolean_formula_comparison(
+                "(value.ready and value.paid)",
+                "==",
+                "(value.paid and value.ready)",
+            ),
+            Some(true)
+        );
+        assert_eq!(
+            split_top_level_operator(
+                "(value.ready and value.paid) ==(value.paid and value.ready)",
+                "==",
+            ),
+            Some((
+                "(value.ready and value.paid)",
+                "(value.paid and value.ready)"
+            ))
+        );
+        assert!(predicate_is_statically_true(
+            "(value.ready and value.paid) ==(value.paid and value.ready)"
+        ));
     }
 }
 
