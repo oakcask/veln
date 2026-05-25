@@ -101,6 +101,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   transitive ordering evidence over same-shape expression operands. Equality
   aliases also discharge boolean atom `satisfy` clauses when the aliased atom
   is already guaranteed by a valid `require` clause.
+  Disjunctive equality requirements against distinct boolean, integer, or
+  string literals discharge disequality `satisfy` clauses against another
+  literal, including through equality aliases.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.

@@ -3336,6 +3336,17 @@ fn repair_clause_implies(required: &str, wanted: &str) -> bool {
     {
         return true;
     }
+    if equality_with_distinct_literal_implies_disequality(
+        required.left,
+        required.operator,
+        required.right,
+        wanted.left,
+        wanted.operator,
+        wanted.right,
+        &RepairEquivalences::default(),
+    ) {
+        return true;
+    }
     required.operator == "=="
         && wanted.operator == "<="
         && same_repair_operands_unordered(required.left, required.right, wanted.left, wanted.right)
@@ -3557,8 +3568,111 @@ fn repair_clause_implies_with_equivalences(
             wanted.right,
             equivalences,
         ),
+        ("==", "!=") => equality_with_distinct_literal_implies_disequality(
+            required.left,
+            required.operator,
+            required.right,
+            wanted.left,
+            wanted.operator,
+            wanted.right,
+            equivalences,
+        ),
         _ => false,
     }
+}
+
+fn equality_with_distinct_literal_implies_disequality(
+    required_left: &str,
+    required_operator: &str,
+    required_right: &str,
+    wanted_left: &str,
+    wanted_operator: &str,
+    wanted_right: &str,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    if required_operator != "==" || wanted_operator != "!=" {
+        return false;
+    }
+    equality_side_excludes_wanted_literal(
+        required_left,
+        required_right,
+        wanted_left,
+        wanted_right,
+        equivalences,
+    ) || equality_side_excludes_wanted_literal(
+        required_right,
+        required_left,
+        wanted_left,
+        wanted_right,
+        equivalences,
+    )
+}
+
+fn equality_side_excludes_wanted_literal(
+    required_subject: &str,
+    required_value: &str,
+    wanted_left: &str,
+    wanted_right: &str,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    if repair_operands_equivalent(required_subject, wanted_left, equivalences) {
+        return repair_literals_are_distinct(required_value, wanted_right);
+    }
+    if repair_operands_equivalent(required_subject, wanted_right, equivalences) {
+        return repair_literals_are_distinct(required_value, wanted_left);
+    }
+    false
+}
+
+fn repair_literals_are_distinct(left: &str, right: &str) -> bool {
+    let Some(left) = RepairLiteral::parse(left.trim()) else {
+        return false;
+    };
+    let Some(right) = RepairLiteral::parse(right.trim()) else {
+        return false;
+    };
+    left != right
+}
+
+#[derive(PartialEq, Eq)]
+enum RepairLiteral {
+    Bool(bool),
+    Int(i128),
+    String(String),
+}
+
+impl RepairLiteral {
+    fn parse(text: &str) -> Option<Self> {
+        match text {
+            "true" => return Some(Self::Bool(true)),
+            "false" => return Some(Self::Bool(false)),
+            _ => {}
+        }
+        let digits = text.strip_prefix('-').unwrap_or(text);
+        if !digits.is_empty() && digits.chars().all(|ch| ch.is_ascii_digit()) {
+            return text.parse::<i128>().ok().map(Self::Int);
+        }
+        parse_repair_string_literal(text).map(Self::String)
+    }
+}
+
+fn parse_repair_string_literal(text: &str) -> Option<String> {
+    if !text.starts_with('"') || !text.ends_with('"') {
+        return None;
+    }
+    let mut value = String::new();
+    let mut chars = text[1..text.len() - 1].chars();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            let escaped = chars.next()?;
+            value.push(escaped);
+        } else if ch == '"' {
+            return None;
+        } else {
+            value.push(ch);
+        }
+    }
+    Some(value)
 }
 
 fn ordering_path_implies_clause(
