@@ -75,9 +75,10 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
 
 ## Comparative Evaluation
 
-- Resolved by [Comparison Example Task](result-comparison-example-task.md): the
-  first comparison examples across Ruby, Python, TypeScript, Elixir, Rust, and
-  Veln should use one dependency-free line-item order summary task that
+- Resolved by
+  [Comparison Example Task](../../reference/source-decisions/result-comparison-example-task.md):
+  the first comparison examples across Ruby, Python, TypeScript, Elixir, Rust,
+  and Veln should use one dependency-free line-item order summary task that
   exercises parsing, validation, `Result`, collection traversal, tests, stdout,
   and Veln typed-hole diagnostics.
 

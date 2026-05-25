@@ -7,7 +7,9 @@ against the implemented language reference.
 
 ## Line-Item Order Summary
 
-The comparison example is implemented in `examples/comparison/`.
+The comparison example is implemented in `examples/comparison/`. Its rationale
+is recorded in
+[Comparison Example Task](../source-decisions/result-comparison-example-task.md).
 
 The pure API is:
 

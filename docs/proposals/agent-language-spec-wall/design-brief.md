@@ -91,6 +91,7 @@ code, get structured information, fill holes, and run focused checks.
 3. Decide how holes, contracts, and effects appear in the AST.
 4. Choose whether the first interpreter evaluates code with holes or only checks
    it.
-5. Resolved by [Comparison Example Task](result-comparison-example-task.md):
+5. Resolved by
+   [Comparison Example Task](../../reference/source-decisions/result-comparison-example-task.md):
    write comparison examples against Ruby, Python, TypeScript, Elixir, and Rust
    using one line-item order summary task.

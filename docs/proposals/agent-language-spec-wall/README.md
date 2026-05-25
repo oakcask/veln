@@ -21,8 +21,11 @@ current workspace. Implemented decisions were moved to
 ## Accepted Or Open Targets
 
 - [Channel-First Concurrency Runtime](result-channel-first-concurrency-runtime.md)
-- [Comparison Example Task](result-comparison-example-task.md)
 - [First-Slice Grammar](result-first-slice-grammar.md)
+
+Implemented rationale such as
+[Comparison Example Task](../../reference/source-decisions/result-comparison-example-task.md)
+lives in the reference decision index.
 
 ## Classification Rule
 

@@ -327,7 +327,7 @@
   collection traversal, tests, stdout, and Veln typed-hole diagnostics without
   claiming general speed, memory, or productivity conclusions.
 - Discussion result:
-  [Comparison Example Task](../../proposals/agent-language-spec-wall/result-comparison-example-task.md)
+  [Comparison Example Task](../source-decisions/result-comparison-example-task.md)
 - Supporting references:
   `nanz2015-rosetta-code`, `green1996-cognitive-dimensions`,
   `stefik2013-programming-language-syntax`,
