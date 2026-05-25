@@ -133,6 +133,9 @@ It also recognizes partial case splits where shorter branches cover the
 remaining assignments for the same predicate set, such as
 `flag or (not flag and ready) or (not flag and not ready)` and
 `value < limit or (value >= limit and ready) or (value >= limit and not ready)`.
+This partial case-split rule may cover up to eight non-static predicates, so
+longer decision ladders with shorter branches are also statically proven when
+their top-level `or` branches cover every assignment.
 It also recognizes exhaustive pair case splits where four top-level
 conjunction branches cover both polarities of two non-static predicates, such
 as

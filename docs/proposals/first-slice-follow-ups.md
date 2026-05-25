@@ -9,12 +9,18 @@ opening the full follow-up record.
 
 ## Read First
 
-- [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md): complete
-  accepted follow-up details.
 - [../reference/language/README.md](../reference/language/README.md): current
   implemented behavior.
 - [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md):
   review routing and historical gap evidence.
+- [../document-status.md](../document-status.md): promotion boundary when a
+  follow-up becomes implemented behavior.
+
+## Read When
+
+- Use [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md) when a
+  target area below points to historical details or when checking why a target
+  remains open.
 
 ## Language And Type Coverage
 

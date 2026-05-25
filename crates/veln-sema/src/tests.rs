@@ -32,6 +32,35 @@ fn exhaustive_case_split_predicate(subject: &str, fields: &[&str]) -> String {
         .join(" or ")
 }
 
+fn bool_record_type(fields: &[&str]) -> String {
+    fields
+        .iter()
+        .map(|field| format!("{field}: Bool"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn partial_case_split_chain_predicate(subject: &str, fields: &[&str]) -> String {
+    let mut disjuncts = Vec::new();
+    for (index, field) in fields.iter().enumerate() {
+        let mut conjuncts = fields[..index]
+            .iter()
+            .map(|field| format!("not {subject}.{field}"))
+            .collect::<Vec<_>>();
+        conjuncts.push(format!("{subject}.{field}"));
+        disjuncts.push(format!("({})", conjuncts.join(" and ")));
+    }
+    disjuncts.push(format!(
+        "({})",
+        fields
+            .iter()
+            .map(|field| format!("not {subject}.{field}"))
+            .collect::<Vec<_>>()
+            .join(" and ")
+    ));
+    disjuncts.join(" or ")
+}
+
 #[test]
 fn public_function_requires_explicit_boundary() {
     let source = SourceFile::new("main.veln", "pub fn main(value)\n  value\nend\n");
@@ -7870,6 +7899,95 @@ fn contract_predicate_partial_case_split_or_is_statically_proven() {
     assert!(contracts.iter().all(|contract| {
         contract.obligation_status == ContractObligationStatus::StaticallyProven
     }));
+}
+
+#[test]
+fn contract_predicate_wide_partial_case_split_or_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {a: Bool, b: Bool, c: Bool, d: Bool}) -> output: {a: Bool, b: Bool, c: Bool, d: Bool} effects []\n",
+            "require value.a or ",
+            "(not value.a and value.b) or ",
+            "(not value.a and not value.b and value.c) or ",
+            "(not value.a and not value.b and not value.c and value.d) or ",
+            "(not value.a and not value.b and not value.c and not value.d)\n",
+            "ensure output.a or ",
+            "(not output.a and output.b) or ",
+            "(not output.a and not output.b and output.c) or ",
+            "(not output.a and not output.b and not output.c and output.d) or ",
+            "(not output.a and not output.b and not output.c and not output.d)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_max_width_partial_case_split_or_is_statically_proven() {
+    let fields = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    let record_type = bool_record_type(&fields);
+    let predicate = partial_case_split_chain_predicate("value", &fields);
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}} effects []\nrequire {predicate}\n  value\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 1);
+    assert_eq!(
+        contracts[0].obligation_status,
+        ContractObligationStatus::StaticallyProven
+    );
+}
+
+#[test]
+fn contract_predicate_too_wide_partial_case_split_or_requires_runtime_check() {
+    let fields = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
+    let record_type = bool_record_type(&fields);
+    let predicate = partial_case_split_chain_predicate("value", &fields);
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}} effects []\nrequire {predicate}\n  value\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 1);
+    assert_eq!(
+        contracts[0].obligation_status,
+        ContractObligationStatus::RuntimeRequired
+    );
 }
 
 #[test]

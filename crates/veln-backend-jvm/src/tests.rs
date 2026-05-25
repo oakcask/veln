@@ -3,6 +3,10 @@ use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::java::{
+    java_string, java_type_identifier, sanitize_identifier_text, unique_java_identifier,
+    veln_string_literal_value,
+};
 use crate::*;
 use veln_ast::lower_surface_ast;
 use veln_ir::{IrExprKind, IrStmtKind, TypedProgram};
@@ -1628,6 +1632,26 @@ fn omits_statically_proven_same_shape_contract_checks() {
 }
 
 #[test]
+fn omits_wide_partial_case_split_contract_checks() {
+    let fields = ["a", "b", "c", "d", "e", "f", "g", "h"];
+    let record_type = bool_record_type(&fields);
+    let predicate = partial_case_split_chain_predicate("value", &fields);
+    let source = format!(
+        "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}} effects []\n  require {predicate}\n  value\nend\n"
+    );
+    let ir = lower_to_ir(&source);
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+
+    assert!(!program.contains("VelnRuntime.checkContract("));
+    assert!(!program.contains("\"require\""));
+    assert!(program.contains("return p_value;"));
+}
+
+#[test]
 fn emits_ensure_checks_before_try_early_return() {
     let ir = lower_to_ir(concat!(
         "fn fail() -> Result(Int, String) effects []\n",
@@ -1731,6 +1755,54 @@ fn generated_entry_reports_contract_failures() {
 }
 
 #[test]
+fn generated_entry_reports_ensure_contract_failures() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main(value: Int) -> output: Int effects []\n",
+        "  ensure output > 0\n",
+        "  value\n",
+        "end\n",
+    ));
+    let java = generate_java_with_entry_arg_types(&ir, "main", &[EntryArgType::Int]);
+    let root = temp_dir("ensure-contract-runtime");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("VelnEntry.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("VelnEntry")
+        .arg("0")
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("contract failure: ensure `output > 0`"));
+    assert!(stderr.contains("blame implementation"));
+}
+
+#[test]
 fn generated_sources_compile_when_javac_is_available() {
     if Command::new("javac").arg("-version").output().is_err() {
         return;
@@ -1769,6 +1841,38 @@ fn generated_sources_compile_when_javac_is_available() {
     );
 }
 
+#[test]
+fn java_identifier_helpers_sanitize_keywords_and_collisions() {
+    let mut used_names = std::collections::BTreeSet::new();
+
+    assert_eq!(sanitize_identifier_text("1-value!"), "_1_value_");
+    assert_eq!(java_type_identifier("class"), "VelnGenerated");
+    assert_eq!(java_type_identifier("app.Main"), "app_Main");
+    assert_eq!(unique_java_identifier("", &mut used_names), "_value");
+    assert_eq!(unique_java_identifier("return", &mut used_names), "_return");
+    assert_eq!(unique_java_identifier("value", &mut used_names), "value");
+    assert_eq!(unique_java_identifier("value", &mut used_names), "value_1");
+}
+
+#[test]
+fn java_string_escapes_special_characters_and_control_codes() {
+    assert_eq!(
+        java_string("quote \" slash \\ newline\n tab\t nul\0"),
+        "\"quote \\\" slash \\\\ newline\\n tab\\t nul\\u0000\""
+    );
+}
+
+#[test]
+fn veln_string_literal_value_decodes_known_escapes_and_preserves_unknown_ones() {
+    assert_eq!(
+        veln_string_literal_value("\"line\\nquote\\\"slash\\\\tab\\t\""),
+        "line\nquote\"slash\\tab\t"
+    );
+    assert_eq!(veln_string_literal_value("\"unknown\\q\""), "unknown\\q");
+    assert_eq!(veln_string_literal_value("\"trailing\\\""), "trailing\\");
+    assert_eq!(veln_string_literal_value("raw"), "raw");
+}
+
 fn lower_to_ir(text: &str) -> TypedProgram {
     let source = SourceFile::new("main.veln", text);
     let parsed = parse(&source);
@@ -1785,6 +1889,35 @@ fn lower_to_ir(text: &str) -> TypedProgram {
         lowered.diagnostics
     );
     lowered.ir.expect("source should lower to typed IR")
+}
+
+fn bool_record_type(fields: &[&str]) -> String {
+    fields
+        .iter()
+        .map(|field| format!("{field}: Bool"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn partial_case_split_chain_predicate(subject: &str, fields: &[&str]) -> String {
+    let mut disjuncts = Vec::new();
+    for (index, field) in fields.iter().enumerate() {
+        let mut conjuncts = fields[..index]
+            .iter()
+            .map(|field| format!("not {subject}.{field}"))
+            .collect::<Vec<_>>();
+        conjuncts.push(format!("{subject}.{field}"));
+        disjuncts.push(format!("({})", conjuncts.join(" and ")));
+    }
+    disjuncts.push(format!(
+        "({})",
+        fields
+            .iter()
+            .map(|field| format!("not {subject}.{field}"))
+            .collect::<Vec<_>>()
+            .join(" and ")
+    ));
+    disjuncts.join(" or ")
 }
 
 fn temp_dir(name: &str) -> std::path::PathBuf {

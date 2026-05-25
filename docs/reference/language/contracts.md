@@ -25,6 +25,8 @@ Contract obligation classification statically proves top-level `or`
 predicates where a negated disjunction is covered by repeated top-level
 branches, such as `not (flag or ready) or flag or ready`. The same static
 truth rule feeds satisfy repair ranking for valid hole predicates.
+It also proves partial case-split `or` predicates with shorter branches that
+cover every assignment across up to eight non-static predicates.
 
 ## Skip Unless Needed
 

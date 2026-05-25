@@ -386,7 +386,7 @@ fn has_partial_case_split_top_level_or(predicate: &str) -> bool {
                 !same_predicate(base, conjunct) && !complementary_predicates(base, conjunct)
             }) {
                 bases.push(conjunct);
-                if bases.len() > 3 {
+                if bases.len() > 8 {
                     return false;
                 }
             }
@@ -396,35 +396,38 @@ fn has_partial_case_split_top_level_or(predicate: &str) -> bool {
         return false;
     }
 
-    let all_masks = (1u16 << (1u16 << bases.len())) - 1;
-    let mut covered = 0u16;
+    let Some(assignment_count) = 1usize.checked_shl(bases.len() as u32) else {
+        return false;
+    };
+    let mut covered = vec![false; assignment_count];
+    let mut covered_count = 0;
     for disjunct in disjuncts {
-        let Some(mask) = partial_case_split_coverage_mask(disjunct, &bases) else {
+        let Some(assignments) = partial_case_split_covered_assignments(disjunct, &bases) else {
             continue;
         };
-        covered |= mask;
-        if covered == all_masks {
-            return true;
+        for assignment in assignments {
+            if !covered[assignment] {
+                covered[assignment] = true;
+                covered_count += 1;
+                if covered_count == assignment_count {
+                    return true;
+                }
+            }
         }
     }
     false
 }
 
-fn partial_case_split_coverage_mask(disjunct: &str, bases: &[&str]) -> Option<u16> {
-    let mut constrained_mask = 0u8;
-    let mut required_bits = 0u8;
+fn partial_case_split_covered_assignments(disjunct: &str, bases: &[&str]) -> Option<Vec<usize>> {
+    let mut polarities = vec![None; bases.len()];
     for conjunct in non_static_conjuncts(disjunct) {
         let mut matched = false;
         for (index, base) in bases.iter().enumerate() {
-            let bit = 1u8 << index;
             if let Some(polarity) = predicate_polarity_against(conjunct, base) {
-                if constrained_mask & bit != 0 {
+                if polarities[index].is_some() {
                     return None;
                 }
-                constrained_mask |= bit;
-                if polarity {
-                    required_bits |= bit;
-                }
+                polarities[index] = Some(polarity);
                 matched = true;
                 break;
             }
@@ -433,17 +436,25 @@ fn partial_case_split_coverage_mask(disjunct: &str, bases: &[&str]) -> Option<u1
             return None;
         }
     }
-    if constrained_mask == 0 {
+    if polarities.iter().all(Option::is_none) {
         return None;
     }
 
-    let mut coverage = 0u16;
-    for assignment in 0..(1u8 << bases.len()) {
-        if assignment & constrained_mask == required_bits {
-            coverage |= 1u16 << assignment;
+    let assignment_count = 1usize << bases.len();
+    let mut covered = Vec::new();
+    'assignments: for assignment in 0..assignment_count {
+        for (index, expected) in polarities.iter().enumerate() {
+            let Some(expected) = expected else {
+                continue;
+            };
+            let bit = 1usize << index;
+            if (assignment & bit != 0) != *expected {
+                continue 'assignments;
+            }
         }
+        covered.push(assignment);
     }
-    Some(coverage)
+    Some(covered)
 }
 
 fn has_exhaustive_pair_case_split_top_level_or(predicate: &str) -> bool {

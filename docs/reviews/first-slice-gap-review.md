@@ -9,13 +9,14 @@ whether the current review evidence is relevant before opening the full record.
   implemented language behavior.
 - [../proposals/first-slice-follow-ups.md](../proposals/first-slice-follow-ups.md):
   accepted targets that still need implementation.
-- [first-slice-gap-review-full.md](first-slice-gap-review-full.md): detailed
-  historical review evidence and acceptance checks.
+- [../document-status.md](../document-status.md): status and promotion rules
+  before moving review findings into proposals or reference material.
 
 ## Read When
 
-- Use the full review when checking why a first-slice completion claim changed,
-  or when revalidating a historical finding against current code.
+- Use [first-slice-gap-review-full.md](first-slice-gap-review-full.md) when
+  checking why a first-slice completion claim changed, or when revalidating a
+  historical finding against current code.
 - Use [../phases/first-slice-implementation.md](../phases/first-slice-implementation.md)
   when reconstructing the implementation order.
 - Use [../reference/source-decisions/README.md](../reference/source-decisions/README.md)

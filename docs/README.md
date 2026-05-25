@@ -9,15 +9,20 @@ the experimental Veln implementation.
 - [proposals/README.md](proposals/README.md): accepted or open work not yet
   fully implemented.
 - [reviews/README.md](reviews/README.md): gaps and verification evidence.
+- [document-status.md](document-status.md): placement rules when moving text
+  between proposal, review, phase, and reference areas.
 
-## Read When
+## Routes
 
 - Changing syntax, types, effects, contracts, holes, commands, JSON output, or
   examples: start at [reference/language/README.md](reference/language/README.md).
 - Planning the next slice: start at [proposals/README.md](proposals/README.md),
-  then check [reviews/README.md](reviews/README.md).
+  then check [reviews/README.md](reviews/README.md) for evidence and
+  [document-status.md](document-status.md) for promotion rules.
 - Explaining why implemented behavior exists: use
-  [reference/source-decisions/README.md](reference/source-decisions/README.md).
+  [reference/language/source-decisions.md](reference/language/source-decisions.md),
+  then open [reference/source-decisions/README.md](reference/source-decisions/README.md)
+  only when the short route is not enough.
 - Reconstructing implementation order: use
   [phases/README.md](phases/README.md).
 - Reading incomplete design-wall rationale: use

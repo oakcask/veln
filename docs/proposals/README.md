@@ -13,6 +13,21 @@ not fully implemented in the current workspace.
 - [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
   routes review evidence about first-slice gaps and completion claims.
 
+## Implementation Route
+
+- Choose from accepted targets in
+  [first-slice-follow-ups.md](first-slice-follow-ups.md) before opening broader
+  design-wall material.
+- Compare the target with current behavior in
+  [../reference/language/README.md](../reference/language/README.md) so the
+  implementation changes only the missing behavior.
+- Use [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
+  for evidence about known gaps before treating a proposal as complete.
+- After implementation, promote the resulting behavior into
+  `../reference/language/` and keep proposal text only for remaining incomplete
+  or historical context. Use [../document-status.md](../document-status.md)
+  for the status boundary.
+
 ## Accepted Targets Not Fully Implemented
 
 - Remaining first-slice implementation targets are tracked in

@@ -13,6 +13,17 @@ target tracked in `../../proposals/`.
 - [commands.md](commands.md): source discovery, check, run, test, and format
   gates.
 
+## Update When
+
+- A proposal becomes implemented behavior.
+- A test, diagnostic, command, JSON schema, or example changes the observable
+  language surface.
+- A source decision is promoted from planned rationale to implemented behavior.
+
+Keep this directory focused on behavior supported by current code and tests.
+Leave rationale in [source-decisions.md](source-decisions.md) or
+`../source-decisions/` unless it changes how users should read the language.
+
 ## Read When
 
 - Names, stdio, prelude, and effects:
