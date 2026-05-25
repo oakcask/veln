@@ -143,14 +143,15 @@ becoming the default programming style.
 ## Implemented Slice
 
 The current workspace implements a minimal executable bounded-channel slice:
-`channel::bounded(capacity)`, `channel::send(tx, value)`,
-`channel::recv(rx)`, and `channel::close(tx)` are `concurrency` effect calls.
-Public functions and tests that reach these calls must declare
-`effects [concurrency]`.
+`channel::bounded(capacity)`, `channel::bounded[T](capacity)`,
+`channel::send(tx, value)`, `channel::recv(rx)`, and `channel::close(tx)` are
+`concurrency` effect calls. Public functions and tests that reach these calls
+must declare `effects [concurrency]`.
 
 The implemented constructor infers the item type from an expected
-`{tx: Sender(T), rx: Receiver(T)}` record type. The runtime supports direct
-send, blocking receive, and close on a single channel pair. Capacity zero
-creates a no-buffer channel and direct sends fail until rendezvous send
-scheduling exists. `spawn`, task handles, cancellation, join, and selection
-remain follow-up work.
+`{tx: Sender(T), rx: Receiver(T)}` record type, or uses the explicit item type
+from `channel::bounded[T](capacity)`. The runtime supports direct send,
+blocking receive, and close on a single channel pair. Capacity zero creates a
+no-buffer channel and direct sends fail until rendezvous send scheduling
+exists. `spawn`, task handles, cancellation, join, and selection remain
+follow-up work.

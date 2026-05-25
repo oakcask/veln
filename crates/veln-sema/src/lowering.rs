@@ -396,6 +396,9 @@ impl<'a> CoreLowerer<'a> {
                 self.core_expr(expr, CoreType::bool(), CoreExprKind::BoolLiteral(*value))
             }
             ExprKind::Unit => self.core_expr(expr, CoreType::unit(), CoreExprKind::Unit),
+            ExprKind::TypeApply { .. } => {
+                self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
+            }
             ExprKind::Call { callee, args } => self.lower_call(expr, callee, args, expected),
             ExprKind::FieldAccess { base, field, .. } => self.lower_field_access(expr, base, field),
             ExprKind::Try(inner) => self.lower_try(expr, inner, expected),
@@ -620,7 +623,58 @@ impl<'a> CoreLowerer<'a> {
                 return self.lower_option_constructor(expr, args, expected);
             }
             if is_concurrency_call(segments) {
-                let signature = core_concurrency_signature(segments, expected);
+                let signature = core_concurrency_signature(segments, expected, None);
+                if let Some((params, _)) = &signature {
+                    if args.len() != params.len() {
+                        self.unsupported_expression(
+                            expr,
+                            "call_arity_mismatch",
+                            format!(
+                                "call expects {} argument(s), but got {}",
+                                params.len(),
+                                args.len()
+                            ),
+                            Some(JsonValue::object([
+                                (
+                                    "expected_argument_count",
+                                    JsonValue::Number(params.len() as i64),
+                                ),
+                                (
+                                    "actual_argument_count",
+                                    JsonValue::Number(args.len() as i64),
+                                ),
+                            ])),
+                        );
+                    }
+                }
+                let lowered_args = args
+                    .iter()
+                    .enumerate()
+                    .map(|(index, arg)| {
+                        let expected = signature.as_ref().and_then(|(params, _)| params.get(index));
+                        self.lower_expr(arg, expected)
+                    })
+                    .collect();
+                return self.core_expr(
+                    expr,
+                    signature
+                        .map(|(_, return_type)| return_type)
+                        .unwrap_or(CoreType::Unknown),
+                    CoreExprKind::Call {
+                        target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
+                        args: lowered_args,
+                    },
+                );
+            }
+        }
+        if let Some((segments, type_args)) = callee_name_path_and_type_args(callee) {
+            if is_concurrency_call(segments) && matches!(callee.kind, ExprKind::TypeApply { .. }) {
+                let explicit_item = type_args
+                    .and_then(|type_args| type_args.first())
+                    .and_then(|type_arg| parse_type_annotation(type_arg).ok())
+                    .map(|ty| core_type(&ty));
+                let signature =
+                    core_concurrency_signature(segments, expected, explicit_item.as_ref());
                 if let Some((params, _)) = &signature {
                     if args.len() != params.len() {
                         self.unsupported_expression(
@@ -1075,7 +1129,7 @@ impl<'a> CoreLowerer<'a> {
             });
         }
         if is_concurrency_call(segments) {
-            let (params, return_type) = core_concurrency_signature(segments, expected)?;
+            let (params, return_type) = core_concurrency_signature(segments, expected, None)?;
             return Some(CoreCallSignature {
                 target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
                 params,
@@ -1142,6 +1196,20 @@ struct CoreCallSignature {
 fn callee_symbol(callee: &Expr) -> Option<String> {
     match &callee.kind {
         ExprKind::NamePath(segments) => Some(segments.join("::")),
+        ExprKind::TypeApply { callee, .. } => callee_symbol(callee),
+        _ => None,
+    }
+}
+
+fn callee_name_path_and_type_args(callee: &Expr) -> Option<(&[String], Option<&[String]>)> {
+    match &callee.kind {
+        ExprKind::NamePath(segments) => Some((segments, None)),
+        ExprKind::TypeApply { callee, type_args } => {
+            let ExprKind::NamePath(segments) = &callee.kind else {
+                return None;
+            };
+            Some((segments, Some(type_args.as_slice())))
+        }
         _ => None,
     }
 }

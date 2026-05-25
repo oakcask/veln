@@ -144,6 +144,10 @@ pub enum ExprKind {
     FloatLiteral(String),
     BoolLiteral(bool),
     Unit,
+    TypeApply {
+        callee: Box<Expr>,
+        type_args: Vec<String>,
+    },
     Call {
         callee: Box<Expr>,
         args: Vec<Expr>,

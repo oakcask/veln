@@ -1670,6 +1670,47 @@ fn declared_concurrency_calls_lower_to_executable_ir() {
 }
 
 #[test]
+fn channel_bounded_accepts_explicit_item_type_argument() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> String effects [concurrency]\n",
+            "  let pair = channel::bounded[String](1)\n",
+            "  let _ = channel::send(pair.tx, \"hello\")\n",
+            "  match channel::recv(pair.rx)\n",
+            "    Some(value) => value\n",
+            "    None => \"missing\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert_eq!(lowered.diagnostics.len(), 0, "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = &core.functions[0];
+    let CoreStmtKind::Let { expr, .. } = &main.body[0].kind else {
+        panic!("expected channel binding");
+    };
+    assert_eq!(
+        expr.ty,
+        CoreType::Record(vec![
+            (
+                "tx".to_string(),
+                CoreType::named("Sender", vec![CoreType::string()])
+            ),
+            (
+                "rx".to_string(),
+                CoreType::named("Receiver", vec![CoreType::string()])
+            ),
+        ])
+    );
+}
+
+#[test]
 fn channel_send_checks_value_against_sender_item_type() {
     let source = SourceFile::new(
         "main.veln",

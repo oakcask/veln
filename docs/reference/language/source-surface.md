@@ -30,6 +30,7 @@ Record        ::= "{" (Name ":" Expr) ("," Name ":" Expr)* ","? "}"
 Dict          ::= "{" Expr ":" Expr ("," Expr ":" Expr)* ","? "}"
 Match         ::= "match" Expr NL MatchArm+ "end"
 MatchArm      ::= Pattern "=>" Expr NL
+TypeArgs      ::= "[" TypeText ("," TypeText)* ","? "]"
 Pattern       ::= "_" | BindingName | Literal | ConstructorPattern | RecordPattern
 ConstructorPattern ::= ConstructorName "(" PatternList? ")"
                      | ConstructorName
@@ -175,11 +176,13 @@ Implemented expressions:
 - holes: `_` and `_name`, with optional `satisfy candidate => predicate`
 - literals: strings, integers, floats, `true`, `false`, and `()`
 - paths and calls: `name`, `module::name`, `callee(args...)`
+- type-applied call callees: `callee[TypeText](args...)`
 - callable function declaration values by bare name
 - constructors: `Ok(value)`, `Err(error)`, `Some(value)`, `None`, and their
   `Result::` or `Option::` qualified forms
 - channel effect calls: `channel::bounded(capacity)`,
-  `channel::send(tx, value)`, `channel::recv(rx)`, and `channel::close(tx)`
+  `channel::bounded[Item](capacity)`, `channel::send(tx, value)`,
+  `channel::recv(rx)`, and `channel::close(tx)`
 - prelude helpers as bare calls such as `list_len(items)`
 - records: `{name: value, ...}`
 - dictionaries: `{key_expr: value_expr, ...}` when the first entry is not a
@@ -209,6 +212,10 @@ expression is inserted as the first argument of that call, so
 `value |> target(extra)` is checked and executed as `target(value, extra)`. A
 non-call target, or a call whose callee is not a name path, reports
 `type.pipeline_target`.
+
+Type-applied call callees currently contribute static item-type information
+only for recognized built-in calls such as `channel::bounded[String](capacity)`.
+They are not a general user-defined generic function mechanism.
 
 Method-call-shaped syntax, such as `value.field(args)`, is rejected during
 parsing with `parse.method_call`. Use a plain function call like

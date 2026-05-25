@@ -289,6 +289,33 @@ fn parses_structured_calls_and_holes() {
 }
 
 #[test]
+fn parses_type_argument_call_callees() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> ()\n  channel::bounded[String](1)\nend\n",
+    );
+
+    let output = parse(&source);
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+
+    let ExprKind::Call { callee, args } = &expr.kind else {
+        panic!("expected call expression");
+    };
+    assert_eq!(args.len(), 1);
+    let ExprKind::TypeApply { callee, type_args } = &callee.kind else {
+        panic!("expected type-applied callee");
+    };
+    assert_eq!(type_args, &vec!["String".to_string()]);
+    assert!(matches!(
+        &callee.kind,
+        ExprKind::NamePath(segments) if segments == &vec!["channel".to_string(), "bounded".to_string()]
+    ));
+}
+
+#[test]
 fn lexes_number_string_hole_and_invalid_boundaries() {
     let source = SourceFile::new(
         "tokens.veln",

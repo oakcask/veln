@@ -282,8 +282,11 @@ fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mu
         ExprKind::NamePath(segments) => {
             collect_function_name_reference(segments, function_names, callees);
         }
+        ExprKind::TypeApply { callee, .. } => {
+            collect_function_callees(callee, function_names, callees);
+        }
         ExprKind::Call { callee, args } => {
-            if let ExprKind::NamePath(segments) = &callee.kind {
+            if let Some(segments) = callee_name_path(callee) {
                 collect_function_name_reference(segments, function_names, callees);
             }
             collect_function_callees(callee, function_names, callees);
@@ -329,6 +332,14 @@ fn collect_function_callees(expr: &Expr, function_names: &[String], callees: &mu
         | ExprKind::FloatLiteral(_)
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
+    }
+}
+
+fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {
+    match &callee.kind {
+        ExprKind::NamePath(segments) => Some(segments),
+        ExprKind::TypeApply { callee, .. } => callee_name_path(callee),
+        _ => None,
     }
 }
 

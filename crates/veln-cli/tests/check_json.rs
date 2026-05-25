@@ -1482,6 +1482,36 @@ fn run_executes_bounded_channel_send_and_receive_when_jdk_is_available() {
 }
 
 #[test]
+fn run_executes_explicit_type_argument_bounded_channel_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-bounded-channel-type-arg");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> () effects [concurrency, stdio]\n",
+            "  let pair = channel::bounded[String](1)\n",
+            "  let _ = channel::send(pair.tx, \"hello\")\n",
+            "  let output: String = match channel::recv(pair.rx)\n",
+            "    Some(value) => value\n",
+            "    None => \"missing\"\n",
+            "  end\n",
+            "  stdio::println(output)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "hello\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
 fn run_blocks_reachable_holes_before_jdk_execution() {
     let project = TestProject::new("run-hole");
     project.write(

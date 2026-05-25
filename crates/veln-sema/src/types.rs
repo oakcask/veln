@@ -426,7 +426,7 @@ fn collect_expr_effects(
 ) {
     match &expr.kind {
         ExprKind::Call { callee, args } => {
-            if let ExprKind::NamePath(segments) = &callee.kind {
+            if let Some(segments) = callee_name_path(callee) {
                 if segments.as_slice().is_stdio_call() {
                     push_unique_effect(inferred, "stdio");
                 } else if is_concurrency_call(segments) {
@@ -465,6 +465,7 @@ fn collect_expr_effects(
         }
         ExprKind::FieldAccess { base, .. }
         | ExprKind::Try(base)
+        | ExprKind::TypeApply { callee: base, .. }
         | ExprKind::Prefix { expr: base, .. } => {
             collect_expr_effects(
                 base,
@@ -565,6 +566,14 @@ fn collect_expr_effects(
         | ExprKind::FloatLiteral(_)
         | ExprKind::BoolLiteral(_)
         | ExprKind::Unit => {}
+    }
+}
+
+fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {
+    match &callee.kind {
+        ExprKind::NamePath(segments) => Some(segments),
+        ExprKind::TypeApply { callee, .. } => callee_name_path(callee),
+        _ => None,
     }
 }
 

@@ -1042,6 +1042,18 @@ impl<'a> ExprParser<'a> {
     fn parse_postfix(&mut self) -> Expr {
         let mut expr = self.parse_primary();
         loop {
+            if self.at(TokenKind::LBracket) && matches!(expr.kind, ExprKind::NamePath(_)) {
+                let start = lhs_range(&expr);
+                let (type_args, end) = self.parse_type_argument_list();
+                expr = Expr {
+                    span: self.source.span(start.cover(end)),
+                    kind: ExprKind::TypeApply {
+                        callee: Box::new(expr),
+                        type_args,
+                    },
+                };
+                continue;
+            }
             if self.at(TokenKind::LParen) {
                 let start = lhs_range(&expr);
                 self.bump();
@@ -1111,6 +1123,65 @@ impl<'a> ExprParser<'a> {
             break;
         }
         expr
+    }
+
+    fn parse_type_argument_list(&mut self) -> (Vec<String>, TextRange) {
+        let start = self.bump();
+        let mut args = Vec::new();
+        let mut current = String::new();
+        let mut paren_depth = 0usize;
+        let mut brace_depth = 0usize;
+        let mut bracket_depth = 0usize;
+        let mut end = start.range;
+
+        while !self.is_at_end() {
+            let token = self.bump();
+            end = token.range;
+            match token.kind {
+                TokenKind::RBracket
+                    if paren_depth == 0 && brace_depth == 0 && bracket_depth == 0 =>
+                {
+                    if !current.is_empty() {
+                        args.push(current);
+                    }
+                    return (args, end);
+                }
+                TokenKind::Comma if paren_depth == 0 && brace_depth == 0 && bracket_depth == 0 => {
+                    args.push(current);
+                    current = String::new();
+                }
+                TokenKind::LParen => {
+                    paren_depth += 1;
+                    current.push_str(&token.text);
+                }
+                TokenKind::RParen => {
+                    paren_depth = paren_depth.saturating_sub(1);
+                    current.push_str(&token.text);
+                }
+                TokenKind::LBrace => {
+                    brace_depth += 1;
+                    current.push_str(&token.text);
+                }
+                TokenKind::RBrace => {
+                    brace_depth = brace_depth.saturating_sub(1);
+                    current.push_str(&token.text);
+                }
+                TokenKind::LBracket => {
+                    bracket_depth += 1;
+                    current.push_str(&token.text);
+                }
+                TokenKind::RBracket => {
+                    bracket_depth = bracket_depth.saturating_sub(1);
+                    current.push_str(&token.text);
+                }
+                _ => current.push_str(&token.text),
+            }
+        }
+
+        if !current.is_empty() {
+            args.push(current);
+        }
+        (args, end)
     }
 
     fn parse_primary(&mut self) -> Expr {

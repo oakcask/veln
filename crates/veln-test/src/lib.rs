@@ -391,6 +391,7 @@ fn collect_stdio_call_spans(expr: &Expr, spans: &mut BTreeMap<(String, String), 
                 collect_stdio_call_spans(arg, spans);
             }
         }
+        ExprKind::TypeApply { callee, .. } => collect_stdio_call_spans(callee, spans),
         ExprKind::FieldAccess { base, .. } => collect_stdio_call_spans(base, spans),
         ExprKind::Try(inner) => collect_stdio_call_spans(inner, spans),
         ExprKind::Record(fields) => {
@@ -432,16 +433,16 @@ fn collect_stdio_call_spans(expr: &Expr, spans: &mut BTreeMap<(String, String), 
 }
 
 fn is_stdio_callee(expr: &Expr) -> bool {
-    matches!(
-        &expr.kind,
-        ExprKind::NamePath(segments)
-            if matches!(
-                segments.as_slice(),
-                [module, name]
-                    if module == "stdio"
-                        && matches!(name.as_str(), "print" | "println" | "eprint" | "eprintln")
-            )
-    )
+    match &expr.kind {
+        ExprKind::NamePath(segments) => matches!(
+            segments.as_slice(),
+            [module, name]
+                if module == "stdio"
+                    && matches!(name.as_str(), "print" | "println" | "eprint" | "eprintln")
+        ),
+        ExprKind::TypeApply { callee, .. } => is_stdio_callee(callee),
+        _ => false,
+    }
 }
 
 fn stdio_event_from_trace_line(

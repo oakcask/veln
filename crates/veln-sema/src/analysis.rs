@@ -998,6 +998,7 @@ impl<'a> FunctionChecker<'a> {
             ExprKind::FloatLiteral(_) => Type::float(),
             ExprKind::BoolLiteral(_) => Type::bool(),
             ExprKind::Unit => Type::unit(),
+            ExprKind::TypeApply { .. } => Type::Unknown,
             ExprKind::Call { callee, args } => self.infer_call(expr, callee, args, expected),
             ExprKind::FieldAccess {
                 base,
@@ -1130,7 +1131,7 @@ impl<'a> FunctionChecker<'a> {
             }
         }
 
-        if let ExprKind::NamePath(segments) = &callee.kind {
+        if let Some((segments, _)) = callee_name_path_and_type_args(callee) {
             let symbol = segments.join("::");
             self.push_unresolved_name(callee.node_id, callee.span.clone(), &symbol, "call_target");
         }
@@ -1201,7 +1202,7 @@ impl<'a> FunctionChecker<'a> {
                 }
                 if let Some(origin) = concurrency_origin(segments, callee) {
                     let (params, return_type) =
-                        concurrency_signature(segments, expected, handle_type)?;
+                        concurrency_signature(segments, expected, handle_type, None)?;
                     return Some((params, return_type, origin));
                 }
                 if let [name] = segments.as_slice() {
@@ -1237,6 +1238,22 @@ impl<'a> FunctionChecker<'a> {
                         },
                     )
                 })
+            }
+            ExprKind::TypeApply { .. } => {
+                let (segments, type_args) = type_applied_name_path(callee)?;
+                if let Some(origin) = concurrency_origin(segments, callee) {
+                    let explicit_item = type_args
+                        .first()
+                        .and_then(|type_arg| parse_type_annotation(type_arg).ok());
+                    let (params, return_type) = concurrency_signature(
+                        segments,
+                        expected,
+                        handle_type,
+                        explicit_item.as_ref(),
+                    )?;
+                    return Some((params, return_type, origin));
+                }
+                None
             }
             _ => None,
         }
@@ -2471,6 +2488,27 @@ fn result_constructor_kind(segments: &[String]) -> Option<bool> {
         [type_name, name] if type_name == "Result" && name == "Ok" => Some(true),
         [name] if name == "Err" => Some(false),
         [type_name, name] if type_name == "Result" && name == "Err" => Some(false),
+        _ => None,
+    }
+}
+
+fn callee_name_path_and_type_args(callee: &Expr) -> Option<(&[String], Option<&[String]>)> {
+    match &callee.kind {
+        ExprKind::NamePath(segments) => Some((segments, None)),
+        ExprKind::TypeApply { callee, type_args } => type_applied_name_path(callee)
+            .map(|(segments, _)| (segments, Some(type_args.as_slice()))),
+        _ => None,
+    }
+}
+
+fn type_applied_name_path(callee: &Expr) -> Option<(&[String], &[String])> {
+    match &callee.kind {
+        ExprKind::TypeApply { callee, type_args } => {
+            let ExprKind::NamePath(segments) = &callee.kind else {
+                return None;
+            };
+            Some((segments, type_args))
+        }
         _ => None,
     }
 }

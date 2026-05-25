@@ -355,6 +355,9 @@ fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide) -> String {
         ExprKind::BoolLiteral(true) => "true".to_string(),
         ExprKind::BoolLiteral(false) => "false".to_string(),
         ExprKind::Unit => "()".to_string(),
+        ExprKind::TypeApply { callee, type_args } => {
+            format!("{}[{}]", format_expr(callee), type_args.join(", "))
+        }
         ExprKind::Call { callee, args } => {
             let args = args.iter().map(format_expr).collect::<Vec<_>>().join(", ");
             format!(

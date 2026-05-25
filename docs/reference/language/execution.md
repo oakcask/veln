@@ -45,14 +45,15 @@ maps, lists are exposed as unmodifiable lists, and prelude container updates
 return new frozen containers instead of mutating the input value in place.
 
 Bounded channel values are backend-owned runtime handles. `channel::bounded`
-returns a record with `tx` and `rx` fields. Sending freezes the sent value
-before crossing the channel boundary. Receiving blocks until a queued value is
-available or the sender endpoint is closed. It returns `Some(value)` for a
-received value and `None` after the channel is closed and drained. A capacity
-of zero creates a no-buffer channel; because the implemented runtime has no
-rendezvous send scheduling, a direct send on that channel returns
-`Err(SendError)` when no receiver is already paired. Closing the sender
-endpoint prevents later sends from succeeding and wakes waiting receivers.
+and `channel::bounded[T]` return a record with `tx` and `rx` fields. Sending
+freezes the sent value before crossing the channel boundary. Receiving blocks
+until a queued value is available or the sender endpoint is closed. It returns
+`Some(value)` for a received value and `None` after the channel is closed and
+drained. A capacity of zero creates a no-buffer channel; because the
+implemented runtime has no rendezvous send scheduling, a direct send on that
+channel returns `Err(SendError)` when no receiver is already paired. Closing
+the sender endpoint prevents later sends from succeeding and wakes waiting
+receivers.
 
 This freeze rule is an observable language boundary only through value
 immutability and update semantics. The exact JVM representation, copying

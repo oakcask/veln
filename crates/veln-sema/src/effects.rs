@@ -38,6 +38,7 @@ pub(crate) fn concurrency_signature(
     segments: &[String],
     expected: Option<&Type>,
     handle_type: Option<&Type>,
+    explicit_item: Option<&Type>,
 ) -> Option<(Vec<Type>, Type)> {
     let [module, name] = segments else {
         return None;
@@ -48,7 +49,10 @@ pub(crate) fn concurrency_signature(
     let unknown = Type::Unknown;
     match name.as_str() {
         "bounded" => {
-            let item = channel_pair_item_type(expected).unwrap_or(Type::Unknown);
+            let item = explicit_item
+                .cloned()
+                .or_else(|| channel_pair_item_type(expected))
+                .unwrap_or(Type::Unknown);
             Some((
                 vec![Type::int()],
                 Type::Record(vec![
@@ -92,6 +96,7 @@ fn named_type_argument<'a>(ty: &'a Type, expected_name: &str) -> Option<&'a Type
 pub(crate) fn core_concurrency_signature(
     segments: &[String],
     expected: Option<&CoreType>,
+    explicit_item: Option<&CoreType>,
 ) -> Option<(Vec<CoreType>, CoreType)> {
     let [module, name] = segments else {
         return None;
@@ -102,7 +107,10 @@ pub(crate) fn core_concurrency_signature(
     let unknown = CoreType::Unknown;
     match name.as_str() {
         "bounded" => {
-            let item = core_channel_pair_item_type(expected).unwrap_or(CoreType::Unknown);
+            let item = explicit_item
+                .cloned()
+                .or_else(|| core_channel_pair_item_type(expected))
+                .unwrap_or(CoreType::Unknown);
             Some((
                 vec![CoreType::int()],
                 CoreType::Record(vec![
