@@ -105,6 +105,9 @@ and type-mismatch diagnostics:
 - `constraint`
 - `origin_node_ids`
 
+When a body omits its final expression line, return checking uses `()` with
+`actual_type_source: "implicit_unit"`.
+
 `type.pipeline_target` reports a target on the right side of `|>` that is not
 a call, or is a call whose callee is not a name path. Its `details` include
 `phase`, `node_id`, `expected`, `actual`, and

@@ -11,18 +11,18 @@ UseDecl       ::= "use" ModuleName NL
 Item          ::= Function | TestDecl
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract*
-                  BodyLine*
+                  Body
                   "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects NL
                   Contract*
-                  BodyLine*
+                  Body
                   "end" NL?
 Param         ::= Name (":" TypeText)?
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
 Contract      ::= ("require" | "ensure") ContractPredicate NL
-BodyLine      ::= LetLine | ExprLine
+Body          ::= LetLine* ExprLine?
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
 LetPattern    ::= "_" | BindingName | RecordPattern
 ExprLine      ::= Expr NL
@@ -58,6 +58,11 @@ inside grouping forms. Parentheses, brackets, braces, and `match` expressions
 keep their inner newlines within the same expression; indentation is formatting
 only and does not define parse structure.
 
+The final expression line is the returned value. If a body has no final
+expression line, the omitted tail expression returns `()`. A non-`()`
+declared return type reports `type.mismatch` with
+`actual_type_source: "implicit_unit"`.
+
 When a declaration returns a function type that itself carries effects, write
 the function-type effect list before the declaration effect list:
 `-> fn(String) -> () effects [stdio] effects []`. The first `effects [...]`
@@ -75,9 +80,9 @@ implemented slice; using one in a `let` statement reports
 
 A return may name the returned value for postconditions with `-> name: Type`.
 The binding is contract-facing only: it is visible to `ensure` clauses for the
-same function and to runtime `ensure` checks for ordinary returns, but not to
-`require` clauses, the function body, or callers. Bare `result` has no special
-meaning.
+same function and to runtime `ensure` checks for tail-expression returns and
+`?` early returns, but not to `require` clauses, the function body, or callers.
+Bare `result` has no special meaning.
 
 `mod` declares the source module identity. The header is optional for a
 single-file source with no imports. A source file with one or more `use`

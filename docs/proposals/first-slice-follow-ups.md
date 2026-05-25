@@ -43,10 +43,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   work.
 - The checker validates the first-slice pure boolean contract subset. Runtime
   contract discharge is implemented for function-entry `require` checks and
-  ordinary-return `ensure` checks. `veln test --json` reports runtime contract
-  failures inside selected test cases as structured failed-case details, and
-  `veln run --json` reports runtime contract failures as top-level structured
-  errors. Non-local return refinements remain follow-up work.
+  `ensure` checks before both ordinary returns and `?` early returns.
+  `veln test --json` reports runtime contract failures inside selected test
+  cases as structured failed-case details, and `veln run --json` reports
+  runtime contract failures as top-level structured errors.
 - Contract predicates now parse through a dedicated first-slice predicate
   production. Bare and `use`-alias qualified pure calls to discovered
   effect-free functions are validated and participate in selected-entry

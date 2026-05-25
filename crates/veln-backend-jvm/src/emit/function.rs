@@ -87,35 +87,10 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             IrStmtKind::Return { value } => {
                 let java_value = self.emit_expr(value);
                 self.emit_prelude(out, &java_value.prelude);
-                if self
-                    .function
-                    .contracts
-                    .iter()
-                    .any(|contract| contract.kind == ContractKind::Ensure)
-                {
+                if self.has_ensure_contracts() {
                     let result = self.next_temp("result");
                     out.push_str(&format!("        Object {result} = {};\n", java_value.code));
-                    let previous = self.function.return_binding.as_ref().map(|binding| {
-                        (
-                            binding.clone(),
-                            self.locals.insert(binding.clone(), result.clone()),
-                        )
-                    });
-                    for contract in self
-                        .function
-                        .contracts
-                        .iter()
-                        .filter(|contract| contract.kind == ContractKind::Ensure)
-                    {
-                        self.emit_contract_check(out, contract);
-                    }
-                    if let Some((binding, old)) = previous {
-                        if let Some(old) = old {
-                            self.locals.insert(binding, old);
-                        } else {
-                            self.locals.remove(&binding);
-                        }
-                    }
+                    self.emit_ensure_checks_for_result(out, &result);
                     out.push_str(&format!("        return {result};\n"));
                 } else {
                     out.push_str(&format!("        return {};\n", java_value.code));
@@ -128,8 +103,17 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
         if contract.obligation_status != ContractObligationStatus::RuntimeRequired {
             return;
         }
-        let Some(predicate) = ContractParser::new(&contract.predicate).parse() else {
+        let Some(line) = self.contract_check_line(contract) else {
             return;
+        };
+        out.push_str("        ");
+        out.push_str(&line);
+        out.push('\n');
+    }
+
+    fn contract_check_line(&self, contract: &IrContract) -> Option<String> {
+        let Some(predicate) = ContractParser::new(&contract.predicate).parse() else {
+            return None;
         };
         let java_predicate = self.emit_contract_expr(&predicate);
         let blame = match contract.kind {
@@ -140,8 +124,8 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             ContractKind::Require => "require",
             ContractKind::Ensure => "ensure",
         };
-        out.push_str(&format!(
-            "        {}.checkContract({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});\n",
+        Some(format!(
+            "{}.checkContract({}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {});",
             self.program.options.runtime_class,
             java_predicate,
             java_string(clause),
@@ -154,7 +138,46 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             contract.span.start.column,
             contract.span.end.line,
             contract.span.end.column
-        ));
+        ))
+    }
+
+    fn has_ensure_contracts(&self) -> bool {
+        self.function
+            .contracts
+            .iter()
+            .any(|contract| contract.kind == ContractKind::Ensure)
+    }
+
+    fn emit_ensure_checks_for_result(&mut self, out: &mut String, result: &str) {
+        for line in self.ensure_check_lines_for_result(result) {
+            out.push_str("        ");
+            out.push_str(&line);
+            out.push('\n');
+        }
+    }
+
+    fn ensure_check_lines_for_result(&mut self, result: &str) -> Vec<String> {
+        let previous = self.function.return_binding.as_ref().map(|binding| {
+            (
+                binding.clone(),
+                self.locals.insert(binding.clone(), result.to_string()),
+            )
+        });
+        let lines = self
+            .function
+            .contracts
+            .iter()
+            .filter(|contract| contract.kind == ContractKind::Ensure)
+            .filter_map(|contract| self.contract_check_line(contract))
+            .collect::<Vec<_>>();
+        if let Some((binding, old)) = previous {
+            if let Some(old) = old {
+                self.locals.insert(binding, old);
+            } else {
+                self.locals.remove(&binding);
+            }
+        }
+        lines
     }
 
     fn emit_contract_expr(&self, expr: &ContractExpr) -> String {
@@ -349,6 +372,11 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
             "if ({}.isErr({temp})) {{",
             self.program.options.runtime_class
         ));
+        prelude.extend(
+            self.ensure_check_lines_for_result(&temp)
+                .into_iter()
+                .map(|line| format!("    {line}")),
+        );
         prelude.push(format!("    return {temp};"));
         prelude.push("}".to_string());
         JavaExpr {

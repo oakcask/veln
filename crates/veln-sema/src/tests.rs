@@ -608,6 +608,43 @@ fn reports_return_type_mismatch() {
 }
 
 #[test]
+fn omitted_tail_expression_returns_unit() {
+    let source = SourceFile::new("main.veln", "fn main() -> () effects []\nend\n");
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn omitted_tail_expression_checks_declared_return_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> Int effects []\n  let value = 1\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `Int`, but found `()`");
+    assert_eq!(
+        diagnostics[0].details.to_json(),
+        concat!(
+            "{\"phase\":\"type\",\"node_id\":\"fn-1\",\"expected_type\":\"Int\",",
+            "\"actual_type\":\"()\",\"expected_type_source\":\"declared_return\",",
+            "\"actual_type_source\":\"implicit_unit\",",
+            "\"constraint\":\"return_value\",",
+            "\"origin_node_ids\":[\"fn-1\",\"fn-1\"]}"
+        )
+    );
+}
+
+#[test]
 fn ok_constructor_accepts_declared_result_return() {
     let source = SourceFile::new(
         "main.veln",

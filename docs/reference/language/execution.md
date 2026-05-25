@@ -24,6 +24,7 @@ helper layout are backend details and are not language facts.
 The JVM backend generates Java source for the implemented IR subset:
 
 - functions, parameters, locals, expression statements, and returns
+- omitted tail expressions as `()` returns
 - literals, records, lists, `Ok`, `Err`, `Some`, `None`, their `Result::` or
   `Option::` qualified forms, and `?`
 - `match` expressions over literals, `_`, bindings, and built-in `Option` and
@@ -35,7 +36,7 @@ The JVM backend generates Java source for the implemented IR subset:
 - pipelines with named or qualified call targets lowered to calls with the
   left expression inserted as the first argument
 - runtime `require` checks at function entry and runtime `ensure` checks before
-  ordinary tail-expression returns
+  tail-expression returns and `?` early returns
 - integer and boolean operators used by the implemented type rules
 
 Generated runtime helpers may use mutable builders while constructing records,
@@ -68,7 +69,9 @@ test case. Human output names the failed clause text, function boundary, source
 identity, and blame route. `veln run --json` reports one top-level structured
 runtime error record. `veln test --json` embeds runtime contract failures in
 the failed case with structured runtime contract details. `require` uses caller
-blame; `ensure` uses implementation blame.
+blame; `ensure` uses implementation blame. When `?` propagates an error result
+out of a function, the function's `ensure` clauses run before that early
+return.
 
 The JVM execution path keeps a persistent class cache for generated Java
 sources. Cache hits may skip `javac`, but command results, stdout, stderr,

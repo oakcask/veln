@@ -1027,6 +1027,38 @@ fn emits_runtime_contract_checks() {
 }
 
 #[test]
+fn emits_ensure_checks_before_try_early_return() {
+    let ir = lower_to_ir(concat!(
+        "fn fail() -> Result(Int, String) effects []\n",
+        "  Err(\"bad\")\n",
+        "end\n",
+        "pub fn main() -> output: Result(Int, String) effects []\n",
+        "  ensure output == output\n",
+        "  let value: Int = fail()?\n",
+        "  Ok(value)\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+
+    let early_return = program
+        .find("if (VelnRuntime.isErr(__try0))")
+        .expect("try early return should be generated");
+    let ensure = program[early_return..]
+        .find("\"ensure\", \"output == output\", \"main\", \"implementation\"")
+        .expect("ensure check should be generated for the early return");
+    let return_err = program[early_return..]
+        .find("return __try0;")
+        .expect("try error should still return");
+
+    assert!(ensure < return_err);
+    assert!(program[early_return..].contains("VelnRuntime.equal(__try0, __try0)"));
+}
+
+#[test]
 fn emits_qualified_runtime_contract_calls() {
     let ir = lower_to_ir(concat!(
         "mod app.main\n",

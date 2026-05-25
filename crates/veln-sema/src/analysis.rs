@@ -413,7 +413,47 @@ impl<'a> FunctionChecker<'a> {
                 }
             }
         }
+        self.check_implicit_unit_return();
         self.check_effect_boundaries();
+    }
+
+    fn check_implicit_unit_return(&mut self) {
+        if matches!(
+            self.function.body.last().map(|line| &line.kind),
+            Some(BodyLineKind::Expr { .. })
+        ) {
+            return;
+        }
+        let Some(expected) = self.return_expected(self.function.node_id) else {
+            return;
+        };
+        let actual = Type::unit();
+        if is_assignable(&expected.ty, &actual) {
+            return;
+        }
+        self.diagnostics.push(Diagnostic::new(
+            "type.mismatch",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "expected `{}`, but found `{}`",
+                expected.ty.render(),
+                actual.render()
+            ),
+            Some(self.function.span.clone()),
+            type_details(
+                self.function.node_id.display("fn"),
+                expected.ty.render(),
+                actual.render(),
+                expected.source.as_type_source(),
+                "implicit_unit",
+                "return_value",
+                [
+                    self.function.node_id.display("fn"),
+                    expected.origin_node_id.display("fn"),
+                ],
+            ),
+        ));
     }
 
     fn check_let_pattern_supported(&mut self, pattern: &Pattern) {

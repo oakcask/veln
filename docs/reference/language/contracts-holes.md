@@ -36,8 +36,8 @@ recorded and may contribute hole repair constraints.
 
 Valid contract clauses are runtime obligations for executable `run` and `test`
 entry paths. `require` clauses are checked when a function is entered.
-`ensure` clauses are checked before an ordinary return when the function
-returns through its tail expression. Runtime `require` failures blame the
+`ensure` clauses are checked before returning through the tail expression and
+before `?` returns an error result early. Runtime `require` failures blame the
 caller; runtime `ensure` failures blame the implementation.
 
 The implemented obligation classification is conservative: every valid

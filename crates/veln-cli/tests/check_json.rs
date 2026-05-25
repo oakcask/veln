@@ -966,6 +966,29 @@ fn check_json_reports_return_type_mismatch() {
 }
 
 #[test]
+fn check_json_reports_implicit_unit_return_type_mismatch() {
+    let project = TestProject::new("implicit-unit-return-mismatch");
+    project.write(
+        "main.veln",
+        "pub fn main() -> Int effects []\n  let value = 1\nend\n",
+    );
+
+    let output = project.check_json(&["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "\"id\":\"type.mismatch\"",
+            "\"kind\":\"type\"",
+            "\"message\":\"expected `Int`, but found `()`\"",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":52}}",
+            "\"details\":{\"phase\":\"type\",\"node_id\":\"fn-1\",\"expected_type\":\"Int\",\"actual_type\":\"()\",\"expected_type_source\":\"declared_return\",\"actual_type_source\":\"implicit_unit\",\"constraint\":\"return_value\",\"origin_node_ids\":[\"fn-1\",\"fn-1\"]}",
+        ],
+    );
+}
+
+#[test]
 fn check_human_reports_missing_record_field_with_base_note() {
     let project = TestProject::new("field-missing-human");
     project.write(
