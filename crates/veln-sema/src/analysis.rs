@@ -3345,8 +3345,7 @@ fn repair_relevant_negated_and_clauses(predicate: &str) -> Option<Vec<String>> {
             .strip_prefix("not(")
             .map(|negated| negated.strip_suffix(')').unwrap_or(negated).trim())?
     };
-    let negated = strip_balanced_outer_parens(negated);
-    let conjuncts = split_top_level_keyword(negated, "and");
+    let conjuncts = flattened_repair_keyword_clauses(negated, "and");
     if conjuncts.len() <= 1 {
         return None;
     }
@@ -3366,6 +3365,17 @@ fn repair_relevant_negated_and_clauses(predicate: &str) -> Option<Vec<String>> {
     } else {
         clauses
     })
+}
+
+fn flattened_repair_keyword_clauses<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str> {
+    let clauses = split_top_level_keyword(strip_balanced_outer_parens(predicate), keyword);
+    if clauses.len() <= 1 {
+        return clauses;
+    }
+    clauses
+        .into_iter()
+        .flat_map(|clause| flattened_repair_keyword_clauses(clause, keyword))
+        .collect()
 }
 
 fn predicate_guaranteed_by_required_predicates(

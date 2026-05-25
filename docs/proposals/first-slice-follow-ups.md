@@ -91,7 +91,7 @@ No accepted language and type coverage follow-up is currently tracked here.
   accepted after whitespace normalization.
   Negated top-level `and` predicates with complementary
   candidate-referencing branches are treated as tautological for repair
-  ranking.
+  ranking, including parenthesized nested `and` branches.
   Contract obligation classification treats complementary boolean identities
   across more than two top-level or parenthesized nested `or` branches, and the
   negation of more than two top-level or parenthesized nested `and` branches
