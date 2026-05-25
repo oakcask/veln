@@ -195,6 +195,13 @@ Non-strict cycles in the antecedent also prove equality consequents, such as
 `not (low == mid and mid == high) or low == high` and
 `not (low <= mid and mid <= low) or low == mid`. Strict edges do not prove
 equality consequents.
+Equality paths plus an endpoint disequality in the antecedent also prove
+disequality consequents, such as
+`not (low == mid and mid != high) or low != high` and
+`not (high != mid and mid == low) or high != low`.
+Strict ordering paths also prove endpoint disequality consequents, such as
+`not (low < mid and mid <= high) or low != high` and
+`not (high >= mid and mid > low) or high != low`.
 Top-level `or` also proves case-split predicates when one branch is the
 complement of another branch and every other conjunct in that branch is
 statically true. For example,

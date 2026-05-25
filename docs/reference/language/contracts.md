@@ -23,29 +23,11 @@ combined detail until the contract body is split further.
 
 ## Current Static Classification Note
 
-Contract obligation classification statically proves top-level `or`
-predicates where a negated disjunction is covered by repeated top-level
-branches, such as `not (flag or ready) or flag or ready`. The same static
-truth rule feeds satisfy repair ranking for valid hole predicates.
-It also evaluates small boolean formulas over up to ten unknown pure
-predicates after literal and comparison folding.
-Equality and disequality comparisons between small boolean formulas are also
-statically classified when every assignment gives the same comparison result,
-such as `(flag and ready) == (ready and flag)`.
-It also proves partial case-split `or` predicates with shorter branches that
-cover every assignment across up to ten non-static predicates.
-Negated partial case-split `and` predicates are also statically proven when
-their disjunctive branches reject every assignment for the same predicate set.
-It also proves top-level `or` implications where a negated conjunction of
-ordering bounds transitively guarantees another ordering bound, such as
-`not (low <= mid and mid < high) or low < high`. Equality clauses in the
-antecedent count as bidirectional non-strict edges for this transitive check,
-so `not (low < mid and mid == high) or low < high` is also statically proven.
-Non-strict cycles in the antecedent also transitively prove equality
-consequents, such as `not (low == mid and mid == high) or low == high` and
-`not (low <= mid and mid <= low) or low == mid`.
-Negated conjunctions of impossible numeric literal bounds over one subject are
-also statically proven, such as `not (value > 10 and value < 5)`.
+Contract obligation classification is summarized here only for routing. Open
+[Static obligation classification](contracts-holes-full.md#static-obligation-classification)
+when changing static proof rules, truth-table folding, case-split predicates,
+ordering implications, equality or disequality consequents, or numeric literal
+bound checks.
 
 ## Skip Unless Needed
 

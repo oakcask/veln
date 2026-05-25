@@ -28,9 +28,9 @@ read these records only for rationale or compatibility context.
 
 ## History
 
-- [result-index.md](result-index.md): exhaustive record index for audits,
-  deduplication, or moving a record between categories. Do not start there for
-  ordinary implementation work.
+- [result-index.md](result-index.md): audit route for deduplication or moving a
+  record between categories. It links to the exhaustive record list only after
+  the category routes are not enough.
 
 ## Boundary
 

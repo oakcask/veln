@@ -1101,7 +1101,7 @@ fn has_order_bound_transitive_implication_top_level_or(predicate: &str) -> bool 
             .into_iter()
             .flat_map(order_bound_transitive_edges)
             .collect();
-        if edges.len() < 2 {
+        if edges.is_empty() {
             return false;
         }
         disjuncts.iter().any(|consequent| {
@@ -1111,6 +1111,10 @@ fn has_order_bound_transitive_implication_top_level_or(predicate: &str) -> bool 
                 }) || equality_shape(consequent).is_some_and(|(left, right)| {
                     order_bound_edges_imply_non_strict(&edges, &left, &right)
                         && order_bound_edges_imply_non_strict(&edges, &right, &left)
+                }) || disequality_shape(consequent).is_some_and(|(left, right)| {
+                    order_bound_edges_imply(&edges, &left, &right, true)
+                        || order_bound_edges_imply(&edges, &right, &left, true)
+                        || equality_disequality_edges_imply_disequality(inner, &left, &right)
                 }))
         })
     })
@@ -1121,6 +1125,58 @@ fn equality_shape(predicate: &str) -> Option<(String, String)> {
     let left = compact_predicate_text(left);
     let right = compact_predicate_text(right);
     (left != right).then_some((left, right))
+}
+
+fn disequality_shape(predicate: &str) -> Option<(String, String)> {
+    let (left, right) = split_top_level_operator(predicate, "!=")?;
+    let left = compact_predicate_text(left);
+    let right = compact_predicate_text(right);
+    (left != right).then_some((left, right))
+}
+
+fn equality_disequality_edges_imply_disequality(predicate: &str, left: &str, right: &str) -> bool {
+    let clauses = flattened_keyword_clauses(predicate, "and");
+    let equality_edges: Vec<_> = clauses
+        .iter()
+        .filter_map(|clause| equality_shape(clause))
+        .flat_map(|(left, right)| [(left.clone(), right.clone()), (right, left)])
+        .collect();
+    let disequalities: Vec<_> = clauses
+        .iter()
+        .filter_map(|clause| disequality_shape(clause))
+        .collect();
+
+    disequalities.iter().any(|(disequal_left, disequal_right)| {
+        (equality_edges_imply(&equality_edges, left, disequal_left)
+            && equality_edges_imply(&equality_edges, right, disequal_right))
+            || (equality_edges_imply(&equality_edges, left, disequal_right)
+                && equality_edges_imply(&equality_edges, right, disequal_left))
+    })
+}
+
+fn equality_edges_imply(edges: &[(String, String)], left: &str, right: &str) -> bool {
+    if left == right {
+        return true;
+    }
+
+    let mut stack = vec![left.to_string()];
+    let mut visited = Vec::new();
+
+    while let Some(current) = stack.pop() {
+        if visited.iter().any(|node| node == &current) {
+            continue;
+        }
+        visited.push(current.clone());
+
+        for (_, edge_right) in edges.iter().filter(|(edge_left, _)| edge_left == &current) {
+            if edge_right == right {
+                return true;
+            }
+            stack.push(edge_right.clone());
+        }
+    }
+
+    false
 }
 
 fn order_bound_transitive_edges(predicate: &str) -> Vec<OrderBoundShape> {

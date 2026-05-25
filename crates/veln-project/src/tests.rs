@@ -53,6 +53,18 @@ fn discovers_veln_files_from_explicit_directories() {
 }
 
 #[test]
+fn explicit_directories_skip_ignored_subdirectories() {
+    let temp = TempProject::new("directory-input-ignored-subdirs");
+    temp.write("tests/case.veln", "case");
+    temp.write("tests/target/generated.veln", "ignored");
+    temp.write("tests/.git/hooks/hook.veln", "ignored");
+
+    let paths = discover_source_paths(temp.root(), &[PathBuf::from("tests")]).unwrap();
+
+    assert_eq!(paths, vec![temp.path("tests/case.veln")]);
+}
+
+#[test]
 fn deduplicates_overlapping_explicit_directory_inputs() {
     let temp = TempProject::new("overlapping-directory-inputs");
     temp.write("tests/unit/a.veln", "a");

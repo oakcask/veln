@@ -276,6 +276,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   evaluated. Equality clauses in that antecedent are treated as bidirectional
   non-strict ordering edges for the same transitive implication check.
   Non-strict cycles in that antecedent also prove equality consequents.
+  Equality paths plus an endpoint disequality in that antecedent also prove
+  disequality consequents. Strict ordering paths in that antecedent also prove
+  endpoint disequality consequents.
   Equality and disequality comparisons between small boolean formulas are also
   statically evaluated when every assignment gives the same comparison result.
   Numeric literal division in static comparisons and repair-bound comparison
@@ -289,8 +292,7 @@ No accepted language and type coverage follow-up is currently tracked here.
   complementary predicate comparisons, complementary boolean and comparison
   disjunctions, ordering trichotomy disjunctions, negated complementary
   boolean and comparison conjunctions, negated mutually exclusive order
-  conjunctions, transitive ordering-bound implications, and transitive
-  non-strict equality implications remain follow-up work.
+  conjunctions, and other richer transitive implications remain follow-up work.
 
 ## Formatting
 

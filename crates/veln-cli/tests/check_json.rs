@@ -1171,6 +1171,55 @@ fn check_json_reports_return_type_mismatch() {
 }
 
 #[test]
+fn check_json_deduplicates_repeated_explicit_inputs() {
+    let project = TestProject::new("dedupe-explicit-inputs");
+    project.write(
+        "main.veln",
+        "pub fn main() -> Int effects []\n  \"no\"\nend\n",
+    );
+
+    let output = project.check_json(&["main.veln", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"type.mismatch\"",
+            "\"message\":\"expected `Int`, but found `String`\"",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"type\":1}}",
+        ],
+    );
+    assert_eq!(stdout.matches("\"id\":\"type.mismatch\"").count(), 1);
+}
+
+#[test]
+fn check_json_deduplicates_overlapping_directory_and_file_inputs() {
+    let project = TestProject::new("dedupe-overlapping-directory-file-inputs");
+    project.write(
+        "src/main.veln",
+        "pub fn main() -> Int effects []\n  \"no\"\nend\n",
+    );
+    project.write("src/target/generated.veln", "fn broken() -> ()\n  @\nend\n");
+    project.write("src/.git/hooks/hook.veln", "fn broken() -> ()\n  @\nend\n");
+
+    let output = project.check_json(&["src", "src/main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"type.mismatch\"",
+            "\"message\":\"expected `Int`, but found `String`\"",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"type\":1}}",
+        ],
+    );
+    assert_eq!(stdout.matches("\"id\":\"type.mismatch\"").count(), 1);
+    assert!(!stdout.contains("parse.invalid_token"), "{stdout}");
+}
+
+#[test]
 fn check_json_reports_implicit_unit_return_type_mismatch() {
     let project = TestProject::new("implicit-unit-return-mismatch");
     project.write(
