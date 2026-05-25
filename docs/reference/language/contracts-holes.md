@@ -90,7 +90,9 @@ binding, such as
 `candidate == fallback`, `fallback == candidate`, `candidate <= fallback`, and
 `fallback >= candidate`. Field-access forms with the same suffix on both sides
 are also accepted, such as `candidate.count == fallback.count`. `and` may join
-clauses that all name the same binding.
+clauses that all name the same binding. Top-level `or` may also join direct
+branches when every branch names the same binding, such as
+`candidate == fallback or candidate >= fallback`.
 Wrapping each direct clause in balanced parentheses does not change this
 repair match. Negated direct equality, disequality, and ordering clauses are
 normalized before direct repair matching, so `not (candidate != fallback)` and

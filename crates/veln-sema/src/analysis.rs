@@ -2697,9 +2697,43 @@ fn reflexive_candidate_binding(
     predicate: &str,
     candidate: &str,
 ) -> Option<ReflexiveCandidateBinding> {
+    let disjuncts = split_top_level_keyword(strip_balanced_outer_parens(predicate), "or");
+    if disjuncts.len() > 1 {
+        return reflexive_candidate_disjunction(disjuncts, candidate);
+    }
+    reflexive_candidate_conjunction(repair_relevant_and_clauses(predicate), candidate)
+}
+
+fn reflexive_candidate_disjunction(
+    disjuncts: Vec<&str>,
+    candidate: &str,
+) -> Option<ReflexiveCandidateBinding> {
     let mut allowed_binding = None::<String>;
     let mut reason = "satisfy_equality_match";
-    for clause in repair_relevant_and_clauses(predicate) {
+    for disjunct in disjuncts {
+        let direct =
+            reflexive_candidate_conjunction(repair_relevant_and_clauses(disjunct), candidate)?;
+        if let Some(existing) = &allowed_binding {
+            if existing != &direct.binding {
+                return None;
+            }
+        } else {
+            allowed_binding = Some(direct.binding);
+        }
+        if direct.reason != "satisfy_equality_match" {
+            reason = direct.reason;
+        }
+    }
+    allowed_binding.map(|binding| ReflexiveCandidateBinding { binding, reason })
+}
+
+fn reflexive_candidate_conjunction(
+    clauses: Vec<String>,
+    candidate: &str,
+) -> Option<ReflexiveCandidateBinding> {
+    let mut allowed_binding = None::<String>;
+    let mut reason = "satisfy_equality_match";
+    for clause in clauses {
         let direct = direct_reflexive_clause(&clause, candidate)?;
         if let Some(existing) = &allowed_binding {
             if existing != &direct.binding {

@@ -24,7 +24,9 @@ functions now report incomplete inference when an omitted parameter or return
 annotation remains `unknown`. Satisfy repair discharge normalizes negated
 ordering clauses into their inverse comparisons before matching valid
 `require` clauses, and normalizes negated direct `satisfy` equality and
-ordering clauses before direct repair matching. Equality `require` clauses
+ordering clauses before direct repair matching. Direct `satisfy` repair also
+accepts top-level `or` branches when every branch names the same visible
+binding and becomes reflexive after substitution. Equality `require` clauses
 create non-disjunctive operand aliases for repair discharge, including alias
 preservation for strict-ordering disequality evidence and paired inclusive
 bound equality evidence.
