@@ -220,6 +220,9 @@ They are not a general user-defined generic function mechanism.
 Method-call-shaped syntax, such as `value.field(args)`, is rejected during
 parsing with `parse.method_call`. Use a plain function call like
 `field(value, args)` and reserve `value.field` for record field access.
+Call arguments must be separated with commas and closed with `)`. When the
+parser can identify an adjacent argument without a separator, it reports
+`parse.call_argument` and continues as if a comma had been inserted.
 
 `match` is a primary expression and may appear anywhere an expression is
 accepted, including call arguments and aggregate literals. Match arms are tried

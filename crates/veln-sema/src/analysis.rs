@@ -2447,21 +2447,30 @@ impl<'a> FunctionChecker<'a> {
 }
 
 struct SatisfyRepairConstraint {
-    allowed_binding: String,
+    allowed_binding: Option<String>,
     reason: &'static str,
 }
 
 impl SatisfyRepairConstraint {
     fn from_satisfy(satisfy: &SatisfyClause) -> Option<Self> {
         let candidate = satisfy.candidate.as_ref()?;
+        if let Some(tautology) = tautological_candidate_predicate(&satisfy.predicate, candidate) {
+            return Some(Self {
+                allowed_binding: None,
+                reason: tautology.reason,
+            });
+        }
         reflexive_candidate_binding(&satisfy.predicate, candidate).map(|allowed| Self {
-            allowed_binding: allowed.binding,
+            allowed_binding: Some(allowed.binding),
             reason: allowed.reason,
         })
     }
 
     fn reason_for(&self, binding: &str) -> Option<&'static str> {
-        (self.allowed_binding == binding).then_some(self.reason)
+        match &self.allowed_binding {
+            Some(allowed) => (allowed == binding).then_some(self.reason),
+            None => Some(self.reason),
+        }
     }
 }
 
@@ -2490,6 +2499,33 @@ fn reflexive_candidate_binding(
         }
     }
     allowed_binding.map(|binding| ReflexiveCandidateBinding { binding, reason })
+}
+
+struct TautologicalCandidatePredicate {
+    reason: &'static str,
+}
+
+fn tautological_candidate_predicate(
+    predicate: &str,
+    candidate: &str,
+) -> Option<TautologicalCandidatePredicate> {
+    for clause in predicate.split(" and ") {
+        if !is_candidate_tautology_clause(clause.trim(), candidate) {
+            return None;
+        }
+    }
+    Some(TautologicalCandidatePredicate {
+        reason: "satisfy_tautology",
+    })
+}
+
+fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
+    ["==", "<=", ">="].iter().any(|operator| {
+        let Some((left, right)) = predicate.split_once(operator) else {
+            return false;
+        };
+        left.trim() == candidate && right.trim() == candidate
+    })
 }
 
 fn direct_reflexive_clause(predicate: &str, candidate: &str) -> Option<ReflexiveCandidateBinding> {

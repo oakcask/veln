@@ -1,7 +1,7 @@
 # Discussion Result: Channel-First Concurrency Runtime
 
-Status: accepted-proposal
-Implementation: partially implemented
+Status: implemented
+Implementation: bounded-channel slice implemented
 
 ## Picked Question
 
@@ -49,10 +49,11 @@ channel::recv(rx) -> Option(T)
 channel::close(tx) -> ()
 ```
 
-Concurrency should be visible in public effect declarations through a coarse
-effect label such as `concurrency`. Runtime primitives for `spawn`, channel
-send and receive, cancellation, task join, and future selection constructs
-carry that effect metadata so public APIs cannot silently become concurrent.
+Concurrency is visible in public effect declarations through the coarse
+`concurrency` effect label. Implemented channel operations carry that effect
+metadata so public APIs cannot silently become concurrent. Future runtime
+primitives such as `spawn`, cancellation, task join, and selection constructs
+must also carry that effect or its chosen successor label.
 
 ## Rationale
 
@@ -83,12 +84,10 @@ close, and which public effect boundary introduced concurrency. That is easier
 to explain and repair than arbitrary shared mutable state protected by ad hoc
 locks.
 
-## First-Slice Rules
+## Implemented Rules
 
 - The language and reference runtime should not specify or depend on a global
   interpreter lock.
-- Independent Veln tasks may run in parallel on host threads when the backend
-  supports it.
 - Source-level concurrent data flow should be expressed primarily with typed
   MPSC channels rather than with general-purpose shared mutable state.
 - `Sender(T)` is cloneable for multiple producers; `Receiver(T)` is
@@ -98,9 +97,8 @@ locks.
 - Sending returns `Result((), SendError)` when the receiver is no longer
   available.
 - Receiving returns `Option(T)`, with `None` representing closed and drained.
-- `spawn`, channel send and receive, task join, cancellation, and future
-  selection constructs carry a coarse `concurrency` effect or its chosen
-  successor label.
+- Channel construction, sender clone, send, receive, and close calls carry the
+  coarse `concurrency` effect.
 - Public functions whose bodies introduce concurrency must declare that effect
   under the existing public effect boundary rule.
 - Locks, atomics, and other shared-memory synchronization primitives are not
@@ -109,8 +107,8 @@ locks.
 
 ## Open Details
 
-The exact source spelling for `spawn`, task handles, cancellation, and channel
-construction remains open. The decision owns the semantic direction, not a
+The exact source spelling for `spawn`, task handles, and cancellation remains
+open. The decision owns the semantic direction for those constructs, not a
 final surface syntax.
 
 The implemented send and receive operations block a host thread when waiting
@@ -139,7 +137,7 @@ through typed bounded channels, public APIs expose concurrency through effects,
 and lower-level synchronization remains available for later design without
 becoming the default programming style.
 
-## Implemented Slice
+## Reference Surface
 
 The current workspace implements a minimal executable bounded-channel slice:
 `channel::bounded(capacity)`, `channel::bounded[T](capacity)`,

@@ -14,6 +14,7 @@ read these records only for rationale or compatibility context.
 - [ADR-Lite Decision Location](result-adr-lite-decision-location.md)
 - [Affected Test Selection](result-affected-test-selection.md)
 - [Block Structure](result-block-structure.md)
+- [Channel-First Concurrency Runtime](result-channel-first-concurrency-runtime.md)
 - [Check JSON Details Fields](result-check-json-details-fields.md)
 - [Compact Function Form](result-compact-function-form.md)
 - [Comparison Example Task](result-comparison-example-task.md)

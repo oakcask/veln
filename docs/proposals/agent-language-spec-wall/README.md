@@ -20,8 +20,12 @@ current workspace. Implemented decisions were moved to
 
 ## Accepted Or Open Targets
 
-- [Channel-First Concurrency Runtime](result-channel-first-concurrency-runtime.md)
 - [First-Slice Grammar](result-first-slice-grammar.md)
+
+The implemented bounded-channel concurrency decision lives in
+[Channel-First Concurrency Runtime](../../reference/source-decisions/result-channel-first-concurrency-runtime.md).
+Future concurrency surface work is tracked in
+[../first-slice-follow-ups.md](../first-slice-follow-ups.md).
 
 Implemented rationale such as
 [Comparison Example Task](../../reference/source-decisions/result-comparison-example-task.md)

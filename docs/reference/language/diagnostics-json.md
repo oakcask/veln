@@ -53,6 +53,10 @@ Contract predicate syntax diagnostics use the same parse-phase detail shape.
 `require` and `ensure` predicate parse failures use `kind: "contract"` with
 `id: "parse.contract_predicate"` so contract-specific failures remain grouped
 with other contract diagnostics.
+Malformed call argument lists report `parse.call_argument` when an argument is
+followed by another token without the required `,` or `)`. The recovery detail
+uses `strategy: "insert_token"` with `anchor: ","` when the parser continues by
+treating the next token as another argument.
 
 Name diagnostic `details` are stable for unresolved and duplicate names:
 
@@ -204,9 +208,9 @@ contains `candidates`. Each candidate contains:
 
 Each edit contains `kind: "replace"`, `span`, and `replacement`. The edits are
 concrete but unapplied. The default `application_policy` remains
-`manual_review_required`; the direct reflexive satisfy subset may use
-`safe_repair_candidate`. Candidates for satisfy-constrained holes also contain
-`satisfy_status`, either `statically_satisfied` or
+`manual_review_required`; the direct reflexive and tautological satisfy subsets
+may use `safe_repair_candidate`. Candidates for satisfy-constrained holes also
+contain `satisfy_status`, either `statically_satisfied` or
 `blocked_until_discharged`.
 
 Semantic satisfy diagnostics use hole diagnostic detail objects with

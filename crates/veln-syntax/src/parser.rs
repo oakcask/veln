@@ -1060,9 +1060,19 @@ impl<'a> ExprParser<'a> {
                 let mut args = Vec::new();
                 while !self.at(TokenKind::RParen) && !self.is_at_end() {
                     args.push(self.parse_expr(0));
-                    if self.eat(TokenKind::Comma).is_none() {
+                    if self.eat(TokenKind::Comma).is_some() {
+                        continue;
+                    }
+                    if self.at(TokenKind::RParen) || self.is_at_end() {
                         break;
                     }
+                    self.error_current(
+                        "parse.call_argument",
+                        "call argument is missing `,` or `)`",
+                        vec![",", ")"],
+                        RecoveryStrategy::InsertToken,
+                        Some(","),
+                    );
                 }
                 let end = self.eat(TokenKind::RParen).map_or_else(
                     || lhs_range(args.last().unwrap_or(&expr)),

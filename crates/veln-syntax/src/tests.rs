@@ -316,6 +316,33 @@ fn parses_type_argument_call_callees() {
 }
 
 #[test]
+fn reports_missing_separator_between_call_arguments() {
+    let source = SourceFile::new("main.veln", "fn main() -> ()\n  pair(1 2)\nend\n");
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.call_argument")
+        .expect("expected missing call argument separator diagnostic");
+    assert_eq!(diagnostic.message, "call argument is missing `,` or `)`");
+    assert_eq!(diagnostic.parser_context, "expression_line");
+    assert_eq!(diagnostic.expected, vec![",", ")"]);
+    assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
+    assert_eq!(diagnostic.recovery.anchor.as_deref(), Some(","));
+
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Call { args, .. } = &expr.kind else {
+        panic!("expected call expression");
+    };
+    assert_eq!(args.len(), 2);
+}
+
+#[test]
 fn lexes_number_string_hole_and_invalid_boundaries() {
     let source = SourceFile::new(
         "tokens.veln",

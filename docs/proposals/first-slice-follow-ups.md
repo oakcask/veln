@@ -23,14 +23,21 @@ No accepted language and type coverage follow-up is currently tracked here.
   candidate bound to the hole expected type when known. Direct equality
   and direct inclusive comparison satisfy-constrained symbol repair candidates
   are generated as unapplied safe repair candidates when the predicate becomes
-  reflexive for the same visible binding. Broader repair discharge remains
-  follow-up work before formatter stabilization.
+  reflexive for the same visible binding. Tautological equality and inclusive
+  comparison predicates on the satisfy candidate itself mark every
+  type-compatible visible binding candidate as an unapplied safe repair
+  candidate. Broader repair discharge remains follow-up work before formatter
+  stabilization.
 
 ## Effects And Contracts
 
 - Direct stdio calls are recognized as compiler-known effectful prelude calls,
   private helper body effects propagate to callers, and effect diagnostics
   expose bounded path entries with hidden-frame and omitted-path counts.
+- The executable bounded-channel slice is implemented and specified in the
+  language reference. `spawn`, task handles, cancellation, join, selection,
+  and concurrent stdio/test event ordering remain future concurrency surface
+  work.
 - The checker validates the first-slice pure boolean contract subset. Runtime
   contract discharge is implemented for function-entry `require` checks and
   ordinary-return `ensure` checks. `veln test --json` reports runtime contract

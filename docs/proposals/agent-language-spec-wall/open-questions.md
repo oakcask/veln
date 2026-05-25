@@ -147,7 +147,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   Rust, pair it with a small Java or Kotlin JVM runtime library, and defer a
   separate Kotlin JVM backend module until the typed IR has enough examples.
 - Resolved by
-  [Channel-First Concurrency Runtime](result-channel-first-concurrency-runtime.md):
+  [Channel-First Concurrency Runtime](../../reference/source-decisions/result-channel-first-concurrency-runtime.md):
   use a parallel-capable runtime without a global interpreter lock, prefer
   structured tasks and bounded MPSC channels for concurrent data flow, and
   expose concurrency at public boundaries through a coarse effect label.

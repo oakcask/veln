@@ -20,6 +20,8 @@ not fully implemented in the current workspace.
   [grammar-target.md](grammar-target.md).
 - Remaining first-slice implementation targets are tracked in
   [first-slice-follow-ups.md](first-slice-follow-ups.md).
+- Future concurrency surface work after the implemented bounded-channel slice
+  is tracked in [first-slice-follow-ups.md](first-slice-follow-ups.md).
 
 ## Status Rules
 
