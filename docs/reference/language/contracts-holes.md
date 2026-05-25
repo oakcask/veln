@@ -305,7 +305,11 @@ operand aliasing applies while chaining transitive ordering evidence, so
 `candidate + 1 <= limit + 1` after substituting `max`. Equality requirements
 also apply to boolean atom clauses, so `require max == fallback` plus
 `require fallback.ready` guarantees `candidate.ready` after substituting
-`max`. Inclusive transitive ordering plus endpoint disequality guarantees a
+`max`. Boolean atoms and literal boolean comparisons discharge each other:
+`require flag` guarantees `candidate == true` and `candidate != false` after
+substituting `flag`, `require not flag` guarantees `candidate == false`, and
+`require flag.ready == true` guarantees `candidate.ready` after substitution.
+Inclusive transitive ordering plus endpoint disequality guarantees a
 strict comparison in repair matching, so `require low <= mid`,
 `require mid <= max`, and `require max != low` guarantee `candidate > low`
 after substituting `max`. A disequality between two operands on the inclusive

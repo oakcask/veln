@@ -3364,11 +3364,15 @@ fn repair_clause_implies(required: &str, wanted: &str) -> bool {
     if required == wanted {
         return true;
     }
-    let Some(required) = ParsedRepairComparison::parse(required) else {
-        return false;
-    };
     let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
         return false;
+    };
+    let Some(required) = ParsedRepairComparison::parse(required) else {
+        return boolean_atom_implies_literal_comparison(
+            required,
+            &wanted,
+            &RepairEquivalences::default(),
+        );
     };
     if required.left == wanted.left
         && required.right == wanted.right
@@ -3405,9 +3409,10 @@ fn required_predicate_set_implies_clause(required_predicates: &[String], wanted:
         .collect::<Vec<_>>();
     let equivalences = repair_equivalences(&required_clauses);
     let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
-        return required_clauses
-            .iter()
-            .any(|required| repair_atoms_equivalent(required, wanted, &equivalences));
+        return required_clauses.iter().any(|required| {
+            repair_atoms_equivalent(required, wanted, &equivalences)
+                || boolean_literal_comparison_implies_atom(required, wanted, &equivalences)
+        });
     };
     if required_clauses
         .iter()
@@ -3586,7 +3591,7 @@ fn repair_clause_implies_with_equivalences(
     equivalences: &RepairEquivalences,
 ) -> bool {
     let Some(required) = ParsedRepairComparison::parse(required) else {
-        return false;
+        return boolean_atom_implies_literal_comparison(required, wanted, equivalences);
     };
     if required.operator == wanted.operator
         && repair_operands_equivalent_ordered(
@@ -3625,6 +3630,82 @@ fn repair_clause_implies_with_equivalences(
         ),
         _ => false,
     }
+}
+
+fn boolean_literal_comparison_implies_atom(
+    required: &str,
+    wanted_atom: &str,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some(required) = ParsedRepairComparison::parse(required) else {
+        return false;
+    };
+    let Some((required_atom, required_truth)) = boolean_literal_comparison_truth(&required) else {
+        return false;
+    };
+    let Some((wanted_atom, wanted_truth)) = boolean_atom_truth(wanted_atom) else {
+        return false;
+    };
+    required_truth == wanted_truth
+        && repair_operands_equivalent(required_atom, wanted_atom, equivalences)
+}
+
+fn boolean_atom_implies_literal_comparison(
+    required_atom: &str,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some((required_atom, required_truth)) = boolean_atom_truth(required_atom) else {
+        return false;
+    };
+    let Some((wanted_atom, wanted_truth)) = boolean_literal_comparison_truth(wanted) else {
+        return false;
+    };
+    required_truth == wanted_truth
+        && repair_operands_equivalent(required_atom, wanted_atom, equivalences)
+}
+
+fn boolean_literal_comparison_truth<'a>(
+    comparison: &'a ParsedRepairComparison<'a>,
+) -> Option<(&'a str, bool)> {
+    let left_literal = RepairLiteral::parse(comparison.left);
+    let right_literal = RepairLiteral::parse(comparison.right);
+    let (atom, literal) = match (left_literal, right_literal) {
+        (None, Some(RepairLiteral::Bool(value))) => (comparison.left, value),
+        (Some(RepairLiteral::Bool(value)), None) => (comparison.right, value),
+        _ => return None,
+    };
+    let atom_truth = match comparison.operator {
+        "==" => literal,
+        "!=" => !literal,
+        _ => return None,
+    };
+    Some((atom, atom_truth))
+}
+
+fn boolean_atom_truth(atom: &str) -> Option<(&str, bool)> {
+    let atom = strip_balanced_outer_parens(atom);
+    if atom.is_empty()
+        || atom == "true"
+        || atom == "false"
+        || split_top_level_keyword(atom, "and").len() > 1
+        || split_top_level_keyword(atom, "or").len() > 1
+        || ParsedRepairComparison::parse(atom).is_some()
+    {
+        return None;
+    }
+    if let Some(negated) = stripped_not_operand(atom) {
+        let negated = strip_balanced_outer_parens(negated);
+        if negated.is_empty()
+            || split_top_level_keyword(negated, "and").len() > 1
+            || split_top_level_keyword(negated, "or").len() > 1
+            || ParsedRepairComparison::parse(negated).is_some()
+        {
+            return None;
+        }
+        return Some((negated, false));
+    }
+    Some((atom, true))
 }
 
 fn equality_with_distinct_literal_implies_disequality(

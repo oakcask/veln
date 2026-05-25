@@ -103,7 +103,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   those expression operands. Equality aliases also apply while chaining
   transitive ordering evidence over same-shape expression operands. Equality
   aliases also discharge boolean atom `satisfy` clauses when the aliased atom
-  is already guaranteed by a valid `require` clause.
+  is already guaranteed by a valid `require` clause. Boolean atom and literal
+  boolean equality or disequality clauses also discharge each other during
+  `require`-matched repair.
   Top-level disjunctive `require` predicates discharge top-level disjunctive
   `satisfy` predicates when every `require` branch guarantees at least one
   `satisfy` branch.
