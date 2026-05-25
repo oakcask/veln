@@ -281,6 +281,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   Equality paths plus an endpoint disequality in that antecedent also prove
   disequality consequents. Strict ordering paths in that antecedent also prove
   endpoint disequality consequents.
+  Numeric literal bounds inside the negated antecedent also prove weaker
+  literal bounds on the same subject.
   Equality and disequality comparisons between small boolean formulas are also
   statically evaluated when every assignment gives the same comparison result.
   Numeric literal division in static comparisons and repair-bound comparison

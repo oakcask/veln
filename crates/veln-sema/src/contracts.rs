@@ -1185,6 +1185,7 @@ fn has_order_bound_transitive_implication_top_level_or(predicate: &str) -> bool 
             !same_predicate(antecedent, consequent)
                 && (order_bound_shape(consequent).is_some_and(|wanted| {
                     order_bound_edges_imply(&edges, &wanted.left, &wanted.right, wanted.strict)
+                        || numeric_literal_bounds_imply(inner, &wanted)
                 }) || equality_shape(consequent).is_some_and(|(left, right)| {
                     order_bound_edges_imply_non_strict(&edges, &left, &right)
                         && order_bound_edges_imply_non_strict(&edges, &right, &left)
@@ -1195,6 +1196,45 @@ fn has_order_bound_transitive_implication_top_level_or(predicate: &str) -> bool 
                 }))
         })
     })
+}
+
+fn numeric_literal_bounds_imply(predicate: &str, wanted: &OrderBoundShape) -> bool {
+    let Some(wanted) = numeric_literal_bound_shape_from_order_bound(wanted) else {
+        return false;
+    };
+    flattened_keyword_clauses(predicate, "and")
+        .into_iter()
+        .filter_map(numeric_literal_bound_shape)
+        .any(|required| numeric_literal_bound_implies(&required, &wanted))
+}
+
+fn numeric_literal_bound_shape_from_order_bound(
+    bound: &OrderBoundShape,
+) -> Option<NumericLiteralBound> {
+    numeric_literal_bound_shape(&format!(
+        "{} {} {}",
+        bound.left,
+        if bound.strict { "<" } else { "<=" },
+        bound.right
+    ))
+}
+
+fn numeric_literal_bound_implies(
+    required: &NumericLiteralBound,
+    wanted: &NumericLiteralBound,
+) -> bool {
+    required.subject == wanted.subject
+        && required.kind == wanted.kind
+        && match required.kind {
+            NumericLiteralBoundKind::Lower => {
+                required.value > wanted.value
+                    || (required.value == wanted.value && (wanted.inclusive || !required.inclusive))
+            }
+            NumericLiteralBoundKind::Upper => {
+                required.value < wanted.value
+                    || (required.value == wanted.value && (wanted.inclusive || !required.inclusive))
+            }
+        }
 }
 
 fn equality_shape(predicate: &str) -> Option<(String, String)> {
