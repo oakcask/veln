@@ -83,6 +83,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_exhaustive_quint_case_split_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
+    if has_exhaustive_sext_case_split_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
     if has_case_split_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
@@ -328,6 +331,10 @@ fn has_exhaustive_quad_case_split_top_level_or(predicate: &str) -> bool {
 
 fn has_exhaustive_quint_case_split_top_level_or(predicate: &str) -> bool {
     has_exhaustive_case_split_top_level_or(predicate, 5)
+}
+
+fn has_exhaustive_sext_case_split_top_level_or(predicate: &str) -> bool {
+    has_exhaustive_case_split_top_level_or(predicate, 6)
 }
 
 fn has_exhaustive_case_split_top_level_or(predicate: &str, arity: usize) -> bool {

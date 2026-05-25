@@ -127,6 +127,8 @@ It also recognizes exhaustive quad case splits where sixteen top-level
 conjunction branches cover both polarities of four non-static predicates.
 It also recognizes exhaustive quint case splits where thirty-two top-level
 conjunction branches cover both polarities of five non-static predicates.
+It also recognizes exhaustive sext case splits where sixty-four top-level
+conjunction branches cover both polarities of six non-static predicates.
 Top-level `or` also recognizes complementary comparison pairs over the same
 operands after whitespace normalization and commuted ordering normalization,
 such as `value == limit or value != limit`,
