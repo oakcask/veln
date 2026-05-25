@@ -169,6 +169,10 @@ A top-level disjunct that is itself tautological for the satisfy candidate has
 the same effect; for example,
 `candidate == candidate or candidate == fallback` ranks every type-compatible
 visible binding as a safe tautology repair candidate.
+Top-level complementary disjuncts over the same candidate-referencing
+predicate also rank as tautological. For example,
+`candidate.ready or not candidate.ready` ranks every type-compatible visible
+binding as a safe tautology repair candidate.
 Nested `or` clauses with a literal `true` branch are ignored inside
 tautological `and` clauses, so
 `candidate == candidate and (candidate > candidate or true)` is ranked as a

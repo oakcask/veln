@@ -2949,6 +2949,11 @@ fn tautological_candidate_predicate(
     if disjuncts.is_empty() {
         return None;
     }
+    if has_complementary_candidate_disjuncts(&disjuncts, candidate) {
+        return Some(TautologicalCandidatePredicate {
+            reason: "satisfy_tautology",
+        });
+    }
     if disjuncts
         .into_iter()
         .any(|disjunct| is_candidate_tautology_disjunct(disjunct, candidate))
@@ -2958,6 +2963,35 @@ fn tautological_candidate_predicate(
         });
     }
     None
+}
+
+fn has_complementary_candidate_disjuncts(disjuncts: &[&str], candidate: &str) -> bool {
+    let mut positive = Vec::<String>::new();
+    let mut negative = Vec::<String>::new();
+    for disjunct in disjuncts {
+        let Some((negated, clause)) = complementary_disjunct_key(disjunct, candidate) else {
+            continue;
+        };
+        let complements = if negated { &positive } else { &negative };
+        if complements.iter().any(|existing| existing == &clause) {
+            return true;
+        }
+        if negated {
+            negative.push(clause);
+        } else {
+            positive.push(clause);
+        }
+    }
+    false
+}
+
+fn complementary_disjunct_key(disjunct: &str, candidate: &str) -> Option<(bool, String)> {
+    let disjunct = strip_balanced_outer_parens(disjunct);
+    let (negated, clause) = stripped_not_operand(disjunct)
+        .map(|inner| (true, strip_balanced_outer_parens(inner)))
+        .unwrap_or((false, disjunct));
+    expression_references_identifier(clause, candidate)
+        .then(|| (negated, canonical_repair_clause(clause)))
 }
 
 fn has_true_disjunct(predicate: &str) -> bool {

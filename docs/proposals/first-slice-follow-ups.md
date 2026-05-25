@@ -84,6 +84,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   comparison clauses is normalized before direct and `require`-matched repair
   ranking. Nested literal `true` disjuncts inside tautological `satisfy`
   conjunctions are treated as tautological surplus clauses for repair ranking.
+  Complementary top-level disjuncts over the same candidate-referencing
+  predicate, such as `candidate.ready or not candidate.ready`, also make the
+  whole `satisfy` predicate tautological for repair ranking.
   Same-shape expression tautologies rooted at the satisfy candidate are
   accepted after whitespace normalization.
   Negated disjunctions with literal `false` branches are normalized for direct
