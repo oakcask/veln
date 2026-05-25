@@ -11,11 +11,13 @@ concurrency calls block executable IR. For selected `run` and `test` entries,
 reachability includes direct function calls, bare function declaration values
 used inside reachable expressions, function calls in reachable contract
 predicates, and qualified calls resolved through selected-file `use` aliases to
-functions in the imported source module. The implemented execution fixtures
-cover function declarations used as function-typed values, function-typed value
-calls, contract helper reachability, imported-call reachable-hole blocking,
-selected-entry reachable-hole blocking, and selected-entry channel concurrency
-blockers before JVM execution.
+functions in the imported source module. A qualified imported edge keeps the
+resolved module identity, so same-named functions from other modules are not
+included only because their local name matches. The implemented execution
+fixtures cover function declarations used as function-typed values,
+function-typed value calls, contract helper reachability, imported-call
+reachable-hole blocking, selected-entry reachable-hole blocking, and
+selected-entry channel concurrency blockers before JVM execution.
 
 The typed IR is runtime-neutral. JVM class names, Java method names, boxed
 runtime representation, generated artifact paths, cache keys, and runtime

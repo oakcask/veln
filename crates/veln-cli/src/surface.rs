@@ -230,9 +230,13 @@ pub(crate) fn reachable_entry_module(
             .iter()
             .filter(|function| {
                 function.name.as_ref().is_some_and(|name| {
-                    reachable
-                        .iter()
-                        .any(|known| known.name == *name && known.kind == function.kind)
+                    reachable.iter().any(|known| {
+                        known.name == *name
+                            && known.kind == function.kind
+                            && known.module_name.as_ref().is_none_or(|module_name| {
+                                function.module_name.as_ref() == Some(module_name)
+                            })
+                    })
                 })
             })
             .cloned()
@@ -614,6 +618,61 @@ mod tests {
                     concat!(
                         "mod app.main\n",
                         "use app.util\n",
+                        "pub fn main() -> Int effects []\n",
+                        "  util::value()\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "util.veln",
+                    concat!(
+                        "mod app.util\n",
+                        "fn value() -> Int effects []\n",
+                        "  1\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("app.main"), FunctionKind::Function, Some("main")),
+                (Some("app.util"), FunctionKind::Function, Some("value")),
+            ]
+        );
+    }
+
+    #[test]
+    fn imported_reachability_keeps_module_specific_function_names() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "mod app.main\n",
+                        "use app.util\n",
+                        "fn value() -> Int effects []\n",
+                        "  _\n",
+                        "end\n",
                         "pub fn main() -> Int effects []\n",
                         "  util::value()\n",
                         "end\n",

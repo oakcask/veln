@@ -64,9 +64,10 @@ No accepted formatting follow-up is currently tracked here.
 - Reachable-hole blocking follows the selected entry, direct function-name
   calls, bare function declaration values used in reachable expressions, and
   function calls in contract predicates. Qualified calls through `use` aliases
-  now resolve reachability to functions in the imported source module. Broader
-  conservative handling for future higher-order values, module initializers,
-  and ambiguous graph edges remains follow-up work.
+  now resolve reachability to functions in the imported source module without
+  including same-named functions from other modules. Broader conservative
+  handling for future higher-order values and module initializers remains
+  follow-up work.
 
 ## Test Discovery And Events
 
