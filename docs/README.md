@@ -18,8 +18,12 @@ the experimental Veln implementation.
 
 - Changing syntax, types, effects, contracts, holes, commands, JSON output, or
   examples: start at [reference/language/topic-map.md](reference/language/topic-map.md).
-- Planning the next slice: start at [proposals/README.md](proposals/README.md),
-  then check [reviews/README.md](reviews/README.md) for evidence and
+- Choosing an implementation target: start at
+  [proposals/README.md](proposals/README.md), then use
+  [proposals/implementation-route.md](proposals/implementation-route.md) for the
+  proposal-to-reference workflow.
+- Checking whether a target is still justified: use
+  [reviews/README.md](reviews/README.md) for evidence and
   [document-status.md](document-status.md) for promotion rules.
 - Explaining why implemented behavior exists: use
   [reference/language/source-decisions.md](reference/language/source-decisions.md),

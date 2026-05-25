@@ -57,6 +57,35 @@ test("resolves duplicate heading anchors and ignores fenced code links", () => {
   assert.equal(result.valid, true);
 });
 
+test("rejects links escaping the docs root", () => {
+  using fixture = tempDocs("doc-links-escape");
+  fixture.write(
+    "README.md",
+    ["# Start", "", "[outside](../outside.md)"].join("\n"),
+  );
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, [
+    "README.md:3: link escapes docs: ../outside.md",
+  ]);
+});
+
+test("resolves percent-encoded local paths and anchors", () => {
+  using fixture = tempDocs("doc-links-encoded");
+  fixture.write(
+    "README.md",
+    ["# Start", "", "[encoded](topic%20map.md#named-values)"].join("\n"),
+  );
+  fixture.write("topic map.md", "# Named Values\n");
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.valid, true);
+});
+
 function tempDocs(name) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `${name}-`));
   return {

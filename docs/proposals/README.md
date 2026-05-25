@@ -23,6 +23,16 @@ not fully implemented in the current workspace.
 - Checking review evidence about gaps or completion claims:
   [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md).
 
+## Accepted Target Queue
+
+- Repair behavior: start with
+  [first-slice-follow-ups.md#repair-loop](first-slice-follow-ups.md#repair-loop).
+- Effects and contracts: start with
+  [first-slice-follow-ups.md#effects-and-contracts](first-slice-follow-ups.md#effects-and-contracts).
+- Design-wall topics: use
+  [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) only
+  after the accepted target route does not match the implementation task.
+
 ## Skip Unless Needed
 
 - Use `../reference/` when you need current implemented behavior.
