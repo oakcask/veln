@@ -114,8 +114,11 @@ normalized before direct repair matching, so `not (candidate != fallback)` and
 `not (candidate < fallback)` both mark `fallback` as safe. Literal `true`
 conjuncts do not affect direct repair matching, so
 `candidate == fallback and true` has the same repair status as
-`candidate == fallback`. The accepted tautological clauses compare the satisfy
-candidate with itself using `==`, `<=`, or `>=`, such as
+`candidate == fallback`. A nested `or` clause inside a direct `and`
+conjunction is ignored when it contains a literal `true` branch, so
+`candidate == fallback and (candidate > fallback or true)` has the same direct
+repair status as `candidate == fallback`. The accepted tautological clauses
+compare the satisfy candidate with itself using `==`, `<=`, or `>=`, such as
 `candidate == candidate`; their negated inverse forms, such as
 `not (candidate != candidate)`, are also accepted. `and` may join only
 tautological clauses or literal `true` clauses. Wrapping each tautological
@@ -191,6 +194,9 @@ when every `or` branch discharges that clause, such as
 branches inside `satisfy` conjunctions are accepted when at least one branch is
 guaranteed; for example, `require max > 0 and max <= 10` guarantees
 `(candidate > 0 or candidate == 0) and candidate <= 10` after substituting
+`max`. A nested `or` branch with literal `true` is ignored during
+`require`-matched repair discharge, so `(candidate > 0 or true) and
+candidate <= 10` is guaranteed by `require max <= 10` after substituting
 `max`. Negated top-level `or` predicates in valid `require` clauses are
 normalized through their direct comparison branches before repair matching.
 For example, `require not (max < 0 or max > 10)` guarantees both

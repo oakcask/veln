@@ -2793,6 +2793,9 @@ fn reflexive_candidate_conjunction(
     let mut allowed_binding = None::<String>;
     let mut reason = "satisfy_equality_match";
     for clause in clauses {
+        if has_true_disjunct(&clause) {
+            continue;
+        }
         let direct = direct_reflexive_clause(&clause, candidate)?;
         if let Some(existing) = &allowed_binding {
             if existing != &direct.binding {
@@ -2954,6 +2957,9 @@ fn repair_clause_guaranteed_by_required_predicates(
     clause: &str,
     required_predicates: &[String],
 ) -> bool {
+    if has_true_disjunct(clause) {
+        return true;
+    }
     let disjuncts = repair_relevant_or_clauses(clause);
     if disjuncts.len() > 1 {
         return disjuncts.into_iter().any(|disjunct| {

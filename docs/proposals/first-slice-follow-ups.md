@@ -61,8 +61,11 @@ No accepted language and type coverage follow-up is currently tracked here.
   Transitive inclusive ordering paths in both directions discharge equality
   `satisfy` clauses for the endpoints. Negated top-level `or` predicates in
   valid `require` clauses discharge direct comparison `satisfy` clauses through
-  their inverted branches.
-  Broader repair discharge remains follow-up work before formatter
+  their inverted branches. Nested literal `true` disjuncts inside direct
+  `satisfy` conjunctions and `require`-matched `satisfy` conjunctions are
+  treated as tautological surplus clauses for repair ranking.
+  Broader repair discharge beyond these normalized direct and
+  `require`-matched cases remains follow-up work before formatter
   stabilization.
 
 ## Effects And Contracts

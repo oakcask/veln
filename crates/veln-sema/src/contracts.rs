@@ -244,8 +244,8 @@ pub(crate) fn predicate_type_with_calls(
         return matches!(ty, Type::Named { ref name, ref args } if args.is_empty() && (name == "Int" || name == "Float"))
             .then_some(ty);
     }
-    for operator in [" or ", " and "] {
-        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+    for operator in ["or", "and"] {
+        if let Some((left, right)) = split_top_level_keyword_operator(predicate, operator) {
             let left = predicate_type_with_calls(left, bindings, call_type)?;
             let right = predicate_type_with_calls(right, bindings, call_type)?;
             return (left == Type::bool() && right == Type::bool()).then(Type::bool);
@@ -357,6 +357,56 @@ fn split_top_level_operator<'a>(predicate: &'a str, operator: &str) -> Option<(&
         }
     }
     None
+}
+
+fn split_top_level_keyword_operator<'a>(
+    predicate: &'a str,
+    keyword: &str,
+) -> Option<(&'a str, &'a str)> {
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, ch) in predicate.char_indices().rev() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match ch {
+            '"' => in_string = true,
+            ')' => depth += 1,
+            '(' => depth = depth.saturating_sub(1),
+            _ if depth == 0 && predicate[index..].starts_with(keyword) => {
+                let end = index + keyword.len();
+                if !is_keyword_boundary(predicate, index, end) {
+                    continue;
+                }
+                let left = predicate[..index].trim();
+                let right = predicate[end..].trim();
+                if !left.is_empty() && !right.is_empty() {
+                    return Some((left, right));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn is_keyword_boundary(text: &str, start: usize, end: usize) -> bool {
+    let before = text[..start].chars().next_back();
+    let after = text[end..].chars().next();
+    before.map_or(true, |ch| !is_ident_continue(ch))
+        && after.map_or(true, |ch| !is_ident_continue(ch))
+}
+
+fn is_ident_continue(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
 }
 
 fn strip_balanced_outer_parens(text: &str) -> &str {
