@@ -270,6 +270,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   Top-level `or` predicates whose negated ordering-bound conjunction
   transitively guarantees another ordering bound are also statically
   evaluated.
+  Numeric literal division in static comparisons and repair-bound comparison
+  may compare exact rational values even when the division is not exactly
+  representable as a finite decimal.
   Richer predicate semantics beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, complementary predicate comparisons,

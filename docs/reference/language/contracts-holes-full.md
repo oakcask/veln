@@ -82,8 +82,9 @@ literal operands does not prevent static literal comparison, so
 `("ready") == "ready"` is statically proven. Numeric literal comparisons may
 include pure literal `+`, `-`, and `*` subexpressions, such as `1 + 1 == 2`,
 `10 - 4 == 6`, `0.5 + 2.0 == 2.5`, and `3 * 4 >= 12`.
-They may also include `/` when the result is exactly representable as a finite
-decimal, such as `8 / 4 == 2` and `1 / 2 == 0.5`.
+They may also include `/` in comparison-only arithmetic, including divisions
+that are not exactly representable as finite decimals, such as `8 / 4 == 2`,
+`1 / 2 == 0.5`, and `1 / 3 < 0.34`.
 Small boolean formulas over up to ten otherwise unknown pure predicates are
 also classified by exhaustive truth-table evaluation after literal and
 comparison folding. This covers nested `and`, `or`, and `not` tautologies such
@@ -561,8 +562,9 @@ guarantees `candidate > 0` after substituting `max`, and `require min == 10`
 guarantees `candidate < 20` after substituting `min`. Numeric literal ordering
 uses exact decimal literal ordering rather than binary floating-point rounding.
 Numeric literal bounds in repair matching may include pure literal `+`, `-`,
-`*`, and exactly representable `/` subexpressions, so
-`require max > 1 + 1` guarantees `candidate > 2` after substituting `max`.
+`*`, and comparison-only `/` subexpressions, so `require max > 1 + 1`
+guarantees `candidate > 2` after substituting `max`, and
+`require max > 1 / 3` guarantees `candidate > 0.3` after substituting `max`.
 Numeric literal bounds also discharge disequality against excluded numeric
 literals over the same subject. For example, `require max > 10` guarantees
 `candidate != 0` after substituting `max`, and `require ratio <= -0.5`

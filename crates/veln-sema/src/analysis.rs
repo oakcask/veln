@@ -4135,10 +4135,10 @@ fn literal_lower_bound_implies(
     wanted: &ParsedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    let Some(required_literal) = repair_numeric_literal(required.left) else {
+    let Some(required_literal) = repair_numeric_order_literal(required.left) else {
         return false;
     };
-    let Some(wanted_literal) = repair_numeric_literal(wanted.left) else {
+    let Some(wanted_literal) = repair_numeric_order_literal(wanted.left) else {
         return false;
     };
     repair_operands_equivalent(required.right, wanted.right, equivalences)
@@ -4156,10 +4156,10 @@ fn literal_upper_bound_implies(
     wanted: &ParsedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    let Some(required_literal) = repair_numeric_literal(required.right) else {
+    let Some(required_literal) = repair_numeric_order_literal(required.right) else {
         return false;
     };
-    let Some(wanted_literal) = repair_numeric_literal(wanted.right) else {
+    let Some(wanted_literal) = repair_numeric_order_literal(wanted.right) else {
         return false;
     };
     repair_operands_equivalent(required.left, wanted.left, equivalences)
@@ -4192,7 +4192,7 @@ fn literal_equality_implies_lower_bound(
     let Some((required_subject, required_literal)) = literal_equality_subject(required) else {
         return false;
     };
-    let Some(wanted_literal) = repair_numeric_literal(wanted.left) else {
+    let Some(wanted_literal) = repair_numeric_order_literal(wanted.left) else {
         return false;
     };
     repair_operands_equivalent(required_subject, wanted.right, equivalences)
@@ -4213,7 +4213,7 @@ fn literal_equality_implies_upper_bound(
     let Some((required_subject, required_literal)) = literal_equality_subject(required) else {
         return false;
     };
-    let Some(wanted_literal) = repair_numeric_literal(wanted.right) else {
+    let Some(wanted_literal) = repair_numeric_order_literal(wanted.right) else {
         return false;
     };
     repair_operands_equivalent(required_subject, wanted.left, equivalences)
@@ -4228,16 +4228,18 @@ fn literal_equality_implies_upper_bound(
 
 fn literal_equality_subject<'a>(
     required: &'a ParsedRepairComparison<'a>,
-) -> Option<(&'a str, RepairNumber)> {
-    repair_numeric_literal(required.left)
+) -> Option<(&'a str, RepairRational)> {
+    repair_numeric_order_literal(required.left)
         .map(|literal| (required.right, literal))
-        .or_else(|| repair_numeric_literal(required.right).map(|literal| (required.left, literal)))
+        .or_else(|| {
+            repair_numeric_order_literal(required.right).map(|literal| (required.left, literal))
+        })
 }
 
-fn literal_order_strength_implies(
-    required_literal: RepairNumber,
+fn literal_order_strength_implies<T: Ord>(
+    required_literal: T,
     required_operator: &str,
-    wanted_literal: RepairNumber,
+    wanted_literal: T,
     wanted_operator: &str,
     lower_bound: bool,
 ) -> bool {
@@ -4266,7 +4268,7 @@ fn literal_lower_bound_implies_disequality(
     wanted: &ParsedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    let Some(required_literal) = repair_numeric_literal(required.left) else {
+    let Some(required_literal) = repair_numeric_order_literal(required.left) else {
         return false;
     };
     let Some(wanted_literal) =
@@ -4286,7 +4288,7 @@ fn literal_upper_bound_implies_disequality(
     wanted: &ParsedRepairComparison<'_>,
     equivalences: &RepairEquivalences,
 ) -> bool {
-    let Some(required_literal) = repair_numeric_literal(required.right) else {
+    let Some(required_literal) = repair_numeric_order_literal(required.right) else {
         return false;
     };
     let Some(wanted_literal) =
@@ -4305,12 +4307,12 @@ fn repair_disequality_literal_for_operand(
     wanted: &ParsedRepairComparison<'_>,
     operand: &str,
     equivalences: &RepairEquivalences,
-) -> Option<RepairNumber> {
+) -> Option<RepairRational> {
     if repair_operands_equivalent(wanted.left, operand, equivalences) {
-        return repair_numeric_literal(wanted.right);
+        return repair_numeric_order_literal(wanted.right);
     }
     if repair_operands_equivalent(wanted.right, operand, equivalences) {
-        return repair_numeric_literal(wanted.left);
+        return repair_numeric_order_literal(wanted.left);
     }
     None
 }
@@ -4561,6 +4563,13 @@ fn repair_numeric_literal(text: &str) -> Option<RepairNumber> {
     }
 }
 
+fn repair_numeric_order_literal(text: &str) -> Option<RepairRational> {
+    if let Some(value) = repair_numeric_rational_expression(text) {
+        return Some(value);
+    }
+    repair_numeric_literal(text).and_then(RepairRational::from_number)
+}
+
 fn repair_numeric_expression(predicate: &str) -> Option<RepairNumber> {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() {
@@ -4593,6 +4602,123 @@ fn repair_numeric_expression(predicate: &str) -> Option<RepairNumber> {
     }
     if let Some(rest) = predicate.strip_prefix('-') {
         return repair_numeric_expression(rest)?.negate();
+    }
+    None
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct RepairRational {
+    numerator: i128,
+    denominator: i128,
+}
+
+impl Ord for RepairRational {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.numerator
+            .checked_mul(other.denominator)
+            .expect("repair rational comparison overflow")
+            .cmp(
+                &other
+                    .numerator
+                    .checked_mul(self.denominator)
+                    .expect("repair rational comparison overflow"),
+            )
+    }
+}
+
+impl PartialOrd for RepairRational {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl RepairRational {
+    fn from_number(number: RepairNumber) -> Option<Self> {
+        Self::from_raw(number.mantissa, 10_i128.checked_pow(number.scale)?)
+    }
+
+    fn from_raw(mut numerator: i128, mut denominator: i128) -> Option<Self> {
+        if denominator == 0 {
+            return None;
+        }
+        if denominator < 0 {
+            numerator = numerator.checked_neg()?;
+            denominator = denominator.checked_neg()?;
+        }
+        let divisor = repair_gcd_i128(numerator, denominator)?;
+        Some(Self {
+            numerator: numerator.checked_div(divisor)?,
+            denominator: denominator.checked_div(divisor)?,
+        })
+    }
+
+    fn negate(self) -> Option<Self> {
+        Some(Self {
+            numerator: self.numerator.checked_neg()?,
+            denominator: self.denominator,
+        })
+    }
+
+    fn add(self, other: Self) -> Option<Self> {
+        Self::from_raw(
+            self.numerator
+                .checked_mul(other.denominator)?
+                .checked_add(other.numerator.checked_mul(self.denominator)?)?,
+            self.denominator.checked_mul(other.denominator)?,
+        )
+    }
+
+    fn sub(self, other: Self) -> Option<Self> {
+        self.add(other.negate()?)
+    }
+
+    fn mul(self, other: Self) -> Option<Self> {
+        Self::from_raw(
+            self.numerator.checked_mul(other.numerator)?,
+            self.denominator.checked_mul(other.denominator)?,
+        )
+    }
+
+    fn div(self, other: Self) -> Option<Self> {
+        Self::from_raw(
+            self.numerator.checked_mul(other.denominator)?,
+            self.denominator.checked_mul(other.numerator)?,
+        )
+    }
+}
+
+fn repair_numeric_rational_expression(predicate: &str) -> Option<RepairRational> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if predicate.is_empty() {
+        return None;
+    }
+    if let Some(number) = parse_repair_number_literal(predicate) {
+        return RepairRational::from_number(number);
+    }
+    for operator in ["+", "-"] {
+        if let Some((left, right)) = split_repair_numeric_operator(predicate, operator) {
+            let left = repair_numeric_rational_expression(left)?;
+            let right = repair_numeric_rational_expression(right)?;
+            return match operator {
+                "+" => left.add(right),
+                "-" => left.sub(right),
+                _ => None,
+            };
+        }
+    }
+    for operator in ["*", "/"] {
+        if let Some((left, right)) = split_repair_numeric_operator(predicate, operator) {
+            let left = repair_numeric_rational_expression(left)?;
+            let right = repair_numeric_rational_expression(right)?;
+            return match operator {
+                "*" => left.mul(right),
+                "/" => left.div(right),
+                _ => None,
+            };
+        }
+    }
+    if let Some(rest) = predicate.strip_prefix('-') {
+        return repair_numeric_rational_expression(rest)?.negate();
     }
     None
 }

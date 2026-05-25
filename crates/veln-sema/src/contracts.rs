@@ -1351,6 +1351,12 @@ fn static_literal_comparison(left: &str, operator: &str, right: &str) -> Option<
     ) {
         return Some(static_number_comparison(left, operator, right)?);
     }
+    if let (Some(left), Some(right)) = (
+        static_rational_expression(left),
+        static_rational_expression(right),
+    ) {
+        return Some(static_rational_comparison(left, operator, right)?);
+    }
     if matches!(operator, "==" | "!=") {
         let left = static_boolean_value(left);
         let right = static_boolean_value(right);
@@ -1414,6 +1420,139 @@ fn static_numeric_expression(predicate: &str) -> Option<StaticNumber> {
         return static_numeric_expression(rest)?.negate();
     }
     None
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct StaticRational {
+    numerator: i128,
+    denominator: i128,
+}
+
+impl Ord for StaticRational {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.numerator
+            .checked_mul(other.denominator)
+            .expect("static rational comparison overflow")
+            .cmp(
+                &other
+                    .numerator
+                    .checked_mul(self.denominator)
+                    .expect("static rational comparison overflow"),
+            )
+    }
+}
+
+impl PartialOrd for StaticRational {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl StaticRational {
+    fn from_number(number: StaticNumber) -> Option<Self> {
+        Self::from_raw(number.mantissa, 10_i128.checked_pow(number.scale)?)
+    }
+
+    fn from_raw(mut numerator: i128, mut denominator: i128) -> Option<Self> {
+        if denominator == 0 {
+            return None;
+        }
+        if denominator < 0 {
+            numerator = numerator.checked_neg()?;
+            denominator = denominator.checked_neg()?;
+        }
+        let divisor = gcd_i128(numerator, denominator)?;
+        Some(Self {
+            numerator: numerator.checked_div(divisor)?,
+            denominator: denominator.checked_div(divisor)?,
+        })
+    }
+
+    fn negate(self) -> Option<Self> {
+        Some(Self {
+            numerator: self.numerator.checked_neg()?,
+            denominator: self.denominator,
+        })
+    }
+
+    fn add(self, other: Self) -> Option<Self> {
+        Self::from_raw(
+            self.numerator
+                .checked_mul(other.denominator)?
+                .checked_add(other.numerator.checked_mul(self.denominator)?)?,
+            self.denominator.checked_mul(other.denominator)?,
+        )
+    }
+
+    fn sub(self, other: Self) -> Option<Self> {
+        self.add(other.negate()?)
+    }
+
+    fn mul(self, other: Self) -> Option<Self> {
+        Self::from_raw(
+            self.numerator.checked_mul(other.numerator)?,
+            self.denominator.checked_mul(other.denominator)?,
+        )
+    }
+
+    fn div(self, other: Self) -> Option<Self> {
+        Self::from_raw(
+            self.numerator.checked_mul(other.denominator)?,
+            self.denominator.checked_mul(other.numerator)?,
+        )
+    }
+}
+
+fn static_rational_expression(predicate: &str) -> Option<StaticRational> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if predicate.is_empty() {
+        return None;
+    }
+    if let Some(number) = StaticNumber::parse(predicate) {
+        return StaticRational::from_number(number);
+    }
+    for operator in ["+", "-"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let left = static_rational_expression(left)?;
+            let right = static_rational_expression(right)?;
+            return match operator {
+                "+" => left.add(right),
+                "-" => left.sub(right),
+                _ => None,
+            };
+        }
+    }
+    for operator in ["*", "/"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let left = static_rational_expression(left)?;
+            let right = static_rational_expression(right)?;
+            return match operator {
+                "*" => left.mul(right),
+                "/" => left.div(right),
+                _ => None,
+            };
+        }
+    }
+    if let Some(rest) = predicate.strip_prefix('-') {
+        return static_rational_expression(rest)?.negate();
+    }
+    None
+}
+
+fn static_rational_comparison(
+    left: StaticRational,
+    operator: &str,
+    right: StaticRational,
+) -> Option<bool> {
+    Some(match operator {
+        "==" => left == right,
+        "!=" => left != right,
+        "<" => left < right,
+        "<=" => left <= right,
+        ">" => left > right,
+        ">=" => left >= right,
+        _ => return None,
+    })
 }
 
 fn static_number_comparison(

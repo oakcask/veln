@@ -4473,7 +4473,7 @@ fn marks_subtracted_literal_arithmetic_bound_as_satisfy_repair_evidence() {
 }
 
 #[test]
-fn ignores_inexact_literal_arithmetic_bound_for_satisfy_repair_evidence() {
+fn marks_inexact_literal_arithmetic_bound_as_satisfy_repair_evidence() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -4493,11 +4493,10 @@ fn ignores_inexact_literal_arithmetic_bound_for_satisfy_repair_evidence() {
     let details = diagnostics[0].details.to_json();
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
-        "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
-        "\"application_policy\":\"manual_review_required\""
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
     )));
-    assert!(!details.contains("\"reason\":\"satisfy_require_match\""));
-    assert!(!details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
 }
 
 #[test]
@@ -7648,6 +7647,7 @@ fn contract_predicate_literal_arithmetic_comparisons_are_statically_proven() {
             "require 0.5 + 2.0 == 2.5\n",
             "require 10 - 4 == 6 and 8 / 4 == 2\n",
             "require 1 / 2 == 0.5\n",
+            "require 1 / 3 < 0.34 and 2 / 3 > 0.66\n",
             "ensure 2 * 3 == 6\n",
             "  1\n",
             "end\n",
@@ -7662,7 +7662,7 @@ fn contract_predicate_literal_arithmetic_comparisons_are_statically_proven() {
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let core = lowered.core.expect("valid module should lower to core");
     let contracts = &core.functions[0].contracts;
-    assert_eq!(contracts.len(), 5);
+    assert_eq!(contracts.len(), 6);
     assert!(contracts.iter().all(|contract| {
         contract.obligation_status == ContractObligationStatus::StaticallyProven
     }));

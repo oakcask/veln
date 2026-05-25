@@ -16,6 +16,14 @@ Start from [README.md](README.md) when you only need a reading route.
 - Treat `reference/language/` as the current behavior source before changing
   code, tests, diagnostics, or samples.
 
+## Directories
+
+- `reference/language/` is the first stop for implemented language behavior.
+- `reference/source-decisions/` is historical rationale grouped by topic.
+- `phases/` and `reviews/` contain longer working records behind short indexes.
+- `proposals/` contains accepted or open targets that still need promotion into
+  the reference after implementation.
+
 ## Labels
 
 Use these status labels at the top of durable specification documents:

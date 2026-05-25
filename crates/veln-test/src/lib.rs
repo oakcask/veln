@@ -2220,6 +2220,68 @@ mod tests {
     }
 
     #[test]
+    fn infers_doctest_error_type_from_result_binding_return_type() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn parse(raw: String) -> result: Result(Int, AppError) effects []\n",
+                "  Ok(1)\n",
+                "end\n",
+                "/// ```veln\n",
+                "/// let value = parse(\"1\")?\n",
+                "/// ```\n",
+                "pub fn main() -> () effects []\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> Result((), AppError) effects [stdio]\n",
+                "  let value = parse(\"1\")?\n",
+                "  Ok(())\n",
+                "end\n",
+            )
+        );
+    }
+
+    #[test]
+    fn infers_doctest_error_type_after_nested_result_success_type() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn parse(raw: String) -> Result(List(Result(Int, ParseError)), AppError) effects []\n",
+                "  Ok([])\n",
+                "end\n",
+                "/// ```veln\n",
+                "/// let value = parse(\"1\")?\n",
+                "/// ```\n",
+                "pub fn main() -> () effects []\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> Result((), AppError) effects [stdio]\n",
+                "  let value = parse(\"1\")?\n",
+                "  Ok(())\n",
+                "end\n",
+            )
+        );
+    }
+
+    #[test]
     fn does_not_infer_doctest_error_type_from_mixed_result_operations() {
         let source = SourceFile::new(
             "main.veln",
