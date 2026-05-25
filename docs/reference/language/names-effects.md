@@ -98,6 +98,9 @@ channel::recv(rx: Receiver(T)) -> Option(T) effects [concurrency]
 channel::select(left: Receiver(T), right: Receiver(T)) -> Option({index: Int, value: T}) effects [concurrency]
 channel::select_priority(left: Receiver(T), right: Receiver(T)) -> Option({index: Int, value: T}) effects [concurrency]
 channel::select_timeout(left: Receiver(T), right: Receiver(T), timeout_ms: Int) -> Option({index: Int, value: T}) effects [concurrency]
+channel::select_result(left: Receiver(T), right: Receiver(T)) -> Result(Option({index: Int, value: T}), SelectError) effects [concurrency]
+channel::select_priority_result(left: Receiver(T), right: Receiver(T)) -> Result(Option({index: Int, value: T}), SelectError) effects [concurrency]
+channel::select_timeout_result(left: Receiver(T), right: Receiver(T), timeout_ms: Int) -> Result(Option({index: Int, value: T}), SelectError) effects [concurrency]
 channel::close(tx: Sender(T)) -> () effects [concurrency]
 ```
 
@@ -131,6 +134,11 @@ left receiver wins.
 return typing as `channel::select`, plus an `Int` millisecond timeout. It
 returns `None` when the timeout elapses before a value is selected. Negative
 timeouts wait without a timeout.
+`channel::select_result`, `channel::select_priority_result`, and
+`channel::select_timeout_result` use the same selection rules as their
+non-result counterparts, but return `Ok(Some(selected))` for a selected value,
+`Ok(None)` for closed or timed-out selection, and `Err(SelectError)` when
+cooperative cancellation interrupts the waiting selection.
 `channel::close` closes the sender endpoint, wakes waiting receivers, and
 returns `()`.
 

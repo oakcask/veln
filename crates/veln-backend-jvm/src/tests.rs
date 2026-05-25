@@ -198,6 +198,29 @@ fn generates_runtime_calls_for_channel_select_priority() {
 }
 
 #[test]
+fn generates_runtime_calls_for_channel_select_result() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> Result(Option({index: Int, value: String}), SelectError) effects [concurrency]\n",
+        "  let left: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  let right: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  channel::select_result(left.rx, right.rx)\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("VelnRuntime.channelSelectResult("));
+    assert!(runtime.contains("public static Object channelSelectResult"));
+    assert!(runtime.contains("return reportInterrupt ? err(\"interrupted\") : none();"));
+}
+
+#[test]
 fn generated_runtime_rotates_select_tie_breaking() {
     if Command::new("javac").arg("-version").output().is_err() {
         return;
@@ -357,6 +380,83 @@ fn generated_runtime_prioritizes_left_select_receiver() {
 
     let java = Command::new("java")
         .arg("SelectPriorityProbe")
+        .current_dir(&root)
+        .output()
+        .expect("java should run");
+    assert!(
+        java.status.success(),
+        "java failed: {}",
+        String::from_utf8_lossy(&java.stderr)
+    );
+}
+
+#[test]
+fn generated_runtime_reports_interrupted_channel_select_result() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects []\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+
+    let root = temp_dir("select-result-interrupt");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("SelectResultInterruptProbe.java"),
+        r#"public final class SelectResultInterruptProbe {
+    private SelectResultInterruptProbe() {}
+
+    public static void main(String[] args) throws Exception {
+        Object leftPair = VelnRuntime.channelBounded(Long.valueOf(1L));
+        Object rightPair = VelnRuntime.channelBounded(Long.valueOf(1L));
+        java.util.Map<?, ?> left = (java.util.Map<?, ?>) leftPair;
+        java.util.Map<?, ?> right = (java.util.Map<?, ?>) rightPair;
+        Object leftRx = left.get("rx");
+        Object rightRx = right.get("rx");
+        final Object[] selected = new Object[1];
+
+        Thread worker = new Thread(() -> {
+            selected[0] = VelnRuntime.channelSelectResult(leftRx, rightRx);
+        });
+        worker.start();
+        Thread.sleep(25L);
+        worker.interrupt();
+        worker.join(1000L);
+
+        if (worker.isAlive()) {
+            throw new AssertionError("select result should stop after interruption");
+        }
+        if (!VelnRuntime.isErr(selected[0])) {
+            throw new AssertionError("select result should report interruption as Err");
+        }
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("SelectResultInterruptProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "javac failed: {}",
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("SelectResultInterruptProbe")
         .current_dir(&root)
         .output()
         .expect("java should run");

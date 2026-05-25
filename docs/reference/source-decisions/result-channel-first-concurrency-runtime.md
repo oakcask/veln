@@ -158,4 +158,5 @@ explicit left-priority variant for callers that need deterministic receiver
 preference. The task runtime starts zero-argument callables on JVM threads,
 freezes task results before they cross the task boundary, joins with
 `Result(T, JoinError)`, and treats cancellation as a cooperative interruption
-request. Cancellation-specific selection reporting remains follow-up work.
+request. Result-returning channel selection variants report cooperative
+cancellation separately from closed or timed-out selection.

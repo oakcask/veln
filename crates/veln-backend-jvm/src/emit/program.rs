@@ -456,11 +456,11 @@ impl<'a> ProgramEmitter<'a> {
     }}
 
     public static Object channelSelect(Object leftReceiver, Object rightReceiver) {{
-        return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L, true);
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L, true, false);
     }}
 
     public static Object channelSelectPriority(Object leftReceiver, Object rightReceiver) {{
-        return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L, false);
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L, false, false);
     }}
 
     public static Object channelSelectTimeout(
@@ -468,14 +468,31 @@ impl<'a> ProgramEmitter<'a> {
         Object rightReceiver,
         Object timeoutMillis
     ) {{
-        return channelSelectWithTimeout(leftReceiver, rightReceiver, asLong(timeoutMillis), true);
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, asLong(timeoutMillis), true, false);
+    }}
+
+    public static Object channelSelectResult(Object leftReceiver, Object rightReceiver) {{
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L, true, true);
+    }}
+
+    public static Object channelSelectPriorityResult(Object leftReceiver, Object rightReceiver) {{
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, -1L, false, true);
+    }}
+
+    public static Object channelSelectTimeoutResult(
+        Object leftReceiver,
+        Object rightReceiver,
+        Object timeoutMillis
+    ) {{
+        return channelSelectWithTimeout(leftReceiver, rightReceiver, asLong(timeoutMillis), true, true);
     }}
 
     private static Object channelSelectWithTimeout(
         Object leftReceiver,
         Object rightReceiver,
         long timeoutMillis,
-        boolean rotateTies
+        boolean rotateTies,
+        boolean reportInterrupt
     ) {{
         Receiver left = (Receiver) leftReceiver;
         Receiver right = (Receiver) rightReceiver;
@@ -509,20 +526,20 @@ impl<'a> ProgramEmitter<'a> {
                     if (selected == SELECT_PENDING) {{
                         allClosed = false;
                     }} else if (selected != SELECT_CLOSED) {{
-                        return selected;
+                        return channelSelectReturn(selected, reportInterrupt);
                     }}
                 }}
                 if (allClosed) {{
-                    return none();
+                    return channelSelectReturn(none(), reportInterrupt);
                 }}
                 if (timeoutNanos >= 0L && System.nanoTime() - startNanos >= timeoutNanos) {{
-                    return none();
+                    return channelSelectReturn(none(), reportInterrupt);
                 }}
                 try {{
                     Thread.sleep(1L);
                 }} catch (InterruptedException interrupted) {{
                     Thread.currentThread().interrupt();
-                    return none();
+                    return reportInterrupt ? err("interrupted") : none();
                 }}
             }}
         }} finally {{
@@ -536,6 +553,10 @@ impl<'a> ProgramEmitter<'a> {
                 }}
             }}
         }}
+    }}
+
+    private static Object channelSelectReturn(Object selected, boolean reportInterrupt) {{
+        return reportInterrupt ? ok(selected) : selected;
     }}
 
     private static Object channelSelectPoll(Receiver rx, int index) {{

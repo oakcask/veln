@@ -202,7 +202,10 @@ Implemented expressions:
   `channel::send(tx, value)`, `channel::recv(rx)`,
   `channel::select(left, right)`,
   `channel::select_priority(left, right)`,
-  `channel::select_timeout(left, right, timeout_ms)`, and
+  `channel::select_timeout(left, right, timeout_ms)`,
+  `channel::select_result(left, right)`,
+  `channel::select_priority_result(left, right)`,
+  `channel::select_timeout_result(left, right, timeout_ms)`, and
   `channel::close(tx)`
 - task effect calls: `task::spawn(job)`, `task::spawn[Item](job)`,
   `task::join(task)`, and `task::cancel(task)`

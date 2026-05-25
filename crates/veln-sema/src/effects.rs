@@ -93,11 +93,17 @@ pub(crate) fn concurrency_signature(
                 Type::named("Option", vec![item]),
             ))
         }
-        ("channel", "select" | "select_priority" | "select_timeout") => {
-            let item = expected
-                .and_then(Type::option_part)
-                .and_then(select_result_value_type)
-                .cloned()
+        (
+            "channel",
+            "select"
+            | "select_priority"
+            | "select_timeout"
+            | "select_result"
+            | "select_priority_result"
+            | "select_timeout_result",
+        ) => {
+            let reports_interrupt = name.ends_with("_result");
+            let item = select_item_type(expected, reports_interrupt)
                 .or_else(|| {
                     handle_type
                         .and_then(|ty| named_type_argument(ty, "Receiver"))
@@ -108,19 +114,16 @@ pub(crate) fn concurrency_signature(
                 Type::named("Receiver", vec![item.clone()]),
                 Type::named("Receiver", vec![item.clone()]),
             ];
-            if name == "select_timeout" {
+            if matches!(name.as_str(), "select_timeout" | "select_timeout_result") {
                 params.push(Type::int());
             }
-            Some((
-                params,
-                Type::named(
-                    "Option",
-                    vec![Type::Record(vec![
-                        ("index".to_string(), Type::int()),
-                        ("value".to_string(), item),
-                    ])],
-                ),
-            ))
+            let output = Type::named("Option", vec![select_output_record(item)]);
+            let return_type = if reports_interrupt {
+                Type::result(output, Type::named("SelectError", Vec::new()))
+            } else {
+                output
+            };
+            Some((params, return_type))
         }
         ("channel", "close") => Some((vec![Type::named("Sender", vec![unknown])], Type::unit())),
         ("task", "spawn") => {
@@ -228,11 +231,17 @@ pub(crate) fn core_concurrency_signature(
                 CoreType::option(item),
             ))
         }
-        ("channel", "select" | "select_priority" | "select_timeout") => {
-            let item = expected
-                .and_then(CoreType::option_part)
-                .and_then(core_select_result_value_type)
-                .cloned()
+        (
+            "channel",
+            "select"
+            | "select_priority"
+            | "select_timeout"
+            | "select_result"
+            | "select_priority_result"
+            | "select_timeout_result",
+        ) => {
+            let reports_interrupt = name.ends_with("_result");
+            let item = core_select_item_type(expected, reports_interrupt)
                 .or_else(|| {
                     handle_type
                         .and_then(|ty| core_named_type_argument(ty, "Receiver"))
@@ -243,16 +252,16 @@ pub(crate) fn core_concurrency_signature(
                 CoreType::named("Receiver", vec![item.clone()]),
                 CoreType::named("Receiver", vec![item.clone()]),
             ];
-            if name == "select_timeout" {
+            if matches!(name.as_str(), "select_timeout" | "select_timeout_result") {
                 params.push(CoreType::int());
             }
-            Some((
-                params,
-                CoreType::option(CoreType::Record(vec![
-                    ("index".to_string(), CoreType::int()),
-                    ("value".to_string(), item),
-                ])),
-            ))
+            let output = CoreType::option(core_select_output_record(item));
+            let return_type = if reports_interrupt {
+                CoreType::result(output, CoreType::named("SelectError", Vec::new()))
+            } else {
+                output
+            };
+            Some((params, return_type))
         }
         ("channel", "close") => Some((
             vec![CoreType::named("Sender", vec![unknown])],
@@ -309,6 +318,9 @@ pub(crate) fn is_concurrency_call(segments: &[String]) -> bool {
                         | "select"
                         | "select_priority"
                         | "select_timeout"
+                        | "select_result"
+                        | "select_priority_result"
+                        | "select_timeout_result"
                         | "close"
                 ))
                 || (module == "task" && matches!(name.as_str(), "spawn" | "join" | "cancel"))
@@ -334,8 +346,31 @@ fn channel_pair_item_type(expected: Option<&Type>) -> Option<Type> {
     }
 }
 
+fn select_item_type(expected: Option<&Type>, reports_interrupt: bool) -> Option<Type> {
+    if reports_interrupt {
+        expected
+            .and_then(Type::result_parts)
+            .map(|(value, _)| value)
+            .and_then(Type::option_part)
+            .and_then(select_result_value_type)
+            .cloned()
+    } else {
+        expected
+            .and_then(Type::option_part)
+            .and_then(select_result_value_type)
+            .cloned()
+    }
+}
+
 fn select_result_value_type(ty: &Type) -> Option<&Type> {
     ty.record_field("value")
+}
+
+fn select_output_record(item: Type) -> Type {
+    Type::Record(vec![
+        ("index".to_string(), Type::int()),
+        ("value".to_string(), item),
+    ])
 }
 
 fn core_channel_pair_item_type(expected: Option<&CoreType>) -> Option<CoreType> {
@@ -350,8 +385,31 @@ fn core_channel_pair_item_type(expected: Option<&CoreType>) -> Option<CoreType> 
     }
 }
 
+fn core_select_item_type(expected: Option<&CoreType>, reports_interrupt: bool) -> Option<CoreType> {
+    if reports_interrupt {
+        expected
+            .and_then(CoreType::result_parts)
+            .map(|(value, _)| value)
+            .and_then(CoreType::option_part)
+            .and_then(core_select_result_value_type)
+            .cloned()
+    } else {
+        expected
+            .and_then(CoreType::option_part)
+            .and_then(core_select_result_value_type)
+            .cloned()
+    }
+}
+
 fn core_select_result_value_type(ty: &CoreType) -> Option<&CoreType> {
     ty.record_field("value")
+}
+
+fn core_select_output_record(item: CoreType) -> CoreType {
+    CoreType::Record(vec![
+        ("index".to_string(), CoreType::int()),
+        ("value".to_string(), item),
+    ])
 }
 
 fn core_named_type_argument<'a>(ty: &'a CoreType, expected_name: &str) -> Option<&'a CoreType> {

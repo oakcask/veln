@@ -97,6 +97,12 @@ behavior, except ties in one runtime poll always choose the left receiver.
 return, and rotating tie-breaking behavior. It also returns `None` when no
 value is selected before the non-negative millisecond timeout elapses. A
 negative timeout waits without a timeout, matching `channel::select`.
+`channel::select_result`, `channel::select_priority_result`, and
+`channel::select_timeout_result` use the same readiness, tie-breaking,
+closed-channel, and timeout rules as their non-result counterparts. They
+return `Ok(Some(selected))` when a receiver produces a value, `Ok(None)` when
+selection closes or times out without a value, and `Err(SelectError)` when
+cooperative cancellation interrupts the waiting selection.
 
 Task values are backend-owned runtime handles. `task::spawn` starts a
 zero-argument callable on a JVM thread and freezes the returned value before it
