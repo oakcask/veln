@@ -9,7 +9,7 @@ combined detail until the hole body is split further.
   `hole.unfilled`, partial check status, and stable diagnostic detail fields.
 - [Repair candidates](contracts-holes-full.md#repair-candidates) defines
   candidate query records, ranking, application policy, and safe repair
-  candidates.
+  candidates, including boolean alias and predicate implication cases.
 - [Satisfy constraints](contracts-holes-full.md#satisfy-constraints) defines `satisfy`
   parsing, candidate scoping, validation, and static satisfaction.
 

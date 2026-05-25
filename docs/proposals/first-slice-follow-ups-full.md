@@ -126,8 +126,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   `satisfy` branch.
   Disjunctive equality requirements against distinct boolean, integer, or
   string literals discharge disequality `satisfy` clauses against another
-  literal, including through equality aliases. Inclusive transitive ordering
-  plus endpoint disequality discharges strict comparison `satisfy` clauses.
+  literal, including through equality aliases. Boolean disequality aliases
+  combine with literal boolean evidence for `require`-matched repair discharge.
+  Inclusive transitive ordering plus endpoint disequality discharges strict
+  comparison `satisfy` clauses.
   Stronger numeric literal bounds discharge weaker numeric literal bounds over
   the same subject using exact decimal literal ordering, while equal inclusive
   bounds do not discharge strict bounds. Numeric literal bounds also discharge

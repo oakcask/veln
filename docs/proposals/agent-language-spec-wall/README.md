@@ -8,8 +8,9 @@ current workspace. Implemented decisions were moved to
 
 ## Read First
 
-- [design-brief.md](design-brief.md) gives the broad thesis and first-slice
-  design anchors.
+- [design-brief.md](design-brief.md) routes to the broad thesis and
+  first-slice design anchors; open
+  [design-brief-full.md](design-brief-full.md) only for the original brief.
 - [open-questions.md](open-questions.md) routes resolved and unresolved
   questions; open [open-questions-full.md](open-questions-full.md) only when
   auditing the full inventory.

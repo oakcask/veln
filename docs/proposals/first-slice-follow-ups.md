@@ -22,14 +22,16 @@ opening the full follow-up record.
 - Open [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md) only for
   the selected area's historical details.
 
-## Repair Loop
+## Accepted Targets
+
+### Repair Loop
 
 Remaining work is broader repair discharge beyond normalized direct and
 `require`-matched cases. Read
 [the full repair-loop record](first-slice-follow-ups-full.md#repair-loop)
 before changing candidate ranking or safe repair generation.
 
-## Effects And Contracts
+### Effects And Contracts
 
 Richer predicate semantics remain follow-up work beyond the implemented
 contract subset. Read
@@ -37,29 +39,12 @@ contract subset. Read
 before changing effect propagation, runtime contracts, or predicate
 classification.
 
-## Language And Type Coverage
+## History
 
-No accepted follow-up is currently tracked here. Use
-[the full record](first-slice-follow-ups-full.md#language-and-type-coverage)
-only for historical context.
-
-## Formatting
-
-No accepted follow-up is currently tracked here. Use
-[the full record](first-slice-follow-ups-full.md#formatting) only for
-historical context.
-
-## Lowering And Execution
-
-No accepted follow-up is currently tracked here. Use
-[the full record](first-slice-follow-ups-full.md#lowering-and-execution) only
-for historical context.
-
-## Test Discovery And Events
-
-No accepted follow-up is currently tracked here. Use
-[the full record](first-slice-follow-ups-full.md#test-discovery-and-events)
-only for historical context.
+The full record also keeps empty historical categories for language and type
+coverage, formatting, lowering and execution, and test discovery and events.
+Open those sections only when auditing why no accepted follow-up is listed
+here.
 
 ## Skip Unless Needed
 

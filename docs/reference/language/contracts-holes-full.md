@@ -577,7 +577,9 @@ substituting `flag`, `require not flag` guarantees `candidate == false`, and
 Equivalent literal boolean comparisons also discharge each other, so
 `require flag != false` guarantees `candidate == true`, and
 `require flag == true` guarantees `candidate != false` after substituting
-`flag`.
+`flag`. Boolean disequality aliases combine with literal boolean evidence, so
+`require flag != ready` and `require ready == false` guarantee
+`candidate == true` after substituting `flag`.
 Inclusive transitive ordering plus endpoint disequality guarantees a
 strict comparison in repair matching, so `require low <= mid`,
 `require mid <= max`, and `require max != low` guarantee `candidate > low`
