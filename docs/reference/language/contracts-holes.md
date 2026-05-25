@@ -99,10 +99,28 @@ such as `flag or not flag` or
 more than two top-level branches, so `flag or extra or not flag` is also
 statically proven. Parenthesized nested `or` branches are flattened for this
 identity, so `flag or (extra or not flag)` is also statically proven. Top-level
-`or` also recognizes complementary comparison pairs over the same operands
-after whitespace normalization and commuted ordering normalization, such as
-`value == limit or value != limit`, `value < limit or value >= limit`, and
-`value < limit or limit <= value`.
+`or` also recognizes a branch that is repeated inside a negated `and`
+conjunction, such as `flag or not (flag and extra)` and
+`not(value < limit and ready) or value < limit`. Top-level `or` also
+recognizes a conjunction whose non-static conjuncts are all covered by
+complement disjuncts, such as
+`(flag and ready) or not flag or not ready` and
+`(value < limit and ready) or value >= limit or not ready`. It also recognizes
+factored case splits when two conjunction branches differ only by one
+complementary predicate and the remaining shared predicates are covered by
+complement disjuncts, such as
+`(flag and ready) or (not flag and ready) or not ready` and
+`(value < limit and ready) or (value >= limit and ready) or not ready`.
+It also recognizes exhaustive pair case splits where four top-level
+conjunction branches cover both polarities of two non-static predicates, such
+as
+`(flag and ready) or (flag and not ready) or (not flag and ready) or (not flag and not ready)`
+and
+`(value < limit and ready) or (value < limit and not ready) or (value >= limit and ready) or (value >= limit and not ready)`.
+Top-level `or` also recognizes complementary comparison pairs over the same
+operands after whitespace normalization and commuted ordering normalization,
+such as `value == limit or value != limit`,
+`value < limit or value >= limit`, and `value < limit or limit <= value`.
 It also recognizes top-level ordering trichotomy over the same operands, such
 as `value < limit or value == limit or value > limit`, after whitespace
 normalization and commuted ordering normalization.
@@ -116,7 +134,10 @@ statically true. For example,
 `flag or (not flag and true)`,
 `flag or (not flag and 1 + 1 == 2)`, and
 `value < limit or (value >= limit and true)` are statically proven after
-validation.
+validation. The same rule also applies when both branches are `and`
+conjunctions with exactly one non-static variant each, such as
+`(flag and true) or (not flag and 1 == 1)` and
+`(value < limit and true) or (value >= limit and 1 + 1 == 2)`.
 It also treats a negated top-level `and` between the same pure boolean
 predicate and its negation as statically true, such as
 `not (flag and not flag)` or

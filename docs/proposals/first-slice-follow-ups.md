@@ -213,7 +213,19 @@ No accepted language and type coverage follow-up is currently tracked here.
   after whitespace normalization and commuted ordering normalization.
   Case-split top-level `or` predicates whose complemented branch only adds
   statically true conjuncts are also statically evaluated, including boolean
-  atoms and direct comparison complements. Richer predicate semantics beyond
+  atoms and direct comparison complements. Top-level `or` predicates whose
+  repeated branch appears inside a negated `and` conjunction are also
+  statically evaluated. Top-level `or` predicates with one conjunction branch
+  whose non-static conjuncts are all covered by complement disjuncts are also
+  statically evaluated. Factored case-split top-level `or` predicates are also
+  statically evaluated when two conjunction branches differ by one
+  complementary predicate and the remaining shared predicates are covered by
+  complement disjuncts. Case-split top-level `or`
+  predicates where both branches are conjunctions with one complementary
+  non-static variant and otherwise statically true conjuncts are also
+  statically evaluated. Exhaustive pair case splits that cover both polarities
+  of two non-static predicates across four top-level conjunction branches are
+  also statically evaluated. Richer predicate semantics beyond
   these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, complementary predicate comparisons,

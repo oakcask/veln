@@ -7051,6 +7051,118 @@ fn contract_predicate_nested_complementary_or_is_statically_proven() {
 }
 
 #[test]
+fn contract_predicate_negated_conjunction_or_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, limit: Int) -> output: {ready: Bool} effects []\n",
+            "require value.ready or not (value.ready and limit > 0)\n",
+            "require (not (limit < 10 and value.ready)) or limit < 10\n",
+            "ensure (not (output.ready and limit >= 10)) or output.ready\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_conjunction_covered_by_complement_disjuncts_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "require (value.ready and extra) or not value.ready or not extra\n",
+            "require (limit < 10 and value.ready and true) or limit >= 10 or not value.ready\n",
+            "ensure (output.ready and extra) or not output.ready or not extra\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_factored_case_split_covered_by_complements_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "require (value.ready and extra) or (not value.ready and extra) or not extra\n",
+            "require (limit < 10 and value.ready) or (limit >= 10 and value.ready) or not value.ready\n",
+            "ensure (output.ready and extra and true) or (not output.ready and extra) or not extra\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_exhaustive_pair_case_split_or_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "require (value.ready and extra) or (value.ready and not extra) or (not value.ready and extra) or (not value.ready and not extra)\n",
+            "require (limit < 10 and value.ready) or (limit < 10 and not value.ready) or (limit >= 10 and value.ready) or (limit >= 10 and not value.ready)\n",
+            "ensure (output.ready and extra) or (not extra and output.ready) or (not output.ready and extra) or (not output.ready and not extra)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
@@ -7075,6 +7187,34 @@ fn contract_predicate_case_split_or_is_statically_proven() {
     let core = lowered.core.expect("valid module should lower to core");
     let contracts = &core.functions[0].contracts;
     assert_eq!(contracts.len(), 5);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_conjoined_case_split_or_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, limit: Int) -> output: {ready: Bool} effects []\n",
+            "require (value.ready and true) or (not value.ready and 1 == 1)\n",
+            "require (limit < 10 and true) or (limit >= 10 and 1 + 1 == 2)\n",
+            "ensure (output.ready and 2 > 1) or (not output.ready and true)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
     assert!(contracts.iter().all(|contract| {
         contract.obligation_status == ContractObligationStatus::StaticallyProven
     }));
