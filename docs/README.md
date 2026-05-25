@@ -5,6 +5,8 @@ the experimental Veln implementation.
 
 ## Read First
 
+- Start with the first route below that matches the task. Open long detail
+  files only after a route page points to the needed section.
 - [reference/language/README.md](reference/language/README.md): current
   implemented language behavior.
 - [reference/language/topic-map.md](reference/language/topic-map.md): fastest
@@ -33,8 +35,19 @@ the experimental Veln implementation.
 - Reading incomplete design-wall rationale: use
   [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md).
 
+## Directory Roles
+
+- `reference/`: implemented behavior, durable rationale, and source families.
+- `proposals/`: accepted or open targets that still need implementation or
+  promotion into the reference.
+- `reviews/`: evidence about gaps, verification, and completion claims.
+- `phases/`: implementation order, working plans, and historical completion
+  notes.
+
 ## Skip Unless Needed
 
+- Do not open `*-full.md` files before a short route page identifies the
+  section needed for the task.
 - Do not read old phase plans before the current reference and review pages.
 - Do not read source-decision records when the language reference answers the
   behavior question.

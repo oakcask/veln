@@ -16,7 +16,7 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 
 - Source language, contract, hole, command, JSON-output, runtime, or example
   changes: use [language/topic-map.md](language/topic-map.md), then open the
-  selected short reference page.
+  selected short reference page before any full detail file.
 - Rationale: [language/source-decisions.md](language/source-decisions.md) first,
   then [source-decisions/README.md](source-decisions/README.md) if detail is
   needed.
@@ -24,6 +24,14 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
   [bibliography/README.md](bibliography/README.md).
 - Planning, review, or proposal work: use `../proposals/`, `../phases/`, or
   `../reviews/` after checking the current reference.
+
+## Route Boundaries
+
+- Use `language/` for behavior users can rely on in the current workspace.
+- Use `source-decisions/` only when implemented behavior needs rationale.
+- Use `bibliography/` only when auditing source support behind the rationale.
+- Use proposal, phase, or review directories when the behavior is planned,
+  disputed, or being verified rather than already implemented.
 
 ## Status Boundary
 

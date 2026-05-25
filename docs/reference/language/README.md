@@ -7,8 +7,6 @@ target tracked in `../../proposals/`.
 ## Read First
 
 - [overview.md](overview.md): stability boundary and explicit non-goals.
-- [source-surface.md](source-surface.md): implemented modules, items,
-  expressions, tests, and grammar.
 - [topic-map.md](topic-map.md): choose the smallest topic page for a source,
   command, JSON, runtime, contract, or hole change.
 - Use the short topic pages below first; open `*-full.md` only after the short
@@ -28,16 +26,21 @@ Leave rationale in [source-decisions.md](source-decisions.md) or
 ## Read When
 
 - Task-oriented topic selection: [topic-map.md](topic-map.md).
-- Source syntax and grammar details: [source-surface.md](source-surface.md).
-- Machine-readable output: [json-output.md](json-output.md).
-- Runtime and examples: [execution.md](execution.md) and
-  [examples.md](examples.md).
+- Source syntax and grammar details: [source-surface.md](source-surface.md),
+  [types.md](types.md), and [names-effects.md](names-effects.md).
+- Contracts or holes: [contracts-holes.md](contracts-holes.md) first, then
+  [contracts.md](contracts.md) or [holes.md](holes.md).
+- Commands and machine-readable output: [commands.md](commands.md) and
+  [json-output.md](json-output.md), then the command-specific JSON page.
+- Runtime and examples: [execution.md](execution.md) and [examples.md](examples.md).
 - Rationale: [source-decisions.md](source-decisions.md).
 
 ## Skip Unless Needed
 
 - Use `source-surface.md` for the implemented source grammar before checking
   older proposal history.
+- Use command-specific JSON pages only after [json-output.md](json-output.md)
+  routes the change.
 - Use [overview.md](overview.md) only when you need the stability boundary or
   explicit non-goals.
 - Use `../source-decisions/`, `../../proposals/`, `../../phases/`, or
