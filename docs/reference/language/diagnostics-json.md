@@ -208,10 +208,10 @@ contains `candidates`. Each candidate contains:
 
 Each edit contains `kind: "replace"`, `span`, and `replacement`. The edits are
 concrete but unapplied. The default `application_policy` remains
-`manual_review_required`; the direct reflexive and tautological satisfy subsets
-may use `safe_repair_candidate`. Candidates for satisfy-constrained holes also
-contain `satisfy_status`, either `statically_satisfied` or
-`blocked_until_discharged`.
+`manual_review_required`; the direct reflexive, tautological, and
+`require`-matched satisfy subsets may use `safe_repair_candidate`. Candidates
+for satisfy-constrained holes also contain `satisfy_status`, either
+`statically_satisfied` or `blocked_until_discharged`.
 
 Semantic satisfy diagnostics use hole diagnostic detail objects with
 `phase: "hole"`, `node_id`, `candidate_binding`, and `predicate_text`. Type mismatch

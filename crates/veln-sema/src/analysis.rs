@@ -2329,7 +2329,7 @@ impl<'a> FunctionChecker<'a> {
             .map(|binding| binding.ty.render())
             .collect::<Vec<_>>()
             .join(", ");
-        let repair_constraint = satisfy.and_then(SatisfyRepairConstraint::from_satisfy);
+        let repair_constraint = satisfy.and_then(|satisfy| self.satisfy_repair_constraint(satisfy));
         let ranked_candidates =
             self.ranked_symbol_candidates(expected, hole_span, repair_constraint.as_ref());
         let mut query = vec![
@@ -2444,10 +2444,57 @@ impl<'a> FunctionChecker<'a> {
             })
             .collect()
     }
+
+    fn satisfy_repair_constraint(
+        &self,
+        satisfy: &SatisfyClause,
+    ) -> Option<SatisfyRepairConstraint> {
+        if let Some(constraint) = SatisfyRepairConstraint::from_satisfy(satisfy) {
+            return Some(constraint);
+        }
+        let candidate = satisfy.candidate.as_ref()?;
+        if satisfy.predicate.contains('"') {
+            return None;
+        }
+        let required_clauses = self
+            .function
+            .contracts
+            .iter()
+            .filter(|contract| contract.kind == ContractKind::Require)
+            .filter(|contract| !contract.text.contains('"'))
+            .filter(|contract| {
+                matches!(
+                    self.validate_contract_predicate(contract.kind, &contract.text),
+                    ContractValidation::Valid
+                )
+            })
+            .flat_map(|contract| normalized_and_clauses(&contract.text))
+            .collect::<Vec<_>>();
+        if required_clauses.is_empty() {
+            return None;
+        }
+        let allowed_bindings = self
+            .bindings
+            .iter()
+            .filter(|binding| {
+                let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
+                let satisfy_clauses = normalized_and_clauses(&replaced);
+                !satisfy_clauses.is_empty()
+                    && satisfy_clauses
+                        .iter()
+                        .all(|clause| required_clauses.iter().any(|required| required == clause))
+            })
+            .map(|binding| binding.name.clone())
+            .collect::<Vec<_>>();
+        (!allowed_bindings.is_empty()).then_some(SatisfyRepairConstraint {
+            allowed_bindings: Some(allowed_bindings),
+            reason: "satisfy_require_match",
+        })
+    }
 }
 
 struct SatisfyRepairConstraint {
-    allowed_binding: Option<String>,
+    allowed_bindings: Option<Vec<String>>,
     reason: &'static str,
 }
 
@@ -2456,19 +2503,22 @@ impl SatisfyRepairConstraint {
         let candidate = satisfy.candidate.as_ref()?;
         if let Some(tautology) = tautological_candidate_predicate(&satisfy.predicate, candidate) {
             return Some(Self {
-                allowed_binding: None,
+                allowed_bindings: None,
                 reason: tautology.reason,
             });
         }
         reflexive_candidate_binding(&satisfy.predicate, candidate).map(|allowed| Self {
-            allowed_binding: Some(allowed.binding),
+            allowed_bindings: Some(vec![allowed.binding]),
             reason: allowed.reason,
         })
     }
 
     fn reason_for(&self, binding: &str) -> Option<&'static str> {
-        match &self.allowed_binding {
-            Some(allowed) => (allowed == binding).then_some(self.reason),
+        match &self.allowed_bindings {
+            Some(allowed) => allowed
+                .iter()
+                .any(|allowed_binding| allowed_binding == binding)
+                .then_some(self.reason),
             None => Some(self.reason),
         }
     }
@@ -2566,6 +2616,71 @@ fn is_plain_identifier(value: &str) -> bool {
     };
     (first.is_ascii_alphabetic() || first == '_')
         && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn normalized_and_clauses(predicate: &str) -> Vec<String> {
+    predicate
+        .split(" and ")
+        .map(normalized_predicate_clause)
+        .filter(|clause| !clause.is_empty())
+        .collect()
+}
+
+fn normalized_predicate_clause(predicate: &str) -> String {
+    predicate.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn replace_identifier(predicate: &str, target: &str, replacement: &str) -> String {
+    let mut output = String::with_capacity(predicate.len());
+    let mut chars = predicate.char_indices().peekable();
+    while let Some((start, ch)) = chars.next() {
+        if ch == '"' {
+            output.push(ch);
+            let mut escaped = false;
+            for (_, string_ch) in chars.by_ref() {
+                output.push(string_ch);
+                if escaped {
+                    escaped = false;
+                } else if string_ch == '\\' {
+                    escaped = true;
+                } else if string_ch == '"' {
+                    break;
+                }
+            }
+        } else if is_ident_start(ch) {
+            let mut end = start + ch.len_utf8();
+            while let Some((next, next_ch)) = chars.peek().copied() {
+                if !is_ident_continue(next_ch) {
+                    break;
+                }
+                chars.next();
+                end = next + next_ch.len_utf8();
+            }
+            let ident = &predicate[start..end];
+            if ident == target && is_value_identifier_position(predicate, start, end) {
+                output.push_str(replacement);
+            } else {
+                output.push_str(ident);
+            }
+        } else {
+            output.push(ch);
+        }
+    }
+    output
+}
+
+fn is_value_identifier_position(predicate: &str, start: usize, end: usize) -> bool {
+    !predicate[..start].ends_with('.')
+        && !predicate[..start].ends_with("::")
+        && !predicate[end..].starts_with("::")
+}
+
+fn is_ident_start(ch: char) -> bool {
+    ch.is_ascii_alphabetic() || ch == '_'
+}
+
+fn is_ident_continue(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
 }
 
 fn result_constructor_kind(segments: &[String]) -> Option<bool> {

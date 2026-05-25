@@ -26,8 +26,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   reflexive for the same visible binding. Tautological equality and inclusive
   comparison predicates on the satisfy candidate itself mark every
   type-compatible visible binding candidate as an unapplied safe repair
-  candidate. Broader repair discharge remains follow-up work before formatter
-  stabilization.
+  candidate. Satisfy predicates whose candidate substitution is already
+  guaranteed by a valid non-string `require` clause mark the matching visible
+  binding as an unapplied safe repair candidate. Broader repair discharge
+  remains follow-up work before formatter stabilization.
 
 ## Effects And Contracts
 

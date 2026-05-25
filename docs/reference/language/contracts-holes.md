@@ -90,10 +90,14 @@ binding, such as
 `fallback >= candidate`; `and` may join clauses that all name the same binding.
 The accepted tautological clauses compare the satisfy candidate with itself
 using `==`, `<=`, or `>=`, such as `candidate == candidate`; `and` may join
-only tautological clauses. Every type-compatible visible binding candidate for
-that tautological subset uses `reason: "satisfy_tautology"`. A statically
-accepted candidate also uses `satisfy_status: "statically_satisfied"`. Other
-candidates for a satisfy-constrained hole remain unapplied, use
+only tautological clauses. A candidate is also safe when replacing the satisfy
+candidate binding with the visible symbol makes every `and` clause match a
+valid non-string `require` clause already in force for the function; such
+candidates use `reason: "satisfy_require_match"`. Every type-compatible visible binding
+candidate for the tautological subset uses `reason: "satisfy_tautology"`. A
+statically accepted candidate also uses
+`satisfy_status: "statically_satisfied"`. Other candidates for a
+satisfy-constrained hole remain unapplied, use
 `application_policy: "manual_review_required"`, and carry
 `satisfy_status: "blocked_until_discharged"`.
 
