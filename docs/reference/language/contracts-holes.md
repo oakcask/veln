@@ -28,6 +28,8 @@ After parsing, the checker validates a small pure boolean subset:
   declared parameter types and the return type fits the predicate position
 - field access on record-typed values returned by discovered pure functions
 - qualified calls to discovered pure functions through `use` aliases
+- pure prelude helper calls such as `list_len(items)` and
+  `list_is_empty(items)`
 - visible parameter bindings
 - explicit result bindings in `ensure` clauses
 
@@ -39,6 +41,12 @@ Pure function calls that return numeric values may participate in arithmetic
 operands of comparison predicates, such as `next(value) + 1 > 0`. Pure
 function calls that return records may feed field access, such as
 `summary(value).ready`.
+Prelude helper calls participate under the same predicate rules as pure
+function calls: boolean-returning helpers may stand alone, and numeric-returning
+helpers must be used in a boolean context such as a comparison.
+Names, call-looking text, and field-looking text inside string literals are
+literal text and do not participate in predicate name resolution, function-call
+discovery, or field validation.
 
 Contract predicates containing `stdio::`, effectful function calls,
 unsupported call targets, empty predicates, missing record fields,

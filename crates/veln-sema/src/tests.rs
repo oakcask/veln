@@ -4128,6 +4128,98 @@ fn contract_predicate_accepts_arithmetic_comparisons() {
 }
 
 #[test]
+fn contract_predicate_accepts_prelude_helper_calls() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn first(items: List(Int)) -> Int effects []\n",
+            "require list_len(items) > 0\n",
+            "require not list_is_empty(items)\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn satisfy_predicate_accepts_prelude_helper_calls() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn fallback(items: List(Int)) -> List(Int) effects []\n",
+            "  _value satisfy candidate => list_len(candidate) >= list_len(items)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "hole.unfilled" && diagnostic.kind == DiagnosticKind::Hole
+    }));
+    assert!(!diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "hole.satisfy_unsupported_construct"
+            || diagnostic.id == "hole.satisfy_unresolved_name"
+            || diagnostic.id == "hole.satisfy_type_mismatch"
+    }));
+}
+
+#[test]
+fn contract_predicate_accepts_left_string_literal_comparison() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: String) -> String effects []\n",
+            "require \"ready(helper)\" == value\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn satisfy_predicate_ignores_names_inside_string_literals() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: String) -> String effects []\n",
+            "  _value satisfy candidate => candidate == \"missing_call(value)\"\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "hole.unfilled" && diagnostic.kind == DiagnosticKind::Hole
+    }));
+    assert!(!diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "hole.satisfy_unresolved_name"
+            && diagnostic.message.contains("missing_call")
+    }));
+}
+
+#[test]
 fn contract_predicate_rejects_non_numeric_call_in_arithmetic_comparison() {
     let source = SourceFile::new(
         "main.veln",

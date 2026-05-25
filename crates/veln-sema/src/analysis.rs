@@ -888,33 +888,33 @@ impl<'a> FunctionChecker<'a> {
             .filter(|call| !is_contract_keyword(&call.callee))
             .collect::<Vec<_>>();
         for (call_index, call) in calls.iter().enumerate() {
-            let callee_segments = contract_callee_segments(&call.callee);
-            let Some(signature) = self.environment.function_path(&callee_segments) else {
+            let Some((params, return_type, effects)) = self.contract_call_signature(&call.callee)
+            else {
                 return ContractValidation::UnresolvedName {
                     name: call.callee.clone(),
                 };
             };
-            if !signature.effects.is_empty() {
+            if !effects.is_empty() {
                 return ContractValidation::UnsupportedConstruct {
                     reason: "effectful_operation",
                 };
             }
-            if signature.return_type != Type::bool()
+            if return_type != Type::bool()
                 && !contract_call_result_is_compared(trimmed, call.start, call.end)
                 && !contract_call_result_feeds_boolean_predicate(trimmed, call.start, call.end)
                 && !contract_call_result_has_field_access(trimmed, call.end)
                 && !contract_call_is_argument(&calls, call_index)
             {
                 return ContractValidation::NonBoolean {
-                    actual_type: signature.return_type.render(),
+                    actual_type: return_type.render(),
                 };
             }
-            if call.args.len() != signature.params.len() {
+            if call.args.len() != params.len() {
                 return ContractValidation::UnsupportedConstruct {
                     reason: "call_arity",
                 };
             }
-            for (arg, expected) in call.args.iter().zip(&signature.params) {
+            for (arg, expected) in call.args.iter().zip(&params) {
                 let arg_calls = contract_calls(arg);
                 for name in referenced_names(arg) {
                     if is_contract_keyword(&name) || name == "true" || name == "false" {
@@ -953,9 +953,8 @@ impl<'a> FunctionChecker<'a> {
             .find(|call| call.start == 0 && call.end == trimmed.len())
         {
             let return_type = self
-                .environment
-                .function_path(&contract_callee_segments(&call.callee))
-                .map(|signature| signature.return_type.clone())
+                .contract_call_signature(&call.callee)
+                .map(|(_, return_type, _)| return_type)
                 .unwrap_or(Type::Unknown);
             return if return_type == Type::bool() {
                 ContractValidation::Valid
@@ -966,27 +965,44 @@ impl<'a> FunctionChecker<'a> {
             };
         }
         if let Some((base_type, field)) = missing_contract_field(trimmed, bindings, &|callee| {
-            self.environment
-                .function_path(&contract_callee_segments(callee))
-                .map(|signature| signature.return_type.clone())
+            self.contract_call_signature(callee)
+                .map(|(_, return_type, _)| return_type)
         }) {
             return ContractValidation::MissingField { base_type, field };
         }
         if predicate_is_boolean_with_calls(trimmed, bindings, &|callee| {
-            self.environment
-                .function_path(&contract_callee_segments(callee))
-                .map(|signature| signature.return_type.clone())
+            self.contract_call_signature(callee)
+                .map(|(_, return_type, _)| return_type)
         }) {
             ContractValidation::Valid
         } else {
             ContractValidation::NonBoolean {
                 actual_type: predicate_rendered_type_with_calls(trimmed, bindings, &|callee| {
-                    self.environment
-                        .function_path(&contract_callee_segments(callee))
-                        .map(|signature| signature.return_type.clone())
+                    self.contract_call_signature(callee)
+                        .map(|(_, return_type, _)| return_type)
                 }),
             }
         }
+    }
+
+    fn contract_call_signature(&self, callee: &str) -> Option<(Vec<Type>, Type, Vec<String>)> {
+        self.environment
+            .function_path(&contract_callee_segments(callee))
+            .map(|signature| {
+                (
+                    signature.params.clone(),
+                    signature.return_type.clone(),
+                    signature.effects.clone(),
+                )
+            })
+            .or_else(|| {
+                (!callee.contains("::"))
+                    .then(|| {
+                        prelude_signature(callee, None)
+                            .map(|(params, return_type)| (params, return_type, Vec::new()))
+                    })
+                    .flatten()
+            })
     }
 
     fn predicate_arg_type(&self, arg: &str, bindings: &[Binding]) -> Type {
@@ -1003,16 +1019,14 @@ impl<'a> FunctionChecker<'a> {
         if let [call] = contract_calls(trimmed).as_slice() {
             if call.start == 0 && call.end == trimmed.len() {
                 return self
-                    .environment
-                    .function_path(&contract_callee_segments(&call.callee))
-                    .map(|signature| signature.return_type.clone())
+                    .contract_call_signature(&call.callee)
+                    .map(|(_, return_type, _)| return_type)
                     .unwrap_or(Type::Unknown);
             }
         }
         if let Some(ty) = predicate_type_with_calls(trimmed, bindings, &|callee| {
-            self.environment
-                .function_path(&contract_callee_segments(callee))
-                .map(|signature| signature.return_type.clone())
+            self.contract_call_signature(callee)
+                .map(|(_, return_type, _)| return_type)
         }) {
             return ty;
         }

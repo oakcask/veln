@@ -92,9 +92,13 @@ No accepted language and type coverage follow-up is currently tracked here.
 - Contract predicates now parse through a dedicated first-slice predicate
   production. Bare and `use`-alias qualified pure calls to discovered
   effect-free functions are validated and participate in selected-entry
-  reachability for executable commands. The current implemented predicate
-  subset is specified in the language reference. Richer predicate semantics
-  remain follow-up work.
+  reachability for executable commands. The implemented subset now treats
+  string-literal contents as literal text during predicate name, call, and field
+  discovery, accepts string equality and disequality comparisons with the
+  literal on either side, and validates pure prelude helper calls inside
+  contract and `satisfy` predicates. The current implemented predicate subset is
+  specified in the language reference. Richer predicate semantics remain
+  follow-up work.
 
 ## Formatting
 

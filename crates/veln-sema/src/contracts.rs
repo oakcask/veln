@@ -29,6 +29,10 @@ pub(crate) fn contract_calls(predicate: &str) -> Vec<ContractCall> {
     let mut calls = Vec::new();
     let mut index = 0usize;
     while index < bytes.len() {
+        if bytes[index] == b'"' {
+            index = string_literal_end(predicate, index).unwrap_or(predicate.len());
+            continue;
+        }
         if bytes[index] != b'('
             || index == 0
             || !predicate[..index].trim_end().ends_with_identifier()
@@ -130,6 +134,10 @@ pub(crate) fn referenced_names(predicate: &str) -> Vec<String> {
     let bytes = predicate.as_bytes();
     let mut index = 0usize;
     while index < bytes.len() {
+        if bytes[index] == b'"' {
+            index = string_literal_end(predicate, index).unwrap_or(predicate.len());
+            continue;
+        }
         let ch = bytes[index] as char;
         if ch.is_ascii_alphabetic() || ch == '_' {
             let start = index;
@@ -221,7 +229,7 @@ pub(crate) fn predicate_type_with_calls(
     if predicate == "()" {
         return Some(Type::unit());
     }
-    if predicate.starts_with('"') {
+    if is_complete_string_literal(predicate) {
         return Some(Type::string());
     }
     if predicate.chars().all(|ch| ch.is_ascii_digit()) {
@@ -529,6 +537,10 @@ fn field_accesses(predicate: &str) -> Vec<FieldAccess> {
     }
     let mut index = 0usize;
     while index < bytes.len() {
+        if bytes[index] == b'"' {
+            index = string_literal_end(predicate, index).unwrap_or(predicate.len());
+            continue;
+        }
         let ch = bytes[index] as char;
         if !(ch.is_ascii_alphabetic() || ch == '_') {
             index += 1;
@@ -603,4 +615,28 @@ fn field_suffix(text: &str) -> Option<Vec<String>> {
         rest = after_dot[end..].trim_start();
     }
     (!fields.is_empty()).then_some(fields)
+}
+
+fn is_complete_string_literal(text: &str) -> bool {
+    if !text.starts_with('"') {
+        return false;
+    }
+    string_literal_end(text, 0).is_some_and(|end| end == text.len())
+}
+
+fn string_literal_end(text: &str, start: usize) -> Option<usize> {
+    let mut escaped = false;
+    let mut cursor = start + 1;
+    while cursor < text.len() {
+        let ch = text[cursor..].chars().next()?;
+        cursor += ch.len_utf8();
+        if escaped {
+            escaped = false;
+        } else if ch == '\\' {
+            escaped = true;
+        } else if ch == '"' {
+            return Some(cursor);
+        }
+    }
+    None
 }
