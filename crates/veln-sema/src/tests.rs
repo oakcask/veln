@@ -3562,6 +3562,87 @@ fn leaves_equal_inclusive_literal_bound_as_manual_for_strict_satisfy_repair() {
 }
 
 #[test]
+fn marks_lower_literal_bound_as_disequality_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int) -> Int\n",
+            "  require max > 10\n",
+            "  _value satisfy candidate => candidate != 0\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn leaves_equal_inclusive_literal_bound_as_manual_for_disequality_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int) -> Int\n",
+            "  require max >= 10\n",
+            "  _value satisfy candidate => candidate != 10\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(!details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn marks_upper_float_literal_bound_as_disequality_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(ratio: Float, fallback: Float) -> Float\n",
+            "  require ratio <= -0.5\n",
+            "  _value satisfy candidate => candidate != 0.5\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"ratio\",",
+        "\"type\":\"Float\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn reports_return_type_mismatch() {
     let source = SourceFile::new("main.veln", "fn bad() -> Int\n  \"no\"\nend\n");
     let parsed = parse(&source);

@@ -3400,6 +3400,9 @@ fn repair_clause_implies(required: &str, wanted: &str) -> bool {
     if literal_order_comparison_implies(&required, &wanted, &RepairEquivalences::default()) {
         return true;
     }
+    if literal_bound_implies_disequality(&required, &wanted, &RepairEquivalences::default()) {
+        return true;
+    }
     required.operator == "=="
         && wanted.operator == "<="
         && same_repair_operands_unordered(required.left, required.right, wanted.left, wanted.right)
@@ -3631,7 +3634,10 @@ fn repair_clause_implies_with_equivalences(
             wanted.right,
             equivalences,
         ),
-        _ => literal_order_comparison_implies(&required, wanted, equivalences),
+        _ => {
+            literal_order_comparison_implies(&required, wanted, equivalences)
+                || literal_bound_implies_disequality(&required, wanted, equivalences)
+        }
     }
 }
 
@@ -3702,6 +3708,72 @@ fn literal_order_strength_implies(
         std::cmp::Ordering::Equal => required_operator == "<" || wanted_operator == "<=",
         _ => false,
     }
+}
+
+fn literal_bound_implies_disequality(
+    required: &ParsedRepairComparison<'_>,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    if !matches!(required.operator, "<" | "<=") || wanted.operator != "!=" {
+        return false;
+    }
+    literal_lower_bound_implies_disequality(required, wanted, equivalences)
+        || literal_upper_bound_implies_disequality(required, wanted, equivalences)
+}
+
+fn literal_lower_bound_implies_disequality(
+    required: &ParsedRepairComparison<'_>,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some(required_literal) = repair_numeric_literal(required.left) else {
+        return false;
+    };
+    let Some(wanted_literal) =
+        repair_disequality_literal_for_operand(wanted, required.right, equivalences)
+    else {
+        return false;
+    };
+    match wanted_literal.cmp(&required_literal) {
+        std::cmp::Ordering::Less => true,
+        std::cmp::Ordering::Equal => required.operator == "<",
+        std::cmp::Ordering::Greater => false,
+    }
+}
+
+fn literal_upper_bound_implies_disequality(
+    required: &ParsedRepairComparison<'_>,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some(required_literal) = repair_numeric_literal(required.right) else {
+        return false;
+    };
+    let Some(wanted_literal) =
+        repair_disequality_literal_for_operand(wanted, required.left, equivalences)
+    else {
+        return false;
+    };
+    match wanted_literal.cmp(&required_literal) {
+        std::cmp::Ordering::Greater => true,
+        std::cmp::Ordering::Equal => required.operator == "<",
+        std::cmp::Ordering::Less => false,
+    }
+}
+
+fn repair_disequality_literal_for_operand(
+    wanted: &ParsedRepairComparison<'_>,
+    operand: &str,
+    equivalences: &RepairEquivalences,
+) -> Option<RepairNumber> {
+    if repair_operands_equivalent(wanted.left, operand, equivalences) {
+        return repair_numeric_literal(wanted.right);
+    }
+    if repair_operands_equivalent(wanted.right, operand, equivalences) {
+        return repair_numeric_literal(wanted.left);
+    }
+    None
 }
 
 fn boolean_literal_comparison_implies_atom(
