@@ -2697,11 +2697,14 @@ fn reflexive_candidate_binding(
     predicate: &str,
     candidate: &str,
 ) -> Option<ReflexiveCandidateBinding> {
-    let disjuncts = split_top_level_keyword(strip_balanced_outer_parens(predicate), "or");
+    let disjuncts = repair_relevant_or_clauses(predicate);
+    if disjuncts.is_empty() {
+        return None;
+    }
     if disjuncts.len() > 1 {
         return reflexive_candidate_disjunction(disjuncts, candidate);
     }
-    reflexive_candidate_conjunction(repair_relevant_and_clauses(predicate), candidate)
+    reflexive_candidate_conjunction(repair_relevant_and_clauses(disjuncts[0]), candidate)
 }
 
 fn reflexive_candidate_disjunction(
@@ -2757,13 +2760,19 @@ fn tautological_candidate_predicate(
     predicate: &str,
     candidate: &str,
 ) -> Option<TautologicalCandidatePredicate> {
-    let clauses = repair_relevant_and_clauses(predicate);
-    if clauses.is_empty() {
+    let disjuncts = repair_relevant_or_clauses(predicate);
+    if disjuncts.is_empty() {
         return None;
     }
-    for clause in clauses {
-        if !is_candidate_tautology_clause(&clause, candidate) {
+    for disjunct in disjuncts {
+        let clauses = repair_relevant_and_clauses(disjunct);
+        if clauses.is_empty() {
             return None;
+        }
+        for clause in clauses {
+            if !is_candidate_tautology_clause(&clause, candidate) {
+                return None;
+            }
         }
     }
     Some(TautologicalCandidatePredicate {
@@ -2849,11 +2858,18 @@ fn repair_relevant_and_clauses(predicate: &str) -> Vec<String> {
         .collect()
 }
 
+fn repair_relevant_or_clauses(predicate: &str) -> Vec<&str> {
+    split_top_level_keyword(strip_balanced_outer_parens(predicate), "or")
+        .into_iter()
+        .filter(|clause| normalized_predicate_clause(clause) != "false")
+        .collect()
+}
+
 fn predicate_guaranteed_by_required_predicates(
     predicate: &str,
     required_predicates: &[String],
 ) -> bool {
-    split_top_level_keyword(strip_balanced_outer_parens(predicate), "or")
+    repair_relevant_or_clauses(predicate)
         .into_iter()
         .map(repair_relevant_and_clauses)
         .any(|disjunct_clauses| {
@@ -2868,13 +2884,16 @@ fn repair_clause_guaranteed_by_required_predicates(
     clause: &str,
     required_predicates: &[String],
 ) -> bool {
-    let disjuncts = split_top_level_keyword(strip_balanced_outer_parens(clause), "or");
+    let disjuncts = repair_relevant_or_clauses(clause);
     if disjuncts.len() > 1 {
         return disjuncts.into_iter().any(|disjunct| {
             repair_clause_guaranteed_by_required_predicates(disjunct, required_predicates)
         });
     }
-    let canonical = canonical_repair_clause(clause);
+    if disjuncts.is_empty() {
+        return false;
+    }
+    let canonical = canonical_repair_clause(disjuncts[0]);
     required_predicates
         .iter()
         .any(|required| required_predicate_implies_clause(required, &canonical))
@@ -2883,12 +2902,16 @@ fn repair_clause_guaranteed_by_required_predicates(
 
 fn required_predicate_implies_clause(predicate: &str, wanted: &str) -> bool {
     let predicate = strip_balanced_outer_parens(predicate);
-    let disjuncts = split_top_level_keyword(predicate, "or");
+    let disjuncts = repair_relevant_or_clauses(predicate);
     if disjuncts.len() > 1 {
         return disjuncts
             .into_iter()
             .all(|disjunct| required_predicate_implies_clause(disjunct, wanted));
     }
+    if disjuncts.is_empty() {
+        return false;
+    }
+    let predicate = disjuncts[0];
     let conjuncts = split_top_level_keyword(predicate, "and");
     if conjuncts.len() > 1 {
         return conjuncts
@@ -2953,14 +2976,18 @@ fn required_predicate_set_implies_clause(required_predicates: &[String], wanted:
 
 fn non_disjunctive_repair_clauses(predicate: &str) -> Vec<String> {
     let predicate = strip_balanced_outer_parens(predicate);
-    if split_top_level_keyword(predicate, "or").len() > 1 {
+    let disjuncts = repair_relevant_or_clauses(predicate);
+    if disjuncts.len() > 1 {
         return Vec::new();
     }
+    let Some(predicate) = disjuncts.first().copied() else {
+        return Vec::new();
+    };
     split_top_level_keyword(predicate, "and")
         .into_iter()
         .flat_map(|clause| {
             let clause = strip_balanced_outer_parens(clause);
-            if split_top_level_keyword(clause, "or").len() > 1 {
+            if repair_relevant_or_clauses(clause).len() > 1 {
                 Vec::new()
             } else {
                 vec![canonical_repair_clause(clause)]

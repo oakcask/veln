@@ -52,7 +52,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   substituted `satisfy` clause. Nested `or` branches inside `and` conjunctions
   are also recognized when every branch guarantees the same substituted clause.
   Nested `or` branches inside `satisfy` `and` conjunctions are recognized when
-  at least one branch is guaranteed by valid `require` clauses.
+  at least one branch is guaranteed by valid `require` clauses. Literal
+  `false` disjuncts do not affect direct, tautological, or `require`-matched
+  repair status.
   Broader repair discharge remains follow-up work before formatter
   stabilization.
 

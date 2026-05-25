@@ -93,6 +93,9 @@ are also accepted, such as `candidate.count == fallback.count`. `and` may join
 clauses that all name the same binding. Top-level `or` may also join direct
 branches when every branch names the same binding, such as
 `candidate == fallback or candidate >= fallback`.
+Literal `false` disjuncts do not affect direct repair matching, so
+`false or candidate == fallback` has the same repair status as
+`candidate == fallback`.
 Wrapping each direct clause in balanced parentheses does not change this
 repair match. Negated direct equality, disequality, and ordering clauses are
 normalized before direct repair matching, so `not (candidate != fallback)` and
@@ -104,7 +107,8 @@ candidate with itself using `==`, `<=`, or `>=`, such as
 `candidate == candidate`; their negated inverse forms, such as
 `not (candidate != candidate)`, are also accepted. `and` may join only
 tautological clauses or literal `true` clauses. Wrapping each tautological
-clause in balanced parentheses does not change this repair match.
+clause in balanced parentheses does not change this repair match. Literal
+`false` disjuncts do not affect tautological repair matching.
 A candidate is also safe when replacing the
 satisfy candidate binding with the visible symbol makes every non-`true` `and`
 clause match a valid `require` clause already in force for the function; such
@@ -146,7 +150,10 @@ If a substituted `satisfy` predicate has top-level `or` clauses, a candidate
 is also safe when any one `or` branch is fully guaranteed by valid `require`
 clauses.
 For example, `candidate > 0 or candidate == 0` is guaranteed for a visible
-binding `max` when the function already has `require max > 0`. A `require`
+binding `max` when the function already has `require max > 0`. Literal
+`false` disjuncts do not affect this match on either side, so
+`false or candidate > 0` may be guaranteed by `false or max > 0` after
+substituting `max`. A `require`
 predicate with top-level `or` also guarantees a substituted `satisfy` clause
 when every `or` branch discharges that clause, such as
 `require max > 0 or max == 0` guaranteeing `candidate >= 0` after substituting
