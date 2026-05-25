@@ -111,6 +111,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   string literals discharge disequality `satisfy` clauses against another
   literal, including through equality aliases. Inclusive transitive ordering
   plus endpoint disequality discharges strict comparison `satisfy` clauses.
+  Nested complementary `or` clauses rooted at the satisfy candidate are
+  treated as tautological surplus clauses inside direct and tautological
+  `satisfy` conjunctions.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.

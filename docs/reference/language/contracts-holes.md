@@ -135,7 +135,11 @@ normalization, such as `candidate + 1 == fallback + 1` and
 `candidate + 1 <= fallback + 1`. A nested `or` clause inside a direct `and`
 conjunction is ignored when it contains a literal `true` branch, so
 `candidate == fallback and (candidate > fallback or true)` has the same direct
-repair status as `candidate == fallback`. A negated disjunction of direct
+repair status as `candidate == fallback`. A nested complementary `or` clause
+rooted at the satisfy candidate is also ignored inside direct `and`
+conjunctions, so `candidate.ready == fallback.ready and
+(candidate.ready or not candidate.ready)` has the same direct repair status as
+`candidate.ready == fallback.ready`. A negated disjunction of direct
 comparison clauses is normalized before direct repair matching, so
 `not (candidate != fallback or candidate < fallback)` has the same direct
 repair status as `candidate == fallback and candidate >= fallback`. A negated
@@ -176,7 +180,10 @@ binding as a safe tautology repair candidate.
 Nested `or` clauses with a literal `true` branch are ignored inside
 tautological `and` clauses, so
 `candidate == candidate and (candidate > candidate or true)` is ranked as a
-tautology.
+tautology. Nested complementary `or` clauses rooted at the satisfy candidate
+are ignored the same way, so
+`candidate.ready == candidate.ready and
+(candidate.ready or not candidate.ready)` is ranked as a tautology.
 A candidate is also safe when replacing the
 satisfy candidate binding with the visible symbol makes every non-`true` `and`
 clause match a valid `require` clause already in force for the function; such

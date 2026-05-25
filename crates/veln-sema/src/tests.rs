@@ -994,6 +994,39 @@ fn ignores_tautological_nested_disjuncts_in_satisfy_reflexive_repair() {
 }
 
 #[test]
+fn ignores_complementary_nested_disjuncts_in_satisfy_reflexive_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: {ready: Bool}, fallback: {ready: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => ",
+            "candidate.ready == fallback.ready and (candidate.ready or not candidate.ready)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"fallback\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+}
+
+#[test]
 fn marks_field_access_satisfy_reflexive_candidate_as_safe_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -1434,6 +1467,43 @@ fn ignores_true_nested_disjuncts_in_satisfy_tautology_repair() {
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
         "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn ignores_complementary_nested_disjuncts_in_satisfy_tautology_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: {ready: Bool}, fallback: {ready: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => ",
+            "candidate.ready == candidate.ready and (candidate.ready or not candidate.ready)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":1,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
         "\"application_policy\":\"safe_repair_candidate\","
     )));
     assert_eq!(

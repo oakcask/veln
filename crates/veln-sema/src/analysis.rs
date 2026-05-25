@@ -2906,7 +2906,7 @@ fn reflexive_candidate_conjunction(
     let mut allowed_binding = None::<String>;
     let mut reason = "satisfy_equality_match";
     for clause in clauses {
-        if has_true_disjunct(&clause) {
+        if is_surplus_tautology_clause(&clause, candidate) {
             continue;
         }
         let direct = direct_reflexive_clause(&clause, candidate)?;
@@ -3004,8 +3004,14 @@ fn is_candidate_tautology_disjunct(predicate: &str, candidate: &str) -> bool {
     let clauses = repair_relevant_and_clauses(predicate);
     !clauses.is_empty()
         && clauses.iter().all(|clause| {
-            has_true_disjunct(clause) || is_candidate_tautology_clause(clause, candidate)
+            is_surplus_tautology_clause(clause, candidate)
+                || is_candidate_tautology_clause(clause, candidate)
         })
+}
+
+fn is_surplus_tautology_clause(clause: &str, candidate: &str) -> bool {
+    has_true_disjunct(clause)
+        || has_complementary_candidate_disjuncts(&repair_relevant_or_clauses(clause), candidate)
 }
 
 fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
