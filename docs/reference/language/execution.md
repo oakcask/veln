@@ -6,24 +6,35 @@ This file specifies the implemented execution boundary.
 
 Checked core is produced only after semantic diagnostics have no errors. Typed
 IR is produced only when checked core is complete. Reachable holes, missing
-expressions, constructor arity gaps, call arity gaps, and recognized channel
+expressions, constructor arity gaps, call arity gaps, and recognized
 concurrency calls block executable IR. For selected `run` and `test` entries,
-reachability includes direct function calls, bare function declaration values
-used inside reachable expressions, function calls in reachable contract
-predicates, and qualified calls resolved through selected-file `use` aliases to
-functions in the imported source module. A qualified imported edge keeps the
-resolved module identity, so same-named functions from other modules are not
-included only because their local name matches. The implemented execution
+reachability includes direct function calls, bare and `use` alias-qualified
+function declaration values used inside reachable expressions, and function
+calls in reachable contract predicates. Reachability also follows bare and
+`use` alias-qualified function declaration values passed as contract call
+arguments. In a named source module, a bare function reference resolves
+reachability only to functions owned by that same source module. Qualified
+calls and function values resolved through selected-file `use` aliases keep
+the imported module identity, so same-named functions from other modules are
+not included only because their local name matches. The implemented execution
 fixtures cover function declarations used as function-typed values,
-function-typed value calls, contract helper reachability, imported-call
-reachable-hole blocking, selected-entry reachable-hole blocking, and
-selected-entry channel concurrency blockers before JVM execution.
+function-typed value calls, contract helper reachability, contract function
+value reachability, imported-call reachable-hole blocking, selected-entry
+reachable-hole blocking, and selected-entry concurrency blockers before JVM
+execution.
 When a function or test body omits the final expression line, checked core and
 typed IR materialize that omission as an explicit `()` return.
 
 The typed IR is runtime-neutral. JVM class names, Java method names, boxed
 runtime representation, generated artifact paths, cache keys, and runtime
 helper layout are backend details and are not language facts.
+
+Stdio operations are serialized at the runtime handler boundary. Each
+`stdio::print`, `stdio::println`, `stdio::eprint`, and `stdio::eprintln`
+operation writes its complete logical output and records its test event while
+holding the same handler lock. Captured event `sequence` values therefore
+define one total operation order across stdout and stderr for a selected run or
+test case, including calls made by spawned tasks.
 
 ## JVM Backend
 
@@ -39,6 +50,7 @@ The JVM backend generates Java source for the implemented IR subset:
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls
 - bounded channel construction, sender clone, send, receive, and close calls
+- task spawn, join, and cancellation calls
 - pipelines with named or qualified call targets lowered to calls with the
   left expression inserted as the first argument
 - runtime `require` checks at function entry and runtime `ensure` checks before
@@ -65,6 +77,13 @@ and then returns `Ok(())`. A waiting receive on a zero-capacity channel returns
 `Some(value)` when the paired send transfers a value.
 Closing the sender endpoint prevents later sends from succeeding and wakes
 waiting receivers.
+
+Task values are backend-owned runtime handles. `task::spawn` starts a
+zero-argument callable on a JVM thread and freezes the returned value before it
+crosses the task boundary. `task::join` waits for that task and returns
+`Ok(value)` on ordinary completion or `Err(JoinError)` on interruption,
+cancellation, or runtime failure. `task::cancel` requests cooperative
+cancellation by interrupting the task.
 
 This freeze rule is an observable language boundary only through value
 immutability and update semantics. The exact JVM representation, copying

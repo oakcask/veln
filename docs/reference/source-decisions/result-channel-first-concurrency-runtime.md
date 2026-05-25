@@ -1,7 +1,7 @@
 # Discussion Result: Channel-First Concurrency Runtime
 
 Status: implemented
-Implementation: bounded-channel slice implemented
+Implementation: channel and task slices implemented
 
 ## Picked Question
 
@@ -50,10 +50,9 @@ channel::close(tx) -> ()
 ```
 
 Concurrency is visible in public effect declarations through the coarse
-`concurrency` effect label. Implemented channel operations carry that effect
-metadata so public APIs cannot silently become concurrent. Future runtime
-primitives such as `spawn`, cancellation, task join, and selection constructs
-must also carry that effect or its chosen successor label.
+`concurrency` effect label. Implemented channel and task operations carry that
+effect metadata so public APIs cannot silently become concurrent. Future
+selection constructs must also carry that effect or its chosen successor label.
 
 ## Rationale
 
@@ -99,6 +98,8 @@ locks.
 - Receiving returns `Option(T)`, with `None` representing closed and drained.
 - Channel construction, sender clone, send, receive, and close calls carry the
   coarse `concurrency` effect.
+- Task spawn, task join, and task cancellation calls carry the coarse
+  `concurrency` effect.
 - Public functions whose bodies introduce concurrency must declare that effect
   under the existing public effect boundary rule.
 - Locks, atomics, and other shared-memory synchronization primitives are not
@@ -106,10 +107,6 @@ locks.
   standard-library tools.
 
 ## Open Details
-
-The exact source spelling for `spawn`, task handles, and cancellation remains
-open. The decision owns the semantic direction for those constructs, not a
-final surface syntax.
 
 The implemented send and receive operations block a host thread when waiting
 for queue capacity, a queued value, a rendezvous transfer, or channel close.
@@ -143,12 +140,16 @@ The current workspace implements a minimal executable bounded-channel slice:
 `channel::bounded(capacity)`, `channel::bounded[T](capacity)`,
 `channel::clone(tx)`, `channel::send(tx, value)`, `channel::recv(rx)`, and
 `channel::close(tx)` are `concurrency` effect calls. Public functions and tests
-that reach these calls must declare `effects [concurrency]`.
+that reach these calls must declare `effects [concurrency]`. It also implements
+an executable task slice: `task::spawn(job)`, `task::spawn[T](job)`,
+`task::join(task)`, and `task::cancel(task)` are `concurrency` effect calls.
 
 The implemented constructor infers the item type from an expected
 `{tx: Sender(T), rx: Receiver(T)}` record type, or uses the explicit item type
 from `channel::bounded[T](capacity)`. The runtime supports direct send with
 positive-capacity backpressure, sender clone, blocking receive, close on a
 single channel pair, and zero-capacity rendezvous transfer between a waiting
-sender and receiver.
-`spawn`, task handles, cancellation, join, and selection remain follow-up work.
+sender and receiver. The task runtime starts zero-argument callables on JVM
+threads, freezes task results before they cross the task boundary, joins with
+`Result(T, JoinError)`, and treats cancellation as a cooperative interruption
+request. Selection remains follow-up work.

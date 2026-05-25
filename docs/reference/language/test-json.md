@@ -150,6 +150,9 @@ The event list is operation-oriented. `println` and `eprintln` preserve their
 logical newline through `terminator`, not by appending it to `text`. If runtime
 tracing is unavailable, output may be represented as aggregate stdout or stderr
 events attached to the case source.
+When runtime tracing is available, stdio operations are serialized before
+capture. The `sequence` field defines the observed operation order across
+stdout and stderr, including output produced by spawned tasks.
 
 ## Static Gate
 

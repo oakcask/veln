@@ -26,9 +26,7 @@ The following behavior is fixed for the implemented slice:
 
 The following behavior is not fixed by this reference:
 
-- The broader target grammar in
-  [../../proposals/grammar-target.md](../../proposals/grammar-target.md) where
-  parser, AST, lowering, or backend support is absent.
+- Source-decision history that predates the categorized reference files.
 - The exact shape of kind-specific diagnostic `details` fields not listed in
   [diagnostics-json.md](diagnostics-json.md).
 - Package manifests beyond implemented module validation, imports, modules

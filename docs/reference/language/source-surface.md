@@ -114,9 +114,12 @@ program.
 
 Public `fn` declarations are the implemented public API boundary. Dedicated
 export lists are not implemented. Function declarations can be referenced by
-bare name as callable values where a function-typed expression is expected.
-When a selected `run` or `test` entry uses a function declaration as a value,
-that referenced function is part of the selected executable slice.
+bare name or by a `use` alias-qualified path as callable values where a
+function-typed expression is expected. When a selected `run` or `test` entry
+uses a function declaration as a value, that referenced function is part of the
+selected executable slice. In a named source module, selected-entry
+reachability treats a bare function reference as a reference to the same source
+module. `use` alias-qualified references keep the imported module identity.
 
 `test` is a top-level declaration keyword, not a visibility modifier. Test
 declarations are selected by `veln test` from `*_test.veln` files, explicit
@@ -192,6 +195,8 @@ Implemented expressions:
 - channel effect calls: `channel::bounded(capacity)`,
   `channel::bounded[Item](capacity)`, `channel::clone(tx)`,
   `channel::send(tx, value)`, `channel::recv(rx)`, and `channel::close(tx)`
+- task effect calls: `task::spawn(job)`, `task::spawn[Item](job)`,
+  `task::join(task)`, and `task::cancel(task)`
 - prelude helpers as bare calls such as `list_len(items)`
 - records: `{name: value, ...}`
 - dictionaries: `{key_expr: value_expr, ...}` when the first entry is not a
@@ -266,11 +271,14 @@ may still fail contract validation. Function calls must resolve to discovered
 pure functions or pure prelude helpers. Bare calls resolve against the current
 program's function names or the prelude helper set, and qualified calls resolve
 through `use` aliases. Call arguments must be assignable to declared parameter
-types. Numeric return values from pure calls may be used inside arithmetic
-operands of comparison predicates. Record-typed return values from pure calls
-may feed field access, such as `summary(value).ready`. Field access must
-resolve through record-typed values visible to the clause or returned by a pure
-call.
+types. Function declaration values may be passed to contract calls where the
+callee expects a function type; bare references resolve against visible
+function declarations, and `use` alias-qualified references keep the imported
+module identity. Numeric return values from pure calls may be used inside
+arithmetic operands of comparison predicates. Record-typed return values from
+pure calls may feed field access, such as `summary(value).ready`. Field access
+must resolve through record-typed values visible to the clause or returned by a
+pure call.
 
 Valid clauses are executable obligations. `require` is checked at function
 entry. `ensure` is checked before an ordinary tail-expression return and may
@@ -280,7 +288,7 @@ read an explicit result binding.
 
 Implemented lowering and execution do not include user-defined ADT
 declarations, method calls, loops, mutation, classes, traits, macros,
-comprehensions, anonymous functions, custom operators, channel `spawn`, task
-handles, cancellation, join, or selection, package manifest fields beyond `[modules]`, foreign
-declarations, or doctest metadata other than `error`, `ignore`, `fail`, and
-`veln-output` stream selection.
+comprehensions, anonymous functions, custom operators, task selection, package
+manifest fields beyond `[modules]`, foreign declarations, or
+doctest metadata other than `error`, `ignore`, `fail`, and `veln-output`
+stream selection.

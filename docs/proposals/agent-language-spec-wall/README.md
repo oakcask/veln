@@ -12,15 +12,14 @@ current workspace. Implemented decisions were moved to
   design anchors.
 - [open-questions.md](open-questions.md) routes resolved and unresolved
   questions.
-- [../grammar-target.md](../grammar-target.md) is the consolidated accepted
-  grammar target; it intentionally includes syntax beyond the current parser
-  and backend.
 - [../../reference/source-decisions/result-adr-lite-decision-location.md](../../reference/source-decisions/result-adr-lite-decision-location.md)
   records the implemented ADR-lite comment decision.
 
 ## Accepted Or Open Targets
 
-- [First-Slice Grammar](result-first-slice-grammar.md)
+No accepted grammar target remains in this directory. The implemented
+[First-Slice Grammar](../../reference/source-decisions/result-first-slice-grammar.md)
+decision now lives with the reference source decisions.
 
 The implemented bounded-channel concurrency decision lives in
 [Channel-First Concurrency Runtime](../../reference/source-decisions/result-channel-first-concurrency-runtime.md).

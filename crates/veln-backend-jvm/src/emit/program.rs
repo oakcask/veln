@@ -306,6 +306,19 @@ impl<'a> ProgramEmitter<'a> {
         }}
     }}
 
+    public static final class Task {{
+        private final java.util.concurrent.FutureTask<Object> future;
+        private final Thread thread;
+
+        private Task(Fn fn) {{
+            this.future = new java.util.concurrent.FutureTask<Object>(
+                () -> freezeValue(call(fn))
+            );
+            this.thread = new Thread(this.future);
+            this.thread.start();
+        }}
+    }}
+
     public static Result ok(Object value) {{
         return Result.ok(value);
     }}
@@ -443,6 +456,31 @@ impl<'a> ProgramEmitter<'a> {
             tx.channel.closed = true;
             tx.channel.notifyAll();
         }}
+        return UNIT;
+    }}
+
+    public static Object taskSpawn(Object fn) {{
+        return new Task((Fn) fn);
+    }}
+
+    public static Object taskJoin(Object task) {{
+        Task handle = (Task) task;
+        try {{
+            return ok(handle.future.get());
+        }} catch (InterruptedException interrupted) {{
+            Thread.currentThread().interrupt();
+            return err("interrupted");
+        }} catch (java.util.concurrent.ExecutionException failed) {{
+            return err("failed");
+        }} catch (java.util.concurrent.CancellationException cancelled) {{
+            return err("cancelled");
+        }}
+    }}
+
+    public static Object taskCancel(Object task) {{
+        Task handle = (Task) task;
+        handle.future.cancel(true);
+        handle.thread.interrupt();
         return UNIT;
     }}
 
@@ -771,6 +809,7 @@ impl<'a> ProgramEmitter<'a> {
         return Boolean.valueOf(asDouble(left) >= asDouble(right));
     }}
 
+    private static final Object stdioLock = new Object();
     private static int stdioSequence = 0;
 
     public static Object stdioPrint(Object value) {{
@@ -779,8 +818,10 @@ impl<'a> ProgramEmitter<'a> {
 
     public static Object stdioPrint(Object value, String nodeId, String sourceFile) {{
         String text = format(value);
-        System.out.print(text);
-        recordStdioEvent("stdout", "print", "none", text, nodeId, sourceFile);
+        synchronized (stdioLock) {{
+            System.out.print(text);
+            recordStdioEvent("stdout", "print", "none", text, nodeId, sourceFile);
+        }}
         return UNIT;
     }}
 
@@ -790,9 +831,11 @@ impl<'a> ProgramEmitter<'a> {
 
     public static Object stdioPrintln(Object value, String nodeId, String sourceFile) {{
         String text = format(value);
-        System.out.print(text);
-        System.out.print(System.lineSeparator());
-        recordStdioEvent("stdout", "println", "newline", text, nodeId, sourceFile);
+        synchronized (stdioLock) {{
+            System.out.print(text);
+            System.out.print(System.lineSeparator());
+            recordStdioEvent("stdout", "println", "newline", text, nodeId, sourceFile);
+        }}
         return UNIT;
     }}
 
@@ -802,8 +845,10 @@ impl<'a> ProgramEmitter<'a> {
 
     public static Object stdioEprint(Object value, String nodeId, String sourceFile) {{
         String text = format(value);
-        System.err.print(text);
-        recordStdioEvent("stderr", "eprint", "none", text, nodeId, sourceFile);
+        synchronized (stdioLock) {{
+            System.err.print(text);
+            recordStdioEvent("stderr", "eprint", "none", text, nodeId, sourceFile);
+        }}
         return UNIT;
     }}
 
@@ -813,9 +858,11 @@ impl<'a> ProgramEmitter<'a> {
 
     public static Object stdioEprintln(Object value, String nodeId, String sourceFile) {{
         String text = format(value);
-        System.err.print(text);
-        System.err.print(System.lineSeparator());
-        recordStdioEvent("stderr", "eprintln", "newline", text, nodeId, sourceFile);
+        synchronized (stdioLock) {{
+            System.err.print(text);
+            System.err.print(System.lineSeparator());
+            recordStdioEvent("stderr", "eprintln", "newline", text, nodeId, sourceFile);
+        }}
         return UNIT;
     }}
 

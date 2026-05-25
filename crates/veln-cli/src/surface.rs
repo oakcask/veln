@@ -263,13 +263,26 @@ fn direct_function_callees(
     function_targets: &[FunctionTarget],
 ) -> Vec<ReachableFunction> {
     let mut callees = Vec::new();
+    let current_module = function.module_name.as_deref();
     for contract in &function.contracts {
-        collect_contract_callees(&contract.text, uses, function_targets, &mut callees);
+        collect_contract_callees(
+            &contract.text,
+            current_module,
+            uses,
+            function_targets,
+            &mut callees,
+        );
     }
     for line in &function.body {
         match &line.kind {
             veln_ast::BodyLineKind::Let { expr, .. } | veln_ast::BodyLineKind::Expr { expr } => {
-                collect_function_callees(expr, uses, function_targets, &mut callees);
+                collect_function_callees(
+                    expr,
+                    current_module,
+                    uses,
+                    function_targets,
+                    &mut callees,
+                );
             }
         }
     }
@@ -278,6 +291,7 @@ fn direct_function_callees(
 
 fn collect_contract_callees(
     predicate: &str,
+    current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
     callees: &mut Vec<ReachableFunction>,
@@ -316,67 +330,165 @@ fn collect_contract_callees(
         } else {
             vec![name.text.clone(), callee]
         };
-        for callee in resolve_function_reference(&segments, uses, function_targets) {
+        for callee in resolve_function_reference(&segments, current_module, uses, function_targets)
+        {
             push_reachable(callees, callee);
         }
         index = next_index + 1;
+    }
+    collect_contract_function_value_references(
+        &tokens,
+        current_module,
+        uses,
+        function_targets,
+        callees,
+    );
+}
+
+fn collect_contract_function_value_references(
+    tokens: &[veln_syntax::Token],
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    function_targets: &[FunctionTarget],
+    callees: &mut Vec<ReachableFunction>,
+) {
+    let mut index = 0usize;
+    while index < tokens.len() {
+        if tokens[index].kind != TokenKind::Ident {
+            index += 1;
+            continue;
+        }
+        if index > 0
+            && matches!(
+                tokens[index - 1].kind,
+                TokenKind::Dot | TokenKind::DoubleColon
+            )
+        {
+            index += 1;
+            continue;
+        }
+        if tokens
+            .get(index + 1)
+            .is_some_and(|token| matches!(token.kind, TokenKind::Dot | TokenKind::LParen))
+        {
+            index += 1;
+            continue;
+        }
+        let segments = if tokens
+            .get(index + 1)
+            .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+            && tokens
+                .get(index + 2)
+                .is_some_and(|token| token.kind == TokenKind::Ident)
+        {
+            let segments = vec![tokens[index].text.clone(), tokens[index + 2].text.clone()];
+            index += 3;
+            segments
+        } else {
+            let segments = vec![tokens[index].text.clone()];
+            index += 1;
+            segments
+        };
+        for callee in resolve_function_reference(&segments, current_module, uses, function_targets)
+        {
+            push_reachable(callees, callee);
+        }
     }
 }
 
 fn collect_function_callees(
     expr: &Expr,
+    current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
     callees: &mut Vec<ReachableFunction>,
 ) {
     match &expr.kind {
         ExprKind::NamePath(segments) => {
-            collect_function_name_reference(segments, uses, function_targets, callees);
+            collect_function_name_reference(
+                segments,
+                current_module,
+                uses,
+                function_targets,
+                callees,
+            );
         }
         ExprKind::TypeApply { callee, .. } => {
-            collect_function_callees(callee, uses, function_targets, callees);
+            collect_function_callees(callee, current_module, uses, function_targets, callees);
         }
         ExprKind::Call { callee, args } => {
             if let Some(segments) = callee_name_path(callee) {
-                collect_function_name_reference(segments, uses, function_targets, callees);
+                collect_function_name_reference(
+                    segments,
+                    current_module,
+                    uses,
+                    function_targets,
+                    callees,
+                );
             }
-            collect_function_callees(callee, uses, function_targets, callees);
+            collect_function_callees(callee, current_module, uses, function_targets, callees);
             for arg in args {
-                collect_function_callees(arg, uses, function_targets, callees);
+                collect_function_callees(arg, current_module, uses, function_targets, callees);
             }
         }
         ExprKind::FieldAccess { base, .. } => {
-            collect_function_callees(base, uses, function_targets, callees);
+            collect_function_callees(base, current_module, uses, function_targets, callees);
         }
-        ExprKind::Try(inner) => collect_function_callees(inner, uses, function_targets, callees),
+        ExprKind::Try(inner) => {
+            collect_function_callees(inner, current_module, uses, function_targets, callees)
+        }
         ExprKind::Record(fields) => {
             for field in fields {
-                collect_function_callees(&field.expr, uses, function_targets, callees);
+                collect_function_callees(
+                    &field.expr,
+                    current_module,
+                    uses,
+                    function_targets,
+                    callees,
+                );
             }
         }
         ExprKind::Dict(entries) => {
             for entry in entries {
-                collect_function_callees(&entry.key, uses, function_targets, callees);
-                collect_function_callees(&entry.value, uses, function_targets, callees);
+                collect_function_callees(
+                    &entry.key,
+                    current_module,
+                    uses,
+                    function_targets,
+                    callees,
+                );
+                collect_function_callees(
+                    &entry.value,
+                    current_module,
+                    uses,
+                    function_targets,
+                    callees,
+                );
             }
         }
         ExprKind::List(items) => {
             for item in items {
-                collect_function_callees(item, uses, function_targets, callees);
+                collect_function_callees(item, current_module, uses, function_targets, callees);
             }
         }
         ExprKind::Match { scrutinee, arms } => {
-            collect_function_callees(scrutinee, uses, function_targets, callees);
+            collect_function_callees(scrutinee, current_module, uses, function_targets, callees);
             for arm in arms {
-                collect_function_callees(&arm.expr, uses, function_targets, callees);
+                collect_function_callees(
+                    &arm.expr,
+                    current_module,
+                    uses,
+                    function_targets,
+                    callees,
+                );
             }
         }
         ExprKind::Prefix { expr, .. } => {
-            collect_function_callees(expr, uses, function_targets, callees);
+            collect_function_callees(expr, current_module, uses, function_targets, callees);
         }
         ExprKind::Binary { left, right, .. } => {
-            collect_function_callees(left, uses, function_targets, callees);
-            collect_function_callees(right, uses, function_targets, callees);
+            collect_function_callees(left, current_module, uses, function_targets, callees);
+            collect_function_callees(right, current_module, uses, function_targets, callees);
         }
         ExprKind::Missing
         | ExprKind::Hole { .. }
@@ -398,24 +510,31 @@ fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {
 
 fn collect_function_name_reference(
     segments: &[String],
+    current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
     callees: &mut Vec<ReachableFunction>,
 ) {
-    for callee in resolve_function_reference(segments, uses, function_targets) {
+    for callee in resolve_function_reference(segments, current_module, uses, function_targets) {
         push_reachable(callees, callee);
     }
 }
 
 fn resolve_function_reference(
     segments: &[String],
+    current_module: Option<&str>,
     uses: &[UseDecl],
     function_targets: &[FunctionTarget],
 ) -> Vec<ReachableFunction> {
     match segments {
         [name] => function_targets
             .iter()
-            .filter(|target| target.name == *name)
+            .filter(|target| {
+                target.name == *name
+                    && current_module.is_none_or(|module_name| {
+                        target.module_name.as_deref() == Some(module_name)
+                    })
+            })
             .map(|target| ReachableFunction {
                 kind: FunctionKind::Function,
                 name: target.name.clone(),
@@ -528,6 +647,59 @@ mod tests {
     }
 
     #[test]
+    fn test_entry_can_reach_qualified_function_value_reference() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main_test.veln",
+                    concat!(
+                        "mod app.main\n",
+                        "use app.text\n",
+                        "test foo() -> () effects []\n",
+                        "  list_map([1], text::stringify)\n",
+                        "  ()\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "text.veln",
+                    concat!(
+                        "mod app.text\n",
+                        "fn stringify(value: Int) -> String effects []\n",
+                        "  \"ok\"\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "foo", FunctionKind::Test);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("app.main"), FunctionKind::Test, Some("foo")),
+                (Some("app.text"), FunctionKind::Function, Some("stringify")),
+            ]
+        );
+    }
+
+    #[test]
     fn run_entry_can_reach_contract_helper() {
         let module = lower(concat!(
             "fn positive(value: Int) -> Bool effects []\n",
@@ -550,6 +722,38 @@ mod tests {
             functions,
             vec![
                 (FunctionKind::Function, Some("positive")),
+                (FunctionKind::Function, Some("main")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_contract_function_value() {
+        let module = lower(concat!(
+            "fn accepts(job: fn() -> Bool) -> Bool effects []\n",
+            "  job()\n",
+            "end\n",
+            "fn ready() -> Bool effects []\n",
+            "  true\n",
+            "end\n",
+            "pub fn main() -> () effects []\n",
+            "  require accepts(ready)\n",
+            "  ()\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (FunctionKind::Function, Some("accepts")),
+                (FunctionKind::Function, Some("ready")),
                 (FunctionKind::Function, Some("main")),
             ]
         );
@@ -661,6 +865,63 @@ mod tests {
     }
 
     #[test]
+    fn run_entry_can_reach_qualified_contract_function_value() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "mod app.main\n",
+                        "use app.rules\n",
+                        "fn accepts(job: fn() -> Bool) -> Bool effects []\n",
+                        "  job()\n",
+                        "end\n",
+                        "pub fn main() -> () effects []\n",
+                        "  require accepts(rules::ready)\n",
+                        "  ()\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "rules.veln",
+                    concat!(
+                        "mod app.rules\n",
+                        "fn ready() -> Bool effects []\n",
+                        "  true\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("app.main"), FunctionKind::Function, Some("accepts")),
+                (Some("app.main"), FunctionKind::Function, Some("main")),
+                (Some("app.rules"), FunctionKind::Function, Some("ready")),
+            ]
+        );
+    }
+
+    #[test]
     fn imported_reachability_keeps_module_specific_function_names() {
         let project = Project {
             root: ".".into(),
@@ -711,6 +972,60 @@ mod tests {
             vec![
                 (Some("app.main"), FunctionKind::Function, Some("main")),
                 (Some("app.util"), FunctionKind::Function, Some("value")),
+            ]
+        );
+    }
+
+    #[test]
+    fn bare_reachability_keeps_current_module_function_names() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "mod app.main\n",
+                        "fn value() -> Int effects []\n",
+                        "  1\n",
+                        "end\n",
+                        "pub fn main() -> Int effects []\n",
+                        "  value()\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "other.veln",
+                    concat!(
+                        "mod app.other\n",
+                        "fn value() -> Int effects []\n",
+                        "  _\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("app.main"), FunctionKind::Function, Some("value")),
+                (Some("app.main"), FunctionKind::Function, Some("main")),
             ]
         );
     }

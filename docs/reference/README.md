@@ -24,8 +24,8 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 ## Read When
 
 - Use `language/` before changing code, tests, diagnostics, or samples.
-- Use `../proposals/grammar-target.md` when you need the broader first-slice
-  language target, including planned syntax not yet implemented.
+- Use `language/source-surface.md` when you need the implemented first-slice
+  source grammar.
 - Use `source-decisions/` for implemented decision rationale.
 - Use `../proposals/agent-language-spec-wall/` for planned or incomplete
   decision rationale.

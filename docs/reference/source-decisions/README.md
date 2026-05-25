@@ -31,6 +31,7 @@ read these records only for rationale or compatibility context.
 - [First Implementation Architecture](result-first-implementation-architecture.md)
 - [First Implementation Commands](result-first-implementation-commands.md)
 - [First Implementation Runtime Targets](result-first-implementation-runtime-targets.md)
+- [First-Slice Grammar](result-first-slice-grammar.md)
 - [First-Slice Module Fields](result-first-slice-module-fields.md)
 - [First-Slice Prelude Helpers](result-first-slice-prelude-helpers.md)
 - [First-Slice Observable I/O](result-first-slice-observable-io.md)

@@ -5,8 +5,6 @@ not fully implemented in the current workspace.
 
 ## Read First
 
-- [grammar-target.md](grammar-target.md) is the accepted first-slice grammar
-  target. It includes syntax that is not implemented yet.
 - [first-slice-follow-ups.md](first-slice-follow-ups.md) gathers accepted
   first-slice targets that remain incomplete after the completed edit loop.
 - [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
@@ -16,11 +14,9 @@ not fully implemented in the current workspace.
 
 ## Accepted Targets Not Fully Implemented
 
-- Grammar coverage for the remaining full hole grammar is tracked in
-  [grammar-target.md](grammar-target.md).
 - Remaining first-slice implementation targets are tracked in
   [first-slice-follow-ups.md](first-slice-follow-ups.md).
-- Future concurrency surface work after the implemented bounded-channel slice
+- Future concurrency surface work after the implemented channel and task slices
   is tracked in [first-slice-follow-ups.md](first-slice-follow-ups.md).
 
 ## Status Rules

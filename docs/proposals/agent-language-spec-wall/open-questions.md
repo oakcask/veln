@@ -97,7 +97,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
 - Resolved by [Method Call Boundary](../../reference/source-decisions/result-method-call-boundary.md): use
   function calls as the only general first-slice call form; delay method calls
   and report targeted diagnostics for method-call-shaped syntax when possible.
-- Resolved by [First-Slice Grammar](result-first-slice-grammar.md): the first
+- Resolved by [First-Slice Grammar](../../reference/source-decisions/result-first-slice-grammar.md): the first
   slice should use a small line-oriented, keyword-delimited,
   expression-centered grammar with explicit public signatures, public effect
   declarations, records, lists, `match`, holes, plain and qualified calls,

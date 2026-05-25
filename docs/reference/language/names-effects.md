@@ -118,9 +118,28 @@ transfers the value directly.
 `channel::close` closes the sender endpoint, wakes waiting receivers, and
 returns `()`.
 
+The checker also recognizes these task-operation call targets:
+
+```veln
+task::spawn(job: fn() -> T effects [concurrency]) -> Task(T) effects [concurrency]
+task::spawn[T](job: fn() -> T effects [concurrency]) -> Task(T) effects [concurrency]
+task::join(task: Task(T)) -> Result(T, JoinError) effects [concurrency]
+task::cancel(task: Task(T)) -> () effects [concurrency]
+```
+
+`task::spawn` starts a zero-argument callable in a concurrent task and returns
+its task handle. The result value is frozen before it crosses back through the
+task handle. `task::join` waits for completion and returns `Ok(value)` when the
+task returns normally, or `Err(JoinError)` when the task is interrupted,
+cancelled, or fails at runtime. `task::cancel` requests cancellation by
+interrupting the task and returns `()`. Cancellation is cooperative at the JVM
+runtime boundary.
+
 Executable-command reachability also follows bare and `use`-alias qualified
-pure helper calls used in reachable contract predicates, so blockers inside
-those helpers are reported before the selected entry runs.
+function declaration values in reachable expressions, pure helper calls used
+in reachable contract predicates, and function declaration values passed as
+contract call arguments, so blockers inside those helpers are reported before
+the selected entry runs.
 
 A public function whose declared effects omit an inferred effect reports
 `effect.missing_public` with related provenance pointing at bounded call sites.

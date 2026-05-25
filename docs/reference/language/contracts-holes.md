@@ -36,7 +36,8 @@ After parsing, the checker validates a small pure boolean subset:
 - explicit result bindings in `ensure` clauses
 
 Contract call arguments may use the same validated pure subset, including
-numeric arithmetic and field access. A bare arithmetic expression such as
+numeric arithmetic, field access, and function declaration values passed where
+the callee expects a function type. A bare arithmetic expression such as
 `value + 1` is valid syntax but not a boolean predicate, so it reports a
 non-boolean contract diagnostic instead of becoming a runtime obligation.
 Pure function calls that return numeric values may participate in arithmetic
@@ -112,9 +113,10 @@ binding, such as
 `candidate == fallback`, `fallback == candidate`, `candidate <= fallback`, and
 `fallback >= candidate`. Field-access forms with the same suffix on both sides
 are also accepted, such as `candidate.count == fallback.count`. `and` may join
-clauses that all name the same binding. Top-level `or` may also join direct
-branches when every branch names the same binding, such as
-`candidate == fallback or candidate >= fallback`.
+clauses that all name the same binding. Top-level `or` also checks each direct
+branch independently. A visible binding is safe when at least one branch
+becomes reflexive after substituting that binding, such as `fallback` in
+`candidate == fallback or candidate == other`.
 Literal `false` disjuncts do not affect direct repair matching, so
 `false or candidate == fallback` has the same repair status as
 `candidate == fallback`.
@@ -137,10 +139,17 @@ repair status as `candidate == fallback`. A negated disjunction of direct
 comparison clauses is normalized before direct repair matching, so
 `not (candidate != fallback or candidate < fallback)` has the same direct
 repair status as `candidate == fallback and candidate >= fallback`. A negated
+disjunction may include literal `false` branches without changing direct
+repair matching, so `not (false or candidate != fallback)` has the same
+direct repair status as `candidate == fallback`. A negated
 conjunction of direct comparison clauses is normalized into disjunctive direct
 branches before matching, so
 `not (candidate != fallback and candidate < fallback)` has the same direct
-repair status as `candidate == fallback or candidate >= fallback`. The
+repair status as `candidate == fallback or candidate >= fallback`. Literal
+boolean branches created by this negated-conjunction normalization are folded,
+so `not (true and candidate != fallback)` has the same direct repair status as
+`candidate == fallback`, and `not (false and candidate != fallback)` ranks as
+a tautological repair constraint. The
 accepted tautological clauses
 compare the satisfy candidate with itself using `==`, `<=`, or `>=`, such as
 `candidate == candidate`; their negated inverse forms, such as
@@ -219,6 +228,9 @@ every branch guarantees the same weaker comparison. For example,
 `require low < mid or low == mid` contributes the inclusive edge
 `low <= mid`, which can combine with `require mid < max` to guarantee
 `candidate > low` after substituting `max`.
+Disjunctive `require` clauses also contribute a common boolean atom when every
+branch guarantees that same atom. For example, `require max.ready or
+max.ready` guarantees `candidate.ready` after substituting `max`.
 If a substituted `satisfy` predicate has top-level `or` clauses, a candidate
 is also safe when any one `or` branch is fully guaranteed by valid `require`
 clauses.
@@ -242,17 +254,37 @@ candidate <= 10` is guaranteed by `require max <= 10` after substituting
 `max`. Negated top-level `or` predicates in valid `require` clauses are
 normalized through their direct comparison branches before repair matching.
 For example, `require not (max < 0 or max > 10)` guarantees both
-`candidate >= 0` and `candidate <= 10` after substituting `max`. Negated
+`candidate >= 0` and `candidate <= 10` after substituting `max`. Literal
+`false` branches inside the negated disjunction do not change this matching,
+so `require not (false or max <= 0)` guarantees `candidate > 0` after
+substituting `max`. Negated disjunctions also expose negated boolean atom
+branches, so `require not (max.ready or other.ready)` guarantees
+`not candidate.ready` after substituting either `max` or `other`. Negated
 top-level `and` predicates in `satisfy` clauses are normalized into their
 inverted `or` branches before `require` matching. For example,
 `not (candidate <= 0 and candidate > 10)` is guaranteed by `require max > 0`
-after substituting `max`, because one inverted branch is guaranteed. Every
+after substituting `max`, because one inverted branch is guaranteed. Negated
+top-level `and` predicates in valid `require` clauses can also guarantee a
+disjunctive `satisfy` predicate when every inverted branch discharges one
+top-level `satisfy` branch. For example,
+`require not (max <= 0 and max > 10)` guarantees
+`candidate > 0 or candidate <= 10` after substituting `max`. Literal boolean
+branches created by this normalization are folded before matching; for example,
+`require not (true and max <= 0)` guarantees `candidate > 0` after
+substituting `max`. Every
 same-shape expression operand in `require`-matched repair is compared after
 whitespace normalization, so `require max + 1 <= fallback + 1` guarantees
 `candidate+1 <= fallback+1` after substituting `max`. Equality requirements
 also apply inside same-shape expression operands before that comparison, so
 `require max == fallback` plus `require fallback + 1 <= limit + 1` guarantees
-`candidate + 1 <= limit + 1` after substituting `max`. Every
+`candidate + 1 <= limit + 1` after substituting `max`. The same expression
+operand aliasing applies while chaining transitive ordering evidence, so
+`require max == fallback`, `require fallback + 1 <= mid + 1`, and
+`require mid + 1 <= limit + 1` guarantee
+`candidate + 1 <= limit + 1` after substituting `max`. Equality requirements
+also apply to boolean atom clauses, so `require max == fallback` plus
+`require fallback.ready` guarantees `candidate.ready` after substituting
+`max`. Every
 type-compatible visible binding candidate for the tautological
 subset uses `reason: "satisfy_tautology"`. A statically accepted candidate also
 uses `satisfy_status: "statically_satisfied"`. Other candidates for a

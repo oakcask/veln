@@ -11,6 +11,7 @@ categorized specification files. The full implemented decision index is
 - [Check JSON Details Fields](../source-decisions/result-check-json-details-fields.md)
 - [Test JSON Shape](../source-decisions/result-test-json-shape.md)
 - [Affected Test Selection](../source-decisions/result-affected-test-selection.md)
+- [First-Slice Grammar](../source-decisions/result-first-slice-grammar.md)
 - [Test Declaration Syntax](../source-decisions/result-test-declaration-syntax.md)
 - [First-Slice Module Fields](../source-decisions/result-first-slice-module-fields.md)
 - [Effect Declaration Boundary](../source-decisions/result-effect-declaration-boundary.md)

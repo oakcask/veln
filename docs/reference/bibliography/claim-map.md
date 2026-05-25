@@ -85,7 +85,7 @@
   keyword-delimited, expression-centered grammar instead of multiple equivalent
   surface forms.
 - Discussion result:
-  [First-Slice Grammar](../../proposals/agent-language-spec-wall/result-first-slice-grammar.md)
+  [First-Slice Grammar](../source-decisions/result-first-slice-grammar.md)
 - Supporting references:
   `stefik2013-programming-language-syntax`,
   `lappi2023-syntax-intuitiveness-replication`,

@@ -1,6 +1,6 @@
 # Discussion Result: First-Slice Grammar
 
-Status: accepted-proposal
+Status: implemented
 
 ## Picked Question
 
@@ -26,16 +26,26 @@ The first slice excludes statement braces, semicolon-separated statement
 lists, indentation-sensitive nesting, method calls, user-defined ADT
 declarations, loops, mutation, classes, traits, macros, comprehensions,
 anonymous functions, and custom operators. Dictionary types may appear in
-signatures as `Dict(K, V)`, and the current grammar target includes
+signatures as `Dict(K, V)`, and the implemented source surface includes
 non-identifier-key dictionary literals.
 
-## Canonical Grammar
+## Implemented Grammar
 
-The canonical grammar now lives in
-[Veln First-Slice Grammar Target](../../proposals/grammar-target.md). This discussion result
-records the original decision and rationale; later grammar updates such as
-`test` declarations and hole `satisfy` clauses are consolidated in the
-proposal document.
+The implemented grammar now lives in the categorized language reference:
+
+- [Source Surface](../language/source-surface.md) defines modules, items,
+  declarations, statements, expressions, patterns, contracts, and explicit
+  non-goals.
+- [Types](../language/types.md) defines implemented type annotations and
+  assignment compatibility.
+- [Contracts And Holes](../language/contracts-holes.md) defines contract and
+  `satisfy` checking behavior.
+
+This discussion result records the original decision and rationale. Later
+implemented grammar updates such as `test` declarations, doctest fences,
+ADR-lite records, dictionary literals, and hole `satisfy` clauses are
+integrated into the language reference instead of remaining as proposal
+targets.
 
 ## Rationale
 
@@ -137,22 +147,22 @@ prefer parentheses before the language adds more operators.
 
 ## References
 
-- Stefik, A., & Siebert, S. (2013). An empirical investigation into programming
+- Stefik, A., & Siebert, S. An empirical investigation into programming
   language syntax. *ACM Transactions on Computing Education*, 13(4), Article
   19. https://doi.org/10.1145/2534973
-- Lappi, V., Tirronen, V., & Itkonen, J. (2023). A replication study on the
+- Lappi, V., Tirronen, V., & Itkonen, J. A replication study on the
   intuitiveness of programming language syntax. *Software Quality Journal*,
   31, 1211-1240. https://doi.org/10.1007/s11219-023-09631-7
-- Qiu, D., Li, B., Barr, E. T., & Su, Z. (2017). Understanding the syntactic
+- Qiu, D., Li, B., Barr, E. T., & Su, Z. Understanding the syntactic
   rule usage in java. *Journal of Systems and Software*, 123, 160-172.
   https://doi.org/10.1016/j.jss.2016.10.017
-- Medeiros, S. Q. de, Alvez Junior, G. de A., & Mascarenhas, F. (2019).
+- Medeiros, S. Q. de, Alvez Junior, G. de A., & Mascarenhas, F.
   *Automatic Syntax Error Reporting and Recovery in Parsing Expression
   Grammars*. arXiv:1905.02145. https://arxiv.org/abs/1905.02145
-- Perelman, D., Gulwani, S., Ball, T., & Grossman, D. (2012). Type-directed
-  completion of partial expressions. *PLDI 2012*, 275-286.
+- Perelman, D., Gulwani, S., Ball, T., & Grossman, D. Type-directed
+  completion of partial expressions. *PLDI*, 275-286.
   https://doi.org/10.1145/2254064.2254098
-- Omar, C., Voysey, I., Chugh, R., & Hammer, M. A. (2019). Live functional
+- Omar, C., Voysey, I., Chugh, R., & Hammer, M. A. Live functional
   programming with typed holes. *Proceedings of the ACM on Programming
   Languages*, 3(POPL), 1-32. https://doi.org/10.1145/3290327
 

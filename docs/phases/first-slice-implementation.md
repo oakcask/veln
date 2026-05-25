@@ -785,7 +785,7 @@ first slice using
 
 - [First Implementation Architecture](../reference/source-decisions/result-first-implementation-architecture.md)
 - [First Implementation Commands](../reference/source-decisions/result-first-implementation-commands.md)
-- [First-Slice Grammar](../proposals/agent-language-spec-wall/result-first-slice-grammar.md)
+- [First-Slice Grammar](../reference/source-decisions/result-first-slice-grammar.md)
 - [AST Phase Boundary](../reference/source-decisions/result-ast-phase-boundary.md)
 - [AST Implementation Representation](../reference/source-decisions/result-ast-implementation-representation.md)
 - [Minimum Type System for Holes](../reference/source-decisions/result-minimum-type-system-for-holes.md)

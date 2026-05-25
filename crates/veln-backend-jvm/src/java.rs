@@ -56,6 +56,9 @@ pub(crate) fn concurrency_method(name: &str) -> &'static str {
         "channel::send" => "channelSend",
         "channel::recv" => "channelRecv",
         "channel::close" => "channelClose",
+        "task::spawn" => "taskSpawn",
+        "task::join" => "taskJoin",
+        "task::cancel" => "taskCancel",
         _ => "channelRecv",
     }
 }

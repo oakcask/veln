@@ -85,7 +85,7 @@ code, get structured information, fill holes, and run focused checks.
 
 ## Next Discussion Topics
 
-1. Resolved by [First-Slice Grammar](result-first-slice-grammar.md): pick the
+1. Resolved by [First-Slice Grammar](../../reference/source-decisions/result-first-slice-grammar.md): pick the
    exact first-slice grammar.
 2. Define the JSON shape for `veln check --json`.
 3. Decide how holes, contracts, and effects appear in the AST.

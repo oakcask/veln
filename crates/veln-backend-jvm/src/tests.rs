@@ -120,6 +120,124 @@ fn generates_runtime_calls_for_bounded_channels() {
 }
 
 #[test]
+fn generates_runtime_calls_for_tasks() {
+    let ir = lower_to_ir(concat!(
+        "fn produce() -> String effects []\n",
+        "  \"hello\"\n",
+        "end\n",
+        "pub fn main() -> Result(String, JoinError) effects [concurrency]\n",
+        "  let task = task::spawn(produce)\n",
+        "  task::join(task)\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("VelnRuntime.taskSpawn("));
+    assert!(program.contains("VelnRuntime.taskJoin("));
+    assert!(runtime.contains("public static final class Task"));
+    assert!(runtime.contains("public static Object taskSpawn"));
+    assert!(runtime.contains("public static Object taskJoin"));
+    assert!(runtime.contains("public static Object taskCancel"));
+}
+
+#[test]
+fn generated_runtime_serializes_concurrent_stdio_events() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(\"ok\")\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+    assert!(runtime.contains("private static final Object stdioLock"));
+    assert!(runtime.contains("synchronized (stdioLock)"));
+
+    let root = temp_dir("concurrent-stdio");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("StdioProbe.java"),
+        r#"public final class StdioProbe {
+    private StdioProbe() {}
+
+    public static void main(String[] args) throws Exception {
+        Thread first = new Thread(() -> {
+            for (int index = 0; index < 8; index += 1) {
+                VelnRuntime.stdioPrintln("out-" + index, "call-out", "main.veln");
+            }
+        });
+        Thread second = new Thread(() -> {
+            for (int index = 0; index < 8; index += 1) {
+                VelnRuntime.stdioEprintln("err-" + index, "call-err", "main.veln");
+            }
+        });
+        first.start();
+        second.start();
+        first.join();
+        second.join();
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("StdioProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let event_file = root.join("stdio-events.tsv");
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("StdioProbe")
+        .env("VELN_STDIO_EVENTS", &event_file)
+        .output()
+        .expect("java should run");
+
+    assert!(
+        java.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&java.stdout),
+        String::from_utf8_lossy(&java.stderr)
+    );
+    let trace = fs::read_to_string(&event_file).expect("stdio trace should be written");
+    let _ = fs::remove_dir_all(&root);
+    let lines = trace.lines().collect::<Vec<_>>();
+    assert_eq!(lines.len(), 16, "{trace}");
+    for (index, line) in lines.iter().enumerate() {
+        let fields = line.split('\t').collect::<Vec<_>>();
+        assert_eq!(fields.len(), 7, "{line}");
+        assert_eq!(fields[0], (index + 1).to_string(), "{trace}");
+    }
+}
+
+#[test]
 fn generated_runtime_treats_zero_capacity_channel_as_rendezvous() {
     if Command::new("javac").arg("-version").output().is_err() {
         return;

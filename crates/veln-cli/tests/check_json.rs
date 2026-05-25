@@ -1622,6 +1622,38 @@ fn run_executes_explicit_type_argument_bounded_channel_when_jdk_is_available() {
 }
 
 #[test]
+fn run_executes_task_spawn_and_join_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-task-spawn-join");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn produce() -> String effects []\n",
+            "  \"hello\"\n",
+            "end\n",
+            "pub fn main() -> () effects [concurrency, stdio]\n",
+            "  let task = task::spawn(produce)\n",
+            "  let output: String = match task::join(task)\n",
+            "    Ok(value) => value\n",
+            "    Err(_) => \"failed\"\n",
+            "  end\n",
+            "  stdio::println(output)\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "hello\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
 fn run_blocks_reachable_holes_before_jdk_execution() {
     let project = TestProject::new("run-hole");
     project.write(
@@ -1671,6 +1703,42 @@ fn run_blocks_holes_reachable_through_function_values_before_jdk_execution() {
 }
 
 #[test]
+fn run_blocks_holes_reachable_through_qualified_function_values_before_jdk_execution() {
+    let project = TestProject::new("run-qualified-function-value-hole");
+    project.write(
+        "text.veln",
+        concat!(
+            "mod app.text\n",
+            "fn stringify(value: Int) -> String effects []\n",
+            "  _\n",
+            "end\n",
+        ),
+    );
+    project.write(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.text\n",
+            "pub fn main() -> List(String) effects []\n",
+            "  list_map([1], text::stringify)\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln", "text.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "hint[hole.unfilled]: hole requires a `String` value",
+            "veln: run blocked: checked program is not executable",
+        ],
+    );
+}
+
+#[test]
 fn run_blocks_holes_reachable_through_contract_helpers_before_jdk_execution() {
     let project = TestProject::new("run-contract-helper-hole");
     project.write(
@@ -1682,6 +1750,38 @@ fn run_blocks_holes_reachable_through_contract_helpers_before_jdk_execution() {
             "pub fn main() -> output: Int effects []\n",
             "  ensure positive(output)\n",
             "  1\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "hint[hole.unfilled]: hole requires a `Bool` value",
+            "veln: run blocked: checked program is not executable",
+        ],
+    );
+}
+
+#[test]
+fn run_blocks_holes_reachable_through_contract_function_values_before_jdk_execution() {
+    let project = TestProject::new("run-contract-function-value-hole");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn accepts(job: fn() -> Bool) -> Bool effects []\n",
+            "  job()\n",
+            "end\n",
+            "fn ready() -> Bool effects []\n",
+            "  _\n",
+            "end\n",
+            "pub fn main() -> () effects []\n",
+            "  require accepts(ready)\n",
+            "  ()\n",
             "end\n",
         ),
     );

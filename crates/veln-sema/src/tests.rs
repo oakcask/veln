@@ -582,6 +582,76 @@ fn marks_negated_conjunctive_direct_satisfy_candidate_as_safe_repair() {
 }
 
 #[test]
+fn ignores_false_branch_from_negated_true_conjunct_in_direct_satisfy_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int) -> Int\n",
+            "  let fallback = 1\n",
+            "  _value satisfy candidate => not (true and candidate != fallback)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"fallback\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+}
+
+#[test]
+fn marks_negated_false_conjunctive_satisfy_as_tautological_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int) -> Int\n",
+            "  let fallback = 1\n",
+            "  _value satisfy candidate => not (false and candidate != fallback)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert_eq!(
+        details
+            .matches("\"application_policy\":\"safe_repair_candidate\"")
+            .count(),
+        2
+    );
+    assert_eq!(
+        details.matches("\"reason\":\"satisfy_tautology\"").count(),
+        2
+    );
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
 fn rejects_negated_disjunctive_direct_satisfy_candidates_with_different_bindings() {
     let source = SourceFile::new(
         "main.veln",
@@ -747,7 +817,7 @@ fn marks_disjunctive_direct_satisfy_candidate_as_safe_repair() {
     let details = diagnostics[0].details.to_json();
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
-        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_reflexive_match\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
         "\"application_policy\":\"safe_repair_candidate\","
     )));
     assert!(details.contains("\"replacement\":\"fallback\""));
@@ -793,11 +863,11 @@ fn ignores_false_disjuncts_in_direct_satisfy_repair() {
 }
 
 #[test]
-fn does_not_mark_disjunctive_direct_satisfy_candidates_with_different_bindings() {
+fn marks_reflexive_direct_satisfy_disjuncts_for_different_bindings() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(limit: Int) -> Int\n",
+            "fn main(limit: Int, spare: Int) -> Int\n",
             "  let fallback = 1\n",
             "  _value satisfy candidate => candidate == fallback or candidate == limit\n",
             "end\n",
@@ -813,16 +883,25 @@ fn does_not_mark_disjunctive_direct_satisfy_candidates_with_different_bindings()
     let details = diagnostics[0].details.to_json();
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
-        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
-        "\"application_policy\":\"manual_review_required\","
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
     )));
     assert!(details.contains(concat!(
-        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"spare\",",
         "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
         "\"application_policy\":\"manual_review_required\","
     )));
-    assert!(!details.contains("\"application_policy\":\"safe_repair_candidate\""));
-    assert!(!details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":3,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
 }
 
 #[test]
@@ -2107,6 +2186,66 @@ fn marks_negated_disjunctive_require_as_satisfy_repair_evidence() {
 }
 
 #[test]
+fn ignores_false_branches_in_negated_disjunctive_direct_satisfy_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(fallback: Int) -> Int\n",
+            "  _value satisfy candidate => not (false or candidate != fallback)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"fallback\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn ignores_false_branches_in_negated_disjunctive_require_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int) -> Int\n",
+            "  require not (false or max <= 0)\n",
+            "  _value satisfy candidate => candidate > 0\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"max\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn marks_negated_conjunctive_satisfy_as_require_discharged_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -2114,6 +2253,72 @@ fn marks_negated_conjunctive_satisfy_as_require_discharged_repair() {
             "fn main(max: Int, fallback: Int) -> Int\n",
             "  require max > 0\n",
             "  _value satisfy candidate => not (candidate <= 0 and candidate > 10)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"max\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn marks_negated_conjunctive_require_as_disjunctive_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int) -> Int\n",
+            "  require not (max <= 0 and max > 10)\n",
+            "  _value satisfy candidate => candidate > 0 or candidate <= 10\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"max\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn ignores_false_branch_from_negated_true_conjunctive_require_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int) -> Int\n",
+            "  require not (true and max <= 0)\n",
+            "  _value satisfy candidate => candidate > 0\n",
             "end\n",
         ),
     );
@@ -2520,6 +2725,178 @@ fn marks_aliased_expression_require_as_satisfy_repair_evidence() {
             .matches("\"satisfy_status\":\"statically_satisfied\"")
             .count(),
         3
+    );
+}
+
+#[test]
+fn marks_aliased_expression_order_path_as_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int, mid: Int, limit: Int, other: Int) -> Int\n",
+            "  require max == fallback\n",
+            "  require fallback + 1 <= mid + 1\n",
+            "  require mid + 1 <= limit + 1\n",
+            "  _value satisfy candidate => candidate + 1 <= limit + 1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"other\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_reflexive_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"mid\",",
+        "\"type\":\"Int\",\"rank\":3,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-4\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":4,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-5\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":5,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        4
+    );
+}
+
+#[test]
+fn marks_aliased_boolean_atom_require_as_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: {ready: Bool}, fallback: {ready: Bool}, other: {ready: Bool}) -> {ready: Bool}\n",
+            "  require max == fallback\n",
+            "  require fallback.ready\n",
+            "  _value satisfy candidate => candidate.ready\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"other\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"fallback\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"max\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":3,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn marks_disjunctive_common_boolean_atom_require_as_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: {ready: Bool}, fallback: {ready: Bool}) -> {ready: Bool}\n",
+            "  require max.ready or max.ready\n",
+            "  _value satisfy candidate => candidate.ready\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"max\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn marks_negated_disjunctive_atom_require_as_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: {ready: Bool}, other: {ready: Bool}, fallback: {ready: Bool}) -> {ready: Bool}\n",
+            "  require not (max.ready or other.ready)\n",
+            "  _value satisfy candidate => not candidate.ready\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"other\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"max\",",
+        "\"type\":\"{ready: Bool}\",\"rank\":3,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
     );
 }
 
@@ -4556,6 +4933,70 @@ fn contract_predicate_accepts_nested_pure_function_call_arguments() {
     let parsed = parse(&source);
     assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
     let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_predicate_accepts_function_value_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn ready() -> Bool effects []\n",
+            "  true\n",
+            "end\n",
+            "fn accepts(job: fn() -> Bool) -> Bool effects []\n",
+            "  job()\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require accepts(ready)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn contract_predicate_accepts_qualified_function_value_arguments() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.rules\n",
+            "fn accepts(job: fn() -> Bool) -> Bool effects []\n",
+            "  job()\n",
+            "end\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require accepts(rules::ready)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let rules_source = SourceFile::new(
+        "rules.veln",
+        concat!(
+            "mod app.rules\n",
+            "fn ready() -> Bool effects []\n",
+            "  true\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let rules = lower_surface_ast(&parse(&rules_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        functions: main.functions.into_iter().chain(rules.functions).collect(),
+    };
 
     let diagnostics = analyze_surface_module(&module);
 

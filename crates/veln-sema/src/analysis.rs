@@ -926,6 +926,9 @@ impl<'a> FunctionChecker<'a> {
                     if bindings.iter().any(|binding| binding.name == name) {
                         continue;
                     }
+                    if self.environment.function(&name).is_some() {
+                        continue;
+                    }
                     return ContractValidation::UnresolvedName { name };
                 }
                 let actual_type = self.predicate_arg_type(arg, bindings);
@@ -944,6 +947,9 @@ impl<'a> FunctionChecker<'a> {
                 continue;
             }
             if bindings.iter().any(|binding| binding.name == name) {
+                continue;
+            }
+            if self.environment.function(&name).is_some() {
                 continue;
             }
             return ContractValidation::UnresolvedName { name };
@@ -1029,6 +1035,10 @@ impl<'a> FunctionChecker<'a> {
                 .map(|(_, return_type, _)| return_type)
         }) {
             return ty;
+        }
+        let segments = contract_callee_segments(trimmed);
+        if let Some(function) = self.environment.function_path(&segments) {
+            return function.ty();
         }
         let mut parts = trimmed.split('.');
         let Some(base) = parts.next() else {
@@ -2770,6 +2780,13 @@ impl SatisfyRepairConstraint {
                 reason: tautology.reason,
             });
         }
+        if let Some(bindings) = reflexive_candidate_disjunct_bindings(&satisfy.predicate, candidate)
+        {
+            return Some(Self {
+                allowed_bindings: Some(bindings),
+                reason: "satisfy_reflexive_match",
+            });
+        }
         reflexive_candidate_binding(&satisfy.predicate, candidate).map(|allowed| Self {
             allowed_bindings: Some(vec![SatisfyAllowedBinding {
                 name: allowed.binding,
@@ -2803,6 +2820,37 @@ impl SatisfyRepairConstraint {
             }
         }
     }
+}
+
+fn reflexive_candidate_disjunct_bindings(
+    predicate: &str,
+    candidate: &str,
+) -> Option<Vec<SatisfyAllowedBinding>> {
+    if repair_relevant_negated_and_clauses(predicate).is_some() {
+        return None;
+    }
+    let disjuncts = repair_relevant_or_clauses(predicate);
+    if disjuncts.len() <= 1 {
+        return None;
+    }
+    let mut bindings = Vec::new();
+    for disjunct in disjuncts {
+        let Some(direct) =
+            reflexive_candidate_conjunction(repair_relevant_and_clauses(disjunct), candidate)
+        else {
+            continue;
+        };
+        if !bindings
+            .iter()
+            .any(|binding: &SatisfyAllowedBinding| binding.name == direct.binding)
+        {
+            bindings.push(SatisfyAllowedBinding {
+                name: direct.binding,
+                reason: direct.reason,
+            });
+        }
+    }
+    (!bindings.is_empty()).then_some(bindings)
 }
 
 struct ReflexiveCandidateBinding {
@@ -2885,6 +2933,14 @@ fn tautological_candidate_predicate(
     candidate: &str,
 ) -> Option<TautologicalCandidatePredicate> {
     if has_true_disjunct(predicate) {
+        return Some(TautologicalCandidatePredicate {
+            reason: "satisfy_tautology",
+        });
+    }
+    if repair_relevant_negated_and_clauses(predicate)
+        .as_deref()
+        .is_some_and(|clauses| clauses.iter().any(|clause| clause == "true"))
+    {
         return Some(TautologicalCandidatePredicate {
             reason: "satisfy_tautology",
         });
@@ -3146,16 +3202,34 @@ fn repair_relevant_negated_and_clauses(predicate: &str) -> Option<Vec<String>> {
     if conjuncts.len() <= 1 {
         return None;
     }
-    conjuncts
+    let clauses = conjuncts
         .into_iter()
-        .map(|conjunct| canonical_negated_repair_clause(&format!("not ({conjunct})")))
-        .collect()
+        .map(|conjunct| canonical_negated_repair_or_atom_clause(&format!("not ({conjunct})")))
+        .collect::<Option<Vec<_>>>()?;
+    if clauses.iter().any(|clause| clause == "true") {
+        return Some(vec!["true".to_string()]);
+    }
+    let clauses = clauses
+        .into_iter()
+        .filter(|clause| clause != "false")
+        .collect::<Vec<_>>();
+    Some(if clauses.is_empty() {
+        vec!["false".to_string()]
+    } else {
+        clauses
+    })
 }
 
 fn predicate_guaranteed_by_required_predicates(
     predicate: &str,
     required_predicates: &[String],
 ) -> bool {
+    if required_predicates
+        .iter()
+        .any(|required| required_predicate_implies_disjunctive_predicate(required, predicate))
+    {
+        return true;
+    }
     repair_relevant_or_clause_strings(predicate)
         .into_iter()
         .map(|disjunct| repair_relevant_and_clauses(&disjunct))
@@ -3165,6 +3239,24 @@ fn predicate_guaranteed_by_required_predicates(
                     repair_clause_guaranteed_by_required_predicates(clause, required_predicates)
                 })
         })
+}
+
+fn required_predicate_implies_disjunctive_predicate(required: &str, wanted: &str) -> bool {
+    let wanted_disjuncts = repair_relevant_or_clauses(wanted)
+        .into_iter()
+        .map(canonical_repair_clause)
+        .collect::<Vec<_>>();
+    if wanted_disjuncts.len() <= 1 {
+        return false;
+    }
+    let Some(required_disjuncts) = repair_relevant_negated_and_clauses(required) else {
+        return false;
+    };
+    required_disjuncts.iter().all(|required_disjunct| {
+        wanted_disjuncts
+            .iter()
+            .any(|wanted_disjunct| repair_clause_implies(required_disjunct, wanted_disjunct))
+    })
 }
 
 fn repair_relevant_or_clause_strings(predicate: &str) -> Vec<String> {
@@ -3219,6 +3311,7 @@ fn required_predicate_implies_clause(predicate: &str, wanted: &str) -> bool {
     }
     let canonical = canonical_repair_clause(predicate);
     repair_clause_implies(&canonical, wanted)
+        || repair_atoms_equivalent(&canonical, wanted, &RepairEquivalences::default())
 }
 
 fn repair_clause_implies(required: &str, wanted: &str) -> bool {
@@ -3249,14 +3342,16 @@ fn repair_clause_implies(required: &str, wanted: &str) -> bool {
 }
 
 fn required_predicate_set_implies_clause(required_predicates: &[String], wanted: &str) -> bool {
-    let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
-        return false;
-    };
     let required_clauses = required_predicates
         .iter()
         .flat_map(|predicate| repair_set_clauses(predicate))
         .collect::<Vec<_>>();
     let equivalences = repair_equivalences(&required_clauses);
+    let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
+        return required_clauses
+            .iter()
+            .any(|required| repair_atoms_equivalent(required, wanted, &equivalences));
+    };
     if required_clauses
         .iter()
         .any(|required| repair_clause_implies_with_equivalences(required, &wanted, &equivalences))
@@ -3333,18 +3428,19 @@ fn disjunctive_common_repair_clauses(predicate: &str) -> Vec<String> {
 fn implied_clause_candidates(predicate: &str) -> Vec<String> {
     non_disjunctive_repair_clauses(predicate)
         .into_iter()
-        .filter_map(|clause| {
-            let parsed = ParsedRepairComparison::parse(&clause)?;
-            Some([
+        .flat_map(|clause| {
+            let Some(parsed) = ParsedRepairComparison::parse(&clause) else {
+                return vec![clause];
+            };
+            vec![
                 format!("{} == {}", parsed.left, parsed.right),
                 format!("{} != {}", parsed.left, parsed.right),
                 format!("{} < {}", parsed.left, parsed.right),
                 format!("{} < {}", parsed.right, parsed.left),
                 format!("{} <= {}", parsed.left, parsed.right),
                 format!("{} <= {}", parsed.right, parsed.left),
-            ])
+            ]
         })
-        .flatten()
         .map(canonical_repair_clause)
         .fold(Vec::<String>::new(), |mut candidates, candidate| {
             if !candidates.iter().any(|existing| existing == &candidate) {
@@ -3355,6 +3451,9 @@ fn implied_clause_candidates(predicate: &str) -> Vec<String> {
 }
 
 fn canonical_non_disjunctive_repair_clauses(clause: &str) -> Vec<String> {
+    if let Some(clauses) = repair_relevant_negated_and_clauses(clause) {
+        return clauses;
+    }
     canonical_negated_disjunction_repair_clauses(clause)
         .unwrap_or_else(|| vec![canonical_repair_clause(clause)])
 }
@@ -3369,14 +3468,29 @@ fn canonical_negated_disjunction_repair_clauses(clause: &str) -> Option<Vec<Stri
             .map(|negated| negated.strip_suffix(')').unwrap_or(negated).trim())?
     };
     let negated = strip_balanced_outer_parens(negated);
-    let disjuncts = repair_relevant_or_clauses(negated);
+    let disjuncts = split_top_level_keyword(negated, "or")
+        .into_iter()
+        .filter(|disjunct| !disjunct.trim().is_empty())
+        .collect::<Vec<_>>();
     if disjuncts.len() <= 1 {
         return None;
     }
-    disjuncts
+    let clauses = disjuncts
         .into_iter()
-        .map(|disjunct| canonical_negated_repair_clause(&format!("not ({disjunct})")))
-        .collect()
+        .map(|disjunct| canonical_negated_repair_or_atom_clause(&format!("not ({disjunct})")))
+        .collect::<Option<Vec<_>>>()?;
+    if clauses.iter().any(|clause| clause == "false") {
+        return Some(vec!["false".to_string()]);
+    }
+    let clauses = clauses
+        .into_iter()
+        .filter(|clause| clause != "true")
+        .collect::<Vec<_>>();
+    Some(if clauses.is_empty() {
+        vec!["true".to_string()]
+    } else {
+        clauses
+    })
 }
 
 fn inclusive_bounds_imply_equality(
@@ -3522,7 +3636,7 @@ fn ordering_path_exists(
     let mut pending = vec![(from, false)];
     let mut visited = Vec::<(String, bool)>::new();
     while let Some((current, has_strict)) = pending.pop() {
-        if equivalences.equivalent(current, to) && (!needs_strict || has_strict) {
+        if repair_operands_equivalent(current, to, equivalences) && (!needs_strict || has_strict) {
             return true;
         }
         if visited
@@ -3533,7 +3647,7 @@ fn ordering_path_exists(
         }
         visited.push((current.to_string(), has_strict));
         for (left, right, edge_strict) in &edges {
-            if equivalences.equivalent(current, left) {
+            if repair_operands_equivalent(current, left, equivalences) {
                 pending.push((right, has_strict || *edge_strict));
             }
         }
@@ -3695,6 +3809,17 @@ fn repair_operands_equivalent(
     equivalences.equivalent(required, wanted)
         || compact_predicate_text(required) == compact_predicate_text(wanted)
         || equivalences.canonical_expression(required) == equivalences.canonical_expression(wanted)
+}
+
+fn repair_atoms_equivalent(
+    required: &str,
+    wanted: &str,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    ParsedRepairComparison::parse(required).is_none()
+        && (compact_predicate_text(required) == compact_predicate_text(wanted)
+            || equivalences.canonical_expression(required)
+                == equivalences.canonical_expression(wanted))
 }
 
 struct ParsedRepairComparison<'a> {
@@ -3865,6 +3990,11 @@ fn canonical_negated_repair_clause(clause: &str) -> Option<String> {
     if let Some(double_negated) = stripped_not_operand(negated) {
         return Some(canonical_repair_clause(double_negated));
     }
+    match normalized_predicate_clause(negated).as_str() {
+        "true" => return Some("false".to_string()),
+        "false" => return Some("true".to_string()),
+        _ => {}
+    }
     for (operator, inverse) in [
         ("==", "!="),
         ("!=", "=="),
@@ -3884,6 +4014,21 @@ fn canonical_negated_repair_clause(clause: &str) -> Option<String> {
         return Some(canonical_repair_clause(format!("{left} {inverse} {right}")));
     }
     None
+}
+
+fn canonical_negated_repair_or_atom_clause(clause: &str) -> Option<String> {
+    canonical_negated_repair_clause(clause).or_else(|| {
+        let negated = stripped_not_operand(clause.trim())?;
+        let negated = strip_balanced_outer_parens(negated);
+        if negated.is_empty()
+            || split_top_level_keyword(negated, "and").len() > 1
+            || split_top_level_keyword(negated, "or").len() > 1
+            || ParsedRepairComparison::parse(negated).is_some()
+        {
+            return None;
+        }
+        Some(format!("not {negated}"))
+    })
 }
 
 fn replace_identifier(predicate: &str, target: &str, replacement: &str) -> String {

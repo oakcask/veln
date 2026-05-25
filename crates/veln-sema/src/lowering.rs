@@ -573,8 +573,16 @@ impl<'a> CoreLowerer<'a> {
                     .iter()
                     .rev()
                     .find(|binding| binding.name == *name)
-                    .map(|binding| binding.ty.clone()),
-                _ => None,
+                    .map(|binding| binding.ty.clone())
+                    .or_else(|| {
+                        self.environment
+                            .function(name)
+                            .map(|function| core_type(&function.ty()))
+                    }),
+                _ => self
+                    .environment
+                    .function_path(segments)
+                    .map(|function| core_type(&function.ty())),
             },
             ExprKind::Call { callee, .. } => self
                 .core_call_signature(callee, None)
@@ -616,11 +624,21 @@ impl<'a> CoreLowerer<'a> {
                     self.core_expr(expr, CoreType::Unknown, CoreExprKind::Local(name.clone()))
                 }
             }
-            _ => self.core_expr(
-                expr,
-                CoreType::Unknown,
-                CoreExprKind::Local(segments.join("::")),
-            ),
+            _ => {
+                if let Some(function) = self.environment.function_path(segments) {
+                    self.core_expr(
+                        expr,
+                        core_type(&function.ty()),
+                        CoreExprKind::FunctionValue(function.name.clone()),
+                    )
+                } else {
+                    self.core_expr(
+                        expr,
+                        CoreType::Unknown,
+                        CoreExprKind::Local(segments.join("::")),
+                    )
+                }
+            }
         }
     }
 

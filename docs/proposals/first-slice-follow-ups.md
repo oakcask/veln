@@ -27,10 +27,11 @@ No accepted language and type coverage follow-up is currently tracked here.
   comparison predicates on the satisfy candidate itself mark every
   type-compatible visible binding candidate as an unapplied safe repair
   candidate, including parenthesized direct and tautological clauses. Direct
-  top-level `or` branches are recognized when every branch names the same
-  visible binding and becomes reflexive after substitution. Satisfy predicates
-  also recognize direct field-access reflexive clauses where the candidate and
-  visible binding share the same field suffix. Satisfy predicates may include
+  top-level `or` branches recognize each reflexive branch independently, so
+  each visible binding named by a reflexive branch can become an unapplied safe
+  repair candidate. Satisfy predicates also recognize direct field-access
+  reflexive clauses where the candidate and visible binding share the same
+  field suffix. Satisfy predicates may include
   literal `true` conjuncts without changing direct, tautological, or
   `require`-matched repair status. Satisfy predicates whose
   candidate substitution is already guaranteed by a valid `require` clause mark
@@ -71,7 +72,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   inverted comparison clauses before direct repair matching. Negated
   conjunctions of direct `satisfy` comparison clauses are normalized into
   disjunctive direct branches before direct repair matching and before
-  `require`-matched repair discharge. Disjunctive
+  `require`-matched repair discharge. Negated conjunctions in valid `require`
+  clauses discharge top-level disjunctive `satisfy` predicates when every
+  inverted branch guarantees one satisfy branch. Disjunctive
   `require` clauses contribute transitive ordering evidence when every branch
   guarantees the same weaker comparison, such as treating
   `require low < mid or low == mid` as an inclusive `low <= mid` edge for
@@ -83,9 +86,21 @@ No accepted language and type coverage follow-up is currently tracked here.
   conjunctions are treated as tautological surplus clauses for repair ranking.
   Same-shape expression tautologies rooted at the satisfy candidate are
   accepted after whitespace normalization.
+  Negated disjunctions with literal `false` branches are normalized for direct
+  `satisfy` repair matching and for `require`-matched repair discharge.
+  Literal boolean branches created while normalizing negated conjunctions are
+  folded for direct `satisfy` repair matching and for `require`-matched repair
+  discharge.
+  Negated disjunctions in valid `require` clauses expose negated boolean atom
+  branches for `require`-matched repair discharge.
+  Disjunctive `require` clauses with a common boolean atom across every branch
+  also expose that atom for `require`-matched repair discharge.
   Same-shape expression operands in `require`-matched repair comparisons are
   compared after whitespace normalization, including equality aliases inside
-  those expression operands.
+  those expression operands. Equality aliases also apply while chaining
+  transitive ordering evidence over same-shape expression operands. Equality
+  aliases also discharge boolean atom `satisfy` clauses when the aliased atom
+  is already guaranteed by a valid `require` clause.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.
@@ -125,13 +140,15 @@ No accepted formatting follow-up is currently tracked here.
 
 - Reachable-hole blocking follows the selected entry, direct function-name
   calls, bare and `use` alias-qualified function declaration values used in
-  reachable expressions, and function calls in contract predicates. Bare
-  function references from a named source module now resolve reachability only
-  to functions owned by that same module. Qualified calls and qualified
-  function values through `use` aliases resolve reachability to functions in
-  the imported source module without including same-named functions from other
-  modules. Broader conservative handling for future higher-order values and
-  module initializers remains follow-up work.
+  reachable expressions, function calls in contract predicates, and bare or
+  `use` alias-qualified function declaration values passed as contract call
+  arguments. Bare function references from a named source module now resolve
+  reachability only to functions owned by that same module. Qualified calls and
+  qualified function values through `use` aliases resolve reachability to
+  functions in the imported source module without including same-named
+  functions from other modules. Broader conservative handling for future
+  higher-order values beyond visible declaration values and module initializers
+  remains follow-up work.
 
 ## Test Discovery And Events
 

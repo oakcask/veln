@@ -119,8 +119,8 @@ extension should lower to the same four primitive output operations or a
 compatible successor event shape.
 
 The first slice does not decide stdin, terminal capabilities, colors, raw byte
-I/O, or concurrent output interleaving beyond the single logical `sequence`
-order observed by the handler.
+I/O, scheduler fairness, or any concurrent output identity beyond the single
+logical `sequence` order observed by the handler.
 
 ## References
 

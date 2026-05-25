@@ -36,8 +36,8 @@ public API functions.
 This result updates the first-slice grammar by adding `TestDecl` as a top-level
 item. Function type syntax still uses `fn`; `test` is only a declaration head.
 
-The consolidated production is maintained in
-[Veln First-Slice Grammar Target](../../proposals/grammar-target.md#declarations).
+The implemented production is maintained in
+[Source Surface](../language/source-surface.md#grammar).
 
 The first slice requires the empty parameter list, explicit return type, and
 explicit `effects [...]` clause on every `test` declaration.

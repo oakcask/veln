@@ -35,8 +35,8 @@ target tracked in `../../proposals/`.
 
 ## Skip Unless Needed
 
-- Use `../../proposals/grammar-target.md` only when working on planned syntax
-  beyond the implemented subset.
+- Use `source-surface.md` for the implemented source grammar before checking
+  older proposal history.
 - Use `../source-decisions/` only for implemented rationale and decision
   history.
 - Use `../../proposals/agent-language-spec-wall/` only for planned or
