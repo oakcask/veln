@@ -2469,6 +2469,7 @@ impl<'a> FunctionChecker<'a> {
                 )
             })
             .flat_map(|contract| normalized_and_clauses(&contract.text))
+            .map(canonical_repair_clause)
             .collect::<Vec<_>>();
         if required_clauses.is_empty() {
             return None;
@@ -2480,9 +2481,12 @@ impl<'a> FunctionChecker<'a> {
                 let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
                 let satisfy_clauses = normalized_and_clauses(&replaced);
                 !satisfy_clauses.is_empty()
-                    && satisfy_clauses
-                        .iter()
-                        .all(|clause| required_clauses.iter().any(|required| required == clause))
+                    && satisfy_clauses.iter().all(|clause| {
+                        let canonical = canonical_repair_clause(clause);
+                        required_clauses
+                            .iter()
+                            .any(|required| required == &canonical)
+                    })
             })
             .map(|binding| binding.name.clone())
             .collect::<Vec<_>>();
@@ -2628,6 +2632,27 @@ fn normalized_and_clauses(predicate: &str) -> Vec<String> {
 
 fn normalized_predicate_clause(predicate: &str) -> String {
     predicate.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn canonical_repair_clause(clause: impl AsRef<str>) -> String {
+    let clause = clause.as_ref();
+    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
+        let Some((left, right)) = clause.split_once(operator) else {
+            continue;
+        };
+        let left = left.trim();
+        let right = right.trim();
+        if left.is_empty() || right.is_empty() {
+            return clause.to_string();
+        }
+        return match operator {
+            "==" | "!=" if right < left => format!("{right} {operator} {left}"),
+            ">" => format!("{right} < {left}"),
+            ">=" => format!("{right} <= {left}"),
+            _ => format!("{left} {operator} {right}"),
+        };
+    }
+    clause.to_string()
 }
 
 fn replace_identifier(predicate: &str, target: &str, replacement: &str) -> String {
