@@ -3,6 +3,22 @@
 Read these records only when the categorized language reference needs rationale
 or compatibility context.
 
+## Read First
+
+- Current syntax and source grammar:
+  [../language/source-surface.md](../language/source-surface.md).
+- Current type and value behavior: [../language/types.md](../language/types.md).
+- Current contract and hole behavior:
+  [../language/contracts-holes.md](../language/contracts-holes.md).
+- Current name, prelude, stdio, and effect behavior:
+  [../language/names-effects.md](../language/names-effects.md).
+
+## Read When
+
+- Use the sections below only after the implemented language page names a
+  boundary but does not explain why it exists.
+- Open an individual `result-*.md` record only for the selected topic.
+
 ## Source Shape
 
 - [Block Structure](result-block-structure.md)

@@ -3,6 +3,21 @@
 Read these records only when runtime, AST, architecture, mutability, or
 compatibility boundaries need rationale.
 
+## Read First
+
+- Current execution boundary: [../language/execution.md](../language/execution.md).
+- Current name, prelude, stdio, and effect behavior:
+  [../language/names-effects.md](../language/names-effects.md).
+- Current source and metadata behavior:
+  [../language/source-surface.md](../language/source-surface.md).
+
+## Read When
+
+- Use the sections below only after the implemented reference identifies an
+  implementation boundary without enough rationale for the task.
+- Open an individual `result-*.md` record only for the selected architecture,
+  runtime, or compatibility topic.
+
 ## Architecture And AST
 
 - [AST Implementation Representation](result-ast-implementation-representation.md)

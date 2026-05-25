@@ -11,7 +11,8 @@ current workspace. Implemented decisions were moved to
 - [design-brief.md](design-brief.md) gives the broad thesis and first-slice
   design anchors.
 - [open-questions.md](open-questions.md) routes resolved and unresolved
-  questions.
+  questions; open [open-questions-full.md](open-questions-full.md) only when
+  auditing the full inventory.
 - [../../reference/source-decisions/result-adr-lite-decision-location.md](../../reference/source-decisions/result-adr-lite-decision-location.md)
   records the implemented ADR-lite comment decision.
 

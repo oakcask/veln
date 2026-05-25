@@ -53,6 +53,29 @@ fn discovers_veln_files_from_explicit_directories() {
 }
 
 #[test]
+fn deduplicates_overlapping_explicit_directory_inputs() {
+    let temp = TempProject::new("overlapping-directory-inputs");
+    temp.write("tests/unit/a.veln", "a");
+    temp.write("tests/unit/b.veln", "b");
+    temp.write("tests/integration/c.veln", "c");
+
+    let paths = discover_source_paths(
+        temp.root(),
+        &[PathBuf::from("tests"), PathBuf::from("tests/unit")],
+    )
+    .unwrap();
+
+    assert_eq!(
+        paths,
+        vec![
+            temp.path("tests/integration/c.veln"),
+            temp.path("tests/unit/a.veln"),
+            temp.path("tests/unit/b.veln"),
+        ]
+    );
+}
+
+#[test]
 fn discovers_veln_files_from_absolute_directory_inputs() {
     let temp = TempProject::new("absolute-directory-input");
     temp.write("src/main.veln", "main");

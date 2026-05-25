@@ -3,6 +3,21 @@
 Read these records only when command, JSON, test selection, or observable I/O
 behavior needs rationale or compatibility context.
 
+## Read First
+
+- Current CLI behavior: [../language/commands.md](../language/commands.md).
+- Current machine-readable output route:
+  [../language/json-output.md](../language/json-output.md).
+- Current runtime output behavior:
+  [../language/execution.md](../language/execution.md).
+
+## Read When
+
+- Use the sections below only after the implemented command or JSON page names
+  a boundary but does not explain why it exists.
+- Open an individual `result-*.md` record only for the selected command,
+  output, test, or runtime-output topic.
+
 ## Commands And Discovery
 
 - [First Implementation Commands](result-first-implementation-commands.md)

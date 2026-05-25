@@ -1743,6 +1743,29 @@ fn run_passes_string_entry_arguments_when_jdk_is_available() {
 }
 
 #[test]
+fn run_treats_flag_like_values_after_separator_as_entry_arguments() {
+    let project = TestProject::new("run-flag-like-entry-arg");
+    project.write(
+        "main.veln",
+        "pub fn main(value: String) -> String effects []\n  value\nend\n",
+    );
+
+    let output = project.run_with_path(&["main", "main.veln", "--", "--wat"], "");
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &["veln: `javac` was not found; install a JDK to use `veln run`"],
+    );
+    assert!(
+        !stderr(&output).contains("unknown run flag"),
+        "post-separator entry argument should not be parsed as a flag: {}",
+        stderr(&output)
+    );
+}
+
+#[test]
 fn run_converts_primitive_entry_arguments_when_jdk_is_available() {
     if !jdk_is_available() {
         return;

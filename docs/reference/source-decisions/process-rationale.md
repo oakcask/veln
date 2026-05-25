@@ -3,6 +3,22 @@
 Read these records only when decision placement, comparison tasks, or repair
 policy need rationale.
 
+## Read First
+
+- Current document placement rules:
+  [../../document-status.md](../../document-status.md).
+- Current diagnostic JSON behavior:
+  [../language/diagnostics-json.md](../language/diagnostics-json.md).
+- Current proposal promotion route:
+  [../../proposals/implementation-route.md](../../proposals/implementation-route.md).
+
+## Read When
+
+- Use the sections below only after the current status or diagnostic page names
+  a policy boundary but does not explain why it exists.
+- Open an individual `result-*.md` record only for the selected process,
+  comparison, repair, or severity topic.
+
 ## Documentation And Evaluation
 
 - [ADR-Lite Decision Location](result-adr-lite-decision-location.md)

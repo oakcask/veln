@@ -24,7 +24,7 @@ Leave rationale in [source-decisions.md](source-decisions.md) or
 ## Read When
 
 - Types, annotations, inference, assignment, and operators:
-  [types.md](types.md).
+  [types.md](types.md), then [types-full.md](types-full.md) for detail.
 - Commands, source discovery, check, run, test, and format gates:
   [commands.md](commands.md).
 - Names, stdio, prelude, and effects:
@@ -36,7 +36,8 @@ Leave rationale in [source-decisions.md](source-decisions.md) or
 - Machine-readable output: start with [json-output.md](json-output.md), then
   choose [diagnostics-json.md](diagnostics-json.md),
   [run-json.md](run-json.md), or [test-json.md](test-json.md).
-- Runtime and examples: [execution.md](execution.md) and
+- Runtime and examples: [execution.md](execution.md), then
+  [execution-full.md](execution-full.md) for detail, and
   [examples.md](examples.md).
 - Rationale: [source-decisions.md](source-decisions.md).
 
