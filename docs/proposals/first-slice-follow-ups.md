@@ -65,7 +65,11 @@ No accepted language and type coverage follow-up is currently tracked here.
   `satisfy` conjunctions and `require`-matched `satisfy` conjunctions are
   treated as tautological surplus clauses for repair ranking. Negated
   disjunctions of direct `satisfy` comparison clauses are normalized into their
-  inverted comparison clauses before direct repair matching.
+  inverted comparison clauses before direct repair matching. Disjunctive
+  `require` clauses contribute transitive ordering evidence when every branch
+  guarantees the same weaker comparison, such as treating
+  `require low < mid or low == mid` as an inclusive `low <= mid` edge for
+  repair discharge.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.

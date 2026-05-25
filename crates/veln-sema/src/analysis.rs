@@ -1269,6 +1269,45 @@ impl<'a> FunctionChecker<'a> {
             }
         }
 
+        if let ExprKind::FieldAccess {
+            base,
+            field,
+            field_span,
+        } = &callee.kind
+        {
+            self.infer_expr(base, None);
+            for arg in args {
+                self.infer_expr(arg, None);
+            }
+            let mut diagnostic = Diagnostic::new(
+                "type.method_call",
+                Severity::Error,
+                DiagnosticKind::Type,
+                "method call syntax is not supported",
+                Some(field_span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("type")),
+                    ("node_id", JsonValue::string(expr.node_id.display("expr"))),
+                    ("expected", JsonValue::string("function_call")),
+                    ("actual", JsonValue::string("method_call")),
+                    ("constraint", JsonValue::string("call_target")),
+                    ("method", JsonValue::string(field.clone())),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("call_style")),
+                (
+                    "message",
+                    JsonValue::string(
+                        "Use a named function call with the receiver as an explicit argument.",
+                    ),
+                ),
+                ("span", span_json(&callee.span)),
+            ]));
+            self.diagnostics.push(diagnostic);
+            return Type::Unknown;
+        }
+
         if let Some((segments, _)) = callee_name_path_and_type_args(callee) {
             let symbol = segments.join("::");
             self.push_unresolved_name(callee.node_id, callee.span.clone(), &symbol, "call_target");
@@ -3034,7 +3073,7 @@ fn required_predicate_set_implies_clause(required_predicates: &[String], wanted:
     };
     let required_clauses = required_predicates
         .iter()
-        .flat_map(|predicate| non_disjunctive_repair_clauses(predicate))
+        .flat_map(|predicate| repair_set_clauses(predicate))
         .collect::<Vec<_>>();
     let equivalences = repair_equivalences(&required_clauses);
     if required_clauses
@@ -3076,6 +3115,62 @@ fn non_disjunctive_repair_clauses(predicate: &str) -> Vec<String> {
             }
         })
         .collect()
+}
+
+fn repair_set_clauses(predicate: &str) -> Vec<String> {
+    let predicate = strip_balanced_outer_parens(predicate);
+    let mut clauses = non_disjunctive_repair_clauses(predicate);
+    clauses.extend(disjunctive_common_repair_clauses(predicate));
+    clauses
+}
+
+fn disjunctive_common_repair_clauses(predicate: &str) -> Vec<String> {
+    let predicate = strip_balanced_outer_parens(predicate);
+    let mut derived = Vec::new();
+    for clause in split_top_level_keyword(predicate, "and") {
+        let clause = strip_balanced_outer_parens(clause);
+        let disjuncts = repair_relevant_or_clauses(clause);
+        if disjuncts.len() <= 1 {
+            continue;
+        }
+        let Some(first) = disjuncts.first().copied() else {
+            continue;
+        };
+        for candidate in implied_clause_candidates(first) {
+            if disjuncts
+                .iter()
+                .all(|disjunct| required_predicate_implies_clause(disjunct, &candidate))
+                && !derived.iter().any(|existing| existing == &candidate)
+            {
+                derived.push(candidate);
+            }
+        }
+    }
+    derived
+}
+
+fn implied_clause_candidates(predicate: &str) -> Vec<String> {
+    non_disjunctive_repair_clauses(predicate)
+        .into_iter()
+        .filter_map(|clause| {
+            let parsed = ParsedRepairComparison::parse(&clause)?;
+            Some([
+                format!("{} == {}", parsed.left, parsed.right),
+                format!("{} != {}", parsed.left, parsed.right),
+                format!("{} < {}", parsed.left, parsed.right),
+                format!("{} < {}", parsed.right, parsed.left),
+                format!("{} <= {}", parsed.left, parsed.right),
+                format!("{} <= {}", parsed.right, parsed.left),
+            ])
+        })
+        .flatten()
+        .map(canonical_repair_clause)
+        .fold(Vec::<String>::new(), |mut candidates, candidate| {
+            if !candidates.iter().any(|existing| existing == &candidate) {
+                candidates.push(candidate);
+            }
+            candidates
+        })
 }
 
 fn canonical_non_disjunctive_repair_clauses(clause: &str) -> Vec<String> {

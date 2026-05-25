@@ -2026,6 +2026,40 @@ fn marks_transitive_order_require_as_satisfy_repair_evidence() {
 }
 
 #[test]
+fn marks_disjunctive_common_order_require_as_transitive_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(low: Int, mid: Int, max: Int, fallback: Int) -> Int\n",
+            "  require low < mid or low == mid\n",
+            "  require mid < max\n",
+            "  _value satisfy candidate => candidate > low\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"max\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn marks_transitive_strict_order_as_disequality_satisfy_repair_evidence() {
     let source = SourceFile::new(
         "main.veln",
@@ -2931,6 +2965,42 @@ fn pipeline_requires_named_call_target() {
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "type.pipeline_target"
             && diagnostic.message == "pipeline target is not a named call"
+    }));
+}
+
+#[test]
+fn method_call_shape_reports_targeted_diagnostic() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(value: String) -> Int effects []\n",
+            "  value.len()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.method_call");
+    assert_eq!(
+        diagnostics[0].message,
+        "method call syntax is not supported"
+    );
+    assert_eq!(
+        diagnostics[0].details.to_json(),
+        concat!(
+            "{\"phase\":\"type\",\"node_id\":\"expr-4\",",
+            "\"expected\":\"function_call\",\"actual\":\"method_call\",",
+            "\"constraint\":\"call_target\",\"method\":\"len\"}"
+        )
+    );
+    assert!(diagnostics[0].related.iter().any(|related| {
+        related
+            .to_json()
+            .contains("\"Use a named function call with the receiver as an explicit argument.\"")
     }));
 }
 

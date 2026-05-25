@@ -280,6 +280,27 @@ fn check_human_reports_diagnostics_to_stdout() {
 }
 
 #[test]
+fn check_human_reports_method_call_repair_note() {
+    let project = TestProject::new("check-human-method-call");
+    project.write(
+        "main.veln",
+        "pub fn main(value: String) -> Int effects []\n  value.len()\nend\n",
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "main.veln:2:9: error[type.method_call]: method call syntax is not supported",
+            "  note: main.veln:2:3: Use a named function call with the receiver as an explicit argument.",
+        ],
+    );
+}
+
+#[test]
 fn check_human_reports_missing_module_identity_for_imports() {
     let project = TestProject::new("check-human-module-identity");
     project.write(

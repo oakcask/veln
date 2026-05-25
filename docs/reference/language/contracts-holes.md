@@ -181,6 +181,11 @@ directions also guarantee endpoint equality. For example,
 with `require mid < max` guarantees `candidate != low` after substituting
 `max`. `require low <= mid` together with `require mid <= max` and
 `require max <= low` guarantees `candidate == low` after substituting `max`.
+Disjunctive `require` clauses can contribute a transitive ordering edge when
+every branch guarantees the same weaker comparison. For example,
+`require low < mid or low == mid` contributes the inclusive edge
+`low <= mid`, which can combine with `require mid < max` to guarantee
+`candidate > low` after substituting `max`.
 If a substituted `satisfy` predicate has top-level `or` clauses, a candidate
 is also safe when any one `or` branch is fully guaranteed by valid `require`
 clauses.

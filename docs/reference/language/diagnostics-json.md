@@ -118,6 +118,12 @@ a call, or is a call whose callee is not a name path. Its `details` include
 `phase`, `node_id`, `expected`, `actual`, and
 `constraint: "pipeline_target"`.
 
+`type.method_call` reports method-call-shaped syntax such as
+`value.method(args)`. Its primary span is the method name. Its `details`
+include `phase`, `node_id`, `expected: "function_call"`,
+`actual: "method_call"`, `constraint: "call_target"`, and `method`. A related
+note carries the canonical named-call repair direction.
+
 Checked-core executable blockers that `check` can prove before runtime are
 reported as error diagnostics with `kind: "type"`. The implemented blockers
 are `core.missing_expression`, `core.call_arity_mismatch`,

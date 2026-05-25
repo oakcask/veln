@@ -21,21 +21,24 @@ omitted tail expression returns `()`. Literal and constructor patterns in
 patterns. Pipeline targets are restricted to named or qualified calls. Runtime
 `ensure` checks run before ordinary returns and `?` early returns. Private
 functions now report incomplete inference when an omitted parameter or return
-annotation remains `unknown`. Satisfy repair discharge normalizes negated
-ordering clauses into their inverse comparisons before matching valid
-`require` clauses, and normalizes negated direct `satisfy` equality and
-ordering clauses before direct repair matching. Direct `satisfy` repair also
-accepts top-level `or` branches when every branch names the same visible
-binding and becomes reflexive after substitution. Top-level `or` branches that
-are tautological for the satisfy candidate make every type-compatible visible
-binding a safe repair candidate. Equality `require` clauses
-create non-disjunctive operand aliases for repair discharge, including alias
-preservation for strict-ordering disequality evidence and paired inclusive
-bound equality evidence. Valid non-disjunctive `require` ordering chains
+annotation remains `unknown`. Method-call-shaped syntax reports a targeted
+diagnostic instead of resolving as a call form. Satisfy repair discharge
+normalizes negated ordering clauses into their inverse comparisons before
+matching valid `require` clauses, and normalizes negated direct `satisfy`
+equality and ordering clauses before direct repair matching. Direct `satisfy`
+repair also accepts top-level `or` branches when every branch names the same
+visible binding and becomes reflexive after substitution. Top-level `or`
+branches that are tautological for the satisfy candidate make every
+type-compatible visible binding a safe repair candidate. Equality `require`
+clauses create non-disjunctive operand aliases for repair discharge, including
+alias preservation for strict-ordering disequality evidence and paired
+inclusive bound equality evidence. Valid non-disjunctive `require` ordering chains
 discharge endpoint ordering and disequality `satisfy` clauses for safe repair
-ranking when the chained comparison is strong enough. Negated top-level `or`
-predicates in valid `require` clauses discharge direct comparison `satisfy`
-clauses through their inverted branches.
+ranking when the chained comparison is strong enough. Disjunctive `require`
+clauses also contribute transitive ordering evidence when every branch
+guarantees the same weaker comparison. Negated top-level `or` predicates in
+valid `require` clauses discharge direct comparison `satisfy` clauses through
+their inverted branches.
 
 For the fixed reference of behavior implemented in the current workspace, read
 [../reference/README.md](../reference/README.md).

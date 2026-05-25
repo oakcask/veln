@@ -940,7 +940,7 @@ fn parses_field_access_as_postfix_expression() {
 }
 
 #[test]
-fn rejects_method_call_shaped_syntax() {
+fn parses_method_call_shape_as_call_on_field_access() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -952,15 +952,19 @@ fn rejects_method_call_shaped_syntax() {
 
     let output = parse(&source);
 
-    let diagnostic = output
-        .diagnostics
-        .iter()
-        .find(|diagnostic| diagnostic.id == "parse.method_call")
-        .expect("expected method-call diagnostic");
-    assert_eq!(diagnostic.message, "method-call syntax is not implemented");
-    assert_eq!(diagnostic.parser_context, "expression_line");
-    assert_eq!(diagnostic.expected, vec!["function call or field access"]);
-    assert_eq!(diagnostic.unexpected.text, "(");
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected tail expression");
+    };
+    let ExprKind::Call { callee, args } = &expr.kind else {
+        panic!("expected call expression");
+    };
+    assert!(args.is_empty());
+    let ExprKind::FieldAccess { field, .. } = &callee.kind else {
+        panic!("expected field-access callee");
+    };
+    assert_eq!(field, "name");
 }
 
 #[test]

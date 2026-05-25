@@ -218,13 +218,15 @@ expression is inserted as the first argument of that call, so
 non-call target, or a call whose callee is not a name path, reports
 `type.pipeline_target`.
 
+Method-call-shaped syntax such as `value.method(args)` is parsed as a call
+whose callee is a field access, but it is not a valid first-slice call form.
+The checker reports `type.method_call` at the method name and expects the
+canonical named function-call spelling with the receiver passed explicitly.
+
 Type-applied call callees currently contribute static item-type information
 only for recognized built-in calls such as `channel::bounded[String](capacity)`.
 They are not a general user-defined generic function mechanism.
 
-Method-call-shaped syntax, such as `value.field(args)`, is rejected during
-parsing with `parse.method_call`. Use a plain function call like
-`field(value, args)` and reserve `value.field` for record field access.
 Call arguments must be separated with commas and closed with `)`. When the
 parser can identify an adjacent argument without a separator, it reports
 `parse.call_argument` and continues as if a comma had been inserted.
