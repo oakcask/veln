@@ -5,11 +5,11 @@ This directory keeps implementation-phase plans and working notes.
 ## Read First
 
 - [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
-  records current gaps that must be fixed before treating the first-slice gate
-  as complete.
-- [first-slice-implementation.md](first-slice-implementation.md) describes the
-  current first-slice architecture memo for the processor, standard library,
-  runtime boundary, and implementation order.
+  routes review evidence to check before relying on historical first-slice
+  completion claims.
+- [first-slice-implementation.md](first-slice-implementation.md) routes the
+  first-slice implementation notes. It points to the current reference, review
+  evidence, follow-up targets, and the full historical memo.
 
 ## Skip Unless Needed
 

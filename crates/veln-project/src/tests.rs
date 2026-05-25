@@ -182,6 +182,80 @@ fn read_manifest_tracks_modules_sections_and_ignores_non_entries() {
     assert_eq!(manifest.modules[1].name_span.start.column, 25);
 }
 
+#[test]
+fn read_manifest_accepts_crlf_lines_and_trailing_entry_text() {
+    let temp = TempProject::new("manifest-crlf");
+    temp.write(
+        "veln.toml",
+        "[modules]\r\n  \"src/main.veln\" = \"app.main\" # owner note\r\n",
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(manifest.modules.len(), 1);
+    assert_eq!(manifest.modules[0].path, "src/main.veln");
+    assert_eq!(manifest.modules[0].name, "app.main");
+    assert_eq!(manifest.modules[0].path_span.start.line, 2);
+    assert_eq!(manifest.modules[0].path_span.start.column, 4);
+    assert_eq!(manifest.modules[0].name_span.start.line, 2);
+    assert_eq!(manifest.modules[0].name_span.start.column, 22);
+}
+
+#[test]
+fn read_manifest_accepts_final_entry_without_newline() {
+    let temp = TempProject::new("manifest-final-entry");
+    temp.write("veln.toml", "[modules]\n\"src/main.veln\" = \"app.main\"");
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(manifest.modules.len(), 1);
+    assert_eq!(manifest.modules[0].path, "src/main.veln");
+    assert_eq!(manifest.modules[0].name, "app.main");
+    assert_eq!(manifest.modules[0].path_span.start.line, 2);
+    assert_eq!(manifest.modules[0].name_span.start.column, 20);
+}
+
+#[test]
+fn read_manifest_accepts_modules_header_without_entries() {
+    let temp = TempProject::new("manifest-empty-modules");
+    temp.write("veln.toml", "[modules]");
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert!(manifest.modules.is_empty());
+}
+
+#[test]
+fn read_manifest_ignores_malformed_module_entries() {
+    let temp = TempProject::new("manifest-malformed-entries");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[modules]\n",
+            "src/main.veln = \"app.main\"\n",
+            "\"src/missing-equals.veln\" \"app.missing_equals\"\n",
+            "\"src/missing-name.veln\" = app.missing_name\n",
+            "\"src/unclosed.veln = \"app.unclosed\"\n",
+            "\"src/lib.veln\" = \"app.lib\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(manifest.modules.len(), 1);
+    assert_eq!(manifest.modules[0].path, "src/lib.veln");
+    assert_eq!(manifest.modules[0].name, "app.lib");
+    assert_eq!(manifest.modules[0].path_span.start.line, 6);
+}
+
 struct TempProject {
     root: PathBuf,
 }

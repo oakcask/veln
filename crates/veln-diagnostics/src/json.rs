@@ -108,4 +108,48 @@ mod tests {
             "{\"text\":\"quote \\\" slash \\\\ newline\\n tab\\t backspace\\b form\\f\",\"control\":\"\\u0001\"}"
         );
     }
+
+    #[test]
+    fn json_string_escapes_carriage_returns() {
+        let value = JsonValue::string("left\rright");
+
+        assert_eq!(value.to_json(), "\"left\\rright\"");
+    }
+
+    #[test]
+    fn json_string_escapes_nul_as_control_escape() {
+        let value = JsonValue::string("left\0right");
+
+        assert_eq!(value.to_json(), "\"left\\u0000right\"");
+    }
+
+    #[test]
+    fn json_values_render_empty_arrays_and_objects() {
+        let value = JsonValue::object([
+            ("items", JsonValue::array([])),
+            ("metadata", JsonValue::object::<&str, _>([])),
+        ]);
+
+        assert_eq!(value.to_json(), "{\"items\":[],\"metadata\":{}}");
+    }
+
+    #[test]
+    fn json_values_render_nested_arrays_and_objects_in_input_order() {
+        let value = JsonValue::object([
+            ("ok", JsonValue::Bool(true)),
+            (
+                "items",
+                JsonValue::array([
+                    JsonValue::Number(1),
+                    JsonValue::Null,
+                    JsonValue::object([("name", JsonValue::string("main"))]),
+                ]),
+            ),
+        ]);
+
+        assert_eq!(
+            value.to_json(),
+            "{\"ok\":true,\"items\":[1,null,{\"name\":\"main\"}]}"
+        );
+    }
 }

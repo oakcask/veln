@@ -17,21 +17,12 @@ current workspace. Implemented decisions were moved to
 
 ## Accepted Or Open Targets
 
-No accepted grammar target remains in this directory. The implemented
-[First-Slice Grammar](../../reference/source-decisions/result-first-slice-grammar.md)
-decision now lives with the reference source decisions.
-
-The implemented bounded-channel concurrency decision lives in
-[Channel-First Concurrency Runtime](../../reference/source-decisions/result-channel-first-concurrency-runtime.md).
-Future concurrency surface work is tracked in
-[../first-slice-follow-ups.md](../first-slice-follow-ups.md).
-
-The implemented coarse effect label declaration slice is specified in
-[Names And Effects](../../reference/language/names-effects.md).
-
-Implemented rationale such as
-[Comparison Example Task](../../reference/source-decisions/result-comparison-example-task.md)
-lives in the reference decision index.
+- Implemented grammar, concurrency, effect-label, and comparison-task decisions
+  now live under `../../reference/`.
+- Future concurrency surface work is tracked in
+  [../first-slice-follow-ups.md](../first-slice-follow-ups.md).
+- Use [../../reference/source-decisions/README.md](../../reference/source-decisions/README.md)
+  before opening old decision records directly.
 
 ## Classification Rule
 

@@ -13,7 +13,7 @@ target tracked in `../../proposals/`.
 - [commands.md](commands.md): source discovery, check, run, test, and format
   gates.
 
-## Task Routes
+## Read When
 
 - Names, stdio, prelude, and effects:
   [names-effects.md](names-effects.md).
@@ -27,19 +27,10 @@ target tracked in `../../proposals/`.
   [examples.md](examples.md).
 - Rationale: [source-decisions.md](source-decisions.md).
 
-## Read When
-
-- Use this directory before changing code, tests, diagnostics, or samples.
-- Use the task route above before opening proposals, phase notes, or source
-  decisions.
-
 ## Skip Unless Needed
 
 - Use `source-surface.md` for the implemented source grammar before checking
   older proposal history.
-- Use `../source-decisions/` only for implemented rationale and decision
-  history.
-- Use `../../proposals/agent-language-spec-wall/` only for planned or
-  incomplete decision history.
-- Use `../../phases/` only for implementation plans and completion notes.
-- Use `../../reviews/` only for current gaps and verification findings.
+- Use `../source-decisions/`, `../../proposals/`, `../../phases/`, or
+  `../../reviews/` only after the current behavior page does not answer the
+  question.

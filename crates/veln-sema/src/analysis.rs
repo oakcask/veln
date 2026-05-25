@@ -3690,6 +3690,11 @@ fn required_predicate_set_implies_disjunctive_predicate(
     let equivalences = repair_equivalences(&required_clauses);
     required_clauses.iter().any(|required| {
         disequality_implies_numeric_ordering_disjunction(required, &wanted_disjuncts, &equivalences)
+            || inclusive_bound_implies_order_or_equality_disjunction(
+                required,
+                &wanted_disjuncts,
+                &equivalences,
+            )
     })
 }
 
@@ -4328,6 +4333,47 @@ fn disequality_implies_numeric_ordering_disjunction(
         }
     }
     has_lower_side && has_upper_side
+}
+
+fn inclusive_bound_implies_order_or_equality_disjunction(
+    required: &str,
+    wanted_disjuncts: &[String],
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some(required) = ParsedRepairComparison::parse(required) else {
+        return false;
+    };
+    if required.operator != "<=" {
+        return false;
+    }
+    let mut has_strict_side = false;
+    let mut has_equality_side = false;
+    for wanted in wanted_disjuncts {
+        let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
+            continue;
+        };
+        if repair_operands_equivalent_ordered(
+            required.left,
+            required.right,
+            wanted.left,
+            wanted.right,
+            equivalences,
+        ) && wanted.operator == "<"
+        {
+            has_strict_side = true;
+        }
+        if repair_operands_equivalent_unordered(
+            required.left,
+            required.right,
+            wanted.left,
+            wanted.right,
+            equivalences,
+        ) && wanted.operator == "=="
+        {
+            has_equality_side = true;
+        }
+    }
+    has_strict_side && has_equality_side
 }
 
 fn numeric_literal_comparison_side<'a>(

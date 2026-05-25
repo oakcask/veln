@@ -4400,6 +4400,33 @@ fn marks_upper_float_literal_bound_as_disequality_repair_evidence() {
 }
 
 #[test]
+fn marks_inclusive_bound_as_order_or_equality_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int) -> Int\n",
+            "  require max >= 10\n",
+            "  _value satisfy candidate => candidate > 10 or candidate == 10\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn marks_numeric_disequality_as_ordering_disjunction_repair_evidence() {
     let source = SourceFile::new(
         "main.veln",

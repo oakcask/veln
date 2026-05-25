@@ -12,7 +12,7 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 - [bibliography/README.md](bibliography/README.md): research references behind
   source decisions.
 
-## Task Routes
+## Read When
 
 - Source language changes: [language/source-surface.md](language/source-surface.md),
   [language/types.md](language/types.md), and
@@ -28,15 +28,8 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 - Rationale: [language/source-decisions.md](language/source-decisions.md) first,
   then [source-decisions/README.md](source-decisions/README.md) if detail is
   needed.
-
-## Read When
-
-- Use `language/` before changing code, tests, diagnostics, or samples.
-- Use `source-decisions/` for implemented decision rationale.
-- Use `../proposals/agent-language-spec-wall/` for planned or incomplete
-  decision rationale.
-- Use `../phases/` for implementation plans and completion notes.
-- Use `../reviews/` for current implementation gaps and verification findings.
+- Planning, review, or proposal work: use `../proposals/`, `../phases/`, or
+  `../reviews/` after checking the current reference.
 
 ## Status Boundary
 
@@ -44,4 +37,5 @@ The split language files describe implemented behavior only. Planned grammar,
 discussion outcomes that are not implemented, package manifests beyond
 implemented module validation, imports beyond current aliases, and persistent
 build caches are outside this reference unless a categorized file states
-otherwise.
+otherwise. Use [../document-status.md](../document-status.md) when moving text
+between proposal, review, phase, and reference areas.

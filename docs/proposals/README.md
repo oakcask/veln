@@ -6,30 +6,22 @@ not fully implemented in the current workspace.
 ## Read First
 
 - [first-slice-follow-ups.md](first-slice-follow-ups.md) gathers accepted
-  first-slice targets that remain incomplete after the completed edit loop.
+  first-slice target areas that remain incomplete after the completed edit
+  loop and routes to the full details.
 - [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   lists accepted and open design-wall decisions that are not fully implemented.
 - [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
-  lists current gaps between the implementation and the broader design target.
+  routes review evidence about first-slice gaps and completion claims.
 
 ## Accepted Targets Not Fully Implemented
 
 - Remaining first-slice implementation targets are tracked in
-  [first-slice-follow-ups.md](first-slice-follow-ups.md).
+  [first-slice-follow-ups.md](first-slice-follow-ups.md), with full detail in
+  [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md).
 - Future concurrency surface work after the implemented channel and task slices
   is tracked in [first-slice-follow-ups.md](first-slice-follow-ups.md).
-
-## Status Rules
-
-- `implemented` documents belong in `../reference/`.
-- Fully implemented proposals must not remain in this directory; move stable
-  behavior to `../reference/` and implemented decision rationale to
-  `../reference/source-decisions/`.
-- `accepted-proposal` means a decision record accepted the target, but code support is
-  absent or incomplete.
-- `open-proposal` means the design is still exploratory.
-- `superseded` documents must link to their replacement.
-- `rejected` documents remain only when the negative decision is useful later.
+- Use [../document-status.md](../document-status.md) before promoting,
+  superseding, or rejecting proposal text.
 
 ## Read When
 

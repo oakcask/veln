@@ -243,6 +243,36 @@ mod tests {
     }
 
     #[test]
+    fn envelope_status_is_ok_for_warnings_without_holes() {
+        let envelope = DiagnosticEnvelope::new(
+            ToolInfo::new("veln", "0.1.0"),
+            vec![Diagnostic::new(
+                "lint.unused",
+                Severity::Warning,
+                DiagnosticKind::Lint,
+                "unused binding",
+                None,
+                JsonValue::Null,
+            )],
+        );
+
+        assert_eq!(envelope.status, CheckStatus::Ok);
+        assert!(envelope.to_json().contains("\"status\":\"ok\""));
+    }
+
+    #[test]
+    fn envelope_status_is_ok_for_empty_diagnostics() {
+        let envelope = DiagnosticEnvelope::new(ToolInfo::new("veln", "0.1.0"), Vec::new());
+
+        let json = envelope.to_json();
+        assert_eq!(envelope.status, CheckStatus::Ok);
+        assert!(json.contains("\"status\":\"ok\""));
+        assert!(json.contains("\"diagnostic_count\":0"));
+        assert!(json.contains("\"by_severity\":{}"));
+        assert!(json.contains("\"by_kind\":{}"));
+    }
+
+    #[test]
     fn envelope_summary_counts_by_severity_and_kind_in_stable_order() {
         let envelope = DiagnosticEnvelope::new(
             ToolInfo::new("veln", "0.1.0"),
@@ -318,6 +348,29 @@ mod tests {
                 "\"end\":{\"line\":2,\"column\":1,\"offset\":6}},",
                 "\"details\":{\"symbol\":\"x\",\"previous\":1},",
                 "\"related\":[{\"message\":\"first binding\"}]}"
+            )
+        );
+    }
+
+    #[test]
+    fn diagnostic_json_uses_null_span_and_empty_related_by_default() {
+        let diagnostic = Diagnostic::new(
+            "lint.style",
+            Severity::Info,
+            DiagnosticKind::Lint,
+            "style issue",
+            None,
+            JsonValue::Bool(true),
+        );
+
+        assert_eq!(
+            diagnostic_to_json(&diagnostic).to_json(),
+            concat!(
+                "{\"id\":\"lint.style\",\"severity\":\"info\",\"kind\":\"lint\",",
+                "\"message\":\"style issue\",",
+                "\"span\":null,",
+                "\"details\":true,",
+                "\"related\":[]}"
             )
         );
     }

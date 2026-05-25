@@ -40,8 +40,19 @@ fn maps_offsets_to_one_based_lines_and_columns() {
     let source = SourceFile::new("src/main.veln", "a\nbc\n");
 
     assert_line_col(source.line_col(0), 1, 1, 0);
+    assert_line_col(source.line_col(1), 1, 2, 1);
     assert_line_col(source.line_col(2), 2, 1, 2);
     assert_line_col(source.line_col(4), 2, 3, 4);
+}
+
+#[test]
+fn maps_crlf_offsets_without_hiding_carriage_returns() {
+    let source = SourceFile::new("src/main.veln", "a\r\nbc");
+
+    assert_line_col(source.line_col(1), 1, 2, 1);
+    assert_line_col(source.line_col(2), 1, 3, 2);
+    assert_line_col(source.line_col(3), 2, 1, 3);
+    assert_line_col(source.line_col(5), 2, 3, 5);
 }
 
 #[test]
@@ -49,6 +60,13 @@ fn clamps_offsets_to_end_of_file() {
     let source = SourceFile::new("main.veln", "a\n");
 
     assert_line_col(source.line_col(usize::MAX), 2, 1, 2);
+}
+
+#[test]
+fn maps_final_newline_to_empty_trailing_line() {
+    let source = SourceFile::new("main.veln", "a\nb\n");
+
+    assert_line_col(source.line_col(source.len()), 3, 1, 4);
 }
 
 #[test]
@@ -69,6 +87,16 @@ fn builds_spans_from_text_ranges() {
     assert_eq!(span.file.as_str(), "main.veln");
     assert_line_col(span.start, 1, 4, 3);
     assert_line_col(span.end, 2, 3, 8);
+}
+
+#[test]
+fn builds_spans_with_offsets_clamped_to_end_of_file() {
+    let source = SourceFile::new("main.veln", "alpha\n");
+
+    let span = source.span(TextRange::new(2, usize::MAX));
+
+    assert_line_col(span.start, 1, 3, 2);
+    assert_line_col(span.end, 2, 1, 6);
 }
 
 #[test]
