@@ -92,13 +92,18 @@ binding, such as
 are also accepted, such as `candidate.count == fallback.count`. `and` may join
 clauses that all name the same binding.
 Wrapping each direct clause in balanced parentheses does not change this
-repair match. Literal `true` conjuncts do not affect direct repair matching,
-so `candidate == fallback and true` has the same repair status as
+repair match. Negated direct equality, disequality, and ordering clauses are
+normalized before direct repair matching, so `not (candidate != fallback)` and
+`not (candidate < fallback)` both mark `fallback` as safe. Literal `true`
+conjuncts do not affect direct repair matching, so
+`candidate == fallback and true` has the same repair status as
 `candidate == fallback`. The accepted tautological clauses compare the satisfy
 candidate with itself using `==`, `<=`, or `>=`, such as
-`candidate == candidate`; `and` may join only tautological clauses or literal
-`true` clauses. Wrapping each tautological clause in balanced parentheses does
-not change this repair match. A candidate is also safe when replacing the
+`candidate == candidate`; their negated inverse forms, such as
+`not (candidate != candidate)`, are also accepted. `and` may join only
+tautological clauses or literal `true` clauses. Wrapping each tautological
+clause in balanced parentheses does not change this repair match.
+A candidate is also safe when replacing the
 satisfy candidate binding with the visible symbol makes every non-`true` `and`
 clause match a valid `require` clause already in force for the function; such
 candidates use `reason: "satisfy_require_match"`. This includes clauses with

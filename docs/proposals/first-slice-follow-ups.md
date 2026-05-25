@@ -36,6 +36,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   string-literal clauses and simple direct, commuted, parenthesized comparison
   clauses, and whole parenthesized `and` conjunctions. Negated equality and
   disequality clauses normalize into their inverse comparisons before matching.
+  Negated direct `satisfy` equality and ordering clauses also normalize before
+  direct reflexive and tautological repair matching.
   Strict ordering `require` clauses also discharge the corresponding inclusive
   ordering and disequality `satisfy` clauses for the same operands. Equality
   `require` clauses discharge inclusive ordering `satisfy` clauses for the same

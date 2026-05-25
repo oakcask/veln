@@ -2738,7 +2738,8 @@ fn tautological_candidate_predicate(
 }
 
 fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
-    ["==", "<=", ">="].iter().any(|operator| {
+    let predicate = canonical_repair_clause(predicate);
+    ["==", "<="].iter().any(|operator| {
         let Some((left, right)) = predicate.split_once(operator) else {
             return false;
         };
@@ -2747,19 +2748,18 @@ fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
 }
 
 fn direct_reflexive_clause(predicate: &str, candidate: &str) -> Option<ReflexiveCandidateBinding> {
-    if let Some(binding) = reflexive_operand(predicate, candidate, "==") {
+    let predicate = canonical_repair_clause(predicate);
+    if let Some(binding) = reflexive_operand(&predicate, candidate, "==") {
         return Some(ReflexiveCandidateBinding {
             binding,
             reason: "satisfy_equality_match",
         });
     }
-    for operator in ["<=", ">="] {
-        if let Some(binding) = reflexive_operand(predicate, candidate, operator) {
-            return Some(ReflexiveCandidateBinding {
-                binding,
-                reason: "satisfy_reflexive_match",
-            });
-        }
+    if let Some(binding) = reflexive_operand(&predicate, candidate, "<=") {
+        return Some(ReflexiveCandidateBinding {
+            binding,
+            reason: "satisfy_reflexive_match",
+        });
     }
     None
 }
