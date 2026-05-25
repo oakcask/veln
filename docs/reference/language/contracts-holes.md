@@ -79,12 +79,19 @@ boolean predicate and its negation is also statically true after validation,
 such as `flag or not flag` or
 `output.ready or not(output.ready)`. The complementary `or` identity may span
 more than two top-level branches, so `flag or extra or not flag` is also
-statically proven. It also treats a negated top-level `and` between the same
-pure boolean predicate and its negation as statically true, such as
+statically proven. Top-level `or` also recognizes complementary comparison
+pairs over the same operands after whitespace normalization and commuted
+ordering normalization, such as `value == limit or value != limit`,
+`value < limit or value >= limit`, and `value < limit or limit <= value`.
+It also treats a negated top-level `and` between the same pure boolean
+predicate and its negation as statically true, such as
 `not (flag and not flag)` or
 `not(output.ready and not output.ready)`. For example,
 `not (flag and extra and not flag)` is statically proven because the inner
-conjunction contains complementary branches. For example, `true or value > 0`,
+conjunction contains complementary branches. The same negated-`and` identity
+applies to complementary comparison pairs, such as
+`not (value == limit and limit != value)` and
+`not(output < limit and output >= limit)`. For example, `true or value > 0`,
 `(output >= value or true) and not false`, and `1 < 2 and "ready" != "pending"`
 are statically proven after the predicate has passed validation. Other valid
 predicates are classified as
@@ -254,6 +261,11 @@ paired-inclusive-bounds-to-equality rule. For example, those same requirements
 guarantee `candidate != 0` after substituting `max`; `require fallback <= 10`
 together with `require max >= 10` and `require max == fallback` guarantees
 `candidate == 10` after substituting either `max` or `fallback`.
+Disjunctive alias requirements are checked branch by branch with the other
+valid `require` clauses in force. For example,
+`require max == fallback or max == backup` together with
+`require fallback > 0` and `require backup > 0` guarantees
+`candidate > 0` after substituting `max`.
 Valid non-disjunctive ordering requirements may also be chained transitively
 for repair discharge. A chain with at least one strict edge guarantees a
 strict ordering predicate and disequality for the endpoints; an all-inclusive

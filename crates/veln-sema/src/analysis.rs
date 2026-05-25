@@ -3456,20 +3456,41 @@ fn required_predicate_set_implies_clause(required_predicates: &[String], wanted:
         .iter()
         .flat_map(|predicate| repair_set_clauses(predicate))
         .collect::<Vec<_>>();
-    let equivalences = repair_equivalences(&required_clauses);
+    let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
+        return repair_clause_set_implies_clause(&required_clauses, wanted)
+            || disjunctive_branch_set_implies_clause(required_predicates, wanted);
+    };
+    if repair_clause_set_implies_comparison(&required_clauses, &wanted)
+        || disjunctive_branch_set_implies_clause(required_predicates, wanted.clause)
+    {
+        return true;
+    }
+    false
+}
+
+fn repair_clause_set_implies_clause(required_clauses: &[String], wanted: &str) -> bool {
+    let equivalences = repair_equivalences(required_clauses);
     let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
         return required_clauses.iter().any(|required| {
             repair_atoms_equivalent(required, wanted, &equivalences)
                 || boolean_literal_comparison_implies_atom(required, wanted, &equivalences)
         });
     };
+    repair_clause_set_implies_comparison(required_clauses, &wanted)
+}
+
+fn repair_clause_set_implies_comparison(
+    required_clauses: &[String],
+    wanted: &ParsedRepairComparison<'_>,
+) -> bool {
+    let equivalences = repair_equivalences(required_clauses);
     if required_clauses
         .iter()
-        .any(|required| repair_clause_implies_with_equivalences(required, &wanted, &equivalences))
+        .any(|required| repair_clause_implies_with_equivalences(required, wanted, &equivalences))
     {
         return true;
     }
-    if ordering_path_implies_clause(&required_clauses, &wanted, &equivalences) {
+    if ordering_path_implies_clause(required_clauses, wanted, &equivalences) {
         return true;
     }
     if wanted.operator != "==" {
@@ -3478,8 +3499,41 @@ fn required_predicate_set_implies_clause(required_predicates: &[String], wanted:
     required_clauses.iter().any(|left| {
         required_clauses
             .iter()
-            .any(|right| inclusive_bounds_imply_equality(left, right, &wanted, &equivalences))
+            .any(|right| inclusive_bounds_imply_equality(left, right, wanted, &equivalences))
     })
+}
+
+fn disjunctive_branch_set_implies_clause(required_predicates: &[String], wanted: &str) -> bool {
+    required_predicates
+        .iter()
+        .enumerate()
+        .any(|(disjunctive_index, predicate)| {
+            let disjuncts = repair_relevant_or_clauses(predicate);
+            disjuncts.len() > 1
+                && disjuncts.into_iter().all(|disjunct| {
+                    let branch_clauses =
+                        branch_required_clauses(required_predicates, disjunctive_index, disjunct);
+                    repair_clause_set_implies_clause(&branch_clauses, wanted)
+                })
+        })
+}
+
+fn branch_required_clauses(
+    required_predicates: &[String],
+    disjunctive_index: usize,
+    disjunct: &str,
+) -> Vec<String> {
+    required_predicates
+        .iter()
+        .enumerate()
+        .flat_map(|(index, predicate)| {
+            if index == disjunctive_index {
+                canonical_non_disjunctive_repair_clauses(disjunct)
+            } else {
+                repair_set_clauses(predicate)
+            }
+        })
+        .collect()
 }
 
 fn non_disjunctive_repair_clauses(predicate: &str) -> Vec<String> {
@@ -4548,6 +4602,7 @@ fn repair_atoms_equivalent(
 }
 
 struct ParsedRepairComparison<'a> {
+    clause: &'a str,
     left: &'a str,
     operator: &'static str,
     right: &'a str,
@@ -4565,6 +4620,7 @@ impl<'a> ParsedRepairComparison<'a> {
                 return None;
             }
             return Some(Self {
+                clause,
                 left,
                 operator,
                 right,

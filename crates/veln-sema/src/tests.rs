@@ -3825,6 +3825,55 @@ fn marks_aliased_numeric_disequality_as_ordering_disjunction_repair_evidence() {
 }
 
 #[test]
+fn marks_disjunctive_alias_branches_as_satisfy_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int, backup: Int, other: Int) -> Int\n",
+            "  require max == fallback or max == backup\n",
+            "  require fallback > 0\n",
+            "  require backup > 0\n",
+            "  _value satisfy candidate => candidate > 0\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"other\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"backup\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":3,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-4\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":4,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        3
+    );
+}
+
+#[test]
 fn reports_return_type_mismatch() {
     let source = SourceFile::new("main.veln", "fn bad() -> Int\n  \"no\"\nend\n");
     let parsed = parse(&source);
@@ -6358,6 +6407,34 @@ fn contract_predicate_multi_branch_complementary_or_is_statically_proven() {
 }
 
 #[test]
+fn contract_predicate_complementary_comparison_or_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int, limit: Int) -> output: Int effects []\n",
+            "require value == limit or value != limit\n",
+            "require value < limit or limit <= value\n",
+            "ensure output <= limit or output > limit\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_negated_complementary_and_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
@@ -6365,6 +6442,33 @@ fn contract_predicate_negated_complementary_and_is_statically_proven() {
             "pub fn identity(value: {ready: Bool}) -> output: {ready: Bool} effects []\n",
             "require not (value.ready and not value.ready)\n",
             "ensure not((output.ready) and not(output.ready))\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_negated_complementary_comparison_and_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int, limit: Int) -> output: Int effects []\n",
+            "require not (value == limit and limit != value)\n",
+            "ensure not(output < limit and output >= limit)\n",
             "  value\n",
             "end\n",
         ),

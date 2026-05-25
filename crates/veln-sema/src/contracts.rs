@@ -86,6 +86,7 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
 fn complementary_predicates(left: &str, right: &str) -> bool {
     negated_predicate_shape(left).is_some_and(|left| left == predicate_shape(right))
         || negated_predicate_shape(right).is_some_and(|right| right == predicate_shape(left))
+        || complementary_comparisons(left, right)
 }
 
 fn has_complementary_top_level_clauses(predicate: &str, keyword: &str) -> bool {
@@ -151,6 +152,61 @@ fn predicate_shape(predicate: &str) -> String {
         shape.push(ch);
     }
     shape
+}
+
+#[derive(PartialEq, Eq)]
+struct ComparisonShape {
+    left: String,
+    operator: &'static str,
+    right: String,
+}
+
+fn complementary_comparisons(left: &str, right: &str) -> bool {
+    let Some(left) = comparison_shape(left) else {
+        return false;
+    };
+    let Some(right) = comparison_shape(right) else {
+        return false;
+    };
+    left.left == right.left
+        && left.right == right.right
+        && matches!(
+            (left.operator, right.operator),
+            ("==", "!=") | ("!=", "==") | ("<", ">=") | (">=", "<")
+        )
+}
+
+fn comparison_shape(predicate: &str) -> Option<ComparisonShape> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let left = compact_predicate_text(left);
+            let right = compact_predicate_text(right);
+            return match operator {
+                "==" | "!=" if right < left => Some(ComparisonShape {
+                    left: right,
+                    operator,
+                    right: left,
+                }),
+                "<=" => Some(ComparisonShape {
+                    left: right,
+                    operator: ">=",
+                    right: left,
+                }),
+                ">" => Some(ComparisonShape {
+                    left: right,
+                    operator: "<",
+                    right: left,
+                }),
+                _ => Some(ComparisonShape {
+                    left,
+                    operator,
+                    right,
+                }),
+            };
+        }
+    }
+    None
 }
 
 fn static_same_shape_comparison(left: &str, operator: &str, right: &str) -> Option<bool> {

@@ -113,6 +113,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   is already guaranteed by a valid `require` clause. Boolean atom and literal
   boolean equality or disequality clauses also discharge each other during
   `require`-matched repair.
+  Disjunctive alias requirements are also checked branch by branch against the
+  other valid `require` clauses, so a disjunction that equates the substituted
+  candidate with one of several bindings can discharge a `satisfy` clause when
+  every branch has matching evidence.
   Top-level disjunctive `require` predicates discharge top-level disjunctive
   `satisfy` predicates when every `require` branch guarantees at least one
   `satisfy` branch.
@@ -171,12 +175,16 @@ No accepted language and type coverage follow-up is currently tracked here.
   those truths through literal-only boolean wrappers. It also statically proves
   top-level complementary boolean disjunctions such as `flag or not flag` after
   validation, and negated top-level complementary boolean conjunctions such as
-  `not (flag and not flag)`. The current implemented predicate subset is
-  specified in the language reference. Same-shape comparison predicates are
-  also statically evaluated after whitespace normalization. Richer predicate
-  semantics beyond these static truth identities, literal comparisons,
-  same-shape comparisons, complementary boolean disjunctions, and negated
-  complementary boolean conjunctions remain follow-up work.
+  `not (flag and not flag)`. Complementary comparison pairs such as
+  `value == limit or value != limit` and
+  `not (value < limit and value >= limit)` are also statically proven after
+  whitespace normalization and commuted ordering normalization. The current
+  implemented predicate subset is specified in the language reference.
+  Same-shape comparison predicates are also statically evaluated after
+  whitespace normalization. Richer predicate semantics beyond these static
+  truth identities, literal comparisons, same-shape comparisons,
+  complementary boolean and comparison disjunctions, and negated
+  complementary boolean and comparison conjunctions remain follow-up work.
 
 ## Formatting
 
