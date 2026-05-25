@@ -104,10 +104,12 @@ function or test that calls one of them must declare `concurrency` in its
 inferred from the expected record type, such as
 `{tx: Sender(String), rx: Receiver(String)}`. `channel::send` returns `Ok(())`
 when the value is queued and `Err(SendError)` when the sender cannot accept the
-value. `channel::recv` returns `Some(value)` for a queued value and `None` when
-no value is currently available. A zero-capacity channel has no queue storage,
-so the current non-blocking runtime rejects an unpaired send instead of
-buffering it. `channel::close` closes the sender endpoint and returns `()`.
+value. `channel::recv` waits for a queued value or sender close, returns
+`Some(value)` for a received value, and returns `None` after the channel is
+closed and drained. A zero-capacity channel has no queue storage, so the
+current runtime rejects an unpaired send instead of buffering it.
+`channel::close` closes the sender endpoint, wakes waiting receivers, and
+returns `()`.
 
 Executable-command reachability also follows pure helper calls used in
 reachable contract predicates, so blockers inside those helpers are reported

@@ -331,6 +331,7 @@ impl<'a> ProgramEmitter<'a> {
                 return err("full");
             }}
             tx.channel.queue.addLast(freezeValue(value));
+            tx.channel.notifyAll();
             return ok(UNIT);
         }}
     }}
@@ -338,6 +339,14 @@ impl<'a> ProgramEmitter<'a> {
     public static Object channelRecv(Object receiver) {{
         Receiver rx = (Receiver) receiver;
         synchronized (rx.channel) {{
+            while (rx.channel.queue.isEmpty() && !rx.channel.closed) {{
+                try {{
+                    rx.channel.wait();
+                }} catch (InterruptedException interrupted) {{
+                    Thread.currentThread().interrupt();
+                    return none();
+                }}
+            }}
             Object value = rx.channel.queue.pollFirst();
             if (value == null) {{
                 return none();
@@ -350,6 +359,7 @@ impl<'a> ProgramEmitter<'a> {
         Sender tx = (Sender) sender;
         synchronized (tx.channel) {{
             tx.channel.closed = true;
+            tx.channel.notifyAll();
         }}
         return UNIT;
     }}

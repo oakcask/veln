@@ -148,8 +148,9 @@ fn generated_runtime_treats_zero_capacity_channel_as_rendezvous() {
         if (!VelnRuntime.isErr(send)) {
             throw new AssertionError("zero-capacity send should not enqueue without receiver");
         }
+        VelnRuntime.channelClose(tx);
         if (!VelnRuntime.isNone(VelnRuntime.channelRecv(rx))) {
-            throw new AssertionError("zero-capacity channel should remain empty");
+            throw new AssertionError("closed zero-capacity channel should drain as none");
         }
     }
 }
@@ -175,6 +176,92 @@ fn generated_runtime_treats_zero_capacity_channel_as_rendezvous() {
         .arg("-cp")
         .arg(&root)
         .arg("ChannelProbe")
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        java.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&java.stdout),
+        String::from_utf8_lossy(&java.stderr)
+    );
+}
+
+#[test]
+fn generated_runtime_blocks_receive_until_value_is_sent() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [concurrency]\n",
+        "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+        "  let _ = channel::send(pair.tx, \"hello\")\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+    let root = temp_dir("blocking-channel-recv");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("BlockingRecvProbe.java"),
+        r#"public final class BlockingRecvProbe {
+    private BlockingRecvProbe() {}
+
+    public static void main(String[] args) throws Exception {
+        Object pair = VelnRuntime.channelBounded(Long.valueOf(1L));
+        Object tx = VelnRuntime.recordField(pair, "tx");
+        Object rx = VelnRuntime.recordField(pair, "rx");
+        Thread sender = new Thread(() -> {
+            try {
+                Thread.sleep(100L);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+            }
+            VelnRuntime.channelSend(tx, "hello");
+        });
+        sender.start();
+        long before = System.currentTimeMillis();
+        Object received = VelnRuntime.channelRecv(rx);
+        long elapsed = System.currentTimeMillis() - before;
+        sender.join(1000L);
+        if (!VelnRuntime.isSome(received)) {
+            throw new AssertionError("receive should wait for the sent value");
+        }
+        if (!"hello".equals(VelnRuntime.optionValue(received))) {
+            throw new AssertionError("received unexpected value");
+        }
+        if (elapsed < 50L) {
+            throw new AssertionError("receive returned before the delayed send");
+        }
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("BlockingRecvProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("BlockingRecvProbe")
         .output()
         .expect("java should run");
     let _ = fs::remove_dir_all(&root);

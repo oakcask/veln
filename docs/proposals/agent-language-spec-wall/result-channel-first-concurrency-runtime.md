@@ -113,10 +113,12 @@ The exact source spelling for `spawn`, task handles, cancellation, and channel
 construction remains open. The decision owns the semantic direction, not a
 final surface syntax.
 
-The first implementation must still decide whether channel operations block
-host threads directly, suspend lightweight tasks, or use a hybrid strategy.
-That is a runtime scheduling decision as long as the observable source
-semantics, cancellation behavior, and diagnostics remain stable.
+The implemented receive operation blocks a host thread until a value is
+available or the channel is closed. Later task scheduling may replace that with
+lightweight suspension as long as the observable source semantics,
+cancellation behavior, and diagnostics remain stable. Blocking send,
+backpressure scheduling, and rendezvous pairing remain open runtime scheduling
+work.
 
 `select` or an equivalent multi-channel wait form is likely needed, but it
 should be designed separately because fairness, priority, timeout, cancellation,
@@ -148,7 +150,7 @@ Public functions and tests that reach these calls must declare
 
 The implemented constructor infers the item type from an expected
 `{tx: Sender(T), rx: Receiver(T)}` record type. The runtime supports direct
-send, non-blocking receive, and close on a single channel pair. Capacity zero
-creates a no-buffer channel and direct sends fail until rendezvous scheduling
-exists. `spawn`, task handles, cancellation, join, blocking receive scheduling,
-and selection remain follow-up work.
+send, blocking receive, and close on a single channel pair. Capacity zero
+creates a no-buffer channel and direct sends fail until rendezvous send
+scheduling exists. `spawn`, task handles, cancellation, join, and selection
+remain follow-up work.
