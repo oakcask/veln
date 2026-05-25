@@ -6,36 +6,32 @@ target tracked in `../../proposals/`.
 
 ## Read First
 
-- [overview.md](overview.md) defines the fixed stability boundary and the
-  behavior that remains outside this reference.
-- [source-surface.md](source-surface.md) defines implemented source syntax,
-  expressions, and explicit non-goals.
-- [types.md](types.md) defines annotations, local inference, assignment, and
-  operators.
-- [diagnostics-json.md](diagnostics-json.md) defines the stable
-  `veln check --json` envelope and diagnostic detail fields.
+- [overview.md](overview.md): stability boundary and explicit non-goals.
+- [source-surface.md](source-surface.md): implemented modules, items,
+  expressions, tests, and grammar.
+- [types.md](types.md): annotations, local inference, assignment, and operators.
+- [commands.md](commands.md): source discovery, check, run, test, and format
+  gates.
+
+## Task Routes
+
+- Names, stdio, prelude, and effects:
+  [names-effects.md](names-effects.md).
+- Contracts and holes: start with
+  [contracts-holes.md](contracts-holes.md), then choose
+  [contracts.md](contracts.md), [holes.md](holes.md), or
+  [contracts-holes-full.md](contracts-holes-full.md).
+- Machine-readable output: [diagnostics-json.md](diagnostics-json.md),
+  [run-json.md](run-json.md), and [test-json.md](test-json.md).
+- Runtime and examples: [execution.md](execution.md) and
+  [examples.md](examples.md).
+- Rationale: [source-decisions.md](source-decisions.md).
 
 ## Read When
 
-- [commands.md](commands.md): CLI behavior, source discovery, format gates,
-  execution gates, and bootstrap test selection.
-- [names-effects.md](names-effects.md): name resolution, stdio calls, prelude
-  helpers, and public effect diagnostics.
-- [contracts-holes.md](contracts-holes.md): routing entry for contract and hole
-  behavior.
-- [contracts.md](contracts.md): implemented contract predicate checking,
-  runtime obligations, and explicit result bindings.
-- [holes.md](holes.md): implemented hole diagnostics, repair candidates, and
-  `satisfy` constraints.
-- [run-json.md](run-json.md): `veln run --json` schema and runtime error
-  records.
-- [test-json.md](test-json.md): `veln test --json` schema, case shape, and
-  captured stdio events.
-- [execution.md](execution.md): checked-core and backend boundaries.
-- [examples.md](examples.md): complete examples that exercise implemented
-  language behavior.
-- [source-decisions.md](source-decisions.md): discussion results that support
-  this specification.
+- Use this directory before changing code, tests, diagnostics, or samples.
+- Use the task route above before opening proposals, phase notes, or source
+  decisions.
 
 ## Skip Unless Needed
 

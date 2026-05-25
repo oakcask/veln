@@ -5,43 +5,37 @@ the experimental Veln implementation.
 
 ## Read First
 
-- [reference/README.md](reference/README.md): implemented behavior.
-- [proposals/README.md](proposals/README.md): accepted or open targets that
-  are not fully implemented.
-- [reviews/README.md](reviews/README.md): implementation gaps and verification
-  evidence.
+- [reference/README.md](reference/README.md): current implemented behavior.
+- [proposals/README.md](proposals/README.md): accepted or open work not yet
+  fully implemented.
+- [reviews/README.md](reviews/README.md): gaps and verification evidence.
 
 ## Read When
 
-- Use [reference/language/README.md](reference/language/README.md) before code,
-  test, diagnostic, or sample changes.
-- Use [reference/language/source-surface.md](reference/language/source-surface.md)
-  for implemented syntax, expression, and source grammar questions.
-- Use [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md),
-  [reference/language/run-json.md](reference/language/run-json.md), or
-  [reference/language/test-json.md](reference/language/test-json.md) before
-  changing human or machine-readable command output.
-- Use [phases/README.md](phases/README.md) for implementation order and working
-  plans.
-- Use [reference/source-decisions/README.md](reference/source-decisions/README.md)
-  for implemented decision rationale.
-- Use [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md)
-  for planned or incomplete design-wall rationale.
+- Changing syntax, types, effects, contracts, holes, commands, JSON output, or
+  examples: start at [reference/language/README.md](reference/language/README.md).
+- Planning the next slice: start at [proposals/README.md](proposals/README.md),
+  then check [reviews/README.md](reviews/README.md).
+- Explaining why implemented behavior exists: use
+  [reference/source-decisions/README.md](reference/source-decisions/README.md).
+- Reconstructing implementation order: use
+  [phases/README.md](phases/README.md).
+- Reading incomplete design-wall rationale: use
+  [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md).
 
 ## Current Shape
 
-- `reference/language/` is the first stop for implemented behavior.
+- `reference/language/` is the first stop for implemented language behavior.
 - `reference/source-decisions/` is historical rationale grouped by topic.
-- `phases/` and `reviews/` contain longer working records; read their README
-  files before opening the long detail documents.
+- `phases/` and `reviews/` contain longer working records behind short indexes.
 - `proposals/` contains accepted or open targets that still need promotion into
   the reference after implementation.
 
 ## Skip Unless Needed
 
 - Do not read old phase plans before the current reference and review pages.
-- Do not read source-decision records when the categorized language reference
-  answers the behavior question.
+- Do not read source-decision records when the language reference answers the
+  behavior question.
 - Do not treat proposal text as implemented behavior unless the reference also
   states it.
 

@@ -6,31 +6,32 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 
 ## Read First
 
-- [language/README.md](language/README.md) routes the categorized language
-  specification for the implemented first slice.
-- [source-decisions/README.md](source-decisions/README.md) lists implemented
-  decision records for rationale and compatibility context.
-- [bibliography/README.md](bibliography/README.md) routes research references
-  that support design decisions.
+- [language/README.md](language/README.md): current language behavior.
+- [source-decisions/README.md](source-decisions/README.md): implemented
+  rationale and compatibility context.
+- [bibliography/README.md](bibliography/README.md): research references behind
+  source decisions.
 
-## Common Routes
+## Task Routes
 
-- Source syntax: [language/source-surface.md](language/source-surface.md)
-- Type behavior: [language/types.md](language/types.md)
-- Contracts and holes: [language/contracts-holes.md](language/contracts-holes.md)
-- Contracts only: [language/contracts.md](language/contracts.md)
-- Holes only: [language/holes.md](language/holes.md)
-- Check output: [language/diagnostics-json.md](language/diagnostics-json.md)
-- Run output: [language/run-json.md](language/run-json.md)
-- Test output: [language/test-json.md](language/test-json.md)
-- Rationale by topic:
-  [source-decisions/README.md](source-decisions/README.md)
+- Source language changes: [language/source-surface.md](language/source-surface.md),
+  [language/types.md](language/types.md), and
+  [language/names-effects.md](language/names-effects.md).
+- Contract or hole changes: [language/contracts-holes.md](language/contracts-holes.md)
+  routes the short and full references.
+- Command and JSON-output changes: [language/commands.md](language/commands.md),
+  [language/diagnostics-json.md](language/diagnostics-json.md),
+  [language/run-json.md](language/run-json.md), and
+  [language/test-json.md](language/test-json.md).
+- Execution or examples: [language/execution.md](language/execution.md) and
+  [language/examples.md](language/examples.md).
+- Rationale: [language/source-decisions.md](language/source-decisions.md) first,
+  then [source-decisions/README.md](source-decisions/README.md) if detail is
+  needed.
 
 ## Read When
 
 - Use `language/` before changing code, tests, diagnostics, or samples.
-- Use `language/source-surface.md` for implemented first-slice source grammar.
-- Use `language/diagnostics-json.md` for `veln check --json` output.
 - Use `source-decisions/` for implemented decision rationale.
 - Use `../proposals/agent-language-spec-wall/` for planned or incomplete
   decision rationale.
