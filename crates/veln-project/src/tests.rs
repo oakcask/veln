@@ -1,4 +1,5 @@
 use super::*;
+use crate::manifest::read_manifest;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -99,6 +100,52 @@ fn project_discover_reads_manifest_module_entries() {
     assert_eq!(manifest.modules[0].name, "app.main");
     assert_eq!(manifest.modules[0].path_span.start.line, 2);
     assert_eq!(manifest.modules[0].name_span.start.column, 20);
+}
+
+#[test]
+fn read_manifest_returns_none_when_manifest_is_absent() {
+    let temp = TempProject::new("manifest-absent");
+
+    let manifest = read_manifest(temp.root()).unwrap();
+
+    assert!(manifest.is_none());
+}
+
+#[test]
+fn read_manifest_tracks_modules_sections_and_ignores_non_entries() {
+    let temp = TempProject::new("manifest-sections");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[package]\n",
+            "\"ignored.veln\" = \"ignored.module\"\n",
+            "[modules]\n",
+            "# comment\n",
+            "not-an-entry\n",
+            "\"src/main.veln\" = \"app.main\"\n",
+            "[other]\n",
+            "\"ignored-again.veln\" = \"ignored.again\"\n",
+            "[modules]\n",
+            "  \"src/lib.veln\"   =   \"app.lib\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(manifest.path.as_str(), "veln.toml");
+    assert_eq!(manifest.modules.len(), 2);
+    assert_eq!(manifest.modules[0].path, "src/main.veln");
+    assert_eq!(manifest.modules[0].name, "app.main");
+    assert_eq!(manifest.modules[0].path_span.start.line, 6);
+    assert_eq!(manifest.modules[0].path_span.start.column, 2);
+    assert_eq!(manifest.modules[0].name_span.start.column, 20);
+    assert_eq!(manifest.modules[1].path, "src/lib.veln");
+    assert_eq!(manifest.modules[1].name, "app.lib");
+    assert_eq!(manifest.modules[1].path_span.start.line, 10);
+    assert_eq!(manifest.modules[1].path_span.start.column, 4);
+    assert_eq!(manifest.modules[1].name_span.start.column, 25);
 }
 
 struct TempProject {
