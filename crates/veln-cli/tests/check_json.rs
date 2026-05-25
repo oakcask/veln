@@ -451,6 +451,61 @@ fn check_json_reports_missing_module_identity_for_imports() {
 }
 
 #[test]
+fn check_human_reports_manifest_module_name_drift() {
+    let project = TestProject::new("check-human-manifest-name-drift");
+    project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
+    project.write(
+        "main.veln",
+        concat!(
+            "mod app.source\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "veln.toml:2:16: error[module.metadata_drift]: manifest module name `app.manifest` does not match source module `app.source`",
+            "  note: main.veln:1:1: The source `mod` declaration owns the compiler-visible module name.",
+            "  note: Update the manifest entry or remove the duplicated module name.",
+        ],
+    );
+}
+
+#[test]
+fn check_json_reports_manifest_module_without_source_owner() {
+    let project = TestProject::new("check-json-manifest-without-source-owner");
+    project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
+    project.write(
+        "main.veln",
+        concat!("pub fn main() -> () effects []\n", "  ()\n", "end\n"),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"module.metadata_drift\"",
+            "\"kind\":\"module\"",
+            "\"message\":\"manifest module name `app.manifest` has no source `mod` owner\"",
+            "\"span\":{\"file\":\"veln.toml\",\"start\":{\"line\":2,\"column\":16,\"offset\":25},\"end\":{\"line\":2,\"column\":28,\"offset\":37}}",
+            "\"details\":{\"phase\":\"module\",\"field\":\"module_identity\",\"canonical_owner\":\"source\",\"derived_owner\":\"manifest\",\"observed_value\":\"app.manifest\",\"manifest_path\":\"veln.toml\",\"source_path\":\"main.veln\"}",
+            "\"related\":[{\"message\":\"Add a `mod` declaration to the source file or remove the manifest module name.\"}]",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"module\":1}}",
+        ],
+    );
+}
+
+#[test]
 fn check_json_reports_checked_core_call_arity_blockers() {
     let project = TestProject::new("check-json-core-call-arity");
     project.write(

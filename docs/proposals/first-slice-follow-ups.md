@@ -37,8 +37,8 @@ before changing candidate ranking or safe repair generation.
 
 ## Effects And Contracts
 
-The implemented contract subset is extensive, but richer predicate semantics
-remain follow-up work. Read
+Richer predicate semantics remain follow-up work beyond the implemented
+contract subset. Read
 [the full effects and contracts record](first-slice-follow-ups-full.md#effects-and-contracts)
 before changing effect propagation, runtime contracts, or predicate
 classification.

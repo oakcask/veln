@@ -1193,6 +1193,47 @@ fn parses_and_formats_match_expression() {
 }
 
 #[test]
+fn reports_missing_match_arm_arrow_and_keeps_arm_expression() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn describe(value: Option(Int)) -> String effects []\n",
+            "  match value\n",
+            "    Some(count) \"some\"\n",
+            "    None => \"none\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.match_arm")
+        .expect("expected missing match arm arrow diagnostic");
+    assert_eq!(diagnostic.message, "match arm is missing `=>`");
+    assert_eq!(diagnostic.parser_context, "expression_line");
+    assert_eq!(diagnostic.unexpected.text, "\"some\"");
+    assert_eq!(diagnostic.expected, vec!["=>"]);
+    assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
+
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("expected match expression");
+    };
+    assert_eq!(arms.len(), 2);
+    assert!(matches!(
+        &arms[0].expr.kind,
+        ExprKind::StringLiteral(value) if value == "\"some\""
+    ));
+}
+
+#[test]
 fn parses_match_expression_inside_call_argument() {
     let source = SourceFile::new(
         "main.veln",

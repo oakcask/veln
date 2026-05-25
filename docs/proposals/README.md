@@ -14,17 +14,18 @@ not fully implemented in the current workspace.
 
 ## Read When
 
-- Use [first-slice-follow-ups.md](first-slice-follow-ups.md) when selecting an
-  accepted implementation target.
-- Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
-  when you need accepted or open design-wall decisions that are not fully
-  implemented.
-- Use [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
-  when you need review evidence about first-slice gaps and completion claims.
-- Use this directory when planning the next implementation slice.
-- Use [implementation-route.md](implementation-route.md) when turning a
-  proposal into reference behavior.
-- Use `../reference/` when you need current behavior.
-- Use `agent-language-spec-wall/` when you need the rationale behind a
-  proposal.
-- Use `../phases/` when you need implementation order or completion notes.
+- Selecting an accepted implementation target:
+  [first-slice-follow-ups.md](first-slice-follow-ups.md).
+- Turning a proposal into reference behavior:
+  [implementation-route.md](implementation-route.md).
+- Checking design-wall decisions that are accepted or still open:
+  [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md).
+- Checking review evidence about gaps or completion claims:
+  [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md).
+
+## Skip Unless Needed
+
+- Use `../reference/` when you need current implemented behavior.
+- Use `../phases/` only for implementation order or completion notes.
+- Use `agent-language-spec-wall/` only after the accepted target route does not
+  answer the planning question.
