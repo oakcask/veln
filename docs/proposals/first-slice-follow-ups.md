@@ -89,6 +89,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   whole `satisfy` predicate tautological for repair ranking.
   Same-shape expression tautologies rooted at the satisfy candidate are
   accepted after whitespace normalization.
+  Negated top-level `and` predicates with complementary
+  candidate-referencing branches are treated as tautological for repair
+  ranking.
   Contract obligation classification treats complementary boolean identities
   across more than two top-level `or` branches, and the negation of more than
   two top-level `and` branches containing a complementary pair, as statically

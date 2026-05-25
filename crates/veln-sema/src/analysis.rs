@@ -2949,6 +2949,17 @@ fn tautological_candidate_predicate(
             reason: "satisfy_tautology",
         });
     }
+    if repair_relevant_negated_and_clauses(predicate)
+        .as_deref()
+        .is_some_and(|clauses| {
+            let disjuncts = clauses.iter().map(String::as_str).collect::<Vec<_>>();
+            has_complementary_candidate_disjuncts(&disjuncts, candidate)
+        })
+    {
+        return Some(TautologicalCandidatePredicate {
+            reason: "satisfy_tautology",
+        });
+    }
     let disjuncts = repair_relevant_or_clauses(predicate);
     if disjuncts.is_empty() {
         return None;

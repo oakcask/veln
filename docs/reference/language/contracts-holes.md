@@ -200,6 +200,10 @@ Top-level complementary disjuncts over the same candidate-referencing
 predicate also rank as tautological. For example,
 `candidate.ready or not candidate.ready` ranks every type-compatible visible
 binding as a safe tautology repair candidate.
+A negated top-level `and` with complementary candidate-referencing branches is
+also tautological for repair ranking. For example,
+`not (candidate.ready and limit.ready and not candidate.ready)` ranks every
+type-compatible visible binding as a safe tautology repair candidate.
 Nested `or` clauses with a literal `true` branch are ignored inside
 tautological `and` clauses, so
 `candidate == candidate and (candidate > candidate or true)` is ranked as a
