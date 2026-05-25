@@ -117,6 +117,8 @@ as
 `(flag and ready) or (flag and not ready) or (not flag and ready) or (not flag and not ready)`
 and
 `(value < limit and ready) or (value < limit and not ready) or (value >= limit and ready) or (value >= limit and not ready)`.
+It also recognizes exhaustive triple case splits where eight top-level
+conjunction branches cover both polarities of three non-static predicates.
 Top-level `or` also recognizes complementary comparison pairs over the same
 operands after whitespace normalization and commuted ordering normalization,
 such as `value == limit or value != limit`,

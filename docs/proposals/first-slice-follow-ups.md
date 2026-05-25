@@ -225,7 +225,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   non-static variant and otherwise statically true conjuncts are also
   statically evaluated. Exhaustive pair case splits that cover both polarities
   of two non-static predicates across four top-level conjunction branches are
-  also statically evaluated. Richer predicate semantics beyond
+  also statically evaluated. Exhaustive triple case splits that cover both
+  polarities of three non-static predicates across eight top-level conjunction
+  branches are also statically evaluated. Richer predicate semantics beyond
   these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, complementary predicate comparisons,

@@ -71,6 +71,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_exhaustive_pair_case_split_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
+    if has_exhaustive_triple_case_split_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
     if has_case_split_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
@@ -270,6 +273,63 @@ fn pair_case_split_masks(disjuncts: &[&str], first: &str, second: &str) -> u8 {
         match (first_polarity, second_polarity) {
             (Some(first), Some(second)) => {
                 let mask = ((first as u8) << 1) | second as u8;
+                masks | (1 << mask)
+            }
+            _ => masks,
+        }
+    })
+}
+
+fn has_exhaustive_triple_case_split_top_level_or(predicate: &str) -> bool {
+    let disjuncts = flattened_keyword_clauses(predicate, "or");
+    if disjuncts.len() < 8 {
+        return false;
+    }
+    disjuncts.iter().any(|candidate| {
+        let bases = non_static_conjuncts(candidate);
+        bases.len() == 3
+            && bases.iter().enumerate().all(|(index, base)| {
+                bases.iter().skip(index + 1).all(|other| {
+                    !same_predicate(base, other) && !complementary_predicates(base, other)
+                })
+            })
+            && triple_case_split_masks(&disjuncts, bases[0], bases[1], bases[2]) == 0b1111_1111
+    })
+}
+
+fn triple_case_split_masks(disjuncts: &[&str], first: &str, second: &str, third: &str) -> u8 {
+    disjuncts.iter().fold(0, |masks, disjunct| {
+        let conjuncts = non_static_conjuncts(disjunct);
+        if conjuncts.len() != 3 {
+            return masks;
+        }
+        let mut first_polarity = None;
+        let mut second_polarity = None;
+        let mut third_polarity = None;
+        for conjunct in conjuncts {
+            if first_polarity.is_none() {
+                if let Some(polarity) = predicate_polarity_against(conjunct, first) {
+                    first_polarity = Some(polarity);
+                    continue;
+                }
+            }
+            if second_polarity.is_none() {
+                if let Some(polarity) = predicate_polarity_against(conjunct, second) {
+                    second_polarity = Some(polarity);
+                    continue;
+                }
+            }
+            if third_polarity.is_none() {
+                if let Some(polarity) = predicate_polarity_against(conjunct, third) {
+                    third_polarity = Some(polarity);
+                    continue;
+                }
+            }
+            return masks;
+        }
+        match (first_polarity, second_polarity, third_polarity) {
+            (Some(first), Some(second), Some(third)) => {
+                let mask = ((first as u8) << 2) | ((second as u8) << 1) | third as u8;
                 masks | (1 << mask)
             }
             _ => masks,
