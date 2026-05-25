@@ -2704,8 +2704,8 @@ fn reflexive_candidate_binding(
 ) -> Option<ReflexiveCandidateBinding> {
     let mut allowed_binding = None::<String>;
     let mut reason = "satisfy_equality_match";
-    for clause in predicate.split(" and ") {
-        let direct = direct_reflexive_clause(clause.trim(), candidate)?;
+    for clause in normalized_and_clauses(predicate) {
+        let direct = direct_reflexive_clause(&clause, candidate)?;
         if let Some(existing) = &allowed_binding {
             if existing != &direct.binding {
                 return None;
@@ -2728,8 +2728,8 @@ fn tautological_candidate_predicate(
     predicate: &str,
     candidate: &str,
 ) -> Option<TautologicalCandidatePredicate> {
-    for clause in predicate.split(" and ") {
-        if !is_candidate_tautology_clause(clause.trim(), candidate) {
+    for clause in normalized_and_clauses(predicate) {
+        if !is_candidate_tautology_clause(&clause, candidate) {
             return None;
         }
     }
