@@ -103,7 +103,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   is already guaranteed by a valid `require` clause.
   Disjunctive equality requirements against distinct boolean, integer, or
   string literals discharge disequality `satisfy` clauses against another
-  literal, including through equality aliases.
+  literal, including through equality aliases. Inclusive transitive ordering
+  plus endpoint disequality discharges strict comparison `satisfy` clauses.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.

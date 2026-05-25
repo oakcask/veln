@@ -290,7 +290,10 @@ operand aliasing applies while chaining transitive ordering evidence, so
 `candidate + 1 <= limit + 1` after substituting `max`. Equality requirements
 also apply to boolean atom clauses, so `require max == fallback` plus
 `require fallback.ready` guarantees `candidate.ready` after substituting
-`max`. Every
+`max`. Inclusive transitive ordering plus endpoint disequality guarantees a
+strict comparison in repair matching, so `require low <= mid`,
+`require mid <= max`, and `require max != low` guarantee `candidate > low`
+after substituting `max`. Every
 type-compatible visible binding candidate for the tautological
 subset uses `reason: "satisfy_tautology"`. A statically accepted candidate also
 uses `satisfy_status: "statically_satisfied"`. Other candidates for a

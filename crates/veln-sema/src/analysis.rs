@@ -3696,13 +3696,26 @@ fn ordering_path_implies_clause(
                 equivalences,
             )
         }
-        "<" => ordering_path_exists(
-            required_clauses,
-            wanted.left,
-            wanted.right,
-            true,
-            equivalences,
-        ),
+        "<" => {
+            ordering_path_exists(
+                required_clauses,
+                wanted.left,
+                wanted.right,
+                true,
+                equivalences,
+            ) || (ordering_path_exists(
+                required_clauses,
+                wanted.left,
+                wanted.right,
+                false,
+                equivalences,
+            ) && disequality_clause_exists(
+                required_clauses,
+                wanted.left,
+                wanted.right,
+                equivalences,
+            ))
+        }
         "<=" => ordering_path_exists(
             required_clauses,
             wanted.left,
@@ -3727,6 +3740,27 @@ fn ordering_path_implies_clause(
         }
         _ => false,
     }
+}
+
+fn disequality_clause_exists(
+    required_clauses: &[String],
+    left: &str,
+    right: &str,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    required_clauses.iter().any(|clause| {
+        let Some(parsed) = ParsedRepairComparison::parse(clause) else {
+            return false;
+        };
+        parsed.operator == "!="
+            && repair_operands_equivalent_unordered(
+                parsed.left,
+                parsed.right,
+                left,
+                right,
+                equivalences,
+            )
+    })
 }
 
 fn ordering_path_exists(
