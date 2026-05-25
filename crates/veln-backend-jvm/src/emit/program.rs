@@ -272,6 +272,9 @@ impl<'a> ProgramEmitter<'a> {
     public static final class Channel {{
         private final java.util.ArrayDeque<Object> queue;
         private final long capacity;
+        private long waitingReceivers;
+        private boolean hasRendezvousValue;
+        private Object rendezvousValue;
         private boolean closed;
 
         private Channel(long capacity) {{
@@ -280,6 +283,9 @@ impl<'a> ProgramEmitter<'a> {
             }}
             this.queue = new java.util.ArrayDeque<Object>();
             this.capacity = capacity;
+            this.waitingReceivers = 0L;
+            this.hasRendezvousValue = false;
+            this.rendezvousValue = null;
             this.closed = false;
         }}
     }}
@@ -332,6 +338,36 @@ impl<'a> ProgramEmitter<'a> {
             if (tx.channel.closed) {{
                 return err("closed");
             }}
+            if (tx.channel.capacity == 0L) {{
+                Object frozen = freezeValue(value);
+                while (!tx.channel.closed
+                    && (tx.channel.waitingReceivers == 0L || tx.channel.hasRendezvousValue)) {{
+                    try {{
+                        tx.channel.wait();
+                    }} catch (InterruptedException interrupted) {{
+                        Thread.currentThread().interrupt();
+                        return err("interrupted");
+                    }}
+                }}
+                if (tx.channel.closed) {{
+                    return err("closed");
+                }}
+                tx.channel.rendezvousValue = frozen;
+                tx.channel.hasRendezvousValue = true;
+                tx.channel.notifyAll();
+                boolean interruptedAfterTransfer = false;
+                while (tx.channel.hasRendezvousValue) {{
+                    try {{
+                        tx.channel.wait();
+                    }} catch (InterruptedException interrupted) {{
+                        interruptedAfterTransfer = true;
+                    }}
+                }}
+                if (interruptedAfterTransfer) {{
+                    Thread.currentThread().interrupt();
+                }}
+                return ok(UNIT);
+            }}
             if (tx.channel.queue.size() >= tx.channel.capacity) {{
                 return err("full");
             }}
@@ -344,6 +380,38 @@ impl<'a> ProgramEmitter<'a> {
     public static Object channelRecv(Object receiver) {{
         Receiver rx = (Receiver) receiver;
         synchronized (rx.channel) {{
+            if (rx.channel.capacity == 0L) {{
+                rx.channel.waitingReceivers += 1L;
+                rx.channel.notifyAll();
+                boolean interruptedAfterTransfer = false;
+                try {{
+                    while (!rx.channel.hasRendezvousValue && !rx.channel.closed) {{
+                        try {{
+                            rx.channel.wait();
+                        }} catch (InterruptedException interrupted) {{
+                            if (!rx.channel.hasRendezvousValue) {{
+                                Thread.currentThread().interrupt();
+                                return none();
+                            }}
+                            interruptedAfterTransfer = true;
+                        }}
+                    }}
+                    if (!rx.channel.hasRendezvousValue) {{
+                        return none();
+                    }}
+                    Object value = rx.channel.rendezvousValue;
+                    rx.channel.rendezvousValue = null;
+                    rx.channel.hasRendezvousValue = false;
+                    rx.channel.notifyAll();
+                    if (interruptedAfterTransfer) {{
+                        Thread.currentThread().interrupt();
+                    }}
+                    return some(value);
+                }} finally {{
+                    rx.channel.waitingReceivers -= 1L;
+                    rx.channel.notifyAll();
+                }}
+            }}
             while (rx.channel.queue.isEmpty() && !rx.channel.closed) {{
                 try {{
                     rx.channel.wait();

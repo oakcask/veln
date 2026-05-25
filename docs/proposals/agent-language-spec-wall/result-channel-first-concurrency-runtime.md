@@ -114,11 +114,11 @@ construction remains open. The decision owns the semantic direction, not a
 final surface syntax.
 
 The implemented receive operation blocks a host thread until a value is
-available or the channel is closed. Later task scheduling may replace that with
-lightweight suspension as long as the observable source semantics,
-cancellation behavior, and diagnostics remain stable. Blocking send,
-backpressure scheduling, and rendezvous pairing remain open runtime scheduling
-work.
+available or the channel is closed, and zero-capacity sends block until a
+receiver accepts the rendezvous value. Later task scheduling may replace that
+with lightweight suspension as long as the observable source semantics,
+cancellation behavior, and diagnostics remain stable. Blocking send for
+positive-capacity backpressure remains open runtime scheduling work.
 
 `select` or an equivalent multi-channel wait form is likely needed, but it
 should be designed separately because fairness, priority, timeout, cancellation,
@@ -151,7 +151,6 @@ that reach these calls must declare `effects [concurrency]`.
 The implemented constructor infers the item type from an expected
 `{tx: Sender(T), rx: Receiver(T)}` record type, or uses the explicit item type
 from `channel::bounded[T](capacity)`. The runtime supports direct send,
-sender clone, blocking receive, and close on a single channel pair. Capacity
-zero creates a no-buffer channel and direct sends fail until rendezvous send
-scheduling exists. `spawn`, task handles, cancellation, join, and selection
-remain follow-up work.
+sender clone, blocking receive, close on a single channel pair, and
+zero-capacity rendezvous transfer between a waiting sender and receiver.
+`spawn`, task handles, cancellation, join, and selection remain follow-up work.

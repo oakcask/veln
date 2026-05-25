@@ -143,16 +143,40 @@ fn generated_runtime_treats_zero_capacity_channel_as_rendezvous() {
         r#"public final class ChannelProbe {
     private ChannelProbe() {}
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         Object pair = VelnRuntime.channelBounded(Long.valueOf(0L));
         Object tx = VelnRuntime.recordField(pair, "tx");
         Object rx = VelnRuntime.recordField(pair, "rx");
-        Object send = VelnRuntime.channelSend(tx, "hello");
-        if (!VelnRuntime.isErr(send)) {
-            throw new AssertionError("zero-capacity send should not enqueue without receiver");
+        final Object[] send = new Object[1];
+        Thread sender = new Thread(() -> {
+            send[0] = VelnRuntime.channelSend(tx, "hello");
+        });
+        sender.start();
+        Thread.sleep(100L);
+        if (!sender.isAlive()) {
+            throw new AssertionError("zero-capacity send should wait for receiver");
+        }
+        Object received = VelnRuntime.channelRecv(rx);
+        sender.join(1000L);
+        if (sender.isAlive()) {
+            throw new AssertionError("zero-capacity send should complete after receive");
+        }
+        if (!VelnRuntime.isSome(received)) {
+            throw new AssertionError("zero-capacity receive should accept rendezvous value");
+        }
+        if (!"hello".equals(VelnRuntime.optionValue(received))) {
+            throw new AssertionError("received unexpected value");
+        }
+        if (!VelnRuntime.isOk(send[0])) {
+            throw new AssertionError("zero-capacity send should succeed after rendezvous");
         }
         VelnRuntime.channelClose(tx);
-        if (!VelnRuntime.isNone(VelnRuntime.channelRecv(rx))) {
+        Object closedSend = VelnRuntime.channelSend(tx, "again");
+        if (!VelnRuntime.isErr(closedSend)) {
+            throw new AssertionError("closed zero-capacity send should fail");
+        }
+        Object closedRecv = VelnRuntime.channelRecv(rx);
+        if (!VelnRuntime.isNone(closedRecv)) {
             throw new AssertionError("closed zero-capacity channel should drain as none");
         }
     }
@@ -179,6 +203,78 @@ fn generated_runtime_treats_zero_capacity_channel_as_rendezvous() {
         .arg("-cp")
         .arg(&root)
         .arg("ChannelProbe")
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        java.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&java.stdout),
+        String::from_utf8_lossy(&java.stderr)
+    );
+}
+
+#[test]
+fn generated_runtime_rejects_zero_capacity_send_after_close() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [concurrency]\n",
+        "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(0)\n",
+        "  let _ = channel::close(pair.tx)\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+    let root = temp_dir("closed-zero-capacity-channel");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("ClosedChannelProbe.java"),
+        r#"public final class ClosedChannelProbe {
+    private ClosedChannelProbe() {}
+
+    public static void main(String[] args) {
+        Object pair = VelnRuntime.channelBounded(Long.valueOf(0L));
+        Object tx = VelnRuntime.recordField(pair, "tx");
+        Object rx = VelnRuntime.recordField(pair, "rx");
+        VelnRuntime.channelClose(tx);
+        Object send = VelnRuntime.channelSend(tx, "hello");
+        if (!VelnRuntime.isErr(send)) {
+            throw new AssertionError("closed zero-capacity send should fail");
+        }
+        if (!VelnRuntime.isNone(VelnRuntime.channelRecv(rx))) {
+            throw new AssertionError("closed zero-capacity channel should drain as none");
+        }
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("ClosedChannelProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("ClosedChannelProbe")
         .output()
         .expect("java should run");
     let _ = fs::remove_dir_all(&root);

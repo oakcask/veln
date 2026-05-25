@@ -50,9 +50,10 @@ and `channel::bounded[T]` return a record with `tx` and `rx` fields.
 Sending freezes the sent value before crossing the channel boundary. Receiving
 blocks until a queued value is available or the sender endpoint is closed. It
 returns `Some(value)` for a received value and `None` after the channel is
-closed and drained. A capacity of zero creates a no-buffer channel; because
-the implemented runtime has no rendezvous send scheduling, a direct send on
-that channel returns `Err(SendError)` when no receiver is already paired.
+closed and drained. A capacity of zero creates a no-buffer rendezvous channel.
+It has no queue storage: sending waits until a receiver is ready, transfers the
+value directly, and then returns `Ok(())`. A waiting receive on a zero-capacity
+channel returns `Some(value)` when the paired send transfers a value.
 Closing the sender endpoint prevents later sends from succeeding and wakes
 waiting receivers.
 

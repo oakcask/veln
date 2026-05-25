@@ -108,13 +108,14 @@ inferred from the expected record type, such as
 uses the explicit item type when no expected record type is present.
 `channel::clone` returns another sender endpoint for the same channel and
 preserves the sender item type. `channel::send` returns `Ok(())` when the value
-is queued and
+is queued or transferred through a zero-capacity rendezvous, and
 `Err(SendError)` when the sender cannot accept the value. `channel::recv`
-waits for a queued value or sender close, returns `Some(value)` for a received
-value, and returns `None` after the channel is closed and drained. A
-zero-capacity channel has no queue storage, so the current runtime rejects an
-unpaired send instead of buffering it. `channel::close` closes the sender
-endpoint, wakes waiting receivers, and returns `()`.
+waits for a queued value, a rendezvous value, or sender close, returns
+`Some(value)` for a received value, and returns `None` after the channel is
+closed and drained. A zero-capacity channel has no queue storage; a send waits
+until a receiver is ready and then transfers the value directly.
+`channel::close` closes the sender endpoint, wakes waiting receivers, and
+returns `()`.
 
 Executable-command reachability also follows pure helper calls used in
 reachable contract predicates, so blockers inside those helpers are reported
