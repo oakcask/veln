@@ -2618,15 +2618,11 @@ impl<'a> FunctionChecker<'a> {
             return Some(constraint);
         }
         let candidate = satisfy.candidate.as_ref()?;
-        if satisfy.predicate.contains('"') {
-            return None;
-        }
         let required_clauses = self
             .function
             .contracts
             .iter()
             .filter(|contract| contract.kind == ContractKind::Require)
-            .filter(|contract| !contract.text.contains('"'))
             .filter(|contract| {
                 matches!(
                     self.validate_contract_predicate(contract.kind, &contract.text),
@@ -2800,7 +2796,39 @@ fn normalized_and_clauses(predicate: &str) -> Vec<String> {
 }
 
 fn normalized_predicate_clause(predicate: &str) -> String {
-    predicate.split_whitespace().collect::<Vec<_>>().join(" ")
+    strip_balanced_outer_parens(predicate)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn strip_balanced_outer_parens(mut predicate: &str) -> &str {
+    loop {
+        let trimmed = predicate.trim();
+        if !trimmed.starts_with('(') || !trimmed.ends_with(')') {
+            return trimmed;
+        }
+        let mut depth = 0;
+        let mut wraps_whole_clause = true;
+        for (index, ch) in trimmed.char_indices() {
+            match ch {
+                '(' => depth += 1,
+                ')' => {
+                    depth -= 1;
+                    if depth == 0 && index + ch.len_utf8() != trimmed.len() {
+                        wraps_whole_clause = false;
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+        if wraps_whole_clause && depth == 0 {
+            predicate = &trimmed[1..trimmed.len() - 1];
+        } else {
+            return trimmed;
+        }
+    }
 }
 
 fn canonical_repair_clause(clause: impl AsRef<str>) -> String {

@@ -93,10 +93,13 @@ The accepted tautological clauses compare the satisfy candidate with itself
 using `==`, `<=`, or `>=`, such as `candidate == candidate`; `and` may join
 only tautological clauses. A candidate is also safe when replacing the satisfy
 candidate binding with the visible symbol makes every `and` clause match a
-valid non-string `require` clause already in force for the function; such
-candidates use `reason: "satisfy_require_match"`. Simple direct and commuted
-comparison clauses are treated as the same requirement, such as matching
-`candidate > 0` against `0 < max` after substituting `max`. Every
+valid `require` clause already in force for the function; such candidates use
+`reason: "satisfy_require_match"`. This includes clauses with string literals,
+such as matching `candidate != ""` against `name != ""` after substituting
+`name`. Simple direct and commuted comparison clauses are treated as the same
+requirement, such as matching `candidate > 0` against `0 < max` after
+substituting `max`; wrapping these simple clauses in parentheses does not
+change the repair match. Every
 type-compatible visible binding candidate for the tautological subset uses
 `reason: "satisfy_tautology"`. A statically accepted candidate also uses
 `satisfy_status: "statically_satisfied"`. Other candidates for a
