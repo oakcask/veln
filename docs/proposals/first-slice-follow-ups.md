@@ -101,6 +101,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   transitive ordering evidence over same-shape expression operands. Equality
   aliases also discharge boolean atom `satisfy` clauses when the aliased atom
   is already guaranteed by a valid `require` clause.
+  Top-level disjunctive `require` predicates discharge top-level disjunctive
+  `satisfy` predicates when every `require` branch guarantees at least one
+  `satisfy` branch.
   Disjunctive equality requirements against distinct boolean, integer, or
   string literals discharge disequality `satisfy` clauses against another
   literal, including through equality aliases. Inclusive transitive ordering

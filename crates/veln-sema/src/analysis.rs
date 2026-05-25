@@ -3249,9 +3249,15 @@ fn required_predicate_implies_disjunctive_predicate(required: &str, wanted: &str
     if wanted_disjuncts.len() <= 1 {
         return false;
     }
-    let Some(required_disjuncts) = repair_relevant_negated_and_clauses(required) else {
+    let required_disjuncts = repair_relevant_negated_and_clauses(required).unwrap_or_else(|| {
+        repair_relevant_or_clauses(required)
+            .into_iter()
+            .map(canonical_repair_clause)
+            .collect()
+    });
+    if required_disjuncts.len() <= 1 {
         return false;
-    };
+    }
     required_disjuncts.iter().all(|required_disjunct| {
         wanted_disjuncts
             .iter()
