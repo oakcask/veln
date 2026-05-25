@@ -3397,6 +3397,9 @@ fn repair_clause_implies(required: &str, wanted: &str) -> bool {
     ) {
         return true;
     }
+    if literal_order_comparison_implies(&required, &wanted, &RepairEquivalences::default()) {
+        return true;
+    }
     required.operator == "=="
         && wanted.operator == "<="
         && same_repair_operands_unordered(required.left, required.right, wanted.left, wanted.right)
@@ -3628,6 +3631,75 @@ fn repair_clause_implies_with_equivalences(
             wanted.right,
             equivalences,
         ),
+        _ => literal_order_comparison_implies(&required, wanted, equivalences),
+    }
+}
+
+fn literal_order_comparison_implies(
+    required: &ParsedRepairComparison<'_>,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    if !matches!(required.operator, "<" | "<=") || !matches!(wanted.operator, "<" | "<=") {
+        return false;
+    }
+    literal_lower_bound_implies(required, wanted, equivalences)
+        || literal_upper_bound_implies(required, wanted, equivalences)
+}
+
+fn literal_lower_bound_implies(
+    required: &ParsedRepairComparison<'_>,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some(required_literal) = repair_int_literal(required.left) else {
+        return false;
+    };
+    let Some(wanted_literal) = repair_int_literal(wanted.left) else {
+        return false;
+    };
+    repair_operands_equivalent(required.right, wanted.right, equivalences)
+        && literal_order_strength_implies(
+            required_literal,
+            required.operator,
+            wanted_literal,
+            wanted.operator,
+            true,
+        )
+}
+
+fn literal_upper_bound_implies(
+    required: &ParsedRepairComparison<'_>,
+    wanted: &ParsedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
+    let Some(required_literal) = repair_int_literal(required.right) else {
+        return false;
+    };
+    let Some(wanted_literal) = repair_int_literal(wanted.right) else {
+        return false;
+    };
+    repair_operands_equivalent(required.left, wanted.left, equivalences)
+        && literal_order_strength_implies(
+            required_literal,
+            required.operator,
+            wanted_literal,
+            wanted.operator,
+            false,
+        )
+}
+
+fn literal_order_strength_implies(
+    required_literal: i128,
+    required_operator: &str,
+    wanted_literal: i128,
+    wanted_operator: &str,
+    lower_bound: bool,
+) -> bool {
+    match required_literal.cmp(&wanted_literal) {
+        std::cmp::Ordering::Greater if lower_bound => true,
+        std::cmp::Ordering::Less if !lower_bound => true,
+        std::cmp::Ordering::Equal => required_operator == "<" || wanted_operator == "<=",
         _ => false,
     }
 }
@@ -3759,6 +3831,13 @@ fn repair_literals_are_distinct(left: &str, right: &str) -> bool {
         return false;
     };
     left != right
+}
+
+fn repair_int_literal(text: &str) -> Option<i128> {
+    match RepairLiteral::parse(text.trim())? {
+        RepairLiteral::Int(value) => Some(value),
+        RepairLiteral::Bool(_) | RepairLiteral::String(_) => None,
+    }
 }
 
 #[derive(PartialEq, Eq)]

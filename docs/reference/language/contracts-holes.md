@@ -315,7 +315,12 @@ strict comparison in repair matching, so `require low <= mid`,
 after substituting `max`. A disequality between two operands on the inclusive
 path also makes the endpoint comparison strict, so `require low <= mid`,
 `require mid <= max`, and `require low != mid` also guarantee
-`candidate > low` after substituting `max`. Every
+`candidate > low` after substituting `max`. Integer literal bounds also
+discharge weaker integer literal bounds over the same subject. For example,
+`require max >= 10` guarantees `candidate > 0` after substituting `max`, and
+`require min <= 10` guarantees `candidate < 20` after substituting `min`.
+Equal inclusive bounds do not discharge strict bounds, so `require max >= 10`
+does not guarantee `candidate > 10`. Every
 type-compatible visible binding candidate for the tautological
 subset uses `reason: "satisfy_tautology"`. A statically accepted candidate also
 uses `satisfy_status: "statically_satisfied"`. Other candidates for a
