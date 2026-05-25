@@ -11,8 +11,8 @@ proposal.
 - Remaining first-slice implementation targets are tracked in
   [first-slice-follow-ups.md](first-slice-follow-ups.md), with full detail in
   [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md).
-- Future concurrency surface work after the implemented channel and task slices
-  is tracked in [first-slice-follow-ups.md](first-slice-follow-ups.md).
+- Use design-wall material only when [target-queue.md](target-queue.md) has no
+  accepted target for the task.
 
 ## Compare And Promote
 
@@ -28,6 +28,13 @@ proposal.
   or historical context.
 - Use [../document-status.md](../document-status.md) before promoting,
   superseding, or rejecting proposal text.
+
+## Exit Checklist
+
+- The changed behavior is documented under `../reference/language/`.
+- Remaining proposal text still describes only absent or incomplete behavior.
+- Links from [target-queue.md](target-queue.md) still route to a live accepted
+  target, or the target has been removed from the accepted queue.
 
 ## Skip Unless Needed
 

@@ -14,15 +14,28 @@ Use this page when selecting one accepted proposal to implement. Return to
 
 ## Accepted Targets
 
-- Repair behavior: start with
+- Broader repair discharge: start with
   [first-slice-follow-ups.md#repair-loop](first-slice-follow-ups.md#repair-loop).
   Compare against [../reference/language/holes.md](../reference/language/holes.md)
-  and [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
-- Effects and contracts: start with
+  and [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md)
+  before opening the full repair history.
+- Richer predicate semantics: start with
   [first-slice-follow-ups.md#effects-and-contracts](first-slice-follow-ups.md#effects-and-contracts).
   Compare against
   [../reference/language/contracts.md](../reference/language/contracts.md) and
-  [../reference/language/names-effects.md](../reference/language/names-effects.md).
+  [../reference/language/names-effects.md](../reference/language/names-effects.md)
+  before opening the full predicate history.
+
+## Selection Rule
+
+- Choose the first target whose short proposal page still describes behavior
+  absent from `../reference/language/`.
+- If a target is already implemented, promote the behavior into
+  `../reference/language/` and leave only remaining proposal work in this
+  queue.
+- If neither accepted target has remaining work, use
+  [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) only
+  for open design exploration, not as an accepted implementation target.
 
 ## Read When
 

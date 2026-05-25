@@ -29,15 +29,27 @@ opening the full follow-up record.
 Remaining work is broader repair discharge beyond normalized direct and
 `require`-matched cases. Read
 [the full repair-loop record](first-slice-follow-ups-full.md#repair-loop)
-before changing candidate ranking or safe repair generation.
+only after confirming the missing behavior is not already covered by
+[../reference/language/holes.md](../reference/language/holes.md) and
+[../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
+
+Use this target for safe repair candidate generation, satisfy predicate
+matching, candidate ranking, or repair JSON detail changes.
 
 ### Effects And Contracts
 
 Richer predicate semantics remain follow-up work beyond the implemented
-contract subset. Read
+contract subset. Numeric literal-bound implication through equality aliases is
+now reference behavior; remaining work should stay outside that implemented
+slice. Read
 [the full effects and contracts record](first-slice-follow-ups-full.md#effects-and-contracts)
-before changing effect propagation, runtime contracts, or predicate
-classification.
+only after confirming the missing behavior is not already covered by
+[../reference/language/contracts.md](../reference/language/contracts.md) and
+[../reference/language/names-effects.md](../reference/language/names-effects.md).
+
+Use this target for contract predicate validation, static obligation
+classification, transitive predicate implications, or effect propagation
+changes.
 
 ## History
 

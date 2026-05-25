@@ -1523,6 +1523,49 @@ fn check_json_reports_contract_validation_diagnostics() {
 }
 
 #[test]
+fn check_json_reports_contract_type_mismatch_with_type_context() {
+    let project = TestProject::new("contract-type-mismatch-json");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main(value: Int) -> () effects []\n",
+            "require value\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"contract.type_mismatch\"",
+            "\"kind\":\"contract\"",
+            "\"message\":\"contract predicate is not `Bool`\"",
+            "\"details\":{\"phase\":\"contract\"",
+            "\"clause\":\"require\"",
+            "\"predicate_text\":\"value\"",
+            "\"validation_status\":\"invalid\"",
+            "\"obligation_status\":\"failed_static\"",
+            "\"reason\":\"non_boolean_predicate\"",
+            "\"runtime_required\":false",
+            "\"referenced_bindings\":[{\"name\":\"value\",\"kind\":\"local\"}]",
+            "\"id\":\"type.mismatch\"",
+            "\"kind\":\"type\"",
+            "\"message\":\"expected `Bool`, but found `Int`\"",
+            "\"expected_type\":\"Bool\"",
+            "\"actual_type\":\"Int\"",
+            "\"constraint\":\"contract_predicate\"",
+            "\"summary\":{\"diagnostic_count\":2,\"by_severity\":{\"error\":2},\"by_kind\":{\"contract\":1,\"type\":1}}",
+        ],
+    );
+}
+
+#[test]
 fn check_human_reports_contract_missing_record_field() {
     let project = TestProject::new("contract-missing-record-field");
     project.write(
@@ -2659,6 +2702,41 @@ fn run_json_reports_runtime_contract_failures_when_jdk_is_available() {
             "\"details\":{\"kind\":\"contract\",\"phase\":\"runtime\",\"clause\":\"require\",\"predicate\":\"false\"",
             "\"function\":\"main\",\"blame\":\"caller\",\"node_id\":\"contract-",
             "\"span\":{\"file\":\"main.veln\"",
+        ],
+    );
+}
+
+#[test]
+fn run_json_reports_success_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-json-success");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn main() -> () effects [stdio]\n",
+            "  stdio::println(\"ready\")\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["--json", "main", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"schema_version\":\"veln-run-json/v0\"",
+            "\"command\":\"run\"",
+            "\"status\":\"passed\"",
+            "\"exit_code\":0",
+            "\"stdout\":\"ready\\n\"",
+            "\"stderr\":\"\"",
+            "\"error\":null",
         ],
     );
 }

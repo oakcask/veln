@@ -22,6 +22,8 @@ not fully implemented in the current workspace.
   [../reference/language/topic-map.md](../reference/language/topic-map.md).
 - After implementation, promote the resulting behavior into
   `../reference/language/` and leave only remaining proposal work here.
+- Keep [target-queue.md](target-queue.md) as the accepted-target source; use
+  design-wall pages only after the queue has no matching implementation target.
 
 ## Read When
 

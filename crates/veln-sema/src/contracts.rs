@@ -1202,10 +1202,19 @@ fn numeric_literal_bounds_imply(predicate: &str, wanted: &OrderBoundShape) -> bo
     let Some(wanted) = numeric_literal_bound_shape_from_order_bound(wanted) else {
         return false;
     };
+    let equality_edges = flattened_keyword_clauses(predicate, "and")
+        .into_iter()
+        .filter_map(|clause| equality_shape(clause))
+        .flat_map(|(left, right)| [(left.clone(), right.clone()), (right, left)])
+        .collect::<Vec<_>>();
     flattened_keyword_clauses(predicate, "and")
         .into_iter()
         .filter_map(numeric_literal_bound_shape)
-        .any(|required| numeric_literal_bound_implies(&required, &wanted))
+        .any(|required| {
+            numeric_literal_bound_implies(&required, &wanted)
+                || (equality_edges_imply(&equality_edges, &required.subject, &wanted.subject)
+                    && numeric_literal_bound_strength_implies(&required, &wanted))
+        })
 }
 
 fn numeric_literal_bound_shape_from_order_bound(
@@ -1223,8 +1232,14 @@ fn numeric_literal_bound_implies(
     required: &NumericLiteralBound,
     wanted: &NumericLiteralBound,
 ) -> bool {
-    required.subject == wanted.subject
-        && required.kind == wanted.kind
+    required.subject == wanted.subject && numeric_literal_bound_strength_implies(required, wanted)
+}
+
+fn numeric_literal_bound_strength_implies(
+    required: &NumericLiteralBound,
+    wanted: &NumericLiteralBound,
+) -> bool {
+    required.kind == wanted.kind
         && match required.kind {
             NumericLiteralBoundKind::Lower => {
                 required.value > wanted.value

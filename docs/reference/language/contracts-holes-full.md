@@ -194,9 +194,11 @@ antecedent are treated as bidirectional non-strict edges for this transitive
 check, so `not (low < mid and mid == high) or low < high` and
 `not (low == mid and mid <= high) or low <= high` are also statically proven.
 Numeric literal bounds inside the negated antecedent also prove weaker literal
-bounds on the same subject. For example,
+bounds on the same subject, including through equality aliases in the
+antecedent. For example,
 `not (value > 10 and value < 20) or value > 5` and
 `not (value >= 2 and value < 10) or value >= 1 + 1` are statically proven,
+as is `not (value == alias and alias > 10) or value > 5`,
 while a strict consequent is not proven from an inclusive bound with the same
 literal.
 Non-strict cycles in the antecedent also prove equality consequents, such as
