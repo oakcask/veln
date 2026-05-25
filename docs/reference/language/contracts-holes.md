@@ -117,7 +117,11 @@ conjuncts do not affect direct repair matching, so
 `candidate == fallback`. A nested `or` clause inside a direct `and`
 conjunction is ignored when it contains a literal `true` branch, so
 `candidate == fallback and (candidate > fallback or true)` has the same direct
-repair status as `candidate == fallback`. The accepted tautological clauses
+repair status as `candidate == fallback`. A negated disjunction of direct
+comparison clauses is normalized before direct repair matching, so
+`not (candidate != fallback or candidate < fallback)` has the same direct
+repair status as `candidate == fallback and candidate >= fallback`. The
+accepted tautological clauses
 compare the satisfy candidate with itself using `==`, `<=`, or `>=`, such as
 `candidate == candidate`; their negated inverse forms, such as
 `not (candidate != candidate)`, are also accepted. `and` may join only

@@ -2927,6 +2927,9 @@ fn normalized_and_clauses(predicate: &str) -> Vec<String> {
 fn repair_relevant_and_clauses(predicate: &str) -> Vec<String> {
     normalized_and_clauses(predicate)
         .into_iter()
+        .flat_map(|clause| {
+            canonical_negated_disjunction_repair_clauses(&clause).unwrap_or_else(|| vec![clause])
+        })
         .filter(|clause| clause != "true")
         .collect()
 }

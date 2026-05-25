@@ -63,7 +63,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   valid `require` clauses discharge direct comparison `satisfy` clauses through
   their inverted branches. Nested literal `true` disjuncts inside direct
   `satisfy` conjunctions and `require`-matched `satisfy` conjunctions are
-  treated as tautological surplus clauses for repair ranking.
+  treated as tautological surplus clauses for repair ranking. Negated
+  disjunctions of direct `satisfy` comparison clauses are normalized into their
+  inverted comparison clauses before direct repair matching.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.
