@@ -71,7 +71,10 @@ boolean and string equality or disequality and numeric equality, disequality,
 and ordering, using exact decimal literal ordering. The same static truth
 folding also accepts boolean identity cases where one side of `or` is provably
 `true`, even if the other side is not itself statically known, and propagates
-that result through literal-only `and` and `not` wrappers. For example,
+that result through literal-only `and` and `not` wrappers. It also treats a
+top-level `or` between the same pure boolean predicate and its negation as
+statically true after validation, such as `flag or not flag` or
+`output.ready or not(output.ready)`. For example,
 `true or value > 0`, `(output >= value or true) and not false`, and
 `1 < 2 and "ready" != "pending"` are statically proven after the predicate has
 passed validation. Other valid predicates are classified as

@@ -56,6 +56,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
         return static_boolean_value(inner).negate();
     }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
+        if complementary_predicates(left, right) {
+            return StaticBooleanValue::True;
+        }
         return static_boolean_value(left).or(static_boolean_value(right));
     }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
@@ -68,6 +71,63 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
         }
     }
     StaticBooleanValue::Unknown
+}
+
+fn complementary_predicates(left: &str, right: &str) -> bool {
+    negated_predicate_shape(left).is_some_and(|left| left == predicate_shape(right))
+        || negated_predicate_shape(right).is_some_and(|right| right == predicate_shape(left))
+}
+
+fn negated_predicate_shape(predicate: &str) -> Option<String> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    if let Some(rest) = predicate.strip_prefix("not ") {
+        return Some(predicate_shape(rest));
+    }
+    if let Some(rest) = predicate.strip_prefix("not(") {
+        return rest.strip_suffix(')').map(predicate_shape);
+    }
+    None
+}
+
+fn predicate_shape(predicate: &str) -> String {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    let mut shape = String::new();
+    let mut chars = predicate.chars();
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut pending_space = false;
+    while let Some(ch) = chars.next() {
+        if in_string {
+            shape.push(ch);
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        if ch == '"' {
+            if pending_space && !shape.is_empty() {
+                shape.push(' ');
+            }
+            pending_space = false;
+            in_string = true;
+            shape.push(ch);
+            continue;
+        }
+        if ch.is_whitespace() {
+            pending_space = !shape.is_empty();
+            continue;
+        }
+        if pending_space {
+            shape.push(' ');
+            pending_space = false;
+        }
+        shape.push(ch);
+    }
+    shape
 }
 
 impl StaticBooleanValue {
