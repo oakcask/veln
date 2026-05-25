@@ -7991,6 +7991,61 @@ fn contract_predicate_too_wide_partial_case_split_or_requires_runtime_check() {
 }
 
 #[test]
+fn contract_predicate_negated_partial_case_split_and_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "require not ((value.ready or extra) and (value.ready or not extra) and (not value.ready or extra) and (not value.ready or not extra))\n",
+            "require not ((value.ready or extra) and (value.ready or not extra) and not value.ready)\n",
+            "ensure not ((output.ready or extra) and (output.ready or not extra) and (not output.ready or extra) and (not output.ready or not extra))\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_partial_case_split_and_without_full_rejection_requires_runtime_check() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "require not ((value.ready or extra) and (value.ready or not extra) and (not value.ready or extra))\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 1);
+    assert_eq!(
+        contracts[0].obligation_status,
+        ContractObligationStatus::RuntimeRequired
+    );
+}
+
+#[test]
 fn contract_predicate_exhaustive_pair_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",

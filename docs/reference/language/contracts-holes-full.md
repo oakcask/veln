@@ -123,6 +123,10 @@ such as `not (flag and not (flag or ready))` and
 It also recognizes resolved complementary disjunctions contradicted by another
 conjunct, such as
 `not (flag and (not flag or ready) and (not flag or not ready))`.
+It also recognizes negated partial case-split conjunctions where top-level
+`and` clauses are disjunctions that reject every assignment for the same
+predicate set, such as
+`not ((flag or ready) and (flag or not ready) and (not flag or ready) and (not flag or not ready))`.
 It also recognizes
 factored case splits when two conjunction branches differ only by one
 complementary predicate and the remaining shared predicates are covered by

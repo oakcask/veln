@@ -256,6 +256,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   Resolved complementary disjunctions contradicted by another conjunct, such
   as `not (flag and (not flag or ready) and (not flag or not ready))`, are also
   statically evaluated.
+  Negated partial case-split conjunctions whose disjunctive branches reject
+  every assignment for the same predicate set are also statically evaluated.
   Boolean literal aliases such as `flag == true`, `false == flag`, and
   `flag != false` also participate in complementary static truth identities.
   Richer predicate semantics beyond these static truth identities, literal
