@@ -2304,6 +2304,201 @@ mod tests {
         );
     }
 
+    #[test]
+    fn expands_absolute_source_target_to_absolute_paired_test_file() {
+        let root = test_root("absolute-paired-source");
+        fs::create_dir_all(&root).expect("create test root");
+        let source = root.join("app.veln");
+        let test = root.join("app_test.veln");
+        fs::write(&source, "").expect("write source file");
+        fs::write(&test, "").expect("write test file");
+
+        let expansion = expand_test_targets(&root, &[source.clone()]);
+
+        assert_eq!(expansion.targets, vec![source, test]);
+        assert_eq!(expansion.source_to_test_added_count, 1);
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
+    fn negative_doctest_failure_reconciliation_keeps_unrelated_diagnostics() {
+        let source = SourceFile::new("main.veln", "/// ```veln fail\n");
+        let generated = SourceFile::new("main.veln#doctest-1_test.veln", "fn doctest_1()\nend\n");
+        let other = SourceFile::new("other.veln", "fn helper()\nend\n");
+        let fail_span = source.span(TextRange::new(0, 16));
+        let generated_span = generated.span(TextRange::new(0, generated.len()));
+        let other_span = other.span(TextRange::new(0, other.len()));
+        let diagnostics = vec![
+            Diagnostic::new(
+                "type.mismatch",
+                Severity::Error,
+                DiagnosticKind::Type,
+                "expected `Int`, but found `String`",
+                Some(generated_span),
+                JsonValue::Null,
+            ),
+            Diagnostic::new(
+                "parse.expected_end",
+                Severity::Error,
+                DiagnosticKind::Parse,
+                "expected `end`",
+                Some(other_span),
+                JsonValue::Null,
+            ),
+        ];
+        let expected_failures =
+            BTreeMap::from([("main.veln#doctest-1_test.veln".to_string(), fail_span)]);
+
+        let reconciled = reconcile_expected_doctest_failures(diagnostics, &expected_failures);
+
+        assert_eq!(reconciled.len(), 1);
+        assert_eq!(reconciled[0].id, "parse.expected_end");
+    }
+
+    #[test]
+    fn stdio_trace_falls_back_to_test_source_for_missing_call_identity() {
+        let source_file = SourceFile::new(
+            "main_test.veln",
+            "test first() -> () effects []\n  ()\nend\n",
+        );
+        let source = TestCaseSource {
+            file: "main_test.veln".to_string(),
+            node_id: "test-1".to_string(),
+            span: source_file.span(TextRange::new(0, source_file.len())),
+        };
+
+        let events = stdio_events_from_trace(
+            "1\tstdout\tprint\tnone\t\t\t7265616479\n",
+            &BTreeMap::new(),
+            &source,
+        );
+
+        assert_eq!(events.len(), 1);
+        assert_eq!(
+            events[0].to_json(),
+            concat!(
+                "{\"kind\":\"stdio\",\"stream\":\"stdout\",\"operation\":\"print\",",
+                "\"text\":\"ready\",\"terminator\":\"none\",\"sequence\":1,",
+                "\"node_id\":\"test-1\",\"span\":{\"file\":\"main_test.veln\",",
+                "\"start\":{\"line\":1,\"column\":1,\"offset\":0},",
+                "\"end\":{\"line\":4,\"column\":1,\"offset\":39}}}"
+            )
+        );
+    }
+
+    #[test]
+    fn expected_stderr_mismatch_reports_stderr_failure() {
+        let source_file = SourceFile::new(
+            "main.veln#doctest-1_test.veln",
+            "test doctest_1() -> () effects [stdio]\n  ()\nend\n",
+        );
+        let mut case = TestCase {
+            id: "case-1".to_string(),
+            name: "doctest_1".to_string(),
+            kind: "doctest".to_string(),
+            status: TestCaseStatus::Passed,
+            source: TestCaseSource {
+                file: "main.veln#doctest-1_test.veln".to_string(),
+                node_id: "test-1".to_string(),
+                span: source_file.span(TextRange::new(0, source_file.len())),
+            },
+            reason: None,
+            failure: None,
+            expected_output: Some(ExpectedOutput {
+                stdout: Some("ready".to_string()),
+                stderr: Some("warn".to_string()),
+                ..ExpectedOutput::default()
+            }),
+            events: vec![
+                stdio_event(
+                    "stdout",
+                    "println",
+                    "ready",
+                    "newline",
+                    1,
+                    "call-1",
+                    &source_file.span(TextRange::new(0, source_file.len())),
+                ),
+                stdio_event(
+                    "stderr",
+                    "eprintln",
+                    "error",
+                    "newline",
+                    2,
+                    "call-2",
+                    &source_file.span(TextRange::new(0, source_file.len())),
+                ),
+            ],
+            diagnostics: Vec::new(),
+        };
+
+        compare_expected_output(&mut case);
+
+        assert_eq!(case.status, TestCaseStatus::Failed);
+        assert_eq!(case.reason.as_deref(), Some("expected_output"));
+        let failure = case.failure.expect("mismatch should create failure");
+        assert_eq!(failure.message, "expected stderr output did not match");
+        let failure_json = failure.to_json().to_json();
+        assert!(failure_json.contains("\"stream\":\"stderr\""));
+        assert!(failure_json.contains("\"expected\":\"warn\""));
+        assert!(failure_json.contains("\"actual\":\"error\\n\""));
+    }
+
+    #[test]
+    fn test_run_status_precedence_handles_errors_blockers_and_failures() {
+        let source_file = SourceFile::new("main_test.veln", "test first() -> () effects []\nend\n");
+        let source = TestCaseSource {
+            file: "main_test.veln".to_string(),
+            node_id: "test-1".to_string(),
+            span: source_file.span(TextRange::new(0, source_file.len())),
+        };
+        let case = |status| TestCase {
+            id: "case-1".to_string(),
+            name: "first".to_string(),
+            kind: "test".to_string(),
+            status,
+            source: TestCaseSource {
+                file: source.file.clone(),
+                node_id: source.node_id.clone(),
+                span: source.span.clone(),
+            },
+            reason: None,
+            failure: None,
+            expected_output: None,
+            events: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        let diagnostic = Diagnostic::new(
+            "type.mismatch",
+            Severity::Error,
+            DiagnosticKind::Type,
+            "expected `Int`, but found `String`",
+            Some(source.span.clone()),
+            JsonValue::Null,
+        );
+
+        assert_eq!(
+            test_run_status(&[case(TestCaseStatus::Error)], &[], &[]),
+            TestRunStatus::Error
+        );
+        assert_eq!(
+            test_run_status(&[], &[], &[SuiteError::discovery("no tests")]),
+            TestRunStatus::Blocked
+        );
+        assert_eq!(
+            test_run_status(&[case(TestCaseStatus::Passed)], &[diagnostic], &[]),
+            TestRunStatus::Blocked
+        );
+        assert_eq!(
+            test_run_status(&[case(TestCaseStatus::Blocked)], &[], &[]),
+            TestRunStatus::Blocked
+        );
+        assert_eq!(
+            test_run_status(&[case(TestCaseStatus::Failed)], &[], &[]),
+            TestRunStatus::Failed
+        );
+    }
+
     fn test_root(name: &str) -> PathBuf {
         let root = std::env::temp_dir().join(format!("veln-test-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
