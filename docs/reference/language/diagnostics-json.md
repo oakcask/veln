@@ -204,7 +204,7 @@ contains `candidates`. Each candidate contains:
 
 Each edit contains `kind: "replace"`, `span`, and `replacement`. The edits are
 concrete but unapplied. The default `application_policy` remains
-`manual_review_required`; the direct equality satisfy subset may use
+`manual_review_required`; the direct reflexive satisfy subset may use
 `safe_repair_candidate`. Candidates for satisfy-constrained holes also contain
 `satisfy_status`, either `statically_satisfied` or
 `blocked_until_discharged`.

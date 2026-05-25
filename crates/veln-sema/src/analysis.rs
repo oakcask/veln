@@ -2391,9 +2391,8 @@ impl<'a> FunctionChecker<'a> {
             .take(5)
             .enumerate()
             .map(|(index, (score, _, binding))| {
-                let static_satisfy = satisfy.is_some_and(|satisfy| {
-                    satisfy.allowed_binding.as_deref() == Some(binding.name.as_str())
-                });
+                let static_satisfy =
+                    satisfy.and_then(|satisfy| satisfy.reason_for(binding.name.as_str()));
                 let mut candidate = vec![
                     (
                         "candidate_id",
@@ -2405,8 +2404,8 @@ impl<'a> FunctionChecker<'a> {
                     (
                         "reason",
                         JsonValue::string(if score == 0 {
-                            if static_satisfy {
-                                "satisfy_equality_match"
+                            if let Some(reason) = static_satisfy {
+                                reason
                             } else {
                                 "exact_type_match"
                             }
@@ -2416,7 +2415,7 @@ impl<'a> FunctionChecker<'a> {
                     ),
                     (
                         "application_policy",
-                        JsonValue::string(if static_satisfy {
+                        JsonValue::string(if static_satisfy.is_some() {
                             "safe_repair_candidate"
                         } else {
                             "manual_review_required"
@@ -2434,7 +2433,7 @@ impl<'a> FunctionChecker<'a> {
                 if satisfy.is_some() {
                     candidate.push((
                         "satisfy_status",
-                        JsonValue::string(if static_satisfy {
+                        JsonValue::string(if static_satisfy.is_some() {
                             "statically_satisfied"
                         } else {
                             "blocked_until_discharged"
@@ -2448,26 +2447,77 @@ impl<'a> FunctionChecker<'a> {
 }
 
 struct SatisfyRepairConstraint {
-    allowed_binding: Option<String>,
+    allowed_binding: String,
+    reason: &'static str,
 }
 
 impl SatisfyRepairConstraint {
     fn from_satisfy(satisfy: &SatisfyClause) -> Option<Self> {
         let candidate = satisfy.candidate.as_ref()?;
-        equality_operand(&satisfy.predicate, candidate).map(|allowed_binding| Self {
-            allowed_binding: Some(allowed_binding.to_string()),
+        reflexive_candidate_binding(&satisfy.predicate, candidate).map(|allowed| Self {
+            allowed_binding: allowed.binding,
+            reason: allowed.reason,
         })
+    }
+
+    fn reason_for(&self, binding: &str) -> Option<&'static str> {
+        (self.allowed_binding == binding).then_some(self.reason)
     }
 }
 
-fn equality_operand<'a>(predicate: &'a str, candidate: &str) -> Option<&'a str> {
-    let (left, right) = predicate.split_once("==")?;
+struct ReflexiveCandidateBinding {
+    binding: String,
+    reason: &'static str,
+}
+
+fn reflexive_candidate_binding(
+    predicate: &str,
+    candidate: &str,
+) -> Option<ReflexiveCandidateBinding> {
+    let mut allowed_binding = None::<String>;
+    let mut reason = "satisfy_equality_match";
+    for clause in predicate.split(" and ") {
+        let direct = direct_reflexive_clause(clause.trim(), candidate)?;
+        if let Some(existing) = &allowed_binding {
+            if existing != &direct.binding {
+                return None;
+            }
+        } else {
+            allowed_binding = Some(direct.binding);
+        }
+        if direct.reason != "satisfy_equality_match" {
+            reason = direct.reason;
+        }
+    }
+    allowed_binding.map(|binding| ReflexiveCandidateBinding { binding, reason })
+}
+
+fn direct_reflexive_clause(predicate: &str, candidate: &str) -> Option<ReflexiveCandidateBinding> {
+    if let Some(binding) = reflexive_operand(predicate, candidate, "==") {
+        return Some(ReflexiveCandidateBinding {
+            binding,
+            reason: "satisfy_equality_match",
+        });
+    }
+    for operator in ["<=", ">="] {
+        if let Some(binding) = reflexive_operand(predicate, candidate, operator) {
+            return Some(ReflexiveCandidateBinding {
+                binding,
+                reason: "satisfy_reflexive_match",
+            });
+        }
+    }
+    None
+}
+
+fn reflexive_operand(predicate: &str, candidate: &str, operator: &str) -> Option<String> {
+    let (left, right) = predicate.split_once(operator)?;
     let left = left.trim();
     let right = right.trim();
     if left == candidate && is_plain_identifier(right) {
-        Some(right)
+        Some(right.to_string())
     } else if right == candidate && is_plain_identifier(left) {
-        Some(left)
+        Some(left.to_string())
     } else {
         None
     }

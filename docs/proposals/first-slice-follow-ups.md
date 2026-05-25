@@ -21,9 +21,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   unused candidate diagnostics are implemented. Satisfy predicates are
   semantically validated against the pure boolean predicate subset with the
   candidate bound to the hole expected type when known. Direct equality
-  satisfy-constrained symbol repair candidates are generated as unapplied safe
-  repair candidates. Richer repair discharge remains follow-up work before
-  formatter stabilization.
+  and direct inclusive comparison satisfy-constrained symbol repair candidates
+  are generated as unapplied safe repair candidates when the predicate becomes
+  reflexive for the same visible binding. Broader repair discharge remains
+  follow-up work before formatter stabilization.
 
 ## Effects And Contracts
 

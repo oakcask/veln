@@ -81,11 +81,14 @@ The `satisfy candidate => predicate` suffix contributes a repair constraint; it
 does not bind `candidate` outside the suffix predicate.
 
 For the implemented safe repair subset, a symbol candidate is marked
-`application_policy: "safe_repair_candidate"` when the satisfy predicate is a
-direct equality between the satisfy candidate and the same visible binding,
-such as `candidate == fallback` or `fallback == candidate`. That candidate also
-uses `satisfy_status: "statically_satisfied"`. Other candidates for a
-satisfy-constrained hole remain unapplied, use
+`application_policy: "safe_repair_candidate"` when substituting the candidate
+symbol into every directly checked `satisfy` clause makes the predicate
+reflexive. The accepted direct clauses are equality and inclusive comparison
+between the satisfy candidate and the same visible binding, such as
+`candidate == fallback`, `fallback == candidate`, `candidate <= fallback`, and
+`fallback >= candidate`; `and` may join clauses that all name the same binding.
+That candidate also uses `satisfy_status: "statically_satisfied"`. Other
+candidates for a satisfy-constrained hole remain unapplied, use
 `application_policy: "manual_review_required"`, and carry
 `satisfy_status: "blocked_until_discharged"`.
 
