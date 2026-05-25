@@ -15,7 +15,8 @@ built-in constructor expressions and patterns from this target are implemented
 in the current workspace. Function return annotations can distinguish returned
 function-type effect lists from the enclosing declaration effect list. Literal
 and constructor patterns in `let` remain match-only and report a diagnostic
-when used as refutable let patterns.
+when used as refutable let patterns. Pipeline targets are restricted to named
+or qualified calls.
 
 For the fixed reference of behavior implemented in the current workspace, read
 [../reference/README.md](../reference/README.md).

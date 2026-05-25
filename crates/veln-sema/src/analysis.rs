@@ -1789,6 +1789,25 @@ impl<'a> FunctionChecker<'a> {
             ));
             return Type::Unknown;
         };
+        if !matches!(callee.kind, ExprKind::NamePath(_)) {
+            self.infer_expr(left, None);
+            self.infer_expr(right, expected_result);
+            self.diagnostics.push(Diagnostic::new(
+                "type.pipeline_target",
+                Severity::Error,
+                DiagnosticKind::Type,
+                "pipeline target is not a named call",
+                Some(right.span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("type")),
+                    ("node_id", JsonValue::string(right.node_id.display("expr"))),
+                    ("expected", JsonValue::string("named_call")),
+                    ("actual", JsonValue::string("call")),
+                    ("constraint", JsonValue::string("pipeline_target")),
+                ]),
+            ));
+            return Type::Unknown;
+        }
 
         let mut piped_args = Vec::with_capacity(args.len() + 1);
         piped_args.push(left.clone());

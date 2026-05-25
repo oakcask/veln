@@ -101,8 +101,9 @@ and type-mismatch diagnostics:
 - `constraint`
 - `origin_node_ids`
 
-`type.pipeline_target` reports a non-call expression on the right side of
-`|>`. Its `details` include `phase`, `node_id`, `expected`, `actual`, and
+`type.pipeline_target` reports a target on the right side of `|>` that is not
+a call, or is a call whose callee is not a name path. Its `details` include
+`phase`, `node_id`, `expected`, `actual`, and
 `constraint: "pipeline_target"`.
 
 Checked-core executable blockers that `check` can prove before runtime are

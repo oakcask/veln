@@ -1179,6 +1179,30 @@ fn pipeline_requires_call_target() {
 }
 
 #[test]
+fn pipeline_requires_named_call_target() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn make(value: Int, callback: fn(Int) -> Int) -> fn(Int) -> Int\n",
+            "  callback\n",
+            "end\n",
+            "pub fn main(callback: fn(Int) -> Int) -> Int effects []\n",
+            "  1 |> make(0, callback)(2)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.pipeline_target"
+            && diagnostic.message == "pipeline target is not a named call"
+    }));
+}
+
+#[test]
 fn infers_prelude_helper_calls_from_expected_types() {
     let source = SourceFile::new(
         "main.veln",

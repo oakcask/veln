@@ -514,6 +514,15 @@ impl<'a> CoreLowerer<'a> {
             self.lower_expr(right, None);
             return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
         };
+        if !matches!(callee.kind, ExprKind::NamePath(_)) {
+            self.blockers.push(CoreBlocker::UnsupportedExpression {
+                node_id: right.node_id,
+                reason: "pipeline_target_not_named_call".to_string(),
+            });
+            self.lower_expr(left, None);
+            self.lower_expr(right, expected);
+            return self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing);
+        }
 
         let mut piped_args = Vec::with_capacity(args.len() + 1);
         piped_args.push(left.clone());

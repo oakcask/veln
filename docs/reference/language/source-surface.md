@@ -205,10 +205,11 @@ A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
 is visible only inside the suffix predicate.
 
-Pipelines require a call expression on the right. The piped expression is
-inserted as the first argument of that call, so `value |> target(extra)` is
-checked and executed as `target(value, extra)`. A non-call pipeline target
-reports `type.pipeline_target`.
+Pipelines require a named or qualified call expression on the right. The piped
+expression is inserted as the first argument of that call, so
+`value |> target(extra)` is checked and executed as `target(value, extra)`. A
+non-call target, or a call whose callee is not a name path, reports
+`type.pipeline_target`.
 
 Method-call-shaped syntax, such as `value.field(args)`, is rejected during
 parsing with `parse.method_call`. Use a plain function call like

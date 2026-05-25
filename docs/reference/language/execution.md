@@ -32,8 +32,8 @@ The JVM backend generates Java source for the implemented IR subset:
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls
 - static recognition of channel concurrency calls as non-executable blockers
-- pipelines lowered to calls with the left expression inserted as the first
-  argument
+- pipelines with named or qualified call targets lowered to calls with the
+  left expression inserted as the first argument
 - runtime `require` checks at function entry and runtime `ensure` checks before
   ordinary tail-expression returns
 - integer and boolean operators used by the implemented type rules
