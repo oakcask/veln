@@ -9,6 +9,29 @@ use veln_ir::{IrCallTarget, IrExprKind, IrPatternKind, IrStmtKind};
 use veln_source::SourceFile;
 use veln_syntax::parse;
 
+fn exhaustive_case_split_predicate(subject: &str, fields: &[&str]) -> String {
+    let assignment_count = 1usize << fields.len();
+    (0..assignment_count)
+        .map(|assignment| {
+            let conjuncts = fields
+                .iter()
+                .enumerate()
+                .map(|(index, field)| {
+                    let bit = 1usize << (fields.len() - index - 1);
+                    if assignment & bit != 0 {
+                        format!("{subject}.{field}")
+                    } else {
+                        format!("not {subject}.{field}")
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" and ");
+            format!("({conjuncts})")
+        })
+        .collect::<Vec<_>>()
+        .join(" or ")
+}
+
 #[test]
 fn public_function_requires_explicit_boundary() {
     let source = SourceFile::new("main.veln", "pub fn main(value)\n  value\nend\n");
@@ -4458,6 +4481,93 @@ fn marks_static_triple_case_split_satisfy_predicate_as_tautology_repair() {
 }
 
 #[test]
+fn marks_static_quad_case_split_satisfy_predicate_as_tautology_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(primary: {a: Bool, b: Bool, c: Bool, d: Bool}, fallback: {a: Bool, b: Bool, c: Bool, d: Bool}) -> {a: Bool, b: Bool, c: Bool, d: Bool}\n",
+            "  _value satisfy candidate => ",
+            "(candidate.a and candidate.b and candidate.c and candidate.d) or ",
+            "(candidate.a and candidate.b and candidate.c and not candidate.d) or ",
+            "(candidate.a and candidate.b and not candidate.c and candidate.d) or ",
+            "(candidate.a and candidate.b and not candidate.c and not candidate.d) or ",
+            "(candidate.a and not candidate.b and candidate.c and candidate.d) or ",
+            "(candidate.a and not candidate.b and candidate.c and not candidate.d) or ",
+            "(candidate.a and not candidate.b and not candidate.c and candidate.d) or ",
+            "(candidate.a and not candidate.b and not candidate.c and not candidate.d) or ",
+            "(not candidate.a and candidate.b and candidate.c and candidate.d) or ",
+            "(not candidate.a and candidate.b and candidate.c and not candidate.d) or ",
+            "(not candidate.a and candidate.b and not candidate.c and candidate.d) or ",
+            "(not candidate.a and candidate.b and not candidate.c and not candidate.d) or ",
+            "(not candidate.a and not candidate.b and candidate.c and candidate.d) or ",
+            "(not candidate.a and not candidate.b and candidate.c and not candidate.d) or ",
+            "(not candidate.a and not candidate.b and not candidate.c and candidate.d) or ",
+            "(not candidate.a and not candidate.b and not candidate.c and not candidate.d)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"{a: Bool, b: Bool, c: Bool, d: Bool}\",\"rank\":1,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"primary\",",
+        "\"type\":\"{a: Bool, b: Bool, c: Bool, d: Bool}\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn marks_static_quint_case_split_satisfy_predicate_as_tautology_repair() {
+    let predicate = exhaustive_case_split_predicate("candidate", &["a", "b", "c", "d", "e"]);
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "fn main(primary: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}}, fallback: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}}) -> {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}}\n  _value satisfy candidate => {predicate}\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}\",\"rank\":1,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"primary\",",
+        "\"type\":\"{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
 fn does_not_mark_invalid_static_satisfy_predicate_as_tautology_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -7336,6 +7446,71 @@ fn contract_predicate_exhaustive_triple_case_split_or_is_statically_proven() {
     let core = lowered.core.expect("valid module should lower to core");
     let contracts = &core.functions[0].contracts;
     assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_exhaustive_quad_case_split_or_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: {a: Bool, b: Bool, c: Bool, d: Bool}) -> output: {a: Bool, b: Bool, c: Bool, d: Bool} effects []\n",
+            "require (value.a and value.b and value.c and value.d) or ",
+            "(value.a and value.b and value.c and not value.d) or ",
+            "(value.a and value.b and not value.c and value.d) or ",
+            "(value.a and value.b and not value.c and not value.d) or ",
+            "(value.a and not value.b and value.c and value.d) or ",
+            "(value.a and not value.b and value.c and not value.d) or ",
+            "(value.a and not value.b and not value.c and value.d) or ",
+            "(value.a and not value.b and not value.c and not value.d) or ",
+            "(not value.a and value.b and value.c and value.d) or ",
+            "(not value.a and value.b and value.c and not value.d) or ",
+            "(not value.a and value.b and not value.c and value.d) or ",
+            "(not value.a and value.b and not value.c and not value.d) or ",
+            "(not value.a and not value.b and value.c and value.d) or ",
+            "(not value.a and not value.b and value.c and not value.d) or ",
+            "(not value.a and not value.b and not value.c and value.d) or ",
+            "(not value.a and not value.b and not value.c and not value.d)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 1);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_exhaustive_quint_case_split_or_is_statically_proven() {
+    let predicate = exhaustive_case_split_predicate("value", &["a", "b", "c", "d", "e"]);
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}} effects []\nrequire {predicate}\n  value\nend\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 1);
     assert!(contracts.iter().all(|contract| {
         contract.obligation_status == ContractObligationStatus::StaticallyProven
     }));

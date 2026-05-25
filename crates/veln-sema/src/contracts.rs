@@ -77,6 +77,12 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_exhaustive_triple_case_split_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
+    if has_exhaustive_quad_case_split_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
+    if has_exhaustive_quint_case_split_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
     if has_case_split_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
@@ -309,106 +315,80 @@ fn partial_case_split_coverage_mask(disjunct: &str, bases: &[&str]) -> Option<u1
 }
 
 fn has_exhaustive_pair_case_split_top_level_or(predicate: &str) -> bool {
-    let disjuncts = flattened_keyword_clauses(predicate, "or");
-    if disjuncts.len() < 4 {
-        return false;
-    }
-    disjuncts.iter().any(|candidate| {
-        let bases = non_static_conjuncts(candidate);
-        bases.len() == 2
-            && !same_predicate(bases[0], bases[1])
-            && !complementary_predicates(bases[0], bases[1])
-            && pair_case_split_masks(&disjuncts, bases[0], bases[1]) == 0b1111
-    })
-}
-
-fn pair_case_split_masks(disjuncts: &[&str], first: &str, second: &str) -> u8 {
-    disjuncts.iter().fold(0, |masks, disjunct| {
-        let conjuncts = non_static_conjuncts(disjunct);
-        if conjuncts.len() != 2 {
-            return masks;
-        }
-        let mut first_polarity = None;
-        let mut second_polarity = None;
-        for conjunct in conjuncts {
-            if first_polarity.is_none() {
-                if let Some(polarity) = predicate_polarity_against(conjunct, first) {
-                    first_polarity = Some(polarity);
-                    continue;
-                }
-            }
-            if second_polarity.is_none() {
-                if let Some(polarity) = predicate_polarity_against(conjunct, second) {
-                    second_polarity = Some(polarity);
-                    continue;
-                }
-            }
-            return masks;
-        }
-        match (first_polarity, second_polarity) {
-            (Some(first), Some(second)) => {
-                let mask = ((first as u8) << 1) | second as u8;
-                masks | (1 << mask)
-            }
-            _ => masks,
-        }
-    })
+    has_exhaustive_case_split_top_level_or(predicate, 2)
 }
 
 fn has_exhaustive_triple_case_split_top_level_or(predicate: &str) -> bool {
+    has_exhaustive_case_split_top_level_or(predicate, 3)
+}
+
+fn has_exhaustive_quad_case_split_top_level_or(predicate: &str) -> bool {
+    has_exhaustive_case_split_top_level_or(predicate, 4)
+}
+
+fn has_exhaustive_quint_case_split_top_level_or(predicate: &str) -> bool {
+    has_exhaustive_case_split_top_level_or(predicate, 5)
+}
+
+fn has_exhaustive_case_split_top_level_or(predicate: &str, arity: usize) -> bool {
     let disjuncts = flattened_keyword_clauses(predicate, "or");
-    if disjuncts.len() < 8 {
+    let Some(expected_clause_count) = 1usize.checked_shl(arity as u32) else {
+        return false;
+    };
+    if arity == 0 || disjuncts.len() < expected_clause_count {
         return false;
     }
+    let Some(all_masks) = 1u128
+        .checked_shl(expected_clause_count as u32)
+        .map(|mask| mask - 1)
+    else {
+        return false;
+    };
     disjuncts.iter().any(|candidate| {
         let bases = non_static_conjuncts(candidate);
-        bases.len() == 3
+        bases.len() == arity
             && bases.iter().enumerate().all(|(index, base)| {
                 bases.iter().skip(index + 1).all(|other| {
                     !same_predicate(base, other) && !complementary_predicates(base, other)
                 })
             })
-            && triple_case_split_masks(&disjuncts, bases[0], bases[1], bases[2]) == 0b1111_1111
+            && exhaustive_case_split_masks(&disjuncts, &bases) == all_masks
     })
 }
 
-fn triple_case_split_masks(disjuncts: &[&str], first: &str, second: &str, third: &str) -> u8 {
+fn exhaustive_case_split_masks(disjuncts: &[&str], bases: &[&str]) -> u128 {
     disjuncts.iter().fold(0, |masks, disjunct| {
         let conjuncts = non_static_conjuncts(disjunct);
-        if conjuncts.len() != 3 {
+        if conjuncts.len() != bases.len() {
             return masks;
         }
-        let mut first_polarity = None;
-        let mut second_polarity = None;
-        let mut third_polarity = None;
+        let mut polarities = vec![None; bases.len()];
         for conjunct in conjuncts {
-            if first_polarity.is_none() {
-                if let Some(polarity) = predicate_polarity_against(conjunct, first) {
-                    first_polarity = Some(polarity);
-                    continue;
+            let mut matched = false;
+            for (index, base) in bases.iter().enumerate() {
+                if polarities[index].is_none() {
+                    if let Some(polarity) = predicate_polarity_against(conjunct, base) {
+                        polarities[index] = Some(polarity);
+                        matched = true;
+                        break;
+                    }
                 }
             }
-            if second_polarity.is_none() {
-                if let Some(polarity) = predicate_polarity_against(conjunct, second) {
-                    second_polarity = Some(polarity);
-                    continue;
-                }
+            if !matched {
+                return masks;
             }
-            if third_polarity.is_none() {
-                if let Some(polarity) = predicate_polarity_against(conjunct, third) {
-                    third_polarity = Some(polarity);
-                    continue;
-                }
-            }
-            return masks;
         }
-        match (first_polarity, second_polarity, third_polarity) {
-            (Some(first), Some(second), Some(third)) => {
-                let mask = ((first as u8) << 2) | ((second as u8) << 1) | third as u8;
-                masks | (1 << mask)
+        let mut mask = 0u32;
+        for polarity in polarities {
+            match polarity {
+                Some(polarity) => {
+                    mask = (mask << 1) | u32::from(polarity);
+                    continue;
+                }
+                None => return masks,
             }
-            _ => masks,
         }
+        masks | (1u128 << mask)
     })
 }
 

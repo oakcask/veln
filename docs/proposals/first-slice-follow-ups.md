@@ -229,8 +229,12 @@ No accepted language and type coverage follow-up is currently tracked here.
   of two non-static predicates across four top-level conjunction branches are
   also statically evaluated. Exhaustive triple case splits that cover both
   polarities of three non-static predicates across eight top-level conjunction
-  branches are also statically evaluated. Richer predicate semantics beyond
-  these static truth identities, literal
+  branches are also statically evaluated. Exhaustive quad case splits that
+  cover both polarities of four non-static predicates across sixteen top-level
+  conjunction branches are also statically evaluated. Exhaustive quint case
+  splits that cover both polarities of five non-static predicates across
+  thirty-two top-level conjunction branches are also statically evaluated.
+  Richer predicate semantics beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, complementary predicate comparisons,
   complementary boolean and comparison disjunctions, ordering trichotomy
