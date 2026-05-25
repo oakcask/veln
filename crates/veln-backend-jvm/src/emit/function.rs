@@ -177,7 +177,8 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
                     .map(|arg| self.emit_contract_expr(arg))
                     .collect::<Vec<_>>()
                     .join(", ");
-                format!("{}({args})", self.program.function_name(callee))
+                let function = callee.rsplit("::").next().unwrap_or(callee);
+                format!("{}({args})", self.program.function_name(function))
             }
             ContractExpr::FieldAccess { base, field } => format!(
                 "{}.recordField({}, {})",

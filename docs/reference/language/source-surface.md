@@ -252,9 +252,10 @@ syntax:
 The parser rejects holes, `?`, pipelines, `match`, records, and lists in
 contract predicates before semantic checking. A syntactically valid predicate
 may still fail contract validation. Function calls must resolve to discovered
-pure functions, call arguments must be assignable to declared parameter types,
-and field access must resolve through record-typed values visible to the
-clause.
+pure functions. Bare calls resolve against the current program's function
+names, and qualified calls resolve through `use` aliases. Call arguments must
+be assignable to declared parameter types, and field access must resolve
+through record-typed values visible to the clause.
 
 Valid clauses are executable obligations. `require` is checked at function
 entry. `ensure` is checked before an ordinary tail-expression return and may

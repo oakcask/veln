@@ -1027,6 +1027,29 @@ fn emits_runtime_contract_checks() {
 }
 
 #[test]
+fn emits_qualified_runtime_contract_calls() {
+    let ir = lower_to_ir(concat!(
+        "mod app.main\n",
+        "use app.main\n",
+        "fn positive(value: Int) -> Bool effects []\n",
+        "  value > 0\n",
+        "end\n",
+        "pub fn main(value: Int) -> Int effects []\n",
+        "  require main::positive(value)\n",
+        "  value\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+
+    assert!(program.contains("fn_positive("));
+    assert!(program.contains("\"require\", \"main::positive(value)\", \"main\", \"caller\""));
+}
+
+#[test]
 fn generated_entry_reports_contract_failures() {
     if Command::new("javac").arg("-version").output().is_err() {
         return;

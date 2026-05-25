@@ -48,9 +48,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   `veln run --json` reports runtime contract failures as top-level structured
   errors. Non-local return refinements remain follow-up work.
 - Contract predicates now parse through a dedicated first-slice predicate
-  production. Pure calls to discovered effect-free functions are validated and
-  participate in selected-entry reachability for executable commands. Richer
-  predicate semantics remain follow-up work.
+  production. Bare and `use`-alias qualified pure calls to discovered
+  effect-free functions are validated and participate in selected-entry
+  reachability for executable commands. Richer predicate semantics remain
+  follow-up work.
 
 ## Formatting
 

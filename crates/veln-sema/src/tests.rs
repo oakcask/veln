@@ -2211,6 +2211,41 @@ fn contract_predicate_accepts_pure_boolean_function_calls() {
 }
 
 #[test]
+fn contract_predicate_accepts_qualified_pure_function_calls() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.rules\n",
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require rules::positive(value)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let rules_source = SourceFile::new(
+        "rules.veln",
+        concat!(
+            "mod app.rules\n",
+            "fn positive(value: Int) -> Bool effects []\n",
+            "  value > 0\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let rules = lower_surface_ast(&parse(&rules_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        functions: main.functions.into_iter().chain(rules.functions).collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn contract_predicate_accepts_pure_function_calls_inside_comparisons() {
     let source = SourceFile::new(
         "main.veln",

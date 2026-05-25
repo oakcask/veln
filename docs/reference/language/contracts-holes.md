@@ -25,6 +25,7 @@ After parsing, the checker validates a small pure boolean subset:
 - field access on record-typed bindings visible to the clause
 - calls to discovered pure functions when arguments are assignable to the
   declared parameter types and the return type fits the predicate position
+- qualified calls to discovered pure functions through `use` aliases
 - visible parameter bindings
 - explicit result bindings in `ensure` clauses
 

@@ -763,12 +763,8 @@ impl<'a> FunctionChecker<'a> {
         }
         let calls = contract_calls(trimmed);
         for (call_index, call) in calls.iter().enumerate() {
-            if call.callee.contains("::") {
-                return ContractValidation::UnsupportedConstruct {
-                    reason: "unsupported_call",
-                };
-            }
-            let Some(signature) = self.environment.function(&call.callee) else {
+            let callee_segments = contract_callee_segments(&call.callee);
+            let Some(signature) = self.environment.function_path(&callee_segments) else {
                 return ContractValidation::UnresolvedName {
                     name: call.callee.clone(),
                 };
@@ -831,7 +827,7 @@ impl<'a> FunctionChecker<'a> {
         {
             let return_type = self
                 .environment
-                .function(&call.callee)
+                .function_path(&contract_callee_segments(&call.callee))
                 .map(|signature| signature.return_type.clone())
                 .unwrap_or(Type::Unknown);
             return if return_type == Type::bool() {
@@ -869,7 +865,7 @@ impl<'a> FunctionChecker<'a> {
             if call.start == 0 && call.end == trimmed.len() {
                 return self
                     .environment
-                    .function(&call.callee)
+                    .function_path(&contract_callee_segments(&call.callee))
                     .map(|signature| signature.return_type.clone())
                     .unwrap_or(Type::Unknown);
             }
@@ -2495,6 +2491,10 @@ impl<'a> FunctionChecker<'a> {
             reason: "satisfy_require_match",
         })
     }
+}
+
+fn contract_callee_segments(callee: &str) -> Vec<String> {
+    callee.split("::").map(ToString::to_string).collect()
 }
 
 struct SatisfyRepairConstraint {

@@ -261,19 +261,37 @@ fn collect_contract_callees(predicate: &str, function_names: &[String], callees:
         .into_iter()
         .filter(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Comment))
         .collect::<Vec<_>>();
-    for window in tokens.windows(2) {
-        let name = &window[0];
-        let next = &window[1];
-        if name.kind != TokenKind::Ident || next.kind != TokenKind::LParen {
+    let mut index = 0usize;
+    while index < tokens.len() {
+        let name = &tokens[index];
+        if name.kind != TokenKind::Ident {
+            index += 1;
+            continue;
+        }
+        let mut callee = name.text.clone();
+        let mut next_index = index + 1;
+        while next_index + 1 < tokens.len()
+            && tokens[next_index].kind == TokenKind::DoubleColon
+            && tokens[next_index + 1].kind == TokenKind::Ident
+        {
+            callee = tokens[next_index + 1].text.clone();
+            next_index += 2;
+        }
+        let Some(next) = tokens.get(next_index) else {
+            break;
+        };
+        if next.kind != TokenKind::LParen {
+            index += 1;
             continue;
         }
         if function_names
             .iter()
-            .any(|function_name| function_name == &name.text)
-            && !callees.iter().any(|callee| callee == &name.text)
+            .any(|function_name| function_name == &callee)
+            && !callees.iter().any(|known| known == &callee)
         {
-            callees.push(name.text.clone());
+            callees.push(callee);
         }
+        index = next_index + 1;
     }
 }
 
@@ -443,6 +461,36 @@ mod tests {
             "end\n",
             "pub fn main(value: Int) -> output: Int effects []\n",
             "  ensure positive(output)\n",
+            "  value\n",
+            "end\n",
+        ));
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| (function.kind, function.name.as_deref()))
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (FunctionKind::Function, Some("positive")),
+                (FunctionKind::Function, Some("main")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_qualified_contract_helper() {
+        let module = lower(concat!(
+            "mod app.main\n",
+            "use app.rules\n",
+            "fn positive(value: Int) -> Bool effects []\n",
+            "  value > 0\n",
+            "end\n",
+            "pub fn main(value: Int) -> output: Int effects []\n",
+            "  ensure rules::positive(output)\n",
             "  value\n",
             "end\n",
         ));

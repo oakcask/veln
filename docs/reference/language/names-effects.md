@@ -118,9 +118,9 @@ transfers the value directly.
 `channel::close` closes the sender endpoint, wakes waiting receivers, and
 returns `()`.
 
-Executable-command reachability also follows pure helper calls used in
-reachable contract predicates, so blockers inside those helpers are reported
-before the selected entry runs.
+Executable-command reachability also follows bare and `use`-alias qualified
+pure helper calls used in reachable contract predicates, so blockers inside
+those helpers are reported before the selected entry runs.
 
 A public function whose declared effects omit an inferred effect reports
 `effect.missing_public` with related provenance pointing at bounded call sites.
