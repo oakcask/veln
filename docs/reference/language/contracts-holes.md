@@ -119,8 +119,12 @@ requirements also discharge disequality for the same operands, such as
 Equality requirements also discharge inclusive ordering predicates over the
 same operands in either direction; for example, `require max == 0` guarantees
 both `candidate <= 0` and `candidate >= 0` after substituting `max`. If a
-substituted `satisfy` predicate has top-level `or` clauses, a candidate is also
-safe when any one `or` branch is fully guaranteed by valid `require` clauses.
+binding has valid inclusive bounds in both directions, those combined
+requirements also discharge equality after substituting the binding; for
+example, `require max <= 10` together with `require max >= 10` guarantees
+`candidate == 10` after substituting `max`. If a substituted `satisfy`
+predicate has top-level `or` clauses, a candidate is also safe when any one
+`or` branch is fully guaranteed by valid `require` clauses.
 For example, `candidate > 0 or candidate == 0` is guaranteed for a visible
 binding `max` when the function already has `require max > 0`. A `require`
 predicate with top-level `or` also guarantees a substituted `satisfy` clause

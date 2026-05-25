@@ -39,8 +39,10 @@ No accepted language and type coverage follow-up is currently tracked here.
   Strict ordering `require` clauses also discharge the corresponding inclusive
   ordering and disequality `satisfy` clauses for the same operands. Equality
   `require` clauses discharge inclusive ordering `satisfy` clauses for the same
-  operands in either direction. They also accept top-level `or` predicates when
-  at least one branch is fully guaranteed by valid `require` clauses, and
+  operands in either direction. Paired inclusive bounds from valid `require`
+  clauses discharge equality `satisfy` clauses for the same operands. They also
+  accept top-level `or` predicates when at least one branch is fully guaranteed
+  by valid `require` clauses, and
   top-level `or` in `require` predicates when every branch guarantees the
   substituted `satisfy` clause. Nested `or` branches inside `and` conjunctions
   are also recognized when every branch guarantees the same substituted clause.

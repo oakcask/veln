@@ -2844,6 +2844,7 @@ fn repair_clause_guaranteed_by_required_predicates(
     required_predicates
         .iter()
         .any(|required| required_predicate_implies_clause(required, &canonical))
+        || required_predicate_set_implies_clause(required_predicates, &canonical)
 }
 
 fn required_predicate_implies_clause(predicate: &str, wanted: &str) -> bool {
@@ -2889,6 +2890,61 @@ fn repair_clause_implies(required: &str, wanted: &str) -> bool {
     required.operator == "=="
         && wanted.operator == "<="
         && same_repair_operands_unordered(required.left, required.right, wanted.left, wanted.right)
+}
+
+fn required_predicate_set_implies_clause(required_predicates: &[String], wanted: &str) -> bool {
+    let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
+        return false;
+    };
+    if wanted.operator != "==" {
+        return false;
+    }
+    let required_clauses = required_predicates
+        .iter()
+        .flat_map(|predicate| non_disjunctive_repair_clauses(predicate))
+        .collect::<Vec<_>>();
+    required_clauses.iter().any(|left| {
+        required_clauses
+            .iter()
+            .any(|right| inclusive_bounds_imply_equality(left, right, &wanted))
+    })
+}
+
+fn non_disjunctive_repair_clauses(predicate: &str) -> Vec<String> {
+    let predicate = strip_balanced_outer_parens(predicate);
+    if split_top_level_keyword(predicate, "or").len() > 1 {
+        return Vec::new();
+    }
+    split_top_level_keyword(predicate, "and")
+        .into_iter()
+        .flat_map(|clause| {
+            let clause = strip_balanced_outer_parens(clause);
+            if split_top_level_keyword(clause, "or").len() > 1 {
+                Vec::new()
+            } else {
+                vec![canonical_repair_clause(clause)]
+            }
+        })
+        .collect()
+}
+
+fn inclusive_bounds_imply_equality(
+    left: &str,
+    right: &str,
+    wanted: &ParsedRepairComparison<'_>,
+) -> bool {
+    let Some(left) = ParsedRepairComparison::parse(left) else {
+        return false;
+    };
+    let Some(right) = ParsedRepairComparison::parse(right) else {
+        return false;
+    };
+    left.operator == "<="
+        && right.operator == "<="
+        && left.left == wanted.left
+        && left.right == wanted.right
+        && right.left == wanted.right
+        && right.right == wanted.left
 }
 
 fn same_repair_operands_unordered(
