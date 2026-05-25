@@ -975,12 +975,38 @@ impl<'a> ExprParser<'a> {
 
     fn parse(mut self) -> (Expr, Vec<ParseDiagnostic>) {
         let expr = self.parse_expr(0);
+        self.report_trailing_tokens(
+            "parse.expected_newline",
+            "expected a newline before this token",
+        );
         (expr, self.diagnostics)
     }
 
     fn parse_pattern_only(mut self) -> (Pattern, Vec<ParseDiagnostic>) {
         let pattern = self.parse_pattern();
+        self.report_trailing_tokens_with_expected(
+            "parse.pattern",
+            "expected the pattern to end before this token",
+            vec!["pattern end"],
+            None,
+        );
         (pattern, self.diagnostics)
+    }
+
+    fn report_trailing_tokens(&mut self, id: &'static str, message: &'static str) {
+        self.report_trailing_tokens_with_expected(id, message, vec!["newline"], Some("newline"));
+    }
+
+    fn report_trailing_tokens_with_expected(
+        &mut self,
+        id: &'static str,
+        message: &'static str,
+        expected: Vec<&'static str>,
+        anchor: Option<&'static str>,
+    ) {
+        if self.cursor < self.tokens.len() {
+            self.error_current(id, message, expected, RecoveryStrategy::InsertToken, anchor);
+        }
     }
 
     fn parse_expr(&mut self, min_bp: u8) -> Expr {

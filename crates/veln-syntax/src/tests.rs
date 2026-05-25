@@ -343,6 +343,61 @@ fn reports_missing_separator_between_call_arguments() {
 }
 
 #[test]
+fn reports_missing_newline_between_body_expressions() {
+    let source = SourceFile::new("main.veln", "fn main() -> ()\n  1 2\nend\n");
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.expected_newline")
+        .expect("expected missing newline diagnostic");
+    assert_eq!(diagnostic.message, "expected a newline before this token");
+    assert_eq!(diagnostic.parser_context, "expression_line");
+    assert_eq!(diagnostic.unexpected.text, "2");
+    assert_eq!(diagnostic.expected, vec!["newline"]);
+    assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
+    assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("newline"));
+
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    assert!(matches!(expr.kind, ExprKind::IntLiteral(ref value) if value == "1"));
+}
+
+#[test]
+fn reports_extra_tokens_after_let_pattern() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> Int\n  let value extra = 1\n  value\nend\n",
+    );
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.pattern")
+        .expect("expected trailing pattern token diagnostic");
+    assert_eq!(
+        diagnostic.message,
+        "expected the pattern to end before this token"
+    );
+    assert_eq!(diagnostic.parser_context, "let_statement");
+    assert_eq!(diagnostic.unexpected.text, "extra");
+    assert_eq!(diagnostic.expected, vec!["pattern end"]);
+    assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
+
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Let { pattern, .. } = &function.body[0] else {
+        panic!("expected let statement");
+    };
+    assert!(matches!(pattern.kind, PatternKind::Binding(ref name) if name == "value"));
+}
+
+#[test]
 fn lexes_number_string_hole_and_invalid_boundaries() {
     let source = SourceFile::new(
         "tokens.veln",

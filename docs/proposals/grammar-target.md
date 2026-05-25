@@ -38,7 +38,10 @@ ranking when the chained comparison is strong enough. Disjunctive `require`
 clauses also contribute transitive ordering evidence when every branch
 guarantees the same weaker comparison. Negated top-level `or` predicates in
 valid `require` clauses discharge direct comparison `satisfy` clauses through
-their inverted branches.
+their inverted branches. Body expressions now report a targeted
+`parse.expected_newline` diagnostic when a complete expression is followed by
+another token on the same line, and `let` patterns report a targeted
+`parse.pattern` diagnostic when extra pattern tokens remain before the `=`.
 
 For the fixed reference of behavior implemented in the current workspace, read
 [../reference/README.md](../reference/README.md).

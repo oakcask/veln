@@ -57,6 +57,12 @@ Malformed call argument lists report `parse.call_argument` when an argument is
 followed by another token without the required `,` or `)`. The recovery detail
 uses `strategy: "insert_token"` with `anchor: ","` when the parser continues by
 treating the next token as another argument.
+Body expression lines report `parse.expected_newline` when a complete
+expression is followed by another token before the line ends. The recovery
+detail uses `strategy: "insert_token"` with `anchor: "newline"`.
+Malformed `let` patterns report `parse.pattern` when the pattern parser leaves
+extra tokens before the `=`. The recovery detail uses
+`strategy: "insert_token"` and expects `pattern end`.
 
 Name diagnostic `details` are stable for unresolved and duplicate names:
 

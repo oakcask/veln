@@ -56,7 +56,11 @@ Function and test declarations can contain multiple body lines between their
 header and closing `end`. Expression newlines end the current body line except
 inside grouping forms. Parentheses, brackets, braces, and `match` expressions
 keep their inner newlines within the same expression; indentation is formatting
-only and does not define parse structure.
+only and does not define parse structure. If a complete body expression is
+followed by another token before the line ends, the parser reports
+`parse.expected_newline` at that token. If a `let` pattern leaves extra pattern
+tokens before the `=`, the parser reports `parse.pattern` at the first extra
+token.
 
 The final expression line is the returned value. If a body has no final
 expression line, the omitted tail expression returns `()`. A non-`()`
