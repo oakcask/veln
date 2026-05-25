@@ -15,6 +15,8 @@ read these records only for rationale or compatibility context.
 
 ## Read When
 
+- Choose the first category that matches the task. Do not scan individual
+  `result-*.md` files before a category page points to one.
 - [language-surface.md](language-surface.md): syntax, names, typing,
   contracts, holes, and effects.
 - [commands-output.md](commands-output.md): CLI behavior, JSON schemas, test

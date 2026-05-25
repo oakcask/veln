@@ -191,6 +191,10 @@ path only proves an inclusive endpoint bound. Equality clauses in the
 antecedent are treated as bidirectional non-strict edges for this transitive
 check, so `not (low < mid and mid == high) or low < high` and
 `not (low == mid and mid <= high) or low <= high` are also statically proven.
+Non-strict cycles in the antecedent also prove equality consequents, such as
+`not (low == mid and mid == high) or low == high` and
+`not (low <= mid and mid <= low) or low == mid`. Strict edges do not prove
+equality consequents.
 Top-level `or` also proves case-split predicates when one branch is the
 complement of another branch and every other conjunct in that branch is
 statically true. For example,
@@ -217,7 +221,11 @@ exclusive ordering trichotomy relations over the same operands, such as
 `not (value < limit and value > limit)`, and
 `not(output == limit and output > limit)`. It also applies when opposite
 inclusive and strict bounds cannot both hold, such as
-`not (value <= limit and limit < value)`. For example,
+`not (value <= limit and limit < value)`. Negated conjunctions of numeric
+literal bounds over the same subject are also statically proven when the lower
+bound is greater than the upper bound, or when equal bounds include at least
+one strict side, such as `not (value > 10 and value < 5)` and
+`not (value >= 10 and value < 10)`. For example,
 `true or value > 0`, `(output >= value or true) and not false`, and
 `1 < 2 and "ready" != "pending"` are statically proven after the predicate has
 passed validation. Equality and disequality comparisons between small boolean

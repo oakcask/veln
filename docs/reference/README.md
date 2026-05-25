@@ -7,21 +7,16 @@ to it. Use these files before changing code, tests, diagnostics, or samples.
 ## Read First
 
 - [language/README.md](language/README.md): current language behavior.
+- [language/topic-map.md](language/topic-map.md): task-oriented route to the
+  smallest language reference page.
 - [language/source-decisions.md](language/source-decisions.md): short route to
   rationale when current behavior needs context.
 
 ## Read When
 
-- Source language changes: [language/source-surface.md](language/source-surface.md),
-  [language/types.md](language/types.md), and
-  [language/names-effects.md](language/names-effects.md).
-- Contract or hole changes: [language/contracts-holes.md](language/contracts-holes.md)
-  routes the short and full references.
-- Command and JSON-output changes: [language/commands.md](language/commands.md),
-  [language/json-output.md](language/json-output.md), and the command-specific
-  JSON pages it routes.
-- Execution or examples: [language/execution.md](language/execution.md) and
-  [language/examples.md](language/examples.md).
+- Source language, contract, hole, command, JSON-output, runtime, or example
+  changes: use [language/topic-map.md](language/topic-map.md), then open the
+  selected short reference page.
 - Rationale: [language/source-decisions.md](language/source-decisions.md) first,
   then [source-decisions/README.md](source-decisions/README.md) if detail is
   needed.

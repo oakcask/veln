@@ -9,6 +9,8 @@ target tracked in `../../proposals/`.
 - [overview.md](overview.md): stability boundary and explicit non-goals.
 - [source-surface.md](source-surface.md): implemented modules, items,
   expressions, tests, and grammar.
+- [topic-map.md](topic-map.md): choose the smallest topic page for a source,
+  command, JSON, runtime, contract, or hole change.
 - Use the short topic pages below first; open `*-full.md` only after the short
   page names the relevant detail.
 
@@ -25,17 +27,11 @@ Leave rationale in [source-decisions.md](source-decisions.md) or
 
 ## Read When
 
-- Types and operators: [types.md](types.md).
-- Commands and source discovery: [commands.md](commands.md).
-- Names, stdio, prelude, and effects: [names-effects.md](names-effects.md).
-- Contracts and holes: start with
-  [contracts-holes.md](contracts-holes.md), then choose
-  [contracts.md](contracts.md), [holes.md](holes.md), or
-  [contracts-holes-full.md](contracts-holes-full.md).
-- Machine-readable output: [json-output.md](json-output.md), then choose
-  [diagnostics-json.md](diagnostics-json.md), [run-json.md](run-json.md), or
-  [test-json.md](test-json.md).
-- Runtime and examples: [execution.md](execution.md) and [examples.md](examples.md).
+- Task-oriented topic selection: [topic-map.md](topic-map.md).
+- Source syntax and grammar details: [source-surface.md](source-surface.md).
+- Machine-readable output: [json-output.md](json-output.md).
+- Runtime and examples: [execution.md](execution.md) and
+  [examples.md](examples.md).
 - Rationale: [source-decisions.md](source-decisions.md).
 
 ## Skip Unless Needed

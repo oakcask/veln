@@ -143,6 +143,35 @@ fn project_discover_reads_sources_with_project_relative_paths() {
 }
 
 #[test]
+fn project_discover_reads_explicit_files_with_project_relative_paths() {
+    let temp = TempProject::new("project-discover-explicit-files");
+    temp.write("examples/b.veln", "second");
+    temp.write("examples/a.veln", "first");
+
+    let project = Project::discover(
+        temp.root().to_path_buf(),
+        &[
+            temp.path("examples/b.veln"),
+            PathBuf::from("examples/a.veln"),
+        ],
+    )
+    .unwrap();
+
+    let files = project
+        .files
+        .iter()
+        .map(|file| (file.path().as_str().to_string(), file.text().to_string()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        files,
+        vec![
+            ("examples/a.veln".to_string(), "first".to_string()),
+            ("examples/b.veln".to_string(), "second".to_string()),
+        ]
+    );
+}
+
+#[test]
 fn project_discover_reads_manifest_module_entries() {
     let temp = TempProject::new("manifest-modules");
     temp.write("src/main.veln", "mod app.main\n");

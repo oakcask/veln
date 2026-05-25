@@ -7,6 +7,8 @@ the experimental Veln implementation.
 
 - [reference/language/README.md](reference/language/README.md): current
   implemented language behavior.
+- [reference/language/topic-map.md](reference/language/topic-map.md): fastest
+  route from task area to the relevant language reference.
 - [proposals/README.md](proposals/README.md): accepted or open implementation
   targets.
 - [document-status.md](document-status.md): placement rules when moving text
@@ -15,7 +17,7 @@ the experimental Veln implementation.
 ## Routes
 
 - Changing syntax, types, effects, contracts, holes, commands, JSON output, or
-  examples: start at [reference/language/README.md](reference/language/README.md).
+  examples: start at [reference/language/topic-map.md](reference/language/topic-map.md).
 - Planning the next slice: start at [proposals/README.md](proposals/README.md),
   then check [reviews/README.md](reviews/README.md) for evidence and
   [document-status.md](document-status.md) for promotion rules.

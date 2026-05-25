@@ -208,6 +208,20 @@ fn test_declaration_accepts_result_unit_return() {
 }
 
 #[test]
+fn test_declaration_accepts_unit_return() {
+    let source = SourceFile::new(
+        "main_test.veln",
+        concat!("test returns_unit() -> () effects []\n", "  ()\n", "end\n",),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn test_declaration_requires_return_annotation() {
     let source = SourceFile::new(
         "main_test.veln",
@@ -8797,6 +8811,58 @@ fn contract_predicate_negated_inclusive_strict_order_and_is_statically_proven() 
 }
 
 #[test]
+fn contract_predicate_negated_exclusive_numeric_literal_bounds_are_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn clamp(value: Int) -> output: Int effects []\n",
+            "require not (value > 10 and value < 5)\n",
+            "require not (value >= 10 and value <= 9)\n",
+            "require not (1 + 1 <= value and value < 2)\n",
+            "ensure not (output >= 10 and 10 > output)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 4);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_overlapping_numeric_literal_bounds_require_runtime_check() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int) -> Int effects []\n",
+            "require not (value > 5 and value < 10)\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contract = &core.functions[0].contracts[0];
+    assert!(contract.obligation_status == ContractObligationStatus::RuntimeRequired);
+}
+
+#[test]
 fn contract_predicate_transitive_order_implication_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
@@ -8849,6 +8915,61 @@ fn contract_predicate_equality_edges_transitively_imply_order_bounds() {
     assert_eq!(contracts.len(), 3);
     assert!(contracts.iter().all(|contract| {
         contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_non_strict_cycles_transitively_imply_equality() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(low: Int, mid: Int, high: Int) -> output: Int effects []\n",
+            "require not (low == mid and mid == high) or low == high\n",
+            "require not (low <= mid and mid <= low) or low == mid\n",
+            "ensure not (output == mid and mid == high) or output == high\n",
+            "  low\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_strict_paths_do_not_imply_equality() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(low: Int, mid: Int, high: Int) -> output: Int effects []\n",
+            "require not (low < mid and mid <= high) or low == high\n",
+            "ensure not (output < mid and mid <= high) or output == high\n",
+            "  low\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::RuntimeRequired
     }));
 }
 

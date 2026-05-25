@@ -127,10 +127,25 @@ fn collect_expr_node_ids(expr: &Expr, ids: &mut Vec<u32>) {
 
 fn collect_pattern_node_ids(pattern: &Pattern, ids: &mut Vec<u32>) {
     ids.push(pattern.node_id.as_u32());
-    if let PatternKind::Constructor { args, .. } = &pattern.kind {
-        for arg in args {
-            collect_pattern_node_ids(arg, ids);
+    match &pattern.kind {
+        PatternKind::Record(fields) => {
+            for field in fields {
+                ids.push(field.node_id.as_u32());
+                collect_pattern_node_ids(&field.pattern, ids);
+            }
         }
+        PatternKind::Constructor { args, .. } => {
+            for arg in args {
+                collect_pattern_node_ids(arg, ids);
+            }
+        }
+        PatternKind::Wildcard
+        | PatternKind::Binding(_)
+        | PatternKind::StringLiteral(_)
+        | PatternKind::IntLiteral(_)
+        | PatternKind::FloatLiteral(_)
+        | PatternKind::BoolLiteral(_)
+        | PatternKind::Unit => {}
     }
 }
 
@@ -318,10 +333,43 @@ fn lowers_boolean_literals_as_literals() {
 }
 
 #[test]
+fn lowers_record_patterns_with_field_node_ids() {
+    let module = lower_source(concat!(
+        "fn describe(value: {count: Int, label: String}) -> String\n",
+        "  match value\n",
+        "    {count: 0, label: name} => name\n",
+        "  end\n",
+        "end\n",
+    ));
+    let ExprKind::Match { arms, .. } = &expr_line(&module.functions[0], 0).kind else {
+        panic!("expected match expression");
+    };
+    let PatternKind::Record(fields) = &arms[0].pattern.kind else {
+        panic!("expected record pattern");
+    };
+
+    assert_eq!(fields.len(), 2);
+    assert_eq!(fields[0].name, "count");
+    assert_eq!(fields[0].node_id.display("field"), "field-8");
+    assert!(matches!(
+        &fields[0].pattern.kind,
+        PatternKind::IntLiteral(value) if value == "0"
+    ));
+    assert_eq!(fields[1].name, "label");
+    assert_eq!(fields[1].node_id.display("field"), "field-10");
+    assert!(matches!(
+        &fields[1].pattern.kind,
+        PatternKind::Binding(name) if name == "name"
+    ));
+}
+
+#[test]
 fn allocates_unique_contiguous_node_ids_across_nested_nodes_and_functions() {
     let module = lower_source(concat!(
-        "fn first() -> ()\n",
-        "  {x: [1]}\n",
+        "fn first(input: {x: Int}) -> Int\n",
+        "  match input\n",
+        "    {x: value} => value\n",
+        "  end\n",
         "end\n",
         "fn second() -> ()\n",
         "  _\n",

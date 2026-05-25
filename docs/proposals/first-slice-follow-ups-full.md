@@ -275,19 +275,22 @@ No accepted language and type coverage follow-up is currently tracked here.
   transitively guarantees another ordering bound are also statically
   evaluated. Equality clauses in that antecedent are treated as bidirectional
   non-strict ordering edges for the same transitive implication check.
+  Non-strict cycles in that antecedent also prove equality consequents.
   Equality and disequality comparisons between small boolean formulas are also
   statically evaluated when every assignment gives the same comparison result.
   Numeric literal division in static comparisons and repair-bound comparison
   may compare exact rational values even when the division is not exactly
   representable as a finite decimal.
+  Negated conjunctions of impossible numeric literal lower and upper bounds
+  over the same subject are also statically evaluated.
   Richer predicate semantics beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, small boolean formula comparisons,
   complementary predicate comparisons, complementary boolean and comparison
   disjunctions, ordering trichotomy disjunctions, negated complementary
   boolean and comparison conjunctions, negated mutually exclusive order
-  conjunctions, and transitive ordering-bound implications remain follow-up
-  work.
+  conjunctions, transitive ordering-bound implications, and transitive
+  non-strict equality implications remain follow-up work.
 
 ## Formatting
 

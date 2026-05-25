@@ -29,6 +29,10 @@ pub(crate) fn predicate_is_statically_true(predicate: &str) -> bool {
     static_boolean_value(predicate) == StaticBooleanValue::True
 }
 
+pub(crate) fn contract_predicate_is_statically_true(predicate: &str) -> bool {
+    static_boolean_value_for_contract(predicate) == StaticBooleanValue::True
+}
+
 pub(crate) fn predicate_is_statically_false(predicate: &str) -> bool {
     static_boolean_value(predicate) == StaticBooleanValue::False
 }
@@ -44,6 +48,17 @@ const MAX_STATIC_BOOLEAN_ATOMS: usize = 10;
 const MAX_PARTIAL_CASE_SPLIT_ATOMS: usize = 10;
 
 fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
+    static_boolean_value_inner(predicate, false)
+}
+
+fn static_boolean_value_for_contract(predicate: &str) -> StaticBooleanValue {
+    static_boolean_value_inner(predicate, true)
+}
+
+fn static_boolean_value_inner(
+    predicate: &str,
+    classify_numeric_literal_bounds: bool,
+) -> StaticBooleanValue {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() {
         return StaticBooleanValue::Unknown;
@@ -60,7 +75,7 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
         return value;
     }
     if let Some(inner) = negated_predicate_inner(predicate) {
-        return static_boolean_value(inner).negate();
+        return static_boolean_value_inner(inner, classify_numeric_literal_bounds).negate();
     }
     if has_complementary_top_level_clauses(predicate, "or") {
         return StaticBooleanValue::True;
@@ -117,7 +132,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
         if complementary_predicates(left, right) {
             return StaticBooleanValue::True;
         }
-        return static_boolean_value(left).or(static_boolean_value(right));
+        return static_boolean_value_inner(left, classify_numeric_literal_bounds).or(
+            static_boolean_value_inner(right, classify_numeric_literal_bounds),
+        );
     }
     if has_complementary_top_level_clauses(predicate, "and") {
         return StaticBooleanValue::False;
@@ -134,6 +151,11 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_resolved_complementary_disjunctions_top_level_and(predicate) {
         return StaticBooleanValue::False;
     }
+    if classify_numeric_literal_bounds
+        && has_exclusive_numeric_literal_bounds_top_level_and(predicate)
+    {
+        return StaticBooleanValue::False;
+    }
     if has_exclusive_inclusive_order_top_level_and(predicate) {
         return StaticBooleanValue::False;
     }
@@ -144,7 +166,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
         if complementary_predicates(left, right) {
             return StaticBooleanValue::False;
         }
-        return static_boolean_value(left).and(static_boolean_value(right));
+        return static_boolean_value_inner(left, classify_numeric_literal_bounds).and(
+            static_boolean_value_inner(right, classify_numeric_literal_bounds),
+        );
     }
     for operator in ["==", "!=", "<=", ">=", "<", ">"] {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {
@@ -940,6 +964,97 @@ fn has_exclusive_inclusive_order_top_level_and(predicate: &str) -> bool {
     })
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum NumericLiteralBoundKind {
+    Lower,
+    Upper,
+}
+
+struct NumericLiteralBound {
+    subject: String,
+    value: StaticRational,
+    inclusive: bool,
+    kind: NumericLiteralBoundKind,
+}
+
+fn has_exclusive_numeric_literal_bounds_top_level_and(predicate: &str) -> bool {
+    let bounds = flattened_keyword_clauses(predicate, "and")
+        .into_iter()
+        .filter_map(numeric_literal_bound_shape)
+        .collect::<Vec<_>>();
+    if bounds.len() < 2 {
+        return false;
+    }
+
+    bounds.iter().enumerate().any(|(index, left)| {
+        bounds.iter().skip(index + 1).any(|right| {
+            left.subject == right.subject
+                && matches!(
+                    (left.kind, right.kind),
+                    (
+                        NumericLiteralBoundKind::Lower,
+                        NumericLiteralBoundKind::Upper
+                    ) | (
+                        NumericLiteralBoundKind::Upper,
+                        NumericLiteralBoundKind::Lower
+                    )
+                )
+                && literal_bounds_do_not_overlap(left, right)
+        })
+    })
+}
+
+fn numeric_literal_bound_shape(predicate: &str) -> Option<NumericLiteralBound> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    for operator in ["<=", ">=", "<", ">"] {
+        let Some((left, right)) = split_top_level_operator(predicate, operator) else {
+            continue;
+        };
+        let left_value = static_rational_expression(left);
+        let right_value = static_rational_expression(right);
+        match (left_value, right_value) {
+            (Some(value), None) => {
+                let kind = match operator {
+                    "<" | "<=" => NumericLiteralBoundKind::Lower,
+                    ">" | ">=" => NumericLiteralBoundKind::Upper,
+                    _ => return None,
+                };
+                return Some(NumericLiteralBound {
+                    subject: compact_predicate_text(right),
+                    value,
+                    inclusive: matches!(operator, "<=" | ">="),
+                    kind,
+                });
+            }
+            (None, Some(value)) => {
+                let kind = match operator {
+                    "<" | "<=" => NumericLiteralBoundKind::Upper,
+                    ">" | ">=" => NumericLiteralBoundKind::Lower,
+                    _ => return None,
+                };
+                return Some(NumericLiteralBound {
+                    subject: compact_predicate_text(left),
+                    value,
+                    inclusive: matches!(operator, "<=" | ">="),
+                    kind,
+                });
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn literal_bounds_do_not_overlap(left: &NumericLiteralBound, right: &NumericLiteralBound) -> bool {
+    let (lower, upper) = match (left.kind, right.kind) {
+        (NumericLiteralBoundKind::Lower, NumericLiteralBoundKind::Upper) => (left, right),
+        (NumericLiteralBoundKind::Upper, NumericLiteralBoundKind::Lower) => (right, left),
+        _ => return false,
+    };
+    lower.value > upper.value
+        || (lower.value == upper.value && (!lower.inclusive || !upper.inclusive))
+}
+
 struct OrderBoundShape {
     left: String,
     right: String,
@@ -987,11 +1102,21 @@ fn has_order_bound_transitive_implication_top_level_or(predicate: &str) -> bool 
         }
         disjuncts.iter().any(|consequent| {
             !same_predicate(antecedent, consequent)
-                && order_bound_shape(consequent).is_some_and(|wanted| {
+                && (order_bound_shape(consequent).is_some_and(|wanted| {
                     order_bound_edges_imply(&edges, &wanted.left, &wanted.right, wanted.strict)
-                })
+                }) || equality_shape(consequent).is_some_and(|(left, right)| {
+                    order_bound_edges_imply_non_strict(&edges, &left, &right)
+                        && order_bound_edges_imply_non_strict(&edges, &right, &left)
+                }))
         })
     })
+}
+
+fn equality_shape(predicate: &str) -> Option<(String, String)> {
+    let (left, right) = split_top_level_operator(predicate, "==")?;
+    let left = compact_predicate_text(left);
+    let right = compact_predicate_text(right);
+    (left != right).then_some((left, right))
 }
 
 fn order_bound_transitive_edges(predicate: &str) -> Vec<OrderBoundShape> {
@@ -1042,6 +1167,30 @@ fn order_bound_edges_imply(
                 return true;
             }
             stack.push((edge.right.clone(), next_strict));
+        }
+    }
+
+    false
+}
+
+fn order_bound_edges_imply_non_strict(edges: &[OrderBoundShape], left: &str, right: &str) -> bool {
+    let mut stack = vec![left.to_string()];
+    let mut visited = Vec::new();
+
+    while let Some(current) = stack.pop() {
+        if visited.iter().any(|node| node == &current) {
+            continue;
+        }
+        visited.push(current.clone());
+
+        for edge in edges
+            .iter()
+            .filter(|edge| !edge.strict && edge.left == current)
+        {
+            if edge.right == right {
+                return true;
+            }
+            stack.push(edge.right.clone());
         }
     }
 
@@ -1185,14 +1334,6 @@ impl OrderRelation {
             Self::Greater => 0b100,
         }
     }
-
-    fn invert(self) -> Self {
-        match self {
-            Self::Less => Self::Greater,
-            Self::Equal => Self::Equal,
-            Self::Greater => Self::Less,
-        }
-    }
 }
 
 struct OrderTrichotomyShape {
@@ -1217,32 +1358,30 @@ fn complementary_comparisons(left: &str, right: &str) -> bool {
 }
 
 fn order_trichotomy_shape(predicate: &str) -> Option<OrderTrichotomyShape> {
-    let predicate = strip_balanced_outer_parens(predicate.trim());
-    for operator in ["==", "<", ">"] {
-        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
-            let mut left = compact_predicate_text(left);
-            let mut right = compact_predicate_text(right);
-            if left == right {
-                return None;
-            }
-            let mut relation = match operator {
-                "==" => OrderRelation::Equal,
-                "<" => OrderRelation::Less,
-                ">" => OrderRelation::Greater,
-                _ => return None,
-            };
-            if right < left {
-                std::mem::swap(&mut left, &mut right);
-                relation = relation.invert();
-            }
-            return Some(OrderTrichotomyShape {
-                left,
-                right,
-                relation,
-            });
-        }
+    let comparison = comparison_shape(predicate)?;
+    let mut left = comparison.left;
+    let mut right = comparison.right;
+    if left == right {
+        return None;
     }
-    None
+    let mut relation = match comparison.operator {
+        "==" => OrderRelation::Equal,
+        "<" => OrderRelation::Less,
+        _ => return None,
+    };
+    if right < left {
+        std::mem::swap(&mut left, &mut right);
+        relation = match relation {
+            OrderRelation::Less => OrderRelation::Greater,
+            OrderRelation::Equal => OrderRelation::Equal,
+            OrderRelation::Greater => OrderRelation::Less,
+        };
+    }
+    Some(OrderTrichotomyShape {
+        left,
+        right,
+        relation,
+    })
 }
 
 fn comparison_shape(predicate: &str) -> Option<ComparisonShape> {
@@ -1411,6 +1550,60 @@ mod tests {
         assert!(predicate_is_statically_true(
             "(value.ready and value.paid) ==(value.paid and value.ready)"
         ));
+    }
+
+    #[test]
+    fn contract_static_truth_classifies_disjoint_literal_bounds() {
+        for predicate in [
+            "not (value > 10 and value < 5)",
+            "not (10 < value and value < 10)",
+            "not (1 + 1 <= value and value < 2)",
+            "not (2 > value and value >= 2)",
+        ] {
+            assert!(
+                contract_predicate_is_statically_true(predicate),
+                "{predicate}"
+            );
+        }
+    }
+
+    #[test]
+    fn general_static_truth_leaves_literal_bound_shapes_unknown() {
+        assert!(!predicate_is_statically_true(
+            "not (value > 10 and value < 5)"
+        ));
+        assert!(!predicate_is_statically_false("value > 10 and value < 5"));
+    }
+
+    #[test]
+    fn contract_static_truth_keeps_overlapping_literal_bounds_runtime_checked() {
+        assert!(!has_exclusive_numeric_literal_bounds_top_level_and(
+            "value >= 5 and value <= 5"
+        ));
+        assert!(!has_exclusive_inclusive_order_top_level_and(
+            "value >= 5 and value <= 5"
+        ));
+        assert_eq!(
+            static_boolean_truth_table_value("value >= 5 and value <= 5"),
+            Some(StaticBooleanValue::Unknown)
+        );
+        assert_eq!(static_comparison_value("value >= 5"), None);
+        assert_eq!(static_comparison_value("value <= 5"), None);
+        assert!(!complementary_predicates("value >= 5", "value <= 5"));
+        assert_eq!(
+            static_boolean_value_inner("value >= 5 and value <= 5", true),
+            StaticBooleanValue::Unknown
+        );
+        for predicate in [
+            "not (value > 5 and value < 10)",
+            "not (value >= 5 and value <= 5)",
+            "not (value > 5 and other < 5)",
+        ] {
+            assert!(
+                !contract_predicate_is_statically_true(predicate),
+                "{predicate}"
+            );
+        }
     }
 }
 

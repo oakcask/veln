@@ -41,6 +41,11 @@ ordering bounds transitively guarantees another ordering bound, such as
 `not (low <= mid and mid < high) or low < high`. Equality clauses in the
 antecedent count as bidirectional non-strict edges for this transitive check,
 so `not (low < mid and mid == high) or low < high` is also statically proven.
+Non-strict cycles in the antecedent also transitively prove equality
+consequents, such as `not (low == mid and mid == high) or low == high` and
+`not (low <= mid and mid <= low) or low == mid`.
+Negated conjunctions of impossible numeric literal bounds over one subject are
+also statically proven, such as `not (value > 10 and value < 5)`.
 
 ## Skip Unless Needed
 

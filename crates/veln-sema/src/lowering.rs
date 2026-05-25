@@ -10,7 +10,7 @@ use veln_core::{
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
-use crate::contracts::predicate_is_statically_true;
+use crate::contracts::contract_predicate_is_statically_true;
 use crate::effects::{core_concurrency_signature, is_concurrency_call, stdio_signature};
 use crate::prelude::{
     core_prelude_signature, float_arithmetic_prelude_name, float_comparison_prelude_name,
@@ -107,7 +107,7 @@ impl<'a> CoreLowerer<'a> {
                 node_id: contract.node_id,
                 kind: contract.kind,
                 predicate: contract.text.clone(),
-                obligation_status: if predicate_is_statically_true(&contract.text) {
+                obligation_status: if contract_predicate_is_statically_true(&contract.text) {
                     ContractObligationStatus::StaticallyProven
                 } else {
                     ContractObligationStatus::RuntimeRequired
