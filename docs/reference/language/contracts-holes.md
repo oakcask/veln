@@ -94,6 +94,9 @@ identity, so `flag or (extra or not flag)` is also statically proven. Top-level
 after whitespace normalization and commuted ordering normalization, such as
 `value == limit or value != limit`, `value < limit or value >= limit`, and
 `value < limit or limit <= value`.
+It also recognizes top-level ordering trichotomy over the same operands, such
+as `value < limit or value == limit or value > limit`, after whitespace
+normalization and commuted ordering normalization.
 It also treats a negated top-level `and` between the same pure boolean
 predicate and its negation as statically true, such as
 `not (flag and not flag)` or
@@ -230,6 +233,11 @@ normalization. For example,
 `candidate < limit or limit <= candidate` rank every type-compatible visible
 binding as a safe tautology repair candidate. The same rule covers the
 reversed inclusive spelling, such as `candidate <= limit or candidate > limit`.
+Top-level ordering trichotomy disjuncts that reference the candidate are also
+tautological after whitespace normalization and commuted ordering
+normalization. For example,
+`candidate < limit or candidate == limit or candidate > limit` ranks every
+type-compatible visible binding as a safe tautology repair candidate.
 A negated top-level `and` with complementary candidate-referencing branches is
 also tautological for repair ranking. For example,
 `not (candidate.ready and limit.ready and not candidate.ready)` ranks every

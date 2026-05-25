@@ -142,6 +142,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   Top-level complementary comparison disjuncts that reference the satisfy
   candidate are also treated as tautological repair constraints after
   whitespace normalization and commuted ordering normalization.
+  Top-level ordering trichotomy disjuncts that reference the satisfy candidate
+  are also treated as tautological repair constraints after whitespace
+  normalization and commuted ordering normalization.
   Broader repair discharge beyond these normalized direct and
   `require`-matched cases remains follow-up work before formatter
   stabilization.
@@ -188,10 +191,13 @@ No accepted language and type coverage follow-up is currently tracked here.
   whitespace normalization. Literal numeric `+`, `-`, `*`, and exactly
   representable `/` subexpressions inside comparisons are also statically
   evaluated. Boolean equality and disequality over statically known boolean
-  subexpressions are also statically evaluated. Richer predicate semantics
-  beyond these static truth identities, literal comparisons, literal numeric
-  arithmetic comparisons, same-shape comparisons, static boolean comparisons,
-  complementary boolean and comparison disjunctions, and negated complementary
+  subexpressions are also statically evaluated. Top-level ordering trichotomy
+  disjunctions over the same operands are also statically evaluated after
+  whitespace normalization and commuted ordering normalization. Richer
+  predicate semantics beyond these static truth identities, literal
+  comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
+  static boolean comparisons, complementary boolean and comparison
+  disjunctions, ordering trichotomy disjunctions, and negated complementary
   boolean and comparison conjunctions remain follow-up work.
 
 ## Formatting

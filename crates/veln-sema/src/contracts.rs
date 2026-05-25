@@ -58,6 +58,9 @@ fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
     if has_complementary_top_level_clauses(predicate, "or") {
         return StaticBooleanValue::True;
     }
+    if has_total_order_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
     if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
         if complementary_predicates(left, right) {
             return StaticBooleanValue::True;
@@ -99,6 +102,27 @@ fn has_complementary_top_level_clauses(predicate: &str, keyword: &str) -> bool {
             .iter()
             .skip(index + 1)
             .any(|right| complementary_predicates(left, right))
+    })
+}
+
+fn has_total_order_top_level_or(predicate: &str) -> bool {
+    let clauses = flattened_keyword_clauses(predicate, "or");
+    if clauses.len() < 3 {
+        return false;
+    }
+    clauses.iter().enumerate().any(|(index, clause)| {
+        let Some(first) = order_trichotomy_shape(clause) else {
+            return false;
+        };
+        clauses
+            .iter()
+            .skip(index + 1)
+            .filter_map(|other| order_trichotomy_shape(other))
+            .filter(|other| other.left == first.left && other.right == first.right)
+            .fold(first.relation.bit(), |mask, other| {
+                mask | other.relation.bit()
+            })
+            == OrderRelation::ALL_BITS
     })
 }
 
@@ -172,6 +196,39 @@ struct ComparisonShape {
     right: String,
 }
 
+#[derive(Clone, Copy)]
+enum OrderRelation {
+    Less,
+    Equal,
+    Greater,
+}
+
+impl OrderRelation {
+    const ALL_BITS: u8 = Self::Less.bit() | Self::Equal.bit() | Self::Greater.bit();
+
+    const fn bit(self) -> u8 {
+        match self {
+            Self::Less => 0b001,
+            Self::Equal => 0b010,
+            Self::Greater => 0b100,
+        }
+    }
+
+    fn invert(self) -> Self {
+        match self {
+            Self::Less => Self::Greater,
+            Self::Equal => Self::Equal,
+            Self::Greater => Self::Less,
+        }
+    }
+}
+
+struct OrderTrichotomyShape {
+    left: String,
+    right: String,
+    relation: OrderRelation,
+}
+
 fn complementary_comparisons(left: &str, right: &str) -> bool {
     let Some(left) = comparison_shape(left) else {
         return false;
@@ -185,6 +242,35 @@ fn complementary_comparisons(left: &str, right: &str) -> bool {
             (left.operator, right.operator),
             ("==", "!=") | ("!=", "==") | ("<", ">=") | (">=", "<")
         )
+}
+
+fn order_trichotomy_shape(predicate: &str) -> Option<OrderTrichotomyShape> {
+    let predicate = strip_balanced_outer_parens(predicate.trim());
+    for operator in ["==", "<", ">"] {
+        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
+            let mut left = compact_predicate_text(left);
+            let mut right = compact_predicate_text(right);
+            if left == right {
+                return None;
+            }
+            let mut relation = match operator {
+                "==" => OrderRelation::Equal,
+                "<" => OrderRelation::Less,
+                ">" => OrderRelation::Greater,
+                _ => return None,
+            };
+            if right < left {
+                std::mem::swap(&mut left, &mut right);
+                relation = relation.invert();
+            }
+            return Some(OrderTrichotomyShape {
+                left,
+                right,
+                relation,
+            });
+        }
+    }
+    None
 }
 
 fn comparison_shape(predicate: &str) -> Option<ComparisonShape> {
