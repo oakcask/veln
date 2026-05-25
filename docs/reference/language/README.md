@@ -33,6 +33,15 @@ Keep this directory focused on behavior supported by current code and tests.
 Leave rationale in [source-decisions.md](source-decisions.md) or
 `../source-decisions/` unless it changes how users should read the language.
 
+## Promotion Route
+
+- Start from [../../proposals/target-queue.md](../../proposals/target-queue.md)
+  when selecting planned behavior to implement.
+- Use [topic-map.md](topic-map.md) to choose the smallest implemented-behavior
+  page to update.
+- Keep remaining planned behavior in `../../proposals/` until code and tests
+  support it.
+
 ## Read When
 
 - Task-oriented topic selection: [topic-map.md](topic-map.md).

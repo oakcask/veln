@@ -1447,3 +1447,50 @@ fn parses_and_formats_record_patterns() {
         PatternKind::Binding(name) if name == "name"
     ));
 }
+
+#[test]
+fn reports_missing_record_pattern_field_colon_and_keeps_field_pattern() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn describe(value: {count: Int}) -> String effects []\n",
+            "  match value\n",
+            "    {count 0} => \"zero\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    let diagnostic = output
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "parse.pattern")
+        .expect("expected missing record field colon diagnostic");
+    assert_eq!(diagnostic.message, "record pattern field is missing `:`");
+    assert_eq!(diagnostic.parser_context, "expression_line");
+    assert_eq!(diagnostic.unexpected.text, "0");
+    assert_eq!(diagnostic.expected, vec![":"]);
+    assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
+
+    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("expected match expression");
+    };
+    let PatternKind::Record(fields) = &arms[0].pattern.kind else {
+        panic!("expected record pattern");
+    };
+    assert_eq!(fields[0].name, "count");
+    assert!(matches!(
+        &fields[0].pattern.kind,
+        PatternKind::IntLiteral(value) if value == "0"
+    ));
+    assert!(matches!(
+        &arms[0].expr.kind,
+        ExprKind::StringLiteral(value) if value == "\"zero\""
+    ));
+}

@@ -7,8 +7,6 @@ reviews, and phase history for the experimental Veln implementation.
 
 - [reference/language/README.md](reference/language/README.md): current
   implemented language behavior.
-- [reference/language/topic-map.md](reference/language/topic-map.md): fastest
-  route from task area to the relevant language reference.
 - [proposals/README.md](proposals/README.md): accepted or open implementation
   targets.
 - [document-status.md](document-status.md): where durable text belongs when a
@@ -16,6 +14,8 @@ reviews, and phase history for the experimental Veln implementation.
 
 ## Task Routes
 
+- Finding the smallest current behavior page:
+  [reference/language/topic-map.md](reference/language/topic-map.md).
 - Changing syntax, types, effects, contracts, holes, commands, JSON output,
   runtime behavior, or examples:
   [reference/language/topic-map.md](reference/language/topic-map.md).
@@ -23,6 +23,10 @@ reviews, and phase history for the experimental Veln implementation.
   [proposals/target-queue.md](proposals/target-queue.md), then use
   [proposals/implementation-route.md](proposals/implementation-route.md) for the
   proposal-to-reference workflow.
+- Checking whether proposal text is current behavior: start with
+  [reference/language/README.md](reference/language/README.md), then compare
+  the selected proposal through
+  [proposals/implementation-route.md](proposals/implementation-route.md).
 - Moving text between proposal, review, phase, and reference areas:
   [document-status.md](document-status.md).
 - Checking gap evidence or completion claims:
@@ -38,8 +42,9 @@ reviews, and phase history for the experimental Veln implementation.
 
 - Current behavior work: `reference/language/README.md` first, then the
   topic-specific short page, then the matching `*-full.md` file only if named.
-- Implementation target work: `proposals/target-queue.md` first, then the
-  selected proposal route, then current reference pages for comparison.
+- Implementation target work: `proposals/target-queue.md` first,
+  `proposals/implementation-route.md` second, then the selected proposal route
+  and current reference pages for comparison.
 - Rationale work: current reference page first, then
   `reference/language/source-decisions.md`, then one source-decision category.
 - Status or movement work: `document-status.md` before editing labels or moving

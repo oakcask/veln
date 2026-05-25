@@ -16,6 +16,8 @@ not fully implemented in the current workspace.
 ## Implementation Route
 
 - Choose one target from [target-queue.md](target-queue.md).
+- Read [implementation-route.md](implementation-route.md) before opening full
+  proposal history.
 - Compare the selected proposal with current behavior through
   [../reference/language/topic-map.md](../reference/language/topic-map.md).
 - After implementation, promote the resulting behavior into
@@ -40,3 +42,5 @@ not fully implemented in the current workspace.
 - Use `../phases/` only for implementation order or completion notes.
 - Use `agent-language-spec-wall/` only after the accepted target route does not
   answer the planning question.
+- Do not open `*-full.md` proposal records until a short proposal page names
+  the section needed for the task.

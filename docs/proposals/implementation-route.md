@@ -19,6 +19,8 @@ proposal.
 - Compare the target with current behavior in
   [../reference/language/README.md](../reference/language/README.md) so the
   implementation changes only the missing behavior.
+- Use [../reference/language/topic-map.md](../reference/language/topic-map.md)
+  to choose the smallest reference page to update after the code changes.
 - Use [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
   for evidence about known gaps before treating a proposal as complete.
 - After implementation, promote the resulting behavior into
@@ -26,3 +28,11 @@ proposal.
   or historical context.
 - Use [../document-status.md](../document-status.md) before promoting,
   superseding, or rejecting proposal text.
+
+## Skip Unless Needed
+
+- Do not read design-wall material before the accepted target queue fails to
+  route the task.
+- Do not edit full proposal history merely to mark implementation status; keep
+  current behavior in `../reference/language/` and leave remaining proposal work
+  in short route pages.

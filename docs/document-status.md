@@ -3,6 +3,13 @@
 Use this page when adding, moving, or reclassifying durable documentation.
 Start from [README.md](README.md) when you only need a reading route.
 
+## Read First
+
+- Current behavior belongs in [reference/language/README.md](reference/language/README.md).
+- Open proposal targets belong in [proposals/README.md](proposals/README.md).
+- Gap evidence belongs in [reviews/README.md](reviews/README.md).
+- Historical implementation order belongs in [phases/README.md](phases/README.md).
+
 ## Placement
 
 - Put behavior that works in the current code and tests in `reference/`.
@@ -35,3 +42,10 @@ Use these status labels at the top of durable specification documents:
   commitment.
 - `superseded`: another document replaces this one.
 - `rejected`: the project decided not to pursue this design.
+
+## Skip Unless Needed
+
+- Do not move text from a proposal into `reference/` until current code and
+  tests support it.
+- Do not use phase or review files as the source for current behavior when
+  `reference/language/` has a matching page.
