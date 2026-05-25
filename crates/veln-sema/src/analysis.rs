@@ -2898,7 +2898,13 @@ fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
         let Some((left, right)) = predicate.split_once(operator) else {
             return false;
         };
-        left.trim() == candidate && right.trim() == candidate
+        let Some(left) = operand_path(left) else {
+            return false;
+        };
+        let Some(right) = operand_path(right) else {
+            return false;
+        };
+        left.first().is_some_and(|base| *base == candidate) && left == right
     })
 }
 

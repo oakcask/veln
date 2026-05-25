@@ -124,9 +124,11 @@ repair status as `candidate == fallback and candidate >= fallback`. The
 accepted tautological clauses
 compare the satisfy candidate with itself using `==`, `<=`, or `>=`, such as
 `candidate == candidate`; their negated inverse forms, such as
-`not (candidate != candidate)`, are also accepted. `and` may join only
-tautological clauses or literal `true` clauses. Wrapping each tautological
-clause in balanced parentheses does not change this repair match. Literal
+`not (candidate != candidate)`, are also accepted. The same rule applies to
+matching field-access paths rooted at the candidate, such as
+`candidate.count == candidate.count`. `and` may join only tautological clauses
+or literal `true` clauses. Wrapping each tautological clause in balanced
+parentheses does not change this repair match. Literal
 `false` disjuncts do not affect tautological repair matching. A top-level
 literal `true` disjunct makes the whole `satisfy` predicate tautological for
 repair ranking, so every type-compatible visible binding is a safe repair
