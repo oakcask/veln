@@ -3101,16 +3101,20 @@ fn marks_negated_conjunctive_require_as_disjunctive_satisfy_repair_evidence() {
     let details = diagnostics[0].details.to_json();
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
-        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
-        "\"application_policy\":\"manual_review_required\","
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
     )));
     assert!(details.contains(concat!(
         "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
-        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
         "\"application_policy\":\"safe_repair_candidate\","
     )));
-    assert!(details.contains("\"replacement\":\"max\""));
-    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
 }
 
 #[test]
@@ -5245,6 +5249,42 @@ fn marks_static_oct_case_split_satisfy_predicate_as_tautology_repair() {
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].id, "hole.unfilled");
     let details = diagnostics[0].details.to_json();
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn marks_distinct_literal_equality_contradiction_satisfy_predicate_as_tautology_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(primary: String, fallback: String) -> String effects []\n",
+            "  _value satisfy candidate => not (candidate == \"ready\" and candidate == \"done\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",\
+         \"type\":\"String\",\"rank\":1,\"reason\":\"satisfy_tautology\",\
+         \"application_policy\":\"safe_repair_candidate\","
+    ));
+    assert!(details.contains(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"primary\",\
+         \"type\":\"String\",\"rank\":2,\"reason\":\"satisfy_tautology\",\
+         \"application_policy\":\"safe_repair_candidate\","
+    ));
     assert_eq!(
         details
             .matches("\"satisfy_status\":\"statically_satisfied\"")

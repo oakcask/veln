@@ -60,7 +60,7 @@ fn static_boolean_value_for_contract(predicate: &str) -> StaticBooleanValue {
 }
 
 fn static_boolean_value_with_literal_bounds(predicate: &str) -> StaticBooleanValue {
-    static_boolean_value_inner(predicate, true, false)
+    static_boolean_value_inner(predicate, true, true)
 }
 
 fn static_boolean_value_inner(
@@ -1817,6 +1817,20 @@ mod tests {
         ] {
             assert!(
                 contract_predicate_is_statically_true(predicate),
+                "{predicate}"
+            );
+        }
+    }
+
+    #[test]
+    fn repair_static_truth_classifies_exclusive_literal_equalities() {
+        for predicate in [
+            "not (value == \"ready\" and value == \"done\")",
+            "not (1 == value and value == 2)",
+            "not ((value.ready) == true and false == value.ready)",
+        ] {
+            assert!(
+                predicate_is_statically_true_with_literal_bounds(predicate),
                 "{predicate}"
             );
         }

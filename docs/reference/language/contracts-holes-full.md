@@ -431,6 +431,13 @@ visible binding as a safe tautology repair candidate.
 This includes numeric literal-bound contradictions, so
 `not (candidate > 10 and candidate < 5)` ranks every type-compatible visible
 binding as a safe tautology repair candidate after validation.
+It also includes top-level numeric literal-bound disjunctions that cover every
+value, so `candidate > 0 or candidate <= 10` ranks every type-compatible
+visible binding as a safe tautology repair candidate.
+It also includes negated conjunctions that bind the same expression to
+distinct boolean, numeric, or string literals, so
+`not (candidate == "ready" and candidate == "done")` ranks every
+type-compatible visible binding as a safe tautology repair candidate.
 The same static truth reuse covers negated conjunctions where every branch of
 a nested disjunction is contradicted by another conjunct, such as
 `not ((candidate.ready or candidate.paid) and not candidate.ready and not candidate.paid)`.
