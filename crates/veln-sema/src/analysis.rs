@@ -2618,7 +2618,7 @@ impl<'a> FunctionChecker<'a> {
             return Some(constraint);
         }
         let candidate = satisfy.candidate.as_ref()?;
-        let required_clauses = self
+        let required_predicates = self
             .function
             .contracts
             .iter()
@@ -2629,10 +2629,9 @@ impl<'a> FunctionChecker<'a> {
                     ContractValidation::Valid
                 )
             })
-            .flat_map(|contract| normalized_and_clauses(&contract.text))
-            .map(canonical_repair_clause)
+            .map(|contract| contract.text.clone())
             .collect::<Vec<_>>();
-        if required_clauses.is_empty() {
+        if required_predicates.is_empty() {
             return None;
         }
         let allowed_bindings = self
@@ -2640,7 +2639,7 @@ impl<'a> FunctionChecker<'a> {
             .iter()
             .filter(|binding| {
                 let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
-                predicate_guaranteed_by_required_clauses(&replaced, &required_clauses)
+                predicate_guaranteed_by_required_predicates(&replaced, &required_predicates)
             })
             .map(|binding| binding.name.clone())
             .collect::<Vec<_>>();
@@ -2802,7 +2801,10 @@ fn normalized_and_clauses(predicate: &str) -> Vec<String> {
         .collect()
 }
 
-fn predicate_guaranteed_by_required_clauses(predicate: &str, required_clauses: &[String]) -> bool {
+fn predicate_guaranteed_by_required_predicates(
+    predicate: &str,
+    required_predicates: &[String],
+) -> bool {
     split_top_level_keyword(strip_balanced_outer_parens(predicate), "or")
         .into_iter()
         .map(normalized_and_clauses)
@@ -2810,11 +2812,29 @@ fn predicate_guaranteed_by_required_clauses(predicate: &str, required_clauses: &
             !disjunct_clauses.is_empty()
                 && disjunct_clauses.iter().all(|clause| {
                     let canonical = canonical_repair_clause(clause);
-                    required_clauses
+                    required_predicates
                         .iter()
-                        .any(|required| repair_clause_implies(required, &canonical))
+                        .any(|required| required_predicate_implies_clause(required, &canonical))
                 })
         })
+}
+
+fn required_predicate_implies_clause(predicate: &str, wanted: &str) -> bool {
+    let predicate = strip_balanced_outer_parens(predicate);
+    let disjuncts = split_top_level_keyword(predicate, "or");
+    if disjuncts.len() > 1 {
+        return disjuncts
+            .into_iter()
+            .all(|disjunct| required_predicate_implies_clause(disjunct, wanted));
+    }
+    let conjuncts = split_top_level_keyword(predicate, "and");
+    if conjuncts.len() > 1 {
+        return conjuncts
+            .into_iter()
+            .any(|conjunct| required_predicate_implies_clause(conjunct, wanted));
+    }
+    let canonical = canonical_repair_clause(predicate);
+    repair_clause_implies(&canonical, wanted)
 }
 
 fn repair_clause_implies(required: &str, wanted: &str) -> bool {
@@ -2827,9 +2847,25 @@ fn repair_clause_implies(required: &str, wanted: &str) -> bool {
     let Some(wanted) = ParsedRepairComparison::parse(wanted) else {
         return false;
     };
-    required.left == wanted.left
+    if required.left == wanted.left
         && required.right == wanted.right
         && matches!((required.operator, wanted.operator), ("<", "<="))
+    {
+        return true;
+    }
+    required.operator == "=="
+        && wanted.operator == "<="
+        && same_repair_operands_unordered(required.left, required.right, wanted.left, wanted.right)
+}
+
+fn same_repair_operands_unordered(
+    required_left: &str,
+    required_right: &str,
+    wanted_left: &str,
+    wanted_right: &str,
+) -> bool {
+    (required_left == wanted_left && required_right == wanted_right)
+        || (required_left == wanted_right && required_right == wanted_left)
 }
 
 struct ParsedRepairComparison<'a> {

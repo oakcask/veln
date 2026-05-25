@@ -34,10 +34,15 @@ No accepted language and type coverage follow-up is currently tracked here.
   repair candidate, including string-literal clauses and simple direct,
   commuted, parenthesized comparison clauses, and whole parenthesized
   `and` conjunctions. Strict ordering `require` clauses also discharge the
-  corresponding inclusive ordering `satisfy` clause for the same operands.
-  They also accept top-level `or` predicates when at least one branch is fully
-  guaranteed by valid `require` clauses. Broader repair discharge remains
-  follow-up work before formatter stabilization.
+  corresponding inclusive ordering `satisfy` clause for the same operands, and
+  equality `require` clauses discharge inclusive ordering `satisfy` clauses for
+  the same operands in either direction. They also accept top-level `or`
+  predicates when at least one branch is fully guaranteed by valid `require`
+  clauses, and top-level `or` in `require` predicates when every branch
+  guarantees the substituted `satisfy` clause. Nested `or` branches inside
+  `and` conjunctions are also recognized when every branch guarantees the same
+  substituted clause. Broader repair discharge remains follow-up work before
+  formatter stabilization.
 
 ## Effects And Contracts
 
