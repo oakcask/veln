@@ -123,7 +123,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   every branch has matching evidence.
   Top-level disjunctive `require` predicates discharge top-level disjunctive
   `satisfy` predicates when every `require` branch guarantees at least one
-  `satisfy` branch.
+  `satisfy` branch, including branch-local conjunctions of alias and
+  comparison evidence.
   Disjunctive equality requirements against distinct boolean, integer, or
   string literals discharge disequality `satisfy` clauses against another
   literal, including through equality aliases. Boolean disequality aliases

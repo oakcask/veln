@@ -551,6 +551,10 @@ when every `or` branch discharges that clause, such as
 top-level `satisfy` `or` predicate when every `require` branch discharges at
 least one `satisfy` branch, so `require max > 0 or max == 0` guarantees
 `candidate > 0 or candidate == 0` after substituting `max`.
+Each `require` branch may use its own conjunction of alias and comparison
+evidence for that branch-local discharge; for example,
+`require (value == low and low < 0) or (value == high and high > 0)` guarantees
+`candidate < 0 or candidate > 0` after substituting `value`.
 Equality branches against distinct boolean, integer, or string literals
 also discharge disequality against another literal; for example,
 `require max == 1 or max == 2` guarantees `candidate != 0` after substituting

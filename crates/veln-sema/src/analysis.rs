@@ -3038,8 +3038,9 @@ fn reflexive_candidate_conjunction(
             });
             for allowed in existing.iter_mut() {
                 if allowed.reason == "satisfy_equality_match" {
-                    if let Some(direct_allowed) =
-                        direct.iter().find(|direct_allowed| direct_allowed.name == allowed.name)
+                    if let Some(direct_allowed) = direct
+                        .iter()
+                        .find(|direct_allowed| direct_allowed.name == allowed.name)
                     {
                         allowed.reason = direct_allowed.reason;
                     }
@@ -3071,15 +3072,21 @@ fn reflexive_candidate_clause_bindings(
         let bindings = disjuncts
             .into_iter()
             .filter_map(|disjunct| direct_reflexive_clause(disjunct, candidate))
-            .fold(Vec::<SatisfyAllowedBinding>::new(), |mut bindings, direct| {
-                if !bindings.iter().any(|binding| binding.name == direct.binding) {
-                    bindings.push(SatisfyAllowedBinding {
-                        name: direct.binding,
-                        reason: direct.reason,
-                    });
-                }
-                bindings
-            });
+            .fold(
+                Vec::<SatisfyAllowedBinding>::new(),
+                |mut bindings, direct| {
+                    if !bindings
+                        .iter()
+                        .any(|binding| binding.name == direct.binding)
+                    {
+                        bindings.push(SatisfyAllowedBinding {
+                            name: direct.binding,
+                            reason: direct.reason,
+                        });
+                    }
+                    bindings
+                },
+            );
         return (!bindings.is_empty()).then_some(bindings);
     }
     direct_reflexive_clause(clause, candidate).map(|direct| {
@@ -3773,6 +3780,10 @@ fn required_predicate_set_implies_disjunctive_predicate(
     if wanted_disjuncts.len() <= 1 {
         return false;
     }
+    if disjunctive_branch_set_implies_disjunctive_predicate(required_predicates, &wanted_disjuncts)
+    {
+        return true;
+    }
     let required_clauses = required_predicates
         .iter()
         .flat_map(|predicate| repair_set_clauses(predicate))
@@ -3786,6 +3797,26 @@ fn required_predicate_set_implies_disjunctive_predicate(
                 &equivalences,
             )
     })
+}
+
+fn disjunctive_branch_set_implies_disjunctive_predicate(
+    required_predicates: &[String],
+    wanted_disjuncts: &[String],
+) -> bool {
+    required_predicates
+        .iter()
+        .enumerate()
+        .any(|(disjunctive_index, predicate)| {
+            let disjuncts = repair_relevant_or_clauses(predicate);
+            disjuncts.len() > 1
+                && disjuncts.into_iter().all(|disjunct| {
+                    let branch_clauses =
+                        branch_required_clauses(required_predicates, disjunctive_index, disjunct);
+                    wanted_disjuncts
+                        .iter()
+                        .any(|wanted| repair_clause_set_implies_clause(&branch_clauses, wanted))
+                })
+        })
 }
 
 fn repair_relevant_or_clause_strings(predicate: &str) -> Vec<String> {
@@ -3982,7 +4013,7 @@ fn branch_required_clauses(
         .enumerate()
         .flat_map(|(index, predicate)| {
             if index == disjunctive_index {
-                canonical_non_disjunctive_repair_clauses(disjunct)
+                repair_set_clauses(disjunct)
             } else {
                 repair_set_clauses(predicate)
             }
