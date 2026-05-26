@@ -31,8 +31,9 @@ for targets that have moved into the current language reference.
   first, and open
   [editor-semantic-highlighting.md](editor-semantic-highlighting.md) only for
   proposal history.
-- Use [toolchain-test-harness.md](toolchain-test-harness.md) for the open
-  proposal to standardize command-line integration test cases.
+- Toolchain test harness behavior is implemented for CLI integration tests;
+  use [toolchain-test-harness.md](toolchain-test-harness.md) for harness
+  organization and proposal history.
 - Match exhaustiveness has moved into current behavior; use
   [../reference/language/source-surface.md](../reference/language/source-surface.md)
   and [../reference/language/types.md](../reference/language/types.md) first,
