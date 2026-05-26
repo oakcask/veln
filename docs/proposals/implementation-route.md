@@ -19,6 +19,8 @@ proposal.
 - Compare the target with current behavior in
   [../reference/language/README.md](../reference/language/README.md) so the
   implementation changes only the missing behavior.
+- Keep the comparison scoped to the chosen target. Do not use nearby design-wall
+  text as requirements unless the queue or short proposal page points to it.
 - Use [../reference/language/topic-map.md](../reference/language/topic-map.md)
   to choose the smallest reference page to update after the code changes.
 - Use [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
@@ -31,6 +33,8 @@ proposal.
 
 ## Reference Update Routes
 
+- Source syntax, tests, doctests, names, types, and effects:
+  [../reference/language/topic-map.md#source-surface](../reference/language/topic-map.md#source-surface).
 - Repair candidates, satisfy constraints, and hole diagnostics:
   [../reference/language/holes.md](../reference/language/holes.md) and
   [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
@@ -46,6 +50,7 @@ proposal.
 
 - The changed behavior is documented under `../reference/language/`.
 - Remaining proposal text still describes only absent or incomplete behavior.
+- The target queue still names only accepted work that is not fully implemented.
 - Links from [target-queue.md](target-queue.md) still route to a live accepted
   target, or the target has been removed from the accepted queue.
 

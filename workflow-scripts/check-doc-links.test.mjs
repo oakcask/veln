@@ -57,6 +57,26 @@ test("resolves duplicate heading anchors and ignores fenced code links", () => {
   assert.equal(result.valid, true);
 });
 
+test("ignores image links and inline code links", () => {
+  using fixture = tempDocs("doc-links-ignored-syntax");
+  fixture.write(
+    "README.md",
+    [
+      "# Start",
+      "",
+      "![diagram](missing-image.md)",
+      "`[not a link](missing-inline.md)`",
+      "[real link](target.md)",
+    ].join("\n"),
+  );
+  fixture.write("target.md", "# Present\n");
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.valid, true);
+});
+
 test("rejects links escaping the docs root", () => {
   using fixture = tempDocs("doc-links-escape");
   fixture.write(

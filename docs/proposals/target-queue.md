@@ -35,6 +35,8 @@ Use this page when selecting one accepted proposal to implement. Return to
 
 - Choose the first target whose short proposal page still describes behavior
   absent from `../reference/language/`.
+- Use [implementation-route.md](implementation-route.md) to compare only that
+  target with current behavior before opening any full proposal record.
 - If a target is already implemented, promote the behavior into
   `../reference/language/` and leave only remaining proposal work in this
   queue.

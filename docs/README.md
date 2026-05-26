@@ -9,6 +9,8 @@ first route is not obvious.
 
 - Current language behavior:
   [reference/language/README.md](reference/language/README.md).
+- If a proposal, phase note, or review conflicts with the language reference,
+  treat the language reference as current behavior.
 - Planned or accepted targets:
   [proposals/target-queue.md](proposals/target-queue.md).
 - Stable reference map: [reference/README.md](reference/README.md).
@@ -19,6 +21,8 @@ first route is not obvious.
   [reference/language/topic-map.md](reference/language/topic-map.md).
 - Promote a proposal into implemented behavior:
   [proposals/implementation-route.md](proposals/implementation-route.md).
+- Decide whether proposal text can move into current behavior:
+  [document-status.md](document-status.md).
 - Update diagnostics, related notes, or command JSON behavior:
   [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md)
   or [reference/language/json-output.md](reference/language/json-output.md).

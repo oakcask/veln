@@ -11,6 +11,8 @@ routes below are not enough.
 - Planned or accepted targets: [proposals/target-queue.md](proposals/target-queue.md).
 - Rationale routes: [reference/language/source-decisions.md](reference/language/source-decisions.md).
 - Document movement rules: [document-status.md](document-status.md).
+- Use [document-status.md](document-status.md) before moving text between
+  reference, proposals, reviews, and phases.
 
 ## Choose One Route
 
@@ -28,6 +30,10 @@ routes below are not enough.
 
 - Proposal implementation or promotion:
   [proposals/implementation-route.md](proposals/implementation-route.md).
+- Accepted target selection:
+  [proposals/target-queue.md](proposals/target-queue.md).
+- Open design exploration after the accepted queue is empty:
+  [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md).
 
 ### History And Evidence
 
@@ -53,6 +59,8 @@ routes below are not enough.
   and review wording.
 - Proposal text is not current behavior until the language reference also says
   so.
+- Promotion work updates the smallest matching language reference page and
+  leaves unfinished proposal text in `proposals/`.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
 - A `result-*.md` source-decision file is a record. Open it through
