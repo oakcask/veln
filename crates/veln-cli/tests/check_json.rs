@@ -3296,6 +3296,70 @@ fn check_reports_unknown_doctest_metadata() {
 }
 
 #[test]
+fn check_reports_invalid_doctest_metadata() {
+    let project = TestProject::new("check-invalid-doctest-metadata");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln error=\n",
+            "/// let value = Ok(1)?\n",
+            "/// ```\n",
+            "/// ```veln-output\n",
+            "/// ready\n",
+            "/// ```\n",
+            "/// ```veln-output stream=combined\n",
+            "/// mixed\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let json_output = project.check_json(&["main.veln"]);
+    let json_stdout = stdout(&json_output);
+
+    assert_eq!(
+        json_output.status.code(),
+        Some(1),
+        "{}",
+        stderr(&json_output)
+    );
+    assert_contains_all(
+        json_stdout,
+        &[
+            "\"status\":\"error\"",
+            "\"id\":\"doctest.invalid_metadata\"",
+            "\"message\":\"empty doctest error type\"",
+            "\"details\":{\"kind\":\"doctest_metadata\",\"attribute\":\"error\"}",
+            "\"message\":\"missing doctest output stream\"",
+            "\"details\":{\"kind\":\"doctest_metadata\",\"attribute\":\"stream\"}",
+            "\"message\":\"unknown doctest output stream `combined`\"",
+            "\"details\":{\"kind\":\"doctest_metadata\",\"attribute\":\"stream\",\"stream\":\"combined\"}",
+        ],
+    );
+
+    let human_output = project.veln(&["check"], &["main.veln"]);
+    let human_stdout = stdout(&human_output);
+
+    assert_eq!(
+        human_output.status.code(),
+        Some(1),
+        "{}",
+        stderr(&human_output)
+    );
+    assert_eq!(stderr(&human_output), "");
+    assert_contains_all(
+        human_stdout,
+        &[
+            "error[doctest.invalid_metadata]: empty doctest error type",
+            "error[doctest.invalid_metadata]: missing doctest output stream",
+            "error[doctest.invalid_metadata]: unknown doctest output stream `combined`",
+        ],
+    );
+}
+
+#[test]
 fn check_ignores_non_runnable_doctest_fences() {
     let project = TestProject::new("check-ignore-doctest");
     project.write(
