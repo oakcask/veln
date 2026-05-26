@@ -7,7 +7,7 @@ use veln_ast::{
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
-use crate::effects::is_concurrency_call;
+use crate::effects::{is_concurrency_call, is_stdio_call, standard_library_effects};
 
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
@@ -427,10 +427,14 @@ fn collect_expr_effects(
     match &expr.kind {
         ExprKind::Call { callee, args } => {
             if let Some(segments) = callee_name_path(callee) {
-                if segments.as_slice().is_stdio_call() {
+                if is_stdio_call(segments) {
                     push_unique_effect(inferred, "stdio");
                 } else if is_concurrency_call(segments) {
                     push_unique_effect(inferred, "concurrency");
+                } else if let Some(effects) = standard_library_effects(segments) {
+                    for effect in effects {
+                        push_unique_effect(inferred, effect);
+                    }
                 } else {
                     for effect in effects_for_callee_path(
                         segments,
@@ -621,21 +625,6 @@ fn push_unique_effect(effects: &mut Vec<String>, effect: &str) {
     }
 }
 
-trait StdioSegments {
-    fn is_stdio_call(&self) -> bool;
-}
-
-impl StdioSegments for [String] {
-    fn is_stdio_call(&self) -> bool {
-        matches!(
-            self,
-            [module, name]
-                if module == "stdio"
-                    && matches!(name.as_str(), "print" | "println" | "eprint" | "eprintln")
-        )
-    }
-}
-
 pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
     if expected == &Type::Unknown || actual == &Type::Unknown || expected == actual {
         return true;
@@ -659,6 +648,13 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
                 args: actual_args,
             },
         ) => {
+            if expected_args.is_empty()
+                && actual_args.is_empty()
+                && ((expected_name == "Path" && actual_name == "String")
+                    || (expected_name == "String" && actual_name == "Path"))
+            {
+                return true;
+            }
             expected_name == actual_name
                 && expected_args.len() == actual_args.len()
                 && expected_args

@@ -1,14 +1,14 @@
 # Self-Hosting Standard Library Full
 
 Status: accepted-proposal
-Implementation: not implemented
+Implementation: partially implemented
 
 Read [self-hosting-standard-library.md](self-hosting-standard-library.md)
 first unless you need the complete implementation proposal.
 
 Use this proposal when adding standard library surface area needed for an
-eventual self-hosting compiler. This is not current behavior until the matching
-reference pages describe the implemented subset.
+eventual self-hosting compiler. Only the subset described in the matching
+reference pages is current behavior.
 
 ## Goal
 
@@ -197,6 +197,13 @@ the effect belongs in related context.
 
 ### Step One: Descriptor Table
 
+Implementation review: complete for the current slice. Semantic analysis now
+has an implementation-owned descriptor table for compiler-known standard
+symbols, and the current behavior pages describe the promoted subset. Stdio
+effect metadata, concurrency effect metadata, and prelude helper admission flow
+through descriptors while existing type adapters and runtime lowering remain in
+place.
+
 - Add a standard symbol descriptor type in semantic analysis or a shared core
   crate.
 - Register existing `stdio` calls through descriptors.
@@ -213,6 +220,15 @@ Exit criteria:
   table.
 
 ### Step Two: Minimal FS
+
+Implementation review: complete for the current slice. Semantic analysis now
+recognizes the `fs` effect and the accepted minimal `fs` symbols through the
+standard symbol table. Type checking, body effect inference, public-boundary
+diagnostics, checked-core lowering, typed IR lowering, and JVM runtime lowering
+cover the implemented surface. The current runtime represents `Path` with the
+string-backed representation described in the language reference. Coverage
+includes a JVM entry run that reads a text file through `fs::read_to_string`
+and prints it through `stdio`.
 
 - Add the `fs` effect label.
 - Add descriptors for `fs::read_to_string`, `fs::write_string`, `fs::exists`,
@@ -232,6 +248,15 @@ Exit criteria:
 
 ### Step Three: Minimal Process
 
+Implementation review: complete for the current slice. Semantic analysis now
+recognizes the `process` effect and the accepted minimal process symbols
+through the standard symbol table. Type checking, body effect inference,
+public-boundary diagnostics, checked-core lowering, typed IR lowering, and JVM
+runtime lowering cover argument access, environment lookup, current working
+directory reporting, and exit. Coverage includes JVM runtime checks for entry
+argument capture, missing environment keys returning `None`, and `cwd`
+returning `Result`.
+
 - Add the `process` effect label.
 - Add descriptors for `process::args`, `process::env`, `process::cwd`, and
   `process::exit`.
@@ -246,6 +271,9 @@ Exit criteria:
 - `process::cwd` reports runtime failure as `Result`.
 
 ### Step Four: Library-Backed Helpers
+
+Implementation review: not started. Prelude helpers remain compiler-backed;
+there is no build or embedding path for standard Veln source helpers yet.
 
 - Identify prelude helpers whose bodies can be expressed in current Veln.
 - Add a build or embedding path for standard Veln source files.
@@ -264,6 +292,10 @@ Exit criteria:
   being checked.
 
 ### Step Five: Compiler Subset Trial
+
+Implementation review: not started. No compiler subsystem is written in Veln
+or exercised through descriptor-backed standard symbols and Veln source
+helpers.
 
 - Write one small compiler subsystem in Veln using only the accepted standard
   library subset.

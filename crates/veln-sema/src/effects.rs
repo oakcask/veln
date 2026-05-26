@@ -2,36 +2,100 @@ use veln_ast::Expr;
 
 use veln_core::CoreType;
 
+use crate::standard_symbols::{effect_strings, qualified_symbol};
 use crate::types::{CallOrigin, Type};
 
 pub(crate) fn stdio_signature(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
-    let [module, name] = segments else {
-        return None;
-    };
-    if module != "stdio" || !matches!(name.as_str(), "print" | "println" | "eprint" | "eprintln") {
+    let symbol = qualified_symbol(segments)?;
+    if !symbol.effects.contains(&"stdio") {
         return None;
     }
+    let module = symbol.module?;
     Some(CallOrigin {
         node_id: callee.node_id,
         span: callee.span.clone(),
-        symbol: format!("{module}::{name}"),
-        effects: vec!["stdio".to_string()],
+        symbol: format!("{module}::{}", symbol.name),
+        effects: effect_strings(symbol),
     })
 }
 
 pub(crate) fn concurrency_origin(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
-    let [module, name] = segments else {
-        return None;
-    };
-    if !is_concurrency_call(segments) {
+    let symbol = qualified_symbol(segments)?;
+    if !symbol.effects.contains(&"concurrency") {
         return None;
     }
+    let module = symbol.module?;
     Some(CallOrigin {
         node_id: callee.node_id,
         span: callee.span.clone(),
-        symbol: format!("{module}::{name}"),
-        effects: vec!["concurrency".to_string()],
+        symbol: format!("{module}::{}", symbol.name),
+        effects: effect_strings(symbol),
     })
+}
+
+pub(crate) fn standard_library_origin(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
+    let symbol = qualified_symbol(segments)?;
+    if symbol.effects.is_empty()
+        || symbol.effects.contains(&"stdio")
+        || symbol.effects.contains(&"concurrency")
+    {
+        return None;
+    }
+    let module = symbol.module?;
+    Some(CallOrigin {
+        node_id: callee.node_id,
+        span: callee.span.clone(),
+        symbol: format!("{module}::{}", symbol.name),
+        effects: effect_strings(symbol),
+    })
+}
+
+pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Type>, Type)> {
+    let symbol = qualified_symbol(segments)?;
+    let module = symbol.module?;
+    match (module, symbol.name) {
+        ("fs", "read_to_string") => Some((
+            vec![path_type()],
+            Type::result(Type::string(), Type::named("FsError", Vec::new())),
+        )),
+        ("fs", "write_string") => Some((
+            vec![path_type(), Type::string()],
+            Type::result(Type::unit(), Type::named("FsError", Vec::new())),
+        )),
+        ("fs", "exists") => Some((
+            vec![path_type()],
+            Type::result(Type::bool(), Type::named("FsError", Vec::new())),
+        )),
+        ("fs", "read_dir") => Some((
+            vec![path_type()],
+            Type::result(Type::list(path_type()), Type::named("FsError", Vec::new())),
+        )),
+        ("process", "args") => Some((Vec::new(), Type::list(Type::string()))),
+        ("process", "env") => Some((
+            vec![Type::string()],
+            Type::named("Option", vec![Type::string()]),
+        )),
+        ("process", "cwd") => Some((
+            Vec::new(),
+            Type::result(path_type(), Type::named("ProcessError", Vec::new())),
+        )),
+        ("process", "exit") => Some((vec![Type::int()], Type::unit())),
+        _ => None,
+    }
+}
+
+pub(crate) fn core_standard_library_signature(
+    segments: &[String],
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let (params, return_type) = standard_library_signature(segments)?;
+    Some((
+        params.iter().map(crate::types::core_type).collect(),
+        crate::types::core_type(&return_type),
+    ))
+}
+
+fn path_type() -> Type {
+    Type::named("Path", Vec::new())
 }
 
 pub(crate) fn concurrency_signature(
@@ -305,26 +369,61 @@ pub(crate) fn core_concurrency_signature(
 }
 
 pub(crate) fn is_concurrency_call(segments: &[String]) -> bool {
-    matches!(
-        segments,
-        [module, name]
-            if (module == "channel"
-                && matches!(
-                    name.as_str(),
-                    "bounded"
-                        | "clone"
-                        | "send"
-                        | "recv"
-                        | "select"
-                        | "select_priority"
-                        | "select_timeout"
-                        | "select_result"
-                        | "select_priority_result"
-                        | "select_timeout_result"
-                        | "close"
-                ))
-                || (module == "task" && matches!(name.as_str(), "spawn" | "join" | "cancel"))
-    )
+    qualified_symbol(segments).is_some_and(|symbol| symbol.effects.contains(&"concurrency"))
+}
+
+pub(crate) fn is_stdio_call(segments: &[String]) -> bool {
+    qualified_symbol(segments).is_some_and(|symbol| symbol.effects.contains(&"stdio"))
+}
+
+pub(crate) fn standard_library_effects(segments: &[String]) -> Option<&'static [&'static str]> {
+    let symbol = qualified_symbol(segments)?;
+    if symbol.effects.is_empty()
+        || symbol.effects.contains(&"stdio")
+        || symbol.effects.contains(&"concurrency")
+    {
+        return None;
+    }
+    Some(symbol.effects)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn path(module: &str, name: &str) -> Vec<String> {
+        vec![module.to_string(), name.to_string()]
+    }
+
+    #[test]
+    fn stdio_detection_comes_from_descriptor_effect_metadata() {
+        assert!(is_stdio_call(&path("stdio", "println")));
+        assert!(!is_stdio_call(&path("channel", "send")));
+        assert!(!is_stdio_call(&path("stdio", "flush")));
+    }
+
+    #[test]
+    fn concurrency_detection_comes_from_descriptor_effect_metadata() {
+        assert!(is_concurrency_call(&path("task", "spawn")));
+        assert!(is_concurrency_call(&path("channel", "send")));
+        assert!(!is_concurrency_call(&path("stdio", "println")));
+        assert!(!is_concurrency_call(&path("task", "sleep")));
+    }
+
+    #[test]
+    fn fs_and_process_signatures_come_from_standard_descriptors() {
+        let (params, return_type) =
+            standard_library_signature(&path("fs", "read_to_string")).expect("fs signature");
+        assert_eq!(params, vec![path_type()]);
+        assert_eq!(
+            return_type,
+            Type::result(Type::string(), Type::named("FsError", Vec::new()))
+        );
+
+        let (_, return_type) =
+            standard_library_signature(&path("process", "args")).expect("process signature");
+        assert_eq!(return_type, Type::list(Type::string()));
+    }
 }
 
 fn core_function_return_type(ty: &CoreType) -> Option<&CoreType> {

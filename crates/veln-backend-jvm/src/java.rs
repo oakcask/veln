@@ -69,6 +69,20 @@ pub(crate) fn concurrency_method(name: &str) -> &'static str {
     }
 }
 
+pub(crate) fn standard_library_method(name: &str) -> &'static str {
+    match name {
+        "fs::read_to_string" => "fsReadToString",
+        "fs::write_string" => "fsWriteString",
+        "fs::exists" => "fsExists",
+        "fs::read_dir" => "fsReadDir",
+        "process::args" => "processArgs",
+        "process::env" => "processEnv",
+        "process::cwd" => "processCwd",
+        "process::exit" => "processExit",
+        _ => panic!("unknown standard library builtin `{name}`"),
+    }
+}
+
 pub(crate) fn binary_method(op: BinaryOp) -> &'static str {
     match op {
         BinaryOp::PipeGreater => "pipe",

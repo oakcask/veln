@@ -5,7 +5,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::java::{
     concurrency_method, java_string, java_type_identifier, prelude_method,
-    sanitize_identifier_text, stdio_method, unique_java_identifier, veln_string_literal_value,
+    sanitize_identifier_text, standard_library_method, stdio_method, unique_java_identifier,
+    veln_string_literal_value,
 };
 use crate::*;
 use veln_ast::lower_surface_ast;
@@ -745,6 +746,166 @@ fn generated_runtime_rejects_zero_capacity_send_after_close() {
         .arg("-cp")
         .arg(&root)
         .arg("ClosedChannelProbe")
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        java.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&java.stdout),
+        String::from_utf8_lossy(&java.stderr)
+    );
+}
+
+#[test]
+fn generates_runtime_calls_for_fs_and_process_intrinsics() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main(path: Path, key: String) -> Result(String, FsError) effects [fs, process]\n",
+        "  let args: List(String) = process::args()\n",
+        "  let cwd: Result(Path, ProcessError) = process::cwd()\n",
+        "  let value: Option(String) = process::env(key)\n",
+        "  let exists: Result(Bool, FsError) = fs::exists(path)\n",
+        "  fs::read_to_string(path)\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+    let runtime = java
+        .source("VelnRuntime.java")
+        .expect("runtime source should exist");
+
+    assert!(program.contains("VelnRuntime.processArgs()"));
+    assert!(program.contains("VelnRuntime.processCwd()"));
+    assert!(program.contains("VelnRuntime.processEnv("));
+    assert!(program.contains("VelnRuntime.fsExists("));
+    assert!(program.contains("return VelnRuntime.fsReadToString("));
+    assert!(runtime.contains("public static Object fsReadToString"));
+    assert!(runtime.contains("public static Object fsWriteString"));
+    assert!(runtime.contains("public static Object fsReadDir"));
+    assert!(runtime.contains("public static Object processArgs"));
+    assert!(runtime.contains("public static void setProcessArgs"));
+}
+
+#[test]
+fn generated_entry_reads_file_with_fs_intrinsic() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main(path: Path) -> Result((), FsError) effects [fs, stdio]\n",
+        "  let text: String = fs::read_to_string(path)?\n",
+        "  stdio::println(text)\n",
+        "  Ok(())\n",
+        "end\n",
+    ));
+    let java = generate_java_with_entry_arg_types(&ir, "main", &[EntryArgType::String]);
+    let root = temp_dir("fs-read-runtime");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    let input = root.join("input.txt");
+    fs::write(&input, "standard library fs").expect("input file should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("VelnEntry.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("VelnEntry")
+        .arg(input.to_string_lossy().as_ref())
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "standard library fs\n"
+    );
+}
+
+#[test]
+fn generated_runtime_reports_process_environment_and_cwd() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects []\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+    let root = temp_dir("process-runtime");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("ProcessProbe.java"),
+        r#"public final class ProcessProbe {
+    private ProcessProbe() {}
+
+    public static void main(String[] args) {
+        VelnRuntime.setProcessArgs(new String[] {"first", "second"});
+        Object processArgs = VelnRuntime.processArgs();
+        if (!"[first, second]".equals(VelnRuntime.format(processArgs))) {
+            throw new AssertionError("process args should preserve entry arguments");
+        }
+        if (!VelnRuntime.isNone(VelnRuntime.processEnv("VELN_BACKEND_JVM_MISSING_ENV"))) {
+            throw new AssertionError("missing environment key should return None");
+        }
+        Object cwd = VelnRuntime.processCwd();
+        if (VelnRuntime.isErr(cwd)) {
+            throw new AssertionError("cwd should return Ok for the host current directory");
+        }
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("ProcessProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("ProcessProbe")
         .output()
         .expect("java should run");
     let _ = fs::remove_dir_all(&root);
@@ -1946,6 +2107,22 @@ fn java_method_name_helpers_map_builtin_surface_names() {
     ] {
         assert_eq!(concurrency_method(surface), method);
     }
+
+    for (surface, method) in [
+        ("fs::read_to_string", "fsReadToString"),
+        ("fs::write_string", "fsWriteString"),
+        ("fs::exists", "fsExists"),
+        ("fs::read_dir", "fsReadDir"),
+        ("process::args", "processArgs"),
+        ("process::env", "processEnv"),
+        ("process::cwd", "processCwd"),
+        ("process::exit", "processExit"),
+    ] {
+        assert_eq!(standard_library_method(surface), method);
+    }
+
+    let panic = std::panic::catch_unwind(|| standard_library_method("fs::unknown"));
+    assert!(panic.is_err());
 }
 
 #[test]

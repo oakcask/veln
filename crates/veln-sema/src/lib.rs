@@ -6,6 +6,7 @@ mod diagnostics;
 mod effects;
 mod lowering;
 mod prelude;
+mod standard_symbols;
 #[cfg(test)]
 mod tests;
 mod types;

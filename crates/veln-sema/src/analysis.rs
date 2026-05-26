@@ -18,7 +18,10 @@ use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, module_details, span_json,
     type_details,
 };
-use crate::effects::{concurrency_origin, concurrency_signature, stdio_signature};
+use crate::effects::{
+    concurrency_origin, concurrency_signature, standard_library_origin, standard_library_signature,
+    stdio_signature,
+};
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
     prelude_signature,
@@ -1536,6 +1539,10 @@ impl<'a> FunctionChecker<'a> {
                 if let Some(origin) = concurrency_origin(segments, callee) {
                     let (params, return_type) =
                         concurrency_signature(segments, expected, handle_type, None)?;
+                    return Some((params, return_type, origin));
+                }
+                if let Some(origin) = standard_library_origin(segments, callee) {
+                    let (params, return_type) = standard_library_signature(segments)?;
                     return Some((params, return_type, origin));
                 }
                 if let [name] = segments.as_slice()
