@@ -1715,7 +1715,7 @@ fn check_json_reports_hole_constraints_from_contracts_and_satisfy() {
             "\"expected_type\":\"Int\"",
             "\"constraints\":[{\"kind\":\"contract\",\"clause\":\"require\",\"text\":\"max > 0\"",
             "{\"kind\":\"satisfy\",\"text\":\"candidate > 0 and candidate <= max\",\"candidate_binding\":\"candidate\"",
-            "\"repair_status\":\"blocked_until_discharged\"",
+            "\"repair_status\":\"statically_satisfied\"",
             "\"related\":[{\"kind\":\"expected_type_origin\"",
             "\"kind\":\"constraint_origin\"",
         ],

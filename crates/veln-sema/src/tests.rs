@@ -11254,8 +11254,30 @@ fn hole_diagnostic_includes_contract_and_satisfy_constraints() {
     assert!(details.contains(
         "\"text\":\"candidate > 0 and candidate <= max\",\"candidate_binding\":\"candidate\""
     ));
-    assert!(details.contains("\"repair_status\":\"blocked_until_discharged\""));
+    assert!(details.contains("\"repair_status\":\"statically_satisfied\""));
     assert_eq!(diagnostics[0].related.len(), 3);
+}
+
+#[test]
+fn hole_diagnostic_keeps_undischarged_satisfy_constraint_blocked() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn default_port(max: Int, fallback: Int) -> Int\n",
+            "  _port satisfy candidate => candidate > 0 and candidate <= max\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"repair_status\":\"blocked_until_discharged\""));
+    assert!(!details.contains("\"repair_status\":\"statically_satisfied\""));
 }
 
 #[test]

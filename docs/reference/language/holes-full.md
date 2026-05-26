@@ -38,6 +38,11 @@ candidate keeps the reason for the branch that discharged that candidate.
 Named holes such as `_port` are diagnostic and repair labels, not bindings.
 The `satisfy candidate => predicate` suffix contributes a repair constraint; it
 does not bind `candidate` outside the suffix predicate.
+The satisfy constraint record uses
+`repair_status: "blocked_until_discharged"` until the checker finds a
+type-compatible visible symbol candidate that statically satisfies the
+predicate. When at least one such safe repair candidate exists, the constraint
+record uses `repair_status: "statically_satisfied"`.
 
 ## Satisfy Constraints
 

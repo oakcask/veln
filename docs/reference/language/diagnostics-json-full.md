@@ -248,6 +248,10 @@ for satisfy-constrained holes also contain `satisfy_status`, either
 ordinary manual-review candidates, but statically satisfied candidates are
 retained even when they sort after that ordinary bound.
 
+Satisfy entries in `constraints` contain `repair_status`, either
+`statically_satisfied` when a type-compatible visible symbol candidate already
+discharges the predicate, or `blocked_until_discharged` otherwise.
+
 Semantic satisfy diagnostics use hole diagnostic detail objects with
 `phase: "hole"`, `node_id`, `candidate_binding`, and `predicate_text`. Type mismatch
 details also include `expected_type` and `actual_type`; unsupported construct

@@ -2524,7 +2524,7 @@ impl<'a> FunctionChecker<'a> {
             expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source);
         let candidate_queries =
             self.candidate_queries(expected.map(|expected| &expected.ty), &expr.span, satisfy);
-        let constraints = self.hole_constraints(satisfy);
+        let constraints = self.hole_constraints(satisfy, expected.map(|expected| &expected.ty));
         let mut diagnostic = Diagnostic::new(
             "hole.unfilled",
             Severity::Hint,
@@ -2597,7 +2597,11 @@ impl<'a> FunctionChecker<'a> {
         self.diagnostics.push(diagnostic);
     }
 
-    fn hole_constraints(&self, satisfy: Option<&SatisfyClause>) -> Vec<JsonValue> {
+    fn hole_constraints(
+        &self,
+        satisfy: Option<&SatisfyClause>,
+        expected: Option<&Type>,
+    ) -> Vec<JsonValue> {
         let mut constraints = self
             .function
             .contracts
@@ -2619,6 +2623,10 @@ impl<'a> FunctionChecker<'a> {
             })
             .collect::<Vec<_>>();
         if let Some(satisfy) = satisfy {
+            let repair_status = expected
+                .and_then(|expected| self.satisfy_repair_constraint(satisfy, expected))
+                .filter(|constraint| self.constraint_has_assignable_candidate(expected, constraint))
+                .map_or("blocked_until_discharged", |_| "statically_satisfied");
             constraints.push(JsonValue::object([
                 ("kind", JsonValue::string("satisfy")),
                 ("text", JsonValue::string(satisfy.predicate.clone())),
@@ -2630,13 +2638,24 @@ impl<'a> FunctionChecker<'a> {
                         .map_or(JsonValue::Null, |candidate| JsonValue::string(candidate)),
                 ),
                 ("validation_status", JsonValue::string("valid_unknown")),
-                (
-                    "repair_status",
-                    JsonValue::string("blocked_until_discharged"),
-                ),
+                ("repair_status", JsonValue::string(repair_status)),
             ]));
         }
         constraints
+    }
+
+    fn constraint_has_assignable_candidate(
+        &self,
+        expected: Option<&Type>,
+        constraint: &SatisfyRepairConstraint,
+    ) -> bool {
+        let Some(expected) = expected.filter(|expected| **expected != Type::Unknown) else {
+            return false;
+        };
+        self.bindings.iter().any(|binding| {
+            is_assignable(expected, &binding.ty)
+                && constraint.reason_for(binding.name.as_str()).is_some()
+        })
     }
 
     fn candidate_queries(
