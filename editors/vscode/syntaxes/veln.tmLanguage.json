@@ -1,0 +1,107 @@
+{
+  "name": "Veln",
+  "scopeName": "source.veln",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#holes"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#identifiers"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.veln",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.veln",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.veln",
+              "match": "\\\\."
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.veln",
+          "match": "\\b[0-9]+\\.[0-9]+\\b"
+        },
+        {
+          "name": "constant.numeric.integer.veln",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
+    },
+    "holes": {
+      "patterns": [
+        {
+          "name": "variable.other.hole.veln",
+          "match": "\\b_[A-Za-z0-9_]+\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.veln",
+          "match": "\\b(pub|fn|test|effects|let|end|require|ensure|invariant|mod|use|match|or|and|not)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.veln",
+          "match": "::|->|=>|\\|>|==|!=|<=|>=|[()\\[\\]{},:.?_=<>+\\-*/]"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "entity.name.type.veln",
+          "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+        }
+      ]
+    },
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "variable.other.veln",
+          "match": "\\b[A-Za-z][A-Za-z0-9_]*\\b"
+        }
+      ]
+    }
+  }
+}

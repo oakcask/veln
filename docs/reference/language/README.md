@@ -15,6 +15,8 @@ current workspace supports, not every target tracked in `../../proposals/`.
 - Source files, grammar, names, types, effects, contracts, or holes:
   [topic-map.md#source-surface](topic-map.md#source-surface) and
   [topic-map.md#contracts-and-holes](topic-map.md#contracts-and-holes).
+- Editor highlighting and semantic token behavior:
+  [editor-support.md](editor-support.md).
 - CLI behavior, diagnostics, run output, or test output:
   [topic-map.md#commands-and-output](topic-map.md#commands-and-output).
 - Human diagnostic wording, related notes, spans, or stable diagnostic details:
@@ -35,6 +37,7 @@ current workspace supports, not every target tracked in `../../proposals/`.
   structured behavior that must stay aligned with diagnostic output, then
   [source-decisions.md](source-decisions.md) only for rationale.
 - Runtime and examples: [execution.md](execution.md) and [examples.md](examples.md).
+- Editor support: [editor-support.md](editor-support.md).
 - Rationale: [source-decisions.md](source-decisions.md).
 
 ## Update When

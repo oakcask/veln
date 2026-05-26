@@ -10,6 +10,7 @@ behavior, gates, or output boundaries.
 - [`veln run`](#veln-run)
 - [`veln test`](#veln-test)
 - [`veln explain`](#veln-explain)
+- [`veln lsp`](#veln-lsp)
 
 <a id="veln-check"></a>
 
@@ -193,3 +194,21 @@ in the typed-hole and predicate repair loop:
 - `parse.satisfy_candidate`
 - `parse.satisfy_arrow`
 - `parse.satisfy_predicate`
+
+<a id="veln-lsp"></a>
+
+## `veln lsp`
+
+`lsp` starts the editor language server over standard input and standard output
+using JSON-RPC framing. It is intended for editor clients and does not take
+source path arguments.
+
+The server handles initialize, initialized, shutdown, exit, open-document,
+change-document, and full semantic-token requests. It keeps the latest open
+document text in memory and returns semantic tokens for unsaved editor content.
+When a semantic-token request names a document that has not been opened through
+the server, the server attempts to read the file URI from disk; unreadable
+documents produce an empty token data array.
+
+The semantic-token legend, token classes, and unsupported editor features are
+specified in [editor-support.md](editor-support.md).

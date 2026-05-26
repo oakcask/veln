@@ -5,7 +5,9 @@ members = [
     "crates/veln-cli",
     "crates/veln-core",
     "crates/veln-diagnostics",
+    "crates/veln-editor",
     "crates/veln-ir",
+    "crates/veln-lsp",
     "crates/veln-project",
     "crates/veln-sema",
     "crates/veln-source",
@@ -23,7 +25,9 @@ veln-ast = { path = "crates/veln-ast" }
 veln-backend-jvm = { path = "crates/veln-backend-jvm" }
 veln-core = { path = "crates/veln-core" }
 veln-diagnostics = { path = "crates/veln-diagnostics" }
+veln-editor = { path = "crates/veln-editor" }
 veln-ir = { path = "crates/veln-ir" }
+veln-lsp = { path = "crates/veln-lsp" }
 veln-project = { path = "crates/veln-project" }
 veln-sema = { path = "crates/veln-sema" }
 veln-source = { path = "crates/veln-source" }

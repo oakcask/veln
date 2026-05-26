@@ -22,6 +22,7 @@ pub(crate) enum Command {
         list: bool,
         diagnostic_id: Option<String>,
     },
+    Lsp,
     Help,
     Version,
 }
@@ -37,6 +38,7 @@ impl Command {
             "run" => parse_run(args.into_iter().skip(1)),
             "test" => parse_test(args.into_iter().skip(1)),
             "explain" => parse_explain(args.into_iter().skip(1)),
+            "lsp" => parse_lsp(args.into_iter().skip(1)),
             "--help" | "-h" | "help" => Ok(Self::Help),
             "--version" | "-V" | "version" => Ok(Self::Version),
             command => Err(format!("unknown command `{command}`")),
@@ -50,6 +52,7 @@ pub(crate) fn print_help() {
     println!("veln run [--json] <entry> [path ...] [-- arg ...]");
     println!("veln test [--json] [target ...]");
     println!("veln explain [--list] [diagnostic-id]");
+    println!("veln lsp");
 }
 
 fn parse_check(args: impl Iterator<Item = String>) -> Result<Command, String> {
@@ -139,6 +142,17 @@ fn parse_explain(args: impl Iterator<Item = String>) -> Result<Command, String> 
         list,
         diagnostic_id,
     })
+}
+
+fn parse_lsp(args: impl Iterator<Item = String>) -> Result<Command, String> {
+    for arg in args {
+        match arg.as_str() {
+            "--help" | "-h" => return Ok(Command::Help),
+            flag if flag.starts_with('-') => return Err(format!("unknown lsp flag `{flag}`")),
+            value => return Err(format!("unexpected lsp argument `{value}`")),
+        }
+    }
+    Ok(Command::Lsp)
 }
 
 #[cfg(test)]
@@ -290,6 +304,7 @@ mod tests {
             parse(&["explain", "--help"]).unwrap(),
             Command::Help
         ));
+        assert!(matches!(parse(&["lsp", "--help"]).unwrap(), Command::Help));
     }
 
     #[test]
@@ -353,5 +368,20 @@ mod tests {
         };
 
         assert_eq!(error, "unknown explain flag `--json`");
+    }
+
+    #[test]
+    fn lsp_parser_accepts_no_arguments() {
+        assert!(matches!(parse(&["lsp"]).unwrap(), Command::Lsp));
+    }
+
+    #[test]
+    fn lsp_parser_rejects_arguments() {
+        let error = match parse(&["lsp", "main.veln"]) {
+            Ok(_) => panic!("lsp arguments should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unexpected lsp argument `main.veln`");
     }
 }

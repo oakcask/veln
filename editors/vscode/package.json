@@ -1,0 +1,83 @@
+{
+  "name": "veln-language",
+  "displayName": "Veln Language",
+  "description": "Veln language support.",
+  "version": "0.1.0",
+  "publisher": "veln",
+  "main": "./extension.js",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "activationEvents": [
+    "onLanguage:veln"
+  ],
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "veln",
+        "aliases": [
+          "Veln",
+          "veln"
+        ],
+        "extensions": [
+          ".veln"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "veln",
+        "scopeName": "source.veln",
+        "path": "./syntaxes/veln.tmLanguage.json"
+      }
+    ],
+    "semanticTokenTypes": [
+      {
+        "id": "namespace"
+      },
+      {
+        "id": "type"
+      },
+      {
+        "id": "parameter"
+      },
+      {
+        "id": "variable"
+      },
+      {
+        "id": "property"
+      },
+      {
+        "id": "enumMember"
+      },
+      {
+        "id": "function"
+      }
+    ],
+    "semanticTokenModifiers": [
+      {
+        "id": "test"
+      },
+      {
+        "id": "result"
+      },
+      {
+        "id": "hole"
+      }
+    ],
+    "configuration": {
+      "title": "Veln",
+      "properties": {
+        "veln.server.path": {
+          "type": "string",
+          "default": "veln",
+          "description": "Command used to start the Veln language server."
+        }
+      }
+    }
+  }
+}

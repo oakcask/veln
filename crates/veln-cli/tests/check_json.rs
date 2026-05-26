@@ -156,6 +156,7 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
         "veln run [--json] <entry> [path ...] [-- arg ...]\n",
         "veln test [--json] [target ...]\n",
         "veln explain [--list] [diagnostic-id]\n",
+        "veln lsp\n",
     );
 
     let empty_output = project.veln(&[], &[]);
@@ -165,6 +166,7 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     let test_help_output = project.veln(&["test"], &["--help"]);
     let explain_help_output = project.veln(&["explain"], &["--help"]);
     let explain_short_help_output = project.veln(&["explain"], &["-h"]);
+    let lsp_help_output = project.veln(&["lsp"], &["--help"]);
 
     assert!(empty_output.status.success(), "{}", stderr(&empty_output));
     assert_eq!(stdout(&empty_output), expected);
@@ -211,6 +213,13 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     );
     assert_eq!(stdout(&explain_short_help_output), expected);
     assert_eq!(stderr(&explain_short_help_output), "");
+    assert!(
+        lsp_help_output.status.success(),
+        "{}",
+        stderr(&lsp_help_output)
+    );
+    assert_eq!(stdout(&lsp_help_output), expected);
+    assert_eq!(stderr(&lsp_help_output), "");
 }
 
 #[test]

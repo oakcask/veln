@@ -21,6 +21,8 @@ requiring the full command reference on the first read.
 - `explain`: diagnostic catalog lookup. Use
   [commands-full.md](commands-full.md) when diagnostic catalog behavior is the
   task.
+- `lsp`: stdio language-server startup for editor semantic highlighting. Use
+  [editor-support.md](editor-support.md) first for semantic-token behavior.
 
 ## Read When
 
