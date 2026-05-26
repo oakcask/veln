@@ -1,9 +1,9 @@
 # Editor Semantic Highlighting
 
-Status: implemented
-Implementation: compiler token classification, TextMate fallback grammar, LSP
-full-token data encoding, stdio JSON-RPC server lifecycle, and VSCode startup
-are implemented.
+Status: promoted
+Implementation: promoted to reference: compiler token classification, TextMate
+fallback grammar, LSP full-token data encoding, stdio JSON-RPC server
+lifecycle, and VSCode startup.
 
 This proposal originally defined editor support for semantic highlighting
 through an LSP server while keeping the classification logic editor-neutral.

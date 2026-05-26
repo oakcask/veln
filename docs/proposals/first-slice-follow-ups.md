@@ -1,7 +1,8 @@
 # First-Slice Follow-Up Targets
 
-Status: accepted-proposal
-Implementation: implemented
+Status: promoted
+Implementation: promoted to reference: no accepted first-slice follow-up
+targets currently remain.
 
 This is the routing page for accepted first-slice targets and their promotion
 history. Use it to confirm whether any first-slice follow-up target remains

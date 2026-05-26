@@ -1,7 +1,9 @@
 # Self-Hosting Standard Library Full
 
 Status: promoted
-Implementation: implemented
+Implementation: implemented subset: descriptor-backed standard symbols,
+minimal `fs` and `process` intrinsics, one source-backed pure helper, and the
+compiler-support source-loading trial are promoted to the language reference.
 
 Read [self-hosting-standard-library.md](self-hosting-standard-library.md)
 first unless you need the complete implementation proposal.

@@ -8,6 +8,8 @@ documentation placement, route policy, or status labels.
 - Put behavior that works in the current code and tests in `reference/`.
 - Put accepted or open design targets that are not fully implemented in
   `proposals/`.
+- Keep promoted proposal routing and history in `proposals/`, but do not label
+  those pages `implemented`.
 - Put implemented rationale and decision history in `reference/source-decisions/`.
 - Put planned or incomplete rationale and decision history in `proposals/`.
 - Put implementation order, completion notes, and working plans in `phases/`.
@@ -38,13 +40,36 @@ documentation placement, route policy, or status labels.
 
 Use these status labels at the top of durable specification documents:
 
-- `implemented`: current code and tests support the described behavior.
+- `implemented`: use only for `reference/` pages whose described behavior is
+  supported by current code and tests.
+- `promoted`: a proposal page is retained only as routing or history because
+  the implemented behavior has moved to `reference/`.
 - `accepted-proposal`: a decision record accepted the target, but implementation
-  is absent or incomplete.
+  is absent, incomplete, or only partially promoted.
 - `open-proposal`: the design is being explored and should not be treated as a
   commitment.
 - `superseded`: another document replaces this one.
 - `rejected`: the project decided not to pursue this design.
+
+## Status And Implementation Fields
+
+- `Status:` describes the document's authority and placement, not whether every
+  idea in the file exists in the product.
+- `Implementation:` may appear on proposal pages, but it must name the covered
+  scope instead of using a bare `implemented` when the proposal includes
+  historical, partial, or future-facing material.
+- Use `Implementation: not implemented` for open proposal work with no current
+  behavior.
+- Use `Implementation: implemented subset: ...` for promoted slices where the
+  reference documents only part of the broader proposal.
+- Use `Implementation: promoted to reference: ...` when all behavior still
+  described by the short proposal page is current behavior and the matching
+  reference page is the source of truth.
+- A proposal page with `Status: promoted` must name the matching
+  `reference/language/` page before it may describe any implementation as
+  complete.
+- Do not cite `Implementation:` on a proposal page as proof of current behavior;
+  cite the matching `reference/` page.
 
 ## Skip Unless Needed
 

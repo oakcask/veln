@@ -1,8 +1,8 @@
 # Match Exhaustiveness
 
-Status: implemented
-Implementation: implemented in the current checker for `Bool`, `Option(T)`,
-and `Result(T, E)`
+Status: promoted
+Implementation: promoted to reference: current checker coverage for `Bool`,
+`Option(T)`, and `Result(T, E)`
 
 This proposal records the promotion of static `match` exhaustiveness checking.
 It is not the source for current behavior; use `../reference/language/` for
