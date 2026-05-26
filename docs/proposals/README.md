@@ -21,9 +21,11 @@ for targets that have moved into the current language reference.
 
 - Use [first-slice-follow-ups.md](first-slice-follow-ups.md) for accepted
   first-slice follow-up targets.
-- Use [self-hosting-standard-library.md](self-hosting-standard-library.md) for
-  accepted standard library and compiler-known intrinsic work needed for
-  eventual self-hosting.
+- Self-hosting standard library behavior has moved into current behavior; use
+  [../reference/language/names-effects.md](../reference/language/names-effects.md)
+  first, and open
+  [self-hosting-standard-library.md](self-hosting-standard-library.md) only for
+  proposal history.
 - Editor semantic highlighting has moved into current behavior; use
   [../reference/language/editor-support.md](../reference/language/editor-support.md)
   first, and open

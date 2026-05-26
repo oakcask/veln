@@ -1,11 +1,12 @@
 # Self-Hosting Standard Library
 
-Status: accepted-proposal
-Implementation: not implemented
+Status: promoted
+Implementation: implemented
 
-This is the routing page for standard library and compiler-known intrinsic work
-needed for eventual self-hosting. Use the full proposal only after selecting
-this target from [target-queue.md](target-queue.md).
+This is the routing page for the promoted standard library and compiler-known
+intrinsic work needed for eventual self-hosting. Use current behavior under
+`../reference/language/` first, and use the full proposal only for historical
+implementation context.
 
 ## Read First
 
@@ -26,11 +27,20 @@ The accepted implementation path is:
 
 - Add a descriptor table for compiler-known standard symbols.
 - Route existing `stdio`, concurrency, and prelude helper metadata through that
-  table incrementally.
-- Add minimal `fs` and `process` intrinsics with coarse effects.
+  table incrementally. The implemented subset routes stdio effects,
+  concurrency effects, and prelude helper admission through the descriptor
+  table while keeping existing type adapters and runtime lowering paths.
+- Add minimal `fs` and `process` intrinsics with coarse effects. The
+  implemented subset includes descriptor-backed signatures, effect inference,
+  public-boundary diagnostics, checked-core and IR lowering, and JVM runtime
+  operations for the accepted minimal surface.
 - Move pure helpers behind Veln source implementations when the language can
-  express them.
+  express them. The implemented subset embeds a Veln source implementation for
+  one pure helper while keeping the existing descriptor-backed type adapter and
+  runtime lowering path.
 - Exercise one small compiler subsystem through the standard library subset.
+  The implemented subset embeds and tests a source-loading compiler support
+  helper that reads source text through descriptor-backed `fs`.
 
 ## Use When
 

@@ -57,6 +57,7 @@ The JVM backend generates Java source for the implemented IR subset:
 - record field access
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls
+- file-system and current-process standard library intrinsics
 - bounded channel construction, sender clone, send, receive, and close calls
 - two-receiver channel selection calls with optional timeout
 - task spawn, join, and cancellation calls
@@ -111,6 +112,23 @@ crosses the task boundary. `task::join` waits for that task and returns
 `Ok(value)` on ordinary completion or `Err(JoinError)` on interruption,
 cancellation, or runtime failure. `task::cancel` requests cooperative
 cancellation by interrupting the task.
+
+File-system intrinsics are backend-owned runtime operations. `fs::read_to_string`
+reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.
+`fs::write_string` writes UTF-encoded text and returns `Ok(())` or
+`Err(FsError)`. `fs::exists` returns `Ok(Bool)` for the host existence check or
+`Err(FsError)` if the path cannot be interpreted. `fs::read_dir` returns
+`Ok(List(Path))` containing host-rendered directory entries or `Err(FsError)`.
+These operations use `Result` at the Veln boundary instead of exposing host
+exceptions.
+
+Current-process intrinsics are also backend-owned runtime operations.
+`process::args` returns the selected entry arguments as a frozen list of
+strings. `process::env` returns `Some(value)` for a present environment key and
+`None` for an unavailable key. `process::cwd` returns `Ok(Path)` for the host
+current working directory or `Err(ProcessError)` when the runtime cannot
+produce one. `process::exit` terminates the selected host process after
+clamping the integer status into the implemented backend status range.
 
 This freeze rule is an observable language boundary only through value
 immutability and update semantics. The exact JVM representation, copying

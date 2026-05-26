@@ -125,6 +125,7 @@ pub enum CoreCallTarget {
     Function(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
+    StandardLibraryBuiltin(String),
     PreludeBuiltin(String),
     Value(String),
     Unresolved(String),

@@ -1,0 +1,8 @@
+mod core_prelude
+
+fn option_unwrap_or(value: Option(A), fallback: A) -> A effects []
+	match value
+		Some(inner) => inner
+		None => fallback
+	end
+end

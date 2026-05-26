@@ -11,7 +11,10 @@ use veln_core::{
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
 use crate::contracts::contract_predicate_is_statically_true;
-use crate::effects::{core_concurrency_signature, is_concurrency_call, stdio_signature};
+use crate::effects::{
+    core_concurrency_signature, core_standard_library_signature, is_concurrency_call,
+    standard_library_origin, stdio_signature,
+};
 use crate::prelude::{
     core_prelude_signature, float_arithmetic_prelude_name, float_comparison_prelude_name,
     float_prefix_prelude_name,
@@ -1174,6 +1177,14 @@ impl<'a> CoreLowerer<'a> {
             let (params, return_type) = core_concurrency_signature(segments, expected, None, None)?;
             return Some(CoreCallSignature {
                 target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
+                params,
+                return_type,
+            });
+        }
+        if standard_library_origin(segments, callee).is_some() {
+            let (params, return_type) = core_standard_library_signature(segments)?;
+            return Some(CoreCallSignature {
+                target: CoreCallTarget::StandardLibraryBuiltin(segments.join("::")),
                 params,
                 return_type,
             });

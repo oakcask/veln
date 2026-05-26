@@ -110,6 +110,7 @@ pub enum IrCallTarget {
     Function(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
+    StandardLibraryBuiltin(String),
     PreludeBuiltin(String),
     Value(String),
 }

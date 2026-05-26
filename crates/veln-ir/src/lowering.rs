@@ -224,6 +224,9 @@ fn lower_call_target(
         CoreCallTarget::ConcurrencyBuiltin(name) => {
             Ok(IrCallTarget::ConcurrencyBuiltin(name.clone()))
         }
+        CoreCallTarget::StandardLibraryBuiltin(name) => {
+            Ok(IrCallTarget::StandardLibraryBuiltin(name.clone()))
+        }
         CoreCallTarget::PreludeBuiltin(name) => Ok(IrCallTarget::PreludeBuiltin(name.clone())),
         CoreCallTarget::Value(name) => Ok(IrCallTarget::Value(name.clone())),
         CoreCallTarget::Unresolved(symbol) => Err(IrLowerError::UnresolvedCallTarget {

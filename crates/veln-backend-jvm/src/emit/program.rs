@@ -93,6 +93,7 @@ impl<'a> ProgramEmitter<'a> {
 
     public static void main(String[] args) {{
         try {{
+            {runtime}.setProcessArgs(args);
             Object result = {program}.{function_name}({entry_args});
             if ({runtime}.isErr(result)) {{
                 System.err.println({runtime}.format(result));
@@ -612,6 +613,86 @@ impl<'a> ProgramEmitter<'a> {
         Task handle = (Task) task;
         handle.future.cancel(true);
         handle.thread.interrupt();
+        return UNIT;
+    }}
+
+    private static java.util.List<Object> processArgs =
+        java.util.Collections.unmodifiableList(new java.util.ArrayList<Object>());
+
+    public static void setProcessArgs(String[] args) {{
+        java.util.ArrayList<Object> values = new java.util.ArrayList<Object>();
+        for (String arg : args) {{
+            values.add(arg);
+        }}
+        processArgs = freezeList(values);
+    }}
+
+    public static Object fsReadToString(Object path) {{
+        try {{
+            byte[] bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(asString(path)));
+            return ok(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+        }} catch (java.io.IOException | RuntimeException error) {{
+            return err(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+        }}
+    }}
+
+    public static Object fsWriteString(Object path, Object text) {{
+        try {{
+            java.nio.file.Files.write(
+                java.nio.file.Paths.get(asString(path)),
+                asString(text).getBytes(java.nio.charset.StandardCharsets.UTF_8)
+            );
+            return ok(UNIT);
+        }} catch (java.io.IOException | RuntimeException error) {{
+            return err(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+        }}
+    }}
+
+    public static Object fsExists(Object path) {{
+        try {{
+            return ok(Boolean.valueOf(java.nio.file.Files.exists(java.nio.file.Paths.get(asString(path)))));
+        }} catch (RuntimeException error) {{
+            return err(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+        }}
+    }}
+
+    public static Object fsReadDir(Object path) {{
+        try (java.util.stream.Stream<java.nio.file.Path> stream =
+            java.nio.file.Files.list(java.nio.file.Paths.get(asString(path)))) {{
+            java.util.ArrayList<Object> paths = new java.util.ArrayList<Object>();
+            stream.forEach(entry -> paths.add(entry.toString()));
+            return ok(freezeList(paths));
+        }} catch (java.io.IOException | RuntimeException error) {{
+            return err(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+        }}
+    }}
+
+    public static Object processArgs() {{
+        return processArgs;
+    }}
+
+    public static Object processEnv(Object name) {{
+        String value = System.getenv(asString(name));
+        return value == null ? none() : some(value);
+    }}
+
+    public static Object processCwd() {{
+        try {{
+            return ok(java.nio.file.Paths.get("").toAbsolutePath().normalize().toString());
+        }} catch (RuntimeException error) {{
+            return err(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+        }}
+    }}
+
+    public static Object processExit(Object status) {{
+        long code = asLong(status);
+        if (code < 0L) {{
+            code = 0L;
+        }}
+        if (code > 255L) {{
+            code = 255L;
+        }}
+        System.exit((int) code);
         return UNIT;
     }}
 

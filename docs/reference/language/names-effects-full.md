@@ -65,7 +65,7 @@ as related context when present.
 Named holes remain repair labels, not value declarations. Reusing a hole label
 does not affect name resolution.
 
-## Stdio Calls
+## Effect Labels
 
 Implemented effect labels are:
 
@@ -80,11 +80,32 @@ Implemented effect labels are:
 
 Function and test `effects [...]` declarations may name these labels. A
 declaration that names any other effect reports `effect.unknown` at the
-function or test declaration. The checker currently infers only `stdio` and
-`concurrency` from compiler-known calls; the other labels are reserved
-coarse-grained public boundary labels for source compatibility.
+function or test declaration. The checker currently infers `stdio`, `fs`,
+`process`, and `concurrency` from compiler-known calls. The other labels are
+reserved coarse-grained public boundary labels for source compatibility.
 
-The implemented compiler-known stdio calls are:
+## Compiler-Known Descriptor Table
+
+Semantic analysis owns a standard symbol table for compiler-known library
+symbols. The table records the source-visible module, name, symbol kind, effect
+labels, lowering identity, and stability class for the descriptor-backed
+subset.
+
+The current descriptor-backed subset covers stdio effect metadata,
+concurrency effect metadata, minimal `fs` and `process` intrinsics, pure
+prelude helper admission, and source provenance for the first Veln-backed pure
+helper. Type adapters and most runtime lowering still use their existing
+specialized implementations.
+
+The implemented standard library source subset also includes a small
+`compiler_support` source-loading helper used as the compiler-subsystem trial
+for self-hosting work. It is checked and run by the test suite against the same
+descriptor-backed `fs` boundary available to user source.
+
+## Stdio Calls
+
+The implemented compiler-known stdio calls are registered in the standard
+symbol table. The current stdio entries are:
 
 ```veln
 stdio::print(text: String) -> () effects [stdio]
@@ -101,10 +122,59 @@ follows direct bare function calls and `use` alias qualified function calls
 until a fixed point. Calls through a local binding with a function type infer
 the effects written in that function type.
 
+## File System Calls
+
+The checker recognizes these file-system call targets through the standard
+symbol table:
+
+```veln
+fs::read_to_string(path: Path) -> Result(String, FsError) effects [fs]
+fs::write_string(path: Path, text: String) -> Result((), FsError) effects [fs]
+fs::exists(path: Path) -> Result(Bool, FsError) effects [fs]
+fs::read_dir(path: Path) -> Result(List(Path), FsError) effects [fs]
+```
+
+Direct calls to these functions infer the `fs` effect. A public function or
+test that calls one of them directly or through a private helper must declare
+`fs` in its `effects [...]` list.
+
+`Path` is a source-visible named type at this boundary. The current runtime
+represents path values as strings, and assignment compatibility permits
+`String` and `Path` to cross this boundary until an opaque path representation
+exists.
+
+File-system calls return `Result` values instead of throwing host I/O
+exceptions into Veln execution. `Ok` carries the successful value. `Err`
+carries an implementation-provided `FsError` value represented by the current
+runtime error text.
+
+## Process Calls
+
+The checker recognizes these current-process call targets through the standard
+symbol table:
+
+```veln
+process::args() -> List(String) effects [process]
+process::env(name: String) -> Option(String) effects [process]
+process::cwd() -> Result(Path, ProcessError) effects [process]
+process::exit(status: Int) -> () effects [process]
+```
+
+Direct calls to these functions infer the `process` effect. A public function
+or test that calls one of them directly or through a private helper must
+declare `process` in its `effects [...]` list.
+
+`process::env` returns `None` for unavailable environment keys.
+`process::cwd` returns `Ok(path)` for the current working directory or
+`Err(ProcessError)` when the runtime cannot produce one. `process::exit`
+terminates the selected program through the host runtime after clamping the
+status into the implemented backend status range.
+
 ## Concurrency Calls
 
-The checker recognizes these channel-operation call targets for static type and
-effect checking:
+The checker recognizes these channel-operation call targets through the
+standard symbol table for effect metadata, and through the existing
+concurrency signature rules for static type checking:
 
 ```veln
 channel::bounded(capacity: Int) -> {tx: Sender(T), rx: Receiver(T)} effects [concurrency]
@@ -195,7 +265,10 @@ inference, hidden frame counts are zero.
 ## Prelude Helpers
 
 The implemented compiler-known prelude helpers are ordinary bare function calls
-with prefix names. They are pure and do not infer effects.
+with prefix names. They are registered in the standard symbol table as pure
+compatibility helpers or source-backed pure helpers, so a name must be present
+in that table before the prelude signature adapter assigns its compiler-known
+type. They do not infer effects.
 
 ```veln
 list_len(items: List(A)) -> Int
@@ -233,6 +306,18 @@ unchanged context value as the first callback argument. `list_map`,
 `None` when the separator is absent. `string_parse_int` accepts the backend
 integer spelling and returns the original input string in `Err` when parsing
 fails. `int_to_string` renders an integer for display and string composition.
+
+`option_unwrap_or` is the first source-backed pure helper in the implemented
+standard symbol table. The compiler build embeds its Veln source and records
+the source path and entry name on the descriptor. The current checker still
+uses the descriptor-backed signature adapter, and the JVM backend still lowers
+the helper through the existing prelude runtime operation, so diagnostics stay
+anchored on user call sites rather than the embedded standard library source.
+
+The embedded `compiler_support` source contains
+`load_source_text(path: Path) -> Result(String, FsError) effects [fs]`. It is
+not a prelude helper. It is a small compiler-support subsystem used to exercise
+Veln source checking and JVM execution through `fs::read_to_string`.
 
 When `list_map` receives a callback whose return type is `Result`, the checker
 reports the ordinary callback type mismatch and adds a repair hint to use

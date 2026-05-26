@@ -15,11 +15,11 @@ implemented behavior; current behavior lives under `../reference/language/`.
 
 ## Target Boundaries
 
-- Self-hosting standard library work routes through
-  [self-hosting-standard-library.md](self-hosting-standard-library.md),
-  then through
+- Promoted self-hosting standard library behavior routes through
   [../reference/language/names-effects.md](../reference/language/names-effects.md)
-  for implemented effect and compiler-known symbol behavior.
+  for implemented effect and compiler-known symbol behavior. Use
+  [self-hosting-standard-library.md](self-hosting-standard-library.md) only for
+  proposal history and future standard library boundary rationale.
 - Repair loop work routes through
   [../reference/language/holes.md](../reference/language/holes.md) and
   [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
@@ -46,7 +46,7 @@ implemented behavior; current behavior lives under `../reference/language/`.
 
 - Use [first-slice-follow-ups.md](first-slice-follow-ups.md) for the accepted
   first-slice target area before opening the full follow-up record.
-- Use [self-hosting-standard-library.md](self-hosting-standard-library.md)
+- Use [../reference/language/names-effects.md](../reference/language/names-effects.md)
   before adding standard library intrinsics or self-hosting library surface.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   only when the accepted target list does not match the implementation task.

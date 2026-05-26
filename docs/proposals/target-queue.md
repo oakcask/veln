@@ -16,12 +16,17 @@ when updating this queue.
 
 ## Accepted Targets
 
-- Self-hosting standard library: start with
-  [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Broader repair discharge: start with
   [first-slice-follow-ups.md#repair-loop](first-slice-follow-ups.md#repair-loop).
 - Richer predicate semantics: start with
   [first-slice-follow-ups.md#effects-and-contracts](first-slice-follow-ups.md#effects-and-contracts).
+
+## Promoted Targets
+
+- Self-hosting standard library has moved into current behavior; start with
+  [../reference/language/names-effects.md](../reference/language/names-effects.md)
+  and use [self-hosting-standard-library.md](self-hosting-standard-library.md)
+  only for proposal history.
 
 ## Selection Rule
 
@@ -36,8 +41,8 @@ when updating this queue.
 
 - Use [first-slice-follow-ups.md](first-slice-follow-ups.md) for the accepted
   first-slice target area before opening the full follow-up record.
-- Use [self-hosting-standard-library.md](self-hosting-standard-library.md) when
-  the task adds `fs`, `process`, collection, string, or descriptor-backed
+- Use [../reference/language/names-effects.md](../reference/language/names-effects.md)
+  before adding `fs`, `process`, collection, string, or descriptor-backed
   standard symbols.
 
 ## Skip Unless Needed

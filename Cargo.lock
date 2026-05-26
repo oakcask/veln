@@ -125,6 +125,7 @@ dependencies = [
  "veln-ir",
  "veln-sema",
  "veln-source",
+ "veln-stdlib",
  "veln-syntax",
 ]
 
@@ -204,11 +205,16 @@ dependencies = [
  "veln-ir",
  "veln-project",
  "veln-source",
+ "veln-stdlib",
  "veln-syntax",
 ]
 
 [[package]]
 name = "veln-source"
+version = "0.1.0"
+
+[[package]]
+name = "veln-stdlib"
 version = "0.1.0"
 
 [[package]]

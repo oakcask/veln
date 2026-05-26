@@ -1,9 +1,11 @@
 use veln_ast::{BinaryOp, PrefixOp};
 use veln_core::{CoreCallTarget, CoreType};
 
+use crate::standard_symbols::prelude_symbol;
 use crate::types::Type;
 
 pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(Vec<Type>, Type)> {
+    let descriptor = prelude_symbol(name)?;
     let unknown = Type::Unknown;
     let direct_expected = expected.cloned().unwrap_or(Type::Unknown);
     let list_item = expected
@@ -25,7 +27,7 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
             (key.clone(), value.clone())
         });
 
-    match name {
+    match descriptor.name {
         "float_negate" => Some((vec![Type::float()], Type::float())),
         "float_add" | "float_subtract" | "float_multiply" | "float_divide" => {
             Some((vec![Type::float(), Type::float()], Type::float()))
@@ -247,6 +249,7 @@ pub(crate) fn core_prelude_signature(
     name: &str,
     expected: Option<&CoreType>,
 ) -> Option<(CoreCallTarget, Vec<CoreType>, CoreType)> {
+    let descriptor = prelude_symbol(name)?;
     let unknown = CoreType::Unknown;
     let direct_expected = expected.cloned().unwrap_or(CoreType::Unknown);
     let list_item = expected
@@ -268,7 +271,7 @@ pub(crate) fn core_prelude_signature(
             (key.clone(), value.clone())
         });
 
-    let signature = match name {
+    let signature = match descriptor.name {
         "float_negate" => (vec![CoreType::float()], CoreType::float()),
         "float_add" | "float_subtract" | "float_multiply" | "float_divide" => (
             vec![CoreType::float(), CoreType::float()],
@@ -471,8 +474,23 @@ pub(crate) fn core_prelude_signature(
         _ => return None,
     };
     Some((
-        CoreCallTarget::PreludeBuiltin(name.to_string()),
+        CoreCallTarget::PreludeBuiltin(descriptor.name.to_string()),
         signature.0,
         signature.1,
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prelude_signature_is_gated_by_standard_symbol_descriptor() {
+        let (params, return_type) =
+            prelude_signature("list_len", None).expect("descriptor-backed helper signature");
+
+        assert_eq!(params, vec![Type::list(Type::Unknown)]);
+        assert_eq!(return_type, Type::int());
+        assert!(prelude_signature("unknown_helper", None).is_none());
+    }
 }

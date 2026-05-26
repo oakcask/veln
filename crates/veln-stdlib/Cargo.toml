@@ -1,0 +1,10 @@
+[package]
+name = "veln-stdlib"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+
+[lints]
+workspace = true

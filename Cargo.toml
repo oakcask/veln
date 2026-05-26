@@ -11,6 +11,7 @@ members = [
     "crates/veln-project",
     "crates/veln-sema",
     "crates/veln-source",
+    "crates/veln-stdlib",
     "crates/veln-syntax",
     "crates/veln-test",
 ]
@@ -32,6 +33,7 @@ veln-lsp = { path = "crates/veln-lsp" }
 veln-project = { path = "crates/veln-project" }
 veln-sema = { path = "crates/veln-sema" }
 veln-source = { path = "crates/veln-source" }
+veln-stdlib = { path = "crates/veln-stdlib" }
 veln-syntax = { path = "crates/veln-syntax" }
 veln-test = { path = "crates/veln-test" }
 

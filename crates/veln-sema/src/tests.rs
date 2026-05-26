@@ -7328,6 +7328,87 @@ fn infers_prelude_helper_calls_from_expected_types() {
 }
 
 #[test]
+fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
+    let mut count = 0;
+
+    for symbol in crate::standard_symbols::source_backed_symbols() {
+        count += 1;
+        let source = symbol.source.expect("source metadata");
+        let file = SourceFile::new(source.path, source.text);
+        let parsed = parse(&file);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "unexpected parse diagnostics for {}: {:#?}",
+            source.path,
+            parsed.diagnostics
+        );
+
+        let module = lower_surface_ast(&parsed.tree);
+        let diagnostics = analyze_surface_module(&module);
+
+        assert!(
+            diagnostics.is_empty(),
+            "unexpected source helper diagnostics for {}: {diagnostics:#?}",
+            source.path
+        );
+        assert!(
+            module
+                .functions
+                .iter()
+                .any(|function| function.name.as_deref() == Some(source.entry)),
+            "embedded source should define {}",
+            source.entry
+        );
+    }
+
+    assert!(count > 0, "expected at least one source-backed helper");
+}
+
+#[test]
+fn compiler_support_source_loads_text_through_standard_fs_subset() {
+    let source = crate::standard_symbols::compiler_support_sources()
+        .find(|source| source.entry == "load_source_text")
+        .expect("compiler support source should be embedded");
+    let file = SourceFile::new(source.path, source.text);
+    let parsed = parse(&file);
+    assert!(
+        parsed.diagnostics.is_empty(),
+        "unexpected parse diagnostics for {}: {:#?}",
+        source.path,
+        parsed.diagnostics
+    );
+
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "unexpected compiler support diagnostics for {}: {:#?}",
+        source.path,
+        lowered.diagnostics
+    );
+    let core = lowered.core.expect("compiler support should lower to core");
+    let function = core
+        .functions
+        .iter()
+        .find(|function| function.name == source.entry)
+        .expect("compiler support entry should lower");
+    let CoreStmtKind::Let { expr, .. } = &function.body[0].kind else {
+        panic!("first statement should call fs before wrapping the result");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Try(value) if matches!(
+            &value.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::StandardLibraryBuiltin(name),
+                ..
+            } if name == "fs::read_to_string"
+        )
+    ));
+}
+
+#[test]
 fn suggests_list_try_map_for_result_returning_map_callback() {
     let source = SourceFile::new(
         "main.veln",
@@ -7758,6 +7839,105 @@ fn task_calls_require_concurrency_effect() {
     let details = diagnostics[0].details.to_json();
     assert!(details.contains("\"effect\":\"concurrency\""));
     assert!(details.contains("\"symbol\":\"task::spawn\""));
+}
+
+#[test]
+fn fs_calls_require_fs_effect_with_descriptor_provenance() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(path: Path) -> Result(String, FsError) effects []\n",
+            "  fs::read_to_string(path)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `fs`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"fs\""));
+    assert!(details.contains("\"inferred_effects\":[\"fs\"]"));
+    assert!(details.contains("\"symbol\":\"fs::read_to_string\""));
+}
+
+#[test]
+fn process_calls_require_process_effect_with_descriptor_provenance() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> List(String) effects []\n",
+            "  process::args()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `process`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"process\""));
+    assert!(details.contains("\"symbol\":\"process::args\""));
+}
+
+#[test]
+fn fs_and_process_calls_lower_to_standard_library_builtins() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(path: Path, key: String) -> Result(String, FsError) effects [fs, process]\n",
+            "  let cwd: Result(Path, ProcessError) = process::cwd()\n",
+            "  let present: Option(String) = process::env(key)\n",
+            "  fs::read_to_string(path)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("fs and process calls should lower");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Let { value, .. } = &main.body[0].kind else {
+        panic!("cwd call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "process::cwd"
+    ));
+    let IrStmtKind::Return { value } = &main.body[2].kind else {
+        panic!("fs call should lower as tail return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "fs::read_to_string"
+    ));
 }
 
 #[test]

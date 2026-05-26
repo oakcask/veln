@@ -10,7 +10,7 @@ use veln_ir::{
 use crate::emit::program::ProgramEmitter;
 use crate::java::{
     binary_method, concurrency_method, java_string, prelude_method, sanitize_identifier_text,
-    stdio_method, unique_java_identifier, veln_string_literal_value,
+    standard_library_method, stdio_method, unique_java_identifier, veln_string_literal_value,
 };
 
 pub(crate) struct FunctionEmitter<'a, 'program> {
@@ -327,6 +327,14 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
                     "{}.{}({})",
                     self.program.options.runtime_class,
                     concurrency_method(name),
+                    java_args.join(", ")
+                )
+            }
+            IrCallTarget::StandardLibraryBuiltin(name) => {
+                format!(
+                    "{}.{}({})",
+                    self.program.options.runtime_class,
+                    standard_library_method(name),
                     java_args.join(", ")
                 )
             }
