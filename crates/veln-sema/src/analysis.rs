@@ -2834,6 +2834,11 @@ impl<'a> FunctionChecker<'a> {
             .filter(|binding| {
                 let replaced = replace_identifier(&satisfy.predicate, candidate, &binding.name);
                 predicate_guaranteed_by_required_predicates(&replaced, &required_predicates)
+                    || (binding.ty == Type::int()
+                        && int_successor_predicate_guaranteed_by_required_predicates(
+                            &replaced,
+                            &required_predicates,
+                        ))
             })
             .map(|binding| SatisfyAllowedBinding {
                 name: binding.name.clone(),
@@ -3753,6 +3758,97 @@ fn predicate_guaranteed_by_required_predicates(
             !disjunct_clauses.is_empty()
                 && disjunct_clauses.iter().all(|clause| {
                     repair_clause_guaranteed_by_required_predicates(clause, required_predicates)
+                })
+        })
+}
+
+fn int_successor_predicate_guaranteed_by_required_predicates(
+    predicate: &str,
+    required_predicates: &[String],
+) -> bool {
+    repair_relevant_or_clause_strings(predicate)
+        .into_iter()
+        .map(|disjunct| repair_relevant_and_clauses(&disjunct))
+        .any(|disjunct_clauses| {
+            !disjunct_clauses.is_empty()
+                && disjunct_clauses.iter().all(|clause| {
+                    repair_clause_guaranteed_by_required_predicates(clause, required_predicates)
+                        || int_successor_clause_guaranteed_by_required_predicates(
+                            clause,
+                            required_predicates,
+                        )
+                })
+        })
+}
+
+fn int_successor_clause_guaranteed_by_required_predicates(
+    clause: &str,
+    required_predicates: &[String],
+) -> bool {
+    required_predicates
+        .iter()
+        .any(|required| required_predicate_int_successor_implies_clause(required, clause))
+}
+
+fn required_predicate_int_successor_implies_clause(predicate: &str, wanted: &str) -> bool {
+    let predicate = strip_balanced_outer_parens(predicate);
+    let disjuncts = repair_relevant_or_clauses(predicate);
+    if disjuncts.len() > 1 {
+        return disjuncts
+            .into_iter()
+            .all(|disjunct| required_predicate_int_successor_implies_clause(disjunct, wanted));
+    }
+    if disjuncts.is_empty() {
+        return false;
+    }
+    let conjuncts = split_top_level_keyword(disjuncts[0], "and");
+    if conjuncts.len() > 1 {
+        return conjuncts
+            .into_iter()
+            .any(|conjunct| required_predicate_int_successor_implies_clause(conjunct, wanted));
+    }
+    let canonical = canonical_repair_clause(disjuncts[0]);
+    int_successor_repair_clause_implies(&canonical, wanted)
+}
+
+fn int_successor_repair_clause_implies(required: &str, wanted: &str) -> bool {
+    let Some(required) = NormalizedRepairComparison::parse(required) else {
+        return false;
+    };
+    let Some(wanted) = NormalizedRepairComparison::parse(wanted) else {
+        return false;
+    };
+    if required.operator != "<" || wanted.operator != "<=" {
+        return false;
+    }
+    int_successor_lower_bound_implies(&required, &wanted)
+        || int_successor_upper_bound_implies(&required, &wanted)
+}
+
+fn int_successor_lower_bound_implies(
+    required: &NormalizedRepairComparison<'_>,
+    wanted: &NormalizedRepairComparison<'_>,
+) -> bool {
+    compact_predicate_text(required.right) == compact_predicate_text(wanted.right)
+        && repair_numeric_order_literal(required.left).is_some_and(|required_literal| {
+            required_literal.is_integer()
+                && repair_numeric_order_literal(wanted.left).is_some_and(|wanted_literal| {
+                    wanted_literal.is_integer()
+                        && Some(wanted_literal) == required_literal.add_int(1)
+                })
+        })
+}
+
+fn int_successor_upper_bound_implies(
+    required: &NormalizedRepairComparison<'_>,
+    wanted: &NormalizedRepairComparison<'_>,
+) -> bool {
+    compact_predicate_text(required.left) == compact_predicate_text(wanted.left)
+        && repair_numeric_order_literal(required.right).is_some_and(|required_literal| {
+            required_literal.is_integer()
+                && repair_numeric_order_literal(wanted.right).is_some_and(|wanted_literal| {
+                    wanted_literal.is_integer()
+                        && Some(wanted_literal) == required_literal.add_int(-1)
                 })
         })
 }
@@ -4845,6 +4941,14 @@ impl RepairRational {
                 .checked_add(other.numerator.checked_mul(self.denominator)?)?,
             self.denominator.checked_mul(other.denominator)?,
         )
+    }
+
+    fn add_int(self, integer: i128) -> Option<Self> {
+        self.add(Self::from_raw(integer, 1)?)
+    }
+
+    fn is_integer(&self) -> bool {
+        self.denominator == 1
     }
 
     fn sub(self, other: Self) -> Option<Self> {

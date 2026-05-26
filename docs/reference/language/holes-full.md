@@ -379,6 +379,10 @@ Numeric literal bounds in repair matching may include pure literal `+`, `-`,
 `*`, and comparison-only `/` subexpressions, so `require max > 1 + 1`
 guarantees `candidate > 2` after substituting `max`, and
 `require max > 1 / 3` guarantees `candidate > 0.3` after substituting `max`.
+For `Int` repair candidates, strict integer literal bounds also discharge the
+adjacent inclusive integer literal bound: `require max > 0` guarantees
+`candidate >= 1` after substituting `max`, and `require min < 10` guarantees
+`candidate <= 9` after substituting `min`.
 Numeric literal bounds also discharge disequality against excluded numeric
 literals over the same subject. For example, `require max > 10` guarantees
 `candidate != 0` after substituting `max`, and `require ratio <= -0.5`
