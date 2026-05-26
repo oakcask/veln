@@ -12,6 +12,14 @@ until code and tests support it.
 - [language/source-decisions.md](language/source-decisions.md): route to
   rationale when current behavior needs context.
 
+## Fast Routes
+
+- Implemented behavior: `language/README.md`, then `language/topic-map.md`.
+- Rationale for implemented behavior: `language/source-decisions.md`, then one
+  source-decision category.
+- Research support behind rationale: `bibliography/README.md`, then one short
+  bibliography route page.
+
 ## Read When
 
 - Source language, contract, hole, command, JSON-output, runtime, or example
@@ -36,5 +44,7 @@ until code and tests support it.
   section.
 - Do not scan individual source-decision records before a topic route points to
   one.
+- Do not open bibliography full records before a source family, claim, or
+  reference route selects the relevant source.
 - Use [../document-status.md](../document-status.md) before moving text between
   proposal, review, phase, and reference areas.

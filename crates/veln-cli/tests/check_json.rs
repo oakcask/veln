@@ -1589,6 +1589,48 @@ fn check_human_reports_contract_missing_record_field() {
 }
 
 #[test]
+fn check_json_reports_contract_missing_call_result_field_details() {
+    let project = TestProject::new("contract-missing-call-result-field-json");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn summary(value: Int) -> {total: Int} effects []\n",
+            "  {total: value}\n",
+            "end\n",
+            "pub fn main(value: Int) -> Int effects []\n",
+            "require summary(value).missing == 1\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"contract.field_missing\"",
+            "\"severity\":\"error\"",
+            "\"kind\":\"contract\"",
+            "\"message\":\"contract field `missing` is not present on `{total: Int}`\"",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":5,\"column\":1",
+            "\"details\":{\"phase\":\"contract\"",
+            "\"clause\":\"require\"",
+            "\"predicate_text\":\"summary(value).missing == 1\"",
+            "\"validation_status\":\"invalid\"",
+            "\"obligation_status\":\"failed_static\"",
+            "\"reason\":\"missing_field\"",
+            "\"runtime_required\":false",
+            "\"referenced_bindings\":[{\"name\":\"value\",\"kind\":\"local\"}]",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"contract\":1}}",
+        ],
+    );
+}
+
+#[test]
 fn check_human_reports_contract_missing_call_result_field() {
     let project = TestProject::new("contract-missing-call-result-field");
     project.write(

@@ -31,6 +31,13 @@ Choose one route and stop when the linked short page answers the question.
   [reviews/README.md](reviews/README.md).
 - Reconstructing implementation order: [phases/README.md](phases/README.md).
 
+## Research Support
+
+- Auditing sources behind a decision or claim:
+  [reference/bibliography/README.md](reference/bibliography/README.md).
+- Start with source families when the topic is known, claim map when the claim
+  is known, and reference metadata only when exact source details are needed.
+
 ## Status Work
 
 - Moving text between proposal, review, phase, and reference areas:
@@ -44,6 +51,8 @@ Choose one route and stop when the linked short page answers the question.
   `proposals/implementation-route.md` for the selected target.
 - Rationale work: current reference page first, then
   `reference/language/source-decisions.md`, then one source-decision category.
+- Research-source work: `reference/bibliography/README.md` first, then one
+  short bibliography route page, then one matching full source section.
 - Status or movement work: `document-status.md` before editing labels or moving
   text between directories.
 
@@ -53,3 +62,5 @@ Choose one route and stop when the linked short page answers the question.
   already matches the task.
 - Do not open `*-full.md` files before a short route page names the relevant
   section.
+- Do not read bibliography details before a rationale or claim route needs
+  source support.

@@ -23,6 +23,16 @@ Start from [README.md](README.md) when you only need a reading route.
 - Treat `reference/language/` as the current behavior source before changing
   code, tests, diagnostics, or samples.
 
+## Entry Pages
+
+- Keep top-level and directory README files as routing pages.
+- Keep expected topic paths short when a file grows around historical detail;
+  move the long body behind a sibling `*-full.md` file.
+- Link from short pages to the specific full section needed for a task instead
+  of asking readers to scan a full record.
+- Keep status and promotion rules in this file; keep current behavior in
+  `reference/language/`.
+
 ## Directories
 
 - `reference/language/` is the first stop for implemented language behavior.
@@ -49,3 +59,6 @@ Use these status labels at the top of durable specification documents:
   tests support it.
 - Do not use phase or review files as the source for current behavior when
   `reference/language/` has a matching page.
+- Do not add new long background sections to a README when a short route plus a
+  full detail page would preserve the same content with less first-pass
+  reading.

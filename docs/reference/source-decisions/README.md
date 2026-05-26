@@ -30,6 +30,14 @@ read these records only for rationale or compatibility context.
 - [process-rationale.md](process-rationale.md): decision placement, comparison
   tasks, and repair policy.
 
+## Category Route Order
+
+- Start with [topic-map.md](topic-map.md) when the category is unclear.
+- Open exactly one category page for the task area.
+- Open an individual `result-*.md` record only when the category page names it.
+- Return to `../language/` before treating any rationale text as current
+  behavior.
+
 ## History
 
 - [result-index.md](result-index.md): audit route for deduplication or moving a

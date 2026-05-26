@@ -6,6 +6,8 @@ until a short page points to them.
 
 ## Read First
 
+- Most tasks should open exactly one of the first two routes below, then stop
+  when that route answers the question.
 - [reference/language/README.md](reference/language/README.md): current
   implemented language behavior.
 - [proposals/README.md](proposals/README.md): accepted or open implementation
@@ -19,6 +21,10 @@ until a short page points to them.
 
 - Current behavior work: use [reference/language/README.md](reference/language/README.md).
 - Proposal implementation work: use [proposals/target-queue.md](proposals/target-queue.md).
+- Rationale or compatibility work: use
+  [reference/language/source-decisions.md](reference/language/source-decisions.md).
+- Research-source audit work: use
+  [reference/bibliography/README.md](reference/bibliography/README.md).
 - Any other documentation route: use [navigation.md](navigation.md).
 
 ## Directory Map
@@ -38,3 +44,5 @@ until a short page points to them.
   behavior question.
 - Do not treat proposal text as implemented behavior unless the reference also
   states it.
+- Do not open bibliography records unless a source-decision or claim audit
+  needs citation support.
