@@ -44,11 +44,13 @@ The implemented semantic token types are standard LSP token types:
 | type name | `type` | none |
 | effect label | `enumMember` | none |
 | record or field-access field | `property` | none |
-| named hole | `variable` | `hole` |
+| unnamed or named hole | `variable` | `hole` |
 | prelude function | `function` | `defaultLibrary` |
 
 Lexical fallback also classifies comments, strings, numbers, keywords, and
 operators with the matching standard LSP token types.
+The contextual `satisfy` marker and boolean literals are highlighted as
+keywords.
 
 The only Veln-specific semantic token modifiers are `test`, `result`, and
 `hole`.
@@ -88,7 +90,8 @@ unsaved editor content.
 Implemented:
 
 - TextMate fallback grammar for comments, strings, numbers, keywords,
-  operators, punctuation, holes, type-like identifiers, and identifiers.
+  operators, punctuation, unnamed and named holes, type-like identifiers, and
+  identifiers.
 - Editor-neutral semantic token records.
 - Full semantic-token legend and integer data generation for LSP clients.
 - Stdio JSON-RPC lifecycle for semantic highlighting requests.

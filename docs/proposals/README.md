@@ -1,7 +1,7 @@
 # Proposals
 
-This directory keeps accepted or open design targets that are not fully
-implemented in the current workspace.
+This directory keeps accepted or open design targets and short promotion notes
+for targets that have moved into the current language reference.
 
 ## Read First
 
@@ -24,9 +24,11 @@ implemented in the current workspace.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md) for
   accepted standard library and compiler-known intrinsic work needed for
   eventual self-hosting.
-- Use [editor-semantic-highlighting.md](editor-semantic-highlighting.md) for
-  the open proposal to add TextMate fallback highlighting and LSP semantic
-  tokens for editors.
+- Editor semantic highlighting has moved into current behavior; use
+  [../reference/language/editor-support.md](../reference/language/editor-support.md)
+  first, and open
+  [editor-semantic-highlighting.md](editor-semantic-highlighting.md) only for
+  proposal history.
 - Use [toolchain-test-harness.md](toolchain-test-harness.md) for the open
   proposal to standardize command-line integration test cases.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)

@@ -67,7 +67,7 @@
       "patterns": [
         {
           "name": "variable.other.hole.veln",
-          "match": "\\b_[A-Za-z0-9_]+\\b"
+          "match": "\\b_[A-Za-z0-9_]*\\b"
         }
       ]
     },
@@ -75,7 +75,7 @@
       "patterns": [
         {
           "name": "keyword.control.veln",
-          "match": "\\b(pub|fn|test|effects|let|end|require|ensure|invariant|mod|use|match|or|and|not)\\b"
+          "match": "\\b(pub|fn|test|effects|let|end|require|ensure|invariant|mod|use|match|or|and|not|satisfy|true|false)\\b"
         }
       ]
     },

@@ -387,11 +387,12 @@ impl<'a> Classifier<'a> {
     }
 
     fn collect_let_pattern(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        let mut depth = 0usize;
         while !self.at(TokenKind::Equal) && !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof)
         {
             let token = &self.tokens[self.cursor];
             if token.kind == TokenKind::Ident {
-                if self.next_significant_kind() == Some(TokenKind::Colon) {
+                if depth > 0 && self.next_significant_kind() == Some(TokenKind::Colon) {
                     semantic_tokens.push(self.simple(token, SemanticTokenType::Property));
                 } else if is_type_name(&token.text) {
                     semantic_tokens.push(self.simple(token, SemanticTokenType::Type));
@@ -409,6 +410,13 @@ impl<'a> Classifier<'a> {
             } else if let Some(classified) = self.classify_current_token() {
                 semantic_tokens.push(classified);
             }
+            match token.kind {
+                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
+                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                    depth = depth.saturating_sub(1);
+                }
+                _ => {}
+            }
             self.cursor += 1;
         }
     }
@@ -424,7 +432,7 @@ impl<'a> Classifier<'a> {
             TokenKind::Int | TokenKind::Float => {
                 Some(self.simple(token, SemanticTokenType::Number))
             }
-            TokenKind::Hole => Some(self.modified(
+            TokenKind::Hole | TokenKind::Underscore => Some(self.modified(
                 token,
                 SemanticTokenType::Variable,
                 &[SemanticTokenModifier::Hole],
@@ -459,7 +467,6 @@ impl<'a> Classifier<'a> {
             | TokenKind::FatArrow
             | TokenKind::PipeGreater
             | TokenKind::Question
-            | TokenKind::Underscore
             | TokenKind::Equal
             | TokenKind::EqualEqual
             | TokenKind::BangEqual
@@ -475,6 +482,17 @@ impl<'a> Classifier<'a> {
     }
 
     fn classify_ident(&self, token: &Token) -> SemanticToken {
+        if matches!(token.text.as_str(), "true" | "false") {
+            return self.simple(token, SemanticTokenType::Keyword);
+        }
+        if token.text == "satisfy"
+            && matches!(
+                self.previous_significant_kind(),
+                Some(TokenKind::Hole | TokenKind::Underscore)
+            )
+        {
+            return self.simple(token, SemanticTokenType::Keyword);
+        }
         if self.previous_significant_kind() == Some(TokenKind::Dot) {
             return self.simple(token, SemanticTokenType::Property);
         }
@@ -777,6 +795,91 @@ mod tests {
                 SemanticTokenType::Variable,
                 SemanticTokenModifiers::empty()
                     .with(SemanticTokenModifier::Hole)
+                    .bits()
+            ))
+        );
+        assert!(tokens.contains(&(
+            "satisfy".to_string(),
+            SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+    }
+
+    #[test]
+    fn collector_classifies_unnamed_holes_and_boolean_literals() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn main(flag: Bool) -> Bool\n",
+                "  _ satisfy candidate => true\n",
+                "end\n"
+            ),
+        );
+
+        let tokens = collect_text(&source);
+
+        assert!(
+            tokens.contains(&(
+                "_".to_string(),
+                SemanticTokenType::Variable,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Hole)
+                    .bits()
+            ))
+        );
+        assert!(tokens.contains(&(
+            "true".to_string(),
+            SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+    }
+
+    #[test]
+    fn collector_keeps_let_bindings_distinct_from_record_fields() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn main(value: {count: Int}) -> Int\n",
+                "  let message: String = \"ready\"\n",
+                "  let {count: amount}: {count: Int} = value\n",
+                "  amount\n",
+                "end\n"
+            ),
+        );
+
+        let tokens = collect_text(&source);
+
+        assert!(
+            tokens.contains(&(
+                "message".to_string(),
+                SemanticTokenType::Variable,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
+        assert!(tokens.contains(&(
+            "count".to_string(),
+            SemanticTokenType::Property,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(
+            tokens.contains(&(
+                "amount".to_string(),
+                SemanticTokenType::Variable,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .with(SemanticTokenModifier::Readonly)
+                    .bits()
+            ))
+        );
+        assert!(
+            tokens.contains(&(
+                "amount".to_string(),
+                SemanticTokenType::Variable,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Readonly)
                     .bits()
             ))
         );
