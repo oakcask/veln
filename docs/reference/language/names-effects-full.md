@@ -139,9 +139,8 @@ test that calls one of them directly or through a private helper must declare
 `fs` in its `effects [...]` list.
 
 `Path` is a source-visible named type at this boundary. The current runtime
-represents path values as strings, and assignment compatibility permits
-`String` and `Path` to cross this boundary until an opaque path representation
-exists.
+represents path values with host strings, but assignment compatibility does not
+allow `String` and `Path` to cross this boundary.
 
 File-system calls return `Result` values instead of throwing host I/O
 exceptions into Veln execution. `Ok` carries the successful value. `Err`

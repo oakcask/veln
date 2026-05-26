@@ -7869,6 +7869,53 @@ fn fs_calls_require_fs_effect_with_descriptor_provenance() {
 }
 
 #[test]
+fn fs_calls_require_path_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(path: String) -> Result(String, FsError) effects [fs]\n",
+            "  fs::read_to_string(path)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `Path`, but found `String`"
+    );
+}
+
+#[test]
+fn process_cwd_path_return_is_not_assignable_to_string() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> Result(String, ProcessError) effects [process]\n",
+            "  let cwd: Result(String, ProcessError) = process::cwd()\n",
+            "  cwd\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `Result(String, ProcessError)`, but found `Result(Path, ProcessError)`"
+    );
+}
+
+#[test]
 fn process_calls_require_process_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
