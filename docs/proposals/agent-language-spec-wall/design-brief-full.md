@@ -80,7 +80,7 @@ code, get structured information, fill holes, and run focused checks.
 - `Result` and `Option` should be in the core model, but the syntax for their
   constructors can remain conventional until examples show friction.
 - Resolved by
-  [Safe Repair Candidate Boundary](../../reference/source-decisions/result-safe-repair-candidate-boundary.md):
+  [Safe Repair Candidate Boundary](../../reference/source-decisions/records/result-safe-repair-candidate-boundary.md):
   `safe repair` should initially mean a machine-readable candidate with reason,
   evidence, limits, and verification hints, not automatic edit application.
 - Test selection should prefer false positives over false negatives. If the
@@ -88,13 +88,13 @@ code, get structured information, fill holes, and run focused checks.
 
 ## Next Discussion Topics
 
-1. Resolved by [First-Slice Grammar](../../reference/source-decisions/result-first-slice-grammar.md): pick the
+1. Resolved by [First-Slice Grammar](../../reference/source-decisions/records/result-first-slice-grammar.md): pick the
    exact first-slice grammar.
 2. Define the JSON shape for `veln check --json`.
 3. Decide how holes, contracts, and effects appear in the AST.
 4. Choose whether the first interpreter evaluates code with holes or only checks
    it.
 5. Resolved by
-   [Comparison Example Task](../../reference/source-decisions/result-comparison-example-task.md):
+   [Comparison Example Task](../../reference/source-decisions/records/result-comparison-example-task.md):
    write comparison examples against Ruby, Python, TypeScript, Elixir, and Rust
    using one line-item order summary task.

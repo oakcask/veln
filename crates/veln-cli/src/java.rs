@@ -241,3 +241,117 @@ fn exit_code_from_status(status: ExitStatus) -> ExitCode {
         Some(_) | None => ExitCode::from(1),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use veln_backend_jvm::{JavaProgram, JavaSourceFile};
+
+    static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
+
+    fn java_program(sources: &[(&str, &str)]) -> JavaProgram {
+        JavaProgram {
+            sources: sources
+                .iter()
+                .map(|(path, contents)| JavaSourceFile {
+                    path: (*path).to_string(),
+                    contents: (*contents).to_string(),
+                })
+                .collect(),
+        }
+    }
+
+    fn temp_root(name: &str) -> PathBuf {
+        let id = NEXT_TEST_DIR.fetch_add(1, Ordering::Relaxed);
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let root = env::temp_dir().join(format!(
+            "veln-cli-java-test-{name}-{}-{nanos}-{id}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).expect("test root should be created");
+        root
+    }
+
+    #[test]
+    fn java_cache_key_tracks_source_path_contents_and_order() {
+        let base = java_program(&[
+            ("VelnProgram.java", "class VelnProgram {}"),
+            ("VelnRuntime.java", "class VelnRuntime {}"),
+        ]);
+        let changed_contents = java_program(&[
+            ("VelnProgram.java", "class VelnProgram { int value; }"),
+            ("VelnRuntime.java", "class VelnRuntime {}"),
+        ]);
+        let changed_path = java_program(&[
+            ("Entry.java", "class VelnProgram {}"),
+            ("VelnRuntime.java", "class VelnRuntime {}"),
+        ]);
+        let changed_order = java_program(&[
+            ("VelnRuntime.java", "class VelnRuntime {}"),
+            ("VelnProgram.java", "class VelnProgram {}"),
+        ]);
+
+        let base_key = java_cache_key(&base);
+
+        assert_eq!(base_key.len(), 16);
+        assert!(base_key.chars().all(|ch| ch.is_ascii_hexdigit()));
+        assert_ne!(base_key, java_cache_key(&changed_contents));
+        assert_ne!(base_key, java_cache_key(&changed_path));
+        assert_ne!(base_key, java_cache_key(&changed_order));
+    }
+
+    #[test]
+    fn fnv64_hash_matches_incremental_writes() {
+        let mut all_at_once = Fnv64::new();
+        all_at_once.write(b"left-right");
+
+        let mut incremental = Fnv64::new();
+        incremental.write(b"left");
+        incremental.write(b"-");
+        incremental.write(b"right");
+
+        assert_eq!(all_at_once.finish(), incremental.finish());
+    }
+
+    #[test]
+    fn cache_compile_dirs_are_unique_and_markers_stay_inside_them() {
+        let root = temp_root("compile-dir");
+
+        let first =
+            create_cache_compile_dir(&root, "cache-key").expect("first dir should be created");
+        let second =
+            create_cache_compile_dir(&root, "cache-key").expect("second dir should be created");
+
+        assert_ne!(first, second);
+        assert!(first.is_dir());
+        assert!(second.is_dir());
+        assert_eq!(marker_for(&first), first.join(".veln-cache-ok"));
+        assert_eq!(marker_for(&second), second.join(".veln-cache-ok"));
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn exit_code_from_status_maps_success_failure_and_signal_statuses() {
+        use std::os::unix::process::ExitStatusExt;
+
+        assert_eq!(
+            exit_code_from_status(ExitStatus::from_raw(0)),
+            ExitCode::from(0)
+        );
+        assert_eq!(
+            exit_code_from_status(ExitStatus::from_raw(42 << 8)),
+            ExitCode::from(42)
+        );
+        assert_eq!(
+            exit_code_from_status(ExitStatus::from_raw(9)),
+            ExitCode::from(1)
+        );
+    }
+}

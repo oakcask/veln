@@ -9,7 +9,8 @@ exact rules or examples.
   `hole.unfilled`, partial check status, and stable diagnostic detail fields.
 - [Repair candidates](holes-full.md#repair-candidates) defines
   candidate query records, ranking, application policy, and safe repair
-  candidates, including boolean alias and predicate implication cases.
+  candidates, including boolean alias, predicate implication, and adjacent
+  integer-bound cases.
 - [Satisfy constraints](holes-full.md#satisfy-constraints) defines `satisfy`
   parsing, candidate scoping, validation, and static satisfaction.
 

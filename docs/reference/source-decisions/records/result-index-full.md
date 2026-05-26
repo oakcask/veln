@@ -2,14 +2,14 @@
 
 Use this page only when auditing all implemented source-decision records,
 checking for duplicate rationale, or moving a record between topic routes. For
-normal implementation work, start with [README.md](README.md) and choose the
+normal implementation work, start with [../README.md](../README.md) and choose the
 smallest category page.
 
 ## Read First
 
-- Current implemented behavior: [../language/README.md](../language/README.md).
-- Category route: [README.md](README.md).
-- Short audit route: [result-index.md](result-index.md).
+- Current implemented behavior: [../../language/README.md](../../language/README.md).
+- Category route: [../README.md](../README.md).
+- Short audit route: [../result-index.md](../result-index.md).
 
 ## Records
 

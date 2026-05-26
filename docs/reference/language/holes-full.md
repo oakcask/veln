@@ -382,7 +382,10 @@ guarantees `candidate > 2` after substituting `max`, and
 For `Int` repair candidates, strict integer literal bounds also discharge the
 adjacent inclusive integer literal bound: `require max > 0` guarantees
 `candidate >= 1` after substituting `max`, and `require min < 10` guarantees
-`candidate <= 9` after substituting `min`.
+`candidate <= 9` after substituting `min`. Inclusive integer literal bounds
+also discharge the adjacent strict integer literal bound: `require max >= 10`
+guarantees `candidate > 9` after substituting `max`, and `require min <= 10`
+guarantees `candidate < 11` after substituting `min`.
 Numeric literal bounds also discharge disequality against excluded numeric
 literals over the same subject. For example, `require max > 10` guarantees
 `candidate != 0` after substituting `max`, and `require ratio <= -0.5`

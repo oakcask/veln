@@ -33,12 +33,12 @@ non-identifier-key dictionary literals.
 
 The implemented grammar now lives in the categorized language reference:
 
-- [Source Surface](../language/source-surface.md) defines modules, items,
+- [Source Surface](../../language/source-surface.md) defines modules, items,
   declarations, statements, expressions, patterns, contracts, and explicit
   non-goals.
-- [Types](../language/types.md) defines implemented type annotations and
+- [Types](../../language/types.md) defines implemented type annotations and
   assignment compatibility.
-- [Contracts And Holes](../language/contracts-holes.md) defines contract and
+- [Contracts And Holes](../../language/contracts-holes.md) defines contract and
   `satisfy` checking behavior.
 
 This discussion result records the original decision and rationale. Later
@@ -123,7 +123,7 @@ calls, records, lists, matches, and tail positions.
 This decision does not freeze the final concrete syntax for package manifests,
 foreign declarations, doctest fences, or future user-defined data type
 declarations. Test declaration syntax is resolved by
-[Test Declaration Syntax](../../reference/source-decisions/result-test-declaration-syntax.md),
+[Test Declaration Syntax](result-test-declaration-syntax.md),
 which adds a top-level `test` item and supersedes treating ordinary
 zero-argument `fn` declarations as durable test syntax.
 
@@ -132,7 +132,7 @@ Record expressions and record patterns intentionally require explicit
 rest patterns, spreads, and update syntax remain open syntax questions.
 
 Contract clauses use a narrower predicate production than full `Expr`; see
-[Contract Predicate Parsing](../../reference/source-decisions/result-contract-predicate-parsing.md) for the
+[Contract Predicate Parsing](result-contract-predicate-parsing.md) for the
 implementation rule.
 
 The grammar sketch allows record types with `{ field: Type }`, but the parser

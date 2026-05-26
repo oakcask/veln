@@ -20,29 +20,29 @@ behavior needs rationale or compatibility context.
 
 ## Commands And Discovery
 
-- [First Implementation Commands](result-first-implementation-commands.md)
-- [Minimal Project and Test Discovery](result-minimal-project-test-discovery.md)
-- [Primary Check Command](result-primary-check-command.md)
+- [First Implementation Commands](records/result-first-implementation-commands.md)
+- [Minimal Project and Test Discovery](records/result-minimal-project-test-discovery.md)
+- [Primary Check Command](records/result-primary-check-command.md)
 
 ## JSON Output
 
-- [Check JSON Details Fields](result-check-json-details-fields.md)
-- [Hole Diagnostic JSON Shape](result-hole-diagnostic-json-shape.md)
-- [JSON Diagnostic Schema Stability](result-json-diagnostic-schema-stability.md)
-- [Test JSON Shape](result-test-json-shape.md)
+- [Check JSON Details Fields](records/result-check-json-details-fields.md)
+- [Hole Diagnostic JSON Shape](records/result-hole-diagnostic-json-shape.md)
+- [JSON Diagnostic Schema Stability](records/result-json-diagnostic-schema-stability.md)
+- [Test JSON Shape](records/result-test-json-shape.md)
 
 ## Tests And Doctests
 
-- [Affected Test Selection](result-affected-test-selection.md)
-- [Doctest Error Type Fence Syntax](result-doctest-error-type-fence-syntax.md)
-- [Doctest Expected Output Syntax](result-doctest-expected-output-syntax.md)
-- [Doctest Result Propagation](result-doctest-result-propagation.md)
+- [Affected Test Selection](records/result-affected-test-selection.md)
+- [Doctest Error Type Fence Syntax](records/result-doctest-error-type-fence-syntax.md)
+- [Doctest Expected Output Syntax](records/result-doctest-expected-output-syntax.md)
+- [Doctest Result Propagation](records/result-doctest-result-propagation.md)
 
 ## Runtime Output
 
-- [First-Slice Observable I/O](result-first-slice-observable-io.md)
-- [Runtime Contract Failure Reporting](result-runtime-contract-failure-reporting.md)
-- [Stdio API and Output Events](result-stdio-api-and-output-events.md)
+- [First-Slice Observable I/O](records/result-first-slice-observable-io.md)
+- [Runtime Contract Failure Reporting](records/result-runtime-contract-failure-reporting.md)
+- [Stdio API and Output Events](records/result-stdio-api-and-output-events.md)
 
 ## Skip Unless Needed
 

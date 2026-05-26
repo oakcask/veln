@@ -21,13 +21,13 @@ policy need rationale.
 
 ## Documentation And Evaluation
 
-- [ADR-Lite Decision Location](result-adr-lite-decision-location.md)
-- [Comparison Example Task](result-comparison-example-task.md)
+- [ADR-Lite Decision Location](records/result-adr-lite-decision-location.md)
+- [Comparison Example Task](records/result-comparison-example-task.md)
 
 ## Repair And Diagnostics Policy
 
-- [Safe Repair Candidate Boundary](result-safe-repair-candidate-boundary.md)
-- [Satisfy Unknown Severity](result-satisfy-unknown-severity.md)
+- [Safe Repair Candidate Boundary](records/result-safe-repair-candidate-boundary.md)
+- [Satisfy Unknown Severity](records/result-satisfy-unknown-severity.md)
 
 ## Skip Unless Needed
 

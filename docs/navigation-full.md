@@ -61,6 +61,8 @@ question.
   only the directory whose classification is changing.
 - Rationale work: current reference page first, then
   `reference/language/source-decisions.md`, then one source-decision category.
+  Open `reference/source-decisions/records/` only when that category names one
+  record.
 - Research-source work: `reference/bibliography/README.md` first, then one
   short bibliography route page, then one matching full source section.
 - Status or movement work: `document-status.md` before editing labels or moving

@@ -3818,14 +3818,30 @@ fn int_successor_repair_clause_implies(required: &str, wanted: &str) -> bool {
     let Some(wanted) = NormalizedRepairComparison::parse(wanted) else {
         return false;
     };
-    if required.operator != "<" || wanted.operator != "<=" {
-        return false;
+    match (required.operator, wanted.operator) {
+        ("<", "<=") => strict_int_bound_implies_adjacent_inclusive(&required, &wanted),
+        ("<=", "<") => inclusive_int_bound_implies_adjacent_strict(&required, &wanted),
+        _ => false,
     }
-    int_successor_lower_bound_implies(&required, &wanted)
-        || int_successor_upper_bound_implies(&required, &wanted)
 }
 
-fn int_successor_lower_bound_implies(
+fn strict_int_bound_implies_adjacent_inclusive(
+    required: &NormalizedRepairComparison<'_>,
+    wanted: &NormalizedRepairComparison<'_>,
+) -> bool {
+    strict_int_lower_bound_implies_adjacent_inclusive(required, wanted)
+        || strict_int_upper_bound_implies_adjacent_inclusive(required, wanted)
+}
+
+fn inclusive_int_bound_implies_adjacent_strict(
+    required: &NormalizedRepairComparison<'_>,
+    wanted: &NormalizedRepairComparison<'_>,
+) -> bool {
+    inclusive_int_lower_bound_implies_adjacent_strict(required, wanted)
+        || inclusive_int_upper_bound_implies_adjacent_strict(required, wanted)
+}
+
+fn strict_int_lower_bound_implies_adjacent_inclusive(
     required: &NormalizedRepairComparison<'_>,
     wanted: &NormalizedRepairComparison<'_>,
 ) -> bool {
@@ -3839,7 +3855,7 @@ fn int_successor_lower_bound_implies(
         })
 }
 
-fn int_successor_upper_bound_implies(
+fn strict_int_upper_bound_implies_adjacent_inclusive(
     required: &NormalizedRepairComparison<'_>,
     wanted: &NormalizedRepairComparison<'_>,
 ) -> bool {
@@ -3849,6 +3865,34 @@ fn int_successor_upper_bound_implies(
                 && repair_numeric_order_literal(wanted.right).is_some_and(|wanted_literal| {
                     wanted_literal.is_integer()
                         && Some(wanted_literal) == required_literal.add_int(-1)
+                })
+        })
+}
+
+fn inclusive_int_lower_bound_implies_adjacent_strict(
+    required: &NormalizedRepairComparison<'_>,
+    wanted: &NormalizedRepairComparison<'_>,
+) -> bool {
+    compact_predicate_text(required.right) == compact_predicate_text(wanted.right)
+        && repair_numeric_order_literal(required.left).is_some_and(|required_literal| {
+            required_literal.is_integer()
+                && repair_numeric_order_literal(wanted.left).is_some_and(|wanted_literal| {
+                    wanted_literal.is_integer()
+                        && Some(wanted_literal) == required_literal.add_int(-1)
+                })
+        })
+}
+
+fn inclusive_int_upper_bound_implies_adjacent_strict(
+    required: &NormalizedRepairComparison<'_>,
+    wanted: &NormalizedRepairComparison<'_>,
+) -> bool {
+    compact_predicate_text(required.left) == compact_predicate_text(wanted.left)
+        && repair_numeric_order_literal(required.right).is_some_and(|required_literal| {
+            required_literal.is_integer()
+                && repair_numeric_order_literal(wanted.right).is_some_and(|wanted_literal| {
+                    wanted_literal.is_integer()
+                        && Some(wanted_literal) == required_literal.add_int(1)
                 })
         })
 }

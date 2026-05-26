@@ -139,8 +139,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   endpoint. Numeric literal equality requirements discharge weaker numeric
   literal bound `satisfy` clauses over the same subject. For `Int` repair
   candidates, strict integer literal bounds discharge adjacent inclusive
-  integer literal bounds. Numeric literal bounds may include pure literal
-  arithmetic subexpressions. Numeric literal equality
+  integer literal bounds, and inclusive integer literal bounds discharge
+  adjacent strict integer literal bounds. Numeric literal bounds may include
+  pure literal arithmetic subexpressions. Numeric literal equality
   requirements with pure literal arithmetic subexpressions also discharge
   disequality `satisfy` clauses against distinct numeric literals. Numeric
   disequality requirements discharge strict ordering disjunctions around the

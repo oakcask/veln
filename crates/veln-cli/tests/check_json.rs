@@ -2777,6 +2777,24 @@ fn run_reuses_cached_java_compilation() {
     assert_eq!(count.trim(), "1");
 }
 
+#[cfg(unix)]
+#[test]
+fn run_recompiles_cached_java_after_source_changes() {
+    let project = TestProject::new("run-build-cache-source-change");
+    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
+    let (bin, count_file) = project.bin_dir_with_counting_jdk();
+    let path = bin.to_str().expect("bin path should be UTF-8");
+
+    let first = project.run_with_path(&["main", "main.veln"], path);
+    project.write("main.veln", "pub fn main() -> Int effects []\n  1\nend\n");
+    let second = project.run_with_path(&["main", "main.veln"], path);
+
+    assert!(first.status.success(), "{}", stderr(&first));
+    assert!(second.status.success(), "{}", stderr(&second));
+    let count = fs::read_to_string(count_file).expect("javac count should be written");
+    assert_eq!(count.trim(), "2");
+}
+
 #[test]
 fn run_json_reports_runtime_contract_failures_when_jdk_is_available() {
     if !jdk_is_available() {

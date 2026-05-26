@@ -20,20 +20,20 @@ compatibility boundaries need rationale.
 
 ## Architecture And AST
 
-- [AST Implementation Representation](result-ast-implementation-representation.md)
-- [AST Phase Boundary](result-ast-phase-boundary.md)
-- [First Implementation Architecture](result-first-implementation-architecture.md)
-- [First Implementation Runtime Targets](result-first-implementation-runtime-targets.md)
-- [Module Metadata Location](result-module-metadata-location.md)
+- [AST Implementation Representation](records/result-ast-implementation-representation.md)
+- [AST Phase Boundary](records/result-ast-phase-boundary.md)
+- [First Implementation Architecture](records/result-first-implementation-architecture.md)
+- [First Implementation Runtime Targets](records/result-first-implementation-runtime-targets.md)
+- [Module Metadata Location](records/result-module-metadata-location.md)
 
 ## Runtime Boundaries
 
-- [Channel-First Concurrency Runtime](result-channel-first-concurrency-runtime.md)
-- [Contract Blame Boundary](result-contract-blame-boundary.md)
-- [Hole Runtime Boundary](result-hole-runtime-boundary.md)
-- [Prelude Complexity Guarantees](result-prelude-complexity-guarantees.md)
-- [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md)
-- [Transitive Effect Diagnostics](result-transitive-effect-diagnostics.md)
+- [Channel-First Concurrency Runtime](records/result-channel-first-concurrency-runtime.md)
+- [Contract Blame Boundary](records/result-contract-blame-boundary.md)
+- [Hole Runtime Boundary](records/result-hole-runtime-boundary.md)
+- [Prelude Complexity Guarantees](records/result-prelude-complexity-guarantees.md)
+- [Runtime Value Freeze Boundary](records/result-runtime-value-freeze-boundary.md)
+- [Transitive Effect Diagnostics](records/result-transitive-effect-diagnostics.md)
 
 ## Skip Unless Needed
 

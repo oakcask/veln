@@ -9,7 +9,7 @@ against the implemented language reference.
 
 The comparison example is implemented in `examples/comparison/`. Its rationale
 is recorded in
-[Comparison Example Task](../source-decisions/result-comparison-example-task.md).
+[Comparison Example Task](../source-decisions/records/result-comparison-example-task.md).
 
 The pure API is:
 

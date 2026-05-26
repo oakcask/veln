@@ -1,15 +1,14 @@
 # Source Decision Record Index
 
-Use this page only when auditing implemented source-decision records, checking
-for duplicate rationale, or moving a record between topic routes. For normal
-implementation work, start with [README.md](README.md) and choose the smallest
-category page.
+Use this page only when auditing source-decision record placement or storage.
+For normal implementation work, start with [README.md](README.md) and choose
+the smallest category page.
 
 ## Read First
 
 - Current implemented behavior: [../language/README.md](../language/README.md).
 - Category route: [README.md](README.md).
-- Exhaustive record list: [result-index-full.md](result-index-full.md).
+- Record storage route: [records/README.md](records/README.md).
 
 ## Topic Routes
 
@@ -21,7 +20,8 @@ category page.
   boundaries: [implementation-boundaries.md](implementation-boundaries.md).
 - Decision placement, comparison tasks, repair policy, and diagnostic severity:
   [process-rationale.md](process-rationale.md).
-- Full alphabetical audit list: [result-index-full.md](result-index-full.md).
+- Storage-only exhaustive list:
+  [records/result-index-full.md](records/result-index-full.md).
 
 ## Skip Unless Needed
 

@@ -37,7 +37,7 @@ This result updates the first-slice grammar by adding `TestDecl` as a top-level
 item. Function type syntax still uses `fn`; `test` is only a declaration head.
 
 The implemented production is maintained in
-[Source Surface](../language/source-surface.md#grammar).
+[Source Surface](../../language/source-surface.md#grammar).
 
 The first slice requires the empty parameter list, explicit return type, and
 explicit `effects [...]` clause on every `test` declaration.

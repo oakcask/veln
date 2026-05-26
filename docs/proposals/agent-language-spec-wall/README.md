@@ -14,7 +14,7 @@ current workspace. Implemented decisions were moved to
 - [open-questions.md](open-questions.md) routes resolved and unresolved
   questions; open [open-questions-full.md](open-questions-full.md) only when
   auditing the full inventory.
-- [../../reference/source-decisions/result-adr-lite-decision-location.md](../../reference/source-decisions/result-adr-lite-decision-location.md)
+- [../../reference/source-decisions/records/result-adr-lite-decision-location.md](../../reference/source-decisions/records/result-adr-lite-decision-location.md)
   records the implemented ADR-lite comment decision.
 
 ## Accepted Or Open Targets

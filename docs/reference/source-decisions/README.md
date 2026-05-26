@@ -2,10 +2,10 @@
 
 Status: implemented
 
-These discussion results describe decisions that are represented by the current
-implementation or by an intentional absence in the current reference. Read the
-categorized files under `../language/` first when you need current behavior;
-read these records only for rationale or compatibility context.
+These discussion results describe decisions represented by the current
+implementation or by an intentional absence in the current reference. Read
+`../language/` first for behavior; use this area only for rationale or
+compatibility context.
 
 ## Read First
 
@@ -30,8 +30,10 @@ read these records only for rationale or compatibility context.
 
 - Open exactly one category page for the task area, then one `result-*.md`
   record only when that category page names it.
-- Use [result-index.md](result-index.md) only for audits that need the full
-  record list or need to move records between categories.
+- Use [records/README.md](records/README.md) only after a category page names
+  one record.
+- Use [result-index.md](result-index.md) only for audits that need the record
+  storage route or need to move records between categories.
 
 ## Boundary
 

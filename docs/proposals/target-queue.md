@@ -16,22 +16,17 @@ Use this page when selecting one accepted proposal to implement. Return to
 
 - Broader repair discharge: start with
   [first-slice-follow-ups.md#repair-loop](first-slice-follow-ups.md#repair-loop).
-  Compare against [../reference/language/holes.md](../reference/language/holes.md)
-  and [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md)
-  before opening the full repair history.
 - Richer predicate semantics: start with
   [first-slice-follow-ups.md#effects-and-contracts](first-slice-follow-ups.md#effects-and-contracts).
-  Compare against
-  [../reference/language/contracts.md](../reference/language/contracts.md) and
-  [../reference/language/names-effects.md](../reference/language/names-effects.md)
-  before opening the full predicate history.
 
 ## Target Boundaries
 
-- Repair loop work belongs to hole diagnostics, repair candidates, satisfy
-  constraints, and diagnostic detail output.
-- Predicate semantics work belongs to contract predicate validation, static
-  obligation classification, predicate implications, and effect propagation.
+- Repair loop work routes through
+  [../reference/language/holes.md](../reference/language/holes.md) and
+  [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
+- Predicate semantics work routes through
+  [../reference/language/contracts.md](../reference/language/contracts.md) and
+  [../reference/language/names-effects.md](../reference/language/names-effects.md).
 - When a change touches both targets, choose the one whose user-visible
   behavior changes first and leave the other target queued unless its remaining
   proposal text is also implemented.
