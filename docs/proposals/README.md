@@ -29,6 +29,8 @@ implemented in the current workspace.
   tokens for editors.
 - Use [toolchain-test-harness.md](toolchain-test-harness.md) for the open
   proposal to standardize command-line integration test cases.
+- Use [match-exhaustiveness.md](match-exhaustiveness.md) for the open proposal
+  to reject non-exhaustive `match` expressions before runtime.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still open or only partially represented.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
