@@ -16,11 +16,16 @@ when updating this queue.
 
 ## Accepted Targets
 
-- Richer predicate semantics: start with
-  [first-slice-follow-ups.md#effects-and-contracts](first-slice-follow-ups.md#effects-and-contracts).
+- No accepted targets currently remain.
 
 ## Promoted Targets
 
+- Richer predicate semantics has moved into current behavior; start with
+  [../reference/language/contracts.md](../reference/language/contracts.md)
+  for contract predicate validation, static obligation classification,
+  runtime obligations, and result bindings, and
+  [../reference/language/names-effects.md](../reference/language/names-effects.md)
+  for effect propagation and compiler-known calls.
 - Broader repair discharge has moved into current behavior; start with
   [../reference/language/holes.md](../reference/language/holes.md) and
   [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
