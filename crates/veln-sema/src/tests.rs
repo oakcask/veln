@@ -1083,6 +1083,50 @@ fn marks_intersecting_disjunctive_satisfy_comparisons_as_safe_repair() {
 }
 
 #[test]
+fn rejects_empty_intersection_for_disjunctive_satisfy_conjuncts() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, spare: Int) -> Int\n",
+            "  let fallback = 1\n",
+            "  _value satisfy candidate => ",
+            "(candidate == fallback or candidate == max) and ",
+            "candidate == spare\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"spare\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":3,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"application_policy\":\"safe_repair_candidate\"")
+            .count(),
+        0
+    );
+}
+
+#[test]
 fn ignores_false_disjuncts_in_direct_satisfy_repair() {
     let source = SourceFile::new(
         "main.veln",
