@@ -642,8 +642,12 @@ around the excluded literal, including through equality aliases. For example,
 `require max != 0` guarantees
 `candidate < 0 or candidate > 0` after substituting `max`, and
 `require max == fallback` together with `require fallback != 0` guarantees the
-same predicate after substituting either binding. Inclusive numeric bounds also
-discharge their strict-or-equality disjunction, so `require max >= 10`
+same predicate after substituting either binding. Division in those numeric
+disequality and ordering-disjunction comparisons uses exact rational values, so
+`require ratio != 1 / 3` guarantees
+`candidate < 1 / 3 or candidate > 1 / 3` after substituting `ratio`.
+Inclusive numeric bounds also discharge their strict-or-equality disjunction, so
+`require max >= 10`
 guarantees `candidate > 10 or candidate == 10` after substituting `max`. Every
 type-compatible visible binding candidate for the tautological
 subset uses `reason: "satisfy_tautology"`. A statically accepted candidate also

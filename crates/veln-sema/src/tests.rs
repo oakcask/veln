@@ -4721,6 +4721,33 @@ fn marks_numeric_disequality_as_ordering_disjunction_repair_evidence() {
 }
 
 #[test]
+fn marks_rational_disequality_as_ordering_disjunction_repair_evidence() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Float, fallback: Float) -> Float\n",
+            "  require max != 1 / 3\n",
+            "  _value satisfy candidate => candidate < 1 / 3 or candidate > 1 / 3\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Float\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn marks_aliased_numeric_disequality_as_ordering_disjunction_repair_evidence() {
     let source = SourceFile::new(
         "main.veln",

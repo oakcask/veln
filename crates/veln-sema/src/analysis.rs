@@ -4372,11 +4372,11 @@ fn disequality_implies_numeric_ordering_disjunction(
             continue;
         }
         if repair_operands_equivalent(wanted.left, subject, equivalences)
-            && repair_numeric_literal(wanted.right) == Some(excluded)
+            && repair_numeric_order_literal(wanted.right) == Some(excluded)
         {
             has_lower_side = true;
         }
-        if repair_numeric_literal(wanted.left) == Some(excluded)
+        if repair_numeric_order_literal(wanted.left) == Some(excluded)
             && repair_operands_equivalent(wanted.right, subject, equivalences)
         {
             has_upper_side = true;
@@ -4428,11 +4428,11 @@ fn inclusive_bound_implies_order_or_equality_disjunction(
 
 fn numeric_literal_comparison_side<'a>(
     comparison: &'a ParsedRepairComparison<'a>,
-) -> Option<(&'a str, RepairNumber)> {
-    repair_numeric_literal(comparison.left)
+) -> Option<(&'a str, RepairRational)> {
+    repair_numeric_order_literal(comparison.left)
         .map(|literal| (comparison.right, literal))
         .or_else(|| {
-            repair_numeric_literal(comparison.right).map(|literal| (comparison.left, literal))
+            repair_numeric_order_literal(comparison.right).map(|literal| (comparison.left, literal))
         })
 }
 
