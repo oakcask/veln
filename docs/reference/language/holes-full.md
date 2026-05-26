@@ -353,7 +353,10 @@ also apply inside same-shape expression operands before that comparison, so
 operand aliasing applies while chaining transitive ordering evidence, so
 `require max == fallback`, `require fallback + 1 <= mid + 1`, and
 `require mid + 1 <= limit + 1` guarantee
-`candidate + 1 <= limit + 1` after substituting `max`. Equality requirements
+`candidate + 1 <= limit + 1` after substituting `max`. Redundant balanced
+parentheses around equality-alias operands do not change the alias, so
+`require ((max)) == ((fallback))` guarantees `candidate == fallback` after
+substituting `max`. Equality requirements
 also apply to boolean atom clauses, so `require max == fallback` plus
 `require fallback.ready` guarantees `candidate.ready` after substituting
 `max`. Boolean atoms and literal boolean comparisons discharge each other:

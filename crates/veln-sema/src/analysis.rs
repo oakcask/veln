@@ -5624,11 +5624,13 @@ struct RepairEquivalences {
 
 impl RepairEquivalences {
     fn union(&mut self, left: &str, right: &str) {
+        let left = normalized_repair_operand_text(left);
+        let right = normalized_repair_operand_text(right);
         if left == right {
             return;
         }
-        let left_index = self.group_index(left);
-        let right_index = self.group_index(right);
+        let left_index = self.group_index(&left);
+        let right_index = self.group_index(&right);
         match (left_index, right_index) {
             (Some(left_index), Some(right_index)) if left_index != right_index => {
                 let right_group = self.groups.remove(right_index);
@@ -5639,17 +5641,19 @@ impl RepairEquivalences {
                 };
                 self.groups[destination].extend(right_group);
             }
-            (Some(index), None) => self.groups[index].push(right.to_string()),
-            (None, Some(index)) => self.groups[index].push(left.to_string()),
-            (None, None) => self.groups.push(vec![left.to_string(), right.to_string()]),
+            (Some(index), None) => self.groups[index].push(right),
+            (None, Some(index)) => self.groups[index].push(left),
+            (None, None) => self.groups.push(vec![left, right]),
             _ => {}
         }
     }
 
     fn equivalent(&self, left: &str, right: &str) -> bool {
+        let left = normalized_repair_operand_text(left);
+        let right = normalized_repair_operand_text(right);
         left == right
             || self.groups.iter().any(|group| {
-                group.iter().any(|item| item == left) && group.iter().any(|item| item == right)
+                group.iter().any(|item| item == &left) && group.iter().any(|item| item == &right)
             })
     }
 
@@ -5705,6 +5709,10 @@ impl RepairEquivalences {
             .iter()
             .position(|group| group.iter().any(|item| item == operand))
     }
+}
+
+fn normalized_repair_operand_text(operand: &str) -> String {
+    compact_direct_repair_expression_text(strip_balanced_outer_parens(operand))
 }
 
 fn same_repair_operands_unordered(
