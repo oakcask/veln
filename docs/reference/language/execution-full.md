@@ -52,7 +52,8 @@ The JVM backend generates Java source for the implemented IR subset:
 - literals, records, lists, `Ok`, `Err`, `Some`, `None`, their `Result::` or
   `Option::` qualified forms, and `?`
 - `match` expressions over literals, `_`, bindings, and built-in `Option` and
-  `Result` constructors
+  `Result` constructors, after finite-domain exhaustiveness diagnostics have
+  passed
 - record field access
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls

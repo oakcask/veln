@@ -509,6 +509,34 @@ fn check_human_reports_method_call_repair_note() {
 }
 
 #[test]
+fn check_human_reports_match_exhaustiveness_context() {
+    let project = TestProject::new("check-human-match-exhaustiveness");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(value: Option(Int)) -> String effects []\n",
+            "  match value\n",
+            "    Some(count) => \"some\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "main.veln:2:3: error[type.match_non_exhaustive]: match is missing case None",
+            "  note: main.veln:2:9: Scrutinee has type `Option(Int)`.",
+            "  note: main.veln:3:5: This arm covers Some(_).",
+        ],
+    );
+}
+
+#[test]
 fn check_human_reports_missing_module_identity_for_imports() {
     let project = TestProject::new("check-human-module-identity");
     project.write(
@@ -1397,6 +1425,37 @@ fn check_json_reports_return_type_mismatch() {
             "\"message\":\"expected `Int`, but found `String`\"",
             "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":2,\"column\":3,\"offset\":34},\"end\":{\"line\":2,\"column\":7,\"offset\":38}}",
             "\"details\":{\"phase\":\"type\",\"node_id\":\"expr-3\",\"expected_type\":\"Int\",\"actual_type\":\"String\",\"expected_type_source\":\"declared_return\",\"actual_type_source\":\"inferred_expression\",\"constraint\":\"return_value\"",
+        ],
+    );
+}
+
+#[test]
+fn check_json_reports_match_exhaustiveness_details() {
+    let project = TestProject::new("match-exhaustiveness-json");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(value: Result(Int, String)) -> String effects []\n",
+            "  match value\n",
+            "    Err(error) => error\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "\"id\":\"type.match_non_exhaustive\"",
+            "\"message\":\"match is missing case Ok(_)\"",
+            "\"scrutinee_type\":\"Result(Int, String)\"",
+            "\"missing_case\":\"Ok(_)\"",
+            "\"constraint\":\"match_exhaustiveness\"",
+            "\"kind\":\"scrutinee_type\"",
+            "\"kind\":\"covered_case\"",
         ],
     );
 }

@@ -407,6 +407,75 @@ struct PatternBinding {
     span: SourceSpan,
 }
 
+#[derive(Clone, Copy)]
+enum MatchDomain {
+    Bool,
+    Option,
+    Result,
+}
+
+impl MatchDomain {
+    fn from_type(ty: &Type) -> Option<Self> {
+        match ty {
+            Type::Named { name, args } if name == "Bool" && args.is_empty() => Some(Self::Bool),
+            Type::Named { name, args } if name == "Option" && args.len() == 1 => Some(Self::Option),
+            Type::Named { name, args } if name == "Result" && args.len() == 2 => Some(Self::Result),
+            _ => None,
+        }
+    }
+
+    fn cases(self) -> &'static [&'static str] {
+        match self {
+            Self::Bool => &["false", "true"],
+            Self::Option => &["Some(_)", "None"],
+            Self::Result => &["Ok(_)", "Err(_)"],
+        }
+    }
+}
+
+struct PatternCoverage {
+    catches_all: bool,
+    cases: Vec<&'static str>,
+}
+
+fn match_pattern_coverage(pattern: &Pattern, domain: &MatchDomain) -> PatternCoverage {
+    match &pattern.kind {
+        PatternKind::Wildcard | PatternKind::Binding(_) => PatternCoverage {
+            catches_all: true,
+            cases: Vec::new(),
+        },
+        PatternKind::BoolLiteral(value) if matches!(domain, MatchDomain::Bool) => PatternCoverage {
+            catches_all: false,
+            cases: vec![if *value { "true" } else { "false" }],
+        },
+        PatternKind::Constructor { name, .. } if matches!(domain, MatchDomain::Option) => {
+            let case = if is_option_some_constructor(name) {
+                Some("Some(_)")
+            } else if is_option_none_constructor(name) {
+                Some("None")
+            } else {
+                None
+            };
+            PatternCoverage {
+                catches_all: false,
+                cases: case.into_iter().collect(),
+            }
+        }
+        PatternKind::Constructor { name, .. } if matches!(domain, MatchDomain::Result) => {
+            let case =
+                result_constructor_kind(name).map(|is_ok| if is_ok { "Ok(_)" } else { "Err(_)" });
+            PatternCoverage {
+                catches_all: false,
+                cases: case.into_iter().collect(),
+            }
+        }
+        _ => PatternCoverage {
+            catches_all: false,
+            cases: Vec::new(),
+        },
+    }
+}
+
 impl<'a> FunctionChecker<'a> {
     fn new(function: &'a Function, environment: &'a TypeEnvironment) -> Self {
         Self {
@@ -1665,6 +1734,7 @@ impl<'a> FunctionChecker<'a> {
     ) -> Type {
         let scrutinee_type = self.infer_expr(scrutinee, None);
         if arms.is_empty() {
+            self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
             return expected
                 .map(|expected| expected.ty.clone())
                 .unwrap_or(Type::Unknown);
@@ -1717,7 +1787,77 @@ impl<'a> FunctionChecker<'a> {
             self.local_names = saved_names;
         }
 
+        self.check_match_exhaustiveness(expr, scrutinee, &scrutinee_type, arms);
         result_type
+    }
+
+    fn check_match_exhaustiveness(
+        &mut self,
+        expr: &Expr,
+        scrutinee: &Expr,
+        scrutinee_type: &Type,
+        arms: &[MatchArm],
+    ) {
+        let Some(domain) = MatchDomain::from_type(scrutinee_type) else {
+            return;
+        };
+        let mut covered = Vec::new();
+        let mut proving_arms = Vec::new();
+        for arm in arms {
+            let coverage = match_pattern_coverage(&arm.pattern, &domain);
+            if coverage.catches_all {
+                return;
+            }
+            for case in coverage.cases {
+                if !covered.contains(&case) {
+                    covered.push(case);
+                    proving_arms.push((case, arm.pattern.span.clone()));
+                }
+            }
+        }
+
+        let Some(missing_case) = domain
+            .cases()
+            .iter()
+            .find(|case| !covered.contains(case))
+            .copied()
+        else {
+            return;
+        };
+
+        let mut diagnostic = Diagnostic::new(
+            "type.match_non_exhaustive",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("match is missing case {missing_case}"),
+            Some(expr.span.clone()),
+            JsonValue::object([
+                ("phase", JsonValue::string("type")),
+                ("node_id", JsonValue::string(expr.node_id.display("match"))),
+                ("scrutinee_type", JsonValue::string(scrutinee_type.render())),
+                ("missing_case", JsonValue::string(missing_case)),
+                ("constraint", JsonValue::string("match_exhaustiveness")),
+            ]),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("scrutinee_type")),
+            (
+                "message",
+                JsonValue::string(format!("Scrutinee has type `{}`.", scrutinee_type.render())),
+            ),
+            ("span", span_json(&scrutinee.span)),
+        ]));
+        for (case, span) in proving_arms {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("covered_case")),
+                (
+                    "message",
+                    JsonValue::string(format!("This arm covers {case}.")),
+                ),
+                ("span", span_json(&span)),
+            ]));
+        }
+        self.diagnostics.push(diagnostic);
     }
 
     fn pattern_bindings(

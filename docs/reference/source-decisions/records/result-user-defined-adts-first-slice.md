@@ -50,8 +50,10 @@ those types.
 - Source-level `type`, `enum`, `union`, or equivalent ADT declarations are
   deferred.
 - User-defined variant constructors and constructor patterns are deferred.
-- Exhaustiveness checking is required only for built-in `Result` and `Option`
-  patterns that the first slice chooses to support.
+- The ADT first slice required exhaustiveness only for built-in `Result` and
+  `Option` patterns that the first slice chose to support. Current finite
+  built-in coverage, including `Bool`, is tracked in
+  `../../language/types.md`.
 - Public signatures may mention opaque named types for domain values and errors.
   The checker may compare those names nominally, render them in diagnostics, and
   use them as candidate-query targets.

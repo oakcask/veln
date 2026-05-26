@@ -130,6 +130,14 @@ include `phase`, `node_id`, `expected: "function_call"`,
 `actual: "method_call"`, `constraint: "call_target"`, and `method`. A related
 note carries the canonical named-call repair direction.
 
+`type.match_non_exhaustive` reports a `match` expression over a finite built-in
+domain that does not cover every case and has no catch-all arm. Its primary
+span is the `match` expression, and the primary message names the first missing
+case. Its `details` include `phase`, `node_id`, `scrutinee_type`,
+`missing_case`, and `constraint: "match_exhaustiveness"`. Related notes include
+`kind: "scrutinee_type"` for the scrutinee span and `kind: "covered_case"` for
+arms that prove partial coverage.
+
 Checked-core executable blockers that `check` can prove before runtime are
 reported as error diagnostics with `kind: "type"`. The implemented blockers
 are `core.missing_expression`, `core.call_arity_mismatch`,
