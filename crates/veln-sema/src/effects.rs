@@ -387,45 +387,6 @@ pub(crate) fn standard_library_effects(segments: &[String]) -> Option<&'static [
     Some(symbol.effects)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn path(module: &str, name: &str) -> Vec<String> {
-        vec![module.to_string(), name.to_string()]
-    }
-
-    #[test]
-    fn stdio_detection_comes_from_descriptor_effect_metadata() {
-        assert!(is_stdio_call(&path("stdio", "println")));
-        assert!(!is_stdio_call(&path("channel", "send")));
-        assert!(!is_stdio_call(&path("stdio", "flush")));
-    }
-
-    #[test]
-    fn concurrency_detection_comes_from_descriptor_effect_metadata() {
-        assert!(is_concurrency_call(&path("task", "spawn")));
-        assert!(is_concurrency_call(&path("channel", "send")));
-        assert!(!is_concurrency_call(&path("stdio", "println")));
-        assert!(!is_concurrency_call(&path("task", "sleep")));
-    }
-
-    #[test]
-    fn fs_and_process_signatures_come_from_standard_descriptors() {
-        let (params, return_type) =
-            standard_library_signature(&path("fs", "read_to_string")).expect("fs signature");
-        assert_eq!(params, vec![path_type()]);
-        assert_eq!(
-            return_type,
-            Type::result(Type::string(), Type::named("FsError", Vec::new()))
-        );
-
-        let (_, return_type) =
-            standard_library_signature(&path("process", "args")).expect("process signature");
-        assert_eq!(return_type, Type::list(Type::string()));
-    }
-}
-
 fn core_function_return_type(ty: &CoreType) -> Option<&CoreType> {
     match ty {
         CoreType::Function { return_type, .. } => Some(return_type),
@@ -517,5 +478,44 @@ fn core_named_type_argument<'a>(ty: &'a CoreType, expected_name: &str) -> Option
             Some(&args[0])
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn path(module: &str, name: &str) -> Vec<String> {
+        vec![module.to_string(), name.to_string()]
+    }
+
+    #[test]
+    fn stdio_detection_comes_from_descriptor_effect_metadata() {
+        assert!(is_stdio_call(&path("stdio", "println")));
+        assert!(!is_stdio_call(&path("channel", "send")));
+        assert!(!is_stdio_call(&path("stdio", "flush")));
+    }
+
+    #[test]
+    fn concurrency_detection_comes_from_descriptor_effect_metadata() {
+        assert!(is_concurrency_call(&path("task", "spawn")));
+        assert!(is_concurrency_call(&path("channel", "send")));
+        assert!(!is_concurrency_call(&path("stdio", "println")));
+        assert!(!is_concurrency_call(&path("task", "sleep")));
+    }
+
+    #[test]
+    fn fs_and_process_signatures_come_from_standard_descriptors() {
+        let (params, return_type) =
+            standard_library_signature(&path("fs", "read_to_string")).expect("fs signature");
+        assert_eq!(params, vec![path_type()]);
+        assert_eq!(
+            return_type,
+            Type::result(Type::string(), Type::named("FsError", Vec::new()))
+        );
+
+        let (_, return_type) =
+            standard_library_signature(&path("process", "args")).expect("process signature");
+        assert_eq!(return_type, Type::list(Type::string()));
     }
 }
