@@ -1,7 +1,9 @@
 # Document Status Rules
 
 Use this page when adding, moving, or reclassifying durable documentation.
-Start from [README.md](README.md) when you only need a reading route.
+Start from [README.md](README.md) when you only need a reading route, and open
+[document-status-full.md](document-status-full.md) only when changing labels,
+promotion rules, or placement policy.
 
 ## Read First
 
@@ -10,55 +12,28 @@ Start from [README.md](README.md) when you only need a reading route.
 - Gap evidence belongs in [reviews/README.md](reviews/README.md).
 - Historical implementation order belongs in [phases/README.md](phases/README.md).
 
-## Placement
+## Choose One Route
 
-- Put behavior that works in the current code and tests in `reference/`.
-- Put accepted or open design targets that are not fully implemented in
-  `proposals/`.
-- Put implemented rationale and decision history in `reference/source-decisions/`.
-- Put planned or incomplete rationale and decision history in `proposals/`.
-- Put implementation order, completion notes, and working plans in `phases/`.
-- Put implementation gaps, verification evidence, and correction lists in
-  `reviews/`.
-- Treat `reference/language/` as the current behavior source before changing
-  code, tests, diagnostics, or samples.
+- Reading task only: return to [README.md](README.md) or
+  [navigation.md](navigation.md).
+- Moving behavior, proposal, review, or phase text:
+  [document-status-full.md#placement](document-status-full.md#placement).
+- Updating README or topic-page routing:
+  [document-status-full.md#entry-pages](document-status-full.md#entry-pages).
+- Applying or changing status labels:
+  [document-status-full.md#labels](document-status-full.md#labels).
 
-## Entry Pages
+## Stop Rule
 
-- Keep top-level and directory README files as routing pages.
+- Keep top-level and directory README files as short routing pages.
 - Keep expected topic paths short when a file grows around historical detail;
   move the long body behind a sibling `*-full.md` file.
-- Link from short pages to the specific full section needed for a task instead
-  of asking readers to scan a full record.
-- Keep status and promotion rules in this file; keep current behavior in
-  `reference/language/`.
-
-## Directories
-
-- `reference/language/` is the first stop for implemented language behavior.
-- `reference/source-decisions/` is historical rationale grouped by topic.
-- `phases/` and `reviews/` contain longer working records behind short indexes.
-- `proposals/` contains accepted or open targets that still need promotion into
-  the reference after implementation.
-
-## Labels
-
-Use these status labels at the top of durable specification documents:
-
-- `implemented`: current code and tests support the described behavior.
-- `accepted-proposal`: a decision record accepted the target, but implementation
-  is absent or incomplete.
-- `open-proposal`: the design is being explored and should not be treated as a
-  commitment.
-- `superseded`: another document replaces this one.
-- `rejected`: the project decided not to pursue this design.
+- Use `reference/language/` as the current behavior source before changing
+  code, tests, diagnostics, or samples.
 
 ## Skip Unless Needed
 
-- Do not move text from a proposal into `reference/` until current code and
-  tests support it.
+- Do not move proposal text into `reference/` until current code and tests
+  support it.
 - Do not use phase or review files as the source for current behavior when
   `reference/language/` has a matching page.
-- Do not add new long background sections to a README when a short route plus a
-  full detail page would preserve the same content with less first-pass
-  reading.

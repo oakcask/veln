@@ -1,8 +1,8 @@
 # Contracts And Holes
 
 This page is the routing entry for implemented contract and hole behavior.
-Read the focused reference pages first; open the full combined detail only
-when you need the historical specification body in its original order.
+Read the focused reference pages first; open the full detail files only when
+you need exact rules or examples.
 
 ## Read First
 
@@ -18,12 +18,14 @@ when you need the historical specification body in its original order.
   runtime enforcement, or diagnostics.
 - Use [holes.md](holes.md) before changing hole diagnostics, expected-type flow,
   candidate ranking, or safe repair behavior.
-- Use [contracts-holes-full.md](contracts-holes-full.md) when a task needs the
-  former combined specification text or a broad search across both topics.
+- Use [contracts-full.md](contracts-full.md) or [holes-full.md](holes-full.md)
+  when a task needs exact rules.
+- Use [contracts-holes-full.md](contracts-holes-full.md) only when a broad
+  search starts from the former combined detail path.
 
 ## Skip Unless Needed
 
-- Do not read the full combined detail when a focused contract or hole page
+- Do not read a full detail file when a focused contract or hole route page
   answers the behavior question.
 - Do not treat proposal text as implemented behavior unless these reference
   pages also state it.

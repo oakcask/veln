@@ -18,7 +18,7 @@ opening the full follow-up record.
 
 ## Read When
 
-- Use this page to choose a target area.
+- Use this page only to choose a target area.
 - Open [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md) only for
   the selected area's historical details.
 
@@ -26,30 +26,26 @@ opening the full follow-up record.
 
 ### Repair Loop
 
-Remaining work is broader repair discharge beyond normalized direct and
-`require`-matched cases. Read
-[the full repair-loop record](first-slice-follow-ups-full.md#repair-loop)
-only after confirming the missing behavior is not already covered by
-[../reference/language/holes.md](../reference/language/holes.md) and
-[../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
+Use this target for remaining safe repair candidate generation, satisfy
+predicate matching, candidate ranking, or repair JSON detail changes. Direct
+top-level and nested `or` branch matching is already current behavior in
+[../reference/language/holes.md](../reference/language/holes.md); keep this
+target for broader discharge beyond that implemented subset.
 
-Use this target for safe repair candidate generation, satisfy predicate
-matching, candidate ranking, or repair JSON detail changes.
+Before opening [the full repair-loop record](first-slice-follow-ups-full.md#repair-loop),
+compare the task with [../reference/language/holes.md](../reference/language/holes.md)
+and [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
 
 ### Effects And Contracts
-
-Richer predicate semantics remain follow-up work beyond the implemented
-contract subset. Numeric literal-bound implication through equality aliases is
-now reference behavior; remaining work should stay outside that implemented
-slice. Read
-[the full effects and contracts record](first-slice-follow-ups-full.md#effects-and-contracts)
-only after confirming the missing behavior is not already covered by
-[../reference/language/contracts.md](../reference/language/contracts.md) and
-[../reference/language/names-effects.md](../reference/language/names-effects.md).
 
 Use this target for contract predicate validation, static obligation
 classification, transitive predicate implications, or effect propagation
 changes.
+
+Before opening
+[the full effects and contracts record](first-slice-follow-ups-full.md#effects-and-contracts),
+compare the task with [../reference/language/contracts.md](../reference/language/contracts.md)
+and [../reference/language/names-effects.md](../reference/language/names-effects.md).
 
 ## History
 

@@ -44,6 +44,9 @@ current workspace supports, not every target tracked in `../../proposals/`.
   behavior.
 - Planned rationale becomes implemented behavior or changes how users should
   read the language.
+- After promoting proposal behavior, update the smallest topic page named by
+  [topic-map.md](topic-map.md) and keep any remaining proposal work in
+  [../../proposals/target-queue.md](../../proposals/target-queue.md).
 
 ## Skip Unless Needed
 

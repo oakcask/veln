@@ -26,6 +26,16 @@ Use this page when selecting one accepted proposal to implement. Return to
   [../reference/language/names-effects.md](../reference/language/names-effects.md)
   before opening the full predicate history.
 
+## Target Boundaries
+
+- Repair loop work belongs to hole diagnostics, repair candidates, satisfy
+  constraints, and diagnostic detail output.
+- Predicate semantics work belongs to contract predicate validation, static
+  obligation classification, predicate implications, and effect propagation.
+- When a change touches both targets, choose the one whose user-visible
+  behavior changes first and leave the other target queued unless its remaining
+  proposal text is also implemented.
+
 ## Selection Rule
 
 - Choose the first target whose short proposal page still describes behavior

@@ -29,6 +29,19 @@ proposal.
 - Use [../document-status.md](../document-status.md) before promoting,
   superseding, or rejecting proposal text.
 
+## Reference Update Routes
+
+- Repair candidates, satisfy constraints, and hole diagnostics:
+  [../reference/language/holes.md](../reference/language/holes.md) and
+  [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
+- Contract predicate validation, static obligation classification, and result
+  bindings: [../reference/language/contracts.md](../reference/language/contracts.md).
+- Effect propagation or compiler-known calls:
+  [../reference/language/names-effects.md](../reference/language/names-effects.md).
+- Command-specific machine-readable output:
+  [../reference/language/json-output.md](../reference/language/json-output.md)
+  before the command-specific JSON page.
+
 ## Exit Checklist
 
 - The changed behavior is documented under `../reference/language/`.
