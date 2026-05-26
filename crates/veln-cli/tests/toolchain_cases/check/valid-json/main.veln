@@ -1,0 +1,3 @@
+pub fn main() -> Result((), AppError) effects [stdio]
+  Ok(())
+end

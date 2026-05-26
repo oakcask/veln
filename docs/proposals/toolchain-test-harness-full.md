@@ -1,12 +1,12 @@
 # Toolchain Test Harness Full
 
-Status: open-proposal
-Implementation: not implemented
+Status: implemented
+Implementation: initial harness implemented in `crates/veln-cli/tests/`
 
-This proposal defines a small, structured integration test harness for the
-Veln command-line toolchain. It is not a source for current behavior; use
-`../reference/language/` for implemented command, diagnostic, and JSON output
-rules.
+This proposal record defines the small, structured integration test harness
+for the Veln command-line toolchain. It is not a source for command behavior;
+use `../reference/language/` for implemented command, diagnostic, and JSON
+output rules.
 
 ## Goal
 
