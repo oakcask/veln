@@ -16,6 +16,8 @@ Choose one route, stop when the linked short page answers the question, and use
 - Syntax, types, effects, contracts, holes, commands, JSON, runtime behavior,
   or examples:
   [reference/language/topic-map.md](reference/language/topic-map.md).
+- Human diagnostics or command JSON output:
+  [reference/language/json-output.md](reference/language/json-output.md).
 - Proposal implementation or promotion:
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Gap evidence or completion claims: [reviews/README.md](reviews/README.md).

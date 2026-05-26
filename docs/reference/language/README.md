@@ -17,6 +17,8 @@ current workspace supports, not every target tracked in `../../proposals/`.
   [topic-map.md#contracts-and-holes](topic-map.md#contracts-and-holes).
 - CLI behavior, diagnostics, run output, or test output:
   [topic-map.md#commands-and-output](topic-map.md#commands-and-output).
+- Human diagnostic wording, related notes, spans, or stable diagnostic details:
+  [diagnostics-json.md](diagnostics-json.md).
 - Runtime behavior, examples, or rationale:
   [topic-map.md#runtime-examples-and-rationale](topic-map.md#runtime-examples-and-rationale).
 
@@ -29,6 +31,9 @@ current workspace supports, not every target tracked in `../../proposals/`.
   [contracts.md](contracts.md) or [holes.md](holes.md).
 - Commands and machine-readable output: [commands.md](commands.md) and
   [json-output.md](json-output.md), then the command-specific JSON page.
+- Human diagnostics: [diagnostics-json.md](diagnostics-json.md) for the
+  structured behavior that must stay aligned with diagnostic output, then
+  [source-decisions.md](source-decisions.md) only for rationale.
 - Runtime and examples: [execution.md](execution.md) and [examples.md](examples.md).
 - Rationale: [source-decisions.md](source-decisions.md).
 

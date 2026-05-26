@@ -12,6 +12,8 @@ rationale or sources needed to maintain that behavior.
 ## Fast Routes
 
 - Implemented behavior: [language/topic-map.md](language/topic-map.md).
+- Human diagnostics or machine-readable command output:
+  [language/json-output.md](language/json-output.md).
 - Implemented rationale: [source-decisions/topic-map.md](source-decisions/topic-map.md).
 - Source support behind rationale: [bibliography/README.md](bibliography/README.md).
 

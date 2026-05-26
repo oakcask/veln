@@ -28,7 +28,8 @@ smallest reference page to read. Start with the short page; open the matching
   running, and testing: [commands.md](commands.md).
 - Choosing the command-specific machine-readable output page:
   [json-output.md](json-output.md).
-- Diagnostic JSON envelope, related notes, spans, and stable details:
+- Human diagnostics that need related notes or structured output coverage, and
+  diagnostic JSON envelope, spans, related notes, and stable details:
   [diagnostics-json.md](diagnostics-json.md).
 - Run JSON records, output events, failures, and summaries:
   [run-json.md](run-json.md).

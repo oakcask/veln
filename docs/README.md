@@ -22,6 +22,8 @@ short page points to them.
 
 - Current behavior change: use
   [reference/language/topic-map.md](reference/language/topic-map.md).
+- Human diagnostics, related notes, or machine-readable diagnostic output: use
+  [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md).
 - Proposal implementation: use
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Rationale or compatibility: use

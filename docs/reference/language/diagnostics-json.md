@@ -1,9 +1,13 @@
-# Check JSON
+# Check JSON And Diagnostics
 
-This is the routing page for the implemented `veln check --json` output.
+This is the routing page for implemented `veln check --json` output and
+human diagnostics that must stay aligned with structured diagnostic behavior.
 
 ## Read First
 
+- Human primary messages: keep the primary message focused on the failed fact
+  at the reported span; put causes, provenance, repair hints, and other
+  locations in related notes.
 - Top-level envelope and status values:
   [diagnostics-json-full.md](diagnostics-json-full.md#envelope).
 - Common diagnostic fields and span shape:
@@ -22,6 +26,8 @@ This is the routing page for the implemented `veln check --json` output.
 
 - Do not read the full details catalog before the envelope and diagnostic
   family are relevant to the task.
+- Use [json-output.md](json-output.md) when choosing between `check --json`,
+  `run --json`, and `test --json`.
 - Use [commands.md](commands.md) for CLI behavior and
   [test-json.md](test-json.md) or [run-json.md](run-json.md) for other command
   JSON surfaces.

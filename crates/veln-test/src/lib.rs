@@ -1624,6 +1624,14 @@ mod tests {
     }
 
     #[test]
+    fn empty_explicit_targets_do_not_expand() {
+        let expansion = expand_test_targets(&PathBuf::new(), &[]);
+
+        assert!(expansion.targets.is_empty());
+        assert_eq!(expansion.source_to_test_added_count, 0);
+    }
+
+    #[test]
     fn expands_explicit_source_target_to_paired_test_file() {
         let root = test_root("paired-source");
         fs::create_dir_all(&root).expect("create test root");
@@ -2016,6 +2024,37 @@ mod tests {
                 "end\n",
             )
         );
+        let expected = doctests
+            .expected_outputs
+            .get("doctest_1")
+            .expect("doctest should have an output entry");
+        assert_eq!(expected.stdout, None);
+        assert_eq!(expected.stderr, None);
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
+    fn doctest_output_fence_after_prose_does_not_attach_to_previous_doctest() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln\n",
+                "/// stdio::println(\"ready\")\n",
+                "/// ```\n",
+                "/// This prose separates the runnable example from later output.\n",
+                "/// ```veln-output stream=stdout\n",
+                "/// ready\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
         let expected = doctests
             .expected_outputs
             .get("doctest_1")
@@ -2602,6 +2641,97 @@ mod tests {
     }
 
     #[test]
+    fn expected_output_mismatch_reports_missing_actual_line() {
+        let source_file = SourceFile::new(
+            "main.veln#doctest-1_test.veln",
+            "test doctest_1() -> () effects [stdio]\n  ()\nend\n",
+        );
+        let mut case = TestCase {
+            id: "case-1".to_string(),
+            name: "doctest_1".to_string(),
+            kind: "doctest".to_string(),
+            status: TestCaseStatus::Passed,
+            source: TestCaseSource {
+                file: "main.veln#doctest-1_test.veln".to_string(),
+                node_id: "test-1".to_string(),
+                span: source_file.span(TextRange::new(0, source_file.len())),
+            },
+            reason: None,
+            failure: None,
+            expected_output: Some(ExpectedOutput {
+                stdout: Some("ready\nnext".to_string()),
+                stderr: None,
+                ..ExpectedOutput::default()
+            }),
+            events: vec![stdio_event(
+                "stdout",
+                "println",
+                "ready",
+                "newline",
+                1,
+                "call-1",
+                &source_file.span(TextRange::new(0, source_file.len())),
+            )],
+            diagnostics: Vec::new(),
+        };
+
+        compare_expected_output(&mut case);
+
+        assert_eq!(case.status, TestCaseStatus::Failed);
+        let failure = case.failure.expect("mismatch should create failure");
+        assert!(
+            failure.to_json().to_json().contains(
+                "\"first_difference\":{\"line\":2,\"expected\":\"next\",\"actual\":null}"
+            )
+        );
+    }
+
+    #[test]
+    fn expected_output_mismatch_reports_extra_actual_line_and_expected_span() {
+        let source_file = SourceFile::new(
+            "main.veln#doctest-1_test.veln",
+            "test doctest_1() -> () effects [stdio]\n  ()\nend\n",
+        );
+        let span = source_file.span(TextRange::new(0, source_file.len()));
+        let mut case = TestCase {
+            id: "case-1".to_string(),
+            name: "doctest_1".to_string(),
+            kind: "doctest".to_string(),
+            status: TestCaseStatus::Passed,
+            source: TestCaseSource {
+                file: "main.veln#doctest-1_test.veln".to_string(),
+                node_id: "test-1".to_string(),
+                span: span.clone(),
+            },
+            reason: None,
+            failure: None,
+            expected_output: Some(ExpectedOutput {
+                stdout: Some("ready".to_string()),
+                stdout_span: Some(span.clone()),
+                stderr: None,
+                ..ExpectedOutput::default()
+            }),
+            events: vec![
+                stdio_event("stdout", "println", "ready", "newline", 1, "call-1", &span),
+                stdio_event("stdout", "println", "next", "newline", 2, "call-2", &span),
+            ],
+            diagnostics: Vec::new(),
+        };
+
+        compare_expected_output(&mut case);
+
+        assert_eq!(case.status, TestCaseStatus::Failed);
+        let failure = case.failure.expect("mismatch should create failure");
+        let failure_json = failure.to_json().to_json();
+        assert!(
+            failure_json.contains(
+                "\"first_difference\":{\"line\":2,\"expected\":null,\"actual\":\"next\"}"
+            )
+        );
+        assert!(failure_json.contains("\"expected_span\""));
+    }
+
+    #[test]
     fn stdio_trace_events_preserve_operation_terminator_and_call_span() {
         let module = module(concat!(
             "test first() -> () effects [stdio]\n",
@@ -2666,6 +2796,28 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert!(events[0].to_json().contains("\"sequence\":2"));
         assert!(events[0].to_json().contains("\"text\":\"ok\""));
+    }
+
+    #[test]
+    fn stdio_trace_decodes_uppercase_hex_text() {
+        let source_file = SourceFile::new(
+            "main_test.veln",
+            "test first() -> () effects []\n  ()\nend\n",
+        );
+        let source = TestCaseSource {
+            file: "main_test.veln".to_string(),
+            node_id: "test-1".to_string(),
+            span: source_file.span(TextRange::new(0, source_file.len())),
+        };
+
+        let events = stdio_events_from_trace(
+            "1\tstdout\tprint\tnone\t\t\t4F4B\n",
+            &BTreeMap::new(),
+            &source,
+        );
+
+        assert_eq!(events.len(), 1);
+        assert!(events[0].to_json().contains("\"text\":\"OK\""));
     }
 
     #[test]
@@ -2847,6 +2999,54 @@ mod tests {
     }
 
     #[test]
+    fn expected_output_mismatch_limits_actual_events_to_first_four() {
+        let source_file = SourceFile::new(
+            "main.veln#doctest-1_test.veln",
+            "test doctest_1() -> () effects [stdio]\n  ()\nend\n",
+        );
+        let span = source_file.span(TextRange::new(0, source_file.len()));
+        let mut case = TestCase {
+            id: "case-1".to_string(),
+            name: "doctest_1".to_string(),
+            kind: "doctest".to_string(),
+            status: TestCaseStatus::Passed,
+            source: TestCaseSource {
+                file: "main.veln#doctest-1_test.veln".to_string(),
+                node_id: "test-1".to_string(),
+                span: span.clone(),
+            },
+            reason: None,
+            failure: None,
+            expected_output: Some(ExpectedOutput {
+                stdout: Some("ready".to_string()),
+                stderr: None,
+                ..ExpectedOutput::default()
+            }),
+            events: (1..=5)
+                .map(|sequence| {
+                    stdio_event(
+                        "stdout",
+                        "println",
+                        &format!("line {sequence}"),
+                        "newline",
+                        sequence,
+                        &format!("call-{sequence}"),
+                        &span,
+                    )
+                })
+                .collect(),
+            diagnostics: Vec::new(),
+        };
+
+        compare_expected_output(&mut case);
+
+        let failure = case.failure.expect("mismatch should create failure");
+        let failure_json = failure.to_json().to_json();
+        assert!(failure_json.contains("\"sequence\":4"));
+        assert!(!failure_json.contains("\"sequence\":5"));
+    }
+
+    #[test]
     fn source_to_test_convention_records_plural_note() {
         let selection = TestSelection {
             mode_name: "explicit".to_string(),
@@ -2869,6 +3069,23 @@ mod tests {
                 .to_json()
                 .contains("\"notes\":[\"added 2 test files by source-to-test convention\"]")
         );
+    }
+
+    #[test]
+    fn source_to_test_convention_zero_count_keeps_original_selection() {
+        let selection = TestSelection {
+            mode_name: "explicit".to_string(),
+            targets: vec!["app.veln".to_string()],
+            confidence: "complete".to_string(),
+            reason: "user_selected".to_string(),
+            notes: Vec::new(),
+        }
+        .source_to_test_convention(0);
+
+        assert_eq!(selection.confidence, "complete");
+        assert_eq!(selection.reason, "user_selected");
+        assert!(selection.notes.is_empty());
+        assert!(!selection.to_json().to_json().contains("\"notes\""));
     }
 
     #[test]
