@@ -5,6 +5,9 @@
   "version": "0.1.0",
   "publisher": "veln",
   "main": "./extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -75,7 +78,17 @@
         "veln.server.path": {
           "type": "string",
           "default": "veln",
-          "description": "Command used to start the Veln language server."
+          "description": "Executable used to start the Veln language server."
+        },
+        "veln.server.arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "lsp"
+          ],
+          "description": "Arguments passed to the Veln language server executable."
         }
       }
     }

@@ -26,16 +26,25 @@ const tokenModifiers = [
 ];
 
 class VelnLanguageServer {
-  constructor(command) {
+  constructor(command, args, cwd, output) {
     this.nextId = 1;
     this.pending = new Map();
     this.buffer = Buffer.alloc(0);
-    this.process = childProcess.spawn(command, ["lsp"], {
+    this.output = output;
+    this.process = childProcess.spawn(command, args, {
+      cwd,
       stdio: ["pipe", "pipe", "pipe"],
     });
     this.process.stdout.on("data", (chunk) => this.read(chunk));
     this.process.stderr.on("data", (chunk) => {
-      console.error(`veln lsp: ${chunk.toString()}`);
+      this.output.append(`veln lsp: ${chunk.toString()}`);
+    });
+    this.process.on("error", (error) => {
+      this.output.appendLine(`Failed to start Veln language server: ${error.message}`);
+      for (const { reject } of this.pending.values()) {
+        reject(error);
+      }
+      this.pending.clear();
     });
     this.process.on("exit", () => {
       for (const { reject } of this.pending.values()) {
@@ -137,11 +146,40 @@ class VelnLanguageServer {
   }
 }
 
+function workspaceFolderPath() {
+  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+function resolveServerCommand(command) {
+  const workspaceFolder = workspaceFolderPath();
+  if (!workspaceFolder) {
+    return command;
+  }
+  return command.replaceAll("${workspaceFolder}", workspaceFolder);
+}
+
+function resolveServerArguments(args) {
+  if (!Array.isArray(args)) {
+    return ["lsp"];
+  }
+  return args.map((arg) => resolveServerCommand(arg));
+}
+
 function activate(context) {
+  const output = vscode.window.createOutputChannel("Veln");
+  context.subscriptions.push(output);
   const command = vscode.workspace
     .getConfiguration("veln")
     .get("server.path", "veln");
-  const server = new VelnLanguageServer(command);
+  const args = vscode.workspace
+    .getConfiguration("veln")
+    .get("server.arguments", ["lsp"]);
+  const server = new VelnLanguageServer(
+    resolveServerCommand(command),
+    resolveServerArguments(args),
+    workspaceFolderPath(),
+    output,
+  );
   const legend = new vscode.SemanticTokensLegend(tokenTypes, tokenModifiers);
   const provider = {
     async provideDocumentSemanticTokens(document) {
