@@ -1340,6 +1340,7 @@ fn order_bound_branch_implies_consequent(
         order_bound_edges_imply(&edges, &left, &right, true)
             || order_bound_edges_imply(&edges, &right, &left, true)
             || equality_disequality_edges_imply_disequality(branch, &left, &right)
+            || numeric_literal_bounds_imply_disequality(branch, &left, &right)
     }) || order_bound_edges_imply_strict_or_equality_disjunction(disjuncts, antecedent, &edges)
 }
 
@@ -1400,6 +1401,52 @@ fn numeric_literal_bound_implies(
     wanted: &NumericLiteralBound,
 ) -> bool {
     required.subject == wanted.subject && numeric_literal_bound_strength_implies(required, wanted)
+}
+
+fn numeric_literal_bounds_imply_disequality(predicate: &str, left: &str, right: &str) -> bool {
+    let equality_edges = flattened_keyword_clauses(predicate, "and")
+        .into_iter()
+        .filter_map(equality_shape)
+        .flat_map(|(left, right)| [(left.clone(), right.clone()), (right, left)])
+        .collect::<Vec<_>>();
+    let Some((wanted_subject, wanted_value)) =
+        numeric_literal_disequality_subject_value(left, right)
+    else {
+        return false;
+    };
+
+    flattened_keyword_clauses(predicate, "and")
+        .into_iter()
+        .filter_map(numeric_literal_bound_shape)
+        .any(|required| {
+            equality_edges_imply(&equality_edges, &required.subject, &wanted_subject)
+                && numeric_literal_bound_excludes_value(&required, wanted_value)
+        })
+}
+
+fn numeric_literal_disequality_subject_value(
+    left: &str,
+    right: &str,
+) -> Option<(String, StaticRational)> {
+    static_rational_expression(left)
+        .map(|value| (compact_predicate_text(right), value))
+        .or_else(|| {
+            static_rational_expression(right).map(|value| (compact_predicate_text(left), value))
+        })
+}
+
+fn numeric_literal_bound_excludes_value(
+    required: &NumericLiteralBound,
+    wanted_value: StaticRational,
+) -> bool {
+    match required.kind {
+        NumericLiteralBoundKind::Lower => {
+            wanted_value < required.value || (wanted_value == required.value && !required.inclusive)
+        }
+        NumericLiteralBoundKind::Upper => {
+            wanted_value > required.value || (wanted_value == required.value && !required.inclusive)
+        }
+    }
 }
 
 fn numeric_literal_bound_strength_implies(
@@ -1576,7 +1623,10 @@ fn negated_predicate_inner(predicate: &str) -> Option<&str> {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if let Some(rest) = predicate.strip_prefix("not ") {
         let rest = rest.trim();
-        if rest.starts_with('(') || is_single_negation_operand(rest) {
+        if rest.starts_with('(') {
+            return (strip_balanced_outer_parens(rest) != rest).then_some(rest);
+        }
+        if is_single_negation_operand(rest) {
             return Some(rest);
         }
         return None;
@@ -2091,6 +2141,34 @@ mod tests {
             "not (value > 5 and other < 5)",
             "value < 5 or value > 5",
             "value <= 5 or other >= 5",
+        ] {
+            assert!(
+                !contract_predicate_is_statically_true(predicate),
+                "{predicate}"
+            );
+        }
+    }
+
+    #[test]
+    fn contract_static_truth_classifies_literal_bounds_excluding_disequality_values() {
+        for predicate in [
+            "not (value > 10) or (value != 10)",
+            "not (value <= 1 / 2) or (value != 0.75)",
+            "not (value == alias and alias < 20) or (value != 20)",
+        ] {
+            assert!(
+                contract_predicate_is_statically_true(predicate),
+                "{predicate}"
+            );
+        }
+    }
+
+    #[test]
+    fn contract_static_truth_keeps_possible_bound_endpoint_disequality_runtime_checked() {
+        for predicate in [
+            "not (value >= 10) or (value != 10)",
+            "not (value <= 20) or (value != 20)",
+            "not (value == alias and alias > 5) or (value != 6)",
         ] {
             assert!(
                 !contract_predicate_is_statically_true(predicate),

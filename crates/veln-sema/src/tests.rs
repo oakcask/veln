@@ -10721,6 +10721,62 @@ fn contract_predicate_literal_bound_implication_uses_alias_in_either_position() 
 }
 
 #[test]
+fn contract_predicate_literal_bound_implication_proves_disequality() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int, alias: Int) -> output: Int effects []\n",
+            "require not (value > 10) or value != 10\n",
+            "require not (value == alias and alias <= 1 / 2) or value != 0.75\n",
+            "ensure not (output == alias and alias < 20) or output != 20\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_literal_bound_implication_keeps_possible_endpoint_disequality_runtime() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int, alias: Int) -> output: Int effects []\n",
+            "require not (value >= 10) or value != 10\n",
+            "require not (value == alias and alias <= 20) or value != 20\n",
+            "ensure not (output == alias and alias > 5) or output != 6\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::RuntimeRequired
+    }));
+}
+
+#[test]
 fn contract_predicate_literal_bound_non_implication_requires_runtime_check() {
     let source = SourceFile::new(
         "main.veln",
