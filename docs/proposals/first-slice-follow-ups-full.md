@@ -1,7 +1,7 @@
 # First-Slice Follow-Up Targets Full
 
 Status: accepted-proposal
-Implementation: partially implemented
+Implementation: repair loop promoted; effects and contracts partially implemented
 
 Read [first-slice-follow-ups.md](first-slice-follow-ups.md) first unless you
 need complete accepted follow-up details.
@@ -181,9 +181,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   tautological repair constraints. Negated top-level `and` predicates with
   opposite inclusive and strict ordering bounds rooted at the satisfy
   candidate are also treated as tautological repair constraints.
-  Broader repair discharge beyond these normalized direct and
-  `require`-matched cases remains follow-up work before formatter
-  stabilization.
+  This repair-loop target is current behavior; use the language reference for
+  implemented repair candidate and JSON details.
 
 ## Effects And Contracts
 

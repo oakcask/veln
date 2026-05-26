@@ -24,19 +24,6 @@ opening the full follow-up record.
 
 ## Accepted Targets
 
-### Repair Loop
-
-Use this target for remaining safe repair candidate generation, satisfy
-predicate matching, candidate ranking, or repair JSON detail changes. Direct
-top-level and nested `or` branch matching is already current behavior in
-[../reference/language/holes.md](../reference/language/holes.md), including
-candidate-specific discharge reasons; keep this target for broader discharge
-beyond that implemented subset.
-
-Before opening [the full repair-loop record](first-slice-follow-ups-full.md#repair-loop),
-compare the task with [../reference/language/holes.md](../reference/language/holes.md)
-and [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
-
 ### Effects And Contracts
 
 Use this target for contract predicate validation, static obligation
@@ -49,6 +36,15 @@ compare the task with [../reference/language/contracts.md](../reference/language
 and [../reference/language/names-effects.md](../reference/language/names-effects.md).
 
 ## History
+
+### Repair Loop
+
+The broader repair discharge target has been promoted to current behavior. Use
+[../reference/language/holes.md](../reference/language/holes.md) and
+[../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md)
+for the implemented repair candidate and JSON behavior. Open
+[the full repair-loop record](first-slice-follow-ups-full.md#repair-loop) only
+for proposal history.
 
 ### Formatting
 

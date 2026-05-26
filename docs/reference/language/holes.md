@@ -10,7 +10,8 @@ exact rules or examples.
 - [Repair candidates](holes-full.md#repair-candidates) defines
   candidate query records, ranking, application policy, and safe repair
   candidates, including boolean alias, predicate implication, and adjacent
-  integer-bound cases.
+  integer-bound cases. Statically satisfied `satisfy` repair candidates remain
+  visible even when ordinary manual-review candidates are bounded.
 - [Satisfy constraints](holes-full.md#satisfy-constraints) defines `satisfy`
   parsing, candidate scoping, validation, and static satisfaction.
 
