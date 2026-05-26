@@ -1526,6 +1526,37 @@ fn check_json_reports_contract_validation_diagnostics() {
 }
 
 #[test]
+fn check_json_keeps_satisfy_predicate_parse_errors_as_parse_kind() {
+    let project = TestProject::new("satisfy-predicate-parse-kind");
+    project.write(
+        "main.veln",
+        concat!(
+            "pub fn choose() -> Int effects []\n",
+            "  _value satisfy candidate => candidate |> valid\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"parse.satisfy_predicate\"",
+            "\"kind\":\"parse\"",
+            "\"message\":\"pipeline syntax is not allowed in a contract predicate\"",
+            "\"details\":{\"phase\":\"parse\"",
+            "\"parser_context\":\"satisfy_predicate\"",
+            "\"unexpected\":{\"kind\":\"|>\",\"text\":\"|>\"}",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"parse\":1}}",
+        ],
+    );
+}
+
+#[test]
 fn check_json_reports_contract_type_mismatch_with_type_context() {
     let project = TestProject::new("contract-type-mismatch-json");
     project.write(

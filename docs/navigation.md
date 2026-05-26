@@ -16,7 +16,9 @@ Choose one route, stop when the linked short page answers the question, and use
 - Syntax, types, effects, contracts, holes, commands, JSON, runtime behavior,
   or examples:
   [reference/language/topic-map.md](reference/language/topic-map.md).
-- Human diagnostics or command JSON output:
+- Human diagnostics, related notes, or stable diagnostic details:
+  [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md).
+- Command JSON output after the diagnostic route is not enough:
   [reference/language/json-output.md](reference/language/json-output.md).
 - Proposal implementation or promotion:
   [proposals/implementation-route.md](proposals/implementation-route.md).

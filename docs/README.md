@@ -8,8 +8,20 @@ short page points to them.
 
 - Current behavior: [reference/language/README.md](reference/language/README.md).
 - Accepted or open targets: [proposals/target-queue.md](proposals/target-queue.md).
-- Moving or reclassifying durable text: [document-status.md](document-status.md).
 - Unclear route: [navigation.md](navigation.md).
+
+## Choose One Task
+
+- Implement behavior: start with
+  [reference/language/topic-map.md](reference/language/topic-map.md), then use
+  [proposals/implementation-route.md](proposals/implementation-route.md) only
+  when a proposal must be promoted.
+- Update diagnostics or command JSON:
+  [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md)
+  or [reference/language/json-output.md](reference/language/json-output.md).
+- Check rationale, review evidence, phase history, or source support:
+  [navigation.md](navigation.md).
+- Move or reclassify durable text: [document-status.md](document-status.md).
 
 ## Stop Rule
 
@@ -17,20 +29,6 @@ short page points to them.
 - Open a `*-full.md` file only when a short page names a section that matters.
 - Return here instead of scanning sibling directories when the current route
   turns out to be proposal, review, phase, or reference work.
-
-## Task Routes
-
-- Current behavior change: use
-  [reference/language/topic-map.md](reference/language/topic-map.md).
-- Human diagnostics, related notes, or machine-readable diagnostic output: use
-  [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md).
-- Proposal implementation: use
-  [proposals/implementation-route.md](proposals/implementation-route.md).
-- Rationale or compatibility: use
-  [reference/language/source-decisions.md](reference/language/source-decisions.md).
-- Research-source audit: use
-  [reference/bibliography/README.md](reference/bibliography/README.md).
-- Route is still unclear: use [navigation.md](navigation.md).
 
 ## Directory Map
 
