@@ -1,8 +1,9 @@
 # Documentation Navigation
 
 Use this page after [README.md](README.md) when the first route is not obvious.
-Choose one route, stop when the linked short page answers the question, and use
-[navigation-full.md](navigation-full.md) only when these routes are not enough.
+Choose one route and stop when the linked short page answers the question. Use
+[navigation-full.md](navigation-full.md) only for navigation history or when the
+routes below are not enough.
 
 ## Read First
 
@@ -34,17 +35,15 @@ Choose one route, stop when the linked short page answers the question, and use
 - Historical implementation order: [phases/README.md](phases/README.md).
 - Source support for claims:
   [reference/bibliography/README.md](reference/bibliography/README.md).
-- Source-decision record storage or placement audits:
-  [reference/source-decisions/result-index.md](reference/source-decisions/result-index.md).
+- Source-decision rationale or record audits:
+  [reference/source-decisions/README.md](reference/source-decisions/README.md).
 
 ### Documentation Maintenance
 
 - Entry-page routing, document movement, or status labels:
   [document-status.md](document-status.md).
-- Source-decision record placement:
-  [reference/source-decisions/result-index.md](reference/source-decisions/result-index.md).
-- Exhaustive source-decision storage:
-  [reference/source-decisions/records/README.md](reference/source-decisions/records/README.md).
+- Source-decision category routing, record placement, or storage audits:
+  [reference/source-decisions/README.md](reference/source-decisions/README.md).
 - Link-health work: start from the page being edited, then verify links across
   `docs/` after the route is updated.
 

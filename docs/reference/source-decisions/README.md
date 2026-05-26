@@ -4,8 +4,8 @@ Status: implemented
 
 These discussion results describe decisions represented by the current
 implementation or by an intentional absence in the current reference. Read
-`../language/` first for behavior; use this area only for rationale or
-compatibility context.
+`../language/` first for behavior; use this area only for rationale,
+compatibility context, or record-placement audits.
 
 ## Read First
 
@@ -28,17 +28,18 @@ compatibility context.
 
 ## Audit Routes
 
-- Record storage route: [records/README.md](records/README.md).
-- Record placement and exhaustive-list route: [result-index.md](result-index.md).
+- Record placement: [result-index.md](result-index.md).
+- Storage layer: [records/README.md](records/README.md).
+- Exhaustive grouped list: [records/result-index-full.md](records/result-index-full.md).
 
 ## Read When
 
 - Open exactly one category page for the task area, then one `result-*.md`
   record only when that category page names it.
-- Use [records/README.md](records/README.md) after a category page names one
-  record or when checking the storage layer itself.
-- Use [result-index.md](result-index.md) only for audits that need the full
-  record set or need to move records between categories.
+- Use [result-index.md](result-index.md) only for audits that need category
+  placement or a route to the full record set.
+- Use [records/README.md](records/README.md) only when checking the storage
+  layer itself.
 
 ## Boundary
 
