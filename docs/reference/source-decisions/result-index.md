@@ -14,7 +14,8 @@ the smallest category page.
 
 - Checking whether a record is routed through the right category page.
 - Moving a source-decision record between category routes.
-- Finding the exhaustive storage list without scanning `records/` directly.
+- Finding the exhaustive, category-grouped storage list without scanning
+  `records/` directly.
 
 ## Topic Routes
 
@@ -26,7 +27,7 @@ the smallest category page.
   boundaries: [implementation-boundaries.md](implementation-boundaries.md).
 - Decision placement, comparison tasks, repair policy, and diagnostic severity:
   [process-rationale.md](process-rationale.md).
-- Storage-only exhaustive list:
+- Storage-only exhaustive list grouped by the routes above:
   [records/result-index-full.md](records/result-index-full.md).
 
 ## Skip Unless Needed

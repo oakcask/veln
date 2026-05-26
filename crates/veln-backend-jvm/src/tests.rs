@@ -4,8 +4,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::java::{
-    java_string, java_type_identifier, sanitize_identifier_text, unique_java_identifier,
-    veln_string_literal_value,
+    concurrency_method, java_string, java_type_identifier, prelude_method,
+    sanitize_identifier_text, stdio_method, unique_java_identifier, veln_string_literal_value,
 };
 use crate::*;
 use veln_ast::lower_surface_ast;
@@ -1873,6 +1873,79 @@ fn java_identifier_helpers_sanitize_keywords_and_collisions() {
     assert_eq!(unique_java_identifier("return", &mut used_names), "_return");
     assert_eq!(unique_java_identifier("value", &mut used_names), "value");
     assert_eq!(unique_java_identifier("value", &mut used_names), "value_1");
+}
+
+#[test]
+fn java_method_name_helpers_map_builtin_surface_names() {
+    for (surface, method) in [
+        ("stdio::print", "stdioPrint"),
+        ("stdio::println", "stdioPrintln"),
+        ("stdio::eprint", "stdioEprint"),
+        ("stdio::eprintln", "stdioEprintln"),
+    ] {
+        assert_eq!(stdio_method(surface), method);
+    }
+
+    for (surface, method) in [
+        ("float_negate", "floatNegate"),
+        ("float_add", "floatAdd"),
+        ("float_subtract", "floatSubtract"),
+        ("float_multiply", "floatMultiply"),
+        ("float_divide", "floatDivide"),
+        ("float_less", "floatLess"),
+        ("float_less_equal", "floatLessEqual"),
+        ("float_greater", "floatGreater"),
+        ("float_greater_equal", "floatGreaterEqual"),
+        ("string_split_once", "stringSplitOnce"),
+        ("string_parse_int", "stringParseInt"),
+        ("int_to_string", "intToString"),
+        ("list_len", "listLen"),
+        ("list_is_empty", "listIsEmpty"),
+        ("list_push", "listPush"),
+        ("list_concat", "listConcat"),
+        ("list_map", "listMap"),
+        ("list_filter", "listFilter"),
+        ("list_fold", "listFold"),
+        ("list_try_map", "listTryMap"),
+        ("list_try_map_with", "listTryMapWith"),
+        ("dict_get", "dictGet"),
+        ("dict_contains", "dictContains"),
+        ("dict_insert", "dictInsert"),
+        ("dict_remove", "dictRemove"),
+        ("option_map", "optionMap"),
+        ("option_and_then", "optionAndThen"),
+        ("option_unwrap_or", "optionUnwrapOr"),
+        ("result_map", "resultMap"),
+        ("result_map_err", "resultMapErr"),
+        ("result_and_then", "resultAndThen"),
+    ] {
+        assert_eq!(prelude_method(surface), method);
+    }
+
+    for (surface, method) in [
+        ("channel::bounded", "channelBounded"),
+        ("channel::clone", "channelClone"),
+        ("channel::send", "channelSend"),
+        ("channel::recv", "channelRecv"),
+        ("channel::select", "channelSelect"),
+        ("channel::select_priority", "channelSelectPriority"),
+        ("channel::select_timeout", "channelSelectTimeout"),
+        ("channel::select_result", "channelSelectResult"),
+        (
+            "channel::select_priority_result",
+            "channelSelectPriorityResult",
+        ),
+        (
+            "channel::select_timeout_result",
+            "channelSelectTimeoutResult",
+        ),
+        ("channel::close", "channelClose"),
+        ("task::spawn", "taskSpawn"),
+        ("task::join", "taskJoin"),
+        ("task::cancel", "taskCancel"),
+    ] {
+        assert_eq!(concurrency_method(surface), method);
+    }
 }
 
 #[test]

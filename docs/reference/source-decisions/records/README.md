@@ -14,15 +14,16 @@ route.
 
 - Category pages in `../` provide task routes.
 - `result-*.md` files hold one durable decision record each.
-- [result-index-full.md](result-index-full.md) is the exhaustive list for
-  storage audits.
+- [result-index-full.md](result-index-full.md) is the exhaustive,
+  category-grouped list for storage audits.
 
 ## Read When
 
 - A category page names one record that explains a boundary in the implemented
   reference.
 - You are checking whether a record belongs in a different category route.
-- You need the exhaustive list in [result-index-full.md](result-index-full.md).
+- You need the exhaustive category-grouped list in
+  [result-index-full.md](result-index-full.md).
 
 ## Boundary
 
