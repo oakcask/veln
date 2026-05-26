@@ -48,19 +48,17 @@ Before opening
 compare the task with [../reference/language/contracts.md](../reference/language/contracts.md)
 and [../reference/language/names-effects.md](../reference/language/names-effects.md).
 
+## History
+
 ### Formatting
 
-Use this target for changing the canonical formatter indentation rule. The
-accepted target is to move from the current two-space indentation unit to a
-tab-character indentation unit and to make every `match` arm one indentation
-level deeper than the `match` expression line.
-
-Before opening
-[the full formatting record](first-slice-follow-ups-full.md#formatting),
-compare the task with [../reference/language/commands.md](../reference/language/commands.md)
-and [../reference/language/source-surface.md](../reference/language/source-surface.md).
-
-## History
+The formatter indentation target has been promoted to current behavior. Use
+[../reference/language/commands.md](../reference/language/commands.md) for the
+implemented `fmt` route and
+[../reference/language/commands-full.md#veln-fmt-path](../reference/language/commands-full.md#veln-fmt-path)
+for the canonical indentation rule. Open
+[the full formatting record](first-slice-follow-ups-full.md#formatting) only
+for proposal history.
 
 The full record also keeps empty historical categories for language and type
 coverage, lowering and execution, and test discovery and events. Open those

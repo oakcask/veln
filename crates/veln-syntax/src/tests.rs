@@ -25,7 +25,7 @@ fn parses_minimal_public_function() {
 fn parses_explicit_test_declaration() {
     let source = SourceFile::new(
         "main_test.veln",
-        "test returns_ok() -> Result((), String) effects []\n  Ok(())\nend\n",
+        "test returns_ok() -> Result((), String) effects []\n\tOk(())\nend\n",
     );
 
     let output = parse(&source);
@@ -38,7 +38,7 @@ fn parses_explicit_test_declaration() {
     assert_eq!(function.name.as_deref(), Some("returns_ok"));
     assert_eq!(
         format_tree(&output.tree),
-        "test returns_ok() -> Result((), String) effects []\n  Ok(())\nend\n"
+        "test returns_ok() -> Result((), String) effects []\n\tOk(())\nend\n"
     );
 }
 
@@ -59,7 +59,7 @@ fn parses_omitted_signature_annotations_as_recoverable_ast_facts() {
 fn parses_wildcard_let_without_binding_a_name() {
     let source = SourceFile::new(
         "main.veln",
-        "fn discard(value: Int) -> ()\n  let _: Int = value\n  ()\nend\n",
+        "fn discard(value: Int) -> ()\n\tlet _: Int = value\n\t()\nend\n",
     );
 
     let output = parse(&source);
@@ -83,7 +83,7 @@ fn parses_wildcard_let_without_binding_a_name() {
 fn parses_record_let_pattern() {
     let source = SourceFile::new(
         "main.veln",
-        "fn unpack(value: {count: Int}) -> Int\n  let {count: amount}: {count: Int} = value\n  amount\nend\n",
+        "fn unpack(value: {count: Int}) -> Int\n\tlet {count: amount}: {count: Int} = value\n\tamount\nend\n",
     );
 
     let output = parse(&source);
@@ -91,7 +91,7 @@ fn parses_record_let_pattern() {
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
     assert_eq!(
         format_tree(&output.tree),
-        "fn unpack(value: { count : Int }) -> Int\n  let { count: amount }: { count : Int } = value\n  amount\nend\n"
+        "fn unpack(value: { count : Int }) -> Int\n\tlet { count: amount }: { count : Int } = value\n\tamount\nend\n"
     );
     let SyntaxItem::Function(function) = &output.tree.items[0];
     let BodyLine::Let {
@@ -167,7 +167,7 @@ fn parses_adr_lite_records_from_doc_comments() {
             "/// decision: Keep the public API pure.\n",
             "/// consequences: Runtime behavior ignores this record.\n",
             "pub fn summarize() -> () effects []\n",
-            "  ()\n",
+            "\t()\n",
             "end\n",
         ),
     );
@@ -581,8 +581,8 @@ fn parses_and_formats_result_binding() {
         format_tree(&output.tree),
         concat!(
             "fn clamp(value: Int) -> output: Int\n",
-            "  ensure output >= value\n",
-            "  value\n",
+            "\tensure output >= value\n",
+            "\tvalue\n",
             "end\n",
         )
     );
@@ -643,8 +643,8 @@ fn formats_unit_type_with_empty_tuple_spelling() {
         "main.veln",
         concat!(
             "fn main(value: Unit) -> Result(Unit, AppError)\n",
-            "  let ready: Unit = ()\n",
-            "  Ok(ready)\n",
+            "\tlet ready: Unit = ()\n",
+            "\tOk(ready)\n",
             "end\n",
         ),
     );
@@ -656,8 +656,8 @@ fn formats_unit_type_with_empty_tuple_spelling() {
         format_tree(&output.tree),
         concat!(
             "fn main(value: ()) -> Result((), AppError)\n",
-            "  let ready: () = ()\n",
-            "  Ok(ready)\n",
+            "\tlet ready: () = ()\n",
+            "\tOk(ready)\n",
             "end\n",
         )
     );
@@ -669,7 +669,7 @@ fn parses_hole_satisfy_clause() {
         "main.veln",
         concat!(
             "fn choose() -> ()\n",
-            "  _value satisfy candidate => candidate > 0 and candidate < 10\n",
+            "\t_value satisfy candidate => candidate > 0 and candidate < 10\n",
             "end\n",
         ),
     );
@@ -747,8 +747,8 @@ fn parses_records_lists_and_formats_precedence() {
         "main.veln",
         concat!(
             "fn data() -> ()\n",
-            "  let record = { name: \"veln\", values: [1, 2 + 3 * 4] }\n",
-            "  1 * (2 + 3)\n",
+            "\tlet record = { name: \"veln\", values: [1, 2 + 3 * 4] }\n",
+            "\t1 * (2 + 3)\n",
             "end\n",
         ),
     );
@@ -799,7 +799,7 @@ fn parses_try_prefix_and_pipeline_precedence() {
         "main.veln",
         concat!(
             "fn main(input: Int) -> ()\n",
-            "  -input? |> sink(\"ok\", ())\n",
+            "\t-input? |> sink(\"ok\", ())\n",
             "end\n",
         ),
     );
@@ -846,7 +846,7 @@ fn parses_try_prefix_and_pipeline_precedence() {
 fn parses_boolean_literals_as_literals() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main(flag: Bool) -> Bool\n  true and false or flag\nend\n",
+        "fn main(flag: Bool) -> Bool\n\ttrue and false or flag\nend\n",
     );
 
     let output = parse(&source);
@@ -876,10 +876,10 @@ fn parses_boolean_literals_as_patterns() {
         "main.veln",
         concat!(
             "fn main(flag: Bool) -> String\n",
-            "  match flag\n",
-            "    true => \"yes\"\n",
-            "    false => \"no\"\n",
-            "  end\n",
+            "\tmatch flag\n",
+            "\t\ttrue => \"yes\"\n",
+            "\t\tfalse => \"no\"\n",
+            "\tend\n",
             "end\n",
         ),
     );
@@ -909,7 +909,7 @@ fn parses_boolean_literals_as_patterns() {
 fn parses_dictionary_literals_with_expression_keys() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Dict(String, Int)\n  {\"one\": 1, \"two\": 2}\nend\n",
+        "fn main() -> Dict(String, Int)\n\t{\"one\": 1, \"two\": 2}\nend\n",
     );
 
     let output = parse(&source);
@@ -917,7 +917,7 @@ fn parses_dictionary_literals_with_expression_keys() {
     assert!(output.diagnostics.is_empty());
     assert_eq!(
         format_tree(&output.tree),
-        "fn main() -> Dict(String, Int)\n  { \"one\": 1, \"two\": 2 }\nend\n"
+        "fn main() -> Dict(String, Int)\n\t{ \"one\": 1, \"two\": 2 }\nend\n"
     );
     let SyntaxItem::Function(function) = &output.tree.items[0];
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
@@ -935,7 +935,7 @@ fn parses_dictionary_literals_with_expression_keys() {
 fn parses_dictionary_literals_with_identifier_led_expression_keys() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main(seed: Int) -> Dict(Int, String)\n  {seed + 1: \"next\"}\nend\n",
+        "fn main(seed: Int) -> Dict(Int, String)\n\t{seed + 1: \"next\"}\nend\n",
     );
 
     let output = parse(&source);
@@ -943,7 +943,7 @@ fn parses_dictionary_literals_with_identifier_led_expression_keys() {
     assert!(output.diagnostics.is_empty());
     assert_eq!(
         format_tree(&output.tree),
-        "fn main(seed: Int) -> Dict(Int, String)\n  { seed + 1: \"next\" }\nend\n"
+        "fn main(seed: Int) -> Dict(Int, String)\n\t{ seed + 1: \"next\" }\nend\n"
     );
     let SyntaxItem::Function(function) = &output.tree.items[0];
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
@@ -994,8 +994,8 @@ fn parses_newlines_inside_grouped_expressions() {
         format_tree(&output.tree),
         concat!(
             "fn data() -> ()\n",
-            "  let record = { name: \"veln\", values: [1, add(2, 3)] }\n",
-            "  record\n",
+            "\tlet record = { name: \"veln\", values: [1, add(2, 3)] }\n",
+            "\trecord\n",
             "end\n",
         )
     );
@@ -1020,8 +1020,8 @@ fn parses_field_access_as_postfix_expression() {
         "main.veln",
         concat!(
             "fn data() -> ()\n",
-            "  let count = { nested: { count: 1 } }.nested.count\n",
-            "  count\n",
+            "\tlet count = { nested: { count: 1 } }.nested.count\n",
+            "\tcount\n",
             "end\n",
         ),
     );
@@ -1093,8 +1093,8 @@ fn format_tree_formats_attached_line_comments() {
         concat!(
             "// header\n",
             "fn main() -> ()\n",
-            "  _  // hole\n",
-            "  // close docs\n",
+            "\t_  // hole\n",
+            "\t// close docs\n",
             "end  // function end\n",
         )
     );
@@ -1126,8 +1126,8 @@ fn format_tree_attaches_standalone_comments_to_formatted_lines() {
             "\n",
             "/// helper docs\n",
             "fn helper(value: ()) -> ()\n",
-            "  // body docs\n",
-            "  ()\n",
+            "\t// body docs\n",
+            "\t()\n",
             "end\n",
         )
     );
@@ -1215,10 +1215,10 @@ fn parses_and_formats_match_expression() {
         "main.veln",
         concat!(
             "fn describe(value: Option(Int)) -> String effects []\n",
-            "  match value\n",
-            "    Some(count) => \"some\"\n",
-            "    None => \"none\"\n",
-            "  end\n",
+            "\tmatch value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend\n",
             "end\n",
         ),
     );
@@ -1288,10 +1288,10 @@ fn parses_match_expression_inside_call_argument() {
         "main.veln",
         concat!(
             "fn describe(value: Option(Int)) -> String effects []\n",
-            "  wrap(match value\n",
-            "    Some(count) => \"some\"\n",
-            "    None => \"none\"\n",
-            "  end)\n",
+            "\twrap(match value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend)\n",
             "end\n",
         ),
     );
@@ -1311,10 +1311,10 @@ fn parses_match_expression_inside_call_argument() {
         format_tree(&output.tree),
         concat!(
             "fn describe(value: Option(Int)) -> String effects []\n",
-            "  wrap(match value\n",
-            "    Some(count) => \"some\"\n",
-            "    None => \"none\"\n",
-            "  end)\n",
+            "\twrap(match value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend)\n",
             "end\n",
         )
     );
@@ -1326,13 +1326,13 @@ fn parses_match_expression_inside_aggregate_literals() {
         "main.veln",
         concat!(
             "fn describe(value: Option(Int)) -> {labels: [String], primary: String} effects []\n",
-            "  {labels: [match value\n",
-            "    Some(count) => \"some\"\n",
-            "    None => \"none\"\n",
-            "  end], primary: match value\n",
-            "    Some(count) => \"some\"\n",
-            "    None => \"none\"\n",
-            "  end}\n",
+            "\t{labels: [match value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend], primary: match value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend}\n",
             "end\n",
         ),
     );
@@ -1352,6 +1352,20 @@ fn parses_match_expression_inside_aggregate_literals() {
     };
     assert!(matches!(items[0].kind, ExprKind::Match { .. }));
     assert!(matches!(fields[1].expr.kind, ExprKind::Match { .. }));
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn describe(value: Option(Int)) -> { labels : [String], primary : String } effects []\n",
+            "\t{ labels: [match value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend], primary: match value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend }\n",
+            "end\n",
+        )
+    );
 }
 
 #[test]
@@ -1360,11 +1374,11 @@ fn parses_and_formats_qualified_builtin_constructors() {
         "main.veln",
         concat!(
             "fn describe(value: Result(Option(Int), String)) -> Result(String, String) effects []\n",
-            "  match value\n",
-            "    Result::Ok(Option::Some(count)) => Result::Ok(\"some\")\n",
-            "    Result::Ok(Option::None) => Result::Ok(\"none\")\n",
-            "    Result::Err(error) => Result::Err(error)\n",
-            "  end\n",
+            "\tmatch value\n",
+            "\t\tResult::Ok(Option::Some(count)) => Result::Ok(\"some\")\n",
+            "\t\tResult::Ok(Option::None) => Result::Ok(\"none\")\n",
+            "\t\tResult::Err(error) => Result::Err(error)\n",
+            "\tend\n",
             "end\n",
         ),
     );
@@ -1404,10 +1418,10 @@ fn parses_and_formats_record_patterns() {
         "main.veln",
         concat!(
             "fn describe(value: {count: Int, label: String}) -> String effects []\n",
-            "  match value\n",
-            "    {count: 0, label: name} => name\n",
-            "    {count: count, label: _} => \"many\"\n",
-            "  end\n",
+            "\tmatch value\n",
+            "\t\t{count: 0, label: name} => name\n",
+            "\t\t{count: count, label: _} => \"many\"\n",
+            "\tend\n",
             "end\n",
         ),
     );
@@ -1419,10 +1433,10 @@ fn parses_and_formats_record_patterns() {
         format_tree(&output.tree),
         concat!(
             "fn describe(value: { count : Int, label : String }) -> String effects []\n",
-            "  match value\n",
-            "    { count: 0, label: name } => name\n",
-            "    { count: count, label: _ } => \"many\"\n",
-            "  end\n",
+            "\tmatch value\n",
+            "\t\t{ count: 0, label: name } => name\n",
+            "\t\t{ count: count, label: _ } => \"many\"\n",
+            "\tend\n",
             "end\n",
         )
     );

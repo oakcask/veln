@@ -62,6 +62,11 @@ followed by another token before the line ends, the parser reports
 tokens before the `=`, the parser reports `parse.pattern` at the first extra
 token.
 
+The canonical `veln fmt` layout uses one tab character per indentation level.
+Function body lines use one indentation level, `match` arms use one level
+deeper than their `match` expression line, and closing `end` lines align with
+the corresponding function or `match` line.
+
 The final expression line is the returned value. If a body has no final
 expression line, the omitted tail expression returns `()`. A non-`()`
 declared return type reports `type.mismatch` with
