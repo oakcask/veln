@@ -5,6 +5,7 @@ version.workspace = true
 publish = false
 
 [dependencies]
+clap.workspace = true
 veln-ast.workspace = true
 veln-backend-jvm.workspace = true
 veln-core.workspace = true
