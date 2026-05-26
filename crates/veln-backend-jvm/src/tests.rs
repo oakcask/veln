@@ -1632,6 +1632,27 @@ fn omits_statically_proven_same_shape_contract_checks() {
 }
 
 #[test]
+fn omits_transitive_strict_order_cycle_contract_checks() {
+    let ir = lower_to_ir(concat!(
+        "pub fn identity(low: Int, mid: Int, high: Int) -> output: Int effects []\n",
+        "  require not (low < mid and mid <= high and high <= low)\n",
+        "  ensure not (output <= mid and mid < high and high <= output)\n",
+        "  low\n",
+        "end\n",
+    ));
+
+    let java = generate_java(&ir);
+    let program = java
+        .source("VelnProgram.java")
+        .expect("program source should exist");
+
+    assert!(!program.contains("VelnRuntime.checkContract("));
+    assert!(!program.contains("\"require\", \"not (low < mid"));
+    assert!(!program.contains("\"ensure\", \"not (output <= mid"));
+    assert!(program.contains("return p_low;"));
+}
+
+#[test]
 fn omits_wide_partial_case_split_contract_checks() {
     let fields = ["a", "b", "c", "d", "e", "f", "g", "h"];
     let record_type = bool_record_type(&fields);

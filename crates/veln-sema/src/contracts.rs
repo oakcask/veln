@@ -166,6 +166,9 @@ fn static_boolean_value_inner(
     if has_resolved_complementary_disjunctions_top_level_and(predicate) {
         return StaticBooleanValue::False;
     }
+    if has_transitive_strict_order_cycle_top_level_and(predicate) {
+        return StaticBooleanValue::False;
+    }
     if has_transitive_order_contradiction_top_level_and(predicate) {
         return StaticBooleanValue::False;
     }
@@ -541,6 +544,24 @@ fn has_transitive_order_contradiction_top_level_and(predicate: &str) -> bool {
                 && order_bound_edges_imply_non_strict(&edges, &right, &left)
         })
     })
+}
+
+fn has_transitive_strict_order_cycle_top_level_and(predicate: &str) -> bool {
+    let clauses = flattened_keyword_clauses(predicate, "and");
+    if clauses.len() < 2 {
+        return false;
+    }
+    let edges: Vec<_> = clauses
+        .iter()
+        .flat_map(|clause| order_bound_transitive_edges(clause))
+        .collect();
+    if edges.len() < 2 {
+        return false;
+    }
+
+    edges
+        .iter()
+        .any(|edge| order_bound_edges_imply(&edges, &edge.right, &edge.left, !edge.strict))
 }
 
 fn has_factored_case_split_covered_by_complements(predicate: &str) -> bool {

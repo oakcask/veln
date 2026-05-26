@@ -10413,6 +10413,33 @@ fn contract_predicate_order_paths_contradict_equality_relations() {
 }
 
 #[test]
+fn contract_predicate_strict_order_cycles_are_statically_proven_false() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(low: Int, mid: Int, high: Int) -> output: Int effects []\n",
+            "require not (low < mid and mid <= high and high <= low)\n",
+            "ensure not (output <= mid and mid < high and high <= output)\n",
+            "  low\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_order_path_contradiction_requires_matching_path() {
     let source = SourceFile::new(
         "main.veln",

@@ -304,6 +304,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   same subject are also statically evaluated when they cover every value.
   Disequality predicates over ordered operands also statically discharge
   equivalent strict-order splits.
+  Negated conjunctions whose transitive ordering cycle contains at least one
+  strict edge are also statically evaluated.
   Negated conjunctions that bind the same subject to distinct boolean,
   numeric, or string literals are also statically evaluated.
   Richer predicate semantics beyond these static truth identities, literal

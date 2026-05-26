@@ -222,6 +222,8 @@ non-strict cycles combined with disequality, such as
 `not (low <= mid and mid <= low and low != mid)`, and strict transitive paths
 combined with equality, such as
 `not (low < mid and mid <= high and low == high)`.
+Strict ordering cycles are also contradictions, so
+`not (low < mid and mid <= high and high <= low)` is statically proven.
 Top-level `or` also proves case-split predicates when one branch is the
 complement of another branch and every other conjunct in that branch is
 statically true. For example,
