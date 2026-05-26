@@ -284,6 +284,46 @@ fn read_manifest_accepts_final_entry_without_newline() {
 }
 
 #[test]
+fn read_manifest_tracks_module_entry_value_span_ends() {
+    let temp = TempProject::new("manifest-value-span-ends");
+    temp.write(
+        "veln.toml",
+        "[modules]\n  \"src/main.veln\" = \"app.main\"\n",
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    let module = &manifest.modules[0];
+    assert_eq!(module.path_span.start.line, 2);
+    assert_eq!(module.path_span.start.column, 4);
+    assert_eq!(module.path_span.end.line, 2);
+    assert_eq!(module.path_span.end.column, 17);
+    assert_eq!(module.name_span.start.line, 2);
+    assert_eq!(module.name_span.start.column, 22);
+    assert_eq!(module.name_span.end.line, 2);
+    assert_eq!(module.name_span.end.column, 30);
+}
+
+#[test]
+fn read_manifest_tracks_empty_module_name_span() {
+    let temp = TempProject::new("manifest-empty-module-name");
+    temp.write("veln.toml", "[modules]\n\"src/main.veln\" = \"\"\n");
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    let module = &manifest.modules[0];
+    assert_eq!(module.name, "");
+    assert_eq!(module.name_span.start.line, 2);
+    assert_eq!(module.name_span.start.column, 20);
+    assert_eq!(module.name_span.end.line, 2);
+    assert_eq!(module.name_span.end.column, 20);
+}
+
+#[test]
 fn read_manifest_accepts_modules_header_without_entries() {
     let temp = TempProject::new("manifest-empty-modules");
     temp.write("veln.toml", "[modules]");

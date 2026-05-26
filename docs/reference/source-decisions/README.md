@@ -12,8 +12,8 @@ read these records only for rationale or compatibility context.
 - [../language/README.md](../language/README.md) for implemented behavior.
 - [../language/source-decisions.md](../language/source-decisions.md) for the
   short language-facing rationale route.
-- [topic-map.md](topic-map.md) when you know the task area but not the right
-  decision category.
+- [topic-map.md](topic-map.md) when the task area is known but the decision
+  category is not.
 
 ## Choose One Route
 
@@ -28,34 +28,10 @@ read these records only for rationale or compatibility context.
 
 ## Read When
 
-- Choose the first category that matches the task. Do not scan individual
-  `result-*.md` files before a category page points to one.
-- [topic-map.md](topic-map.md): fastest route from a task area to the relevant
-  category section.
-- [language-surface.md](language-surface.md): syntax, names, typing,
-  contracts, holes, and effects.
-- [commands-output.md](commands-output.md): CLI behavior, JSON schemas, test
-  selection, and observable I/O.
-- [implementation-boundaries.md](implementation-boundaries.md): runtime, AST,
-  architecture, mutability, and compatibility boundaries.
-- [process-rationale.md](process-rationale.md): decision placement, comparison
-  tasks, and repair policy.
-
-## Category Route Order
-
-- Start with [topic-map.md](topic-map.md) when the category is unclear.
-- Open exactly one category page for the task area.
-- Open an individual `result-*.md` record only when the category page names it.
-- Return to `../language/` before treating any rationale text as current
-  behavior.
-- Use [result-index.md](result-index.md) only for audits that need the
-  exhaustive record list.
-
-## History
-
-- [result-index.md](result-index.md): audit route for deduplication or moving a
-  record between categories. It links to the exhaustive record list only after
-  the category routes are not enough.
+- Open exactly one category page for the task area, then one `result-*.md`
+  record only when that category page names it.
+- Use [result-index.md](result-index.md) only for audits that need the full
+  record list or need to move records between categories.
 
 ## Boundary
 
