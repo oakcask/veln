@@ -144,9 +144,88 @@ fn parse_explain(args: impl Iterator<Item = String>) -> Result<Command, String> 
 #[cfg(test)]
 mod tests {
     use super::Command;
+    use std::path::PathBuf;
 
     fn parse(args: &[&str]) -> Result<Command, String> {
         Command::parse(args.iter().map(|arg| arg.to_string()).collect())
+    }
+
+    #[test]
+    fn top_level_parser_handles_help_and_version_aliases() {
+        assert!(matches!(parse(&[]).unwrap(), Command::Help));
+        assert!(matches!(parse(&["help"]).unwrap(), Command::Help));
+        assert!(matches!(parse(&["--help"]).unwrap(), Command::Help));
+        assert!(matches!(parse(&["-h"]).unwrap(), Command::Help));
+        assert!(matches!(parse(&["version"]).unwrap(), Command::Version));
+        assert!(matches!(parse(&["--version"]).unwrap(), Command::Version));
+        assert!(matches!(parse(&["-V"]).unwrap(), Command::Version));
+    }
+
+    #[test]
+    fn top_level_parser_reports_unknown_commands() {
+        let error = match parse(&["build"]) {
+            Ok(_) => panic!("unknown command should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown command `build`");
+    }
+
+    #[test]
+    fn check_parser_accepts_json_and_input_paths() {
+        let command = parse(&["check", "--json", "src/main.veln", "tests/case.veln"])
+            .expect("check command should parse");
+
+        let Command::Check { json, inputs } = command else {
+            panic!("expected check command");
+        };
+
+        assert!(json);
+        assert_eq!(
+            inputs,
+            [
+                PathBuf::from("src/main.veln"),
+                PathBuf::from("tests/case.veln")
+            ]
+        );
+    }
+
+    #[test]
+    fn check_parser_reports_unknown_flags() {
+        let error = match parse(&["check", "--strict"]) {
+            Ok(_) => panic!("unknown check flag should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown check flag `--strict`");
+    }
+
+    #[test]
+    fn fmt_parser_accepts_input_paths() {
+        let command =
+            parse(&["fmt", "src/main.veln", "tests/case.veln"]).expect("fmt command should parse");
+
+        let Command::Fmt { inputs } = command else {
+            panic!("expected fmt command");
+        };
+
+        assert_eq!(
+            inputs,
+            [
+                PathBuf::from("src/main.veln"),
+                PathBuf::from("tests/case.veln")
+            ]
+        );
+    }
+
+    #[test]
+    fn fmt_parser_reports_unknown_flags() {
+        let error = match parse(&["fmt", "--check"]) {
+            Ok(_) => panic!("unknown fmt flag should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown fmt flag `--check`");
     }
 
     #[test]
@@ -199,6 +278,47 @@ mod tests {
     }
 
     #[test]
+    fn subcommands_return_help_for_help_flags() {
+        assert!(matches!(
+            parse(&["check", "--help"]).unwrap(),
+            Command::Help
+        ));
+        assert!(matches!(parse(&["fmt", "-h"]).unwrap(), Command::Help));
+        assert!(matches!(parse(&["run", "--help"]).unwrap(), Command::Help));
+        assert!(matches!(parse(&["test", "-h"]).unwrap(), Command::Help));
+        assert!(matches!(
+            parse(&["explain", "--help"]).unwrap(),
+            Command::Help
+        ));
+    }
+
+    #[test]
+    fn test_parser_accepts_json_and_targets() {
+        let command = parse(&["test", "--json", "src/main.veln", "tests"])
+            .expect("test command should parse");
+
+        let Command::Test { json, targets } = command else {
+            panic!("expected test command");
+        };
+
+        assert!(json);
+        assert_eq!(
+            targets,
+            [PathBuf::from("src/main.veln"), PathBuf::from("tests")]
+        );
+    }
+
+    #[test]
+    fn test_parser_reports_unknown_flags() {
+        let error = match parse(&["test", "--filter"]) {
+            Ok(_) => panic!("unknown test flag should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown test flag `--filter`");
+    }
+
+    #[test]
     fn explain_parser_accepts_list_with_diagnostic_id() {
         let command =
             parse(&["explain", "--list", "hole.unfilled"]).expect("explain command should parse");
@@ -213,5 +333,25 @@ mod tests {
 
         assert!(list);
         assert_eq!(diagnostic_id.as_deref(), Some("hole.unfilled"));
+    }
+
+    #[test]
+    fn explain_parser_rejects_extra_diagnostic_ids() {
+        let error = match parse(&["explain", "hole.unfilled", "type.mismatch"]) {
+            Ok(_) => panic!("extra explain argument should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unexpected explain argument `type.mismatch`");
+    }
+
+    #[test]
+    fn explain_parser_reports_unknown_flags() {
+        let error = match parse(&["explain", "--json"]) {
+            Ok(_) => panic!("unknown explain flag should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown explain flag `--json`");
     }
 }

@@ -34,6 +34,8 @@ Choose one route, stop when the linked short page answers the question, and use
 - Historical implementation order: [phases/README.md](phases/README.md).
 - Source support for claims:
   [reference/bibliography/README.md](reference/bibliography/README.md).
+- Source-decision record storage or placement audits:
+  [reference/source-decisions/result-index.md](reference/source-decisions/result-index.md).
 
 ## Boundary Rules
 
@@ -43,6 +45,11 @@ Choose one route, stop when the linked short page answers the question, and use
   so.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
+- A `result-*.md` source-decision file is a record. Open it through
+  [reference/source-decisions/topic-map.md](reference/source-decisions/topic-map.md)
+  for task work or
+  [reference/source-decisions/result-index.md](reference/source-decisions/result-index.md)
+  for record audits.
 
 ## Skip Unless Needed
 

@@ -62,3 +62,36 @@ impl CheckStatus {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn severity_strings_are_stable() {
+        assert_eq!(Severity::Error.as_str(), "error");
+        assert_eq!(Severity::Warning.as_str(), "warning");
+        assert_eq!(Severity::Info.as_str(), "info");
+        assert_eq!(Severity::Hint.as_str(), "hint");
+    }
+
+    #[test]
+    fn diagnostic_kind_strings_are_stable() {
+        assert_eq!(DiagnosticKind::Parse.as_str(), "parse");
+        assert_eq!(DiagnosticKind::Module.as_str(), "module");
+        assert_eq!(DiagnosticKind::Name.as_str(), "name");
+        assert_eq!(DiagnosticKind::Type.as_str(), "type");
+        assert_eq!(DiagnosticKind::Contract.as_str(), "contract");
+        assert_eq!(DiagnosticKind::Effect.as_str(), "effect");
+        assert_eq!(DiagnosticKind::Lint.as_str(), "lint");
+        assert_eq!(DiagnosticKind::Hole.as_str(), "hole");
+        assert_eq!(DiagnosticKind::Doc.as_str(), "doc");
+    }
+
+    #[test]
+    fn check_status_strings_are_stable() {
+        assert_eq!(CheckStatus::Ok.as_str(), "ok");
+        assert_eq!(CheckStatus::Error.as_str(), "error");
+        assert_eq!(CheckStatus::Partial.as_str(), "partial");
+    }
+}

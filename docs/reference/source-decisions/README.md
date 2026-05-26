@@ -26,14 +26,19 @@ compatibility context.
 - Documentation placement, comparison tasks, repair policy, or diagnostic
   severity: [process-rationale.md](process-rationale.md).
 
+## Audit Routes
+
+- Record storage route: [records/README.md](records/README.md).
+- Record placement and exhaustive-list route: [result-index.md](result-index.md).
+
 ## Read When
 
 - Open exactly one category page for the task area, then one `result-*.md`
   record only when that category page names it.
-- Use [records/README.md](records/README.md) only after a category page names
-  one record.
-- Use [result-index.md](result-index.md) only for audits that need the record
-  storage route or need to move records between categories.
+- Use [records/README.md](records/README.md) after a category page names one
+  record or when checking the storage layer itself.
+- Use [result-index.md](result-index.md) only for audits that need the full
+  record set or need to move records between categories.
 
 ## Boundary
 

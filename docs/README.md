@@ -25,10 +25,20 @@ short page points to them.
 - Check review evidence or phase history: [navigation.md](navigation.md).
 - Move or reclassify durable text: [document-status.md](document-status.md).
 
+## Audit Routes
+
+- Source-decision record placement:
+  [reference/source-decisions/result-index.md](reference/source-decisions/result-index.md).
+- Exhaustive source-decision storage:
+  [reference/source-decisions/records/README.md](reference/source-decisions/records/README.md).
+- Broad documentation routing rules: [navigation.md](navigation.md).
+
 ## Stop Rule
 
 - Stop at the first short page that answers the task.
 - Open a `*-full.md` file only when a short page names a section that matters.
+- Open `result-*.md` source-decision records only when a category route or
+  audit route names the relevant record.
 - Return here instead of scanning sibling directories when the current route
   turns out to be proposal, review, phase, or reference work.
 

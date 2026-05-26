@@ -10,6 +10,13 @@ route.
 - Topic map: [../topic-map.md](../topic-map.md).
 - Short audit route: [../result-index.md](../result-index.md).
 
+## Storage Shape
+
+- Category pages in `../` provide task routes.
+- `result-*.md` files hold one durable decision record each.
+- [result-index-full.md](result-index-full.md) is the exhaustive list for
+  storage audits.
+
 ## Read When
 
 - A category page names one record that explains a boundary in the implemented

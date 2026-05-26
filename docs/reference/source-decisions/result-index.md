@@ -10,6 +10,12 @@ the smallest category page.
 - Category route: [README.md](README.md).
 - Record storage route: [records/README.md](records/README.md).
 
+## Use For
+
+- Checking whether a record is routed through the right category page.
+- Moving a source-decision record between category routes.
+- Finding the exhaustive storage list without scanning `records/` directly.
+
 ## Topic Routes
 
 - Language syntax, names, types, contracts, holes, and effects:
