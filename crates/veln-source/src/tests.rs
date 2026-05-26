@@ -67,6 +67,15 @@ fn maps_utf8_offsets_to_character_columns_and_byte_offsets() {
 }
 
 #[test]
+fn maps_offsets_inside_utf8_characters_to_the_next_cursor_column() {
+    let source = SourceFile::new("main.veln", "aé\n字b");
+
+    assert_line_col(source.line_col(2), 1, 3, 2);
+    assert_line_col(source.line_col(5), 2, 2, 5);
+    assert_line_col(source.line_col(6), 2, 2, 6);
+}
+
+#[test]
 fn clamps_offsets_to_end_of_file() {
     let source = SourceFile::new("main.veln", "a\n");
 
