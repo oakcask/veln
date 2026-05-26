@@ -945,7 +945,7 @@ fn generated_compiler_support_source_loader_reads_text_with_fs_intrinsic() {
 
     let source = format!(
         "{}\n\npub fn main(path: Path) -> Result(String, FsError) effects [fs]\n  load_source_text(path)\nend\n",
-        include_str!("../../veln-sema/src/stdlib/compiler_support.veln")
+        veln_stdlib::COMPILER_SUPPORT.text
     );
     let ir = lower_to_ir(&source);
     let java = generate_java(&ir);

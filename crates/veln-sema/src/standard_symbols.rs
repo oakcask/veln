@@ -36,15 +36,15 @@ const PROCESS_EFFECTS: &[&str] = &["process"];
 const PURE_EFFECTS: &[&str] = &[];
 
 const CORE_PRELUDE_SOURCE: StandardSymbolSource = StandardSymbolSource {
-    path: "stdlib/core_prelude.veln",
-    entry: "option_unwrap_or",
-    text: include_str!("stdlib/core_prelude.veln"),
+    path: veln_stdlib::CORE_PRELUDE.path,
+    entry: veln_stdlib::CORE_PRELUDE.entry,
+    text: veln_stdlib::CORE_PRELUDE.text,
 };
 
 const COMPILER_SUPPORT_SOURCE: StandardSymbolSource = StandardSymbolSource {
-    path: "stdlib/compiler_support.veln",
-    entry: "load_source_text",
-    text: include_str!("stdlib/compiler_support.veln"),
+    path: veln_stdlib::COMPILER_SUPPORT.path,
+    entry: veln_stdlib::COMPILER_SUPPORT.entry,
+    text: veln_stdlib::COMPILER_SUPPORT.text,
 };
 
 const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[

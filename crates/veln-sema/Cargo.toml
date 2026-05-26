@@ -11,6 +11,7 @@ veln-diagnostics.workspace = true
 veln-ir.workspace = true
 veln-project.workspace = true
 veln-source.workspace = true
+veln-stdlib.workspace = true
 
 [dev-dependencies]
 veln-syntax.workspace = true

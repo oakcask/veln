@@ -11,6 +11,7 @@ veln-ir.workspace = true
 [dev-dependencies]
 veln-sema.workspace = true
 veln-source.workspace = true
+veln-stdlib.workspace = true
 veln-syntax.workspace = true
 
 [lints]
