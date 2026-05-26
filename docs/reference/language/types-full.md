@@ -74,6 +74,14 @@ leave nested pattern bindings unknown. Arm expressions share the expected result
 type when one is available; otherwise the first arm supplies the initial result
 type for later arms.
 
+After scrutinee type inference and arm expression checking, `match` expressions
+over finite built-in domains must be exhaustive. `Bool` scrutinees require
+coverage for `true` and `false`; `Option(T)` scrutinees require `Some(_)` and
+`None`; `Result(T, E)` scrutinees require `Ok(_)` and `Err(_)`. `_` and binding
+patterns are catch-all arms. A non-exhaustive finite-domain match reports
+`type.match_non_exhaustive` at the `match` expression. Related notes identify
+the scrutinee type and the arms that prove partial coverage.
+
 ## Assignment Compatibility
 
 Assignment compatibility treats `unknown` as compatible with any type. Record

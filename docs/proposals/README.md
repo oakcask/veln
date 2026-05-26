@@ -31,8 +31,11 @@ for targets that have moved into the current language reference.
   proposal history.
 - Use [toolchain-test-harness.md](toolchain-test-harness.md) for the open
   proposal to standardize command-line integration test cases.
-- Use [match-exhaustiveness.md](match-exhaustiveness.md) for the open proposal
-  to reject non-exhaustive `match` expressions before runtime.
+- Match exhaustiveness has moved into current behavior; use
+  [../reference/language/source-surface.md](../reference/language/source-surface.md)
+  and [../reference/language/types.md](../reference/language/types.md) first,
+  and open [match-exhaustiveness.md](match-exhaustiveness.md) only for proposal
+  history.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still open or only partially represented.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence

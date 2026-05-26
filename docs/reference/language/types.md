@@ -8,6 +8,8 @@ full type reference.
 - Type annotations include primitives, built-in containers, records, function
   types, named type paths, and optional result bindings.
 - Local inference is monomorphic and flow-sensitive within one function body.
+- `match` expressions over `Bool`, `Option(T)`, and `Result(T, E)` must be
+  exhaustive unless a catch-all arm is present.
 - Assignment compatibility treats `unknown` as compatible with any type and
   checks records by required fields.
 - Operators use the implemented `Bool`, `Int`, and `Float` rules.

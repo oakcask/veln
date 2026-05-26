@@ -1,11 +1,12 @@
 # Match Exhaustiveness
 
-Status: open-proposal
-Implementation: not implemented
+Status: implemented
+Implementation: implemented in the current checker for `Bool`, `Option(T)`,
+and `Result(T, E)`
 
-This proposal requires `match` expressions to be statically exhaustive before
-they can lower to runnable code. It is not a source for current behavior; use
-`../reference/language/` for the implemented `match` rules.
+This proposal records the promotion of static `match` exhaustiveness checking.
+It is not the source for current behavior; use `../reference/language/` for
+the implemented `match` rules.
 
 ## Read First
 
@@ -16,7 +17,7 @@ they can lower to runnable code. It is not a source for current behavior; use
 - Current execution behavior:
   [../reference/language/execution.md](../reference/language/execution.md).
 
-## Proposal
+## Promoted Behavior
 
 Every `match` expression must cover every value in the scrutinee type that the
 compiler can classify for the implemented pattern language. A non-exhaustive
@@ -57,18 +58,17 @@ the finite cases they intend to handle.
 Backends may keep defensive runtime fallback code for malformed IR or future
 coverage gaps, but normal checked programs should not depend on that fallback.
 
-## Implementation Plan
+## Implemented Scope
 
-1. Add a semantic coverage pass after scrutinee type inference and before IR
-   lowering.
-2. Classify finite built-in domains and catch-all patterns before handling more
-   complex nested coverage.
-3. Emit focused diagnostics for the first missing case while preserving
-   type-checking of arm expressions where possible.
-4. Add checker tests for exhaustive and non-exhaustive `Bool`, `Option`, and
-   `Result` matches.
-5. Update the current language reference only after the compiler enforces the
-   proposal.
+- The semantic checker runs coverage after scrutinee type inference and arm
+  expression checking.
+- Coverage is classified for `Bool`, `Option(T)`, and `Result(T, E)`.
+- `_` and binding patterns are catch-all arms.
+- The checker emits a focused `type.match_non_exhaustive` diagnostic for the
+  first missing case, with related notes for the scrutinee type and arms that
+  prove partial coverage.
+- Checked core and IR are not produced while a non-exhaustive finite-domain
+  match diagnostic is present.
 
 ## Skip Unless Needed
 

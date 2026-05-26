@@ -266,8 +266,14 @@ binding names, literals, record patterns, and the built-in constructors `Some`,
 every named pattern field and every nested field pattern matches. Pattern
 bindings in one arm or `let` statement must not duplicate another binding in
 that pattern or a value binding already visible at the pattern. Record pattern
-field names must be unique. Exhaustiveness is not statically checked in the
-current slice.
+field names must be unique.
+
+The checker rejects non-exhaustive `match` expressions for scrutinee types it
+can classify as finite built-in domains: `Bool`, `Option(T)`, and
+`Result(T, E)`. `_` and binding patterns are catch-all arms. Bool matches must
+cover `true` and `false`; option matches must cover `Some(_)` and `None`;
+result matches must cover `Ok(_)` and `Err(_)`. Other scrutinee types do not
+currently receive enumerated exhaustiveness checking.
 
 ## Contract Predicates
 
