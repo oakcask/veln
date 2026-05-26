@@ -65,7 +65,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   tautological for repair ranking.
   Same-shape direct expression equality and inclusive comparison clauses are
   accepted when replacing the satisfy candidate with one visible binding makes
-  both sides textually identical after whitespace normalization.
+  both sides textually identical after whitespace normalization and redundant
+  atom parentheses are removed.
   Transitive inclusive ordering paths in both directions discharge equality
   `satisfy` clauses for the endpoints. Negated top-level `or` predicates in
   valid `require` clauses discharge direct comparison `satisfy` clauses through

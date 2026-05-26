@@ -3500,7 +3500,7 @@ fn is_candidate_tautology_clause(predicate: &str, candidate: &str) -> bool {
 }
 
 fn tautological_candidate_expression(left: &str, right: &str, candidate: &str) -> bool {
-    compact_predicate_text(left) == compact_predicate_text(right)
+    compact_direct_repair_expression_text(left) == compact_direct_repair_expression_text(right)
         && expression_references_identifier(left, candidate)
 }
 
@@ -3595,8 +3595,11 @@ fn reflexive_expression_binding(
         .filter(|binding| *binding != candidate)
         .filter(|binding| {
             is_plain_identifier(binding)
-                && compact_predicate_text(&replace_identifier(candidate_expr, candidate, binding))
-                    == compact_predicate_text(binding_expr)
+                && compact_direct_repair_expression_text(&replace_identifier(
+                    candidate_expr,
+                    candidate,
+                    binding,
+                )) == compact_direct_repair_expression_text(binding_expr)
         })
         .collect::<Vec<_>>();
     match matching_bindings.as_slice() {
@@ -3668,6 +3671,46 @@ fn compact_predicate_text(predicate: &str) -> String {
         }
     }
     output
+}
+
+fn compact_direct_repair_expression_text(predicate: &str) -> String {
+    let mut current = compact_predicate_text(predicate);
+    loop {
+        let stripped = strip_redundant_repair_atom_parens(&current);
+        if stripped == current {
+            return current;
+        }
+        current = stripped;
+    }
+}
+
+fn strip_redundant_repair_atom_parens(predicate: &str) -> String {
+    let mut output = String::with_capacity(predicate.len());
+    let mut cursor = 0;
+    while cursor < predicate.len() {
+        let rest = &predicate[cursor..];
+        if let Some(inner_start) = rest.strip_prefix('(') {
+            if let Some(end) = inner_start.find(')') {
+                let inner = &inner_start[..end];
+                if is_repair_atom_text(inner) {
+                    output.push_str(inner);
+                    cursor += end + 2;
+                    continue;
+                }
+            }
+        }
+        let ch = rest
+            .chars()
+            .next()
+            .expect("cursor should stay on a char boundary");
+        output.push(ch);
+        cursor += ch.len_utf8();
+    }
+    output
+}
+
+fn is_repair_atom_text(text: &str) -> bool {
+    operand_path(text).is_some() || repair_numeric_order_literal(text).is_some()
 }
 
 fn normalized_and_clauses(predicate: &str) -> Vec<String> {

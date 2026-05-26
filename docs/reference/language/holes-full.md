@@ -87,8 +87,9 @@ affect direct repair matching, so
 `candidate == fallback`. Same-shape expression equality and inclusive
 comparison clauses are accepted when replacing the satisfy candidate with one
 visible binding makes both sides textually identical after whitespace
-normalization, such as `candidate + 1 == fallback + 1` and
-`candidate + 1 <= fallback + 1`. Statically true conjuncts also do not affect
+normalization and redundant atom parentheses are removed, such as
+`(candidate) + 1 == fallback + 1` and `candidate + 1 <= fallback + 1`.
+Statically true conjuncts also do not affect
 direct repair matching, so `candidate == fallback and (flag or not flag)` has
 the same repair status as `candidate == fallback`. A nested `or` clause inside
 a direct `and` conjunction is ignored when it contains a literal `true` branch,
