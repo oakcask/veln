@@ -170,5 +170,8 @@ in the typed-hole and predicate repair loop:
 - `hole.unfilled`
 - `hole.satisfy_type_mismatch`
 - `hole.satisfy_candidate_shadow`
+- `hole.satisfy_candidate_unused`
 - `parse.contract_predicate`
+- `parse.satisfy_candidate`
+- `parse.satisfy_arrow`
 - `parse.satisfy_predicate`

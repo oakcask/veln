@@ -27,10 +27,28 @@ const EXPLANATIONS: &[Explanation] = &[
         repair: "Choose a candidate name that is local to the satisfy predicate and does not match an existing visible name.",
     },
     Explanation {
+        id: "hole.satisfy_candidate_unused",
+        title: "unused satisfy candidate",
+        meaning: "A hole satisfy suffix parsed, but the predicate does not mention the local candidate binding.",
+        repair: "Reference the candidate in the predicate, or remove the satisfy suffix if no repair constraint is intended.",
+    },
+    Explanation {
         id: "parse.contract_predicate",
         title: "unsupported contract predicate syntax",
         meaning: "A require, ensure, or invariant clause uses syntax outside the first-slice pure boolean predicate grammar.",
         repair: "Use names, literals, grouping, field access, pure calls, arithmetic, comparisons, equality, and boolean operators only.",
+    },
+    Explanation {
+        id: "parse.satisfy_candidate",
+        title: "missing satisfy candidate",
+        meaning: "A hole satisfy suffix starts with satisfy but does not provide the local candidate binding before the predicate arrow.",
+        repair: "Write the suffix as satisfy candidate => predicate, choosing a candidate name that can be used inside the predicate.",
+    },
+    Explanation {
+        id: "parse.satisfy_arrow",
+        title: "missing satisfy arrow",
+        meaning: "A hole satisfy suffix has a candidate binding but does not include the required => arrow before the predicate.",
+        repair: "Insert => between the candidate binding and the satisfy predicate.",
     },
     Explanation {
         id: "parse.satisfy_predicate",
