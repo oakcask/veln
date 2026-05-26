@@ -7328,6 +7328,87 @@ fn infers_prelude_helper_calls_from_expected_types() {
 }
 
 #[test]
+fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
+    let mut count = 0;
+
+    for symbol in crate::standard_symbols::source_backed_symbols() {
+        count += 1;
+        let source = symbol.source.expect("source metadata");
+        let file = SourceFile::new(source.path, source.text);
+        let parsed = parse(&file);
+        assert!(
+            parsed.diagnostics.is_empty(),
+            "unexpected parse diagnostics for {}: {:#?}",
+            source.path,
+            parsed.diagnostics
+        );
+
+        let module = lower_surface_ast(&parsed.tree);
+        let diagnostics = analyze_surface_module(&module);
+
+        assert!(
+            diagnostics.is_empty(),
+            "unexpected source helper diagnostics for {}: {diagnostics:#?}",
+            source.path
+        );
+        assert!(
+            module
+                .functions
+                .iter()
+                .any(|function| function.name.as_deref() == Some(source.entry)),
+            "embedded source should define {}",
+            source.entry
+        );
+    }
+
+    assert!(count > 0, "expected at least one source-backed helper");
+}
+
+#[test]
+fn compiler_support_source_loads_text_through_standard_fs_subset() {
+    let source = crate::standard_symbols::compiler_support_sources()
+        .find(|source| source.entry == "load_source_text")
+        .expect("compiler support source should be embedded");
+    let file = SourceFile::new(source.path, source.text);
+    let parsed = parse(&file);
+    assert!(
+        parsed.diagnostics.is_empty(),
+        "unexpected parse diagnostics for {}: {:#?}",
+        source.path,
+        parsed.diagnostics
+    );
+
+    let module = lower_surface_ast(&parsed.tree);
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(
+        lowered.diagnostics.is_empty(),
+        "unexpected compiler support diagnostics for {}: {:#?}",
+        source.path,
+        lowered.diagnostics
+    );
+    let core = lowered.core.expect("compiler support should lower to core");
+    let function = core
+        .functions
+        .iter()
+        .find(|function| function.name == source.entry)
+        .expect("compiler support entry should lower");
+    let CoreStmtKind::Let { expr, .. } = &function.body[0].kind else {
+        panic!("first statement should call fs before wrapping the result");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Try(value) if matches!(
+            &value.kind,
+            CoreExprKind::Call {
+                target: CoreCallTarget::StandardLibraryBuiltin(name),
+                ..
+            } if name == "fs::read_to_string"
+        )
+    ));
+}
+
+#[test]
 fn suggests_list_try_map_for_result_returning_map_callback() {
     let source = SourceFile::new(
         "main.veln",

@@ -20,6 +20,9 @@ compiler-known calls.
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
 - Descriptor-backed compiler-known symbols:
   [names-effects-full.md](names-effects-full.md#compiler-known-descriptor-table).
+- Embedded standard library source and the compiler-support source-loading
+  trial: [names-effects-full.md](names-effects-full.md#compiler-known-descriptor-table)
+  and [names-effects-full.md](names-effects-full.md#prelude-helpers).
 
 ## Read When
 

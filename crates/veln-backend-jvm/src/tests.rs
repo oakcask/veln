@@ -30,7 +30,7 @@ fn generates_program_and_runtime_sources_for_result_try_and_stdio() {
         "end\n",
     ));
 
-    let java = generate_java(&ir);
+    let java = generate_java_with_entry_arg_types(&ir, "main", &[EntryArgType::String]);
     let program = java
         .source("VelnProgram.java")
         .expect("program source should exist");
@@ -62,7 +62,7 @@ fn generates_runtime_values_for_records_lists_and_options() {
         "end\n",
     ));
 
-    let java = generate_java(&ir);
+    let java = generate_java_with_entry_arg_types(&ir, "main", &[EntryArgType::String]);
     let program = java
         .source("VelnProgram.java")
         .expect("program source should exist");
@@ -761,11 +761,14 @@ fn generated_runtime_rejects_zero_capacity_send_after_close() {
 #[test]
 fn generates_runtime_calls_for_fs_and_process_intrinsics() {
     let ir = lower_to_ir(concat!(
-        "pub fn main(path: Path, key: String) -> Result(String, FsError) effects [fs, process]\n",
+        "pub fn main(path: Path, key: String, status: Int) -> Result(String, FsError) effects [fs, process]\n",
         "  let args: List(String) = process::args()\n",
         "  let cwd: Result(Path, ProcessError) = process::cwd()\n",
         "  let value: Option(String) = process::env(key)\n",
         "  let exists: Result(Bool, FsError) = fs::exists(path)\n",
+        "  let listed: Result(List(Path), FsError) = fs::read_dir(path)\n",
+        "  let written: Result((), FsError) = fs::write_string(path, key)\n",
+        "  process::exit(status)\n",
         "  fs::read_to_string(path)\n",
         "end\n",
     ));
@@ -782,6 +785,9 @@ fn generates_runtime_calls_for_fs_and_process_intrinsics() {
     assert!(program.contains("VelnRuntime.processCwd()"));
     assert!(program.contains("VelnRuntime.processEnv("));
     assert!(program.contains("VelnRuntime.fsExists("));
+    assert!(program.contains("VelnRuntime.fsReadDir("));
+    assert!(program.contains("VelnRuntime.fsWriteString("));
+    assert!(program.contains("VelnRuntime.processExit("));
     assert!(program.contains("return VelnRuntime.fsReadToString("));
     assert!(runtime.contains("public static Object fsReadToString"));
     assert!(runtime.contains("public static Object fsWriteString"));
@@ -844,6 +850,161 @@ fn generated_entry_reads_file_with_fs_intrinsic() {
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "standard library fs\n"
+    );
+}
+
+#[test]
+fn generated_runtime_writes_lists_and_reads_files_with_fs_intrinsics() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects []\n",
+        "  ()\n",
+        "end\n",
+    ));
+    let java = generate_java(&ir);
+    let root = temp_dir("fs-runtime-probe");
+    let data_dir = root.join("data");
+    fs::create_dir_all(&data_dir).expect("data directory should be created");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    fs::write(
+        root.join("FsProbe.java"),
+        r#"public final class FsProbe {
+    private FsProbe() {}
+
+    public static void main(String[] args) {
+        String dir = args[0];
+        String target = dir + java.io.File.separator + "created.txt";
+
+        Object write = VelnRuntime.fsWriteString(target, "standard library write");
+        if (!VelnRuntime.isOk(write)) {
+            throw new AssertionError("write_string should return Ok");
+        }
+
+        Object exists = VelnRuntime.fsExists(target);
+        if (!VelnRuntime.isOk(exists) || !Boolean.TRUE.equals(VelnRuntime.unwrapOk(exists))) {
+            throw new AssertionError("exists should report the written file");
+        }
+
+        Object read = VelnRuntime.fsReadToString(target);
+        if (!VelnRuntime.isOk(read) || !"standard library write".equals(VelnRuntime.unwrapOk(read))) {
+            throw new AssertionError("read_to_string should return written text");
+        }
+
+        Object listed = VelnRuntime.fsReadDir(dir);
+        if (!VelnRuntime.isOk(listed) || !VelnRuntime.format(VelnRuntime.unwrapOk(listed)).contains("created.txt")) {
+            throw new AssertionError("read_dir should include the written file");
+        }
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("FsProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("FsProbe")
+        .arg(&data_dir)
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        java.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&java.stdout),
+        String::from_utf8_lossy(&java.stderr)
+    );
+}
+
+#[test]
+fn generated_compiler_support_source_loader_reads_text_with_fs_intrinsic() {
+    if Command::new("javac").arg("-version").output().is_err() {
+        return;
+    }
+
+    let source = format!(
+        "{}\n\npub fn main(path: Path) -> Result(String, FsError) effects [fs]\n  load_source_text(path)\nend\n",
+        include_str!("../../veln-sema/src/stdlib/compiler_support.veln")
+    );
+    let ir = lower_to_ir(&source);
+    let java = generate_java(&ir);
+    let root = temp_dir("compiler-support-source-loader");
+    for source in &java.sources {
+        fs::write(root.join(&source.path), &source.contents)
+            .expect("java source should be written");
+    }
+    let input = root.join("input.veln");
+    fs::write(&input, "fn parsed_by_compiler_support()\n  ()\nend\n")
+        .expect("input source should be written");
+    fs::write(
+        root.join("SourceLoaderProbe.java"),
+        r#"public final class SourceLoaderProbe {
+    private SourceLoaderProbe() {}
+
+    public static void main(String[] args) {
+        Object result = VelnProgram.fn_main(args[0]);
+        if (!VelnRuntime.isOk(result)) {
+            throw new AssertionError("source load should return Ok");
+        }
+        Object text = VelnRuntime.unwrapOk(result);
+        if (!"fn parsed_by_compiler_support()\n  ()\nend\n".equals(text)) {
+            throw new AssertionError("source load should return file contents");
+        }
+    }
+}
+"#,
+    )
+    .expect("probe source should be written");
+
+    let javac = Command::new("javac")
+        .arg("VelnProgram.java")
+        .arg("VelnRuntime.java")
+        .arg("SourceLoaderProbe.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let java = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("SourceLoaderProbe")
+        .arg(&input)
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        java.status.success(),
+        "stdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&java.stdout),
+        String::from_utf8_lossy(&java.stderr)
     );
 }
 

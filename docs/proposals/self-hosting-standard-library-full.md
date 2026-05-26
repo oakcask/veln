@@ -1,14 +1,14 @@
 # Self-Hosting Standard Library Full
 
-Status: accepted-proposal
-Implementation: partially implemented
+Status: promoted
+Implementation: implemented
 
 Read [self-hosting-standard-library.md](self-hosting-standard-library.md)
 first unless you need the complete implementation proposal.
 
-Use this proposal when adding standard library surface area needed for an
-eventual self-hosting compiler. Only the subset described in the matching
-reference pages is current behavior.
+Use this proposal as historical context when adding standard library surface
+area needed for an eventual self-hosting compiler. The matching reference pages
+describe current behavior.
 
 ## Goal
 
@@ -272,8 +272,13 @@ Exit criteria:
 
 ### Step Four: Library-Backed Helpers
 
-Implementation review: not started. Prelude helpers remain compiler-backed;
-there is no build or embedding path for standard Veln source helpers yet.
+Implementation review: complete for the current slice. The compiler build
+embeds a Veln source implementation for `option_unwrap_or` and records that
+source on the helper's standard symbol descriptor. The checker still uses the
+existing descriptor-backed type adapter, and the JVM backend still uses the
+existing prelude runtime lowering, so user programs observe the same name,
+type, effects, diagnostics, and runtime result as before. Broader migration of
+pure helpers to source execution is still pending.
 
 - Identify prelude helpers whose bodies can be expressed in current Veln.
 - Add a build or embedding path for standard Veln source files.
@@ -293,9 +298,11 @@ Exit criteria:
 
 ### Step Five: Compiler Subset Trial
 
-Implementation review: not started. No compiler subsystem is written in Veln
-or exercised through descriptor-backed standard symbols and Veln source
-helpers.
+Implementation review: complete for the current slice. The compiler build
+embeds a Veln `compiler_support` source-loading helper and the test suite
+checks and runs it through the descriptor-backed `fs` subset. The Rust compiler
+remains the host driver, and broader self-hosted compiler subsystems remain out
+of scope for this proposal.
 
 - Write one small compiler subsystem in Veln using only the accepted standard
   library subset.
@@ -347,7 +354,7 @@ subset.
 
 ## Promotion Rule
 
-This proposal becomes current behavior only in slices. A slice is promotable
-when its descriptors, type checking, effect propagation, lowering, runtime
-behavior, tests, and reference documentation are all present for the selected
-symbols.
+This proposal has been promoted in slices. New standard library surface remains
+promotable only when its descriptors, type checking, effect propagation,
+lowering, runtime behavior, tests, and reference documentation are all present
+for the selected symbols.

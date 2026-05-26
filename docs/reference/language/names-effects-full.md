@@ -92,9 +92,15 @@ labels, lowering identity, and stability class for the descriptor-backed
 subset.
 
 The current descriptor-backed subset covers stdio effect metadata,
-concurrency effect metadata, minimal `fs` and `process` intrinsics, and pure
-prelude helper admission. Type adapters and runtime lowering still use their
-existing specialized implementations.
+concurrency effect metadata, minimal `fs` and `process` intrinsics, pure
+prelude helper admission, and source provenance for the first Veln-backed pure
+helper. Type adapters and most runtime lowering still use their existing
+specialized implementations.
+
+The implemented standard library source subset also includes a small
+`compiler_support` source-loading helper used as the compiler-subsystem trial
+for self-hosting work. It is checked and run by the test suite against the same
+descriptor-backed `fs` boundary available to user source.
 
 ## Stdio Calls
 
@@ -260,9 +266,9 @@ inference, hidden frame counts are zero.
 
 The implemented compiler-known prelude helpers are ordinary bare function calls
 with prefix names. They are registered in the standard symbol table as pure
-compatibility helpers, so a name must be present in that table before the
-prelude signature adapter assigns its compiler-known type. They do not infer
-effects.
+compatibility helpers or source-backed pure helpers, so a name must be present
+in that table before the prelude signature adapter assigns its compiler-known
+type. They do not infer effects.
 
 ```veln
 list_len(items: List(A)) -> Int
@@ -300,6 +306,18 @@ unchanged context value as the first callback argument. `list_map`,
 `None` when the separator is absent. `string_parse_int` accepts the backend
 integer spelling and returns the original input string in `Err` when parsing
 fails. `int_to_string` renders an integer for display and string composition.
+
+`option_unwrap_or` is the first source-backed pure helper in the implemented
+standard symbol table. The compiler build embeds its Veln source and records
+the source path and entry name on the descriptor. The current checker still
+uses the descriptor-backed signature adapter, and the JVM backend still lowers
+the helper through the existing prelude runtime operation, so diagnostics stay
+anchored on user call sites rather than the embedded standard library source.
+
+The embedded `compiler_support` source contains
+`load_source_text(path: Path) -> Result(String, FsError) effects [fs]`. It is
+not a prelude helper. It is a small compiler-support subsystem used to exercise
+Veln source checking and JVM execution through `fs::read_to_string`.
 
 When `list_map` receives a callback whose return type is `Result`, the checker
 reports the ordinary callback type mismatch and adds a repair hint to use

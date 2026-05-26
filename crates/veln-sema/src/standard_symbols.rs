@@ -2,6 +2,7 @@
 pub(crate) enum StandardSymbolKind {
     Runtime,
     Prelude,
+    Veln,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -11,7 +12,15 @@ pub(crate) struct StandardSymbolDescriptor {
     pub(crate) kind: StandardSymbolKind,
     pub(crate) effects: &'static [&'static str],
     pub(crate) lowering: Option<&'static str>,
+    pub(crate) source: Option<&'static StandardSymbolSource>,
     pub(crate) stability: StandardSymbolStability,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct StandardSymbolSource {
+    pub(crate) path: &'static str,
+    pub(crate) entry: &'static str,
+    pub(crate) text: &'static str,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -25,6 +34,18 @@ const CONCURRENCY_EFFECTS: &[&str] = &["concurrency"];
 const FS_EFFECTS: &[&str] = &["fs"];
 const PROCESS_EFFECTS: &[&str] = &["process"];
 const PURE_EFFECTS: &[&str] = &[];
+
+const CORE_PRELUDE_SOURCE: StandardSymbolSource = StandardSymbolSource {
+    path: "stdlib/core_prelude.veln",
+    entry: "option_unwrap_or",
+    text: include_str!("stdlib/core_prelude.veln"),
+};
+
+const COMPILER_SUPPORT_SOURCE: StandardSymbolSource = StandardSymbolSource {
+    path: "stdlib/compiler_support.veln",
+    entry: "load_source_text",
+    text: include_str!("stdlib/compiler_support.veln"),
+};
 
 const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("stdio", "print", STDIO_EFFECTS, "runtime.stdio.print"),
@@ -143,7 +164,7 @@ const PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("dict_remove"),
     prelude_symbol_descriptor("option_map"),
     prelude_symbol_descriptor("option_and_then"),
-    prelude_symbol_descriptor("option_unwrap_or"),
+    source_prelude_symbol_descriptor("option_unwrap_or", &CORE_PRELUDE_SOURCE),
     prelude_symbol_descriptor("result_map"),
     prelude_symbol_descriptor("result_map_err"),
     prelude_symbol_descriptor("result_and_then"),
@@ -161,6 +182,7 @@ const fn runtime_symbol(
         kind: StandardSymbolKind::Runtime,
         effects,
         lowering: Some(lowering),
+        source: None,
         stability: StandardSymbolStability::RequiredForSelfHosting,
     }
 }
@@ -172,6 +194,22 @@ const fn prelude_symbol_descriptor(name: &'static str) -> StandardSymbolDescript
         kind: StandardSymbolKind::Prelude,
         effects: PURE_EFFECTS,
         lowering: None,
+        source: None,
+        stability: StandardSymbolStability::CompatibilityOnly,
+    }
+}
+
+const fn source_prelude_symbol_descriptor(
+    name: &'static str,
+    source: &'static StandardSymbolSource,
+) -> StandardSymbolDescriptor {
+    StandardSymbolDescriptor {
+        module: None,
+        name,
+        kind: StandardSymbolKind::Veln,
+        effects: PURE_EFFECTS,
+        lowering: None,
+        source: Some(source),
         stability: StandardSymbolStability::CompatibilityOnly,
     }
 }
@@ -187,6 +225,19 @@ pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardS
 
 pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
     PRELUDE_SYMBOLS.iter().find(|symbol| symbol.name == name)
+}
+
+#[cfg(test)]
+pub(crate) fn source_backed_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
+    PRELUDE_SYMBOLS
+        .iter()
+        .chain(QUALIFIED_SYMBOLS)
+        .filter(|symbol| symbol.source.is_some())
+}
+
+#[allow(dead_code)]
+pub(crate) fn compiler_support_sources() -> impl Iterator<Item = &'static StandardSymbolSource> {
+    [&COMPILER_SUPPORT_SOURCE].into_iter()
 }
 
 pub(crate) fn effect_strings(symbol: &StandardSymbolDescriptor) -> Vec<String> {
@@ -214,6 +265,7 @@ mod tests {
         assert_eq!(symbol.kind, StandardSymbolKind::Runtime);
         assert_eq!(symbol.effects, ["stdio"]);
         assert_eq!(symbol.lowering, Some("runtime.stdio.println"));
+        assert_eq!(symbol.source, None);
         assert_eq!(
             symbol.stability,
             StandardSymbolStability::RequiredForSelfHosting
@@ -229,6 +281,52 @@ mod tests {
         assert!(symbol.effects.is_empty());
         assert_eq!(symbol.lowering, None);
         assert_eq!(symbol.stability, StandardSymbolStability::CompatibilityOnly);
+    }
+
+    #[test]
+    fn descriptor_table_carries_source_backed_helper_metadata() {
+        let symbol = prelude_symbol("option_unwrap_or").expect("source-backed helper descriptor");
+        let source = symbol.source.expect("source metadata");
+
+        assert_eq!(symbol.kind, StandardSymbolKind::Veln);
+        assert!(symbol.effects.is_empty());
+        assert_eq!(symbol.lowering, None);
+        assert_eq!(source.entry, symbol.name);
+        assert_eq!(source.path, "stdlib/core_prelude.veln");
+        assert!(source.text.contains("fn option_unwrap_or"));
+    }
+
+    #[test]
+    fn source_backed_descriptors_have_valid_metadata() {
+        let mut sources = BTreeSet::new();
+        let mut count = 0;
+
+        for symbol in PRELUDE_SYMBOLS.iter().chain(QUALIFIED_SYMBOLS) {
+            if let Some(source) = symbol.source {
+                count += 1;
+                assert_eq!(symbol.kind, StandardSymbolKind::Veln);
+                assert_eq!(symbol.effects, PURE_EFFECTS);
+                assert_eq!(symbol.lowering, None);
+                assert_eq!(source.entry, symbol.name);
+                assert!(
+                    !source.path.starts_with('/'),
+                    "source path should be repository relative"
+                );
+                assert!(
+                    source.text.contains(&format!("fn {}", source.entry)),
+                    "embedded source should define {}",
+                    source.entry
+                );
+                assert!(
+                    sources.insert((source.path, source.entry)),
+                    "duplicate source-backed entry {} in {}",
+                    source.entry,
+                    source.path
+                );
+            }
+        }
+
+        assert!(count > 0, "expected at least one source-backed symbol");
     }
 
     #[test]
