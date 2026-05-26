@@ -1,2 +1,4 @@
 .bibliography-cache/
+*.vsix
+node_modules/
 target/

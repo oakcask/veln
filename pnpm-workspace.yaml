@@ -1,0 +1,5 @@
+packages:
+  - editors/vscode
+allowBuilds:
+  '@vscode/vsce-sign': false
+  keytar: false
