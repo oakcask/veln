@@ -22,12 +22,15 @@ promotion rules, or placement policy.
   [document-status-full.md#entry-pages](document-status-full.md#entry-pages).
 - Applying or changing status labels:
   [document-status-full.md#labels](document-status-full.md#labels).
+- Distinguishing document status from implementation coverage:
+  [document-status-full.md#status-and-implementation-fields](document-status-full.md#status-and-implementation-fields).
 
 ## Placement Summary
 
 - Use `reference/` for implemented behavior and durable rationale.
 - Use `proposals/` for planned or accepted behavior that is not fully
-  implemented.
+  implemented, plus promoted proposal history that is no longer the current
+  behavior source.
 - Use `reviews/` for evidence, gaps, and verification notes.
 - Use `phases/` for ordering, plans, and historical implementation notes.
 

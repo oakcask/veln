@@ -1,7 +1,8 @@
 # First-Slice Follow-Up Targets Full
 
-Status: accepted-proposal
-Implementation: implemented
+Status: promoted
+Implementation: promoted to reference: no accepted first-slice follow-up
+targets currently remain.
 
 Read [first-slice-follow-ups.md](first-slice-follow-ups.md) first unless you
 need completed follow-up history.
