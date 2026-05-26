@@ -11,6 +11,12 @@ record only when the category page points to it.
   [../language/source-decisions.md](../language/source-decisions.md).
 - Category index: [README.md](README.md).
 
+## Route Rule
+
+Open one category page from the sections below, then one `result-*.md` record
+only if that category page names it. Return to `../language/` before changing
+implemented behavior.
+
 ## Source Language
 
 - Syntax, blocks, compact functions, modules, methods, pipelines, tests:
