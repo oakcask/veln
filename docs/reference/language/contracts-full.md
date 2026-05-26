@@ -198,6 +198,10 @@ path only proves an inclusive endpoint bound. Equality clauses in the
 antecedent are treated as bidirectional non-strict edges for this transitive
 check, so `not (low < mid and mid == high) or low < high` and
 `not (low == mid and mid <= high) or low <= high` are also statically proven.
+If a negated antecedent is a top-level disjunction, every branch may prove the
+same consequent independently; for example,
+`not ((low <= left and left < high) or (low < right and right <= high)) or
+low < high` is statically proven.
 When a non-strict endpoint bound is written as strict ordering or equality,
 the same transitive check also proves that disjunction. For example,
 `not (low <= mid and mid <= high) or low < high or low == high` is statically

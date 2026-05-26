@@ -10094,6 +10094,33 @@ fn contract_predicate_transitive_order_implication_is_statically_proven() {
 }
 
 #[test]
+fn contract_predicate_disjunctive_transitive_order_implication_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(low: Int, left: Int, right: Int, high: Int) -> Int effects []\n",
+            "require not ((low <= left and left < high) or (low < right and right <= high)) or low < high\n",
+            "require not ((low == left and left <= high) or (low <= right and right == high)) or low <= high\n",
+            "  low\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_literal_bound_implication_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",

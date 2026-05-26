@@ -1288,30 +1288,60 @@ fn has_order_bound_transitive_implication_top_level_or(predicate: &str) -> bool 
         let Some(inner) = negated_predicate_inner(antecedent) else {
             return false;
         };
-        let edges: Vec<_> = flattened_keyword_clauses(inner, "and")
-            .into_iter()
-            .flat_map(order_bound_transitive_edges)
-            .collect();
-        if edges.is_empty() {
-            return false;
-        }
-        disjuncts.iter().any(|consequent| {
-            !same_predicate(antecedent, consequent)
-                && (order_bound_shape(consequent).is_some_and(|wanted| {
-                    order_bound_edges_imply(&edges, &wanted.left, &wanted.right, wanted.strict)
-                        || numeric_literal_bounds_imply(inner, &wanted)
-                }) || equality_shape(consequent).is_some_and(|(left, right)| {
-                    order_bound_edges_imply_non_strict(&edges, &left, &right)
-                        && order_bound_edges_imply_non_strict(&edges, &right, &left)
-                }) || disequality_shape(consequent).is_some_and(|(left, right)| {
-                    order_bound_edges_imply(&edges, &left, &right, true)
-                        || order_bound_edges_imply(&edges, &right, &left, true)
-                        || equality_disequality_edges_imply_disequality(inner, &left, &right)
-                }) || order_bound_edges_imply_strict_or_equality_disjunction(
-                    &disjuncts, antecedent, &edges,
-                ))
-        })
+        order_bound_antecedent_implies_any_consequent(inner, antecedent, &disjuncts)
     })
+}
+
+fn order_bound_antecedent_implies_any_consequent(
+    antecedent_inner: &str,
+    antecedent: &str,
+    disjuncts: &[&str],
+) -> bool {
+    let branches = flattened_keyword_clauses(antecedent_inner, "or");
+    if branches.len() > 1 {
+        return disjuncts.iter().any(|consequent| {
+            !same_predicate(antecedent, consequent)
+                && branches.iter().all(|branch| {
+                    order_bound_branch_implies_consequent(branch, consequent, antecedent, disjuncts)
+                })
+        });
+    }
+
+    disjuncts.iter().any(|consequent| {
+        !same_predicate(antecedent, consequent)
+            && order_bound_branch_implies_consequent(
+                antecedent_inner,
+                consequent,
+                antecedent,
+                disjuncts,
+            )
+    })
+}
+
+fn order_bound_branch_implies_consequent(
+    branch: &str,
+    consequent: &str,
+    antecedent: &str,
+    disjuncts: &[&str],
+) -> bool {
+    let edges: Vec<_> = flattened_keyword_clauses(branch, "and")
+        .into_iter()
+        .flat_map(order_bound_transitive_edges)
+        .collect();
+    if edges.is_empty() {
+        return false;
+    }
+    order_bound_shape(consequent).is_some_and(|wanted| {
+        order_bound_edges_imply(&edges, &wanted.left, &wanted.right, wanted.strict)
+            || numeric_literal_bounds_imply(branch, &wanted)
+    }) || equality_shape(consequent).is_some_and(|(left, right)| {
+        order_bound_edges_imply_non_strict(&edges, &left, &right)
+            && order_bound_edges_imply_non_strict(&edges, &right, &left)
+    }) || disequality_shape(consequent).is_some_and(|(left, right)| {
+        order_bound_edges_imply(&edges, &left, &right, true)
+            || order_bound_edges_imply(&edges, &right, &left, true)
+            || equality_disequality_edges_imply_disequality(branch, &left, &right)
+    }) || order_bound_edges_imply_strict_or_equality_disjunction(disjuncts, antecedent, &edges)
 }
 
 fn order_bound_edges_imply_strict_or_equality_disjunction(
