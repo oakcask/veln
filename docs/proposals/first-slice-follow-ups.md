@@ -1,11 +1,11 @@
 # First-Slice Follow-Up Targets
 
 Status: accepted-proposal
-Implementation: partially implemented
+Implementation: implemented
 
-This is the routing page for accepted first-slice targets that are not fully
-implemented in the current workspace. Use it to choose a target area before
-opening the full follow-up record.
+This is the routing page for accepted first-slice targets and their promotion
+history. Use it to confirm whether any first-slice follow-up target remains
+before opening the full follow-up record.
 
 ## Read First
 
@@ -24,18 +24,18 @@ opening the full follow-up record.
 
 ## Accepted Targets
 
-### Effects And Contracts
-
-Use this target for contract predicate validation, static obligation
-classification, transitive predicate implications, or effect propagation
-changes.
-
-Before opening
-[the full effects and contracts record](first-slice-follow-ups-full.md#effects-and-contracts),
-compare the task with [../reference/language/contracts.md](../reference/language/contracts.md)
-and [../reference/language/names-effects.md](../reference/language/names-effects.md).
+- No accepted first-slice follow-up targets currently remain.
 
 ## History
+
+### Effects And Contracts
+
+The richer predicate semantics target has been promoted to current behavior.
+Use [../reference/language/contracts.md](../reference/language/contracts.md)
+for contract predicate validation, static obligation classification,
+transitive predicate implications, runtime obligations, and result bindings.
+Use [../reference/language/names-effects.md](../reference/language/names-effects.md)
+for effect propagation and compiler-known calls.
 
 ### Repair Loop
 

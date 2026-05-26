@@ -1,14 +1,14 @@
 # First-Slice Follow-Up Targets Full
 
 Status: accepted-proposal
-Implementation: repair loop promoted; effects and contracts partially implemented
+Implementation: implemented
 
 Read [first-slice-follow-ups.md](first-slice-follow-ups.md) first unless you
-need complete accepted follow-up details.
+need completed follow-up history.
 
-This document tracks accepted first-slice targets that are not fully
-implemented in the current workspace. The completed implementation sequence
-stays in
+This document preserves accepted first-slice follow-up history. Current
+implemented behavior lives in `../reference/language/`. The completed
+implementation sequence stays in
 [../phases/first-slice-implementation.md](../phases/first-slice-implementation.md).
 
 ## Language And Type Coverage
@@ -314,14 +314,14 @@ No accepted language and type coverage follow-up is currently tracked here.
   strict edge are also statically evaluated.
   Negated conjunctions that bind the same subject to distinct boolean,
   numeric, or string literals are also statically evaluated.
-  Richer predicate semantics beyond these static truth identities, literal
+  Broader predicate design beyond these static truth identities, literal
   comparisons, literal numeric arithmetic comparisons, same-shape comparisons,
   static boolean comparisons, small boolean formula comparisons,
   complementary predicate comparisons, complementary boolean and comparison
   disjunctions, ordering trichotomy disjunctions, negated complementary
   boolean and comparison conjunctions, negated mutually exclusive order
   conjunctions, disequality strict-order splits, and other richer transitive
-  implications remain follow-up work.
+  implications is open design work, not an accepted first-slice target.
 
 ## Formatting
 

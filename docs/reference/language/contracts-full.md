@@ -216,7 +216,10 @@ antecedent. For example,
 `not (value >= 2 and value < 10) or value >= 1 + 1` are statically proven,
 as is `not (value == alias and alias > 10) or value > 5`,
 while a strict consequent is not proven from an inclusive bound with the same
-literal.
+literal. Numeric literal bounds also prove disequality consequents for
+excluded numeric literals, including through equality aliases, such as
+`not (value > 10) or value != 10` and
+`not (value == alias and alias <= 0.5) or value != 0.75`.
 Non-strict cycles in the antecedent also prove equality consequents, such as
 `not (low == mid and mid == high) or low == high` and
 `not (low <= mid and mid <= low) or low == mid`. Strict edges do not prove
