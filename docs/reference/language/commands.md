@@ -6,16 +6,19 @@ requiring the full command reference on the first read.
 ## Read First
 
 - `check`: source discovery, parse/semantic diagnostics, checked-core
-  blockers, and check JSON output.
+  blockers, and check JSON output:
+  [commands-full.md#veln-check---json-path](commands-full.md#veln-check---json-path).
 - `fmt`: whole-invocation parse gate, deterministic formatting, and comment
-  preservation.
+  preservation:
+  [commands-full.md#veln-fmt-path](commands-full.md#veln-fmt-path).
 - `run`: entry resolution, argument conversion, static gates, JVM execution,
-  and run JSON.
+  and run JSON:
+  [commands-full.md#veln-run---json-path----arg](commands-full.md#veln-run---json-path----arg).
 - `test`: test and doctest selection, static gates, runtime failures, and test
-  JSON.
-- `explain`: diagnostic catalog lookup.
-
-Open [commands-full.md](commands-full.md) for the command-specific rules.
+  JSON:
+  [commands-full.md#veln-test---json-target](commands-full.md#veln-test---json-target).
+- `explain`: diagnostic catalog lookup:
+  [commands-full.md#veln-explain---list-diagnostic-id](commands-full.md#veln-explain---list-diagnostic-id).
 
 ## Read When
 
@@ -26,8 +29,7 @@ Open [commands-full.md](commands-full.md) for the command-specific rules.
 
 ## Skip Unless Needed
 
-- Use [commands-full.md](commands-full.md) only when changing command behavior
-  or checking a command-specific gate.
+- Use only the command section above that matches the task.
 - Use [../source-decisions/commands-output.md](../source-decisions/commands-output.md)
   only when the implemented command reference does not explain why a boundary
   exists.

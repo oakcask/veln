@@ -65,6 +65,17 @@ Choose one route and stop when the linked short page answers the question.
 - Status or movement work: `document-status.md` before editing labels or moving
   text between directories.
 
+## Route Boundaries
+
+- A behavior page under `reference/language/` wins over proposal, phase, and
+  review wording.
+- A proposal page can describe an implementation target, but it is not current
+  behavior until the language reference also says so.
+- A review or phase page can explain why work happened, but it is not a route
+  for changing the language specification.
+- A `*-full.md` file is a detail record. Open it only through the short page
+  that names the relevant section.
+
 ## Skip Unless Needed
 
 - Do not use this page when one of the top-level README's read-first links
