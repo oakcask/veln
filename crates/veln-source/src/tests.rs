@@ -56,6 +56,17 @@ fn maps_crlf_offsets_without_hiding_carriage_returns() {
 }
 
 #[test]
+fn maps_utf8_offsets_to_character_columns_and_byte_offsets() {
+    let source = SourceFile::new("main.veln", "aé\n字b");
+
+    assert_line_col(source.line_col(1), 1, 2, 1);
+    assert_line_col(source.line_col(3), 1, 3, 3);
+    assert_line_col(source.line_col(4), 2, 1, 4);
+    assert_line_col(source.line_col(7), 2, 2, 7);
+    assert_line_col(source.line_col(8), 2, 3, 8);
+}
+
+#[test]
 fn clamps_offsets_to_end_of_file() {
     let source = SourceFile::new("main.veln", "a\n");
 
@@ -87,6 +98,17 @@ fn builds_spans_from_text_ranges() {
     assert_eq!(span.file.as_str(), "main.veln");
     assert_line_col(span.start, 1, 4, 3);
     assert_line_col(span.end, 2, 3, 8);
+}
+
+#[test]
+fn builds_spans_across_utf8_text_ranges() {
+    let source = SourceFile::new("main.veln", "aé\n字b");
+
+    let span = source.span(TextRange::new(1, 7));
+
+    assert_eq!(span.file.as_str(), "main.veln");
+    assert_line_col(span.start, 1, 2, 1);
+    assert_line_col(span.end, 2, 2, 7);
 }
 
 #[test]

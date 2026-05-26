@@ -56,9 +56,14 @@ impl SourceFile {
             Err(index) => index.saturating_sub(1),
         };
         let line_start = self.line_starts[line_index];
+        let column = self.text[line_start..]
+            .char_indices()
+            .take_while(|(index, _)| line_start + *index < offset)
+            .count()
+            + 1;
         LineCol {
             line: line_index + 1,
-            column: offset.saturating_sub(line_start) + 1,
+            column,
             offset,
         }
     }
