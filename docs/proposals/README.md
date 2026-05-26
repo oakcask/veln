@@ -24,6 +24,9 @@ implemented in the current workspace.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md) for
   accepted standard library and compiler-known intrinsic work needed for
   eventual self-hosting.
+- Use [editor-semantic-highlighting.md](editor-semantic-highlighting.md) for
+  the open proposal to add TextMate fallback highlighting and LSP semantic
+  tokens for editors.
 - Use [toolchain-test-harness.md](toolchain-test-harness.md) for the open
   proposal to standardize command-line integration test cases.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
