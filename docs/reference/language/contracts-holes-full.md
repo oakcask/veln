@@ -216,6 +216,12 @@ disequality consequents, such as
 Strict ordering paths also prove endpoint disequality consequents, such as
 `not (low < mid and mid <= high) or low != high` and
 `not (high >= mid and mid > low) or high != low`.
+Negated conjunctions are also statically proven when transitive order facts
+contradict equality relations inside the same conjunction. This includes
+non-strict cycles combined with disequality, such as
+`not (low <= mid and mid <= low and low != mid)`, and strict transitive paths
+combined with equality, such as
+`not (low < mid and mid <= high and low == high)`.
 Top-level `or` also proves case-split predicates when one branch is the
 complement of another branch and every other conjunct in that branch is
 statically true. For example,

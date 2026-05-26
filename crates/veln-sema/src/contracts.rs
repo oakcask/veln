@@ -163,6 +163,9 @@ fn static_boolean_value_inner(
     if has_resolved_complementary_disjunctions_top_level_and(predicate) {
         return StaticBooleanValue::False;
     }
+    if has_transitive_order_contradiction_top_level_and(predicate) {
+        return StaticBooleanValue::False;
+    }
     if classify_contract_contradictions
         && has_exclusive_numeric_literal_bounds_top_level_and(predicate)
     {
@@ -510,6 +513,30 @@ fn resolvable_disjunction_pair_is_contradicted(
                         .iter()
                         .any(|conjunct| complementary_predicates(left_disjunct, conjunct))
             })
+    })
+}
+
+fn has_transitive_order_contradiction_top_level_and(predicate: &str) -> bool {
+    let clauses = flattened_keyword_clauses(predicate, "and");
+    if clauses.len() < 2 {
+        return false;
+    }
+    let edges: Vec<_> = clauses
+        .iter()
+        .flat_map(|clause| order_bound_transitive_edges(clause))
+        .collect();
+    if edges.is_empty() {
+        return false;
+    }
+
+    clauses.iter().any(|clause| {
+        equality_shape(clause).is_some_and(|(left, right)| {
+            order_bound_edges_imply(&edges, &left, &right, true)
+                || order_bound_edges_imply(&edges, &right, &left, true)
+        }) || disequality_shape(clause).is_some_and(|(left, right)| {
+            order_bound_edges_imply_non_strict(&edges, &left, &right)
+                && order_bound_edges_imply_non_strict(&edges, &right, &left)
+        })
     })
 }
 

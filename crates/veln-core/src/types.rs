@@ -219,6 +219,27 @@ mod tests {
     }
 
     #[test]
+    fn dict_parts_accept_only_dict_with_two_arguments() {
+        let dict_type = CoreType::dict(CoreType::string(), CoreType::int());
+        assert_eq!(
+            dict_type.dict_parts(),
+            Some((&CoreType::string(), &CoreType::int()))
+        );
+
+        let wrong_name = CoreType::named("Map", vec![CoreType::string(), CoreType::int()]);
+        assert_eq!(wrong_name.dict_parts(), None);
+
+        let missing_value = CoreType::named("Dict", vec![CoreType::string()]);
+        assert_eq!(missing_value.dict_parts(), None);
+
+        let extra_arg = CoreType::named(
+            "Dict",
+            vec![CoreType::string(), CoreType::int(), CoreType::bool()],
+        );
+        assert_eq!(extra_arg.dict_parts(), None);
+    }
+
+    #[test]
     fn record_field_finds_the_first_matching_field() {
         let first_count = CoreType::int();
         let second_count = CoreType::string();

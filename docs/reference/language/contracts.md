@@ -26,9 +26,9 @@ combined detail until the contract body is split further.
 Contract obligation classification is summarized here only for routing. Open
 [Static obligation classification](contracts-holes-full.md#static-obligation-classification)
 when changing static proof rules, truth-table folding, case-split predicates,
-ordering implications, equality or disequality consequents, numeric literal
-bound checks including equality aliases, or literal-equality contradiction
-checks.
+ordering implications, equality or disequality consequents, order/equality
+contradictions, numeric literal bound checks including equality aliases, or
+literal-equality contradiction checks.
 
 ## Skip Unless Needed
 
