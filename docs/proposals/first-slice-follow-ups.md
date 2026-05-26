@@ -48,12 +48,23 @@ Before opening
 compare the task with [../reference/language/contracts.md](../reference/language/contracts.md)
 and [../reference/language/names-effects.md](../reference/language/names-effects.md).
 
+### Formatting
+
+Use this target for changing the canonical formatter indentation rule. The
+accepted target is to move from the current two-space indentation unit to a
+tab-character indentation unit and to make every `match` arm one indentation
+level deeper than the `match` expression line.
+
+Before opening
+[the full formatting record](first-slice-follow-ups-full.md#formatting),
+compare the task with [../reference/language/commands.md](../reference/language/commands.md)
+and [../reference/language/source-surface.md](../reference/language/source-surface.md).
+
 ## History
 
 The full record also keeps empty historical categories for language and type
-coverage, formatting, lowering and execution, and test discovery and events.
-Open those sections only when auditing why no accepted follow-up is listed
-here.
+coverage, lowering and execution, and test discovery and events. Open those
+sections only when auditing why no accepted follow-up is listed here.
 
 ## Skip Unless Needed
 

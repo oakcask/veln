@@ -20,6 +20,13 @@ implemented behavior; current behavior lives under `../reference/language/`.
   then through
   [../reference/language/names-effects.md](../reference/language/names-effects.md)
   for implemented effect and compiler-known symbol behavior.
+- Formatter indentation work routes through
+  [first-slice-follow-ups.md#formatting](first-slice-follow-ups.md#formatting),
+  then through
+  [../reference/language/commands.md](../reference/language/commands.md)
+  and
+  [../reference/language/source-surface.md](../reference/language/source-surface.md)
+  when promoted to implemented behavior.
 - Repair loop work routes through
   [../reference/language/holes.md](../reference/language/holes.md) and
   [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
@@ -38,7 +45,7 @@ implemented behavior; current behavior lives under `../reference/language/`.
   target with current behavior before opening any full proposal record.
 - If a target is already implemented, promote the behavior into
   `../reference/language/` and leave only remaining proposal work in the queue.
-- If neither accepted target has remaining work, use
+- If no accepted target has remaining work, use
   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) only
   for open design exploration, not as an accepted implementation target.
 

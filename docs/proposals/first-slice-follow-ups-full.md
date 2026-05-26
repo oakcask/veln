@@ -326,7 +326,38 @@ No accepted language and type coverage follow-up is currently tracked here.
 
 ## Formatting
 
-No accepted formatting follow-up is currently tracked here.
+The formatter should use one tab character per indentation level for
+canonical source layout. This keeps indentation compact in bytes while leaving
+visual tab width to editor display settings.
+
+Top-level module headers, imports, item signatures, and item-closing `end`
+lines stay at indentation level 0. Function body lines move to indentation
+level 1, which is one leading tab character. Contract clauses, `let`
+statements, tail expressions, and standalone comments attached to those lines
+use the same function-body indentation level.
+
+`match` formatting should make the expression line the parent indentation
+level and each `MatchArm` one indentation level deeper. The `match` closing
+`end` aligns with the `match` expression line. For a `match` used as a
+function body expression, the expected shape is:
+
+```veln
+fn describe(value: Option(Int)) -> String effects []
+	match value
+		Some(count) => "some"
+		None => "none"
+	end
+end
+```
+
+For nested expression contexts, the same relative rule applies: the rendered
+`MatchArm` lines are one level deeper than the line that starts the `match`
+expression, and the nested `end` aligns with that `match` line.
+
+Implementation should update formatter golden coverage for regular body
+lines, contracts, standalone and trailing comments, direct `match` body
+expressions, and `match` expressions nested inside calls or aggregate
+literals. The formatter should remain idempotent across all updated fixtures.
 
 ## Lowering And Execution
 
