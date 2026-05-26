@@ -1,0 +1,12 @@
+[package]
+name = "veln-lsp"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+veln-editor.workspace = true
+veln-source.workspace = true
+
+[lints]
+workspace = true

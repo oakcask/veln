@@ -30,6 +30,7 @@ dependencies = [
  "veln-core",
  "veln-diagnostics",
  "veln-ir",
+ "veln-lsp",
  "veln-project",
  "veln-sema",
  "veln-source",
@@ -53,6 +54,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "veln-editor"
+version = "0.1.0"
+dependencies = [
+ "veln-source",
+ "veln-syntax",
+]
+
+[[package]]
 name = "veln-ir"
 version = "0.1.0"
 dependencies = [
@@ -60,6 +69,14 @@ dependencies = [
  "veln-core",
  "veln-source",
  "veln-syntax",
+]
+
+[[package]]
+name = "veln-lsp"
+version = "0.1.0"
+dependencies = [
+ "veln-editor",
+ "veln-source",
 ]
 
 [[package]]

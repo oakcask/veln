@@ -932,13 +932,13 @@ fn adr_lite_anchors(
     }
     for item in items {
         let SyntaxItem::Function(function) = item;
-        if function.visibility == Visibility::Public {
-            if let Some(name) = &function.name {
-                anchors.push((
-                    function.span.start.offset,
-                    AdrLiteAnchor::Function { name: name.clone() },
-                ));
-            }
+        if function.visibility == Visibility::Public
+            && let Some(name) = &function.name
+        {
+            anchors.push((
+                function.span.start.offset,
+                AdrLiteAnchor::Function { name: name.clone() },
+            ));
         }
     }
     anchors.sort_by_key(|(offset, _)| *offset);

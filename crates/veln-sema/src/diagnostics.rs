@@ -82,6 +82,7 @@ pub(crate) fn module_details(
     ])
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn effect_missing_public_details(
     node_id: String,
     boundary_symbol: &str,
@@ -171,6 +172,7 @@ pub(crate) fn effect_missing_public_details(
     ])
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn contract_details(
     node_id: String,
     kind: ContractKind,

@@ -607,10 +607,10 @@ fn effects_for_bare_callee<'a>(
     bindings: &'a [Binding],
     effects_by_name: &'a BTreeMap<String, Vec<String>>,
 ) -> &'a [String] {
-    if let Some(binding) = bindings.iter().rev().find(|binding| binding.name == name) {
-        if let Some(effects) = binding.ty.function_effects() {
-            return effects;
-        }
+    if let Some(binding) = bindings.iter().rev().find(|binding| binding.name == name)
+        && let Some(effects) = binding.ty.function_effects()
+    {
+        return effects;
     }
     effects_by_name.get(name).map_or(&[], Vec::as_slice)
 }
@@ -862,13 +862,13 @@ impl<'a> TypeParser<'a> {
             "Result" | "Dict" => Some(2),
             _ => None,
         };
-        if let Some(expected) = expected_arity {
-            if args.len() != expected {
-                return Err(format!(
-                    "`{name}` expects {expected} type argument(s), found {}",
-                    args.len()
-                ));
-            }
+        if let Some(expected) = expected_arity
+            && args.len() != expected
+        {
+            return Err(format!(
+                "`{name}` expects {expected} type argument(s), found {}",
+                args.len()
+            ));
         }
         if name == "Dict" && args.len() == 2 {
             Ok(Type::dict(args[0].clone(), args[1].clone()))

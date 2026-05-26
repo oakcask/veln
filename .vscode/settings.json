@@ -1,0 +1,3 @@
+{
+  "veln.server.path": "${workspaceFolder}/target/debug/veln"
+}

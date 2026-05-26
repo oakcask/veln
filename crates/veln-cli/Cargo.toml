@@ -10,6 +10,7 @@ veln-backend-jvm.workspace = true
 veln-core.workspace = true
 veln-diagnostics.workspace = true
 veln-ir.workspace = true
+veln-lsp.workspace = true
 veln-project.workspace = true
 veln-sema.workspace = true
 veln-source.workspace = true

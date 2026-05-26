@@ -18,10 +18,10 @@ pub enum IrLowerError {
 }
 
 pub fn lower_checked_core(program: &CheckedProgram) -> Result<TypedProgram, IrLowerError> {
-    if let CoreReadiness::Blocked(blockers) = &program.readiness {
-        if let Some(blocker) = blockers.first() {
-            return Err(IrLowerError::Blocked(blocker.clone()));
-        }
+    if let CoreReadiness::Blocked(blockers) = &program.readiness
+        && let Some(blocker) = blockers.first()
+    {
+        return Err(IrLowerError::Blocked(blocker.clone()));
     }
 
     let functions = program

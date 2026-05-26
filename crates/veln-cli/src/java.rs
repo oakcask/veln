@@ -125,7 +125,7 @@ fn ensure_cached_java(
         )));
     }
 
-    fs::write(&marker_for(&compile_dir), b"ok\n").map_err(|error| error.to_string())?;
+    fs::write(marker_for(&compile_dir), b"ok\n").map_err(|error| error.to_string())?;
     match fs::rename(&compile_dir, &cache_dir) {
         Ok(()) => Ok(CachedJava::Ready(cache_dir)),
         Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
