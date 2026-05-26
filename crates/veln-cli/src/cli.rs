@@ -189,6 +189,16 @@ mod tests {
     }
 
     #[test]
+    fn run_parser_requires_entry_before_separator() {
+        let error = match parse(&["run", "--", "--name", "Ada"]) {
+            Ok(_) => panic!("separator before entry should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "run requires an entry function name");
+    }
+
+    #[test]
     fn explain_parser_accepts_list_with_diagnostic_id() {
         let command =
             parse(&["explain", "--list", "hole.unfilled"]).expect("explain command should parse");
