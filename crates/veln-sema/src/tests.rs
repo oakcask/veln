@@ -8523,7 +8523,7 @@ fn contract_predicate_wide_partial_case_split_or_is_statically_proven() {
 
 #[test]
 fn contract_predicate_max_width_partial_case_split_or_is_statically_proven() {
-    let fields = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+    let fields = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"];
     let record_type = bool_record_type(&fields);
     let predicate = partial_case_split_chain_predicate("value", &fields);
     let source = SourceFile::new(
@@ -8550,7 +8550,7 @@ fn contract_predicate_max_width_partial_case_split_or_is_statically_proven() {
 
 #[test]
 fn contract_predicate_too_wide_partial_case_split_or_requires_runtime_check() {
-    let fields = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"];
+    let fields = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
     let record_type = bool_record_type(&fields);
     let predicate = partial_case_split_chain_predicate("value", &fields);
     let source = SourceFile::new(
@@ -8934,8 +8934,47 @@ fn contract_predicate_ten_atom_boolean_formula_is_statically_proven() {
 }
 
 #[test]
-fn contract_predicate_eleven_atom_boolean_formula_requires_runtime_check() {
+fn contract_predicate_eleven_atom_boolean_formula_is_statically_proven() {
     let fields = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"];
+    let record_type = bool_record_type(&fields);
+    let conjunction = fields
+        .iter()
+        .map(|field| format!("value.{field}"))
+        .collect::<Vec<_>>()
+        .join(" and ");
+    let output_conjunction = fields
+        .iter()
+        .map(|field| format!("output.{field}"))
+        .collect::<Vec<_>>()
+        .join(" and ");
+    let source = SourceFile::new(
+        "main.veln",
+        format!(
+            "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}} effects []\n\
+             require not ({conjunction}) or ({conjunction})\n\
+             ensure not ({output_conjunction}) or ({output_conjunction})\n\
+               value\n\
+             end\n"
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
+fn contract_predicate_twelve_atom_boolean_formula_requires_runtime_check() {
+    let fields = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l"];
     let record_type = bool_record_type(&fields);
     let conjunction = fields
         .iter()

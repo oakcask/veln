@@ -85,7 +85,7 @@ include pure literal `+`, `-`, and `*` subexpressions, such as `1 + 1 == 2`,
 They may also include `/` in comparison-only arithmetic, including divisions
 that are not exactly representable as finite decimals, such as `8 / 4 == 2`,
 `1 / 2 == 0.5`, and `1 / 3 < 0.34`.
-Small boolean formulas over up to ten otherwise unknown pure predicates are
+Small boolean formulas over up to eleven otherwise unknown pure predicates are
 also classified by exhaustive truth-table evaluation after literal and
 comparison folding. This covers nested `and`, `or`, and `not` tautologies such
 as
@@ -149,7 +149,7 @@ It also recognizes partial case splits where shorter branches cover the
 remaining assignments for the same predicate set, such as
 `flag or (not flag and ready) or (not flag and not ready)` and
 `value < limit or (value >= limit and ready) or (value >= limit and not ready)`.
-This partial case-split rule may cover up to ten non-static predicates, so
+This partial case-split rule may cover up to eleven non-static predicates, so
 longer decision ladders with shorter branches are also statically proven when
 their top-level `or` branches cover every assignment.
 It also recognizes exhaustive pair case splits where four top-level
@@ -172,8 +172,8 @@ predicates.
 It also recognizes exhaustive oct case splits where two hundred fifty-six
 top-level conjunction branches cover both polarities of eight non-static
 predicates.
-It also recognizes exhaustive nona and deca case splits with the same shape for
-nine or ten non-static predicates.
+It also recognizes exhaustive case splits with the same shape for nine, ten,
+or eleven non-static predicates.
 Top-level `or` also recognizes complementary comparison pairs over the same
 operands after whitespace normalization and commuted ordering normalization,
 such as `value == limit or value != limit`,
