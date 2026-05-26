@@ -21,6 +21,11 @@ implemented in the current workspace.
 
 - Use [first-slice-follow-ups.md](first-slice-follow-ups.md) for accepted
   first-slice follow-up targets.
+- Use [self-hosting-standard-library.md](self-hosting-standard-library.md) for
+  accepted standard library and compiler-known intrinsic work needed for
+  eventual self-hosting.
+- Use [toolchain-test-harness.md](toolchain-test-harness.md) for the open
+  proposal to standardize command-line integration test cases.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still open or only partially represented.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
