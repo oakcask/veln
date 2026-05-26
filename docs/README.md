@@ -6,21 +6,22 @@ short page points to them.
 
 ## Read First
 
-- Current behavior: [reference/language/README.md](reference/language/README.md).
-- Accepted or open targets: [proposals/target-queue.md](proposals/target-queue.md).
-- Unclear route: [navigation.md](navigation.md).
+- Current language behavior: [reference/language/README.md](reference/language/README.md).
+- Planned or accepted targets: [proposals/target-queue.md](proposals/target-queue.md).
+- Route not obvious: [navigation.md](navigation.md).
 
 ## Choose One Task
 
-- Implement behavior: start with
-  [reference/language/topic-map.md](reference/language/topic-map.md), then use
-  [proposals/implementation-route.md](proposals/implementation-route.md) only
-  when a proposal must be promoted.
-- Update diagnostics or command JSON:
+- Change implemented behavior:
+  [reference/language/topic-map.md](reference/language/topic-map.md).
+- Promote a proposal into implemented behavior:
+  [proposals/implementation-route.md](proposals/implementation-route.md).
+- Update diagnostics, related notes, or command JSON:
   [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md)
   or [reference/language/json-output.md](reference/language/json-output.md).
-- Check rationale, review evidence, phase history, or source support:
-  [navigation.md](navigation.md).
+- Check rationale or source support:
+  [reference/language/source-decisions.md](reference/language/source-decisions.md).
+- Check review evidence or phase history: [navigation.md](navigation.md).
 - Move or reclassify durable text: [document-status.md](document-status.md).
 
 ## Stop Rule
@@ -33,10 +34,9 @@ short page points to them.
 ## Directory Map
 
 - `reference/`: implemented behavior, durable rationale, and source support.
-- `proposals/`: accepted or open targets that are not fully implemented.
-- `reviews/`: evidence about gaps, verification, and completion claims.
-- `phases/`: implementation order, working plans, and historical completion
-  notes.
+- `proposals/`: planned or accepted targets not fully implemented.
+- `reviews/`: gap evidence, verification, and completion claims.
+- `phases/`: implementation order, working plans, and historical notes.
 
 ## Skip Unless Needed
 

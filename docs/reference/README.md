@@ -19,10 +19,10 @@ rationale or sources needed to maintain that behavior.
 
 ## Read When
 
-- Use `language/` before changing code, tests, diagnostics, commands, JSON
-  output, runtime behavior, or examples.
-- Use `source-decisions/` only after a language page needs rationale.
-- Use `bibliography/` only after a rationale or claim needs source support.
+- Use `language/` before changing implemented behavior, tests, diagnostics,
+  commands, JSON output, runtime behavior, or examples.
+- Use `source-decisions/` after a language page needs rationale.
+- Use `bibliography/` after a rationale or claim needs source support.
 
 ## Route Boundaries
 
@@ -38,3 +38,5 @@ rationale or sources needed to maintain that behavior.
   section.
 - Do not scan individual source-decision records before a topic route points to
   one.
+- Do not use proposal, review, or phase text as current behavior when
+  `language/` has a matching page.

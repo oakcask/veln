@@ -194,8 +194,84 @@ fn object_number(entries: &[(String, JsonValue)], key: &str) -> Option<i64> {
 mod tests {
     use veln_diagnostics::{DiagnosticKind, Severity};
     use veln_source::{LineCol, SourcePath, SourceSpan};
+    use veln_syntax::{ParseDiagnostic, Recovery, RecoveryStrategy, UnexpectedToken};
 
     use super::*;
+
+    #[test]
+    fn parse_diagnostic_envelope_preserves_recovery_details() {
+        let diagnostic = ParseDiagnostic {
+            id: "parse.expected_item",
+            message: "expected a function or test declaration".to_string(),
+            span: Some(span("main.veln", 2, 3)),
+            parser_context: "module",
+            unexpected: UnexpectedToken {
+                kind: "At".to_string(),
+                text: "@".to_string(),
+            },
+            expected: vec!["fn", "test"],
+            recovery: Recovery {
+                strategy: RecoveryStrategy::SynchronizeToAnchor,
+                anchor: Some("fn".to_string()),
+                dropped_token_count: 2,
+            },
+        };
+
+        let converted = parse_diagnostic_to_envelope(&diagnostic);
+
+        assert_eq!(converted.id, "parse.expected_item");
+        assert_eq!(converted.severity, Severity::Error);
+        assert_eq!(converted.kind, DiagnosticKind::Parse);
+        assert_eq!(converted.message, "expected a function or test declaration");
+        assert_eq!(converted.span, Some(span("main.veln", 2, 3)));
+        assert_eq!(
+            converted.details.to_json(),
+            concat!(
+                "{\"phase\":\"parse\",\"node_id\":null,\"parser_context\":\"module\",",
+                "\"unexpected\":{\"kind\":\"At\",\"text\":\"@\"},",
+                "\"expected\":[\"fn\",\"test\"],",
+                "\"recovery\":{\"strategy\":\"synchronize_to_anchor\",",
+                "\"anchor\":\"fn\",\"dropped_token_count\":2}}"
+            )
+        );
+        assert!(converted.related.is_empty());
+    }
+
+    #[test]
+    fn parse_diagnostic_envelope_uses_contract_kind_for_contract_predicates() {
+        let diagnostic = ParseDiagnostic {
+            id: "parse.contract_predicate",
+            message: "unsupported contract predicate syntax".to_string(),
+            span: None,
+            parser_context: "contract_predicate",
+            unexpected: UnexpectedToken {
+                kind: "LBracket".to_string(),
+                text: "[".to_string(),
+            },
+            expected: vec!["contract predicate"],
+            recovery: Recovery {
+                strategy: RecoveryStrategy::None,
+                anchor: None,
+                dropped_token_count: 0,
+            },
+        };
+
+        let converted = parse_diagnostic_to_envelope(&diagnostic);
+
+        assert_eq!(converted.kind, DiagnosticKind::Contract);
+        assert_eq!(converted.severity, Severity::Error);
+        assert_eq!(converted.span, None);
+        assert!(
+            converted
+                .details
+                .to_json()
+                .contains("\"parser_context\":\"contract_predicate\"")
+        );
+        assert!(converted.details.to_json().contains(concat!(
+            "\"recovery\":{\"strategy\":\"none\",",
+            "\"anchor\":null,\"dropped_token_count\":0}"
+        )));
+    }
 
     #[test]
     fn human_diagnostic_output_keeps_cause_in_related_note() {

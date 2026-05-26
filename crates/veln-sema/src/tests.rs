@@ -952,6 +952,33 @@ fn marks_binding_substituted_static_satisfy_candidate_as_safe_repair() {
 }
 
 #[test]
+fn safe_assignable_satisfy_candidates_report_discharge_reason() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => candidate.ready == order.ready\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"order\",",
+        "\"type\":\"{ready: Bool, paid: Bool}\",\"rank\":1,",
+        "\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn marks_negated_strict_satisfy_comparison_candidate_as_safe_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -1010,6 +1037,83 @@ fn marks_disjunctive_direct_satisfy_candidate_as_safe_repair() {
         "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
         "\"application_policy\":\"manual_review_required\","
     )));
+}
+
+#[test]
+fn marks_each_top_level_disjunctive_satisfy_candidate_as_safe_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int, fallback: Int, spare: Int) -> Int\n",
+            "  _value satisfy candidate => candidate == fallback or candidate == spare\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"spare\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-3\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":3,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn preserves_reasons_for_mixed_top_level_disjunctive_satisfy_candidates() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(fallback: Int, spare: Int) -> Int\n",
+            "  _value satisfy candidate => candidate >= fallback or candidate == spare\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"spare\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_reflexive_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
 }
 
 #[test]
@@ -1080,6 +1184,117 @@ fn marks_intersecting_disjunctive_satisfy_comparisons_as_safe_repair() {
     )));
     assert!(details.contains("\"replacement\":\"fallback\""));
     assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn marks_shared_nested_disjunctive_satisfy_candidates_as_safe_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(fallback: Int, spare: Int) -> Int\n",
+            "  _value satisfy candidate => ",
+            "(candidate == fallback or candidate == spare) and ",
+            "(candidate >= fallback or candidate >= spare)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"spare\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_reflexive_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_reflexive_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn preserves_reasons_for_shared_disjunctive_satisfy_candidates() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(fallback: Int, spare: Int) -> Int\n",
+            "  _value satisfy candidate => ",
+            "(candidate >= fallback or candidate == spare) and ",
+            "(candidate <= fallback or candidate == spare)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"spare\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_equality_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_reflexive_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn deduplicates_shared_top_level_disjunctive_satisfy_candidate() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int) -> Int\n",
+            "  let fallback = 1\n",
+            "  _value satisfy candidate => ",
+            "(candidate == fallback and candidate >= fallback) or ",
+            "(candidate == fallback and candidate <= fallback)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_reflexive_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"fallback\""));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        1
+    );
 }
 
 #[test]

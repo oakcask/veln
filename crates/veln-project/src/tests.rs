@@ -132,6 +132,28 @@ fn keeps_absolute_explicit_files_sorted_and_unique() {
 }
 
 #[test]
+fn deduplicates_mixed_relative_and_absolute_file_inputs() {
+    let temp = TempProject::new("mixed-file-input");
+    temp.write("src/a.veln", "a");
+    temp.write("src/b.veln", "b");
+
+    let paths = discover_source_paths(
+        temp.root(),
+        &[
+            PathBuf::from("src/a.veln"),
+            temp.path("src/a.veln"),
+            PathBuf::from("src/b.veln"),
+        ],
+    )
+    .unwrap();
+
+    assert_eq!(
+        paths,
+        vec![temp.path("src/a.veln"), temp.path("src/b.veln")]
+    );
+}
+
+#[test]
 fn project_discover_reads_sources_with_project_relative_paths() {
     let temp = TempProject::new("project-discover");
     temp.write("src/b.veln", "second");
@@ -181,6 +203,51 @@ fn project_discover_reads_explicit_files_with_project_relative_paths() {
             ("examples/b.veln".to_string(), "second".to_string()),
         ]
     );
+}
+
+#[test]
+fn project_discover_reads_manifest_with_explicit_inputs() {
+    let temp = TempProject::new("project-discover-explicit-manifest");
+    temp.write("src/main.veln", "mod app.main\n");
+    temp.write("src/extra.veln", "mod app.extra\n");
+    temp.write("veln.toml", "[modules]\n\"src/main.veln\" = \"app.main\"\n");
+
+    let project = Project::discover(
+        temp.root().to_path_buf(),
+        &[PathBuf::from("src/extra.veln")],
+    )
+    .unwrap();
+
+    let files = project
+        .files
+        .iter()
+        .map(|file| file.path().as_str().to_string())
+        .collect::<Vec<_>>();
+    let manifest = project.manifest.expect("manifest should be loaded");
+    assert_eq!(files, vec!["src/extra.veln".to_string()]);
+    assert_eq!(manifest.modules.len(), 1);
+    assert_eq!(manifest.modules[0].path, "src/main.veln");
+    assert_eq!(manifest.modules[0].name, "app.main");
+}
+
+#[test]
+fn project_discover_reports_missing_explicit_file() {
+    let temp = TempProject::new("project-discover-missing-explicit-file");
+
+    let error = Project::discover(temp.root().to_path_buf(), &[PathBuf::from("missing.veln")])
+        .expect_err("missing explicit file should fail");
+
+    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
+}
+
+#[test]
+fn project_discover_reports_missing_absolute_explicit_file() {
+    let temp = TempProject::new("project-discover-missing-absolute-explicit-file");
+
+    let error = Project::discover(temp.root().to_path_buf(), &[temp.path("missing.veln")])
+        .expect_err("missing explicit file should fail");
+
+    assert_eq!(error.kind(), std::io::ErrorKind::NotFound);
 }
 
 #[test]
@@ -321,6 +388,44 @@ fn read_manifest_tracks_empty_module_name_span() {
     assert_eq!(module.name_span.start.column, 20);
     assert_eq!(module.name_span.end.line, 2);
     assert_eq!(module.name_span.end.column, 20);
+}
+
+#[test]
+fn read_manifest_tracks_empty_module_path_span() {
+    let temp = TempProject::new("manifest-empty-module-path");
+    temp.write("veln.toml", "[modules]\n\"\" = \"app.main\"\n");
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    let module = &manifest.modules[0];
+    assert_eq!(module.path, "");
+    assert_eq!(module.path_span.start.line, 2);
+    assert_eq!(module.path_span.start.column, 2);
+    assert_eq!(module.path_span.end.line, 2);
+    assert_eq!(module.path_span.end.column, 2);
+    assert_eq!(module.name, "app.main");
+}
+
+#[test]
+fn read_manifest_tracks_indented_empty_module_path_span() {
+    let temp = TempProject::new("manifest-indented-empty-module-path");
+    temp.write("veln.toml", "[modules]\n  \"\" = \"app.main\"\n");
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    let module = &manifest.modules[0];
+    assert_eq!(module.path, "");
+    assert_eq!(module.path_span.start.line, 2);
+    assert_eq!(module.path_span.start.column, 4);
+    assert_eq!(module.path_span.end.line, 2);
+    assert_eq!(module.path_span.end.column, 4);
+    assert_eq!(module.name, "app.main");
+    assert_eq!(module.name_span.start.line, 2);
+    assert_eq!(module.name_span.start.column, 9);
 }
 
 #[test]

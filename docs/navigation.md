@@ -7,11 +7,13 @@ Choose one route, stop when the linked short page answers the question, and use
 ## Read First
 
 - Current behavior: [reference/language/README.md](reference/language/README.md).
-- Implementation targets: [proposals/target-queue.md](proposals/target-queue.md).
+- Planned or accepted targets: [proposals/target-queue.md](proposals/target-queue.md).
 - Rationale routes: [reference/language/source-decisions.md](reference/language/source-decisions.md).
 - Document movement rules: [document-status.md](document-status.md).
 
 ## Choose One Route
+
+### Current Behavior
 
 - Syntax, types, effects, contracts, holes, commands, JSON, runtime behavior,
   or examples:
@@ -20,8 +22,14 @@ Choose one route, stop when the linked short page answers the question, and use
   [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md).
 - Command JSON output after the diagnostic route is not enough:
   [reference/language/json-output.md](reference/language/json-output.md).
+
+### Planned Work
+
 - Proposal implementation or promotion:
   [proposals/implementation-route.md](proposals/implementation-route.md).
+
+### History And Evidence
+
 - Gap evidence or completion claims: [reviews/README.md](reviews/README.md).
 - Historical implementation order: [phases/README.md](phases/README.md).
 - Source support for claims:

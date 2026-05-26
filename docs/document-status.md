@@ -8,7 +8,7 @@ promotion rules, or placement policy.
 ## Read First
 
 - Current behavior belongs in [reference/language/README.md](reference/language/README.md).
-- Open proposal targets belong in [proposals/README.md](proposals/README.md).
+- Planned or accepted targets belong in [proposals/README.md](proposals/README.md).
 - Gap evidence belongs in [reviews/README.md](reviews/README.md).
 - Historical implementation order belongs in [phases/README.md](phases/README.md).
 
@@ -22,6 +22,14 @@ promotion rules, or placement policy.
   [document-status-full.md#entry-pages](document-status-full.md#entry-pages).
 - Applying or changing status labels:
   [document-status-full.md#labels](document-status-full.md#labels).
+
+## Placement Summary
+
+- Use `reference/` for implemented behavior and durable rationale.
+- Use `proposals/` for planned or accepted behavior that is not fully
+  implemented.
+- Use `reviews/` for evidence, gaps, and verification notes.
+- Use `phases/` for ordering, plans, and historical implementation notes.
 
 ## Stop Rule
 

@@ -79,7 +79,7 @@ fn static_boolean_value_inner(
         return StaticBooleanValue::False;
     }
     let top_level_or_count = split_top_level_keyword(predicate, "or").len();
-    if top_level_or_count >= 512 && has_exhaustive_case_split_top_level_or_between(predicate, 2, 10)
+    if top_level_or_count >= 512 && has_exhaustive_case_split_top_level_or_between(predicate, 2, 11)
     {
         return StaticBooleanValue::True;
     }
@@ -1799,10 +1799,11 @@ mod tests {
     }
 
     #[test]
-    fn exhaustive_nona_and_deca_case_splits_are_statically_true() {
+    fn high_arity_exhaustive_case_splits_are_statically_true() {
         for fields in [
             &["a", "b", "c", "d", "e", "f", "g", "h", "i"][..],
             &["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"][..],
+            &["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"][..],
         ] {
             let predicate = exhaustive_case_split_predicate("value", fields);
 

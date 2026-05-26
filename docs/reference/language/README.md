@@ -24,7 +24,7 @@ current workspace supports, not every target tracked in `../../proposals/`.
 
 ## Read When
 
-- Task-oriented topic selection: [topic-map.md](topic-map.md).
+- Unknown implemented-behavior topic: [topic-map.md](topic-map.md).
 - Source syntax and grammar details: [source-surface.md](source-surface.md),
   [types.md](types.md), and [names-effects.md](names-effects.md).
 - Contracts or holes: [contracts-holes.md](contracts-holes.md) first, then
@@ -57,3 +57,5 @@ current workspace supports, not every target tracked in `../../proposals/`.
 - Use `../source-decisions/`, `../../proposals/`, `../../phases/`, or
   `../../reviews/` only after the current behavior page does not answer the
   question.
+- Do not open full detail files until the matching short topic page points to a
+  section that matters.

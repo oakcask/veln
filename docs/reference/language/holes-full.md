@@ -32,6 +32,8 @@ match quality. When a broader assignable match is statically satisfied by a
 rather than the broad type match. The checker may bound ordinary manual-review
 candidates, but it keeps statically satisfied `satisfy` repair candidates even
 when they fall after that ordinary bound.
+When different `satisfy` branches discharge different visible symbols, each
+candidate keeps the reason for the branch that discharged that candidate.
 
 Named holes such as `_port` are diagnostic and repair labels, not bindings.
 The `satisfy candidate => predicate` suffix contributes a repair constraint; it

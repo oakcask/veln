@@ -29,8 +29,9 @@ opening the full follow-up record.
 Use this target for remaining safe repair candidate generation, satisfy
 predicate matching, candidate ranking, or repair JSON detail changes. Direct
 top-level and nested `or` branch matching is already current behavior in
-[../reference/language/holes.md](../reference/language/holes.md); keep this
-target for broader discharge beyond that implemented subset.
+[../reference/language/holes.md](../reference/language/holes.md), including
+candidate-specific discharge reasons; keep this target for broader discharge
+beyond that implemented subset.
 
 Before opening [the full repair-loop record](first-slice-follow-ups-full.md#repair-loop),
 compare the task with [../reference/language/holes.md](../reference/language/holes.md)

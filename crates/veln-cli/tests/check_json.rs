@@ -1750,6 +1750,37 @@ fn check_human_reports_satisfy_candidate_context() {
 }
 
 #[test]
+fn check_json_reports_assignable_safe_satisfy_candidate_reason() {
+    let project = TestProject::new("assignable-satisfy-candidate-reason");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => candidate.ready == order.ready\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"hole.unfilled\"",
+            "\"severity\":\"hint\"",
+            "\"candidate_id\":\"symbol-1\",\"name\":\"order\"",
+            "\"type\":\"{ready: Bool, paid: Bool}\"",
+            "\"reason\":\"satisfy_equality_match\"",
+            "\"application_policy\":\"safe_repair_candidate\"",
+            "\"satisfy_status\":\"statically_satisfied\"",
+            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"hint\":1},\"by_kind\":{\"hole\":1}}",
+        ],
+    );
+}
+
+#[test]
 fn check_json_reports_malformed_satisfy_clause() {
     let project = TestProject::new("malformed-satisfy");
     project.write(

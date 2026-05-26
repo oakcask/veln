@@ -2732,12 +2732,10 @@ impl<'a> FunctionChecker<'a> {
                     ("rank", JsonValue::Number((index + 1) as i64)),
                     (
                         "reason",
-                        JsonValue::string(if score == 0 {
-                            if let Some(reason) = static_satisfy {
-                                reason
-                            } else {
-                                "exact_type_match"
-                            }
+                        JsonValue::string(if let Some(reason) = static_satisfy {
+                            reason
+                        } else if score == 0 {
+                            "exact_type_match"
                         } else {
                             "assignable_type_match"
                         }),
@@ -2952,23 +2950,26 @@ fn reflexive_candidate_disjunct_bindings(
     }
     let disjuncts = repair_relevant_or_clauses(predicate);
     if disjuncts.len() <= 1 {
-        return None;
+        return reflexive_candidate_conjunction_bindings(
+            repair_relevant_and_clauses(predicate),
+            candidate,
+        );
     }
     let mut bindings = Vec::new();
     for disjunct in disjuncts {
-        let Some(direct) =
-            reflexive_candidate_conjunction(repair_relevant_and_clauses(disjunct), candidate)
-        else {
+        let Some(direct) = reflexive_candidate_conjunction_bindings(
+            repair_relevant_and_clauses(disjunct),
+            candidate,
+        ) else {
             continue;
         };
-        if !bindings
-            .iter()
-            .any(|binding: &SatisfyAllowedBinding| binding.name == direct.binding)
-        {
-            bindings.push(SatisfyAllowedBinding {
-                name: direct.binding,
-                reason: direct.reason,
-            });
+        for direct_allowed in direct {
+            if !bindings
+                .iter()
+                .any(|binding: &SatisfyAllowedBinding| binding.name == direct_allowed.name)
+            {
+                bindings.push(direct_allowed);
+            }
         }
     }
     (!bindings.is_empty()).then_some(bindings)
@@ -3024,6 +3025,20 @@ fn reflexive_candidate_conjunction(
     clauses: Vec<String>,
     candidate: &str,
 ) -> Option<ReflexiveCandidateBinding> {
+    let allowed_bindings = reflexive_candidate_conjunction_bindings(clauses, candidate)?;
+    let [allowed] = allowed_bindings.as_slice() else {
+        return None;
+    };
+    Some(ReflexiveCandidateBinding {
+        binding: allowed.name.clone(),
+        reason: allowed.reason,
+    })
+}
+
+fn reflexive_candidate_conjunction_bindings(
+    clauses: Vec<String>,
+    candidate: &str,
+) -> Option<Vec<SatisfyAllowedBinding>> {
     let mut allowed_bindings = None::<Vec<SatisfyAllowedBinding>>;
     for clause in clauses {
         if is_surplus_tautology_clause(&clause, candidate) {
@@ -3053,14 +3068,7 @@ fn reflexive_candidate_conjunction(
             allowed_bindings = Some(direct);
         }
     }
-    let allowed_bindings = allowed_bindings?;
-    let [allowed] = allowed_bindings.as_slice() else {
-        return None;
-    };
-    Some(ReflexiveCandidateBinding {
-        binding: allowed.name.clone(),
-        reason: allowed.reason,
-    })
+    allowed_bindings
 }
 
 fn reflexive_candidate_clause_bindings(
