@@ -1,9 +1,8 @@
-# Proposal Implementation Route
+# Proposal Implementation Route Full
 
-Use this page after choosing to turn proposal text into implemented behavior.
-Start from [README.md](README.md) when you only need to find the relevant
-proposal. Use [implementation-route-full.md](implementation-route-full.md) only
-for detailed comparison, promotion, or queue cleanup.
+Use this page after [implementation-route.md](implementation-route.md) when a
+proposal target needs detailed comparison, reference promotion, or queue
+cleanup. This page routes planned work; it does not define current behavior.
 
 ## Choose A Target
 
@@ -12,6 +11,8 @@ for detailed comparison, promotion, or queue cleanup.
 - Remaining first-slice implementation targets are tracked in
   [first-slice-follow-ups.md](first-slice-follow-ups.md), with full detail in
   [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md).
+- Use design-wall material only when [target-queue.md](target-queue.md) has no
+  accepted target for the task.
 
 ## Compare And Promote
 
@@ -22,8 +23,13 @@ for detailed comparison, promotion, or queue cleanup.
   text as requirements unless the queue or short proposal page points to it.
 - Use [../reference/language/topic-map.md](../reference/language/topic-map.md)
   to choose the smallest reference page to update after the code changes.
-- Use [implementation-route-full.md](implementation-route-full.md) when the
-  target requires gap evidence, queue updates, or promotion cleanup.
+- Use [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
+  for evidence about known gaps before treating a proposal as complete.
+- After implementation, promote the resulting behavior into
+  `../reference/language/` and keep proposal text only for remaining incomplete
+  or historical context.
+- Use [../document-status.md](../document-status.md) before promoting,
+  superseding, or rejecting proposal text.
 
 ## Reference Update Routes
 
@@ -40,9 +46,18 @@ for detailed comparison, promotion, or queue cleanup.
   [../reference/language/json-output.md](../reference/language/json-output.md)
   before the command-specific JSON page.
 
+## Exit Checklist
+
+- The changed behavior is documented under `../reference/language/`.
+- Remaining proposal text still describes only absent or incomplete behavior.
+- The target queue still names only accepted work that is not fully implemented.
+- Links from [target-queue.md](target-queue.md) still route to a live accepted
+  target, or the target has been removed from the accepted queue.
+
 ## Skip Unless Needed
 
 - Do not read design-wall material before the accepted target queue fails to
   route the task.
-- Do not treat proposal text as implemented behavior unless
-  `../reference/language/` also states it.
+- Do not edit full proposal history merely to mark implementation status; keep
+  current behavior in `../reference/language/` and leave remaining proposal work
+  in short route pages.

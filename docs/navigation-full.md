@@ -28,7 +28,7 @@ question.
   covered by `reference/language/`; update the reference route instead of
   reading older design-wall notes.
 
-## Rationale And History
+## History And Evidence
 
 - Explaining why implemented behavior exists:
   [reference/language/source-decisions.md](reference/language/source-decisions.md),
@@ -38,6 +38,10 @@ question.
 - Checking gap evidence or completion claims:
   [reviews/README.md](reviews/README.md).
 - Reconstructing implementation order: [phases/README.md](phases/README.md).
+- Source support for claims:
+  [reference/bibliography/README.md](reference/bibliography/README.md).
+- Source-decision rationale or record audits:
+  [reference/source-decisions/README.md](reference/source-decisions/README.md).
 
 ## Research Support
 
@@ -50,6 +54,15 @@ question.
 
 - Moving text between proposal, review, phase, and reference areas:
   [document-status.md](document-status.md).
+
+## Documentation Maintenance
+
+- Entry-page routing, document movement, or status labels:
+  [document-status.md](document-status.md).
+- Source-decision category routing, record placement, or storage audits:
+  [reference/source-decisions/README.md](reference/source-decisions/README.md).
+- Link-health work: start from the page being edited, then verify links across
+  `docs/` after the route is updated.
 
 ## Reading Order
 
@@ -74,10 +87,17 @@ question.
   review wording.
 - A proposal page can describe an implementation target, but it is not current
   behavior until the language reference also says so.
+- Promotion work updates the smallest matching language reference page and
+  leaves unfinished proposal text in `proposals/`.
 - A review or phase page can explain why work happened, but it is not a route
   for changing the language specification.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
+- A `result-*.md` source-decision file is a record. Open it through
+  [reference/source-decisions/topic-map.md](reference/source-decisions/topic-map.md)
+  for task work or
+  [reference/source-decisions/result-index.md](reference/source-decisions/result-index.md)
+  for record audits.
 
 ## Skip Unless Needed
 

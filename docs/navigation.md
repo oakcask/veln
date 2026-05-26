@@ -11,47 +11,22 @@ routes below are not enough.
 - Planned or accepted targets: [proposals/target-queue.md](proposals/target-queue.md).
 - Rationale routes: [reference/language/source-decisions.md](reference/language/source-decisions.md).
 - Document movement rules: [document-status.md](document-status.md).
-- Use [document-status.md](document-status.md) before moving text between
-  reference, proposals, reviews, and phases.
 
 ## Choose One Route
 
-### Current Behavior
-
-- Syntax, types, effects, contracts, holes, commands, JSON, runtime behavior,
-  or examples:
-  [reference/language/topic-map.md](reference/language/topic-map.md).
-- Human diagnostics, related notes, or stable diagnostic details:
-  [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md).
-- Command JSON output after the diagnostic route is not enough:
-  [reference/language/json-output.md](reference/language/json-output.md).
-
-### Planned Work
-
-- Proposal implementation or promotion:
+- Current behavior: [reference/language/topic-map.md](reference/language/topic-map.md).
+- Diagnostics or JSON output:
+  [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md)
+  and [reference/language/json-output.md](reference/language/json-output.md).
+- Proposal implementation:
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Accepted target selection:
   [proposals/target-queue.md](proposals/target-queue.md).
-- Open design exploration after the accepted queue is empty:
-  [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md).
-
-### History And Evidence
-
-- Gap evidence or completion claims: [reviews/README.md](reviews/README.md).
-- Historical implementation order: [phases/README.md](phases/README.md).
-- Source support for claims:
-  [reference/bibliography/README.md](reference/bibliography/README.md).
-- Source-decision rationale or record audits:
-  [reference/source-decisions/README.md](reference/source-decisions/README.md).
-
-### Documentation Maintenance
-
-- Entry-page routing, document movement, or status labels:
-  [document-status.md](document-status.md).
-- Source-decision category routing, record placement, or storage audits:
-  [reference/source-decisions/README.md](reference/source-decisions/README.md).
-- Link-health work: start from the page being edited, then verify links across
-  `docs/` after the route is updated.
+- Reviews, phases, bibliography, or rationale:
+  [navigation-full.md#history-and-evidence](navigation-full.md#history-and-evidence).
+- Documentation maintenance:
+  [document-status.md](document-status.md) and
+  [navigation-full.md#documentation-maintenance](navigation-full.md#documentation-maintenance).
 
 ## Boundary Rules
 
@@ -59,15 +34,8 @@ routes below are not enough.
   and review wording.
 - Proposal text is not current behavior until the language reference also says
   so.
-- Promotion work updates the smallest matching language reference page and
-  leaves unfinished proposal text in `proposals/`.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
-- A `result-*.md` source-decision file is a record. Open it through
-  [reference/source-decisions/topic-map.md](reference/source-decisions/topic-map.md)
-  for task work or
-  [reference/source-decisions/result-index.md](reference/source-decisions/result-index.md)
-  for record audits.
 
 ## Skip Unless Needed
 

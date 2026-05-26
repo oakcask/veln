@@ -1624,6 +1624,34 @@ mod tests {
     }
 
     #[test]
+    fn explicit_selection_includes_non_test_files() {
+        let module = SurfaceModule {
+            module: None,
+            uses: Vec::new(),
+            functions: Vec::new(),
+        };
+        let project = Project {
+            root: PathBuf::new(),
+            manifest: None,
+            files: vec![
+                SourceFile::new("main.veln", ""),
+                SourceFile::new("main_test.veln", ""),
+            ],
+        };
+
+        let test_files = selected_test_files(&project, &module, true);
+        let selection = TestSelection::new(&project, &test_files, true);
+
+        assert_eq!(
+            test_files,
+            BTreeSet::from(["main.veln".to_string(), "main_test.veln".to_string()])
+        );
+        assert_eq!(selection.mode_name, "explicit");
+        assert_eq!(selection.targets, vec!["main.veln", "main_test.veln"]);
+        assert_eq!(selection.reason, "user_selected");
+    }
+
+    #[test]
     fn empty_explicit_targets_do_not_expand() {
         let expansion = expand_test_targets(&PathBuf::new(), &[]);
 
@@ -1811,6 +1839,50 @@ mod tests {
                 "\"diagnostics\":[]}]}"
             )
         );
+    }
+
+    #[test]
+    fn report_json_counts_suite_errors_and_runtime_failures() {
+        let source_file = SourceFile::new("main_test.veln", "test first() -> () effects []\nend\n");
+        let span = source_file.span(TextRange::new(0, source_file.len()));
+        let report = TestReport::new(
+            TestSelection {
+                mode_name: "discovered".to_string(),
+                targets: vec!["main_test.veln".to_string()],
+                confidence: "complete".to_string(),
+                reason: "pattern_discovery".to_string(),
+                notes: Vec::new(),
+            },
+            Vec::new(),
+            vec![SuiteError::discovery("project discovery failed")],
+            vec![TestCase {
+                id: "case-1".to_string(),
+                name: "first".to_string(),
+                kind: "test".to_string(),
+                status: TestCaseStatus::Error,
+                source: TestCaseSource {
+                    file: "main_test.veln".to_string(),
+                    node_id: "test-1".to_string(),
+                    span,
+                },
+                reason: Some("runner_error".to_string()),
+                failure: Some(TestFailure::runtime("javac not found")),
+                expected_output: None,
+                events: Vec::new(),
+                diagnostics: Vec::new(),
+            }],
+        );
+
+        let json = report.to_json();
+
+        assert!(json.contains("\"status\":\"error\""));
+        assert!(json.contains("\"summary\":{\"total\":1,\"passed\":0,\"failed\":0"));
+        assert!(json.contains("\"errors\":2"));
+        assert!(json.contains(
+            "\"suite_errors\":[{\"kind\":\"discovery\",\"message\":\"project discovery failed\"}]"
+        ));
+        assert!(json.contains("\"failure\":{\"kind\":\"runtime\""));
+        assert!(json.contains("\"message\":\"javac not found\""));
     }
 
     #[test]
@@ -2854,6 +2926,28 @@ mod tests {
         assert!(first_event.contains("\"start\":{\"line\":2,\"column\":3"));
         assert!(events[1].to_json().contains("\"operation\":\"eprint\""));
         assert!(events[1].to_json().contains("\"terminator\":\"none\""));
+    }
+
+    #[test]
+    fn stdio_call_spans_include_type_applied_stdio_calls() {
+        let module = module(concat!(
+            "test first() -> () effects [stdio]\n",
+            "  stdio::println[String](\"out\")\n",
+            "  ()\n",
+            "end\n",
+        ));
+
+        let call_spans = stdio_call_spans(&module);
+
+        assert_eq!(call_spans.len(), 1);
+        let ((file, node_id), span) = call_spans
+            .iter()
+            .next()
+            .expect("typed stdio call span should be recorded");
+        assert_eq!(file, "main_test.veln");
+        assert!(node_id.starts_with("call-"));
+        assert_eq!(span.start.line, 2);
+        assert_eq!(span.start.column, 3);
     }
 
     #[test]
