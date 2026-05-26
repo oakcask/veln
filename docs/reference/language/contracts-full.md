@@ -115,6 +115,11 @@ conjunction, such as `flag or not (flag and extra)` and
 recognizes a negated disjunction whose non-static branches are repeated by
 other top-level disjuncts, such as
 `not (flag or ready) or flag or ready`.
+Top-level `or` predicates that combine equality with either inclusive ordering
+direction are also statically proven. For example,
+`not (value != limit) or value <= limit` and
+`not (value != limit) or limit <= value` are statically proven after
+validation.
 Top-level `or` also
 recognizes a conjunction whose non-static conjuncts are all covered by
 complement disjuncts, such as

@@ -172,6 +172,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   Top-level inclusive ordering totality disjuncts that reference the satisfy
   candidate are also treated as tautological repair constraints after
   whitespace normalization and commuted ordering normalization.
+  Top-level disjunctions that combine equality with one inclusive ordering
+  direction, such as `not (candidate != limit) or candidate <= limit`, are
+  also treated as tautological repair constraints after validation.
   Negated top-level `and` predicates with mutually exclusive ordering
   trichotomy clauses rooted at the satisfy candidate are also treated as
   tautological repair constraints. Negated top-level `and` predicates with
@@ -235,6 +238,9 @@ No accepted language and type coverage follow-up is currently tracked here.
   over the same operands, and negated conjunctions with opposite inclusive and
   strict ordering bounds over the same operands, are also statically evaluated
   after whitespace normalization and commuted ordering normalization.
+  Top-level disjunctions that combine equality with one inclusive ordering
+  direction over the same operands are also statically evaluated after
+  validation.
   Small boolean formulas over up to twelve otherwise unknown pure predicates are
   also statically evaluated by exhaustive truth-table checking after literal
   and comparison folding.

@@ -152,6 +152,10 @@ tautological after whitespace normalization and commuted ordering
 normalization. For example,
 `candidate <= limit or limit <= candidate` ranks every type-compatible visible
 binding as a safe tautology repair candidate.
+The same static truth reuse covers equality plus one inclusive ordering
+direction, so `not (candidate != limit) or candidate <= limit` and
+`not (candidate != limit) or limit <= candidate` also rank every
+type-compatible visible binding as a safe tautology repair candidate.
 A negated top-level `and` with complementary candidate-referencing branches is
 also tautological for repair ranking. For example,
 `not (candidate.ready and limit.ready and not candidate.ready)` ranks every

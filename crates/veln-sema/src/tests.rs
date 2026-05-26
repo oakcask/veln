@@ -2431,6 +2431,42 @@ fn marks_negated_exclusive_order_satisfy_conjuncts_as_tautological_repair() {
 }
 
 #[test]
+fn marks_disequality_inclusive_order_satisfy_disjuncts_as_tautological_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(limit: Int, fallback: Int) -> Int\n",
+            "  _value satisfy candidate => not (candidate != limit) or candidate <= limit\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"limit\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_tautology\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert_eq!(
+        details
+            .matches("\"satisfy_status\":\"statically_satisfied\"")
+            .count(),
+        2
+    );
+}
+
+#[test]
 fn marks_negated_inclusive_strict_order_satisfy_conjuncts_as_tautological_repair() {
     let source = SourceFile::new(
         "main.veln",
@@ -9699,13 +9735,41 @@ fn contract_predicate_disequality_strict_order_split_is_statically_proven() {
 }
 
 #[test]
+fn contract_predicate_disequality_inclusive_order_split_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Int, limit: Int) -> output: Int effects []\n",
+            "require not (value != limit) or value <= limit\n",
+            "require not (value != limit) or limit <= value\n",
+            "ensure not (output != limit) or output >= limit\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 3);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_disequality_split_requires_both_strict_orders() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
             "pub fn identity(value: Int, limit: Int) -> output: Int effects []\n",
             "require not (value != limit) or value < limit\n",
-            "ensure not (output != limit) or output < limit or output <= limit\n",
+            "ensure not (output != limit) or output < limit\n",
             "  value\n",
             "end\n",
         ),

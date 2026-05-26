@@ -130,6 +130,9 @@ fn static_boolean_value_inner(
     if has_inclusive_total_order_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
+    if has_disequality_inclusive_order_split_top_level_or(predicate) {
+        return StaticBooleanValue::True;
+    }
     if has_total_order_top_level_or(predicate) {
         return StaticBooleanValue::True;
     }
@@ -997,6 +1000,23 @@ fn has_disequality_strict_order_split_top_level_or(predicate: &str) -> bool {
     })
 }
 
+fn has_disequality_inclusive_order_split_top_level_or(predicate: &str) -> bool {
+    let clauses = flattened_keyword_clauses(predicate, "or");
+    if clauses.len() < 2 {
+        return false;
+    }
+    clauses.iter().enumerate().any(|(index, clause)| {
+        let Some(inner) = negated_predicate_inner(clause) else {
+            return false;
+        };
+        let Some((left, right)) = disequality_shape(inner) else {
+            return false;
+        };
+        has_inclusive_order_bound(&clauses, index, &left, &right)
+            || has_inclusive_order_bound(&clauses, index, &right, &left)
+    })
+}
+
 fn has_strict_order_bound(
     clauses: &[&str],
     excluded_index: usize,
@@ -1007,6 +1027,19 @@ fn has_strict_order_bound(
         index != excluded_index
             && order_bound_shape(clause)
                 .is_some_and(|bound| bound.strict && bound.left == left && bound.right == right)
+    })
+}
+
+fn has_inclusive_order_bound(
+    clauses: &[&str],
+    excluded_index: usize,
+    left: &str,
+    right: &str,
+) -> bool {
+    clauses.iter().enumerate().any(|(index, clause)| {
+        index != excluded_index
+            && order_bound_shape(clause)
+                .is_some_and(|bound| !bound.strict && bound.left == left && bound.right == right)
     })
 }
 
