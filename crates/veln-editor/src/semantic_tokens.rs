@@ -613,15 +613,14 @@ fn collect_function_names(tokens: &[Token]) -> BTreeSet<String> {
     let mut names = BTreeSet::new();
     let mut index = 0;
     while index < tokens.len() {
-        if matches!(tokens[index].kind, TokenKind::Fn | TokenKind::Test) {
-            if let Some(name) = tokens
+        if matches!(tokens[index].kind, TokenKind::Fn | TokenKind::Test)
+            && let Some(name) = tokens
                 .iter()
                 .skip(index + 1)
                 .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
                 .filter(|token| token.kind == TokenKind::Ident)
-            {
-                names.insert(name.text.clone());
-            }
+        {
+            names.insert(name.text.clone());
         }
         index += 1;
     }

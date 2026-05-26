@@ -303,15 +303,15 @@ pub(crate) fn check_test_declaration_boundary(function: &Function) -> Vec<Diagno
 
     match function.return_type.as_deref() {
         Some(return_type) => {
-            if let Ok(ty) = parse_type_annotation(return_type) {
-                if !is_allowed_test_return(&ty) {
-                    diagnostics.push(test_return_diagnostic(
-                        function,
-                        &node_id,
-                        format!("test declaration returns `{}`", ty.render()),
-                        ty.render(),
-                    ));
-                }
+            if let Ok(ty) = parse_type_annotation(return_type)
+                && !is_allowed_test_return(&ty)
+            {
+                diagnostics.push(test_return_diagnostic(
+                    function,
+                    &node_id,
+                    format!("test declaration returns `{}`", ty.render()),
+                    ty.render(),
+                ));
             }
         }
         None => diagnostics.push(test_return_diagnostic(
@@ -680,43 +680,42 @@ impl<'a> FunctionChecker<'a> {
             );
         }
 
-        if let Some(result_binding) = &self.function.return_binding {
-            if let Some(param) = self
+        if let Some(result_binding) = &self.function.return_binding
+            && let Some(param) = self
                 .function
                 .params
                 .iter()
                 .find(|param| param.name == result_binding.name)
-            {
-                let mut diagnostic = Diagnostic::new(
-                    "name.duplicate",
-                    Severity::Error,
-                    DiagnosticKind::Name,
-                    format!("duplicate result binding name `{}`", result_binding.name),
-                    Some(result_binding.span.clone()),
-                    JsonValue::object([
-                        ("phase", JsonValue::string("name")),
-                        (
-                            "node_id",
-                            JsonValue::string(result_binding.node_id.display("result")),
-                        ),
-                        ("name", JsonValue::string(result_binding.name.clone())),
-                        ("namespace", JsonValue::string("value")),
-                        (
-                            "first_node_id",
-                            JsonValue::string(param.node_id.display("param")),
-                        ),
-                    ]),
-                );
-                diagnostic.related.push(JsonValue::object([
-                    ("kind", JsonValue::string("duplicate_origin")),
+        {
+            let mut diagnostic = Diagnostic::new(
+                "name.duplicate",
+                Severity::Error,
+                DiagnosticKind::Name,
+                format!("duplicate result binding name `{}`", result_binding.name),
+                Some(result_binding.span.clone()),
+                JsonValue::object([
+                    ("phase", JsonValue::string("name")),
                     (
-                        "message",
-                        JsonValue::string("Parameter with this name is here."),
+                        "node_id",
+                        JsonValue::string(result_binding.node_id.display("result")),
                     ),
-                    ("span", span_json(&param.span)),
-                ]));
-                self.diagnostics.push(diagnostic);
-            }
+                    ("name", JsonValue::string(result_binding.name.clone())),
+                    ("namespace", JsonValue::string("value")),
+                    (
+                        "first_node_id",
+                        JsonValue::string(param.node_id.display("param")),
+                    ),
+                ]),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("duplicate_origin")),
+                (
+                    "message",
+                    JsonValue::string("Parameter with this name is here."),
+                ),
+                ("span", span_json(&param.span)),
+            ]));
+            self.diagnostics.push(diagnostic);
         }
     }
 
@@ -1086,13 +1085,14 @@ impl<'a> FunctionChecker<'a> {
         if matches!(trimmed, "true" | "false") {
             return Type::bool();
         }
-        if let [call] = contract_calls(trimmed).as_slice() {
-            if call.start == 0 && call.end == trimmed.len() {
-                return self
-                    .contract_call_signature(&call.callee)
-                    .map(|(_, return_type, _)| return_type)
-                    .unwrap_or(Type::Unknown);
-            }
+        if let [call] = contract_calls(trimmed).as_slice()
+            && call.start == 0
+            && call.end == trimmed.len()
+        {
+            return self
+                .contract_call_signature(&call.callee)
+                .map(|(_, return_type, _)| return_type)
+                .unwrap_or(Type::Unknown);
         }
         if let Some(ty) = predicate_type_with_calls(trimmed, bindings, &|callee| {
             self.contract_call_signature(callee)
@@ -1152,18 +1152,18 @@ impl<'a> FunctionChecker<'a> {
 
     fn contract_bindings(&self, kind: ContractKind) -> Vec<Binding> {
         let mut bindings = self.bindings.clone();
-        if kind == ContractKind::Ensure {
-            if let Some(result_binding) = &self.function.return_binding {
-                bindings.push(Binding {
-                    name: result_binding.name.clone(),
-                    ty: self
-                        .function
-                        .return_type
-                        .as_deref()
-                        .and_then(|return_type| parse_type_annotation(return_type).ok())
-                        .unwrap_or(Type::Unknown),
-                });
-            }
+        if kind == ContractKind::Ensure
+            && let Some(result_binding) = &self.function.return_binding
+        {
+            bindings.push(Binding {
+                name: result_binding.name.clone(),
+                ty: self
+                    .function
+                    .return_type
+                    .as_deref()
+                    .and_then(|return_type| parse_type_annotation(return_type).ok())
+                    .unwrap_or(Type::Unknown),
+            });
         }
         bindings
     }
@@ -1333,31 +1333,27 @@ impl<'a> FunctionChecker<'a> {
             return return_type;
         }
 
-        if let ExprKind::NamePath(segments) = &callee.kind {
-            if let [name] = segments.as_slice() {
-                if let Some((params, return_type)) =
-                    prelude_signature(name, expected.map(|expected| &expected.ty))
-                {
-                    for (index, arg) in args.iter().enumerate() {
-                        let Some(param_type) = params.get(index) else {
-                            self.infer_expr(arg, None);
-                            continue;
-                        };
-                        let expected = ExpectedType {
-                            ty: param_type.clone(),
-                            source: ExpectedTypeSource::Inferred,
-                            origin_node_id: callee.node_id,
-                            origin_span: Some(callee.span.clone()),
-                            origin_message: "Prelude helper parameter type inferred here.",
-                        };
-                        let actual = self.infer_expr(arg, Some(&expected));
-                        self.check_prelude_argument_assignable(
-                            name, index, arg, &expected, &actual,
-                        );
-                    }
-                    return return_type;
-                }
+        if let ExprKind::NamePath(segments) = &callee.kind
+            && let [name] = segments.as_slice()
+            && let Some((params, return_type)) =
+                prelude_signature(name, expected.map(|expected| &expected.ty))
+        {
+            for (index, arg) in args.iter().enumerate() {
+                let Some(param_type) = params.get(index) else {
+                    self.infer_expr(arg, None);
+                    continue;
+                };
+                let expected = ExpectedType {
+                    ty: param_type.clone(),
+                    source: ExpectedTypeSource::Inferred,
+                    origin_node_id: callee.node_id,
+                    origin_span: Some(callee.span.clone()),
+                    origin_message: "Prelude helper parameter type inferred here.",
+                };
+                let actual = self.infer_expr(arg, Some(&expected));
+                self.check_prelude_argument_assignable(name, index, arg, &expected, &actual);
             }
+            return return_type;
         }
 
         if let ExprKind::FieldAccess {
@@ -1473,26 +1469,25 @@ impl<'a> FunctionChecker<'a> {
                         concurrency_signature(segments, expected, handle_type, None)?;
                     return Some((params, return_type, origin));
                 }
-                if let [name] = segments.as_slice() {
-                    if let Some(binding) = self
+                if let [name] = segments.as_slice()
+                    && let Some(binding) = self
                         .bindings
                         .iter()
                         .rev()
                         .find(|binding| binding.name == *name)
-                    {
-                        let (params, return_type) = binding.ty.function_parts()?;
-                        let effects = binding.ty.function_effects().unwrap_or_default().to_vec();
-                        return Some((
-                            params.to_vec(),
-                            return_type.clone(),
-                            CallOrigin {
-                                node_id: callee.node_id,
-                                span: callee.span.clone(),
-                                symbol: name.clone(),
-                                effects,
-                            },
-                        ));
-                    }
+                {
+                    let (params, return_type) = binding.ty.function_parts()?;
+                    let effects = binding.ty.function_effects().unwrap_or_default().to_vec();
+                    return Some((
+                        params.to_vec(),
+                        return_type.clone(),
+                        CallOrigin {
+                            node_id: callee.node_id,
+                            span: callee.span.clone(),
+                            symbol: name.clone(),
+                            effects,
+                        },
+                    ));
                 }
                 self.environment.function_path(segments).map(|function| {
                     (
@@ -1857,10 +1852,10 @@ impl<'a> FunctionChecker<'a> {
             }
             actual_fields.push((field.name.clone(), actual));
         }
-        if let Some(expected) = expected {
-            if matches!(expected.ty, Type::Record(_)) {
-                return expected.ty.clone();
-            }
+        if let Some(expected) = expected
+            && matches!(expected.ty, Type::Record(_))
+        {
+            return expected.ty.clone();
         }
         Type::Record(actual_fields)
     }
@@ -1971,10 +1966,10 @@ impl<'a> FunctionChecker<'a> {
             veln_ast::PrefixOp::Not => Type::bool(),
             veln_ast::PrefixOp::Negate => self.numeric_operand_type(expected_result, &[expr]),
         };
-        if operand_type == Type::float() {
-            if let Some(name) = float_prefix_prelude_name(op) {
-                return self.infer_builtin_unary_call(name, expr);
-            }
+        if operand_type == Type::float()
+            && let Some(name) = float_prefix_prelude_name(op)
+        {
+            return self.infer_builtin_unary_call(name, expr);
         }
         let expected = ExpectedType {
             ty: operand_type,
@@ -2499,10 +2494,10 @@ impl<'a> FunctionChecker<'a> {
         if let Some((_, span)) = self.local_names.get(candidate) {
             return Some(("local", Some(span.clone())));
         }
-        if let Some(result_binding) = &self.function.return_binding {
-            if result_binding.name == candidate {
-                return Some(("result", Some(result_binding.span.clone())));
-            }
+        if let Some(result_binding) = &self.function.return_binding
+            && result_binding.name == candidate
+        {
+            return Some(("result", Some(result_binding.span.clone())));
         }
         if prelude_signature(candidate, None).is_some() {
             return Some(("prelude", None));
@@ -2562,14 +2557,14 @@ impl<'a> FunctionChecker<'a> {
                 ("candidate_queries", JsonValue::array(candidate_queries)),
             ]),
         );
-        if let Some(expected) = expected {
-            if let Some(span) = &expected.origin_span {
-                diagnostic.related.push(JsonValue::object([
-                    ("kind", JsonValue::string("expected_type_origin")),
-                    ("message", JsonValue::string(expected.origin_message)),
-                    ("span", span_json(span)),
-                ]));
-            }
+        if let Some(expected) = expected
+            && let Some(span) = &expected.origin_span
+        {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("expected_type_origin")),
+                ("message", JsonValue::string(expected.origin_message)),
+                ("span", span_json(span)),
+            ]));
         }
         for contract in &self.function.contracts {
             diagnostic.related.push(JsonValue::object([
@@ -2635,7 +2630,7 @@ impl<'a> FunctionChecker<'a> {
                     satisfy
                         .candidate
                         .as_ref()
-                        .map_or(JsonValue::Null, |candidate| JsonValue::string(candidate)),
+                        .map_or(JsonValue::Null, JsonValue::string),
                 ),
                 ("validation_status", JsonValue::string("valid_unknown")),
                 ("repair_status", JsonValue::string(repair_status)),
@@ -2699,7 +2694,7 @@ impl<'a> FunctionChecker<'a> {
                 satisfy
                     .candidate
                     .as_ref()
-                    .map_or(JsonValue::Null, |candidate| JsonValue::string(candidate)),
+                    .map_or(JsonValue::Null, JsonValue::string),
             ));
         }
         if !ranked_candidates.is_empty() {
@@ -3077,13 +3072,12 @@ fn reflexive_candidate_conjunction_bindings(
                     .any(|direct_allowed| direct_allowed.name == allowed.name)
             });
             for allowed in existing.iter_mut() {
-                if allowed.reason == "satisfy_equality_match" {
-                    if let Some(direct_allowed) = direct
+                if allowed.reason == "satisfy_equality_match"
+                    && let Some(direct_allowed) = direct
                         .iter()
                         .find(|direct_allowed| direct_allowed.name == allowed.name)
-                    {
-                        allowed.reason = direct_allowed.reason;
-                    }
+                {
+                    allowed.reason = direct_allowed.reason;
                 }
             }
             if existing.is_empty() {
@@ -3689,14 +3683,14 @@ fn strip_redundant_repair_atom_parens(predicate: &str) -> String {
     let mut cursor = 0;
     while cursor < predicate.len() {
         let rest = &predicate[cursor..];
-        if let Some(inner_start) = rest.strip_prefix('(') {
-            if let Some(end) = inner_start.find(')') {
-                let inner = &inner_start[..end];
-                if is_repair_atom_text(inner) {
-                    output.push_str(inner);
-                    cursor += end + 2;
-                    continue;
-                }
+        if let Some(inner_start) = rest.strip_prefix('(')
+            && let Some(end) = inner_start.find(')')
+        {
+            let inner = &inner_start[..end];
+            if is_repair_atom_text(inner) {
+                output.push_str(inner);
+                cursor += end + 2;
+                continue;
             }
         }
         let ch = rest
@@ -5232,8 +5226,8 @@ impl RepairNumber {
                 let scale = left_fraction.len().max(right_fraction.len());
                 let mut left_fraction = left_fraction;
                 let mut right_fraction = right_fraction;
-                left_fraction.extend(std::iter::repeat('0').take(scale - left_fraction.len()));
-                right_fraction.extend(std::iter::repeat('0').take(scale - right_fraction.len()));
+                left_fraction.extend(std::iter::repeat_n('0', scale - left_fraction.len()));
+                right_fraction.extend(std::iter::repeat_n('0', scale - right_fraction.len()));
                 left_fraction.cmp(&right_fraction)
             })
     }
@@ -5898,8 +5892,7 @@ fn split_top_level_keyword<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str
 fn is_word_boundary(text: &str, start: usize, end: usize) -> bool {
     let before = text[..start].chars().next_back();
     let after = text[end..].chars().next();
-    before.map_or(true, |ch| !is_ident_continue(ch))
-        && after.map_or(true, |ch| !is_ident_continue(ch))
+    before.is_none_or(|ch| !is_ident_continue(ch)) && after.is_none_or(|ch| !is_ident_continue(ch))
 }
 
 fn normalized_predicate_clause(predicate: &str) -> String {
@@ -6175,10 +6168,11 @@ fn contract_call_result_feeds_boolean_predicate(predicate: &str, start: usize, e
             '"' => in_string = true,
             '(' => depth += 1,
             ')' => depth = depth.saturating_sub(1),
-            _ if index < start || index >= end => {
-                if depth <= call_depth && predicate[index..].starts_with_comparison_operator() {
-                    return true;
-                }
+            _ if (index < start || index >= end)
+                && depth <= call_depth
+                && predicate[index..].starts_with_comparison_operator() =>
+            {
+                return true;
             }
             _ => {}
         }

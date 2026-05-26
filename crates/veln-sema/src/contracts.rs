@@ -83,12 +83,11 @@ fn static_boolean_value_inner(
     {
         return StaticBooleanValue::True;
     }
-    if top_level_or_count < 512 {
-        if let Some(value @ (StaticBooleanValue::True | StaticBooleanValue::False)) =
+    if top_level_or_count < 512
+        && let Some(value @ (StaticBooleanValue::True | StaticBooleanValue::False)) =
             static_boolean_truth_table_value(predicate)
-        {
-            return value;
-        }
+    {
+        return value;
     }
     if let Some(inner) = negated_predicate_inner(predicate) {
         return static_boolean_value_inner(
@@ -243,7 +242,7 @@ fn static_boolean_truth_table_value(predicate: &str) -> Option<StaticBooleanValu
     })
 }
 
-fn collect_boolean_formula_atoms<'a>(predicate: &'a str, atoms: &mut Vec<String>) -> Option<()> {
+fn collect_boolean_formula_atoms(predicate: &str, atoms: &mut Vec<String>) -> Option<()> {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     if predicate.is_empty() || matches!(predicate, "true" | "false") {
         return Some(());
@@ -837,12 +836,12 @@ fn exhaustive_case_split_is_complete(disjuncts: &[&str], bases: &[&str]) -> bool
         for conjunct in conjuncts {
             let mut matched = false;
             for (index, base) in bases.iter().enumerate() {
-                if polarities[index].is_none() {
-                    if let Some(polarity) = predicate_polarity_against(conjunct, base) {
-                        polarities[index] = Some(polarity);
-                        matched = true;
-                        break;
-                    }
+                if polarities[index].is_none()
+                    && let Some(polarity) = predicate_polarity_against(conjunct, base)
+                {
+                    polarities[index] = Some(polarity);
+                    matched = true;
+                    break;
                 }
             }
             if !matched {
@@ -1372,7 +1371,7 @@ fn numeric_literal_bounds_imply(predicate: &str, wanted: &OrderBoundShape) -> bo
     };
     let equality_edges = flattened_keyword_clauses(predicate, "and")
         .into_iter()
-        .filter_map(|clause| equality_shape(clause))
+        .filter_map(equality_shape)
         .flat_map(|(left, right)| [(left.clone(), right.clone()), (right, left)])
         .collect::<Vec<_>>();
     flattened_keyword_clauses(predicate, "and")
@@ -1613,11 +1612,10 @@ fn same_predicate(left: &str, right: &str) -> bool {
 fn predicate_shape(predicate: &str) -> String {
     let predicate = strip_balanced_outer_parens(predicate.trim());
     let mut shape = String::new();
-    let mut chars = predicate.chars();
     let mut in_string = false;
     let mut escaped = false;
     let mut pending_space = false;
-    while let Some(ch) = chars.next() {
+    for ch in predicate.chars() {
         if in_string {
             shape.push(ch);
             if escaped {
@@ -2115,19 +2113,19 @@ fn static_literal_comparison(left: &str, operator: &str, right: &str) -> Option<
     if let (Some(StaticLiteral::Number(left)), Some(StaticLiteral::Number(right))) =
         (&left_literal, &right_literal)
     {
-        return Some(static_number_comparison(*left, operator, *right)?);
+        return static_number_comparison(*left, operator, *right);
     }
     if let (Some(left), Some(right)) = (
         static_numeric_expression(left),
         static_numeric_expression(right),
     ) {
-        return Some(static_number_comparison(left, operator, right)?);
+        return static_number_comparison(left, operator, right);
     }
     if let (Some(left), Some(right)) = (
         static_rational_expression(left),
         static_rational_expression(right),
     ) {
-        return Some(static_rational_comparison(left, operator, right)?);
+        return static_rational_comparison(left, operator, right);
     }
     if matches!(operator, "==" | "!=") {
         let left = static_boolean_value(left);
@@ -2427,8 +2425,8 @@ impl StaticNumber {
                 let scale = left_fraction.len().max(right_fraction.len());
                 let mut left_fraction = left_fraction;
                 let mut right_fraction = right_fraction;
-                left_fraction.extend(std::iter::repeat('0').take(scale - left_fraction.len()));
-                right_fraction.extend(std::iter::repeat('0').take(scale - right_fraction.len()));
+                left_fraction.extend(std::iter::repeat_n('0', scale - left_fraction.len()));
+                right_fraction.extend(std::iter::repeat_n('0', scale - right_fraction.len()));
                 left_fraction.cmp(&right_fraction)
             })
     }
@@ -2607,8 +2605,7 @@ trait EndsWithIdentifier {
 impl EndsWithIdentifier for str {
     fn ends_with_identifier(&self) -> bool {
         self.chars()
-            .rev()
-            .next()
+            .next_back()
             .is_some_and(|ch| ch.is_ascii_alphanumeric() || ch == '_')
     }
 }
@@ -2997,8 +2994,7 @@ fn split_top_level_keyword<'a>(predicate: &'a str, keyword: &str) -> Vec<&'a str
 fn is_keyword_boundary(text: &str, start: usize, end: usize) -> bool {
     let before = text[..start].chars().next_back();
     let after = text[end..].chars().next();
-    before.map_or(true, |ch| !is_ident_continue(ch))
-        && after.map_or(true, |ch| !is_ident_continue(ch))
+    before.is_none_or(|ch| !is_ident_continue(ch)) && after.is_none_or(|ch| !is_ident_continue(ch))
 }
 
 fn is_ident_continue(ch: char) -> bool {
@@ -3078,9 +3074,7 @@ fn split_field_access(predicate: &str) -> Option<FieldAccessRef<'_>> {
             }
             '.' if depth == 0 => {
                 let field_start = index + ch.len_utf8();
-                let Some(field_first) = predicate[field_start..].chars().next() else {
-                    return None;
-                };
+                let field_first = predicate[field_start..].chars().next()?;
                 if !(field_first.is_ascii_alphabetic() || field_first == '_') {
                     return None;
                 }

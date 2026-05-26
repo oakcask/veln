@@ -132,7 +132,7 @@ pub(crate) fn unique_java_identifier(base: &str, used_names: &mut BTreeSet<Strin
 }
 
 fn is_java_keyword(value: &str) -> bool {
-    java_keywords().iter().any(|keyword| *keyword == value)
+    java_keywords().contains(&value)
 }
 
 fn java_keywords() -> &'static [&'static str] {

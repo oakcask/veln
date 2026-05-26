@@ -121,9 +121,7 @@ impl<'a, 'program> FunctionEmitter<'a, 'program> {
     }
 
     fn contract_check_line_with_blame(&self, contract: &IrContract, blame: &str) -> Option<String> {
-        let Some(predicate) = ContractParser::new(&contract.predicate).parse() else {
-            return None;
-        };
+        let predicate = ContractParser::new(&contract.predicate).parse()?;
         let java_predicate = self.emit_contract_expr(&predicate);
         let clause = match contract.kind {
             ContractKind::Require => "require",

@@ -36,10 +36,10 @@ fn parse_manifest(source: &SourceFile) -> ProjectManifest {
         let trimmed = line_without_newline.trim();
         if let Some(section) = section_name(trimmed) {
             in_modules = section == "modules";
-        } else if in_modules {
-            if let Some(module) = parse_module_entry(source, offset, line_without_newline) {
-                modules.push(module);
-            }
+        } else if in_modules
+            && let Some(module) = parse_module_entry(source, offset, line_without_newline)
+        {
+            modules.push(module);
         }
         offset += line.len();
     }

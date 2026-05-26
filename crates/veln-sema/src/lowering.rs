@@ -434,18 +434,18 @@ impl<'a> CoreLowerer<'a> {
                     veln_ast::PrefixOp::Not => CoreType::bool(),
                     veln_ast::PrefixOp::Negate => self.numeric_operand_type(expected, &[inner]),
                 };
-                if expected_operand == CoreType::float() {
-                    if let Some(name) = float_prefix_prelude_name(*op) {
-                        let arg = self.lower_expr(inner, Some(&CoreType::float()));
-                        return self.core_expr(
-                            expr,
-                            CoreType::float(),
-                            CoreExprKind::Call {
-                                target: CoreCallTarget::PreludeBuiltin(name.to_string()),
-                                args: vec![arg],
-                            },
-                        );
-                    }
+                if expected_operand == CoreType::float()
+                    && let Some(name) = float_prefix_prelude_name(*op)
+                {
+                    let arg = self.lower_expr(inner, Some(&CoreType::float()));
+                    return self.core_expr(
+                        expr,
+                        CoreType::float(),
+                        CoreExprKind::Call {
+                            target: CoreCallTarget::PreludeBuiltin(name.to_string()),
+                            args: vec![arg],
+                        },
+                    );
                 }
                 let lowered = self.lower_expr(inner, Some(&expected_operand));
                 self.core_expr(
@@ -665,28 +665,28 @@ impl<'a> CoreLowerer<'a> {
                 let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
                 let signature =
                     core_concurrency_signature(segments, expected, handle_type.as_ref(), None);
-                if let Some((params, _)) = &signature {
-                    if args.len() != params.len() {
-                        self.unsupported_expression(
-                            expr,
-                            "call_arity_mismatch",
-                            format!(
-                                "call expects {} argument(s), but got {}",
-                                params.len(),
-                                args.len()
+                if let Some((params, _)) = &signature
+                    && args.len() != params.len()
+                {
+                    self.unsupported_expression(
+                        expr,
+                        "call_arity_mismatch",
+                        format!(
+                            "call expects {} argument(s), but got {}",
+                            params.len(),
+                            args.len()
+                        ),
+                        Some(JsonValue::object([
+                            (
+                                "expected_argument_count",
+                                JsonValue::Number(params.len() as i64),
                             ),
-                            Some(JsonValue::object([
-                                (
-                                    "expected_argument_count",
-                                    JsonValue::Number(params.len() as i64),
-                                ),
-                                (
-                                    "actual_argument_count",
-                                    JsonValue::Number(args.len() as i64),
-                                ),
-                            ])),
-                        );
-                    }
+                            (
+                                "actual_argument_count",
+                                JsonValue::Number(args.len() as i64),
+                            ),
+                        ])),
+                    );
                 }
                 let lowered_args = args
                     .iter()
@@ -708,73 +708,31 @@ impl<'a> CoreLowerer<'a> {
                 );
             }
         }
-        if let Some((segments, type_args)) = callee_name_path_and_type_args(callee) {
-            if is_concurrency_call(segments) && matches!(callee.kind, ExprKind::TypeApply { .. }) {
-                let explicit_item = type_args
-                    .and_then(|type_args| type_args.first())
-                    .and_then(|type_arg| parse_type_annotation(type_arg).ok())
-                    .map(|ty| core_type(&ty));
-                let signature =
-                    core_concurrency_signature(segments, expected, None, explicit_item.as_ref());
-                if let Some((params, _)) = &signature {
-                    if args.len() != params.len() {
-                        self.unsupported_expression(
-                            expr,
-                            "call_arity_mismatch",
-                            format!(
-                                "call expects {} argument(s), but got {}",
-                                params.len(),
-                                args.len()
-                            ),
-                            Some(JsonValue::object([
-                                (
-                                    "expected_argument_count",
-                                    JsonValue::Number(params.len() as i64),
-                                ),
-                                (
-                                    "actual_argument_count",
-                                    JsonValue::Number(args.len() as i64),
-                                ),
-                            ])),
-                        );
-                    }
-                }
-                let lowered_args = args
-                    .iter()
-                    .enumerate()
-                    .map(|(index, arg)| {
-                        let expected = signature.as_ref().and_then(|(params, _)| params.get(index));
-                        self.lower_expr(arg, expected)
-                    })
-                    .collect();
-                return self.core_expr(
-                    expr,
-                    signature
-                        .map(|(_, return_type)| return_type)
-                        .unwrap_or(CoreType::Unknown),
-                    CoreExprKind::Call {
-                        target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
-                        args: lowered_args,
-                    },
-                );
-            }
-        }
-
-        let signature = self.core_call_signature(callee, expected);
-        if let Some(signature) = &signature {
-            if args.len() != signature.params.len() {
+        if let Some((segments, type_args)) = callee_name_path_and_type_args(callee)
+            && is_concurrency_call(segments)
+            && matches!(callee.kind, ExprKind::TypeApply { .. })
+        {
+            let explicit_item = type_args
+                .and_then(|type_args| type_args.first())
+                .and_then(|type_arg| parse_type_annotation(type_arg).ok())
+                .map(|ty| core_type(&ty));
+            let signature =
+                core_concurrency_signature(segments, expected, None, explicit_item.as_ref());
+            if let Some((params, _)) = &signature
+                && args.len() != params.len()
+            {
                 self.unsupported_expression(
                     expr,
                     "call_arity_mismatch",
                     format!(
                         "call expects {} argument(s), but got {}",
-                        signature.params.len(),
+                        params.len(),
                         args.len()
                     ),
                     Some(JsonValue::object([
                         (
                             "expected_argument_count",
-                            JsonValue::Number(signature.params.len() as i64),
+                            JsonValue::Number(params.len() as i64),
                         ),
                         (
                             "actual_argument_count",
@@ -783,6 +741,49 @@ impl<'a> CoreLowerer<'a> {
                     ])),
                 );
             }
+            let lowered_args = args
+                .iter()
+                .enumerate()
+                .map(|(index, arg)| {
+                    let expected = signature.as_ref().and_then(|(params, _)| params.get(index));
+                    self.lower_expr(arg, expected)
+                })
+                .collect();
+            return self.core_expr(
+                expr,
+                signature
+                    .map(|(_, return_type)| return_type)
+                    .unwrap_or(CoreType::Unknown),
+                CoreExprKind::Call {
+                    target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
+                    args: lowered_args,
+                },
+            );
+        }
+
+        let signature = self.core_call_signature(callee, expected);
+        if let Some(signature) = &signature
+            && args.len() != signature.params.len()
+        {
+            self.unsupported_expression(
+                expr,
+                "call_arity_mismatch",
+                format!(
+                    "call expects {} argument(s), but got {}",
+                    signature.params.len(),
+                    args.len()
+                ),
+                Some(JsonValue::object([
+                    (
+                        "expected_argument_count",
+                        JsonValue::Number(signature.params.len() as i64),
+                    ),
+                    (
+                        "actual_argument_count",
+                        JsonValue::Number(args.len() as i64),
+                    ),
+                ])),
+            );
         }
         let lowered_args = args
             .iter()
@@ -1046,7 +1047,7 @@ impl<'a> CoreLowerer<'a> {
         }
         for arm in arms {
             let saved_bindings = self.bindings.len();
-            for binding in self.pattern_bindings(&arm.pattern, &scrutinee.ty) {
+            for binding in Self::pattern_bindings(&arm.pattern, &scrutinee.ty) {
                 self.bindings.push(binding);
             }
             let arm_expected = if result_type == CoreType::Unknown {
@@ -1060,7 +1061,7 @@ impl<'a> CoreLowerer<'a> {
             }
             lowered_arms.push(CoreMatchArm {
                 node_id: arm.node_id,
-                pattern: self.lower_pattern(&arm.pattern),
+                pattern: Self::lower_pattern(&arm.pattern),
                 expr: lowered_expr,
                 span: arm.span.clone(),
             });
@@ -1076,7 +1077,7 @@ impl<'a> CoreLowerer<'a> {
         )
     }
 
-    fn pattern_bindings(&self, pattern: &Pattern, scrutinee_type: &CoreType) -> Vec<CoreBinding> {
+    fn pattern_bindings(pattern: &Pattern, scrutinee_type: &CoreType) -> Vec<CoreBinding> {
         match &pattern.kind {
             PatternKind::Wildcard
             | PatternKind::StringLiteral(_)
@@ -1094,7 +1095,7 @@ impl<'a> CoreLowerer<'a> {
                     let field_type = scrutinee_type
                         .record_field(&field.name)
                         .unwrap_or(&CoreType::Unknown);
-                    self.pattern_bindings(&field.pattern, field_type)
+                    Self::pattern_bindings(&field.pattern, field_type)
                 })
                 .collect(),
             PatternKind::Constructor { name, args } if is_option_some_constructor(name) => {
@@ -1102,7 +1103,7 @@ impl<'a> CoreLowerer<'a> {
                     .option_part()
                     .zip(args.first())
                     .map_or_else(Vec::new, |(inner, pattern)| {
-                        self.pattern_bindings(pattern, inner)
+                        Self::pattern_bindings(pattern, inner)
                     })
             }
             PatternKind::Constructor { name, args } => match result_constructor_kind(name) {
@@ -1110,20 +1111,20 @@ impl<'a> CoreLowerer<'a> {
                     .result_parts()
                     .zip(args.first())
                     .map_or_else(Vec::new, |((value, _), pattern)| {
-                        self.pattern_bindings(pattern, value)
+                        Self::pattern_bindings(pattern, value)
                     }),
                 Some(false) => scrutinee_type
                     .result_parts()
                     .zip(args.first())
                     .map_or_else(Vec::new, |((_, error), pattern)| {
-                        self.pattern_bindings(pattern, error)
+                        Self::pattern_bindings(pattern, error)
                     }),
                 None => Vec::new(),
             },
         }
     }
 
-    fn lower_pattern(&self, pattern: &Pattern) -> CorePattern {
+    fn lower_pattern(pattern: &Pattern) -> CorePattern {
         CorePattern {
             node_id: pattern.node_id,
             kind: match &pattern.kind {
@@ -1140,14 +1141,14 @@ impl<'a> CoreLowerer<'a> {
                         .map(|field| CorePatternField {
                             node_id: field.node_id,
                             name: field.name.clone(),
-                            pattern: self.lower_pattern(&field.pattern),
+                            pattern: Self::lower_pattern(&field.pattern),
                             span: field.span.clone(),
                         })
                         .collect(),
                 ),
                 PatternKind::Constructor { name, args } => CorePatternKind::Constructor {
                     name: name.clone(),
-                    args: args.iter().map(|arg| self.lower_pattern(arg)).collect(),
+                    args: args.iter().map(Self::lower_pattern).collect(),
                 },
             },
             span: pattern.span.clone(),
@@ -1177,27 +1178,26 @@ impl<'a> CoreLowerer<'a> {
                 return_type,
             });
         }
-        if let [name] = segments.as_slice() {
-            if let Some(binding) = self
+        if let [name] = segments.as_slice()
+            && let Some(binding) = self
                 .bindings
                 .iter()
                 .rev()
                 .find(|binding| binding.name == *name)
+        {
+            if let CoreType::Function {
+                params,
+                return_type,
+                ..
+            } = &binding.ty
             {
-                if let CoreType::Function {
-                    params,
-                    return_type,
-                    ..
-                } = &binding.ty
-                {
-                    return Some(CoreCallSignature {
-                        target: CoreCallTarget::Value(name.clone()),
-                        params: params.clone(),
-                        return_type: return_type.as_ref().clone(),
-                    });
-                }
-                return None;
+                return Some(CoreCallSignature {
+                    target: CoreCallTarget::Value(name.clone()),
+                    params: params.clone(),
+                    return_type: return_type.as_ref().clone(),
+                });
             }
+            return None;
         }
         if let Some(function) = self.environment.function_path(segments) {
             return Some(CoreCallSignature {
@@ -1206,14 +1206,14 @@ impl<'a> CoreLowerer<'a> {
                 return_type: core_type(&function.return_type),
             });
         }
-        if let [name] = segments.as_slice() {
-            if let Some((target, params, return_type)) = core_prelude_signature(name, expected) {
-                return Some(CoreCallSignature {
-                    target,
-                    params,
-                    return_type,
-                });
-            }
+        if let [name] = segments.as_slice()
+            && let Some((target, params, return_type)) = core_prelude_signature(name, expected)
+        {
+            return Some(CoreCallSignature {
+                target,
+                params,
+                return_type,
+            });
         }
         None
     }

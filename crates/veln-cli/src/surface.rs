@@ -737,23 +737,22 @@ fn collect_function_name_reference(
     local_bindings: &[LocalBinding],
     callees: &mut Vec<ReachableFunction>,
 ) {
-    if let [name] = segments {
-        if let Some(binding) = local_bindings
+    if let [name] = segments
+        && let Some(binding) = local_bindings
             .iter()
             .rev()
             .find(|binding| binding.name == *name)
-        {
-            if let Some(arity) = binding.function_arity {
-                collect_opaque_function_value_callees(
-                    arity,
-                    current_module,
-                    uses,
-                    function_targets,
-                    callees,
-                );
-            }
-            return;
+    {
+        if let Some(arity) = binding.function_arity {
+            collect_opaque_function_value_callees(
+                arity,
+                current_module,
+                uses,
+                function_targets,
+                callees,
+            );
         }
+        return;
     }
     for callee in resolve_function_reference(segments, current_module, uses, function_targets) {
         push_reachable(callees, callee);

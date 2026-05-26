@@ -213,11 +213,11 @@ pub fn reconcile_expected_doctest_failures(
     let mut matched = BTreeSet::new();
     let mut kept = Vec::new();
     for diagnostic in diagnostics {
-        if let Some(span) = &diagnostic.span {
-            if expected_failures.contains_key(span.file.as_str()) {
-                matched.insert(span.file.as_str().to_string());
-                continue;
-            }
+        if let Some(span) = &diagnostic.span
+            && expected_failures.contains_key(span.file.as_str())
+        {
+            matched.insert(span.file.as_str().to_string());
+            continue;
         }
         kept.push(diagnostic);
     }
@@ -350,9 +350,8 @@ pub fn test_run_status(
         .any(|case| case.status == TestCaseStatus::Error)
     {
         TestRunStatus::Error
-    } else if !suite_errors.is_empty() && cases.is_empty() {
-        TestRunStatus::Blocked
-    } else if has_error(diagnostics)
+    } else if (!suite_errors.is_empty() && cases.is_empty())
+        || has_error(diagnostics)
         || cases
             .iter()
             .any(|case| case.status == TestCaseStatus::Blocked)
@@ -477,7 +476,7 @@ fn stdio_event_from_trace_line(
 }
 
 fn decode_hex_text(hex: &str) -> Option<String> {
-    if hex.len() % 2 != 0 {
+    if !hex.len().is_multiple_of(2) {
         return None;
     }
     let mut bytes = Vec::with_capacity(hex.len() / 2);
@@ -1041,10 +1040,10 @@ fn extract_doctests(
             } else if let Some(doctest) = pending.take() {
                 doctests.push(doctest);
             }
-        } else if !trimmed.is_empty() {
-            if let Some(doctest) = pending.take() {
-                doctests.push(doctest);
-            }
+        } else if !trimmed.is_empty()
+            && let Some(doctest) = pending.take()
+        {
+            doctests.push(doctest);
         }
     }
 
@@ -1454,10 +1453,10 @@ fn reconstructed_stream(events: &[JsonValue], stream: &str) -> String {
 
 fn json_field<'a>(fields: &'a [(String, JsonValue)], key: &str) -> Option<&'a str> {
     fields.iter().find_map(|(field, value)| {
-        if field == key {
-            if let JsonValue::String(value) = value {
-                return Some(value.as_str());
-            }
+        if field == key
+            && let JsonValue::String(value) = value
+        {
+            return Some(value.as_str());
         }
         None
     })
@@ -3096,7 +3095,7 @@ mod tests {
         fs::write(&source, "").expect("write source file");
         fs::write(&test, "").expect("write test file");
 
-        let expansion = expand_test_targets(&root, &[source.clone()]);
+        let expansion = expand_test_targets(&root, std::slice::from_ref(&source));
 
         assert_eq!(expansion.targets, vec![source, test]);
         assert_eq!(expansion.source_to_test_added_count, 1);

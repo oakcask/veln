@@ -144,8 +144,8 @@ fn parse_explain(args: impl Iterator<Item = String>) -> Result<Command, String> 
     })
 }
 
-fn parse_lsp(args: impl Iterator<Item = String>) -> Result<Command, String> {
-    for arg in args {
+fn parse_lsp(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
+    if let Some(arg) = args.next() {
         match arg.as_str() {
             "--help" | "-h" => return Ok(Command::Help),
             flag if flag.starts_with('-') => return Err(format!("unknown lsp flag `{flag}`")),
