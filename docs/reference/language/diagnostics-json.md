@@ -14,6 +14,8 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   [diagnostics-json-full.md](diagnostics-json-full.md#diagnostics).
 - Stable `details` payloads by diagnostic family:
   [diagnostics-json-full.md](diagnostics-json-full.md#stable-details).
+- Hole candidate JSON keeps statically satisfied safe repair candidates even
+  when ordinary manual-review candidates are bounded.
 
 ## Read When
 

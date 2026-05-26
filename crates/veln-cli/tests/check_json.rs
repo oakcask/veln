@@ -2001,6 +2001,41 @@ fn check_json_reports_assignable_safe_satisfy_candidate_reason() {
 }
 
 #[test]
+fn check_json_keeps_safe_satisfy_candidate_after_manual_candidate_bound() {
+    let project = TestProject::new("safe-satisfy-candidate-bound");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(target: Int, a: Int, b: Int, c: Int, d: Int, e: Int) -> Int\n",
+            "  require target > 0\n",
+            "  _value satisfy candidate => candidate > 0\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"hole.unfilled\"",
+            "\"candidate_id\":\"symbol-6\",\"name\":\"target\"",
+            "\"type\":\"Int\",\"rank\":6,\"reason\":\"satisfy_require_match\"",
+            "\"application_policy\":\"safe_repair_candidate\"",
+            "\"replacement\":\"target\"",
+            "\"satisfy_status\":\"statically_satisfied\"",
+            "\"repair_status\":\"statically_satisfied\"",
+        ],
+    );
+    assert!(
+        !stdout.contains("\"candidate_id\":\"symbol-6\",\"name\":\"target\",\"type\":\"Int\",\"rank\":6,\"reason\":\"exact_type_match\""),
+        "{stdout}"
+    );
+}
+
+#[test]
 fn check_json_reports_malformed_satisfy_clause() {
     let project = TestProject::new("malformed-satisfy");
     project.write(

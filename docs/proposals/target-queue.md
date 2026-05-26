@@ -16,13 +16,14 @@ when updating this queue.
 
 ## Accepted Targets
 
-- Broader repair discharge: start with
-  [first-slice-follow-ups.md#repair-loop](first-slice-follow-ups.md#repair-loop).
 - Richer predicate semantics: start with
   [first-slice-follow-ups.md#effects-and-contracts](first-slice-follow-ups.md#effects-and-contracts).
 
 ## Promoted Targets
 
+- Broader repair discharge has moved into current behavior; start with
+  [../reference/language/holes.md](../reference/language/holes.md) and
+  [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
 - Self-hosting standard library has moved into current behavior; start with
   [../reference/language/names-effects.md](../reference/language/names-effects.md)
   and use [self-hosting-standard-library.md](self-hosting-standard-library.md)
