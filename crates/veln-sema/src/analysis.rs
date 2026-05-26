@@ -8,10 +8,11 @@ use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
 use crate::contracts::{
-    ContractCall, ContractValidation, contract_calls, contract_kind_text, is_contract_keyword,
-    missing_contract_field, predicate_is_boolean_with_calls, predicate_is_statically_false,
-    predicate_is_statically_true, predicate_is_statically_true_with_literal_bounds,
-    predicate_rendered_type_with_calls, predicate_type_with_calls, referenced_names,
+    ContractCall, ContractValidation, contract_calls, contract_kind_text,
+    contract_predicate_is_statically_true, is_contract_keyword, missing_contract_field,
+    predicate_is_boolean_with_calls, predicate_is_statically_false, predicate_is_statically_true,
+    predicate_is_statically_true_with_literal_bounds, predicate_rendered_type_with_calls,
+    predicate_type_with_calls, referenced_names,
 };
 use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, module_details, span_json,
@@ -3659,7 +3660,7 @@ fn repair_relevant_and_clauses(predicate: &str) -> Vec<String> {
         .flat_map(|clause| {
             canonical_negated_disjunction_repair_clauses(&clause).unwrap_or_else(|| vec![clause])
         })
-        .filter(|clause| clause != "true" && !predicate_is_statically_true(clause))
+        .filter(|clause| clause != "true" && !contract_predicate_is_statically_true(clause))
         .collect()
 }
 
@@ -3733,6 +3734,9 @@ fn predicate_guaranteed_by_required_predicates(
     predicate: &str,
     required_predicates: &[String],
 ) -> bool {
+    if required_predicate_set_statically_implies_predicate(required_predicates, predicate) {
+        return true;
+    }
     if required_predicates
         .iter()
         .any(|required| required_predicate_implies_disjunctive_predicate(required, predicate))
@@ -3751,6 +3755,21 @@ fn predicate_guaranteed_by_required_predicates(
                     repair_clause_guaranteed_by_required_predicates(clause, required_predicates)
                 })
         })
+}
+
+fn required_predicate_set_statically_implies_predicate(
+    required_predicates: &[String],
+    predicate: &str,
+) -> bool {
+    if required_predicates.is_empty() {
+        return false;
+    }
+    let antecedent = required_predicates
+        .iter()
+        .map(|required| format!("({required})"))
+        .collect::<Vec<_>>()
+        .join(" and ");
+    contract_predicate_is_statically_true(&format!("not ({antecedent}) or ({predicate})"))
 }
 
 fn required_predicate_implies_disjunctive_predicate(required: &str, wanted: &str) -> bool {

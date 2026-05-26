@@ -212,8 +212,17 @@ as the same requirement, such as matching
 simple clauses or the whole `and` conjunction in parentheses does not change
 the repair match. Statically true conjuncts do not affect requirement
 matching, so `candidate > 0 and candidate == candidate` is guaranteed by
-`require max > 0` after substituting `max`. Negated equality and disequality
-clauses are normalized before matching; for example, `not (candidate == 0)`
+`require max > 0` after substituting `max`. This uses the same static truth
+classification as contract predicates after the `satisfy` predicate validates,
+so `candidate > 0 and not (candidate > 10 and candidate < 5)` is also
+guaranteed by `require max > 0` after substituting `max`. The same
+require-matched repair path also checks whether the full set of valid
+function-entry requirements statically implies the substituted `satisfy`
+predicate, so `require not (ready and blocked)` plus `require ready` guarantees
+`candidate > 0 or not blocked` after substituting any visible integer binding.
+Negated equality and disequality clauses are normalized before matching; for
+example,
+`not (candidate == 0)`
 matches `max != 0` after substituting `max`, and `not (max == 0)` guarantees
 `candidate != 0` after the same substitution. Double negation is also
 normalized during requirement matching; for example,

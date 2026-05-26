@@ -6,19 +6,24 @@ requiring the full command reference on the first read.
 ## Read First
 
 - `check`: source discovery, parse/semantic diagnostics, checked-core
-  blockers, and check JSON output:
-  [commands-full.md#veln-check---json-path](commands-full.md#veln-check---json-path).
+  blockers, and check JSON output. Use [diagnostics-json.md](diagnostics-json.md)
+  first for diagnostic shape, then
+  [commands-full.md#veln-check](commands-full.md#veln-check) for exact command
+  rules.
 - `fmt`: whole-invocation parse gate, deterministic formatting, and comment
-  preservation:
-  [commands-full.md#veln-fmt-path](commands-full.md#veln-fmt-path).
+  preservation. Use [commands-full.md#veln-fmt](commands-full.md#veln-fmt)
+  only when the route summary is not enough.
 - `run`: entry resolution, argument conversion, static gates, JVM execution,
-  and run JSON:
-  [commands-full.md#veln-run---json-path----arg](commands-full.md#veln-run---json-path----arg).
+  and run JSON. Use [run-json.md](run-json.md) first for machine-readable
+  output, then [commands-full.md#veln-run](commands-full.md#veln-run) for exact
+  command rules.
 - `test`: test and doctest selection, static gates, runtime failures, and test
-  JSON:
-  [commands-full.md#veln-test---json-target](commands-full.md#veln-test---json-target).
-- `explain`: diagnostic catalog lookup:
-  [commands-full.md#veln-explain---list-diagnostic-id](commands-full.md#veln-explain---list-diagnostic-id).
+  JSON. Use [test-json.md](test-json.md) first for machine-readable output,
+  then [commands-full.md#veln-test](commands-full.md#veln-test) for exact
+  command rules.
+- `explain`: diagnostic catalog lookup. Use
+  [commands-full.md#veln-explain](commands-full.md#veln-explain) when
+  diagnostic catalog behavior is the task.
 
 ## Read When
 

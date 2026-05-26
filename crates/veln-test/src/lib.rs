@@ -2538,6 +2538,91 @@ mod tests {
     }
 
     #[test]
+    fn explicit_doctest_error_type_handles_mixed_result_operations() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+                "  Ok(1)\n",
+                "end\n",
+                "fn read(raw: String) -> Result(String, IoError) effects []\n",
+                "  Ok(raw)\n",
+                "end\n",
+                "/// ```veln error=ExampleError\n",
+                "/// let value = parse(\"1\")?\n",
+                "/// let text = read(\"x\")?\n",
+                "/// ```\n",
+                "pub fn main() -> () effects []\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> Result((), ExampleError) effects [stdio]\n",
+                "  let value = parse(\"1\")?\n",
+                "  let text = read(\"x\")?\n",
+                "  Ok(())\n",
+                "end\n",
+            )
+        );
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
+    fn does_not_infer_doctest_error_type_from_ambiguous_function_signatures() {
+        let primary = SourceFile::new(
+            "main.veln",
+            concat!(
+                "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+                "  Ok(1)\n",
+                "end\n",
+                "/// ```veln\n",
+                "/// let value = parse(\"1\")?\n",
+                "/// ```\n",
+                "pub fn main() -> () effects []\n",
+                "  ()\n",
+                "end\n",
+            ),
+        );
+        let imported = SourceFile::new(
+            "other.veln",
+            concat!(
+                "fn parse(raw: String) -> Result(Int, ParseError) effects []\n",
+                "  Ok(1)\n",
+                "end\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[primary, imported]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  let value = parse(\"1\")?\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
     fn expected_output_mismatch_marks_case_failed() {
         let source_file = SourceFile::new(
             "main.veln#doctest-1_test.veln",

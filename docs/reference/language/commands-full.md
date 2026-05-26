@@ -3,6 +3,16 @@
 Read [commands.md](commands.md) first unless you need command-specific
 behavior, gates, or output boundaries.
 
+## Command Sections
+
+- [`veln check`](#veln-check)
+- [`veln fmt`](#veln-fmt)
+- [`veln run`](#veln-run)
+- [`veln test`](#veln-test)
+- [`veln explain`](#veln-explain)
+
+<a id="veln-check"></a>
+
 ## `veln check [--json] [path ...]`
 
 `check` discovers source files, parses them, combines parse-clean files into one
@@ -28,6 +38,8 @@ diagnostics. Cross-file facts from parse-clean selected files, including
 source-level imports and imported qualified calls, participate in the same
 semantic analysis used by `run` and `test`.
 
+<a id="veln-fmt"></a>
+
 ## `veln fmt [path ...]`
 
 `fmt` uses the same source discovery rule as `check`. It parses every selected
@@ -50,6 +62,8 @@ formatting. The formatter preserves the comment text and emits it with the
 same indentation as the formatted module header, import, function signature,
 contract clause, body line, or closing `end` line it documents. Trailing line
 comments after source code stay on the same formatted source line.
+
+<a id="veln-run"></a>
 
 ## `veln run [--json] <entry> [path ...] [-- arg ...]`
 
@@ -84,6 +98,8 @@ reported as top-level structured runtime errors with contract details.
 
 Missing `javac` before compilation or missing `java` after compilation
 succeeds is reported as a JDK setup error.
+
+<a id="veln-test"></a>
 
 ## `veln test [--json] [target ...]`
 
@@ -153,6 +169,8 @@ Doctest output mismatches become failed cases with `failure.kind: "output"` and
 expected text, actual text, first differing logical line, bounded captured
 stdio events for the actual stream, and the expected-output fence span when
 available.
+
+<a id="veln-explain"></a>
 
 ## `veln explain [--list] [diagnostic-id]`
 

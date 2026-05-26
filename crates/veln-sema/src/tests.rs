@@ -2573,6 +2573,105 @@ fn ignores_true_nested_disjuncts_in_require_discharged_satisfy_repair() {
 }
 
 #[test]
+fn ignores_static_literal_bound_tautology_in_require_discharged_satisfy_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int) -> Int\n",
+            "  require max > 0\n",
+            "  _value satisfy candidate => candidate > 0 and not (candidate > 10 and candidate < 5)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"max\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn ignores_static_literal_equality_tautology_in_require_discharged_satisfy_repair() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int) -> Int\n",
+            "  require max == 1\n",
+            "  _value satisfy candidate => candidate == 1 and not (candidate == 1 and candidate == 2)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"exact_type_match\",",
+        "\"application_policy\":\"manual_review_required\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"replacement\":\"max\""));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
+fn uses_static_require_implication_for_satisfy_repair_discharge() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(max: Int, fallback: Int, ready: Bool, blocked: Bool) -> Int\n",
+            "  require not (ready and blocked)\n",
+            "  require ready\n",
+            "  _value satisfy candidate => candidate > 0 or not blocked\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "hole.unfilled");
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-1\",\"name\":\"fallback\",",
+        "\"type\":\"Int\",\"rank\":1,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains(concat!(
+        "{\"candidate_id\":\"symbol-2\",\"name\":\"max\",",
+        "\"type\":\"Int\",\"rank\":2,\"reason\":\"satisfy_require_match\",",
+        "\"application_policy\":\"safe_repair_candidate\","
+    )));
+    assert!(details.contains("\"satisfy_status\":\"statically_satisfied\""));
+}
+
+#[test]
 fn marks_commuted_require_discharged_satisfy_candidate_as_safe_repair() {
     let source = SourceFile::new(
         "main.veln",
