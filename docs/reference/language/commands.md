@@ -9,9 +9,10 @@ requiring the full command reference on the first read.
   blockers, and check JSON output. Use [diagnostics-json.md](diagnostics-json.md)
   first for diagnostic shape, then
   [commands-full.md](commands-full.md) for exact command rules.
-- `fmt`: whole-invocation parse gate, deterministic formatting, and comment
-  preservation. Use [commands-full.md](commands-full.md) only when the route
-  summary is not enough.
+- `fmt`: whole-invocation parse gate, deterministic formatting, tab-based
+  canonical indentation, `match` arm indentation, and comment preservation.
+  Use [commands-full.md](commands-full.md) only when the route summary is not
+  enough.
 - `run`: entry resolution, argument conversion, static gates, JVM execution,
   and run JSON. Use [run-json.md](run-json.md) first for machine-readable
   output, then [commands-full.md](commands-full.md) for exact command rules.

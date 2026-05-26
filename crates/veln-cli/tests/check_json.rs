@@ -958,14 +958,14 @@ fn fmt_formats_first_slice_golden_and_is_idempotent() {
             "use stdio\n",
             "\n",
             "pub fn main(name: String) -> Result((), AppError) effects [stdio]\n",
-            "  require name != \"\"\n",
-            "  let payload: { message : String, values : List(Int) } = { message: name, values: [1, 2, add(3, 4)] }\n",
-            "  stdio::println(payload)\n",
-            "  _result satisfy candidate => candidate != \"\"\n",
+            "\trequire name != \"\"\n",
+            "\tlet payload: { message : String, values : List(Int) } = { message: name, values: [1, 2, add(3, 4)] }\n",
+            "\tstdio::println(payload)\n",
+            "\t_result satisfy candidate => candidate != \"\"\n",
             "end\n",
             "\n",
             "fn helper(value)\n",
-            "  value\n",
+            "\tvalue\n",
             "end\n",
         )
     );
@@ -980,14 +980,14 @@ fn fmt_formats_first_slice_golden_and_is_idempotent() {
             "use stdio\n",
             "\n",
             "pub fn main(name: String) -> Result((), AppError) effects [stdio]\n",
-            "  require name != \"\"\n",
-            "  let payload: { message : String, values : List(Int) } = { message: name, values: [1, 2, add(3, 4)] }\n",
-            "  stdio::println(payload)\n",
-            "  _result satisfy candidate => candidate != \"\"\n",
+            "\trequire name != \"\"\n",
+            "\tlet payload: { message : String, values : List(Int) } = { message: name, values: [1, 2, add(3, 4)] }\n",
+            "\tstdio::println(payload)\n",
+            "\t_result satisfy candidate => candidate != \"\"\n",
             "end\n",
             "\n",
             "fn helper(value)\n",
-            "  value\n",
+            "\tvalue\n",
             "end\n",
         )
     );
@@ -1026,13 +1026,13 @@ fn fmt_formats_focused_first_slice_forms_across_multiple_files() {
         project.read("main.veln"),
         concat!(
             "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
-            "  Ok(1)\n",
+            "\tOk(1)\n",
             "end\n",
             "\n",
             "pub fn main(raw: String) -> Result({ value : Int, tags : List(String) }, AppError) effects []\n",
-            "  ensure output.value >= 0 and not(output.value == - 1)\n",
-            "  let parsed: Int = parse(raw)?\n",
-            "  { value: parsed + 1 * (2 + 3), tags: [choose(raw, \"fallback\"), \"done\"] }\n",
+            "\tensure output.value >= 0 and not(output.value == - 1)\n",
+            "\tlet parsed: Int = parse(raw)?\n",
+            "\t{ value: parsed + 1 * (2 + 3), tags: [choose(raw, \"fallback\"), \"done\"] }\n",
             "end\n",
         )
     );
@@ -1040,7 +1040,7 @@ fn fmt_formats_focused_first_slice_forms_across_multiple_files() {
         project.read("helpers.veln"),
         concat!(
             "fn choose(value: String, fallback: String) -> String effects []\n",
-            "  if_missing({ primary: value, nested: { fallback: fallback } })\n",
+            "\tif_missing({ primary: value, nested: { fallback: fallback } })\n",
             "end\n",
         )
     );
@@ -1052,13 +1052,13 @@ fn fmt_formats_focused_first_slice_forms_across_multiple_files() {
         project.read("main.veln"),
         concat!(
             "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
-            "  Ok(1)\n",
+            "\tOk(1)\n",
             "end\n",
             "\n",
             "pub fn main(raw: String) -> Result({ value : Int, tags : List(String) }, AppError) effects []\n",
-            "  ensure output.value >= 0 and not(output.value == - 1)\n",
-            "  let parsed: Int = parse(raw)?\n",
-            "  { value: parsed + 1 * (2 + 3), tags: [choose(raw, \"fallback\"), \"done\"] }\n",
+            "\tensure output.value >= 0 and not(output.value == - 1)\n",
+            "\tlet parsed: Int = parse(raw)?\n",
+            "\t{ value: parsed + 1 * (2 + 3), tags: [choose(raw, \"fallback\"), \"done\"] }\n",
             "end\n",
         )
     );
@@ -1066,7 +1066,82 @@ fn fmt_formats_focused_first_slice_forms_across_multiple_files() {
         project.read("helpers.veln"),
         concat!(
             "fn choose(value: String, fallback: String) -> String effects []\n",
-            "  if_missing({ primary: value, nested: { fallback: fallback } })\n",
+            "\tif_missing({ primary: value, nested: { fallback: fallback } })\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn fmt_formats_match_expressions_with_tab_relative_indentation() {
+    let project = TestProject::new("fmt-match-indent");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn describe ( value : Option(Int) ) -> String effects [ ]\n",
+            " match value\n",
+            " Some(count) => \"some\"\n",
+            " None => \"none\"\n",
+            " end\n",
+            "end\n",
+            "fn nested ( value : Option(Int) ) -> { labels : List(String), primary : String } effects [ ]\n",
+            " { labels : [ wrap ( match value\n",
+            " Some(count) => \"some\"\n",
+            " None => \"none\"\n",
+            " end ) ], primary : match value\n",
+            " Some(count) => \"some\"\n",
+            " None => \"none\"\n",
+            " end }\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.fmt(&["main.veln"]);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn describe(value: Option(Int)) -> String effects []\n",
+            "\tmatch value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend\n",
+            "end\n",
+            "\n",
+            "fn nested(value: Option(Int)) -> { labels : List(String), primary : String } effects []\n",
+            "\t{ labels: [wrap(match value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend)], primary: match value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend }\n",
+            "end\n",
+        )
+    );
+
+    let second_output = project.fmt(&["main.veln"]);
+
+    assert!(second_output.status.success(), "{}", stderr(&second_output));
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn describe(value: Option(Int)) -> String effects []\n",
+            "\tmatch value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend\n",
+            "end\n",
+            "\n",
+            "fn nested(value: Option(Int)) -> { labels : List(String), primary : String } effects []\n",
+            "\t{ labels: [wrap(match value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend)], primary: match value\n",
+            "\t\tSome(count) => \"some\"\n",
+            "\t\tNone => \"none\"\n",
+            "\tend }\n",
             "end\n",
         )
     );
@@ -1123,8 +1198,8 @@ fn fmt_formats_comment_bearing_files() {
         concat!(
             "// keep leading comment\n",
             "fn main() -> ()\n",
-            "  ()  // keep trailing comment\n",
-            "  // keep closing comment\n",
+            "\t()  // keep trailing comment\n",
+            "\t// keep closing comment\n",
             "end  // keep end comment\n",
         )
     );
@@ -1157,8 +1232,8 @@ fn fmt_formats_files_with_attached_standalone_comments() {
             "\n",
             "/// public docs\n",
             "pub fn main(value: ()) -> () effects [stdio]\n",
-            "  // return docs\n",
-            "  ()\n",
+            "\t// return docs\n",
+            "\t()\n",
             "end\n",
         )
     );

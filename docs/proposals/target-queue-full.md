@@ -20,13 +20,6 @@ implemented behavior; current behavior lives under `../reference/language/`.
   then through
   [../reference/language/names-effects.md](../reference/language/names-effects.md)
   for implemented effect and compiler-known symbol behavior.
-- Formatter indentation work routes through
-  [first-slice-follow-ups.md#formatting](first-slice-follow-ups.md#formatting),
-  then through
-  [../reference/language/commands.md](../reference/language/commands.md)
-  and
-  [../reference/language/source-surface.md](../reference/language/source-surface.md)
-  when promoted to implemented behavior.
 - Repair loop work routes through
   [../reference/language/holes.md](../reference/language/holes.md) and
   [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).

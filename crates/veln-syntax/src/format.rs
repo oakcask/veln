@@ -104,7 +104,7 @@ fn format_function(out: &mut String, comments: &LineComments, function: &Functio
             line.push(' ');
             line.push_str(&contract.text);
         }
-        push_source_line(out, comments, contract.span.start.line, 2, line);
+        push_source_line(out, comments, contract.span.start.line, 1, line);
     }
 
     for line in &function.body {
@@ -122,15 +122,15 @@ fn format_function(out: &mut String, comments: &LineComments, function: &Functio
                     content.push_str(&canonical_type_text(annotation));
                 }
                 content.push_str(" = ");
-                content.push_str(&format_expr(expr));
+                content.push_str(&format_expr_at_indent(expr, 1));
                 (span.start.line, content)
             }
-            BodyLine::Expr { expr, span } => (span.start.line, format_expr(expr)),
+            BodyLine::Expr { expr, span } => (span.start.line, format_expr_at_indent(expr, 1)),
         };
-        push_source_line(out, comments, source_line, 2, content);
+        push_source_line(out, comments, source_line, 1, content);
     }
     let end_line = function_end_line(function);
-    comments.emit_before_first_after(function_body_end_line(function), end_line, out, 2);
+    comments.emit_before_first_after(function_body_end_line(function), end_line, out, 1);
     push_source_line(out, comments, end_line, 0, String::from("end"));
 }
 
@@ -149,10 +149,14 @@ fn push_source_line(
     content: String,
 ) {
     comments.emit_before(source_line, out, indent);
-    out.push_str(&" ".repeat(indent));
+    push_indent(out, indent);
     out.push_str(&content);
     comments.emit_after(source_line, out);
     out.push('\n');
+}
+
+fn push_indent(out: &mut String, level: usize) {
+    out.push_str(&"\t".repeat(level));
 }
 
 #[derive(Default)]
@@ -214,7 +218,7 @@ impl LineComments {
             return;
         };
         for comment in comments {
-            out.push_str(&" ".repeat(indent));
+            push_indent(out, indent);
             out.push_str(&comment);
             out.push('\n');
         }
@@ -316,8 +320,8 @@ fn canonical_type_text(text: &str) -> String {
     out
 }
 
-fn format_expr(expr: &Expr) -> String {
-    format_expr_prec(expr, 0, ExprSide::Root)
+fn format_expr_at_indent(expr: &Expr, indent: usize) -> String {
+    format_expr_prec(expr, 0, ExprSide::Root, indent)
 }
 
 #[derive(Clone, Copy)]
@@ -327,7 +331,7 @@ enum ExprSide {
     Right,
 }
 
-fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide) -> String {
+fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide, indent: usize) -> String {
     let prec = expr_prec(expr);
     let mut rendered = match &expr.kind {
         ExprKind::Missing => "_".to_string(),
@@ -357,24 +361,32 @@ fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide) -> String {
         ExprKind::BoolLiteral(false) => "false".to_string(),
         ExprKind::Unit => "()".to_string(),
         ExprKind::TypeApply { callee, type_args } => {
-            format!("{}[{}]", format_expr(callee), type_args.join(", "))
+            format!(
+                "{}[{}]",
+                format_expr_at_indent(callee, indent),
+                type_args.join(", ")
+            )
         }
         ExprKind::Call { callee, args } => {
-            let args = args.iter().map(format_expr).collect::<Vec<_>>().join(", ");
+            let args = args
+                .iter()
+                .map(|arg| format_expr_at_indent(arg, indent))
+                .collect::<Vec<_>>()
+                .join(", ");
             format!(
                 "{}({args})",
-                format_expr_prec(callee, expr_prec(expr), ExprSide::Left)
+                format_expr_prec(callee, expr_prec(expr), ExprSide::Left, indent)
             )
         }
         ExprKind::FieldAccess { base, field, .. } => {
             format!(
                 "{}.{field}",
-                format_expr_prec(base, expr_prec(expr), ExprSide::Left)
+                format_expr_prec(base, expr_prec(expr), ExprSide::Left, indent)
             )
         }
         ExprKind::Try(inner) => format!(
             "{}?",
-            format_expr_prec(inner, expr_prec(expr), ExprSide::Left)
+            format_expr_prec(inner, expr_prec(expr), ExprSide::Left, indent)
         ),
         ExprKind::Record(fields) => {
             if fields.is_empty() {
@@ -382,7 +394,13 @@ fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide) -> String {
             }
             let fields = fields
                 .iter()
-                .map(|field| format!("{}: {}", field.name, format_expr(&field.expr)))
+                .map(|field| {
+                    format!(
+                        "{}: {}",
+                        field.name,
+                        format_expr_at_indent(&field.expr, indent)
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join(", ");
             format!("{{ {fields} }}")
@@ -390,43 +408,54 @@ fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide) -> String {
         ExprKind::Dict(entries) => {
             let entries = entries
                 .iter()
-                .map(|entry| format!("{}: {}", format_expr(&entry.key), format_expr(&entry.value)))
+                .map(|entry| {
+                    format!(
+                        "{}: {}",
+                        format_expr_at_indent(&entry.key, indent),
+                        format_expr_at_indent(&entry.value, indent)
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join(", ");
             format!("{{ {entries} }}")
         }
         ExprKind::List(items) => {
-            let items = items.iter().map(format_expr).collect::<Vec<_>>().join(", ");
+            let items = items
+                .iter()
+                .map(|item| format_expr_at_indent(item, indent))
+                .collect::<Vec<_>>()
+                .join(", ");
             format!("[{items}]")
         }
         ExprKind::Match { scrutinee, arms } => {
-            let mut text = format!("match {}\n", format_expr(scrutinee));
+            let mut text = format!("match {}\n", format_expr_at_indent(scrutinee, indent));
             for arm in arms {
-                text.push_str("    ");
+                push_indent(&mut text, indent + 1);
                 text.push_str(&format_pattern(&arm.pattern));
                 text.push_str(" => ");
-                text.push_str(&format_expr(&arm.expr));
+                text.push_str(&format_expr_at_indent(&arm.expr, indent + 1));
                 text.push('\n');
             }
-            text.push_str("  end");
+            push_indent(&mut text, indent);
+            text.push_str("end");
             text
         }
         ExprKind::Prefix { op, expr: inner } => match op {
             PrefixOp::Not => format!(
                 "not {}",
-                format_expr_prec(inner, expr_prec(expr), ExprSide::Right)
+                format_expr_prec(inner, expr_prec(expr), ExprSide::Right, indent)
             ),
             PrefixOp::Negate => format!(
                 "-{}",
-                format_expr_prec(inner, expr_prec(expr), ExprSide::Right)
+                format_expr_prec(inner, expr_prec(expr), ExprSide::Right, indent)
             ),
         },
         ExprKind::Binary { op, left, right } => {
             let op_text = binary_op_text(*op);
             format!(
                 "{} {op_text} {}",
-                format_expr_prec(left, expr_prec(expr), ExprSide::Left),
-                format_expr_prec(right, expr_prec(expr), ExprSide::Right)
+                format_expr_prec(left, expr_prec(expr), ExprSide::Left, indent),
+                format_expr_prec(right, expr_prec(expr), ExprSide::Right, indent)
             )
         }
     };

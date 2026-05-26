@@ -52,6 +52,16 @@ module and use headers, function signatures, contract clauses, let statements,
 tail expressions, holes with `satisfy`, records, lists, calls, literals, paths,
 prefix operators, binary operators, and postfix `?`.
 
+Canonical indentation uses one tab character per indentation level. Top-level
+module headers, imports, item signatures, and item-closing `end` lines use
+indentation level 0. Function body lines, including contract clauses, `let`
+statements, tail expressions, and standalone comments attached to those lines,
+use indentation level 1.
+
+For formatted `match` expressions, the `match` line uses the parent expression
+indentation level, each arm is one indentation level deeper than that `match`
+line, and the `match` closing `end` aligns with the `match` line.
+
 Formatting accepts multiple parse-clean input files in one invocation and
 writes each selected file only after all selected files have parsed without
 diagnostics. The implemented golden coverage includes `ensure` clauses, prefix
