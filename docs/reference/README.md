@@ -13,7 +13,8 @@ rationale or sources needed to maintain that behavior.
 
 - Implemented behavior: [language/topic-map.md](language/topic-map.md).
 - Legacy grammar route: [grammar.md](grammar.md).
-- Human diagnostics or machine-readable command output:
+- Human diagnostics: [language/diagnostics-json.md](language/diagnostics-json.md).
+- Machine-readable command output:
   [language/json-output.md](language/json-output.md).
 - Implemented rationale: [source-decisions/topic-map.md](source-decisions/topic-map.md).
 - Source support behind rationale: [bibliography/README.md](bibliography/README.md).

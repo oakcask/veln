@@ -24,6 +24,8 @@ short page points to them.
   [reference/language/source-decisions.md](reference/language/source-decisions.md).
 - Check review evidence or phase history: [navigation.md](navigation.md).
 - Move or reclassify durable text: [document-status.md](document-status.md).
+- Maintain entry points, routing pages, or link health:
+  [navigation.md#documentation-maintenance](navigation.md#documentation-maintenance).
 
 ## Audit Routes
 

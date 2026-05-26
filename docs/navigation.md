@@ -37,6 +37,17 @@ Choose one route, stop when the linked short page answers the question, and use
 - Source-decision record storage or placement audits:
   [reference/source-decisions/result-index.md](reference/source-decisions/result-index.md).
 
+### Documentation Maintenance
+
+- Entry-page routing, document movement, or status labels:
+  [document-status.md](document-status.md).
+- Source-decision record placement:
+  [reference/source-decisions/result-index.md](reference/source-decisions/result-index.md).
+- Exhaustive source-decision storage:
+  [reference/source-decisions/records/README.md](reference/source-decisions/records/README.md).
+- Link-health work: start from the page being edited, then verify links across
+  `docs/` after the route is updated.
+
 ## Boundary Rules
 
 - Current behavior pages under `reference/language/` win over proposal, phase,
