@@ -6,6 +6,7 @@ short page points to them.
 
 ## Read First
 
+- Stable reference map: [reference/README.md](reference/README.md).
 - Current language behavior: [reference/language/README.md](reference/language/README.md).
 - Planned or accepted targets: [proposals/target-queue.md](proposals/target-queue.md).
 - Route not obvious: [navigation.md](navigation.md).
