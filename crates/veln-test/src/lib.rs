@@ -1677,6 +1677,26 @@ mod tests {
     }
 
     #[test]
+    fn expands_nested_relative_source_target_to_paired_test_file() {
+        let root = test_root("paired-nested-source");
+        fs::create_dir_all(root.join("src/cases")).expect("create test root");
+        fs::write(root.join("src/cases/app.veln"), "").expect("write source file");
+        fs::write(root.join("src/cases/app_test.veln"), "").expect("write test file");
+
+        let expansion = expand_test_targets(&root, &[PathBuf::from("src/cases/app.veln")]);
+
+        assert_eq!(
+            expansion.targets,
+            vec![
+                PathBuf::from("src/cases/app.veln"),
+                PathBuf::from("src/cases/app_test.veln"),
+            ]
+        );
+        assert_eq!(expansion.source_to_test_added_count, 1);
+        fs::remove_dir_all(root).expect("remove test root");
+    }
+
+    #[test]
     fn source_to_test_expansion_deduplicates_explicit_paired_target() {
         let root = test_root("paired-source-dedupe");
         fs::create_dir_all(&root).expect("create test root");
