@@ -1,42 +1,34 @@
 # Reference
 
-Stable reference material lives here. Use this directory for behavior
-implemented in the current workspace; leave planned work in `../proposals/`
-until code and tests support it.
+Stable reference material lives here. Use it for implemented behavior and the
+rationale or sources needed to maintain that behavior.
 
 ## Read First
 
-- [language/README.md](language/README.md): current language behavior.
-- [language/topic-map.md](language/topic-map.md): task-oriented route to the
-  smallest language reference page.
-- [language/source-decisions.md](language/source-decisions.md): route to
-  rationale when current behavior needs context.
+- Current language behavior: [language/README.md](language/README.md).
+- Task-specific behavior route: [language/topic-map.md](language/topic-map.md).
+- Rationale route: [language/source-decisions.md](language/source-decisions.md).
 
 ## Fast Routes
 
-- Implemented behavior: `language/README.md`, then `language/topic-map.md`.
-- Rationale for implemented behavior: `language/source-decisions.md`, then one
-  source-decision category.
-- Research support behind rationale: `bibliography/README.md`, then one short
-  bibliography route page.
+- Implemented behavior: [language/topic-map.md](language/topic-map.md).
+- Implemented rationale: [source-decisions/topic-map.md](source-decisions/topic-map.md).
+- Source support behind rationale: [bibliography/README.md](bibliography/README.md).
 
 ## Read When
 
-- Source language, contract, hole, command, JSON-output, runtime, or example
-  changes: use [language/topic-map.md](language/topic-map.md).
-- Implemented rationale: start with
-  [language/source-decisions.md](language/source-decisions.md), then use
-  [source-decisions/topic-map.md](source-decisions/topic-map.md).
-- Research-source routes behind source decisions:
-  [bibliography/README.md](bibliography/README.md).
+- Use `language/` before changing code, tests, diagnostics, commands, JSON
+  output, runtime behavior, or examples.
+- Use `source-decisions/` only after a language page needs rationale.
+- Use `bibliography/` only after a rationale or claim needs source support.
 
 ## Route Boundaries
 
-- Use `language/` for behavior users can rely on in the current workspace.
-- Use `source-decisions/` only when implemented behavior needs rationale.
-- Use `bibliography/` only when auditing research support behind the rationale.
-- Use proposal, phase, or review directories when behavior is planned, disputed,
-  or being verified rather than already implemented.
+- Planned behavior belongs in `../proposals/`.
+- Gap evidence belongs in `../reviews/`.
+- Implementation order belongs in `../phases/`.
+- Use [../document-status.md](../document-status.md) before moving text between
+  route areas.
 
 ## Skip Unless Needed
 
@@ -44,7 +36,3 @@ until code and tests support it.
   section.
 - Do not scan individual source-decision records before a topic route points to
   one.
-- Do not open bibliography full records before a source family, claim, or
-  reference route selects the relevant source.
-- Use [../document-status.md](../document-status.md) before moving text between
-  proposal, review, phase, and reference areas.

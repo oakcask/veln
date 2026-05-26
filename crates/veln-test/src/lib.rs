@@ -1716,6 +1716,48 @@ mod tests {
     }
 
     #[test]
+    fn attach_expected_outputs_marks_matching_cases_as_doctests() {
+        let module = module(concat!(
+            "test doctest_1() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+            "test ordinary() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ));
+        let test_files = BTreeSet::from(["main_test.veln".to_string()]);
+        let mut cases = discover_test_cases(&module, &test_files);
+        let expected_outputs = BTreeMap::from([(
+            "doctest_1".to_string(),
+            ExpectedOutput {
+                stdout: Some("ready".to_string()),
+                stderr: Some("warn".to_string()),
+                ..ExpectedOutput::default()
+            },
+        )]);
+
+        attach_expected_outputs(&mut cases, &expected_outputs);
+
+        assert_eq!(cases[0].kind, "doctest");
+        assert_eq!(
+            cases[0]
+                .expected_output
+                .as_ref()
+                .and_then(|output| output.stdout.as_deref()),
+            Some("ready")
+        );
+        assert_eq!(
+            cases[0]
+                .expected_output
+                .as_ref()
+                .and_then(|output| output.stderr.as_deref()),
+            Some("warn")
+        );
+        assert_eq!(cases[1].kind, "test");
+        assert!(cases[1].expected_output.is_none());
+    }
+
+    #[test]
     fn ordinary_zero_argument_functions_are_not_test_cases() {
         let module = module("fn helper()\n  ()\nend\n");
         let test_files = BTreeSet::from(["main_test.veln".to_string()]);
@@ -2504,6 +2546,59 @@ mod tests {
             "\"first_difference\":{\"line\":1,\"expected\":\"ready\",\"actual\":\"waiting\"}"
         ));
         assert!(failure_json.contains("\"actual_events\":[{\"kind\":\"stdio\""));
+    }
+
+    #[test]
+    fn expected_output_match_normalizes_line_endings_and_keeps_case_passed() {
+        let source_file = SourceFile::new(
+            "main.veln#doctest-1_test.veln",
+            "test doctest_1() -> () effects [stdio]\n  ()\nend\n",
+        );
+        let mut case = TestCase {
+            id: "case-1".to_string(),
+            name: "doctest_1".to_string(),
+            kind: "doctest".to_string(),
+            status: TestCaseStatus::Passed,
+            source: TestCaseSource {
+                file: "main.veln#doctest-1_test.veln".to_string(),
+                node_id: "test-1".to_string(),
+                span: source_file.span(TextRange::new(0, source_file.len())),
+            },
+            reason: None,
+            failure: None,
+            expected_output: Some(ExpectedOutput {
+                stdout: Some("ready\nnext".to_string()),
+                stderr: Some("warn".to_string()),
+                ..ExpectedOutput::default()
+            }),
+            events: vec![
+                stdio_event(
+                    "stdout",
+                    "print",
+                    "ready\r\nnext\n",
+                    "none",
+                    1,
+                    "call-1",
+                    &source_file.span(TextRange::new(0, source_file.len())),
+                ),
+                stdio_event(
+                    "stderr",
+                    "eprint",
+                    "warn\r\n",
+                    "none",
+                    2,
+                    "call-2",
+                    &source_file.span(TextRange::new(0, source_file.len())),
+                ),
+            ],
+            diagnostics: Vec::new(),
+        };
+
+        compare_expected_output(&mut case);
+
+        assert_eq!(case.status, TestCaseStatus::Passed);
+        assert!(case.reason.is_none());
+        assert!(case.failure.is_none());
     }
 
     #[test]
