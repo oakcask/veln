@@ -1193,9 +1193,33 @@ fn has_order_bound_transitive_implication_top_level_or(predicate: &str) -> bool 
                     order_bound_edges_imply(&edges, &left, &right, true)
                         || order_bound_edges_imply(&edges, &right, &left, true)
                         || equality_disequality_edges_imply_disequality(inner, &left, &right)
-                }))
+                }) || order_bound_edges_imply_strict_or_equality_disjunction(
+                    &disjuncts, antecedent, &edges,
+                ))
         })
     })
+}
+
+fn order_bound_edges_imply_strict_or_equality_disjunction(
+    disjuncts: &[&str],
+    antecedent: &str,
+    edges: &[OrderBoundShape],
+) -> bool {
+    disjuncts
+        .iter()
+        .filter(|disjunct| !same_predicate(antecedent, disjunct))
+        .filter_map(|disjunct| order_bound_shape(disjunct).filter(|bound| bound.strict))
+        .any(|strict_bound| {
+            order_bound_edges_imply(edges, &strict_bound.left, &strict_bound.right, false)
+                && disjuncts
+                    .iter()
+                    .filter(|disjunct| !same_predicate(antecedent, disjunct))
+                    .filter_map(|disjunct| equality_shape(disjunct))
+                    .any(|(left, right)| {
+                        (left == strict_bound.left && right == strict_bound.right)
+                            || (left == strict_bound.right && right == strict_bound.left)
+                    })
+        })
 }
 
 fn numeric_literal_bounds_imply(predicate: &str, wanted: &OrderBoundShape) -> bool {

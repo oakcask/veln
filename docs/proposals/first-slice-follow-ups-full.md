@@ -277,6 +277,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   transitively guarantees another ordering bound are also statically
   evaluated. Equality clauses in that antecedent are treated as bidirectional
   non-strict ordering edges for the same transitive implication check.
+  Transitive non-strict ordering consequents may also be written as a
+  strict-or-equality disjunction.
   Non-strict cycles in that antecedent also prove equality consequents.
   Equality paths plus an endpoint disequality in that antecedent also prove
   disequality consequents. Strict ordering paths in that antecedent also prove
