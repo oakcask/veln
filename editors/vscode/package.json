@@ -5,6 +5,14 @@
   "version": "0.1.0",
   "publisher": "veln",
   "main": "./extension.js",
+  "files": [
+    "extension.js",
+    "language-configuration.json",
+    "syntaxes/veln.tmLanguage.json"
+  ],
+  "scripts": {
+    "vsix": "vsce package --no-dependencies --allow-missing-repository"
+  },
   "extensionKind": [
     "workspace"
   ],
@@ -17,6 +25,10 @@
   "categories": [
     "Programming Languages"
   ],
+  "devDependencies": {
+    "@types/vscode": "1.90.0",
+    "@vscode/vsce": "^3.9.1"
+  },
   "contributes": {
     "languages": [
       {

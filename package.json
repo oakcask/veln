@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "packageManager": "pnpm@11.1.2",
+  "scripts": {
+    "vsix": "pnpm --filter veln-language vsix"
+  }
+}
