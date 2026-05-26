@@ -80,7 +80,7 @@ include pure literal `+`, `-`, and `*` subexpressions, such as `1 + 1 == 2`,
 They may also include `/` in comparison-only arithmetic, including divisions
 that are not exactly representable as finite decimals, such as `8 / 4 == 2`,
 `1 / 2 == 0.5`, and `1 / 3 < 0.34`.
-Small boolean formulas over up to twelve otherwise unknown pure predicates are
+Small boolean formulas over up to thirteen otherwise unknown pure predicates are
 also classified by exhaustive truth-table evaluation after literal and
 comparison folding. This covers nested `and`, `or`, and `not` tautologies such
 as

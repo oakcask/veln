@@ -48,7 +48,7 @@ enum StaticBooleanValue {
     Unknown,
 }
 
-const MAX_STATIC_BOOLEAN_ATOMS: usize = 12;
+const MAX_STATIC_BOOLEAN_ATOMS: usize = 13;
 const MAX_PARTIAL_CASE_SPLIT_ATOMS: usize = 10;
 
 fn static_boolean_value(predicate: &str) -> StaticBooleanValue {
