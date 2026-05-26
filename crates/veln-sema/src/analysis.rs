@@ -3785,9 +3785,32 @@ fn int_successor_clause_guaranteed_by_required_predicates(
     clause: &str,
     required_predicates: &[String],
 ) -> bool {
+    let required_clauses = required_predicates
+        .iter()
+        .flat_map(|predicate| repair_set_clauses(predicate))
+        .collect::<Vec<_>>();
+    if repair_clause_set_int_successor_implies_clause(&required_clauses, clause) {
+        return true;
+    }
     required_predicates
         .iter()
         .any(|required| required_predicate_int_successor_implies_clause(required, clause))
+}
+
+fn repair_clause_set_int_successor_implies_clause(
+    required_clauses: &[String],
+    wanted: &str,
+) -> bool {
+    let Some(wanted) = NormalizedRepairComparison::parse(wanted) else {
+        return false;
+    };
+    let equivalences = repair_equivalences(required_clauses);
+    required_clauses.iter().any(|required| {
+        let Some(required) = NormalizedRepairComparison::parse(required) else {
+            return false;
+        };
+        int_successor_repair_comparison_implies(&required, &wanted, &equivalences)
+    })
 }
 
 fn required_predicate_int_successor_implies_clause(predicate: &str, wanted: &str) -> bool {
@@ -3818,9 +3841,17 @@ fn int_successor_repair_clause_implies(required: &str, wanted: &str) -> bool {
     let Some(wanted) = NormalizedRepairComparison::parse(wanted) else {
         return false;
     };
+    int_successor_repair_comparison_implies(&required, &wanted, &RepairEquivalences::default())
+}
+
+fn int_successor_repair_comparison_implies(
+    required: &NormalizedRepairComparison<'_>,
+    wanted: &NormalizedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
+) -> bool {
     match (required.operator, wanted.operator) {
-        ("<", "<=") => strict_int_bound_implies_adjacent_inclusive(&required, &wanted),
-        ("<=", "<") => inclusive_int_bound_implies_adjacent_strict(&required, &wanted),
+        ("<", "<=") => strict_int_bound_implies_adjacent_inclusive(required, wanted, equivalences),
+        ("<=", "<") => inclusive_int_bound_implies_adjacent_strict(required, wanted, equivalences),
         _ => false,
     }
 }
@@ -3828,24 +3859,27 @@ fn int_successor_repair_clause_implies(required: &str, wanted: &str) -> bool {
 fn strict_int_bound_implies_adjacent_inclusive(
     required: &NormalizedRepairComparison<'_>,
     wanted: &NormalizedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
 ) -> bool {
-    strict_int_lower_bound_implies_adjacent_inclusive(required, wanted)
-        || strict_int_upper_bound_implies_adjacent_inclusive(required, wanted)
+    strict_int_lower_bound_implies_adjacent_inclusive(required, wanted, equivalences)
+        || strict_int_upper_bound_implies_adjacent_inclusive(required, wanted, equivalences)
 }
 
 fn inclusive_int_bound_implies_adjacent_strict(
     required: &NormalizedRepairComparison<'_>,
     wanted: &NormalizedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
 ) -> bool {
-    inclusive_int_lower_bound_implies_adjacent_strict(required, wanted)
-        || inclusive_int_upper_bound_implies_adjacent_strict(required, wanted)
+    inclusive_int_lower_bound_implies_adjacent_strict(required, wanted, equivalences)
+        || inclusive_int_upper_bound_implies_adjacent_strict(required, wanted, equivalences)
 }
 
 fn strict_int_lower_bound_implies_adjacent_inclusive(
     required: &NormalizedRepairComparison<'_>,
     wanted: &NormalizedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
 ) -> bool {
-    compact_predicate_text(required.right) == compact_predicate_text(wanted.right)
+    repair_operands_equivalent(required.right, wanted.right, equivalences)
         && repair_numeric_order_literal(required.left).is_some_and(|required_literal| {
             required_literal.is_integer()
                 && repair_numeric_order_literal(wanted.left).is_some_and(|wanted_literal| {
@@ -3858,8 +3892,9 @@ fn strict_int_lower_bound_implies_adjacent_inclusive(
 fn strict_int_upper_bound_implies_adjacent_inclusive(
     required: &NormalizedRepairComparison<'_>,
     wanted: &NormalizedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
 ) -> bool {
-    compact_predicate_text(required.left) == compact_predicate_text(wanted.left)
+    repair_operands_equivalent(required.left, wanted.left, equivalences)
         && repair_numeric_order_literal(required.right).is_some_and(|required_literal| {
             required_literal.is_integer()
                 && repair_numeric_order_literal(wanted.right).is_some_and(|wanted_literal| {
@@ -3872,8 +3907,9 @@ fn strict_int_upper_bound_implies_adjacent_inclusive(
 fn inclusive_int_lower_bound_implies_adjacent_strict(
     required: &NormalizedRepairComparison<'_>,
     wanted: &NormalizedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
 ) -> bool {
-    compact_predicate_text(required.right) == compact_predicate_text(wanted.right)
+    repair_operands_equivalent(required.right, wanted.right, equivalences)
         && repair_numeric_order_literal(required.left).is_some_and(|required_literal| {
             required_literal.is_integer()
                 && repair_numeric_order_literal(wanted.left).is_some_and(|wanted_literal| {
@@ -3886,8 +3922,9 @@ fn inclusive_int_lower_bound_implies_adjacent_strict(
 fn inclusive_int_upper_bound_implies_adjacent_strict(
     required: &NormalizedRepairComparison<'_>,
     wanted: &NormalizedRepairComparison<'_>,
+    equivalences: &RepairEquivalences,
 ) -> bool {
-    compact_predicate_text(required.left) == compact_predicate_text(wanted.left)
+    repair_operands_equivalent(required.left, wanted.left, equivalences)
         && repair_numeric_order_literal(required.right).is_some_and(|required_literal| {
             required_literal.is_integer()
                 && repair_numeric_order_literal(wanted.right).is_some_and(|wanted_literal| {
