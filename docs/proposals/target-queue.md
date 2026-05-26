@@ -18,6 +18,8 @@ when updating this queue.
 
 - Self-hosting standard library: start with
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
+- Formatter indentation: start with
+  [first-slice-follow-ups.md#formatting](first-slice-follow-ups.md#formatting).
 - Broader repair discharge: start with
   [first-slice-follow-ups.md#repair-loop](first-slice-follow-ups.md#repair-loop).
 - Richer predicate semantics: start with
