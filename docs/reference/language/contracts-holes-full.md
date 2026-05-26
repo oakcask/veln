@@ -325,7 +325,13 @@ are also accepted, such as `candidate.count == fallback.count`. `and` may join
 clauses that all name the same binding. Top-level `or` also checks each direct
 branch independently. A visible binding is safe when at least one branch
 becomes reflexive after substituting that binding, such as `fallback` in
-`candidate == fallback or candidate == other`.
+`candidate == fallback or candidate == other`. Nested direct `or` clauses
+inside an `and` conjunction may each name more than one visible binding. When
+the intersection of those branch-local binding sets contains exactly one
+binding, that binding is safe; for example,
+`(candidate == fallback or candidate == max) and
+(candidate == fallback or candidate == spare)` marks `fallback` as the safe
+repair candidate.
 False disjuncts do not affect direct repair matching. This includes literal
 `false` and predicates that the contract classifier proves false, so
 `(flag and not flag) or candidate == fallback` has the same repair status as

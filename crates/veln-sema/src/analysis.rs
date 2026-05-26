@@ -3024,25 +3024,70 @@ fn reflexive_candidate_conjunction(
     clauses: Vec<String>,
     candidate: &str,
 ) -> Option<ReflexiveCandidateBinding> {
-    let mut allowed_binding = None::<String>;
-    let mut reason = "satisfy_equality_match";
+    let mut allowed_bindings = None::<Vec<SatisfyAllowedBinding>>;
     for clause in clauses {
         if is_surplus_tautology_clause(&clause, candidate) {
             continue;
         }
-        let direct = direct_reflexive_clause(&clause, candidate)?;
-        if let Some(existing) = &allowed_binding {
-            if existing != &direct.binding {
+        let direct = reflexive_candidate_clause_bindings(&clause, candidate)?;
+        if let Some(existing) = &mut allowed_bindings {
+            existing.retain(|allowed| {
+                direct
+                    .iter()
+                    .any(|direct_allowed| direct_allowed.name == allowed.name)
+            });
+            for allowed in existing.iter_mut() {
+                if allowed.reason == "satisfy_equality_match" {
+                    if let Some(direct_allowed) =
+                        direct.iter().find(|direct_allowed| direct_allowed.name == allowed.name)
+                    {
+                        allowed.reason = direct_allowed.reason;
+                    }
+                }
+            }
+            if existing.is_empty() {
                 return None;
             }
         } else {
-            allowed_binding = Some(direct.binding);
-        }
-        if direct.reason != "satisfy_equality_match" {
-            reason = direct.reason;
+            allowed_bindings = Some(direct);
         }
     }
-    allowed_binding.map(|binding| ReflexiveCandidateBinding { binding, reason })
+    let allowed_bindings = allowed_bindings?;
+    let [allowed] = allowed_bindings.as_slice() else {
+        return None;
+    };
+    Some(ReflexiveCandidateBinding {
+        binding: allowed.name.clone(),
+        reason: allowed.reason,
+    })
+}
+
+fn reflexive_candidate_clause_bindings(
+    clause: &str,
+    candidate: &str,
+) -> Option<Vec<SatisfyAllowedBinding>> {
+    let disjuncts = repair_relevant_or_clauses(clause);
+    if disjuncts.len() > 1 {
+        let bindings = disjuncts
+            .into_iter()
+            .filter_map(|disjunct| direct_reflexive_clause(disjunct, candidate))
+            .fold(Vec::<SatisfyAllowedBinding>::new(), |mut bindings, direct| {
+                if !bindings.iter().any(|binding| binding.name == direct.binding) {
+                    bindings.push(SatisfyAllowedBinding {
+                        name: direct.binding,
+                        reason: direct.reason,
+                    });
+                }
+                bindings
+            });
+        return (!bindings.is_empty()).then_some(bindings);
+    }
+    direct_reflexive_clause(clause, candidate).map(|direct| {
+        vec![SatisfyAllowedBinding {
+            name: direct.binding,
+            reason: direct.reason,
+        }]
+    })
 }
 
 struct TautologicalCandidatePredicate {
