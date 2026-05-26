@@ -302,6 +302,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   over the same subject are also statically evaluated.
   Top-level disjunctions of numeric literal lower and upper bounds over the
   same subject are also statically evaluated when they cover every value.
+  Disequality predicates over ordered operands also statically discharge
+  equivalent strict-order splits.
   Negated conjunctions that bind the same subject to distinct boolean,
   numeric, or string literals are also statically evaluated.
   Richer predicate semantics beyond these static truth identities, literal
@@ -310,7 +312,8 @@ No accepted language and type coverage follow-up is currently tracked here.
   complementary predicate comparisons, complementary boolean and comparison
   disjunctions, ordering trichotomy disjunctions, negated complementary
   boolean and comparison conjunctions, negated mutually exclusive order
-  conjunctions, and other richer transitive implications remain follow-up work.
+  conjunctions, disequality strict-order splits, and other richer transitive
+  implications remain follow-up work.
 
 ## Formatting
 

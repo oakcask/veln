@@ -182,6 +182,9 @@ Inclusive ordering totality over the same operands is statically proven, such
 as `value <= limit or limit <= value` and
 `value >= limit or limit >= value`, after whitespace normalization and
 commuted ordering normalization.
+Disequality over ordered operands also supports the corresponding strict-order
+split, so `not (value != limit) or value < limit or value > limit` is
+statically proven when the predicate has passed validation.
 Top-level `or` also proves implications where a negated `and` of ordering
 bounds transitively guarantees another ordering bound. For example,
 `not (low <= mid and mid < high) or low < high` is statically proven because
