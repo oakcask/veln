@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use clap::{Arg, ArgAction, Command as ClapCommand};
+
 pub(crate) enum Command {
     Check {
         json: bool,
@@ -23,136 +25,337 @@ pub(crate) enum Command {
         diagnostic_id: Option<String>,
     },
     Lsp,
-    Help,
+    Help {
+        text: String,
+    },
     Version,
 }
 
 impl Command {
     pub(crate) fn parse(args: Vec<String>) -> Result<Self, String> {
+        if args.is_empty() {
+            return Ok(Self::Help {
+                text: render_help(&[]),
+            });
+        }
+
         let Some(first) = args.first() else {
-            return Ok(Self::Help);
+            unreachable!("empty arguments are handled before reading the first argument");
         };
         match first.as_str() {
-            "check" => parse_check(args.into_iter().skip(1)),
-            "fmt" => parse_fmt(args.into_iter().skip(1)),
-            "run" => parse_run(args.into_iter().skip(1)),
-            "test" => parse_test(args.into_iter().skip(1)),
-            "explain" => parse_explain(args.into_iter().skip(1)),
-            "lsp" => parse_lsp(args.into_iter().skip(1)),
-            "--help" | "-h" | "help" => Ok(Self::Help),
-            "--version" | "-V" | "version" => Ok(Self::Version),
-            command => Err(format!("unknown command `{command}`")),
+            "check" if has_help_flag(args.iter().skip(1)) => {
+                return Ok(Self::Help {
+                    text: render_help(&args[..1]),
+                });
+            }
+            "fmt" if has_help_flag(args.iter().skip(1)) => {
+                return Ok(Self::Help {
+                    text: render_help(&args[..1]),
+                });
+            }
+            "run" if has_help_flag_before_separator(args.iter().skip(1)) => {
+                return Ok(Self::Help {
+                    text: render_help(&args[..1]),
+                });
+            }
+            "test" if has_help_flag(args.iter().skip(1)) => {
+                return Ok(Self::Help {
+                    text: render_help(&args[..1]),
+                });
+            }
+            "explain" if has_help_flag(args.iter().skip(1)) => {
+                return Ok(Self::Help {
+                    text: render_help(&args[..1]),
+                });
+            }
+            "lsp" if has_help_flag(args.iter().skip(1)) => {
+                return Ok(Self::Help {
+                    text: render_help(&args[..1]),
+                });
+            }
+            "check" => reject_unknown_check_flags(args.iter().skip(1))?,
+            "fmt" => reject_unknown_fmt_flags(args.iter().skip(1))?,
+            "run" => {
+                reject_unknown_run_flags(args.iter().skip(1))?;
+                reject_missing_run_entry(args.iter().skip(1))?;
+            }
+            "test" => reject_unknown_test_flags(args.iter().skip(1))?,
+            "explain" => reject_unknown_explain_flags(args.iter().skip(1))?,
+            "lsp" => reject_lsp_arguments(args.iter().skip(1))?,
+            "--help" | "-h" => {
+                return Ok(Self::Help {
+                    text: render_help(&[]),
+                });
+            }
+            "help" => {
+                return Ok(Self::Help {
+                    text: render_help(&args[1..]),
+                });
+            }
+            "--version" | "-V" | "version" => return Ok(Self::Version),
+            command => return Err(format!("unknown command `{command}`")),
+        }
+
+        let mut argv = Vec::with_capacity(args.len() + 1);
+        argv.push("veln".to_string());
+        argv.extend(args);
+
+        let matches = app()
+            .try_get_matches_from(argv)
+            .map_err(|error| error.to_string())?;
+
+        match matches.subcommand() {
+            Some(("check", matches)) => Ok(Self::Check {
+                json: matches.get_flag("json"),
+                inputs: path_values(matches, "inputs"),
+            }),
+            Some(("fmt", matches)) => Ok(Self::Fmt {
+                inputs: path_values(matches, "inputs"),
+            }),
+            Some(("run", matches)) => {
+                let entry = matches
+                    .get_one::<String>("entry")
+                    .expect("clap requires an entry argument")
+                    .to_string();
+                Ok(Self::Run {
+                    json: matches.get_flag("json"),
+                    entry,
+                    inputs: path_values(matches, "inputs"),
+                    entry_args: string_values(matches, "entry_args"),
+                })
+            }
+            Some(("test", matches)) => Ok(Self::Test {
+                json: matches.get_flag("json"),
+                targets: path_values(matches, "targets"),
+            }),
+            Some(("explain", matches)) => Ok(Self::Explain {
+                list: matches.get_flag("list"),
+                diagnostic_id: matches.get_one::<String>("diagnostic_id").cloned(),
+            }),
+            Some(("lsp", _)) => Ok(Self::Lsp),
+            _ => Ok(Self::Help {
+                text: render_help(&[]),
+            }),
         }
     }
 }
 
-pub(crate) fn print_help() {
-    println!("veln check [--json] [path ...]");
-    println!("veln fmt [path ...]");
-    println!("veln run [--json] <entry> [path ...] [-- arg ...]");
-    println!("veln test [--json] [target ...]");
-    println!("veln explain [--list] [diagnostic-id]");
-    println!("veln lsp");
+fn app() -> ClapCommand {
+    ClapCommand::new("veln")
+        .version(env!("CARGO_PKG_VERSION"))
+        .disable_help_subcommand(false)
+        .subcommand_required(false)
+        .arg_required_else_help(false)
+        .subcommand(
+            ClapCommand::new("check")
+                .about("Check source files")
+                .arg(json_arg())
+                .arg(
+                    Arg::new("inputs")
+                        .help("Source files or directories to check")
+                        .value_name("INPUTS")
+                        .num_args(0..)
+                        .value_parser(clap::value_parser!(PathBuf)),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("fmt").about("Format source files").arg(
+                Arg::new("inputs")
+                    .help("Source files or directories to format")
+                    .value_name("INPUTS")
+                    .num_args(0..)
+                    .value_parser(clap::value_parser!(PathBuf)),
+            ),
+        )
+        .subcommand(
+            ClapCommand::new("run")
+                .about("Run an entry function")
+                .arg(json_arg())
+                .arg(
+                    Arg::new("entry")
+                        .help("Entry function name")
+                        .value_name("ENTRY")
+                        .required(true),
+                )
+                .arg(
+                    Arg::new("inputs")
+                        .help("Source files or directories to run")
+                        .value_name("INPUTS")
+                        .num_args(0..)
+                        .value_parser(clap::value_parser!(PathBuf)),
+                )
+                .arg(
+                    Arg::new("entry_args")
+                        .help("Arguments passed to the entry function after `--`")
+                        .value_name("ENTRY_ARGS")
+                        .num_args(0..)
+                        .last(true)
+                        .allow_hyphen_values(true),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("test")
+                .about("Run tests")
+                .arg(json_arg())
+                .arg(
+                    Arg::new("targets")
+                        .help("Source files, directories, or test targets")
+                        .value_name("TARGETS")
+                        .num_args(0..)
+                        .value_parser(clap::value_parser!(PathBuf)),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("explain")
+                .about("Explain diagnostics")
+                .arg(
+                    Arg::new("list")
+                        .long("list")
+                        .help("List known diagnostics")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("diagnostic_id")
+                        .help("Diagnostic id to explain")
+                        .value_name("DIAGNOSTIC_ID")
+                        .num_args(0..=1),
+                ),
+        )
+        .subcommand(ClapCommand::new("lsp").about("Run the language server on stdio"))
 }
 
-fn parse_check(args: impl Iterator<Item = String>) -> Result<Command, String> {
-    let mut json = false;
-    let mut inputs = Vec::new();
+fn json_arg() -> Arg {
+    Arg::new("json")
+        .long("json")
+        .help("Emit machine-readable JSON")
+        .action(ArgAction::SetTrue)
+}
+
+fn render_help(path: &[String]) -> String {
+    if path.is_empty() {
+        return app().render_help().to_string();
+    }
+
+    let mut argv = Vec::with_capacity(path.len() + 2);
+    argv.push("veln".to_string());
+    argv.extend(path.iter().cloned());
+    argv.push("--help".to_string());
+    match app().try_get_matches_from(argv) {
+        Ok(_) => app().render_help().to_string(),
+        Err(error) => error.to_string(),
+    }
+}
+
+fn path_values(matches: &clap::ArgMatches, name: &str) -> Vec<PathBuf> {
+    matches
+        .get_many::<PathBuf>(name)
+        .map(|values| values.cloned().collect())
+        .unwrap_or_default()
+}
+
+fn string_values(matches: &clap::ArgMatches, name: &str) -> Vec<String> {
+    matches
+        .get_many::<String>(name)
+        .map(|values| values.cloned().collect())
+        .unwrap_or_default()
+}
+
+fn has_help_flag<'a>(args: impl Iterator<Item = &'a String>) -> bool {
+    args.into_iter()
+        .any(|arg| matches!(arg.as_str(), "--help" | "-h"))
+}
+
+fn has_help_flag_before_separator<'a>(args: impl Iterator<Item = &'a String>) -> bool {
     for arg in args {
         match arg.as_str() {
-            "--json" => json = true,
-            "--help" | "-h" => return Ok(Command::Help),
+            "--" => return false,
+            "--help" | "-h" => return true,
+            _ => {}
+        }
+    }
+    false
+}
+
+fn reject_unknown_check_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
+    for arg in args {
+        match arg.as_str() {
+            "--json" | "--help" | "-h" => {}
             flag if flag.starts_with('-') => return Err(format!("unknown check flag `{flag}`")),
-            path => inputs.push(PathBuf::from(path)),
+            _ => {}
         }
     }
-    Ok(Command::Check { json, inputs })
+    Ok(())
 }
 
-fn parse_fmt(args: impl Iterator<Item = String>) -> Result<Command, String> {
-    let mut inputs = Vec::new();
+fn reject_unknown_fmt_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
     for arg in args {
         match arg.as_str() {
-            "--help" | "-h" => return Ok(Command::Help),
+            "--help" | "-h" => {}
             flag if flag.starts_with('-') => return Err(format!("unknown fmt flag `{flag}`")),
-            path => inputs.push(PathBuf::from(path)),
+            _ => {}
         }
     }
-    Ok(Command::Fmt { inputs })
+    Ok(())
 }
 
-fn parse_run(args: impl Iterator<Item = String>) -> Result<Command, String> {
-    let mut json = false;
-    let mut entry = None;
-    let mut inputs = Vec::new();
-    let mut entry_args = Vec::new();
-    let mut after_separator = false;
+fn reject_unknown_run_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
     for arg in args {
-        if after_separator {
-            entry_args.push(arg);
-            continue;
-        }
         match arg.as_str() {
-            "--json" => json = true,
-            "--help" | "-h" => return Ok(Command::Help),
-            "--" => after_separator = true,
+            "--json" | "--help" | "-h" => {}
+            "--" => return Ok(()),
             flag if flag.starts_with('-') => return Err(format!("unknown run flag `{flag}`")),
-            value if entry.is_none() => entry = Some(value.to_string()),
-            path => inputs.push(PathBuf::from(path)),
+            _ => {}
         }
     }
-    let Some(entry) = entry else {
-        return Err("run requires an entry function name".to_string());
-    };
-    Ok(Command::Run {
-        json,
-        entry,
-        inputs,
-        entry_args,
-    })
+    Ok(())
 }
 
-fn parse_test(args: impl Iterator<Item = String>) -> Result<Command, String> {
-    let mut json = false;
-    let mut targets = Vec::new();
+fn reject_missing_run_entry<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
     for arg in args {
         match arg.as_str() {
-            "--json" => json = true,
-            "--help" | "-h" => return Ok(Command::Help),
-            flag if flag.starts_with('-') => return Err(format!("unknown test flag `{flag}`")),
-            path => targets.push(PathBuf::from(path)),
+            "--json" => {}
+            "--" => return Err("run requires an entry function name".to_string()),
+            _ => return Ok(()),
         }
     }
-    Ok(Command::Test { json, targets })
+    Err("run requires an entry function name".to_string())
 }
 
-fn parse_explain(args: impl Iterator<Item = String>) -> Result<Command, String> {
-    let mut list = false;
+fn reject_unknown_test_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
+    for arg in args {
+        match arg.as_str() {
+            "--json" | "--help" | "-h" => {}
+            flag if flag.starts_with('-') => return Err(format!("unknown test flag `{flag}`")),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn reject_unknown_explain_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
     let mut diagnostic_id = None;
     for arg in args {
         match arg.as_str() {
-            "--list" => list = true,
-            "--help" | "-h" => return Ok(Command::Help),
+            "--list" | "--help" | "-h" => {}
             flag if flag.starts_with('-') => return Err(format!("unknown explain flag `{flag}`")),
-            id if diagnostic_id.is_none() => diagnostic_id = Some(id.to_string()),
-            id => return Err(format!("unexpected explain argument `{id}`")),
+            id if diagnostic_id.is_some() => {
+                return Err(format!("unexpected explain argument `{id}`"));
+            }
+            id => diagnostic_id = Some(id),
         }
     }
-    Ok(Command::Explain {
-        list,
-        diagnostic_id,
-    })
+    Ok(())
 }
 
-fn parse_lsp(mut args: impl Iterator<Item = String>) -> Result<Command, String> {
-    if let Some(arg) = args.next() {
+fn reject_lsp_arguments<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
+    for arg in args {
         match arg.as_str() {
-            "--help" | "-h" => return Ok(Command::Help),
+            "--help" | "-h" => {}
             flag if flag.starts_with('-') => return Err(format!("unknown lsp flag `{flag}`")),
             value => return Err(format!("unexpected lsp argument `{value}`")),
         }
     }
-    Ok(Command::Lsp)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -166,10 +369,10 @@ mod tests {
 
     #[test]
     fn top_level_parser_handles_help_and_version_aliases() {
-        assert!(matches!(parse(&[]).unwrap(), Command::Help));
-        assert!(matches!(parse(&["help"]).unwrap(), Command::Help));
-        assert!(matches!(parse(&["--help"]).unwrap(), Command::Help));
-        assert!(matches!(parse(&["-h"]).unwrap(), Command::Help));
+        assert!(matches!(parse(&[]).unwrap(), Command::Help { .. }));
+        assert!(matches!(parse(&["help"]).unwrap(), Command::Help { .. }));
+        assert!(matches!(parse(&["--help"]).unwrap(), Command::Help { .. }));
+        assert!(matches!(parse(&["-h"]).unwrap(), Command::Help { .. }));
         assert!(matches!(parse(&["version"]).unwrap(), Command::Version));
         assert!(matches!(parse(&["--version"]).unwrap(), Command::Version));
         assert!(matches!(parse(&["-V"]).unwrap(), Command::Version));
@@ -272,6 +475,18 @@ mod tests {
     }
 
     #[test]
+    fn run_parser_keeps_help_like_entry_args_after_separator() {
+        let command =
+            parse(&["run", "main", "--", "-h", "--help"]).expect("run command should parse");
+
+        let Command::Run { entry_args, .. } = command else {
+            panic!("expected run command");
+        };
+
+        assert_eq!(entry_args, ["-h", "--help"]);
+    }
+
+    #[test]
     fn run_parser_reports_flags_before_separator_as_run_flags() {
         let error = match parse(&["run", "main", "--name"]) {
             Ok(_) => panic!("flag before separator should fail"),
@@ -295,16 +510,28 @@ mod tests {
     fn subcommands_return_help_for_help_flags() {
         assert!(matches!(
             parse(&["check", "--help"]).unwrap(),
-            Command::Help
+            Command::Help { .. }
         ));
-        assert!(matches!(parse(&["fmt", "-h"]).unwrap(), Command::Help));
-        assert!(matches!(parse(&["run", "--help"]).unwrap(), Command::Help));
-        assert!(matches!(parse(&["test", "-h"]).unwrap(), Command::Help));
+        assert!(matches!(
+            parse(&["fmt", "-h"]).unwrap(),
+            Command::Help { .. }
+        ));
+        assert!(matches!(
+            parse(&["run", "--help"]).unwrap(),
+            Command::Help { .. }
+        ));
+        assert!(matches!(
+            parse(&["test", "-h"]).unwrap(),
+            Command::Help { .. }
+        ));
         assert!(matches!(
             parse(&["explain", "--help"]).unwrap(),
-            Command::Help
+            Command::Help { .. }
         ));
-        assert!(matches!(parse(&["lsp", "--help"]).unwrap(), Command::Help));
+        assert!(matches!(
+            parse(&["lsp", "--help"]).unwrap(),
+            Command::Help { .. }
+        ));
     }
 
     #[test]

@@ -39,8 +39,8 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             veln_lsp::run_stdio().map_err(|error| format!("lsp failed: {error}"))?;
             Ok(ExitCode::SUCCESS)
         }
-        Command::Help => {
-            cli::print_help();
+        Command::Help { text } => {
+            print!("{text}");
             Ok(ExitCode::SUCCESS)
         }
         Command::Version => {

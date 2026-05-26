@@ -150,13 +150,90 @@ fn repo_file(path: &str) -> String {
 #[test]
 fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     let project = TestProject::new("cli-help");
-    let expected = concat!(
-        "veln check [--json] [path ...]\n",
-        "veln fmt [path ...]\n",
-        "veln run [--json] <entry> [path ...] [-- arg ...]\n",
-        "veln test [--json] [target ...]\n",
-        "veln explain [--list] [diagnostic-id]\n",
-        "veln lsp\n",
+    let top_level_expected = concat!(
+        "Usage: veln [COMMAND]\n",
+        "\n",
+        "Commands:\n",
+        "  check    Check source files\n",
+        "  fmt      Format source files\n",
+        "  run      Run an entry function\n",
+        "  test     Run tests\n",
+        "  explain  Explain diagnostics\n",
+        "  lsp      Run the language server on stdio\n",
+        "  help     Print this message or the help of the given subcommand(s)\n",
+        "\n",
+        "Options:\n",
+        "  -h, --help     Print help\n",
+        "  -V, --version  Print version\n",
+    );
+    let check_expected = concat!(
+        "Check source files\n",
+        "\n",
+        "Usage: veln check [OPTIONS] [INPUTS]...\n",
+        "\n",
+        "Arguments:\n",
+        "  [INPUTS]...  Source files or directories to check\n",
+        "\n",
+        "Options:\n",
+        "      --json  Emit machine-readable JSON\n",
+        "  -h, --help  Print help\n",
+    );
+    let fmt_expected = concat!(
+        "Format source files\n",
+        "\n",
+        "Usage: veln fmt [INPUTS]...\n",
+        "\n",
+        "Arguments:\n",
+        "  [INPUTS]...  Source files or directories to format\n",
+        "\n",
+        "Options:\n",
+        "  -h, --help  Print help\n",
+    );
+    let run_expected = concat!(
+        "Run an entry function\n",
+        "\n",
+        "Usage: veln run [OPTIONS] <ENTRY> [INPUTS]... [-- [ENTRY_ARGS]...]\n",
+        "\n",
+        "Arguments:\n",
+        "  <ENTRY>          Entry function name\n",
+        "  [INPUTS]...      Source files or directories to run\n",
+        "  [ENTRY_ARGS]...  Arguments passed to the entry function after `--`\n",
+        "\n",
+        "Options:\n",
+        "      --json  Emit machine-readable JSON\n",
+        "  -h, --help  Print help\n",
+    );
+    let test_expected = concat!(
+        "Run tests\n",
+        "\n",
+        "Usage: veln test [OPTIONS] [TARGETS]...\n",
+        "\n",
+        "Arguments:\n",
+        "  [TARGETS]...  Source files, directories, or test targets\n",
+        "\n",
+        "Options:\n",
+        "      --json  Emit machine-readable JSON\n",
+        "  -h, --help  Print help\n",
+    );
+    let explain_expected = concat!(
+        "Explain diagnostics\n",
+        "\n",
+        "Usage: veln explain [OPTIONS] [DIAGNOSTIC_ID]\n",
+        "\n",
+        "Arguments:\n",
+        "  [DIAGNOSTIC_ID]  Diagnostic id to explain\n",
+        "\n",
+        "Options:\n",
+        "      --list  List known diagnostics\n",
+        "  -h, --help  Print help\n",
+    );
+    let lsp_expected = concat!(
+        "Run the language server on stdio\n",
+        "\n",
+        "Usage: veln lsp\n",
+        "\n",
+        "Options:\n",
+        "  -h, --help  Print help\n",
     );
 
     let empty_output = project.veln(&[], &[]);
@@ -169,56 +246,56 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     let lsp_help_output = project.veln(&["lsp"], &["--help"]);
 
     assert!(empty_output.status.success(), "{}", stderr(&empty_output));
-    assert_eq!(stdout(&empty_output), expected);
+    assert_eq!(stdout(&empty_output), top_level_expected);
     assert_eq!(stderr(&empty_output), "");
     assert!(
         check_help_output.status.success(),
         "{}",
         stderr(&check_help_output)
     );
-    assert_eq!(stdout(&check_help_output), expected);
+    assert_eq!(stdout(&check_help_output), check_expected);
     assert_eq!(stderr(&check_help_output), "");
     assert!(
         fmt_help_output.status.success(),
         "{}",
         stderr(&fmt_help_output)
     );
-    assert_eq!(stdout(&fmt_help_output), expected);
+    assert_eq!(stdout(&fmt_help_output), fmt_expected);
     assert_eq!(stderr(&fmt_help_output), "");
     assert!(
         run_help_output.status.success(),
         "{}",
         stderr(&run_help_output)
     );
-    assert_eq!(stdout(&run_help_output), expected);
+    assert_eq!(stdout(&run_help_output), run_expected);
     assert_eq!(stderr(&run_help_output), "");
     assert!(
         test_help_output.status.success(),
         "{}",
         stderr(&test_help_output)
     );
-    assert_eq!(stdout(&test_help_output), expected);
+    assert_eq!(stdout(&test_help_output), test_expected);
     assert_eq!(stderr(&test_help_output), "");
     assert!(
         explain_help_output.status.success(),
         "{}",
         stderr(&explain_help_output)
     );
-    assert_eq!(stdout(&explain_help_output), expected);
+    assert_eq!(stdout(&explain_help_output), explain_expected);
     assert_eq!(stderr(&explain_help_output), "");
     assert!(
         explain_short_help_output.status.success(),
         "{}",
         stderr(&explain_short_help_output)
     );
-    assert_eq!(stdout(&explain_short_help_output), expected);
+    assert_eq!(stdout(&explain_short_help_output), explain_expected);
     assert_eq!(stderr(&explain_short_help_output), "");
     assert!(
         lsp_help_output.status.success(),
         "{}",
         stderr(&lsp_help_output)
     );
-    assert_eq!(stdout(&lsp_help_output), expected);
+    assert_eq!(stdout(&lsp_help_output), lsp_expected);
     assert_eq!(stderr(&lsp_help_output), "");
 }
 
