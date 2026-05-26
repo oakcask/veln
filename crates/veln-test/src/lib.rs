@@ -2951,6 +2951,36 @@ mod tests {
     }
 
     #[test]
+    fn stdio_call_spans_include_nested_aggregate_and_match_calls() {
+        let module = module(concat!(
+            "test first() -> () effects [stdio]\n",
+            "  let record = {out: stdio::println(\"record\")}\n",
+            "  let list = [stdio::println(\"list\")]\n",
+            "  let dict = {\"out\": stdio::println(\"dict\")}\n",
+            "  match true\n",
+            "    true => stdio::println(\"match\")\n",
+            "    false => ()\n",
+            "  end\n",
+            "end\n",
+        ));
+
+        let call_spans = stdio_call_spans(&module);
+        let mut lines = call_spans
+            .values()
+            .map(|span| span.start.line)
+            .collect::<Vec<_>>();
+        lines.sort();
+
+        assert_eq!(call_spans.len(), 4);
+        assert_eq!(lines, vec![2, 3, 4, 6]);
+        assert!(
+            call_spans
+                .keys()
+                .all(|(file, node_id)| file == "main_test.veln" && node_id.starts_with("call-"))
+        );
+    }
+
+    #[test]
     fn stdio_trace_skips_malformed_lines() {
         let source_file = SourceFile::new(
             "main_test.veln",
