@@ -9798,6 +9798,33 @@ fn contract_predicate_complementary_comparison_or_is_statically_proven() {
 }
 
 #[test]
+fn contract_predicate_numeric_literal_alias_comparison_or_is_statically_proven() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn identity(value: Float) -> output: Float effects []\n",
+            "require value == 1 or value != 1.0\n",
+            "ensure output == 2.00 or 2 != output\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("valid module should lower to core");
+    let contracts = &core.functions[0].contracts;
+    assert_eq!(contracts.len(), 2);
+    assert!(contracts.iter().all(|contract| {
+        contract.obligation_status == ContractObligationStatus::StaticallyProven
+    }));
+}
+
+#[test]
 fn contract_predicate_order_trichotomy_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",

@@ -1720,6 +1720,24 @@ fn complementary_comparisons(left: &str, right: &str) -> bool {
             (left.operator, right.operator),
             ("==", "!=") | ("!=", "==") | ("<", ">=") | (">=", "<")
         )
+        || complementary_literal_comparison_operands(&left, &right)
+}
+
+fn complementary_literal_comparison_operands(
+    left: &ComparisonShape,
+    right: &ComparisonShape,
+) -> bool {
+    if !matches!((left.operator, right.operator), ("==", "!=") | ("!=", "==")) {
+        return false;
+    }
+    (left.left == right.left
+        && static_literal_comparison(&left.right, "==", &right.right) == Some(true))
+        || (left.right == right.right
+            && static_literal_comparison(&left.left, "==", &right.left) == Some(true))
+        || (left.left == right.right
+            && static_literal_comparison(&left.right, "==", &right.left) == Some(true))
+        || (left.right == right.left
+            && static_literal_comparison(&left.left, "==", &right.right) == Some(true))
 }
 
 fn order_trichotomy_shape(predicate: &str) -> Option<OrderTrichotomyShape> {

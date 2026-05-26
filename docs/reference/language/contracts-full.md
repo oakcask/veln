@@ -180,6 +180,9 @@ Top-level `or` also recognizes complementary comparison pairs over the same
 operands after whitespace normalization and commuted ordering normalization,
 such as `value == limit or value != limit`,
 `value < limit or value >= limit`, and `value < limit or limit <= value`.
+Equality and disequality pairs also recognize equivalent numeric literal
+operands, so `value == 1 or value != 1.0` is statically proven after
+predicate validation.
 It also recognizes top-level ordering trichotomy over the same operands, such
 as `value < limit or value == limit or value > limit`, after whitespace
 normalization and commuted ordering normalization.
