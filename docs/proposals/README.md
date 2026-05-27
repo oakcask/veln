@@ -19,8 +19,6 @@ implemented.
 
 ## Read When
 
-- Use [first-slice-follow-ups.md](first-slice-follow-ups.md) only to confirm
-  that no accepted first-slice follow-up target remains.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md) only
   for future self-hosting standard library questions whose behavior is absent
   from the current reference.

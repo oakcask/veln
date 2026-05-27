@@ -8,9 +8,6 @@ cleanup. This page routes planned work; it does not define current behavior.
 
 - Choose from [target-queue.md](target-queue.md) before opening broader
   design-wall material.
-- Confirm first-slice target status in
-  [first-slice-follow-ups.md](first-slice-follow-ups.md). The full page exists
-  only to preserve old links from phase and review history.
 - Use design-wall material only when [target-queue.md](target-queue.md) has no
   accepted target for the task.
 

@@ -11,7 +11,6 @@ full question inventory is kept in [open-questions-full.md](open-questions-full.
 - The full inventory currently routes resolved first-slice questions to
   decision records and current reference pages.
 - No accepted follow-up target remains in
-  [../first-slice-follow-ups.md](../first-slice-follow-ups.md) or
   [../target-queue.md](../target-queue.md).
 - Treat any new design-wall work as proposal selection work before changing
   current behavior.

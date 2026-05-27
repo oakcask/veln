@@ -41,8 +41,6 @@ implemented behavior; current behavior lives under `../reference/language/`.
 
 ## Read When
 
-- Use [first-slice-follow-ups.md](first-slice-follow-ups.md) only to confirm
-  that no accepted first-slice target remains.
 - Use [../reference/language/names-effects.md](../reference/language/names-effects.md)
   before adding standard library intrinsics or self-hosting library surface.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
