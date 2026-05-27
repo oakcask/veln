@@ -6,20 +6,20 @@ use std::path::{Path, PathBuf};
 use std::process::{Command as ProcessCommand, ExitCode, ExitStatus, Output};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub(crate) enum JavaRunResult {
+pub(crate) enum JvmRunResult {
     Ran(Output),
     ToolError(String),
 }
 
-pub(crate) fn compile_and_run_java(
+pub(crate) fn prepare_and_run_jvm(
     build_dir: &Path,
     java: &veln_backend_jvm::JavaProgram,
     java_args: &[String],
 ) -> Result<ExitCode, String> {
-    let result = compile_and_run_java_capture(build_dir, java, "veln run", java_args)?;
+    let result = prepare_and_run_jvm_capture(build_dir, java, "veln run", java_args)?;
     let output = match result {
-        JavaRunResult::Ran(output) => output,
-        JavaRunResult::ToolError(message) => {
+        JvmRunResult::Ran(output) => output,
+        JvmRunResult::ToolError(message) => {
             eprintln!("{message}");
             return Ok(ExitCode::from(1));
         }
@@ -28,25 +28,25 @@ pub(crate) fn compile_and_run_java(
     Ok(exit_code_from_status(output.status))
 }
 
-pub(crate) fn compile_and_run_java_capture(
+pub(crate) fn prepare_and_run_jvm_capture(
     build_dir: &Path,
     java: &veln_backend_jvm::JavaProgram,
     command_name: &str,
     java_args: &[String],
-) -> Result<JavaRunResult, String> {
-    compile_and_run_java_capture_with_env(build_dir, java, command_name, &[], java_args)
+) -> Result<JvmRunResult, String> {
+    prepare_and_run_jvm_capture_with_env(build_dir, java, command_name, &[], java_args)
 }
 
-pub(crate) fn compile_and_run_java_capture_with_env(
+pub(crate) fn prepare_and_run_jvm_capture_with_env(
     _build_dir: &Path,
     java: &veln_backend_jvm::JavaProgram,
     command_name: &str,
     java_env: &[(&str, &OsStr)],
     java_args: &[String],
-) -> Result<JavaRunResult, String> {
-    let class_dir = match ensure_cached_java(java, command_name)? {
-        CachedJava::Ready(path) => path,
-        CachedJava::ToolError(message) => return Ok(JavaRunResult::ToolError(message)),
+) -> Result<JvmRunResult, String> {
+    let class_dir = match ensure_cached_jvm_classes(java, command_name)? {
+        CachedJvmClasses::Ready(path) => path,
+        CachedJvmClasses::ToolError(message) => return Ok(JvmRunResult::ToolError(message)),
     };
 
     let mut command = ProcessCommand::new("java");
@@ -59,35 +59,33 @@ pub(crate) fn compile_and_run_java_capture_with_env(
     let java_output = match java_output {
         Ok(output) => output,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            return Ok(JavaRunResult::ToolError(format!(
-                "veln: `java` was not found; install a JDK to use `{command_name}`"
-            )));
+            return Ok(JvmRunResult::ToolError(missing_java_message(command_name)));
         }
         Err(error) => return Err(error.to_string()),
     };
-    Ok(JavaRunResult::Ran(java_output))
+    Ok(JvmRunResult::Ran(java_output))
 }
 
-enum CachedJava {
+enum CachedJvmClasses {
     Ready(PathBuf),
     ToolError(String),
 }
 
-fn ensure_cached_java(
+fn ensure_cached_jvm_classes(
     java: &veln_backend_jvm::JavaProgram,
     command_name: &str,
-) -> Result<CachedJava, String> {
+) -> Result<CachedJvmClasses, String> {
     let cache_root = env::current_dir()
         .map_err(|error| error.to_string())?
         .join("target")
         .join("veln-cache")
-        .join("java");
+        .join("jvm");
     fs::create_dir_all(&cache_root).map_err(|error| error.to_string())?;
-    let key = java_cache_key(java);
+    let key = jvm_class_cache_key(java);
     let cache_dir = cache_root.join(&key);
     let marker = cache_dir.join(".veln-cache-ok");
     if marker.is_file() {
-        return Ok(CachedJava::Ready(cache_dir));
+        return Ok(CachedJvmClasses::Ready(cache_dir));
     }
     if cache_dir.exists() {
         fs::remove_dir_all(&cache_dir).map_err(|error| error.to_string())?;
@@ -100,16 +98,23 @@ fn ensure_cached_java(
             .map_err(|error| error.to_string())?;
     }
 
-    let javac_output = ProcessCommand::new("javac")
+    fs::write(
+        compile_dir.join("VelnClassfileCompiler.java"),
+        CLASSFILE_COMPILER_SOURCE,
+    )
+    .map_err(|error| error.to_string())?;
+
+    let compiler_output = ProcessCommand::new("java")
+        .arg("VelnClassfileCompiler.java")
         .args(java.sources.iter().map(|source| source.path.as_str()))
         .current_dir(&compile_dir)
         .output();
-    let javac_output = match javac_output {
+    let compiler_output = match compiler_output {
         Ok(output) => output,
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
             let _ = fs::remove_dir_all(&compile_dir);
-            return Ok(CachedJava::ToolError(format!(
-                "veln: `javac` was not found; install a JDK to use `{command_name}`"
+            return Ok(CachedJvmClasses::ToolError(missing_java_message(
+                command_name,
             )));
         }
         Err(error) => {
@@ -117,20 +122,26 @@ fn ensure_cached_java(
             return Err(error.to_string());
         }
     };
-    if !javac_output.status.success() {
+    if !compiler_output.status.success() {
         let _ = fs::remove_dir_all(&compile_dir);
-        return Ok(CachedJava::ToolError(format!(
-            "veln: javac failed with status {}",
-            javac_output.status
+        return Ok(CachedJvmClasses::ToolError(format!(
+            "veln: JVM class preparation failed with status {}",
+            compiler_output.status
         )));
+    }
+    if !compile_dir.join("VelnEntry.class").is_file() {
+        let _ = fs::remove_dir_all(&compile_dir);
+        return Ok(CachedJvmClasses::ToolError(
+            "veln: JVM class preparation did not produce an entry class".to_string(),
+        ));
     }
 
     fs::write(marker_for(&compile_dir), b"ok\n").map_err(|error| error.to_string())?;
     match fs::rename(&compile_dir, &cache_dir) {
-        Ok(()) => Ok(CachedJava::Ready(cache_dir)),
+        Ok(()) => Ok(CachedJvmClasses::Ready(cache_dir)),
         Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
             fs::remove_dir_all(&compile_dir).map_err(|error| error.to_string())?;
-            Ok(CachedJava::Ready(cache_dir))
+            Ok(CachedJvmClasses::Ready(cache_dir))
         }
         Err(error) => {
             let _ = fs::remove_dir_all(&compile_dir);
@@ -170,9 +181,11 @@ fn create_cache_compile_dir(cache_root: &Path, key: &str) -> io::Result<PathBuf>
     ))
 }
 
-fn java_cache_key(java: &veln_backend_jvm::JavaProgram) -> String {
+fn jvm_class_cache_key(java: &veln_backend_jvm::JavaProgram) -> String {
     let mut hash = Fnv64::new();
-    hash.write(b"veln-java-cache-v1\0");
+    hash.write(b"veln-jvm-class-cache-v1\0");
+    hash.write(CLASSFILE_COMPILER_SOURCE.as_bytes());
+    hash.write(b"\0");
     for source in &java.sources {
         hash.write(source.path.as_bytes());
         hash.write(b"\0");
@@ -242,6 +255,53 @@ fn exit_code_from_status(status: ExitStatus) -> ExitCode {
     }
 }
 
+fn missing_java_message(command_name: &str) -> String {
+    format!("veln: `java` was not found; install a JDK to use `{command_name}`")
+}
+
+const CLASSFILE_COMPILER_SOURCE: &str = r#"import java.io.File;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
+import javax.tools.JavaCompiler;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
+import javax.tools.ToolProvider;
+
+public final class VelnClassfileCompiler {
+    private VelnClassfileCompiler() {}
+
+    public static void main(String[] args) throws Exception {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        if (compiler == null) {
+            System.err.println("system Java compiler is unavailable");
+            System.exit(1);
+        }
+        try (StandardJavaFileManager files = compiler.getStandardFileManager(
+            null,
+            null,
+            StandardCharsets.UTF_8
+        )) {
+            files.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(new File(".")));
+            Iterable units = files.getJavaFileObjectsFromStrings(Arrays.asList(args));
+            List<String> options = Arrays.asList("-g:none", "-source", "8", "-target", "8");
+            Boolean ok = compiler.getTask(
+                new PrintWriter(System.err, true),
+                files,
+                null,
+                options,
+                null,
+                units
+            ).call();
+            if (!Boolean.TRUE.equals(ok)) {
+                System.exit(1);
+            }
+        }
+    }
+}
+"#;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,7 +338,7 @@ mod tests {
     }
 
     #[test]
-    fn java_cache_key_tracks_source_path_contents_and_order() {
+    fn jvm_class_cache_key_tracks_source_path_contents_and_order() {
         let base = java_program(&[
             ("VelnProgram.java", "class VelnProgram {}"),
             ("VelnRuntime.java", "class VelnRuntime {}"),
@@ -296,13 +356,13 @@ mod tests {
             ("VelnProgram.java", "class VelnProgram {}"),
         ]);
 
-        let base_key = java_cache_key(&base);
+        let base_key = jvm_class_cache_key(&base);
 
         assert_eq!(base_key.len(), 16);
         assert!(base_key.chars().all(|ch| ch.is_ascii_hexdigit()));
-        assert_ne!(base_key, java_cache_key(&changed_contents));
-        assert_ne!(base_key, java_cache_key(&changed_path));
-        assert_ne!(base_key, java_cache_key(&changed_order));
+        assert_ne!(base_key, jvm_class_cache_key(&changed_contents));
+        assert_ne!(base_key, jvm_class_cache_key(&changed_path));
+        assert_ne!(base_key, jvm_class_cache_key(&changed_order));
     }
 
     #[test]

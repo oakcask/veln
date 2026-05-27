@@ -95,32 +95,34 @@ arguments, not source inputs. Entry parameters may be declared as `String`,
 `Int` arguments parse as decimal signed integers, `Float` arguments parse as
 JVM double-precision decimal text, and `Bool` arguments must be exactly `true`
 or `false`. The reachable program is semantically checked, lowered to checked
-core, then typed IR, then generated Java source. Reachability follows imported
-qualified calls by resolving the alias from selected-file `use` declarations to
-the imported source module. Semantic diagnostics in functions unreachable from
-the selected entry do not block `run`.
+core, then typed IR, then generated Java source that is compiled to JVM
+classfiles. Reachability follows imported qualified calls by resolving the alias
+from selected-file `use` declarations to the imported source module. Semantic
+diagnostics in functions unreachable from the selected entry do not block
+`run`.
 
-The command caches compiled Java artifacts by generated source content below
-the project-local build output area. On a cache miss it invokes `javac`; on a
-cache hit it reuses the cached classes and invokes `java` directly. Runtime
-trace files for JSON output remain isolated to the individual command
-invocation. Human mode forwards process stdout and stderr and returns the Java
-process status for runtime failures.
+The command caches compiled JVM classfile artifacts by generated backend
+content below the project-local build output area. On a cache miss it compiles
+the generated source through a JVM-hosted compiler helper; on a cache hit it
+reuses the cached classes and invokes `java` directly. Runtime trace files for
+JSON output remain isolated to the individual command invocation. Human mode
+forwards process stdout and stderr and returns the Java process status for
+runtime failures.
 
 With `--json`, `run` captures process stdout and stderr into the run JSON
 record instead of forwarding them separately. Runtime contract failures are
 reported as top-level structured runtime errors with contract details.
 
-Missing `javac` before compilation or missing `java` after compilation
-succeeds is reported as a JDK setup error.
+Missing `java` before compilation or class loading is reported as a JDK setup
+error.
 
 <a id="veln-test"></a>
 
 ## `veln test [--json] [target ...]`
 
 `test` reuses the parser, semantic diagnostics, checked-core lowering, typed IR,
-JVM backend, and Java execution path used by `run`, including the generated
-Java artifact cache.
+JVM backend, and Java execution path used by `run`, including the generated JVM
+class cache.
 
 Like `run`, `test` combines parse-clean selected files into one surface module
 before semantic analysis.
@@ -178,7 +180,7 @@ already discovered cases are marked `blocked` with reason `static_gate`.
 Runtime failures become failed cases. Runtime contract failures inside a
 selected case use `failure.kind: "contract"` and include runtime contract
 details. JDK setup failures become case errors with reason `runner_error`,
-including a missing `java` after `javac` succeeds.
+including a missing `java` before compilation or class loading.
 
 Doctest output mismatches become failed cases with `failure.kind: "output"` and
 `reason: "expected_output"`. JSON details include the mismatched stream,

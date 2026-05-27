@@ -77,8 +77,8 @@ command result. Their source file in diagnostics is a generated
 
 JDK setup failures are reported on the affected case with
 `status: "error"`, `reason: "runner_error"`, and
-`failure.kind: "runtime"`. This includes a missing `javac` before compilation
-and a missing `java` after compilation succeeds.
+`failure.kind: "runtime"`. This includes a missing `java` before compilation
+or class loading.
 
 Runtime contract failures inside a selected test case are reported as failed
 cases with `failure.kind: "contract"`. The failure details use

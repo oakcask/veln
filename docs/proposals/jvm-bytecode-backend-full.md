@@ -7,6 +7,8 @@ planned behavior, not current specification behavior.
 
 ## Route Map
 
+- Current proposal status and next implementation work:
+  [implementation status](#implementation-status).
 - Current implemented behavior:
   [../specification/execution.md](../specification/execution.md) and
   [../specification/commands.md](../specification/commands.md).
@@ -14,6 +16,35 @@ planned behavior, not current specification behavior.
   [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
 - Promotion mechanics:
   [implementation-route.md](implementation-route.md).
+
+## Implementation Status
+
+This proposal is not complete.
+
+Current behavior already removes the separate `javac` process from ordinary
+`run` and `test` execution. It also keeps missing `java` as the user-facing
+runner setup error, uses a persistent JVM class cache, and keys that cache with
+the compiler helper contents.
+
+That is a migration step, not the accepted backend route. The backend still
+exposes `JavaProgram` and generated Java source as the lowering output. The CLI
+writes a JVM-hosted compiler helper and launches `java` on that helper, which
+then uses the host Java Compiler API. The updated tests prove that a `javac`
+executable is not required; they do not prove that source-level Java generation
+is gone.
+
+Remaining proposal work:
+
+- add a Rust classfile writer behind the backend API so typed IR lowers
+  directly to class files
+- keep Java source lowering only as a migration baseline while a test-harness
+  backend selector compares it with true classfile lowering
+- add parity fixtures for the implemented IR subset, then keep those fixtures
+  as bytecode runtime regressions after the Java source route is removed
+- add `javap -verbose` smoke tests for stable structural facts
+- add the required JVM backend CI job after structural checks exist
+- promote only observable setup, runtime, and command JSON behavior into the
+  specification after direct classfile emission is implemented
 
 ## Problem
 
@@ -183,7 +214,7 @@ Missing `java` remains a runner error because the selected program still runs
 on the JVM. Missing `javap` is a test-environment issue for structural tests,
 not a user-facing runtime requirement.
 
-## Acceptance Criteria
+## Completion Criteria
 
 - Existing JVM runtime behavior fixtures pass through direct classfile
   emission.
@@ -202,7 +233,7 @@ not a user-facing runtime requirement.
   indexes, bytecode offsets, local variable slots, helper names, or ordinary
   instruction ordering as stable language facts.
 
-## Working Answers
+## Implementation Defaults
 
 These answers guide the initial implementation unless later dependency review
 or proposal revision changes the constraints.

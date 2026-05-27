@@ -751,8 +751,11 @@ fn assert_stream(
 }
 
 fn jdk_is_available() -> bool {
-    Command::new("javac").arg("-version").output().is_ok()
-        && Command::new("java").arg("-version").output().is_ok()
+    Command::new("java").arg("-version").output().is_ok()
+        && Command::new("java")
+            .arg("--list-modules")
+            .output()
+            .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("jdk.compiler"))
 }
 
 fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &JsonAssertion) {

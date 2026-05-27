@@ -15,9 +15,9 @@ Proposal text is not current language behavior unless
 - Use [implementation-route.md](implementation-route.md) for proposal promotion
   mechanics after an explicit task selects proposal work.
 - Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the selected JVM
-  backend proposal. It routes current behavior, bytecode migration detail,
-  verification boundaries, and promotion cleanup without making bytecode
-  behavior current specification.
+  backend proposal. It routes current implementation status, bytecode migration
+  detail, verification boundaries, and promotion cleanup without making planned
+  bytecode behavior current specification.
 - Use [reference-followups.md](reference-followups.md) for follow-up work that
   is absent from the current specification.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md) only

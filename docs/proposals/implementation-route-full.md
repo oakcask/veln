@@ -33,6 +33,7 @@ This page routes planned work; it does not define current behavior.
 
 - JVM bytecode backend:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md) first, then
+  [jvm-bytecode-backend-full.md#implementation-status](jvm-bytecode-backend-full.md#implementation-status),
   [../specification/execution.md](../specification/execution.md),
   [../specification/commands.md](../specification/commands.md), and
   [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).

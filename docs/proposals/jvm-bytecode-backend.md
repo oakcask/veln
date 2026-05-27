@@ -9,6 +9,8 @@ proposal as current behavior until implementation is promoted there.
 
 ## Read First
 
+- Implementation status and remaining proposal work:
+  [jvm-bytecode-backend-full.md#implementation-status](jvm-bytecode-backend-full.md#implementation-status).
 - Current execution and JVM backend behavior:
   [../specification/execution.md](../specification/execution.md).
 - Current command setup behavior:
@@ -28,24 +30,33 @@ selected entry still executes through the host JVM, and missing `java` remains
 a runner setup failure. Direct classfile emission means the bytecode backend
 does not require `javac` for ordinary `run` or `test` execution.
 
+## Current Handoff
+
+The proposal is not complete. Current behavior no longer requires a separate
+`javac` executable for ordinary `run` and `test`, but it is still a
+migration step rather than direct `typed IR -> class files` lowering. Continue
+from
+[implementation status](jvm-bytecode-backend-full.md#implementation-status)
+before promoting behavior into the specification.
+
 ## Detail Routes
 
-- Problem and decision:
+- Problem, decision, and explicit non-goals:
   [jvm-bytecode-backend-full.md#problem](jvm-bytecode-backend-full.md#problem)
-  and
-  [jvm-bytecode-backend-full.md#decision](jvm-bytecode-backend-full.md#decision).
-- Runtime parity harness and fixture scope:
+  through
+  [jvm-bytecode-backend-full.md#non-goals](jvm-bytecode-backend-full.md#non-goals).
+- Runtime parity harness, fixture scope, and structural checks:
   [runtime behavior harness](jvm-bytecode-backend-full.md#runtime-behavior-harness)
+  through
+  [bytecode verification coverage](jvm-bytecode-backend-full.md#bytecode-verification-coverage).
+- CI and setup behavior:
+  [CI strategy](jvm-bytecode-backend-full.md#ci-strategy)
   and
-  [fixture scope](jvm-bytecode-backend-full.md#fixture-scope).
-- Bytecode verification and CI:
-  [bytecode verification coverage](jvm-bytecode-backend-full.md#bytecode-verification-coverage)
-  and
-  [CI strategy](jvm-bytecode-backend-full.md#ci-strategy).
-- Cache, setup, acceptance criteria, and working answers:
-  [cache and setup behavior](jvm-bytecode-backend-full.md#cache-and-setup-behavior),
-  [acceptance criteria](jvm-bytecode-backend-full.md#acceptance-criteria),
-  and [working answers](jvm-bytecode-backend-full.md#working-answers).
+  [cache and setup behavior](jvm-bytecode-backend-full.md#cache-and-setup-behavior).
+- Completion criteria, implementation defaults, and promotion cleanup:
+  [completion criteria](jvm-bytecode-backend-full.md#completion-criteria),
+  [implementation defaults](jvm-bytecode-backend-full.md#implementation-defaults),
+  and [promotion route](jvm-bytecode-backend-full.md#promotion-route).
 
 ## Boundary
 

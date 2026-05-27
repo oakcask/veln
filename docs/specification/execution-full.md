@@ -144,6 +144,6 @@ out of a function, the function's `ensure` clauses run before that early
 return.
 
 The JVM execution path keeps a persistent class cache for generated Java
-sources. Cache hits may skip `javac`, but command results, stdout, stderr,
-contract traces, and captured stdio events are defined as if the generated
-program was compiled for that invocation.
+sources compiled to JVM classfiles. Cache hits may skip source compilation, but
+command results, stdout, stderr, contract traces, and captured stdio events are
+defined as if the generated program was compiled for that invocation.

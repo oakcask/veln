@@ -16,7 +16,7 @@ use veln_test::{
 };
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
-use crate::java::{JavaRunResult, compile_and_run_java_capture_with_env, create_build_dir};
+use crate::java::{JvmRunResult, create_build_dir, prepare_and_run_jvm_capture_with_env};
 use crate::surface::{load_surface_module, reachable_entry_module};
 
 pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String> {
@@ -96,7 +96,7 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
         ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
     ];
     let result =
-        compile_and_run_java_capture_with_env(&build_dir, &java, "veln test", &event_env, &[]);
+        prepare_and_run_jvm_capture_with_env(&build_dir, &java, "veln test", &event_env, &[]);
     let event_trace = fs::read_to_string(&event_file).unwrap_or_default();
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
     let cleanup_result = fs::remove_dir_all(&build_dir);
@@ -108,8 +108,8 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
     }
 
     let output = match result? {
-        JavaRunResult::Ran(output) => output,
-        JavaRunResult::ToolError(message) => {
+        JvmRunResult::Ran(output) => output,
+        JvmRunResult::ToolError(message) => {
             case.status = TestCaseStatus::Error;
             case.reason = Some("runner_error".to_string());
             case.failure = Some(TestFailure::runtime(message));
