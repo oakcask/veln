@@ -88,6 +88,7 @@ impl Command {
                 });
             }
             "help" => {
+                reject_unknown_help_topic(&args[1..])?;
                 return Ok(Self::Help {
                     text: render_help(&args[1..]),
                 });
@@ -358,6 +359,21 @@ fn reject_lsp_arguments<'a>(args: impl Iterator<Item = &'a String>) -> Result<()
     Ok(())
 }
 
+fn reject_unknown_help_topic(path: &[String]) -> Result<(), String> {
+    if path.is_empty() {
+        return Ok(());
+    }
+
+    if path.len() > 1 {
+        return Err(format!("unexpected help argument `{}`", path[1]));
+    }
+
+    match path[0].as_str() {
+        "check" | "fmt" | "run" | "test" | "explain" | "lsp" | "help" => Ok(()),
+        command => Err(format!("unknown command `{command}`")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Command;
@@ -386,6 +402,16 @@ mod tests {
         };
 
         assert_eq!(error, "unknown command `build`");
+    }
+
+    #[test]
+    fn help_parser_reports_unknown_topics() {
+        let error = match parse(&["help", "repair"]) {
+            Ok(_) => panic!("unknown help topic should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown command `repair`");
     }
 
     #[test]
