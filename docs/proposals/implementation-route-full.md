@@ -29,6 +29,20 @@ This page routes planned work; it does not define current behavior.
 - Use [../document-status.md](../document-status.md) before promoting,
   superseding, or rejecting proposal text.
 
+## Target-Specific Routes
+
+- JVM bytecode backend:
+  [jvm-bytecode-backend.md](jvm-bytecode-backend.md) first, then
+  [../specification/execution.md](../specification/execution.md),
+  [../specification/commands.md](../specification/commands.md), and
+  [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
+  After implementation, promote command-visible setup behavior, runtime
+  behavior, and command JSON behavior to the smallest matching specification
+  pages. Keep generated artifacts, bytecode layout, helper layout, backend
+  selectors, and structural test details in proposal, reference, test, or
+  implementation documentation unless a later accepted proposal makes them
+  user-facing behavior.
+
 ## Specification Update Routes
 
 - Source syntax, tests, doctests, names, types, and effects:

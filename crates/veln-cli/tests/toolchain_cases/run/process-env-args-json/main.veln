@@ -1,0 +1,7 @@
+pub fn main(first: String, second: String) -> () effects [process, stdio]
+  stdio::println(int_to_string(vec_len(process::args())))
+  match process::env("VELN_TOOLCHAIN_MESSAGE")
+    Some(value) => stdio::println(value)
+    None => stdio::println("missing")
+  end
+end

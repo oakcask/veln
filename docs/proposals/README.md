@@ -14,14 +14,15 @@ Proposal text is not current language behavior unless
 
 - Use [implementation-route.md](implementation-route.md) for proposal promotion
   mechanics after an explicit task selects proposal work.
+- Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the selected JVM
+  backend proposal. It routes current behavior, bytecode migration detail,
+  verification boundaries, and promotion cleanup without making bytecode
+  behavior current specification.
 - Use [reference-followups.md](reference-followups.md) for follow-up work that
   is absent from the current specification.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md) only
   for future self-hosting standard library questions whose behavior is absent
   from the current specification.
-- Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the proposal
-  to replace Java source generation with direct JVM classfile emission,
-  including runtime behavior, bytecode verification, and CI strategy.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still exploratory or only partially
   represented.

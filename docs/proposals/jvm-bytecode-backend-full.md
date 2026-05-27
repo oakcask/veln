@@ -5,6 +5,16 @@ Status: proposed
 This page expands [jvm-bytecode-backend.md](jvm-bytecode-backend.md). It is
 planned behavior, not current specification behavior.
 
+## Route Map
+
+- Current implemented behavior:
+  [../specification/execution.md](../specification/execution.md) and
+  [../specification/commands.md](../specification/commands.md).
+- Harness organization:
+  [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
+- Promotion mechanics:
+  [implementation-route.md](implementation-route.md).
+
 ## Problem
 
 The implemented JVM backend lowers typed IR to generated Java source, invokes
@@ -62,9 +72,13 @@ should declare:
 - backend modes to run, such as Java source, bytecode, or parity comparison
 
 During migration, parity comparison should run the same fixture through each
-available JVM lowering path and compare normalized observable output. Backend
-setup diagnostics should be tested separately because direct classfile emission
-intentionally changes the `javac` dependency.
+available JVM lowering path and compare normalized observable output: exit
+status, stdout, stderr, structured JSON records, test events, and runtime
+contract failures. Backend setup diagnostics should be tested separately
+because direct classfile emission intentionally changes the `javac` dependency.
+The harness must not compare generated Java source, classfile bytes, bytecode
+instruction sequences, constant-pool indexes, class names, local variable
+slots, or helper layout.
 
 After migration, the same fixture layout should continue to exercise the
 bytecode backend directly.
@@ -235,5 +249,7 @@ When implementing this proposal, compare it against current behavior in
 [../specification/execution.md](../specification/execution.md),
 [../specification/commands.md](../specification/commands.md), and
 [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
-After implementation, promote only the observable behavior into the reference
-pages and leave backend artifact details as implementation details.
+After implementation, promote only observable command and runtime behavior into
+the specification pages. Keep generated artifacts, bytecode layout, helper
+layout, backend selectors, and structural test details out of the language
+specification unless a later proposal makes them user-facing behavior.

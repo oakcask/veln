@@ -2,10 +2,10 @@
 
 Status: proposed
 
-This page tracks the proposal to make the JVM backend emit JVM class files
-directly instead of treating Java source generation as the long-term lowering
-route. Current implemented behavior remains under
-[../specification/execution.md](../specification/execution.md).
+This page routes the selected proposal to make the JVM backend emit JVM class
+files directly. Current implemented behavior remains under
+[../specification/execution.md](../specification/execution.md); do not use this
+proposal as current behavior until implementation is promoted there.
 
 ## Read First
 
@@ -15,10 +15,10 @@ route. Current implemented behavior remains under
   [../specification/commands.md](../specification/commands.md).
 - Current CLI fixture harness:
   [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
-- Full proposal, test strategy, and CI plan:
-  [jvm-bytecode-backend-full.md](jvm-bytecode-backend-full.md).
+- Proposal promotion route:
+  [implementation-route.md](implementation-route.md).
 
-## Decision
+## Target
 
 Change the JVM backend implementation route from `typed IR -> Java source ->
 javac -> class files` to `typed IR -> class files`.
@@ -28,40 +28,38 @@ selected entry still executes through the host JVM, and missing `java` remains
 a runner setup failure. Direct classfile emission means the bytecode backend
 does not require `javac` for ordinary `run` or `test` execution.
 
+## Detail Routes
+
+- Problem and decision:
+  [jvm-bytecode-backend-full.md#problem](jvm-bytecode-backend-full.md#problem)
+  and
+  [jvm-bytecode-backend-full.md#decision](jvm-bytecode-backend-full.md#decision).
+- Runtime parity harness and fixture scope:
+  [runtime behavior harness](jvm-bytecode-backend-full.md#runtime-behavior-harness)
+  and
+  [fixture scope](jvm-bytecode-backend-full.md#fixture-scope).
+- Bytecode verification and CI:
+  [bytecode verification coverage](jvm-bytecode-backend-full.md#bytecode-verification-coverage)
+  and
+  [CI strategy](jvm-bytecode-backend-full.md#ci-strategy).
+- Cache, setup, acceptance criteria, and working answers:
+  [cache and setup behavior](jvm-bytecode-backend-full.md#cache-and-setup-behavior),
+  [acceptance criteria](jvm-bytecode-backend-full.md#acceptance-criteria),
+  and [working answers](jvm-bytecode-backend-full.md#working-answers).
+
+## Boundary
+
 This proposal does not change Veln source semantics, typed IR semantics,
 runtime value freezing, stdio ordering, contract behavior, test event shape,
-or the rule that JVM names and layouts are backend details.
-
-## Test Strategy
-
-The bytecode backend must be introduced with runtime behavior coverage, not
-only backend unit tests. During migration, a backend-matrix harness should run
-selected executable fixtures through both the Java source backend and the
-bytecode backend, then compare observable command behavior.
-
-The parity comparison boundary is exit status, stdout, stderr, structured JSON
-records, test events, and runtime contract failures. Runner setup behavior,
-including missing `java` and the bytecode backend's lack of an ordinary `javac`
-requirement, should be covered by setup-specific tests instead of parity
-comparison. The harness must not compare generated Java source, classfile bytes,
-bytecode instruction sequences, constant-pool indexes, class names, local
-variable slots, or helper layout.
-
-## CI Strategy
-
-Required pull request checks should include one pinned-JDK JVM backend job that
-runs bytecode runtime fixtures and bytecode structural checks. Broader
-operating-system and JDK-line coverage can run as scheduled or optional matrix
-jobs once the required path is stable.
-
-`javap -verbose` should be used for structural classfile smoke tests, while
-loading and executing generated classes with `java` remains the authoritative
-JVM verifier boundary.
+task behavior, channel behavior, or the rule that JVM names and layouts are
+backend details.
 
 ## Skip Unless Needed
 
-- Do not use this page as current JVM backend behavior until the reference is
-  updated after implementation.
+- Do not open [jvm-bytecode-backend-full.md](jvm-bytecode-backend-full.md)
+  before choosing one detail route above.
+- Do not use this page as current JVM backend behavior until the specification
+  is updated after implementation.
 - Do not add Java interop, stable JVM ABI, public class names, or bytecode
   layout guarantees through this proposal.
 - Do not promote unrelated JVM behavior through this proposal.

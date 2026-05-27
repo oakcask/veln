@@ -1,0 +1,43 @@
+command = ["run", "--json", "main", "main.veln", "--", "left", "right"]
+exit = 0
+repeat = 2
+
+[requires]
+jdk = true
+
+[env]
+VELN_TOOLCHAIN_MESSAGE = "backend env"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-run-json/v0"
+
+[[json_assert]]
+path = "command"
+equals = "run"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "exit_code"
+equals = 0
+
+[[json_assert]]
+path = "stdout"
+equals = "2\nbackend env\n"
+
+[[json_assert]]
+path = "stderr"
+equals = ""
+
+[[json_assert]]
+path = "error"
+equals = null

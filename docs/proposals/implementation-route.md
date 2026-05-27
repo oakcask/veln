@@ -25,6 +25,17 @@ for detailed comparison, promotion, or cleanup.
 - Use [implementation-route-full.md](implementation-route-full.md) when the
   target requires gap evidence or promotion cleanup.
 
+## Target-Specific Routes
+
+- JVM bytecode backend:
+  [jvm-bytecode-backend.md](jvm-bytecode-backend.md) first, then
+  [../specification/execution.md](../specification/execution.md),
+  [../specification/commands.md](../specification/commands.md), and
+  [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
+  Promote only command-visible setup behavior and runtime behavior after it is
+  implemented; keep bytecode layout, generated artifacts, backend selectors,
+  and structural test details out of `../specification/`.
+
 ## Specification Update Routes
 
 - Source syntax, tests, doctests, names, types, and effects:
