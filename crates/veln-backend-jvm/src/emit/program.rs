@@ -787,7 +787,7 @@ impl<'a> ProgramEmitter<'a> {
         return freezeMap(map);
     }}
 
-    public static Object listLen(Object items) {{
+    public static Object vecLen(Object items) {{
         return Long.valueOf(asList(items).size());
     }}
 
@@ -817,23 +817,23 @@ impl<'a> ProgramEmitter<'a> {
         return String.valueOf(asLong(value));
     }}
 
-    public static Object listIsEmpty(Object items) {{
+    public static Object vecIsEmpty(Object items) {{
         return Boolean.valueOf(asList(items).isEmpty());
     }}
 
-    public static Object listPush(Object items, Object value) {{
+    public static Object vecPush(Object items, Object value) {{
         java.util.ArrayList<Object> copy = new java.util.ArrayList<Object>(asList(items));
         copy.add(value);
         return freezeList(copy);
     }}
 
-    public static Object listConcat(Object left, Object right) {{
+    public static Object vecConcat(Object left, Object right) {{
         java.util.ArrayList<Object> copy = new java.util.ArrayList<Object>(asList(left));
         copy.addAll(asList(right));
         return freezeList(copy);
     }}
 
-    public static Object listMap(Object items, Object fn) {{
+    public static Object vecMap(Object items, Object fn) {{
         java.util.ArrayList<Object> mapped = new java.util.ArrayList<Object>();
         for (Object item : asList(items)) {{
             mapped.add(call(fn, item));
@@ -841,7 +841,7 @@ impl<'a> ProgramEmitter<'a> {
         return freezeList(mapped);
     }}
 
-    public static Object listFilter(Object items, Object fn) {{
+    public static Object vecFilter(Object items, Object fn) {{
         java.util.ArrayList<Object> filtered = new java.util.ArrayList<Object>();
         for (Object item : asList(items)) {{
             if (asBool(call(fn, item))) {{
@@ -851,7 +851,7 @@ impl<'a> ProgramEmitter<'a> {
         return freezeList(filtered);
     }}
 
-    public static Object listFold(Object items, Object initial, Object fn) {{
+    public static Object vecFold(Object items, Object initial, Object fn) {{
         Object accumulator = initial;
         for (Object item : asList(items)) {{
             accumulator = call(fn, accumulator, item);
@@ -859,7 +859,7 @@ impl<'a> ProgramEmitter<'a> {
         return accumulator;
     }}
 
-    public static Object listTryMap(Object items, Object fn) {{
+    public static Object vecTryMap(Object items, Object fn) {{
         java.util.ArrayList<Object> mapped = new java.util.ArrayList<Object>();
         for (Object item : asList(items)) {{
             Object result = call(fn, item);
@@ -871,7 +871,7 @@ impl<'a> ProgramEmitter<'a> {
         return ok(freezeList(mapped));
     }}
 
-    public static Object listTryMapWith(Object context, Object items, Object fn) {{
+    public static Object vecTryMapWith(Object context, Object items, Object fn) {{
         java.util.ArrayList<Object> mapped = new java.util.ArrayList<Object>();
         for (Object item : asList(items)) {{
             Object result = call(fn, context, item);

@@ -287,7 +287,7 @@ relevant claim area.
 - Claim: first examples and golden tests should rely only on a small prelude
   of value-producing list and dictionary update helpers, ordinary list
   traversal helpers, and `Result`/`Option` composition helpers, with
-  `list_try_map` as the explicit fallible traversal primitive.
+  `vec_try_map` as the explicit fallible traversal primitive.
 - Discussion result:
   [First-Slice Prelude Helpers](../source-decisions/records/result-first-slice-prelude-helpers.md)
 - Supporting references:

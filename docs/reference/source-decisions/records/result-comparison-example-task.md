@@ -72,7 +72,7 @@ package manifests, or performance-sensitive benchmarking.
   exiting.
 - The first Veln version should use record-shaped summaries and errors, not
   user-defined ADT declarations.
-- The first Veln version should use `list_try_map` or an equivalent prelude
+- The first Veln version should use `vec_try_map` or an equivalent prelude
   helper for fallible traversal across input lines.
 - The tests should include one successful two-line order, one malformed row,
   one non-positive quantity, and one unknown SKU.

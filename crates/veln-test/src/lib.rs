@@ -2591,7 +2591,7 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(List(Result(Int, ParseError)), AppError) effects []\n",
+                "fn parse(raw: String) -> Result(Vec(Result(Int, ParseError)), AppError) effects []\n",
                 "  Ok([])\n",
                 "end\n",
                 "/// ```veln\n",

@@ -49,8 +49,8 @@ impl CoreType {
         Self::named("Option", vec![value])
     }
 
-    pub fn list(value: CoreType) -> Self {
-        Self::named("List", vec![value])
+    pub fn vec(value: CoreType) -> Self {
+        Self::named("Vec", vec![value])
     }
 
     pub fn dict(key: CoreType, value: CoreType) -> Self {
@@ -73,9 +73,9 @@ impl CoreType {
         }
     }
 
-    pub fn list_part(&self) -> Option<&CoreType> {
+    pub fn vec_part(&self) -> Option<&CoreType> {
         match self {
-            Self::Named { name, args } if name == "List" && args.len() == 1 => Some(&args[0]),
+            Self::Named { name, args } if name == "Vec" && args.len() == 1 => Some(&args[0]),
             _ => None,
         }
     }
@@ -146,7 +146,7 @@ mod tests {
     fn generic_type_constructors_preserve_nested_arguments() {
         let result = CoreType::result(
             CoreType::option(CoreType::int()),
-            CoreType::list(CoreType::string()),
+            CoreType::vec(CoreType::string()),
         );
 
         assert_eq!(
@@ -159,7 +159,7 @@ mod tests {
                         args: vec![CoreType::int()]
                     },
                     CoreType::Named {
-                        name: "List".to_string(),
+                        name: "Vec".to_string(),
                         args: vec![CoreType::string()]
                     }
                 ]
@@ -204,18 +204,18 @@ mod tests {
     }
 
     #[test]
-    fn list_part_accepts_only_list_with_one_argument() {
-        let list_type = CoreType::list(CoreType::float());
-        assert_eq!(list_type.list_part(), Some(&CoreType::float()));
+    fn vec_part_accepts_only_vec_with_one_argument() {
+        let vec_type = CoreType::vec(CoreType::float());
+        assert_eq!(vec_type.vec_part(), Some(&CoreType::float()));
 
         let wrong_name = CoreType::named("Array", vec![CoreType::float()]);
-        assert_eq!(wrong_name.list_part(), None);
+        assert_eq!(wrong_name.vec_part(), None);
 
-        let missing_arg = CoreType::named("List", Vec::new());
-        assert_eq!(missing_arg.list_part(), None);
+        let missing_arg = CoreType::named("Vec", Vec::new());
+        assert_eq!(missing_arg.vec_part(), None);
 
-        let extra_arg = CoreType::named("List", vec![CoreType::float(), CoreType::int()]);
-        assert_eq!(extra_arg.list_part(), None);
+        let extra_arg = CoreType::named("Vec", vec![CoreType::float(), CoreType::int()]);
+        assert_eq!(extra_arg.vec_part(), None);
     }
 
     #[test]

@@ -57,7 +57,7 @@ fn generates_program_and_runtime_sources_for_result_try_and_stdio() {
 #[test]
 fn generates_runtime_values_for_records_lists_and_options() {
     let ir = lower_to_ir(concat!(
-        "pub fn main() -> Result({message: String, values: List(String), maybe: Option(String), empty: Option(String)}, AppError) effects []\n",
+        "pub fn main() -> Result({message: String, values: Vec(String), maybe: Option(String), empty: Option(String)}, AppError) effects []\n",
         "  Ok({message: \"ok\", values: [\"a\", \"b\"], maybe: Some(\"x\"), empty: None})\n",
         "end\n",
     ));
@@ -762,11 +762,11 @@ fn generated_runtime_rejects_zero_capacity_send_after_close() {
 fn generates_runtime_calls_for_fs_and_process_intrinsics() {
     let ir = lower_to_ir(concat!(
         "pub fn main(path: Path, key: String, status: Int) -> Result(String, FsError) effects [fs, process]\n",
-        "  let args: List(String) = process::args()\n",
+        "  let args: Vec(String) = process::args()\n",
         "  let cwd: Result(Path, ProcessError) = process::cwd()\n",
         "  let value: Option(String) = process::env(key)\n",
         "  let exists: Result(Bool, FsError) = fs::exists(path)\n",
-        "  let listed: Result(List(Path), FsError) = fs::read_dir(path)\n",
+        "  let listed: Result(Vec(Path), FsError) = fs::read_dir(path)\n",
         "  let written: Result((), FsError) = fs::write_string(path, key)\n",
         "  process::exit(status)\n",
         "  fs::read_to_string(path)\n",
@@ -1290,8 +1290,8 @@ fn generates_record_pattern_matching() {
 #[test]
 fn generated_runtime_freezes_container_values_at_public_boundaries() {
     let ir = lower_to_ir(concat!(
-        "pub fn main(items: List(Int), table: Dict(String, Int)) -> Result({pushed: List(Int), inserted: Dict(String, Int)}, AppError) effects []\n",
-        "  Ok({pushed: list_push(items, 1), inserted: dict_insert(table, \"one\", 1)})\n",
+        "pub fn main(items: Vec(Int), table: Dict(String, Int)) -> Result({pushed: Vec(Int), inserted: Dict(String, Int)}, AppError) effects []\n",
+        "  Ok({pushed: vec_push(items, 1), inserted: dict_insert(table, \"one\", 1)})\n",
         "end\n",
     ));
 
@@ -1319,7 +1319,7 @@ fn generated_runtime_transitively_freezes_nested_container_values() {
     }
 
     let ir = lower_to_ir(concat!(
-        "pub fn main() -> Result(List(List(String)), AppError) effects []\n",
+        "pub fn main() -> Result(Vec(Vec(String)), AppError) effects []\n",
         "  Ok([[\"a\"]])\n",
         "end\n",
     ));
@@ -1677,10 +1677,10 @@ fn generated_float_arithmetic_allows_nan_operands() {
 #[test]
 fn generates_runtime_calls_for_prelude_helpers() {
     let ir = lower_to_ir(concat!(
-        "pub fn main(items: List(Int), table: Dict(String, Int), mapper: fn(Int) -> String) -> {",
-        "count: Int, pushed: List(Int), mapped: List(String), found: Option(Int), inserted: Dict(String, Int)",
+        "pub fn main(items: Vec(Int), table: Dict(String, Int), mapper: fn(Int) -> String) -> {",
+        "count: Int, pushed: Vec(Int), mapped: Vec(String), found: Option(Int), inserted: Dict(String, Int)",
         "} effects []\n",
-        "  {count: list_len(items), pushed: list_push(items, 1), mapped: list_map(items, mapper), ",
+        "  {count: vec_len(items), pushed: vec_push(items, 1), mapped: vec_map(items, mapper), ",
         "found: dict_get(table, \"a\"), inserted: dict_insert(table, \"b\", 2)}\n",
         "end\n",
     ));
@@ -1693,14 +1693,14 @@ fn generates_runtime_calls_for_prelude_helpers() {
         .source("VelnRuntime.java")
         .expect("runtime source should exist");
 
-    assert!(program.contains("\"count\", VelnRuntime.listLen(p_items)"));
-    assert!(program.contains("\"pushed\", VelnRuntime.listPush(p_items, Long.valueOf(1L))"));
-    assert!(program.contains("\"mapped\", VelnRuntime.listMap(p_items, p_mapper)"));
+    assert!(program.contains("\"count\", VelnRuntime.vecLen(p_items)"));
+    assert!(program.contains("\"pushed\", VelnRuntime.vecPush(p_items, Long.valueOf(1L))"));
+    assert!(program.contains("\"mapped\", VelnRuntime.vecMap(p_items, p_mapper)"));
     assert!(program.contains("\"found\", VelnRuntime.dictGet(p_table, \"a\")"));
     assert!(
         program.contains("\"inserted\", VelnRuntime.dictInsert(p_table, \"b\", Long.valueOf(2L))")
     );
-    assert!(runtime.contains("public static Object listTryMap"));
+    assert!(runtime.contains("public static Object vecTryMap"));
     assert!(runtime.contains("public static Object resultAndThen"));
 }
 
@@ -1710,8 +1710,8 @@ fn generates_function_values_for_declared_functions() {
         "fn stringify(value: Int) -> String effects []\n",
         "  \"ok\"\n",
         "end\n",
-        "pub fn main(items: List(Int)) -> List(String) effects []\n",
-        "  list_map(items, stringify)\n",
+        "pub fn main(items: Vec(Int)) -> Vec(String) effects []\n",
+        "  vec_map(items, stringify)\n",
         "end\n",
     ));
 
@@ -1722,7 +1722,7 @@ fn generates_function_values_for_declared_functions() {
 
     assert!(
         program.contains(
-            "VelnRuntime.listMap(p_items, (VelnRuntime.Fn) ((Object... fnArgs) -> fn_stringify(fnArgs[0])))"
+            "VelnRuntime.vecMap(p_items, (VelnRuntime.Fn) ((Object... fnArgs) -> fn_stringify(fnArgs[0])))"
         )
     );
 
@@ -2221,15 +2221,15 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("string_split_once", "stringSplitOnce"),
         ("string_parse_int", "stringParseInt"),
         ("int_to_string", "intToString"),
-        ("list_len", "listLen"),
-        ("list_is_empty", "listIsEmpty"),
-        ("list_push", "listPush"),
-        ("list_concat", "listConcat"),
-        ("list_map", "listMap"),
-        ("list_filter", "listFilter"),
-        ("list_fold", "listFold"),
-        ("list_try_map", "listTryMap"),
-        ("list_try_map_with", "listTryMapWith"),
+        ("vec_len", "vecLen"),
+        ("vec_is_empty", "vecIsEmpty"),
+        ("vec_push", "vecPush"),
+        ("vec_concat", "vecConcat"),
+        ("vec_map", "vecMap"),
+        ("vec_filter", "vecFilter"),
+        ("vec_fold", "vecFold"),
+        ("vec_try_map", "vecTryMap"),
+        ("vec_try_map_with", "vecTryMapWith"),
         ("dict_get", "dictGet"),
         ("dict_contains", "dictContains"),
         ("dict_insert", "dictInsert"),

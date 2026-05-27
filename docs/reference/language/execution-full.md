@@ -49,7 +49,7 @@ The JVM backend generates Java source for the implemented IR subset:
 
 - functions, parameters, locals, expression statements, and returns
 - omitted tail expressions as `()` returns
-- literals, records, lists, `Ok`, `Err`, `Some`, `None`, their `Result::` or
+- literals, records, vecs, `Ok`, `Err`, `Some`, `None`, their `Result::` or
   `Option::` qualified forms, and `?`
 - `match` expressions over literals, `_`, bindings, and built-in `Option` and
   `Result` constructors, after finite-domain exhaustiveness diagnostics have
@@ -68,9 +68,9 @@ The JVM backend generates Java source for the implemented IR subset:
 - integer and boolean operators used by the implemented type rules
 
 Generated runtime helpers may use mutable builders while constructing records,
-lists, and dictionary update results. Values returned to Veln user code are
+vecs, and dictionary update results. Values returned to Veln user code are
 frozen at that boundary: records and dictionaries are exposed as unmodifiable
-maps, lists are exposed as unmodifiable lists, and prelude container updates
+maps, vecs are exposed as unmodifiable host lists, and prelude container updates
 return new frozen containers instead of mutating the input value in place.
 
 Bounded channel values are backend-owned runtime handles. `channel::bounded`
@@ -118,12 +118,12 @@ reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.
 `fs::write_string` writes UTF-encoded text and returns `Ok(())` or
 `Err(FsError)`. `fs::exists` returns `Ok(Bool)` for the host existence check or
 `Err(FsError)` if the path cannot be interpreted. `fs::read_dir` returns
-`Ok(List(Path))` containing host-rendered directory entries or `Err(FsError)`.
+`Ok(Vec(Path))` containing host-rendered directory entries or `Err(FsError)`.
 These operations use `Result` at the Veln boundary instead of exposing host
 exceptions.
 
 Current-process intrinsics are also backend-owned runtime operations.
-`process::args` returns the selected entry arguments as a frozen list of
+`process::args` returns the selected entry arguments as a frozen vec of
 strings. `process::env` returns `Some(value)` for a present environment key and
 `None` for an unavailable key. `process::cwd` returns `Ok(Path)` for the host
 current working directory or `Err(ProcessError)` when the runtime cannot

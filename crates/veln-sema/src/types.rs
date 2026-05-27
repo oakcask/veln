@@ -132,8 +132,8 @@ impl Type {
         Self::named("Result", vec![value, error])
     }
 
-    pub(crate) fn list(item: Type) -> Self {
-        Self::named("List", vec![item])
+    pub(crate) fn vec(item: Type) -> Self {
+        Self::named("Vec", vec![item])
     }
 
     pub(crate) fn dict(key: Type, value: Type) -> Self {
@@ -201,9 +201,9 @@ impl Type {
         }
     }
 
-    pub(crate) fn list_part(&self) -> Option<&Type> {
+    pub(crate) fn vec_part(&self) -> Option<&Type> {
         match self {
-            Self::Named { name, args } if name == "List" && args.len() == 1 => Some(&args[0]),
+            Self::Named { name, args } if name == "Vec" && args.len() == 1 => Some(&args[0]),
             _ => None,
         }
     }
@@ -847,7 +847,7 @@ impl<'a> TypeParser<'a> {
     fn validate_named_type(&self, name: String, args: Vec<Type>) -> Result<Type, String> {
         let expected_arity = match name.as_str() {
             "Bool" | "Int" | "Float" | "String" | "Unit" => Some(0),
-            "Option" | "List" => Some(1),
+            "Option" | "Vec" => Some(1),
             "Result" | "Dict" => Some(2),
             _ => None,
         };
@@ -990,7 +990,7 @@ mod tests {
     fn renders_record_and_function_types() {
         let record = Type::Record(vec![
             ("name".to_string(), Type::string()),
-            ("scores".to_string(), Type::list(Type::int())),
+            ("scores".to_string(), Type::vec(Type::int())),
         ]);
         let pure_function = Type::Function {
             params: vec![Type::int(), Type::float()],
@@ -1006,18 +1006,18 @@ mod tests {
             effects: vec!["stdio".to_string(), "net".to_string()],
         };
 
-        assert_eq!(record.render(), "{name: String, scores: List(Int)}");
+        assert_eq!(record.render(), "{name: String, scores: Vec(Int)}");
         assert_eq!(pure_function.render(), "fn(Int, Float) -> Bool");
         assert_eq!(
             effectful_function.render(),
-            "fn({name: String, scores: List(Int)}) -> Result((), AppError) effects [stdio, net]"
+            "fn({name: String, scores: Vec(Int)}) -> Result((), AppError) effects [stdio, net]"
         );
     }
 
     #[test]
     fn exposes_type_parts_and_core_type_shape() {
         let function = Type::Function {
-            params: vec![Type::list(Type::int())],
+            params: vec![Type::vec(Type::int())],
             return_type: Box::new(Type::Record(vec![("ok".to_string(), Type::bool())])),
             effects: vec!["stdio".to_string()],
         };
@@ -1025,7 +1025,7 @@ mod tests {
         let (params, return_type) = function
             .function_parts()
             .expect("function type should expose parts");
-        assert_eq!(params, &[Type::list(Type::int())]);
+        assert_eq!(params, &[Type::vec(Type::int())]);
         assert_eq!(
             return_type,
             &Type::Record(vec![("ok".to_string(), Type::bool())])
@@ -1034,7 +1034,7 @@ mod tests {
         assert_eq!(
             core_type(&function),
             CoreType::Function {
-                params: vec![CoreType::list(CoreType::int())],
+                params: vec![CoreType::vec(CoreType::int())],
                 return_type: Box::new(CoreType::Record(vec![("ok".to_string(), CoreType::bool())])),
                 effects: vec!["stdio".to_string()],
             }
@@ -1113,11 +1113,11 @@ mod tests {
     fn parses_nested_type_annotations_with_whitespace() {
         assert_eq!(
             parse_type_annotation(
-                " fn ( List ( Int ) , platform::Request ) -> Result ( Dict ( String , Int ) , AppError ) effects [ stdio , net ] "
+                " fn ( Vec( Int ) , platform::Request ) -> Result ( Dict ( String , Int ) , AppError ) effects [ stdio , net ] "
             ),
             Ok(Type::Function {
                 params: vec![
-                    Type::list(Type::int()),
+                    Type::vec(Type::int()),
                     Type::named("platform::Request", Vec::new()),
                 ],
                 return_type: Box::new(Type::result(
@@ -1128,17 +1128,17 @@ mod tests {
             })
         );
         assert_eq!(
-            parse_type_annotation("{ name: String, scores: List(Int) }"),
+            parse_type_annotation("{ name: String, scores: Vec(Int) }"),
             Ok(Type::Record(vec![
                 ("name".to_string(), Type::string()),
-                ("scores".to_string(), Type::list(Type::int())),
+                ("scores".to_string(), Type::vec(Type::int())),
             ]))
         );
         assert_eq!(
-            parse_type_annotation("{ name: String, scores: List(Int), }"),
+            parse_type_annotation("{ name: String, scores: Vec(Int), }"),
             Ok(Type::Record(vec![
                 ("name".to_string(), Type::string()),
-                ("scores".to_string(), Type::list(Type::int())),
+                ("scores".to_string(), Type::vec(Type::int())),
             ]))
         );
     }
@@ -1160,7 +1160,7 @@ mod tests {
             ("fn(Int -> Int", "expected `)`"),
             ("fn() -> () effects [,]", "expected effect name"),
             ("fn() -> () effects [stdio", "expected `]`"),
-            ("List", "`List` expects 1 type argument(s), found 0"),
+            ("Vec", "`Vec` expects 1 type argument(s), found 0"),
             ("Dict(String)", "`Dict` expects 2 type argument(s), found 1"),
             ("std::", "expected type"),
         ];
@@ -1168,7 +1168,7 @@ mod tests {
         for (text, message) in cases {
             assert_eq!(parse_type_annotation(text), Err(message.to_string()));
         }
-        assert_eq!(parse_type_or_unknown(Some("List")), Type::Unknown);
+        assert_eq!(parse_type_or_unknown(Some("Vec")), Type::Unknown);
         assert_eq!(parse_type_or_unknown(None), Type::Unknown);
     }
 

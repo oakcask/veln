@@ -1703,7 +1703,7 @@ impl<'a> FunctionChecker<'a> {
 
     fn infer_list(&mut self, expr: &Expr, items: &[Expr], expected: Option<&ExpectedType>) -> Type {
         let expected_item = expected
-            .and_then(|expected| expected.ty.list_part())
+            .and_then(|expected| expected.ty.vec_part())
             .cloned()
             .unwrap_or(Type::Unknown);
         let item_expected = ExpectedType {
@@ -1729,7 +1729,7 @@ impl<'a> FunctionChecker<'a> {
                 item_type = actual;
             }
         }
-        Type::list(item_type)
+        Type::vec(item_type)
     }
 
     fn infer_match(
@@ -2327,7 +2327,7 @@ impl<'a> FunctionChecker<'a> {
                 ],
             ),
         );
-        if helper_name == "list_map"
+        if helper_name == "vec_map"
             && arg_index == 1
             && function_returns_result(&expected.ty).is_none()
             && function_returns_result(actual).is_some()
@@ -2336,7 +2336,7 @@ impl<'a> FunctionChecker<'a> {
                 ("kind", JsonValue::string("repair_hint")),
                 (
                     "message",
-                    JsonValue::string("Use `list_try_map` when the callback returns `Result`."),
+                    JsonValue::string("Use `vec_try_map` when the callback returns `Result`."),
                 ),
                 ("span", span_json(&arg.span)),
             ]));

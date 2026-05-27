@@ -8,8 +8,8 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
     let descriptor = prelude_symbol(name)?;
     let unknown = Type::Unknown;
     let direct_expected = expected.cloned().unwrap_or(Type::Unknown);
-    let list_item = expected
-        .and_then(Type::list_part)
+    let vec_item = expected
+        .and_then(Type::vec_part)
         .cloned()
         .unwrap_or(Type::Unknown);
     let option_item = expected
@@ -50,41 +50,41 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
             Type::result(Type::int(), Type::string()),
         )),
         "int_to_string" => Some((vec![Type::int()], Type::string())),
-        "list_len" => Some((vec![Type::list(unknown)], Type::int())),
-        "list_is_empty" => Some((vec![Type::list(unknown)], Type::bool())),
-        "list_push" => Some((
-            vec![Type::list(list_item.clone()), list_item.clone()],
-            Type::list(list_item),
+        "vec_len" => Some((vec![Type::vec(unknown)], Type::int())),
+        "vec_is_empty" => Some((vec![Type::vec(unknown)], Type::bool())),
+        "vec_push" => Some((
+            vec![Type::vec(vec_item.clone()), vec_item.clone()],
+            Type::vec(vec_item),
         )),
-        "list_concat" => Some((
-            vec![Type::list(list_item.clone()), Type::list(list_item.clone())],
-            Type::list(list_item),
+        "vec_concat" => Some((
+            vec![Type::vec(vec_item.clone()), Type::vec(vec_item.clone())],
+            Type::vec(vec_item),
         )),
-        "list_map" => Some((
+        "vec_map" => Some((
             vec![
-                Type::list(Type::Unknown),
+                Type::vec(Type::Unknown),
                 Type::Function {
                     params: vec![Type::Unknown],
-                    return_type: Box::new(list_item.clone()),
+                    return_type: Box::new(vec_item.clone()),
                     effects: Vec::new(),
                 },
             ],
-            Type::list(list_item),
+            Type::vec(vec_item),
         )),
-        "list_filter" => Some((
+        "vec_filter" => Some((
             vec![
-                Type::list(list_item.clone()),
+                Type::vec(vec_item.clone()),
                 Type::Function {
-                    params: vec![list_item.clone()],
+                    params: vec![vec_item.clone()],
                     return_type: Box::new(Type::bool()),
                     effects: Vec::new(),
                 },
             ],
-            Type::list(list_item),
+            Type::vec(vec_item),
         )),
-        "list_fold" => Some((
+        "vec_fold" => Some((
             vec![
-                Type::list(Type::Unknown),
+                Type::vec(Type::Unknown),
                 direct_expected.clone(),
                 Type::Function {
                     params: vec![direct_expected.clone(), Type::Unknown],
@@ -94,11 +94,11 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
             ],
             direct_expected,
         )),
-        "list_try_map" => {
-            let mapped_item = result_value.list_part().cloned().unwrap_or(Type::Unknown);
+        "vec_try_map" => {
+            let mapped_item = result_value.vec_part().cloned().unwrap_or(Type::Unknown);
             Some((
                 vec![
-                    Type::list(Type::Unknown),
+                    Type::vec(Type::Unknown),
                     Type::Function {
                         params: vec![Type::Unknown],
                         return_type: Box::new(Type::result(
@@ -108,15 +108,15 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
                         effects: Vec::new(),
                     },
                 ],
-                Type::result(Type::list(mapped_item), result_error),
+                Type::result(Type::vec(mapped_item), result_error),
             ))
         }
-        "list_try_map_with" => {
-            let mapped_item = result_value.list_part().cloned().unwrap_or(Type::Unknown);
+        "vec_try_map_with" => {
+            let mapped_item = result_value.vec_part().cloned().unwrap_or(Type::Unknown);
             Some((
                 vec![
                     Type::Unknown,
-                    Type::list(Type::Unknown),
+                    Type::vec(Type::Unknown),
                     Type::Function {
                         params: vec![Type::Unknown, Type::Unknown],
                         return_type: Box::new(Type::result(
@@ -126,7 +126,7 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
                         effects: Vec::new(),
                     },
                 ],
-                Type::result(Type::list(mapped_item), result_error),
+                Type::result(Type::vec(mapped_item), result_error),
             ))
         }
         "dict_get" => Some((
@@ -252,8 +252,8 @@ pub(crate) fn core_prelude_signature(
     let descriptor = prelude_symbol(name)?;
     let unknown = CoreType::Unknown;
     let direct_expected = expected.cloned().unwrap_or(CoreType::Unknown);
-    let list_item = expected
-        .and_then(CoreType::list_part)
+    let vec_item = expected
+        .and_then(CoreType::vec_part)
         .cloned()
         .unwrap_or(CoreType::Unknown);
     let option_item = expected
@@ -292,44 +292,44 @@ pub(crate) fn core_prelude_signature(
             CoreType::result(CoreType::int(), CoreType::string()),
         ),
         "int_to_string" => (vec![CoreType::int()], CoreType::string()),
-        "list_len" => (vec![CoreType::list(unknown)], CoreType::int()),
-        "list_is_empty" => (vec![CoreType::list(unknown)], CoreType::bool()),
-        "list_push" => (
-            vec![CoreType::list(list_item.clone()), list_item.clone()],
-            CoreType::list(list_item),
+        "vec_len" => (vec![CoreType::vec(unknown)], CoreType::int()),
+        "vec_is_empty" => (vec![CoreType::vec(unknown)], CoreType::bool()),
+        "vec_push" => (
+            vec![CoreType::vec(vec_item.clone()), vec_item.clone()],
+            CoreType::vec(vec_item),
         ),
-        "list_concat" => (
+        "vec_concat" => (
             vec![
-                CoreType::list(list_item.clone()),
-                CoreType::list(list_item.clone()),
+                CoreType::vec(vec_item.clone()),
+                CoreType::vec(vec_item.clone()),
             ],
-            CoreType::list(list_item),
+            CoreType::vec(vec_item),
         ),
-        "list_map" => (
+        "vec_map" => (
             vec![
-                CoreType::list(CoreType::Unknown),
+                CoreType::vec(CoreType::Unknown),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
-                    return_type: Box::new(list_item.clone()),
+                    return_type: Box::new(vec_item.clone()),
                     effects: Vec::new(),
                 },
             ],
-            CoreType::list(list_item),
+            CoreType::vec(vec_item),
         ),
-        "list_filter" => (
+        "vec_filter" => (
             vec![
-                CoreType::list(list_item.clone()),
+                CoreType::vec(vec_item.clone()),
                 CoreType::Function {
-                    params: vec![list_item.clone()],
+                    params: vec![vec_item.clone()],
                     return_type: Box::new(CoreType::bool()),
                     effects: Vec::new(),
                 },
             ],
-            CoreType::list(list_item),
+            CoreType::vec(vec_item),
         ),
-        "list_fold" => (
+        "vec_fold" => (
             vec![
-                CoreType::list(CoreType::Unknown),
+                CoreType::vec(CoreType::Unknown),
                 direct_expected.clone(),
                 CoreType::Function {
                     params: vec![direct_expected.clone(), CoreType::Unknown],
@@ -339,14 +339,14 @@ pub(crate) fn core_prelude_signature(
             ],
             direct_expected,
         ),
-        "list_try_map" => {
+        "vec_try_map" => {
             let mapped_item = result_value
-                .list_part()
+                .vec_part()
                 .cloned()
                 .unwrap_or(CoreType::Unknown);
             (
                 vec![
-                    CoreType::list(CoreType::Unknown),
+                    CoreType::vec(CoreType::Unknown),
                     CoreType::Function {
                         params: vec![CoreType::Unknown],
                         return_type: Box::new(CoreType::result(
@@ -356,18 +356,18 @@ pub(crate) fn core_prelude_signature(
                         effects: Vec::new(),
                     },
                 ],
-                CoreType::result(CoreType::list(mapped_item), result_error),
+                CoreType::result(CoreType::vec(mapped_item), result_error),
             )
         }
-        "list_try_map_with" => {
+        "vec_try_map_with" => {
             let mapped_item = result_value
-                .list_part()
+                .vec_part()
                 .cloned()
                 .unwrap_or(CoreType::Unknown);
             (
                 vec![
                     CoreType::Unknown,
-                    CoreType::list(CoreType::Unknown),
+                    CoreType::vec(CoreType::Unknown),
                     CoreType::Function {
                         params: vec![CoreType::Unknown, CoreType::Unknown],
                         return_type: Box::new(CoreType::result(
@@ -377,7 +377,7 @@ pub(crate) fn core_prelude_signature(
                         effects: Vec::new(),
                     },
                 ],
-                CoreType::result(CoreType::list(mapped_item), result_error),
+                CoreType::result(CoreType::vec(mapped_item), result_error),
             )
         }
         "dict_get" => (
@@ -487,9 +487,9 @@ mod tests {
     #[test]
     fn prelude_signature_is_gated_by_standard_symbol_descriptor() {
         let (params, return_type) =
-            prelude_signature("list_len", None).expect("descriptor-backed helper signature");
+            prelude_signature("vec_len", None).expect("descriptor-backed helper signature");
 
-        assert_eq!(params, vec![Type::list(Type::Unknown)]);
+        assert_eq!(params, vec![Type::vec(Type::Unknown)]);
         assert_eq!(return_type, Type::int());
         assert!(prelude_signature("unknown_helper", None).is_none());
     }

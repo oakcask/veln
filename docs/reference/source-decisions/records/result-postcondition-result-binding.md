@@ -32,7 +32,7 @@ Functions that do not need to mention the returned value may keep the shorter
 return type form:
 
 ```veln
-fn is_empty(items: List<Item>) -> Bool
+fn is_empty(items: Vec<Item>) -> Bool
   ensure true
 end
 ```

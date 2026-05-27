@@ -131,7 +131,7 @@ symbol table:
 fs::read_to_string(path: Path) -> Result(String, FsError) effects [fs]
 fs::write_string(path: Path, text: String) -> Result((), FsError) effects [fs]
 fs::exists(path: Path) -> Result(Bool, FsError) effects [fs]
-fs::read_dir(path: Path) -> Result(List(Path), FsError) effects [fs]
+fs::read_dir(path: Path) -> Result(Vec(Path), FsError) effects [fs]
 ```
 
 Direct calls to these functions infer the `fs` effect. A public function or
@@ -153,7 +153,7 @@ The checker recognizes these current-process call targets through the standard
 symbol table:
 
 ```veln
-process::args() -> List(String) effects [process]
+process::args() -> Vec(String) effects [process]
 process::env(name: String) -> Option(String) effects [process]
 process::cwd() -> Result(Path, ProcessError) effects [process]
 process::exit(status: Int) -> () effects [process]
@@ -270,15 +270,15 @@ in that table before the prelude signature adapter assigns its compiler-known
 type. They do not infer effects.
 
 ```veln
-list_len(items: List(A)) -> Int
-list_is_empty(items: List(A)) -> Bool
-list_push(items: List(A), value: A) -> List(A)
-list_concat(left: List(A), right: List(A)) -> List(A)
-list_map(items: List(A), f: fn(A) -> B) -> List(B)
-list_filter(items: List(A), f: fn(A) -> Bool) -> List(A)
-list_fold(items: List(A), initial: B, f: fn(B, A) -> B) -> B
-list_try_map(items: List(A), f: fn(A) -> Result(B, E)) -> Result(List(B), E)
-list_try_map_with(context: C, items: List(A), f: fn(C, A) -> Result(B, E)) -> Result(List(B), E)
+vec_len(items: Vec(A)) -> Int
+vec_is_empty(items: Vec(A)) -> Bool
+vec_push(items: Vec(A), value: A) -> Vec(A)
+vec_concat(left: Vec(A), right: Vec(A)) -> Vec(A)
+vec_map(items: Vec(A), f: fn(A) -> B) -> Vec(B)
+vec_filter(items: Vec(A), f: fn(A) -> Bool) -> Vec(A)
+vec_fold(items: Vec(A), initial: B, f: fn(B, A) -> B) -> B
+vec_try_map(items: Vec(A), f: fn(A) -> Result(B, E)) -> Result(Vec(B), E)
+vec_try_map_with(context: C, items: Vec(A), f: fn(C, A) -> Result(B, E)) -> Result(Vec(B), E)
 dict_get(dict: Dict(K, V), key: K) -> Option(V)
 dict_contains(dict: Dict(K, V), key: K) -> Bool
 dict_insert(dict: Dict(K, V), key: K, value: V) -> Dict(K, V)
@@ -295,11 +295,11 @@ int_to_string(value: Int) -> String
 ```
 
 Container update helpers return new frozen values and do not mutate their input
-containers in place. `list_try_map` evaluates items in source order, stops at
-the first `Err`, and otherwise returns `Ok` containing the mapped frozen list in
-source order. `list_try_map_with` follows the same traversal and passes the
-unchanged context value as the first callback argument. `list_map`,
-`list_filter`, and `list_fold` also visit list items in source order.
+containers in place. `vec_try_map` evaluates items in source order, stops at
+the first `Err`, and otherwise returns `Ok` containing the mapped frozen vec in
+source order. `vec_try_map_with` follows the same traversal and passes the
+unchanged context value as the first callback argument. `vec_map`,
+`vec_filter`, and `vec_fold` also visit vec items in source order.
 
 `string_split_once` splits at the first occurrence of `separator`, returning
 `None` when the separator is absent. `string_parse_int` accepts the backend
@@ -318,9 +318,9 @@ The embedded `compiler_support` source contains
 not a prelude helper. It is a small compiler-support subsystem used to exercise
 Veln source checking and JVM execution through `fs::read_to_string`.
 
-When `list_map` receives a callback whose return type is `Result`, the checker
+When `vec_map` receives a callback whose return type is `Result`, the checker
 reports the ordinary callback type mismatch and adds a repair hint to use
-`list_try_map` for fallible traversal.
+`vec_try_map` for fallible traversal.
 
 The language specification does not promise asymptotic complexity, allocation
 counts, representation identity, structural sharing, hashing, or tree-balancing

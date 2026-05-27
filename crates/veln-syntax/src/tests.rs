@@ -500,7 +500,7 @@ fn parses_module_use_nested_types_and_multiple_effects() {
         concat!(
             "mod app.core\n",
             "use platform.io\n",
-            "fn collect(items: List(Result(Int, Error))) -> Result(List(Int), Error) effects [fs, net]\n",
+            "fn collect(items: Vec(Result(Int, Error))) -> Result(Vec(Int), Error) effects [fs, net]\n",
             "end\n",
         ),
     );
@@ -513,11 +513,11 @@ fn parses_module_use_nested_types_and_multiple_effects() {
     let SyntaxItem::Function(function) = &output.tree.items[0];
     assert_eq!(
         function.params[0].ty.as_deref(),
-        Some("List(Result(Int, Error))")
+        Some("Vec(Result(Int, Error))")
     );
     assert_eq!(
         function.return_type.as_deref(),
-        Some("Result(List(Int), Error)")
+        Some("Result(Vec(Int), Error)")
     );
     assert_eq!(
         function.effects.as_ref().unwrap(),

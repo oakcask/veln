@@ -149,15 +149,15 @@ const PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("string_split_once"),
     prelude_symbol_descriptor("string_parse_int"),
     prelude_symbol_descriptor("int_to_string"),
-    prelude_symbol_descriptor("list_len"),
-    prelude_symbol_descriptor("list_is_empty"),
-    prelude_symbol_descriptor("list_push"),
-    prelude_symbol_descriptor("list_concat"),
-    prelude_symbol_descriptor("list_map"),
-    prelude_symbol_descriptor("list_filter"),
-    prelude_symbol_descriptor("list_fold"),
-    prelude_symbol_descriptor("list_try_map"),
-    prelude_symbol_descriptor("list_try_map_with"),
+    prelude_symbol_descriptor("vec_len"),
+    prelude_symbol_descriptor("vec_is_empty"),
+    prelude_symbol_descriptor("vec_push"),
+    prelude_symbol_descriptor("vec_concat"),
+    prelude_symbol_descriptor("vec_map"),
+    prelude_symbol_descriptor("vec_filter"),
+    prelude_symbol_descriptor("vec_fold"),
+    prelude_symbol_descriptor("vec_try_map"),
+    prelude_symbol_descriptor("vec_try_map_with"),
     prelude_symbol_descriptor("dict_get"),
     prelude_symbol_descriptor("dict_contains"),
     prelude_symbol_descriptor("dict_insert"),
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn descriptor_table_carries_prelude_purity_metadata() {
-        let symbol = prelude_symbol("list_len").expect("prelude descriptor");
+        let symbol = prelude_symbol("vec_len").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(symbol.effects.is_empty());
