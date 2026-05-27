@@ -15,20 +15,17 @@ implemented behavior; current behavior lives under `../reference/language/`.
 
 ## Target Boundaries
 
-- Promoted self-hosting standard library behavior routes through
-  [../reference/language/names-effects.md](../reference/language/names-effects.md)
-  for implemented effect and compiler-known symbol behavior. Use
-  [self-hosting-standard-library.md](self-hosting-standard-library.md) only for
-  proposal history and future standard library boundary rationale.
-- Repair loop work routes through
+- Current self-hosting standard library behavior routes through
+  [../reference/language/names-effects.md](../reference/language/names-effects.md).
+- Current repair loop behavior routes through
   [../reference/language/holes.md](../reference/language/holes.md) and
   [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
-- Predicate semantics work routes through
+- Current predicate semantics route through
   [../reference/language/contracts.md](../reference/language/contracts.md) and
   [../reference/language/names-effects.md](../reference/language/names-effects.md).
-- When a change touches both targets, choose the one whose user-visible
-  behavior changes first and leave the other target queued unless its remaining
-  proposal text is also implemented.
+- When a change touches both future targets, choose the one whose user-visible
+  behavior changes first and leave the other target queued unless the queue
+  also selects it.
 
 ## Selection Rule
 
@@ -44,8 +41,8 @@ implemented behavior; current behavior lives under `../reference/language/`.
 
 ## Read When
 
-- Use [first-slice-follow-ups.md](first-slice-follow-ups.md) for the accepted
-  first-slice target area before opening the full follow-up record.
+- Use [first-slice-follow-ups.md](first-slice-follow-ups.md) only to confirm
+  that no accepted first-slice target remains.
 - Use [../reference/language/names-effects.md](../reference/language/names-effects.md)
   before adding standard library intrinsics or self-hosting library surface.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)

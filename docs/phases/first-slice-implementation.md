@@ -12,7 +12,7 @@ choose the shortest current document before opening the full historical memo.
 - [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md):
   review routing and historical gap evidence.
 - [../proposals/first-slice-follow-ups.md](../proposals/first-slice-follow-ups.md):
-  accepted targets that still need implementation.
+  closed route for confirming that no accepted first-slice target remains.
 
 ## Read When
 

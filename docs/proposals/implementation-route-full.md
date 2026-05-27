@@ -8,9 +8,9 @@ cleanup. This page routes planned work; it does not define current behavior.
 
 - Choose from [target-queue.md](target-queue.md) before opening broader
   design-wall material.
-- Remaining first-slice implementation targets are tracked in
-  [first-slice-follow-ups.md](first-slice-follow-ups.md), with full detail in
-  [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md).
+- Confirm first-slice target status in
+  [first-slice-follow-ups.md](first-slice-follow-ups.md). The full page exists
+  only to preserve old links from phase and review history.
 - Use design-wall material only when [target-queue.md](target-queue.md) has no
   accepted target for the task.
 
@@ -58,6 +58,6 @@ cleanup. This page routes planned work; it does not define current behavior.
 
 - Do not read design-wall material before the accepted target queue fails to
   route the task.
-- Do not edit full proposal history merely to mark implementation status; keep
-  current behavior in `../reference/language/` and leave remaining proposal work
-  in short route pages.
+- Do not keep implemented behavior in proposals merely to mark implementation
+  status; keep current behavior in `../reference/language/` and leave only
+  remaining proposal work in short route pages.

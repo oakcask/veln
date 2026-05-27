@@ -12,9 +12,9 @@ for detailed comparison, promotion, or queue cleanup.
 - If [target-queue.md](target-queue.md) lists no accepted targets, there is no
   selected proposal completion condition. Do not implement or promote
   design-wall material until the queue selects a target.
-- Remaining first-slice implementation targets are tracked in
-  [first-slice-follow-ups.md](first-slice-follow-ups.md), with full detail in
-  [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md).
+- Confirm first-slice target status in
+  [first-slice-follow-ups.md](first-slice-follow-ups.md). The full page exists
+  only to preserve old links from phase and review history.
 
 ## Compare And Promote
 

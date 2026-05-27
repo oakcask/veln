@@ -20,12 +20,12 @@ full question inventory is kept in [open-questions-full.md](open-questions-full.
 
 - Open repair command target:
   [repair-command.md](repair-command.md).
-- The first-slice implementation questions are already resolved and promoted
-  to `../../reference/source-decisions/`.
+- The first-slice implementation questions are already resolved and moved to
+  `../../reference/source-decisions/`.
 - Current implementation behavior should be read from
   `../../reference/language/`, not from this proposal inventory.
 - Use [open-questions-full.md](open-questions-full.md) only when auditing old
-  design-wall coverage or promoting another resolved item.
+  design-wall coverage or moving another resolved item.
 
 ## Read When
 

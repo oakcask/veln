@@ -54,7 +54,7 @@ current workspace supports, not every target tracked in `../../proposals/`.
 ## Skip Unless Needed
 
 - Use `source-surface.md` for the implemented source grammar before checking
-  older proposal history.
+  proposal directories.
 - Use command-specific JSON pages only after [json-output.md](json-output.md)
   routes the change.
 - Use `../source-decisions/`, `../../proposals/`, `../../phases/`, or
