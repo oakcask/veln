@@ -3682,8 +3682,41 @@ fn check_reports_negative_doctest_that_does_not_fail() {
         &[
             "\"status\":\"error\"",
             "\"id\":\"doctest.expected_failure_missing\"",
-            "\"message\":\"negative doctest produced no diagnostics\"",
+            "\"message\":\"negative doctest produced no error diagnostics\"",
             "\"details\":{\"kind\":\"doctest_metadata\"}",
+        ],
+    );
+}
+
+#[test]
+fn check_reports_negative_doctest_with_only_hole_hint() {
+    let project = TestProject::new("check-negative-doctest-hole-hint");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln fail\n",
+            "/// let value: Int = _\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"error\"",
+            "\"id\":\"hole.unfilled\"",
+            "\"severity\":\"hint\"",
+            "\"span\":{\"file\":\"main.veln#doctest-1_test.veln\"",
+            "\"id\":\"doctest.expected_failure_missing\"",
+            "\"message\":\"negative doctest produced no error diagnostics\"",
+            "\"summary\":{\"diagnostic_count\":2",
         ],
     );
 }

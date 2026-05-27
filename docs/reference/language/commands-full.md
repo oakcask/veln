@@ -141,14 +141,15 @@ public `Result(_, E)` function or from known propagated function calls when all
 of them use the same `E`. A `veln ignore` fence is documentation-only: it is
 not generated, checked, selected, or paired with expected output. A `veln fail`
 fence is a negative static example: `check` and `test` accept it only when its
-generated source produces at least one parse or semantic diagnostic. A negative
-doctest is not selected as a runtime doctest case. Other unknown executable
-doctest attributes and empty `error=` values are static doc diagnostics. A line
-inside an executable doctest fence that starts with `# ` is hidden setup: the
-generated test includes the line after the marker, so the example can bind
-helpers without exposing harness code in the documented sample. In `check`,
-generated doctests participate in parse and semantic diagnostics. In `test`,
-generated positive doctests are selected as doctest cases.
+generated source produces at least one error diagnostic; hint-only diagnostics
+do not satisfy the expected failure. A negative doctest is not selected as a
+runtime doctest case. Other unknown executable doctest attributes and empty
+`error=` values are static doc diagnostics. A line inside an executable doctest
+fence that starts with `# ` is hidden setup: the generated test includes the
+line after the marker, so the example can bind helpers without exposing harness
+code in the documented sample. In `check`, generated doctests participate in
+parse and semantic diagnostics. In `test`, generated positive doctests are
+selected as doctest cases.
 
 An adjacent doc comment fence whose info string is
 `veln-output stream=stdout` or `veln-output stream=stderr` records expected
