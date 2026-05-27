@@ -22,6 +22,9 @@ implemented.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md) only
   for future self-hosting standard library questions whose behavior is absent
   from the current reference.
+- Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the open proposal
+  to replace Java source generation with direct JVM classfile emission,
+  including runtime behavior, bytecode verification, and CI strategy.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still open or only partially represented.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
