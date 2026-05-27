@@ -1,0 +1,9 @@
+test passes() -> () effects [stdio]
+  stdio::println("out")
+  stdio::eprintln("err")
+  ()
+end
+
+test fails() -> Result((), String) effects []
+  Err("bad")
+end

@@ -19,6 +19,11 @@ fn toolchain_cases_pass() {
 
 fn run_case(case_dir: &Path) {
     let manifest = CaseManifest::read(&case_dir.join("case.toml"));
+    if let Some(reason) = manifest.skip_reason() {
+        eprintln!("skipping {}: {reason}", case_dir.display());
+        return;
+    }
+
     let project = TestProject::new(case_name(case_dir));
     project.copy_fixtures(case_dir);
 
@@ -189,6 +194,8 @@ struct CaseManifest {
     stderr: StreamExpectation,
     json_assertions: Vec<JsonAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
+    requires: Requirements,
+    skip: SkipRules,
 }
 
 impl CaseManifest {
@@ -202,6 +209,26 @@ impl CaseManifest {
         self.stdout.format == Some(StreamFormat::Json)
             || !self.json_assertions.is_empty()
             || !self.diagnostics.is_empty()
+    }
+
+    fn skip_reason(&self) -> Option<String> {
+        if self.requires.jdk && !jdk_is_available() {
+            return Some("requires a real JDK".to_string());
+        }
+        if self
+            .skip
+            .platforms
+            .iter()
+            .any(|platform| platform.matches())
+        {
+            let reason = self
+                .skip
+                .reason
+                .as_deref()
+                .unwrap_or("case is skipped on this platform");
+            return Some(reason.to_string());
+        }
+        None
     }
 }
 
@@ -240,6 +267,36 @@ struct SpanExpectation {
     column: Option<i64>,
 }
 
+#[derive(Debug, Default)]
+struct Requirements {
+    jdk: bool,
+}
+
+#[derive(Debug, Default)]
+struct SkipRules {
+    platforms: Vec<SkipPlatform>,
+    reason: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SkipPlatform {
+    Unix,
+    Windows,
+    Macos,
+    Linux,
+}
+
+impl SkipPlatform {
+    fn matches(self) -> bool {
+        match self {
+            Self::Unix => cfg!(unix),
+            Self::Windows => cfg!(windows),
+            Self::Macos => cfg!(target_os = "macos"),
+            Self::Linux => cfg!(target_os = "linux"),
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 enum Section {
     Root,
@@ -248,6 +305,8 @@ enum Section {
     JsonAssert(usize),
     Diagnostic(usize),
     DiagnosticSpan(usize),
+    Requires,
+    Skip,
 }
 
 fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
@@ -257,6 +316,8 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     let mut stderr = StreamExpectation::default();
     let mut json_assertions = Vec::new();
     let mut diagnostics = Vec::new();
+    let mut requires = Requirements::default();
+    let mut skip = SkipRules::default();
     let mut section = Section::Root;
 
     for (line_index, raw_line) in text.lines().enumerate() {
@@ -270,6 +331,8 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
             section = match line {
                 "[stdout]" => Section::Stdout,
                 "[stderr]" => Section::Stderr,
+                "[requires]" => Section::Requires,
+                "[skip]" => Section::Skip,
                 "[[json_assert]]" => {
                     json_assertions.push(JsonAssertion {
                         path: String::new(),
@@ -315,6 +378,20 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
             },
             Section::Stdout => parse_stream_key(path, line_number, &mut stdout, key, value, true),
             Section::Stderr => parse_stream_key(path, line_number, &mut stderr, key, value, false),
+            Section::Requires => match key {
+                "jdk" => requires.jdk = parse_bool(path, line_number, value),
+                _ => manifest_error(path, line_number, format!("unknown requires key `{key}`")),
+            },
+            Section::Skip => match key {
+                "platforms" => {
+                    skip.platforms = parse_string_array(path, line_number, value)
+                        .into_iter()
+                        .map(|platform| parse_skip_platform(path, line_number, &platform))
+                        .collect();
+                }
+                "reason" => skip.reason = Some(parse_string(path, line_number, value)),
+                _ => manifest_error(path, line_number, format!("unknown skip key `{key}`")),
+            },
             Section::JsonAssert(index) => match key {
                 "path" => json_assertions[index].path = parse_string(path, line_number, value),
                 "equals" => {
@@ -368,6 +445,8 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
         stderr,
         json_assertions,
         diagnostics,
+        requires,
+        skip,
     };
 
     for (index, assertion) in manifest.json_assertions.iter().enumerate() {
@@ -443,6 +522,28 @@ fn parse_manifest_json_value(path: &Path, line_number: usize, value: &str) -> Js
         JsonValue::Null
     } else {
         JsonValue::Number(parse_i64(path, line_number, value))
+    }
+}
+
+fn parse_bool(path: &Path, line_number: usize, value: &str) -> bool {
+    match value {
+        "true" => true,
+        "false" => false,
+        _ => manifest_error(path, line_number, "expected bool"),
+    }
+}
+
+fn parse_skip_platform(path: &Path, line_number: usize, value: &str) -> SkipPlatform {
+    match value {
+        "unix" => SkipPlatform::Unix,
+        "windows" => SkipPlatform::Windows,
+        "macos" => SkipPlatform::Macos,
+        "linux" => SkipPlatform::Linux,
+        _ => manifest_error(
+            path,
+            line_number,
+            format!("unknown skip platform `{value}`"),
+        ),
     }
 }
 
@@ -565,6 +666,11 @@ fn assert_stream(case_dir: &Path, name: &str, expectation: &StreamExpectation, a
             case_dir.display()
         );
     }
+}
+
+fn jdk_is_available() -> bool {
+    Command::new("javac").arg("-version").output().is_ok()
+        && Command::new("java").arg("-version").output().is_ok()
 }
 
 fn assert_json_path(case_dir: &Path, json: &JsonValue, assertion: &JsonAssertion) {
