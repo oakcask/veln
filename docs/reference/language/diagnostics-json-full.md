@@ -278,4 +278,4 @@ Doc diagnostic `details` are stable for doctest metadata diagnostics:
 fence attribute at the fence line. `doctest.invalid_metadata` reports an empty
 `error=`, missing `stream`, or output stream value other than `stdout` or
 `stderr`. `doctest.expected_failure_missing` reports a `veln fail` fence whose
-generated negative example produced no parse or semantic diagnostic.
+generated negative example produced no error diagnostic.

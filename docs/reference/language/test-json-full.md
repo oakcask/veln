@@ -121,9 +121,12 @@ or static diagnostics from their body.
 
 Doctest fences marked `veln fail` are negative static examples. Diagnostics
 from the generated negative source satisfy the expectation and are removed from
-the top-level diagnostics. If the generated source produces no diagnostic, the
-run reports `doctest.expected_failure_missing` as a static doc diagnostic.
-Negative doctests do not produce case records or expected-output attachments.
+the top-level diagnostics only when at least one matching diagnostic has
+severity `error`. Hint-only diagnostics remain in the top-level diagnostics and
+do not satisfy the expectation. If the generated source produces no error
+diagnostic, the run reports `doctest.expected_failure_missing` as a static doc
+diagnostic. Negative doctests do not produce case records or expected-output
+attachments.
 
 Executable doctest lines that start with `# ` are hidden setup lines. The
 generated doctest includes each hidden setup line after removing the marker,

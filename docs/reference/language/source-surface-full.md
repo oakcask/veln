@@ -156,8 +156,9 @@ preceding generated doctest. A `veln ignore` fence is treated as a
 documentation-only code example and does not create a generated doctest.
 An executable fence marked `veln fail` is a negative static example. It is
 checked as a generated private function and is accepted only when that generated
-source produces at least one parse or semantic diagnostic. It is not selected
-as a runtime doctest case and cannot attach expected output.
+source produces at least one error diagnostic. Hint-only diagnostics do not
+satisfy the expected failure. It is not selected as a runtime doctest case and
+cannot attach expected output.
 Inside an executable `veln` fence, a line that starts with `# ` is hidden setup:
 the generated test includes the line after removing the marker. Hidden setup is
 useful for imports, helpers, and bindings that the documented sample should use
