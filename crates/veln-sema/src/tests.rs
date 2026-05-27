@@ -629,6 +629,26 @@ fn ranks_visible_symbol_candidates_for_hole_expected_type() {
         "\"edits\":[{\"kind\":\"replace\","
     )));
     assert!(details.contains("\"replacement\":\"limit\""));
+    assert!(details.contains("\"target\":{\"node_id\":\"hole-"));
+    assert!(details.contains("\"edit_summary\":\"Replace hole with `fallback`\""));
+    assert!(details.contains(concat!(
+        "\"evidence\":[{\"kind\":\"type\",\"status\":\"passed\",",
+        "\"expected_type\":\"Int\",\"candidate_type\":\"Int\"},",
+        "{\"kind\":\"ranking\",\"status\":\"ranked\",\"rank\":1,"
+    )));
+    assert!(details.contains(concat!(
+        "\"known_limits\":[\"edit is advisory and unapplied\",",
+        "\"tests and examples have not been run\"]"
+    )));
+    assert!(details.contains(concat!(
+        "\"blocking_obligations\":[\"manual_review_required\",",
+        "\"verification.not_run\"]"
+    )));
+    assert!(details.contains(concat!(
+        "\"verification_hint\":{\"command\":\"veln check --json main.veln\",",
+        "\"scope\":\"after_applying_candidate_edit\"}"
+    )));
+    assert!(details.contains("\"application_status\":\"unapplied\""));
 }
 
 #[test]
@@ -825,7 +845,12 @@ fn marks_negated_false_conjunctive_satisfy_as_tautological_repair() {
         2
     );
     assert_eq!(
-        details.matches("\"reason\":\"satisfy_tautology\"").count(),
+        details
+            .matches(concat!(
+                "\"reason\":\"satisfy_tautology\",",
+                "\"application_policy\":\"safe_repair_candidate\""
+            ))
+            .count(),
         2
     );
     assert_eq!(

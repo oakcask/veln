@@ -1,11 +1,13 @@
 # Agent-Language Spec Wall Completion Review
 
-Status: complete for accepted implementation targets.
+Status: complete for accepted implementation targets and the current advisory
+repair candidate boundary.
 
 This review covers the current target selected by `prompts/TARGET.md`: the
-open design-wall material under `../proposals/agent-language-spec-wall/`.
-The directory remains proposal material, but no accepted implementation target
-is left to carry forward from it.
+repair-loop portion of the open design-wall material under
+`../proposals/agent-language-spec-wall/`. The completed implementation target
+is the advisory, machine-readable repair candidate boundary before a dedicated
+repair command exists.
 
 ## Completion Check
 
@@ -21,14 +23,27 @@ is left to carry forward from it.
 - The remaining design-wall pages are explicitly exploratory. New work from
   those pages must first become a selected proposal target before changing
   current behavior.
+- `../proposals/agent-language-spec-wall/repair-command.md` keeps the dedicated
+  repair command, final candidate schema, multi-file edit representation,
+  ranking model, and confirmation protocol as open command-level work.
+- `../reference/language/holes.md` and
+  `../reference/language/diagnostics-json.md` now route the implemented
+  advisory candidate record: concrete edits stay unapplied, candidates include
+  target, edit summary, evidence, known limits, blocking obligations,
+  verification hint, and `application_status: "unapplied"`, and
+  `safe_repair_candidate` does not authorize automatic application.
+- The implementation emits the required repair-candidate evidence for ranked
+  typed-hole symbol candidates, including type evidence, ranking evidence,
+  unrun verification evidence, satisfy evidence when applicable, and explicit
+  verification blocking obligations.
 
 ## Residual Scope
 
-The design-wall directory still holds broad thesis and historical question
-inventory. That is intentional proposal history, not incomplete accepted work.
-Open details inside implemented source-decision records stay bounded by the
-current reference pages; they do not reopen the target queue unless promoted
-as a new accepted target.
+The design-wall directory still holds broad thesis, historical question
+inventory, and future repair-command work. That is intentional proposal
+history, not incomplete accepted work for the current target. Open command
+details stay bounded by `../proposals/agent-language-spec-wall/repair-command.md`;
+they do not reopen the target queue unless promoted as a new accepted target.
 
 The prelude complexity decision is an intentional non-promise in the current
 reference. `../reference/language/names-effects.md` documents value semantics,
@@ -37,6 +52,14 @@ asymptotic complexity guarantees, so the `accepted-proposal` status on that
 record is not a blocking implementation target.
 
 ## Verification
+
+Current repair-boundary review:
+
+- `cargo fmt --check`
+- `cargo test -p veln-sema`
+- `cargo test -p veln-cli --test check_json`
+
+Earlier accepted-target review evidence:
 
 - `rg` over `../proposals/` and `../reference/source-decisions/` for accepted
   and open status labels.

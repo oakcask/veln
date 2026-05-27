@@ -18,6 +18,8 @@ full question inventory is kept in [open-questions-full.md](open-questions-full.
 
 ## Read First
 
+- Open repair command target:
+  [repair-command.md](repair-command.md).
 - The first-slice implementation questions are already resolved and promoted
   to `../../reference/source-decisions/`.
 - Current implementation behavior should be read from
@@ -29,6 +31,8 @@ full question inventory is kept in [open-questions-full.md](open-questions-full.
 
 - Implementation readiness, parser, checker, runtime, and diagnostics:
   [open-questions-full.md#implementation-readiness](open-questions-full.md#implementation-readiness).
+- Repair-loop command boundary, candidate schema, edit representation, ranking,
+  and confirmation protocol: [repair-command.md](repair-command.md).
 - Surface syntax, types, runtime, contracts, effects, holes, toolchain, and
   module documentation topics:
   [open-questions-full.md#surface-syntax](open-questions-full.md#surface-syntax).

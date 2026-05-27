@@ -246,11 +246,25 @@ contains `candidates`. Each candidate contains:
 - `reason`
 - `application_policy`
 - `edits`
+- `target`
+- `edit_summary`
+- `evidence`
+- `known_limits`
+- `blocking_obligations`
+- `verification_hint`
+- `application_status`
 
 Each edit contains `kind: "replace"`, `span`, and `replacement`. The edits are
-concrete but unapplied. The default `application_policy` remains
-`manual_review_required`; the direct reflexive, tautological, and
-`require`-matched satisfy subsets may use `safe_repair_candidate`. Candidates
+concrete but unapplied, and `application_status` is `unapplied`. `target`
+contains the hole node ID and span. `evidence` records the passed type fact,
+ranking fact, unrun verification fact, and satisfy fact when a `satisfy`
+predicate applies.
+`known_limits` and `blocking_obligations` keep advisory candidates from being
+mistaken for applied or fully verified edits. The default `application_policy`
+remains `manual_review_required`; the direct reflexive, tautological, and
+`require`-matched satisfy subsets may use `safe_repair_candidate`. Safe repair
+candidates still carry a verification blocking obligation until the suggested
+verification command has been run after applying the candidate edit. Candidates
 for satisfy-constrained holes also contain `satisfy_status`, either
 `statically_satisfied` or `blocked_until_discharged`. Implementations may bound
 ordinary manual-review candidates, but statically satisfied candidates are

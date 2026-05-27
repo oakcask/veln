@@ -8,6 +8,8 @@ current workspace. Implemented decisions were moved to
 
 ## Read First
 
+- [repair-command.md](repair-command.md) routes the open repair command target,
+  current advisory candidate behavior, and unresolved command-level work.
 - [design-brief.md](design-brief.md) routes to the broad thesis and
   first-slice design anchors; open
   [design-brief-full.md](design-brief-full.md) only for the original brief.
