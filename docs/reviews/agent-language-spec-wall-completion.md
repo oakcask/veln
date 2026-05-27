@@ -26,6 +26,10 @@ repair command exists.
 - `../proposals/agent-language-spec-wall/repair-command.md` keeps the dedicated
   repair command, final candidate schema, multi-file edit representation,
   ranking model, and confirmation protocol as open command-level work.
+- `../reference/language/commands.md` and
+  `../reference/language/commands-full.md` state the implemented command
+  boundary: no `veln repair` command exists, and repair edits appear only as
+  advisory `check --json` diagnostic details.
 - `../reference/language/holes.md` and
   `../reference/language/diagnostics-json.md` now route the implemented
   advisory candidate record: concrete edits stay unapplied, candidates include
@@ -36,6 +40,8 @@ repair command exists.
   typed-hole symbol candidates, including type evidence, ranking evidence,
   unrun verification evidence, satisfy evidence when applicable, and explicit
   verification blocking obligations.
+- CLI parser coverage confirms both `veln repair` and `veln help repair` fail
+  before project discovery with `unknown command`.
 
 ## Residual Scope
 
@@ -56,6 +62,7 @@ record is not a blocking implementation target.
 Current repair-boundary review:
 
 - `cargo fmt --check`
+- `cargo test -p veln-cli cli::tests::help_parser_reports_unknown_topics`
 - `cargo test -p veln-sema`
 - `cargo test -p veln-cli --test check_json`
 

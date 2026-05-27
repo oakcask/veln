@@ -381,6 +381,7 @@ fn cli_reports_parser_errors_before_project_discovery() {
 
     let unknown_command = project.veln(&[], &["wat"]);
     let repair_command = project.veln(&[], &["repair"]);
+    let repair_help_topic = project.veln(&[], &["help", "repair"]);
     let unknown_check_flag = project.veln(&["check"], &["--wat"]);
     let unknown_run_flag = project.veln(&["run"], &["--wat"]);
     let unknown_test_flag = project.veln(&["test"], &["--wat"]);
@@ -395,6 +396,13 @@ fn cli_reports_parser_errors_before_project_discovery() {
     assert_eq!(repair_command.status.code(), Some(2));
     assert_eq!(stdout(&repair_command), "");
     assert_eq!(stderr(&repair_command), "veln: unknown command `repair`\n");
+
+    assert_eq!(repair_help_topic.status.code(), Some(2));
+    assert_eq!(stdout(&repair_help_topic), "");
+    assert_eq!(
+        stderr(&repair_help_topic),
+        "veln: unknown command `repair`\n"
+    );
 
     assert_eq!(unknown_check_flag.status.code(), Some(2));
     assert_eq!(stdout(&unknown_check_flag), "");

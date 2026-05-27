@@ -12,6 +12,10 @@ behavior, gates, or output boundaries.
 - [`veln explain`](#veln-explain)
 - [`veln lsp`](#veln-lsp)
 
+No `veln repair` command is implemented. Candidate edits can appear only as
+advisory `check --json` diagnostic details and remain unapplied by command
+execution.
+
 <a id="veln-check"></a>
 
 ## `veln check [--json] [path ...]`
