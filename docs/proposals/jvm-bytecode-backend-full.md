@@ -195,9 +195,10 @@ target-queue acceptance changes the constraints.
 
 - Prefer `ristretto_classfile` for the first bytecode writer spike because it
   supports classfile reading, writing, and verification. Use the newest release
-  that fits the repository's Rust toolchain policy; if a newer release requires
-  raising the Rust toolchain, treat that as a separate dependency-review and CI
-  policy decision before adoption.
+  after dependency review. If that release requires a newer Rust toolchain,
+  update the repository Rust toolchain policy as part of the same backend
+  adoption work instead of selecting an older crate release only to avoid the
+  toolchain update.
 - Target Java 8 class files for the first bytecode backend. This keeps generated
   classes runnable on newer JDK lines while matching the current runtime helper
   surface. The backend should generate verifier metadata required by that
@@ -216,14 +217,15 @@ target-queue acceptance changes the constraints.
   bytecode, or parity. If command-level selection is needed for integration
   tests, use a clearly internal test-only environment variable and keep it out of
   the language reference.
+- Pin the required JVM backend CI job to an OpenJDK JDK distribution that can run
+  Java 8 class files and provides `javap -verbose`. The job should install a JDK,
+  not only a JRE, because structural classfile smoke tests depend on JDK tools.
 
 The remaining implementation-time checks are:
 
 - Confirm the selected `ristretto_classfile` release, transitive dependency
-  surface, unsafe-code policy, and license metadata before adding it to the
-  workspace.
-- Confirm the pinned JDK used by the required CI job can run Java 8 class files
-  and provide `javap -verbose` for structural smoke tests.
+  surface, unsafe-code policy, license metadata, and required Rust toolchain
+  before adding it to the workspace.
 - Confirm the harness selector cannot become observable command behavior through
   documented flags, stable JSON fields, or user-facing diagnostics.
 
