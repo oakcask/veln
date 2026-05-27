@@ -380,6 +380,7 @@ fn cli_reports_parser_errors_before_project_discovery() {
     let project = TestProject::new("cli-parser-errors");
 
     let unknown_command = project.veln(&[], &["wat"]);
+    let repair_command = project.veln(&[], &["repair"]);
     let unknown_check_flag = project.veln(&["check"], &["--wat"]);
     let unknown_run_flag = project.veln(&["run"], &["--wat"]);
     let unknown_test_flag = project.veln(&["test"], &["--wat"]);
@@ -390,6 +391,10 @@ fn cli_reports_parser_errors_before_project_discovery() {
     assert_eq!(unknown_command.status.code(), Some(2));
     assert_eq!(stdout(&unknown_command), "");
     assert_eq!(stderr(&unknown_command), "veln: unknown command `wat`\n");
+
+    assert_eq!(repair_command.status.code(), Some(2));
+    assert_eq!(stdout(&repair_command), "");
+    assert_eq!(stderr(&repair_command), "veln: unknown command `repair`\n");
 
     assert_eq!(unknown_check_flag.status.code(), Some(2));
     assert_eq!(stdout(&unknown_check_flag), "");
@@ -1990,10 +1995,13 @@ fn check_json_reports_assignable_safe_satisfy_candidate_reason() {
         &[
             "\"id\":\"hole.unfilled\"",
             "\"severity\":\"hint\"",
+            "\"candidate_status\":\"query_only\"",
             "\"candidate_id\":\"symbol-1\",\"name\":\"order\"",
             "\"type\":\"{ready: Bool, paid: Bool}\"",
             "\"reason\":\"satisfy_equality_match\"",
             "\"application_policy\":\"safe_repair_candidate\"",
+            "\"edits\":[{\"kind\":\"replace\"",
+            "\"replacement\":\"order\"",
             "\"satisfy_status\":\"statically_satisfied\"",
             "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"hint\":1},\"by_kind\":{\"hole\":1}}",
         ],

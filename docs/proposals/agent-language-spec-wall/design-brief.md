@@ -13,11 +13,15 @@ only when a current proposal or reference page points back to broad rationale.
   [../first-slice-follow-ups.md](../first-slice-follow-ups.md).
 - Design-wall open-question route:
   [open-questions.md](open-questions.md).
+- Open repair command target:
+  [repair-command.md](repair-command.md).
 
 ## Read When
 
 - The task needs the broad thesis for optimizing repair loops rather than short
   source alone.
+- The task needs repair-loop rationale after checking
+  [repair-command.md](repair-command.md).
 - A proposal still depends on original design anchors for `Result`, `Option`,
   typed holes, contracts, effects, or JSON diagnostics.
 - You are auditing which parts of the original first-slice brief have already
