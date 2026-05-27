@@ -75,6 +75,15 @@ deny contains msg if {
   pull_request := object.get(workflow_trigger, "pull_request", null)
   push != null
   pull_request != null
+  not object.get(push, "branches", null)
+  msg := "workflow with both push and pull_request triggers must define push.branches"
+}
+
+deny contains msg if {
+  push := object.get(workflow_trigger, "push", null)
+  pull_request := object.get(workflow_trigger, "pull_request", null)
+  push != null
+  pull_request != null
   not object.get(push, "paths", null)
   msg := "workflow with both push and pull_request triggers must define push.paths"
 }
