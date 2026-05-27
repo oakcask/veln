@@ -1,0 +1,5 @@
+mod app.source
+
+pub fn main() -> () effects []
+  ()
+end

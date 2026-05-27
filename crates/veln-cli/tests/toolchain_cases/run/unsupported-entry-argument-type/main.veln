@@ -1,0 +1,3 @@
+pub fn main(value: List(Int)) -> List(Int) effects []
+  value
+end

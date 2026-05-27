@@ -1,0 +1,3 @@
+fn helper() -> Int effects []
+  1
+end

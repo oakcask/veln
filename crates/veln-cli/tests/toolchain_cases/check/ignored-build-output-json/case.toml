@@ -1,0 +1,27 @@
+command = ["check", "--json", "src", "src/main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+message = "expected `Int`, but found `String`"
+
+[diagnostics.span]
+file = "src/main.veln"
+line = 2
+column = 3

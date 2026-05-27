@@ -1,0 +1,3 @@
+pub fn main(value: String) -> String effects []
+  value
+end
