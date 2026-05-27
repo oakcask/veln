@@ -5,7 +5,7 @@ need detailed historical review evidence.
 
 Scope:
 
-- [First-Slice Implementation Memo](../phases/first-slice-implementation.md)
+- [Current language behavior](../specification/README.md)
 - [Agent-Language Spec Wall Proposals](../proposals/agent-language-spec-wall/README.md)
 - [Implemented Source Decisions](../reference/source-decisions/README.md)
 - Current Rust workspace and sample commands
@@ -18,9 +18,8 @@ the documented first-slice gate. The main gaps are shared pipeline consistency,
 runtime contract enforcement, first-slice grammar and prelude coverage, test
 module ownership, and captured stdio event fidelity.
 
-Treat this review as the current correction list before relying on the
-completion claims in
-[First-Slice Implementation Memo](../phases/first-slice-implementation.md).
+Treat this review as historical gap evidence. Revalidate findings against the
+current specification before relying on them as open work.
 
 ## Implemented Shape
 
@@ -325,8 +324,7 @@ The previous `veln check` hang was not reproduced by this command.
 
 ## Documentation Follow-Up
 
-- Revisit the "Current Implementation Position" section in
-  [First-Slice Implementation Memo](../phases/first-slice-implementation.md)
-  after the gaps above are fixed.
-- Until then, avoid treating the existing "items 1 through 9 are complete"
-  wording as the current implementation status.
+- Keep implemented behavior in
+  [Current language behavior](../specification/README.md).
+- Keep remaining targets in
+  [Reference Follow-Ups](../proposals/reference-followups.md).

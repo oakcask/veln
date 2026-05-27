@@ -1,6 +1,6 @@
 # Repair Command Proposal Route
 
-Status: open-proposal
+Status: proposed
 
 This page routes the repair-loop proposal area without requiring the broad
 design brief or full open-question inventory first.
@@ -8,11 +8,11 @@ design brief or full open-question inventory first.
 ## Read First
 
 - Implemented command behavior:
-  [../../reference/language/commands.md](../../reference/language/commands.md).
+  [../../specification/commands.md](../../specification/commands.md).
 - Implemented hole repair candidate records:
-  [../../reference/language/holes.md](../../reference/language/holes.md).
+  [../../specification/holes.md](../../specification/holes.md).
 - Implemented `check --json` diagnostic shape:
-  [../../reference/language/diagnostics-json.md](../../reference/language/diagnostics-json.md).
+  [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md).
 - Safe repair candidate boundary:
   [../../reference/source-decisions/records/result-safe-repair-candidate-boundary.md](../../reference/source-decisions/records/result-safe-repair-candidate-boundary.md).
 

@@ -35,7 +35,7 @@ const EXPLANATIONS: &[Explanation] = &[
     Explanation {
         id: "parse.contract_predicate",
         title: "unsupported contract predicate syntax",
-        meaning: "A require, ensure, or invariant clause uses syntax outside the first-slice pure boolean predicate grammar.",
+        meaning: "A require, ensure, or invariant clause uses syntax outside the supported pure boolean predicate grammar.",
         repair: "Use names, literals, grouping, field access, pure calls, arithmetic, comparisons, equality, and boolean operators only.",
     },
     Explanation {

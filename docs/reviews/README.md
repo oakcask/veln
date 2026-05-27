@@ -18,14 +18,15 @@ gap lists that should guide follow-up work.
   records the completion review for the self-hosting standard library `Path`
   boundary target.
 - [first-slice-gap-review.md](first-slice-gap-review.md)
-  routes the first-slice review evidence. It points to the current reference,
-  follow-up targets, and the full historical gap review.
+  routes historical review evidence. It points to the current specification,
+  follow-up targets, and the full gap review.
 
 ## Read When
 
-- Use this directory before claiming an implementation phase is complete.
-- Use `../phases/` for the implementation plan and intended ordering.
-- Use `../proposals/` for accepted targets that still need implementation.
+- Use this directory before relying on completion claims or gap closure.
+- Use [../specification/README.md](../specification/README.md) for
+  implemented language behavior.
+- Use `../proposals/` for proposal targets that still need implementation.
 - Use `../reference/source-decisions/` and
   `../proposals/agent-language-spec-wall/` for original decision rationale.
 
@@ -33,5 +34,5 @@ gap lists that should guide follow-up work.
 
 - Do not read full review evidence before the short review route identifies a
   gap or verification note relevant to the task.
-- Do not use review notes as current behavior when `../reference/language/`
+- Do not use review notes as current behavior when `../specification/`
   states a newer implemented rule.

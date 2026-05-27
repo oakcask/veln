@@ -23,4 +23,4 @@ source family supports a design claim.
 ## Skip Unless Needed
 
 - Do not read this bibliography route for implemented behavior questions; use
-  [../language/README.md](../language/README.md) first.
+  [../../specification/README.md](../../specification/README.md) first.

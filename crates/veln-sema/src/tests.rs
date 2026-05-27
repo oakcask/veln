@@ -6324,7 +6324,7 @@ fn result_constructor_checks_expected_value_type() {
 }
 
 #[test]
-fn accepts_first_slice_type_forms_and_record_expected_fields() {
+fn accepts_supported_type_forms_and_record_expected_fields() {
     let source = SourceFile::new(
         "main.veln",
         concat!(

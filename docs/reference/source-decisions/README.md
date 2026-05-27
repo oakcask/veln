@@ -3,14 +3,14 @@
 Status: implemented
 
 These discussion results describe decisions represented by the current
-implementation or by an intentional absence in the current reference. Read
-`../language/` first for behavior; use this area only for rationale,
+implementation or by an intentional absence in the current specification. Read
+`../../specification/` first for behavior; use this area only for rationale,
 compatibility context, or record-placement audits.
 
 ## Read First
 
-- [../language/README.md](../language/README.md) for implemented behavior.
-- [../language/source-decisions.md](../language/source-decisions.md) for the
+- [../../specification/README.md](../../specification/README.md) for implemented behavior.
+- [../../specification/source-decisions.md](../../specification/source-decisions.md) for the
   short language-facing rationale route.
 - [topic-map.md](topic-map.md) when the task area is known but the decision
   category is not.
@@ -52,4 +52,4 @@ implemented reference still wins. Planned or incomplete decisions live under
 - Do not read individual `result-*.md` records before choosing one of the topic
   indexes above.
 - Do not use these records as implementation status when
-  `../language/README.md` says otherwise.
+  `../../specification/README.md` says otherwise.

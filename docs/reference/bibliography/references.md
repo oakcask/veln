@@ -7,7 +7,7 @@ bibliography cache.
 
 - Use source identifiers from decision records or claim maps to find exact
   reference metadata in the full page.
-- Keep design behavior in `../language/` and rationale in
+- Keep design behavior in `../../specification/` and rationale in
   `../source-decisions/`; this page is only for citation metadata.
 
 ## Read When

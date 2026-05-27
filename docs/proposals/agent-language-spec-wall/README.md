@@ -1,6 +1,6 @@
 # Agent-Language Spec Wall Proposals
 
-Status: open-proposal
+Status: proposed
 
 This directory keeps design-wall material that is not fully implemented in the
 current workspace. Implemented decisions were moved to
@@ -8,8 +8,9 @@ current workspace. Implemented decisions were moved to
 
 ## Read First
 
-- [repair-command.md](repair-command.md) routes the open repair command target,
-  current advisory candidate behavior, and unresolved command-level work.
+- [repair-command.md](repair-command.md) routes the proposed repair command
+  target, current advisory candidate behavior, and unresolved command-level
+  work.
 - [design-brief.md](design-brief.md) routes to the broad thesis and
   first-slice design anchors; open
   [design-brief-full.md](design-brief-full.md) only for the original brief.
@@ -19,12 +20,12 @@ current workspace. Implemented decisions were moved to
 - [../../reference/source-decisions/records/result-adr-lite-decision-location.md](../../reference/source-decisions/records/result-adr-lite-decision-location.md)
   records the implemented ADR-lite comment decision.
 
-## Accepted Or Open Targets
+## Proposed Targets
 
 - Implemented grammar, concurrency, effect-label, and comparison-task decisions
   now live under `../../reference/`.
-- No accepted design-wall target currently remains in
-  [../target-queue.md](../target-queue.md).
+- Unresolved design-wall targets may be chosen as proposal work when the
+  current specification does not already cover the behavior.
 - Completion review:
   [../../reviews/agent-language-spec-wall-completion.md](../../reviews/agent-language-spec-wall-completion.md).
 - Use [../../reference/source-decisions/README.md](../../reference/source-decisions/README.md)
@@ -32,7 +33,7 @@ current workspace. Implemented decisions were moved to
 
 ## Classification Rule
 
-This directory is for decisions whose accepted behavior is absent, partial, or
+This directory is for decisions whose proposed behavior is absent, partial, or
 only represented as a future compatibility target. When implementation and
 tests catch up to a decision, move that record to
 `../../reference/source-decisions/` and update both index files.

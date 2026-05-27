@@ -53,7 +53,7 @@ those types.
 - The ADT first slice required exhaustiveness only for built-in `Result` and
   `Option` patterns that the first slice chose to support. Current finite
   built-in coverage, including `Bool`, is tracked in
-  `../../language/types.md`.
+  `../../../specification/types.md`.
 - Public signatures may mention opaque named types for domain values and errors.
   The checker may compare those names nominally, render them in diagnostics, and
   use them as candidate-query targets.

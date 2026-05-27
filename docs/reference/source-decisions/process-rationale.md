@@ -8,7 +8,7 @@ policy need rationale.
 - Current document placement rules:
   [../../document-status.md](../../document-status.md).
 - Current diagnostic JSON behavior:
-  [../language/diagnostics-json.md](../language/diagnostics-json.md).
+  [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md).
 - Current proposal promotion route:
   [../../proposals/implementation-route.md](../../proposals/implementation-route.md).
 
@@ -33,5 +33,5 @@ policy need rationale.
 
 Use [../../document-status.md](../../document-status.md) for current placement
 rules before opening decision-location rationale. Use
-[../language/diagnostics-json.md](../language/diagnostics-json.md) before
+[../../specification/diagnostics-json.md](../../specification/diagnostics-json.md) before
 opening diagnostic policy rationale.

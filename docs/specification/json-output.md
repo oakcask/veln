@@ -1,7 +1,7 @@
 # JSON Output
 
 This file routes machine-readable command output changes to the smallest
-implemented reference page. Use it before opening command-specific JSON
+implemented specification page. Use it before opening command-specific JSON
 details.
 
 ## Read First

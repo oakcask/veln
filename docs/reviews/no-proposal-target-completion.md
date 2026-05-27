@@ -1,35 +1,30 @@
 # No Proposal Target Completion Review
 
-Status: complete; no selected proposal target remains.
+Status: historical; superseded by open proposal selection.
 
-This review covers target selection after the accepted target queues reported
-that no accepted proposal target is currently available. The authoritative
-target routes are the proposal queue pages.
+This review covers the former selected-target model. Current proposal work is
+routed through `../proposals/`, where any proposal may be chosen when current
+reference behavior does not already cover it.
 
 ## Completion Check
 
-- `../proposals/target-queue.md` reports that no accepted targets currently
-  remain.
-- `../proposals/implementation-route.md` now stops target selection when the
-  accepted target queue is empty.
-- `../proposals/target-queue-full.md` keeps the no-target fallback as open
-  design exploration only, not as an accepted implementation target.
+- `../proposals/` now treats proposal pages as available proposal work when
+  the current specification does not already cover them.
+- `../proposals/implementation-route.md` routes explicit proposal promotion
+  work without a selected-target gate.
 - Current implemented behavior remains routed through
-  `../reference/language/`.
+  `../specification/`.
 
 ## Review Result
 
-There is no current target proposal whose completion conditions can be compared
-against implementation behavior. Because the queue has no accepted target,
-design-wall material must not be promoted into implementation work unless a
-later queue update selects it.
+The former no-target condition no longer blocks implementation work. Proposal
+work still must be compared against implementation behavior before promotion,
+and current behavior still belongs under `../specification/`.
 
-The target review is therefore complete for the current state: no implementation
-or reference promotion is required, and the prompt state should stop rather than
-choose work from open proposal history.
+The target review is therefore historical context only, not a current routing
+rule.
 
 ## Verification
 
-- Checked `../proposals/target-queue.md`.
-- Checked `../proposals/target-queue-full.md`.
+- Checked `../proposals/`.
 - Checked `../proposals/implementation-route.md`.

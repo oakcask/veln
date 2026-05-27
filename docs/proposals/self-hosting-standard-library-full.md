@@ -1,9 +1,9 @@
 # Self-Hosting Standard Library Full
 
-Status: open-proposal
+Status: proposed
 
 This file keeps future self-hosting questions after implemented standard
-library behavior moved to the language reference.
+library behavior moved to the language specification.
 
 ## Goal
 
@@ -23,7 +23,7 @@ Future source-backed library work may cover:
 
 ## Effect Boundary
 
-The current reference defines the implemented effect labels and compiler-known
+The current specification defines the implemented effect labels and compiler-known
 calls. Future self-hosting work should decide how source-level effect
 abstractions replace or wrap those built-in labels.
 
@@ -41,4 +41,4 @@ abstractions replace or wrap those built-in labels.
 ## Promotion Rule
 
 When future self-hosting behavior becomes implemented, document it in
-`../reference/language/` first and leave only absent behavior here.
+`../specification/` first and leave only absent behavior here.

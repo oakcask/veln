@@ -37,7 +37,7 @@ This result updates the first-slice grammar by adding `TestDecl` as a top-level
 item. Function type syntax still uses `fn`; `test` is only a declaration head.
 
 The implemented production is maintained in
-[Source Surface](../../language/source-surface.md#grammar).
+[Source Surface](../../../specification/source-surface.md#grammar).
 
 The first slice requires the empty parameter list, explicit return type, and
 explicit `effects [...]` clause on every `test` declaration.
@@ -88,7 +88,8 @@ Related notes point to the accepted test shape or effect declaration syntax.
 ## Compatibility
 
 The older bootstrap behavior that treated zero-argument functions in selected
-test files as cases is no longer part of the implemented language reference.
+test files as cases is no longer part of the implemented language
+specification.
 
 ## Rationale
 

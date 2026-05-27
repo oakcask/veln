@@ -1,9 +1,9 @@
 # JVM Bytecode Backend Full
 
-Status: open-proposal
+Status: proposed
 
 This page expands [jvm-bytecode-backend.md](jvm-bytecode-backend.md). It is
-planned behavior, not current reference behavior.
+planned behavior, not current specification behavior.
 
 ## Problem
 
@@ -25,7 +25,7 @@ IR.
 The bytecode backend should preserve the existing observable behavior of
 `veln run` and `veln test`. It may change generated artifacts, cache contents,
 backend helper classes, and setup requirements, but those changes are backend
-implementation details unless the language reference later marks them
+implementation details unless the language specification later marks them
 observable.
 
 During migration, the Java source backend and bytecode backend may coexist
@@ -190,8 +190,8 @@ not a user-facing runtime requirement.
 
 ## Working Answers
 
-These answers guide the initial implementation unless later dependency review or
-target-queue acceptance changes the constraints.
+These answers guide the initial implementation unless later dependency review
+or proposal revision changes the constraints.
 
 - Prefer `ristretto_classfile` for the first bytecode writer spike because it
   supports classfile reading, writing, and verification. Use the newest release
@@ -216,7 +216,7 @@ target-queue acceptance changes the constraints.
   syntax. Fixture manifests may name internal backend modes such as Java source,
   bytecode, or parity. If command-level selection is needed for integration
   tests, use a clearly internal test-only environment variable and keep it out of
-  the language reference.
+  the language specification.
 - Pin the required JVM backend CI job to an OpenJDK JDK distribution that can run
   Java 8 class files and provides `javap -verbose`. The job should install a JDK,
   not only a JRE, because structural classfile smoke tests depend on JDK tools.
@@ -231,9 +231,9 @@ The remaining implementation-time checks are:
 
 ## Promotion Route
 
-If the target queue accepts this proposal, implementation should compare it
-against current behavior in [../reference/language/execution.md](../reference/language/execution.md),
-[../reference/language/commands.md](../reference/language/commands.md), and
+When implementing this proposal, compare it against current behavior in
+[../specification/execution.md](../specification/execution.md),
+[../specification/commands.md](../specification/commands.md), and
 [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
 After implementation, promote only the observable behavior into the reference
 pages and leave backend artifact details as implementation details.

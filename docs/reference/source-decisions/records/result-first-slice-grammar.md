@@ -31,20 +31,20 @@ non-identifier-key dictionary literals.
 
 ## Implemented Grammar
 
-The implemented grammar now lives in the categorized language reference:
+The implemented grammar now lives in the categorized language specification:
 
-- [Source Surface](../../language/source-surface.md) defines modules, items,
+- [Source Surface](../../../specification/source-surface.md) defines modules, items,
   declarations, statements, expressions, patterns, contracts, and explicit
   non-goals.
-- [Types](../../language/types.md) defines implemented type annotations and
+- [Types](../../../specification/types.md) defines implemented type annotations and
   assignment compatibility.
-- [Contracts And Holes](../../language/contracts-holes.md) defines contract and
+- [Contracts And Holes](../../../specification/contracts-holes.md) defines contract and
   `satisfy` checking behavior.
 
 This discussion result records the original decision and rationale. Later
 implemented grammar updates such as `test` declarations, doctest fences,
 ADR-lite records, dictionary literals, and hole `satisfy` clauses are
-integrated into the language reference instead of remaining as proposal
+integrated into the language specification instead of remaining as proposal
 targets.
 
 ## Rationale

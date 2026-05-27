@@ -1,6 +1,6 @@
 # Discussion Result: Prelude Complexity Guarantees
 
-Status: accepted-proposal
+Status: proposed
 
 ## Picked Question
 
