@@ -9,6 +9,9 @@ for detailed comparison, promotion, or queue cleanup.
 
 - Choose from [target-queue.md](target-queue.md) before opening broader
   design-wall material.
+- If [target-queue.md](target-queue.md) lists no accepted targets, there is no
+  selected proposal completion condition. Do not implement or promote
+  design-wall material until the queue selects a target.
 - Remaining first-slice implementation targets are tracked in
   [first-slice-follow-ups.md](first-slice-follow-ups.md), with full detail in
   [first-slice-follow-ups-full.md](first-slice-follow-ups-full.md).

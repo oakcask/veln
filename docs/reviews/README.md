@@ -7,6 +7,8 @@ gap lists that should guide follow-up work.
 
 - [agent-language-spec-wall-completion.md](agent-language-spec-wall-completion.md)
   records the completion review for the current design-wall target route.
+- [no-proposal-target-completion.md](no-proposal-target-completion.md)
+  records the completion review for the current no-target prompt state.
 - [expected-error-doctest-completion.md](expected-error-doctest-completion.md)
   records the completion review for expected-error doctest examples.
 - [toolchain-test-harness-completion.md](toolchain-test-harness-completion.md)
