@@ -3,11 +3,14 @@
 Status: complete for accepted implementation targets and the current advisory
 repair candidate boundary.
 
-This review covers the current target selected by `prompts/TARGET.md`: the
+This review covers the no-target route after
+[../proposals/target-queue.md](../proposals/target-queue.md) and
+[../proposals/first-slice-follow-ups.md](../proposals/first-slice-follow-ups.md)
+reported no accepted targets. The historical implementation target was the
 repair-loop portion of the open design-wall material under
-`../proposals/agent-language-spec-wall/`. The completed implementation target
-is the advisory, machine-readable repair candidate boundary before a dedicated
-repair command exists.
+[../proposals/agent-language-spec-wall/README.md](../proposals/agent-language-spec-wall/README.md).
+The completed implementation target is the advisory, machine-readable repair
+candidate boundary before a dedicated repair command exists.
 
 ## Completion Check
 

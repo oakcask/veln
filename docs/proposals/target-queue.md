@@ -17,6 +17,9 @@ when updating this queue.
 ## Accepted Targets
 
 - No accepted targets currently remain.
+- This means there is no proposal completion condition to implement from this
+  queue. Do not promote open design-wall material into implementation work
+  unless a later queue update selects it as an accepted target.
 
 ## Promoted Targets
 
@@ -38,6 +41,8 @@ when updating this queue.
 
 - Choose the first target whose short proposal page still describes behavior
   absent from `../reference/language/`.
+- If the accepted target list is empty, stop target selection here; the
+  implementation route has no selected proposal to compare or promote.
 - Compare the selected target through
   [implementation-route.md](implementation-route.md).
 - Use [target-queue-full.md](target-queue-full.md) for target boundaries,

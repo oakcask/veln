@@ -12,6 +12,25 @@ test("repository documentation links resolve", () => {
   assert.equal(result.valid, true);
 });
 
+test("repository documentation does not route through ignored prompt files", () => {
+  const docsRoot = path.resolve("docs");
+  const promptReferences = [];
+
+  for (const file of listMarkdownFiles(docsRoot)) {
+    const text = fs.readFileSync(file, "utf8");
+    const lines = text.split("\n");
+    lines.forEach((line, index) => {
+      if (line.includes("prompts/")) {
+        promptReferences.push(
+          `${path.relative(docsRoot, file)}:${index + 1}: ${line.trim()}`,
+        );
+      }
+    });
+  }
+
+  assert.deepEqual(promptReferences, []);
+});
+
 test("reports missing markdown files and anchors", () => {
   using fixture = tempDocs("doc-links-broken");
   fixture.write(
@@ -119,4 +138,17 @@ function tempDocs(name) {
       fs.rmSync(root, { force: true, recursive: true });
     },
   };
+}
+
+function listMarkdownFiles(root) {
+  const files = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const entryPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listMarkdownFiles(entryPath));
+    } else if (entry.isFile() && entry.name.endsWith(".md")) {
+      files.push(entryPath);
+    }
+  }
+  return files.sort();
 }
