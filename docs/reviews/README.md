@@ -5,6 +5,13 @@ gap lists that should guide follow-up work.
 
 ## Read First
 
+- [agent-language-spec-wall-completion.md](agent-language-spec-wall-completion.md)
+  records the completion review for the current design-wall target route.
+- [expected-error-doctest-completion.md](expected-error-doctest-completion.md)
+  records the completion review for expected-error doctest examples.
+- [toolchain-test-harness-completion.md](toolchain-test-harness-completion.md)
+  records the completion review for the structured CLI integration test
+  harness target.
 - [opaque-path-boundary-review.md](opaque-path-boundary-review.md)
   records the completion review for the self-hosting standard library `Path`
   boundary target.

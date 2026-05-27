@@ -6,6 +6,16 @@ This page routes the unresolved question set and resolved decision pointers.
 Resolved decision bodies live under `../../reference/source-decisions/`; the
 full question inventory is kept in [open-questions-full.md](open-questions-full.md).
 
+## Current State
+
+- The full inventory currently routes resolved first-slice questions to
+  decision records and current reference pages.
+- No accepted follow-up target remains in
+  [../first-slice-follow-ups.md](../first-slice-follow-ups.md) or
+  [../target-queue.md](../target-queue.md).
+- Treat any new design-wall work as proposal selection work before changing
+  current behavior.
+
 ## Read First
 
 - The first-slice implementation questions are already resolved and promoted

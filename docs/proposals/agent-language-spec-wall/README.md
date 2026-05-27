@@ -21,8 +21,11 @@ current workspace. Implemented decisions were moved to
 
 - Implemented grammar, concurrency, effect-label, and comparison-task decisions
   now live under `../../reference/`.
-- Future concurrency surface work is tracked in
+- No accepted design-wall target currently remains in
+  [../target-queue.md](../target-queue.md) or
   [../first-slice-follow-ups.md](../first-slice-follow-ups.md).
+- Completion review:
+  [../../reviews/agent-language-spec-wall-completion.md](../../reviews/agent-language-spec-wall-completion.md).
 - Use [../../reference/source-decisions/README.md](../../reference/source-decisions/README.md)
   before opening old decision records directly.
 
