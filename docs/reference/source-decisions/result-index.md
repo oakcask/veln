@@ -6,7 +6,7 @@ the smallest category page.
 
 ## Read First
 
-- Current implemented behavior: [../language/README.md](../language/README.md).
+- Current implemented behavior: [../../specification/README.md](../../specification/README.md).
 - Category route: [README.md](README.md).
 - Record storage route: [records/README.md](records/README.md).
 

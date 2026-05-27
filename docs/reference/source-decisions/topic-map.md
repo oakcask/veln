@@ -1,20 +1,20 @@
 # Source Decision Topic Map
 
-Use this map only after the current language reference names a boundary but
+Use this map only after the current language specification names a boundary but
 does not explain why it exists. Start with a category page, then open one
 record only when the category page points to it.
 
 ## Read First
 
-- Current behavior: [../language/topic-map.md](../language/topic-map.md).
+- Current behavior: [../../specification/topic-map.md](../../specification/topic-map.md).
 - Language-facing rationale route:
-  [../language/source-decisions.md](../language/source-decisions.md).
+  [../../specification/source-decisions.md](../../specification/source-decisions.md).
 - Category index: [README.md](README.md).
 
 ## Route Rule
 
 Open one category page from the sections below, then one `result-*.md` record
-only if that category page names it. Return to `../language/` before changing
+only if that category page names it. Return to `../../specification/` before changing
 implemented behavior.
 
 ## Source Language
@@ -51,5 +51,5 @@ implemented behavior.
 ## Skip Unless Needed
 
 - Do not scan `result-*.md` files directly.
-- Do not use source decisions as implementation status when `../language/`
+- Do not use source decisions as implementation status when `../../specification/`
   says otherwise.

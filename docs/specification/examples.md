@@ -3,13 +3,13 @@
 Status: implemented
 
 This file records complete examples that are expected to type-check and run
-against the implemented language reference.
+against the implemented language specification.
 
 ## Line-Item Order Summary
 
 The comparison example is implemented in `examples/comparison/`. Its rationale
 is recorded in
-[Comparison Example Task](../source-decisions/records/result-comparison-example-task.md).
+[Comparison Example Task](../reference/source-decisions/records/result-comparison-example-task.md).
 
 The pure API is:
 

@@ -25,11 +25,11 @@ doctest error types, and expected output.
   `test --json`.
 - Negative doctests do not create expected-output attachments, so output
   comparison remains limited to positive executable doctests.
-- The current reference pages describe the behavior in
-  `../reference/language/source-surface.md`,
-  `../reference/language/commands.md`,
-  `../reference/language/test-json.md`, and
-  `../reference/language/diagnostics-json.md`.
+- The current specification pages describe the behavior in
+  `../specification/source-surface.md`,
+  `../specification/commands.md`,
+  `../specification/test-json.md`, and
+  `../specification/diagnostics-json.md`.
 
 ## Residual Scope
 

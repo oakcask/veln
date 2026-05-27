@@ -3,46 +3,46 @@
 Use this page after choosing to turn proposal text into implemented behavior.
 Start from [README.md](README.md) when you only need to find the relevant
 proposal. Use [implementation-route-full.md](implementation-route-full.md) only
-for detailed comparison, promotion, or queue cleanup.
+for detailed comparison, promotion, or cleanup.
 
 ## Choose A Target
 
-- Choose from [target-queue.md](target-queue.md) before opening broader
-  design-wall material.
-- If [target-queue.md](target-queue.md) lists no accepted targets, there is no
-  selected proposal completion condition. Do not implement or promote
-  design-wall material until the queue selects a target.
+- Choose any short proposal page in this directory when the task explicitly
+  selects proposal work and the behavior is absent from
+  `../specification/`.
+- Keep the target to one short proposal page unless that page routes to a full
+  detail record or companion proposal.
 
 ## Compare And Promote
 
 - Compare the target with current behavior in
-  [../reference/language/README.md](../reference/language/README.md) so the
+  [../specification/README.md](../specification/README.md) so the
   implementation changes only the missing behavior.
 - Keep the comparison scoped to the chosen target. Do not use nearby design-wall
-  text as requirements unless the queue or short proposal page points to it.
-- Use [../reference/language/topic-map.md](../reference/language/topic-map.md)
-  to choose the smallest reference page to update after the code changes.
+  text as requirements unless the short proposal page points to it.
+- Use [../specification/topic-map.md](../specification/topic-map.md)
+  to choose the smallest specification page to update after the code changes.
 - Use [implementation-route-full.md](implementation-route-full.md) when the
-  target requires gap evidence, queue updates, or promotion cleanup.
+  target requires gap evidence or promotion cleanup.
 
-## Reference Update Routes
+## Specification Update Routes
 
 - Source syntax, tests, doctests, names, types, and effects:
-  [../reference/language/topic-map.md#source-surface](../reference/language/topic-map.md#source-surface).
+  [../specification/topic-map.md#source-surface](../specification/topic-map.md#source-surface).
 - Repair candidates, satisfy constraints, and hole diagnostics:
-  [../reference/language/holes.md](../reference/language/holes.md) and
-  [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
+  [../specification/holes.md](../specification/holes.md) and
+  [../specification/diagnostics-json.md](../specification/diagnostics-json.md).
 - Contract predicate validation, static obligation classification, and result
-  bindings: [../reference/language/contracts.md](../reference/language/contracts.md).
+  bindings: [../specification/contracts.md](../specification/contracts.md).
 - Effect propagation or compiler-known calls:
-  [../reference/language/names-effects.md](../reference/language/names-effects.md).
+  [../specification/names-effects.md](../specification/names-effects.md).
 - Command-specific machine-readable output:
-  [../reference/language/json-output.md](../reference/language/json-output.md)
+  [../specification/json-output.md](../specification/json-output.md)
   before the command-specific JSON page.
 
 ## Skip Unless Needed
 
-- Do not read design-wall material before the accepted target queue fails to
-  route the task.
+- Do not read broad design-wall material before the chosen short proposal page
+  routes the task there.
 - Do not treat proposal text as implemented behavior unless
-  `../reference/language/` also states it.
+  `../specification/` also states it.

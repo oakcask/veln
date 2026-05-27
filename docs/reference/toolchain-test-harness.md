@@ -5,8 +5,8 @@ reference for test organization, not a source for command behavior.
 
 ## Read First
 
-- Command behavior belongs in [language/commands.md](language/commands.md).
-- JSON output behavior belongs in [language/json-output.md](language/json-output.md).
+- Command behavior belongs in [language/commands.md](../specification/commands.md).
+- JSON output behavior belongs in [language/json-output.md](../specification/json-output.md).
 - The completion review records verification evidence:
   [../reviews/toolchain-test-harness-completion.md](../reviews/toolchain-test-harness-completion.md).
 
@@ -35,6 +35,6 @@ behavior under test.
 The harness standardizes CLI integration tests. It does not replace parser,
 checker, runtime, or formatter unit tests in compiler crates.
 
-Use the language reference when a case needs to decide whether command,
+Use the language specification when a case needs to decide whether command,
 diagnostic, JSON, runtime, or source behavior is correct. Use this page only
 for harness organization and assertion policy.

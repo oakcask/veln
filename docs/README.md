@@ -8,27 +8,27 @@ first route is not obvious.
 ## Read First
 
 - Current language behavior:
-  [reference/language/README.md](reference/language/README.md).
-- If a proposal, phase note, or review conflicts with the language reference,
-  treat the language reference as current behavior.
-- Planned or accepted targets:
-  [proposals/target-queue.md](proposals/target-queue.md).
-- Stable reference map: [reference/README.md](reference/README.md).
+  [specification/README.md](specification/README.md).
+- If a proposal or review conflicts with the language specification,
+  treat the specification as current behavior.
+- Planned or accepted proposal work:
+  [proposals/README.md](proposals/README.md).
+- Rationale and source-support map: [reference/README.md](reference/README.md).
 
 ## Choose One Task
 
 - Change implemented language behavior:
-  [reference/language/topic-map.md](reference/language/topic-map.md).
+  [specification/topic-map.md](specification/topic-map.md).
 - Promote a proposal into implemented behavior:
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Decide whether proposal text can move into current behavior:
   [document-status.md](document-status.md).
 - Update diagnostics, related notes, or command JSON behavior:
-  [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md)
-  or [reference/language/json-output.md](reference/language/json-output.md).
+  [specification/diagnostics-json.md](specification/diagnostics-json.md)
+  or [specification/json-output.md](specification/json-output.md).
 - Check rationale behind current behavior:
-  [reference/language/source-decisions.md](reference/language/source-decisions.md).
-- Check review evidence, phase history, source support, or documentation
+  [specification/source-decisions.md](specification/source-decisions.md).
+- Check review evidence, source support, or documentation
   maintenance routes: [navigation.md](navigation.md).
 
 ## Stop Rule
@@ -37,17 +37,18 @@ first route is not obvious.
 - Open `*-full.md` files and `result-*.md` records only when a short route
   names the relevant detail.
 - Return here instead of scanning sibling directories when the route turns out
-  to be proposal, review, phase, or reference work.
+  to be proposal, review, or reference work.
 
 ## Directory Map
 
-- `reference/`: implemented behavior, durable rationale, and source support.
+- `specification/`: current implemented language behavior, kept as the latest
+  specification only.
+- `reference/`: durable rationale and source support.
 - `proposals/`: planned or accepted targets not fully implemented.
 - `reviews/`: gap evidence, verification, and completion claims.
-- `phases/`: implementation order, working plans, and historical notes.
 
 ## Skip Unless Needed
 
-- Do not treat proposal text as implemented behavior unless the reference also
-  states it.
-- Do not read old phase plans before the current reference and review pages.
+- Do not treat proposal text as implemented behavior unless the specification
+  also states it.
+- Do not read old review records before the current specification pages.

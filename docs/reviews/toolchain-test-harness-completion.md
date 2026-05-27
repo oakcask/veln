@@ -5,7 +5,7 @@ Status: complete.
 This review covers the `toolchain-test-harness` proposal after the remaining
 case-directory and manifest-driven assertion work. The proposal remains the
 organization record for CLI integration tests; command behavior still routes
-through `../reference/language/`.
+through `../specification/`.
 
 ## Completion Check
 

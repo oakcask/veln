@@ -38,6 +38,6 @@ requiring the full command reference on the first read.
 ## Skip Unless Needed
 
 - Use only the command section above that matches the task.
-- Use [../source-decisions/commands-output.md](../source-decisions/commands-output.md)
+- Use [../reference/source-decisions/commands-output.md](../reference/source-decisions/commands-output.md)
   only when the implemented command reference does not explain why a boundary
   exists.

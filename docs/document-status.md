@@ -7,16 +7,17 @@ promotion rules, or placement policy.
 
 ## Read First
 
-- Current behavior belongs in [reference/language/README.md](reference/language/README.md).
-- Planned or accepted targets belong in [proposals/README.md](proposals/README.md).
+- Current behavior belongs in [specification/README.md](specification/README.md).
+- Proposed targets belong in [proposals/README.md](proposals/README.md).
 - Gap evidence belongs in [reviews/README.md](reviews/README.md).
-- Historical implementation order belongs in [phases/README.md](phases/README.md).
+- Implemented language behavior belongs in
+  [specification/README.md](specification/README.md).
 
 ## Choose One Route
 
 - Reading task only: return to [README.md](README.md) or
   [navigation.md](navigation.md).
-- Moving behavior, proposal, review, or phase text:
+- Moving behavior, proposal, or review text:
   [document-status-full.md#placement](document-status-full.md#placement).
 - Updating README or topic-page routing:
   [document-status-full.md#entry-pages](document-status-full.md#entry-pages).
@@ -27,23 +28,22 @@ promotion rules, or placement policy.
 
 ## Placement Summary
 
-- Use `reference/` for implemented behavior and durable rationale.
-- Use `proposals/` for planned or accepted behavior that is not fully
-  implemented.
+- Use `specification/` for current implemented language behavior.
+- Use `reference/` for durable rationale and source support.
+- Use `proposals/` for proposed behavior that is not fully implemented.
 - Use `reviews/` for evidence, gaps, and verification notes.
-- Use `phases/` for ordering, plans, and historical implementation notes.
 
 ## Stop Rule
 
 - Keep top-level and directory README files as short routing pages.
 - Keep expected topic paths short when a file grows around historical detail;
   move the long body behind a sibling `*-full.md` file.
-- Use `reference/language/` as the current behavior source before changing
+- Use `specification/` as the current behavior source before changing
   code, tests, diagnostics, or samples.
 
 ## Skip Unless Needed
 
-- Do not move proposal text into `reference/` until current code and tests
+- Do not move proposal text into `specification/` until current code and tests
   support it.
-- Do not use phase or review files as the source for current behavior when
-  `reference/language/` has a matching page.
+- Do not use proposal or review files as the source for current behavior when
+  `specification/` has a matching page.

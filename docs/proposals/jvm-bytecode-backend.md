@@ -1,18 +1,18 @@
 # JVM Bytecode Backend
 
-Status: open-proposal
+Status: proposed
 
 This page tracks the proposal to make the JVM backend emit JVM class files
 directly instead of treating Java source generation as the long-term lowering
 route. Current implemented behavior remains under
-[../reference/language/execution.md](../reference/language/execution.md).
+[../specification/execution.md](../specification/execution.md).
 
 ## Read First
 
 - Current execution and JVM backend behavior:
-  [../reference/language/execution.md](../reference/language/execution.md).
+  [../specification/execution.md](../specification/execution.md).
 - Current command setup behavior:
-  [../reference/language/commands.md](../reference/language/commands.md).
+  [../specification/commands.md](../specification/commands.md).
 - Current CLI fixture harness:
   [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
 - Full proposal, test strategy, and CI plan:
@@ -64,5 +64,4 @@ JVM verifier boundary.
   updated after implementation.
 - Do not add Java interop, stable JVM ABI, public class names, or bytecode
   layout guarantees through this proposal.
-- Do not promote this proposal to implementation work unless the target queue
-  selects it as an accepted target.
+- Do not promote unrelated JVM behavior through this proposal.

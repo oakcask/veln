@@ -1,21 +1,23 @@
 # Reference
 
-Stable reference material lives here. Use it for implemented behavior and the
-rationale or sources needed to maintain that behavior.
+Stable rationale and source-support material lives here. Use
+`../specification/` for current language behavior, then return here only when a
+behavior page needs rationale, source support, or toolchain reference material.
 
 ## Read First
 
-- Current language behavior: [language/README.md](language/README.md).
-- Task-specific behavior route: [language/topic-map.md](language/topic-map.md).
-- Rationale route: [language/source-decisions.md](language/source-decisions.md).
+- Current language behavior: [specification/README.md](../specification/README.md).
+- Task-specific behavior route: [specification/topic-map.md](../specification/topic-map.md).
+- Rationale route: [specification/source-decisions.md](../specification/source-decisions.md).
 
 ## Fast Routes
 
-- Implemented behavior: [language/topic-map.md](language/topic-map.md).
+- Implemented behavior: [specification/topic-map.md](../specification/topic-map.md).
 - Legacy grammar route: [grammar.md](grammar.md).
-- Human diagnostics: [language/diagnostics-json.md](language/diagnostics-json.md).
+- Human diagnostics:
+  [specification/diagnostics-json.md](../specification/diagnostics-json.md).
 - Machine-readable command output:
-  [language/json-output.md](language/json-output.md).
+  [specification/json-output.md](../specification/json-output.md).
 - CLI integration test harness:
   [toolchain-test-harness.md](toolchain-test-harness.md).
 - Implemented rationale: [source-decisions/README.md](source-decisions/README.md),
@@ -25,8 +27,8 @@ rationale or sources needed to maintain that behavior.
 
 ## Read When
 
-- Use `language/` before changing implemented behavior, tests, diagnostics,
-  commands, JSON output, runtime behavior, or examples.
+- Use `../specification/` before changing implemented behavior, tests,
+  diagnostics, commands, JSON output, runtime behavior, or examples.
 - Use [toolchain-test-harness.md](toolchain-test-harness.md) before changing
   CLI integration case layout or assertion policy.
 - Use `source-decisions/` after a language page needs rationale; start with
@@ -37,7 +39,8 @@ rationale or sources needed to maintain that behavior.
 
 - Planned behavior belongs in `../proposals/`.
 - Gap evidence belongs in `../reviews/`.
-- Implementation order belongs in `../phases/`.
+- Implemented language behavior belongs in
+  [specification/README.md](../specification/README.md).
 - Use [../document-status.md](../document-status.md) before moving text between
   route areas.
 
@@ -47,5 +50,5 @@ rationale or sources needed to maintain that behavior.
   section.
 - Do not scan individual source-decision records before a topic route points to
   one.
-- Do not use proposal, review, or phase text as current behavior when
-  `language/` has a matching page.
+- Do not use proposal or review text as current behavior when
+  `../specification/` has a matching page.

@@ -7,7 +7,7 @@ smallest category page.
 
 ## Read First
 
-- Current implemented behavior: [../../language/README.md](../../language/README.md).
+- Current implemented behavior: [../../../specification/README.md](../../../specification/README.md).
 - Category route: [../README.md](../README.md).
 - Short audit route: [../result-index.md](../result-index.md).
 

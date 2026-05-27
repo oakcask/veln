@@ -1,6 +1,6 @@
 # Agent-Oriented Language Spec Wall Design Brief
 
-Status: open-proposal
+Status: proposed
 
 Source: <https://oakcask.github.io/docs/202605-programming-language-for-agents/>
 
@@ -64,7 +64,7 @@ The first slice should be deliberately small:
 - `Result` propagation with `?` and explicit diagnostics for invalid `map` use.
 - Contracts limited to boolean expressions in `require` and `ensure`.
 - Resolved by
-  [Names And Effects](../../reference/language/names-effects.md): coarse effect
+  [Names And Effects](../../specification/names-effects.md): coarse effect
   labels are parsed, unknown labels are reported, and first-slice enforcement
   remains shallow.
 - `veln check --json` as the first agent-facing command.

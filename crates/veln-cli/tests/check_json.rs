@@ -969,7 +969,7 @@ fn check_human_reports_refutable_let_pattern_hint() {
 }
 
 #[test]
-fn fmt_formats_first_slice_golden_and_is_idempotent() {
+fn fmt_formats_supported_golden_and_is_idempotent() {
     let project = TestProject::new("fmt-golden");
     project.write(
         "main.veln",
@@ -1035,7 +1035,7 @@ fn fmt_formats_first_slice_golden_and_is_idempotent() {
 }
 
 #[test]
-fn fmt_formats_focused_first_slice_forms_across_multiple_files() {
+fn fmt_formats_focused_supported_forms_across_multiple_files() {
     let project = TestProject::new("fmt-focused-golden");
     project.write(
         "main.veln",

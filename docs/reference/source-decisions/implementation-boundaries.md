@@ -5,11 +5,11 @@ compatibility boundaries need rationale.
 
 ## Read First
 
-- Current execution boundary: [../language/execution.md](../language/execution.md).
+- Current execution boundary: [../../specification/execution.md](../../specification/execution.md).
 - Current name, prelude, stdio, and effect behavior:
-  [../language/names-effects.md](../language/names-effects.md).
+  [../../specification/names-effects.md](../../specification/names-effects.md).
 - Current source and metadata behavior:
-  [../language/source-surface.md](../language/source-surface.md).
+  [../../specification/source-surface.md](../../specification/source-surface.md).
 
 ## Read When
 
@@ -37,7 +37,7 @@ compatibility boundaries need rationale.
 
 ## Skip Unless Needed
 
-Use [../language/execution.md](../language/execution.md),
-[../language/names-effects.md](../language/names-effects.md), or the
+Use [../../specification/execution.md](../../specification/execution.md),
+[../../specification/names-effects.md](../../specification/names-effects.md), or the
 task-specific language page before opening these decision records for
 implemented behavior.

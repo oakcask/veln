@@ -5,7 +5,7 @@ Status: complete.
 This review covers the selected self-hosting standard library target for moving
 the source-visible `Path` boundary away from `String` assignment compatibility.
 The proposal remains historical context; current behavior is defined by the
-language reference.
+language specification.
 
 ## Completion Check
 

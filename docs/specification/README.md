@@ -1,7 +1,8 @@
 # Language Specification
 
-This directory routes implemented Veln language behavior. It records what the
-current workspace supports, not every target tracked in `../../proposals/`.
+This directory routes the current implemented Veln language specification. It
+keeps only the latest behavior supported by the workspace, not every target
+tracked in `../proposals/`.
 
 ## Read First
 
@@ -48,8 +49,8 @@ current workspace supports, not every target tracked in `../../proposals/`.
 - Planned rationale becomes implemented behavior or changes how users should
   read the language.
 - After promoting proposal behavior, update the smallest topic page named by
-  [topic-map.md](topic-map.md) and keep any remaining proposal work in
-  [../../proposals/target-queue.md](../../proposals/target-queue.md).
+  [topic-map.md](topic-map.md) and keep any remaining proposal work under
+  `../proposals/`.
 
 ## Skip Unless Needed
 
@@ -57,8 +58,8 @@ current workspace supports, not every target tracked in `../../proposals/`.
   proposal directories.
 - Use command-specific JSON pages only after [json-output.md](json-output.md)
   routes the change.
-- Use `../source-decisions/`, `../../proposals/`, `../../phases/`, or
-  `../../reviews/` only after the current behavior page does not answer the
+- Use `../reference/source-decisions/`, `../proposals/`, or
+  `../reviews/` only after the current behavior page does not answer the
   question.
 - Do not open full detail files until the matching short topic page points to a
   section that matters.

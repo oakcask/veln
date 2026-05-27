@@ -1,6 +1,6 @@
 # Agent-Oriented Language Spec Wall Open Questions Full
 
-Status: open-proposal
+Status: proposed
 
 This file keeps the full unresolved question set and resolved decision pointers
 separate from decision records. Start at [open-questions.md](open-questions.md)
@@ -28,7 +28,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   parse contract clauses through a narrow contract predicate production from
   the start, while keeping ordinary expression-like spelling and later
   semantic validation. Implemented `invariant` behavior is specified in
-  [Contracts And Holes](../../reference/language/contracts-holes.md).
+  [Contracts And Holes](../../specification/contracts-holes.md).
 - Resolved by
   [Runtime Contract Failure Reporting](../../reference/source-decisions/records/result-runtime-contract-failure-reporting.md):
   use a structured runtime contract error as the common representation; map it
@@ -165,7 +165,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   `require`, `ensure`, and `invariant` clauses use a restricted pure boolean
   expression subset rather than arbitrary executable core-language
   expressions. Implemented `invariant` behavior is specified in
-  [Contracts And Holes](../../reference/language/contracts-holes.md).
+  [Contracts And Holes](../../specification/contracts-holes.md).
 - Resolved by
   [Contract Static Runtime Boundary](../../reference/source-decisions/records/result-contract-static-runtime-boundary.md):
   all contracts are statically validated and exposed to diagnostics, but only a
@@ -223,7 +223,7 @@ the parser, checker, runtime, and golden diagnostics will need early rework.
   [First Implementation Commands](../../reference/source-decisions/records/result-first-implementation-commands.md):
   require `check`, `fmt`, `run`, and `test` in the first implementation; defer
   `doc`, `graph`, and `repair`. The implemented `explain` command is specified
-  in [Commands](../../reference/language/commands.md).
+  in [Commands](../../specification/commands.md).
 - Resolved by [Test JSON Shape](../../reference/source-decisions/records/result-test-json-shape.md): `veln test --json`
   should emit one run-level native JSON result with deterministic summary
   counts, top-level gate diagnostics, suite errors, per-case records, and

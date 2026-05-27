@@ -1,6 +1,6 @@
 # Agent-Oriented Language Spec Wall Open Questions
 
-Status: open-proposal
+Status: proposed
 
 This page routes the unresolved question set and resolved decision pointers.
 Resolved decision bodies live under `../../reference/source-decisions/`; the
@@ -9,20 +9,18 @@ full question inventory is kept in [open-questions-full.md](open-questions-full.
 ## Current State
 
 - The full inventory currently routes resolved first-slice questions to
-  decision records and current reference pages.
-- No accepted follow-up target remains in
-  [../target-queue.md](../target-queue.md).
-- Treat any new design-wall work as proposal selection work before changing
-  current behavior.
+  decision records and current specification pages.
+- Treat new design-wall work as proposal work before changing current
+  behavior.
 
 ## Read First
 
-- Open repair command target:
+- Proposed repair command target:
   [repair-command.md](repair-command.md).
 - The first-slice implementation questions are already resolved and moved to
   `../../reference/source-decisions/`.
 - Current implementation behavior should be read from
-  `../../reference/language/`, not from this proposal inventory.
+  `../../specification/`, not from this proposal inventory.
 - Use [open-questions-full.md](open-questions-full.md) only when auditing old
   design-wall coverage or moving another resolved item.
 
@@ -39,7 +37,7 @@ full question inventory is kept in [open-questions-full.md](open-questions-full.
 
 ## Skip Unless Needed
 
-- Do not read the full question inventory before the language reference when
+- Do not read the full question inventory before the language specification when
   checking implemented behavior.
 - Do not edit this page as a decision record; add or move durable decisions
   under `../../reference/source-decisions/`.

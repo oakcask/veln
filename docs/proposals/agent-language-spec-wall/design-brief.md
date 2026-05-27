@@ -1,17 +1,17 @@
 # Agent-Oriented Language Spec Wall Design Brief
 
-Status: open-proposal
+Status: proposed
 
 This is the routing page for the original agent-language design brief. Use it
-only when a current proposal or reference page points back to broad rationale.
+only when a current proposal or specification page points back to broad rationale.
 
 ## Read First
 
 - Current implemented language behavior:
-  [../../reference/language/README.md](../../reference/language/README.md).
+  [../../specification/README.md](../../specification/README.md).
 - Design-wall open-question route:
   [open-questions.md](open-questions.md).
-- Open repair command target:
+- Proposed repair command target:
   [repair-command.md](repair-command.md).
 
 ## Read When
@@ -23,7 +23,7 @@ only when a current proposal or reference page points back to broad rationale.
 - A proposal still depends on original design anchors for `Result`, `Option`,
   typed holes, contracts, effects, or JSON diagnostics.
 - You are auditing which parts of the original first-slice brief have already
-  moved into implemented reference pages.
+  moved into implemented specification pages.
 
 ## Detail
 
@@ -33,7 +33,7 @@ only when a current proposal or reference page points back to broad rationale.
 
 ## Skip Unless Needed
 
-- Do not read the full brief before checking `../../reference/language/` for
+- Do not read the full brief before checking `../../specification/` for
   current behavior.
 - Do not treat this proposal route as implemented behavior unless the reference
   also states it.

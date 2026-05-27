@@ -29,7 +29,7 @@ route.
 
 Category pages in `../` own task routing. Files here may explain one selected
 decision, but they do not replace the implemented reference under
-`../../language/`.
+`../../../specification/`.
 
 ## Skip Unless Needed
 

@@ -1,18 +1,18 @@
 # Self-Hosting Standard Library
 
-Status: open-proposal
+Status: proposed
 
 This page tracks future self-hosting standard library questions whose behavior
-is absent from the current reference. Implemented standard symbols, effects,
+is absent from the current specification. Implemented standard symbols, effects,
 and compiler-known calls live in
-[../reference/language/names-effects.md](../reference/language/names-effects.md).
+[../specification/names-effects.md](../specification/names-effects.md).
 
 ## Read First
 
 - Current names, prelude, stdio, file-system, process, and effect behavior:
-  [../reference/language/names-effects.md](../reference/language/names-effects.md).
+  [../specification/names-effects.md](../specification/names-effects.md).
 - Current source surface:
-  [../reference/language/source-surface.md](../reference/language/source-surface.md).
+  [../specification/source-surface.md](../specification/source-surface.md).
 - Full future-work notes:
   [self-hosting-standard-library-full.md](self-hosting-standard-library-full.md).
 
@@ -30,4 +30,4 @@ and compiler-known calls live in
 - Do not use this page for current standard symbol behavior.
 - Do not add package management, broad formatting protocols, subprocess
   pipelines, streaming I/O, or source-level effect handlers through this page
-  unless the target queue accepts that work.
+  unless the task explicitly selects that proposal work.

@@ -15,7 +15,7 @@ Keep documentation discoverable without forcing agents to read long historical o
 2. Measure the current shape with file lists, line counts, and headings before moving content.
 3. Classify documents by purpose:
    - `reference/` for stable requirements, design, architecture, APIs, data formats, CI, and implementation policy.
-   - `phases/` for phase plans, completion criteria, implementation notes, and open work.
+   - `proposals/` for planned or incomplete behavior.
    - `reviews/` for review findings, diagnostics evidence, quality gates, and rationale for plan changes.
 4. Keep top-level and directory README files short. They should answer what to read, when to read it, and what to skip.
 5. Move long details behind index pages instead of deleting or flattening them.
@@ -28,7 +28,7 @@ Keep documentation discoverable without forcing agents to read long historical o
 - Index pages should be routing documents, not summaries of everything.
 - Prefer sections like "Read First", "Read When", and "History" over long chronological lists.
 - Put the newest or most actionable document first.
-- Tell agents not to read old phases or old reviews unless they are doing history or rationale work.
+- Tell agents not to read old reviews unless they are doing history or rationale work.
 - Link to detailed documents with relative paths.
 
 ## Split Criteria

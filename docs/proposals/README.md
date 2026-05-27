@@ -1,47 +1,43 @@
 # Proposals
 
-This directory keeps accepted or open design targets that are not fully
-implemented.
+This directory keeps proposed design targets that are not fully implemented.
+Proposal text is not current language behavior unless
+`../specification/` also states it.
 
 ## Read First
 
-- Accepted targets: [target-queue.md](target-queue.md).
-- Promotion route: [implementation-route.md](implementation-route.md).
+- Any proposal in this directory may be chosen for implementation work when it
+  describes behavior absent from `../specification/`.
 - Status labels: [../document-status.md](../document-status.md).
-
-## Implementation Route
-
-- Choose one target from [target-queue.md](target-queue.md).
-- Use [implementation-route.md](implementation-route.md) to compare only the
-  chosen target with current behavior and decide what moves into
-  `../reference/language/`.
-- Open design-wall pages only when the queue has no matching target.
 
 ## Read When
 
+- Use [implementation-route.md](implementation-route.md) for proposal promotion
+  mechanics after an explicit task selects proposal work.
+- Use [reference-followups.md](reference-followups.md) for follow-up work that
+  is absent from the current specification.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md) only
   for future self-hosting standard library questions whose behavior is absent
-  from the current reference.
-- Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the open proposal
+  from the current specification.
+- Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the proposal
   to replace Java source generation with direct JVM classfile emission,
   including runtime behavior, bytecode verification, and CI strategy.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
-  for design-wall material that is still open or only partially represented.
+  for design-wall material that is still exploratory or only partially
+  represented.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
   before changing target status.
 
 ## Update When
 
 - A target is implemented and the resulting behavior has been documented under
-  `../reference/language/`.
-- A target is found to be already implemented by the current reference and only
-  remaining proposal work should stay queued.
-- No accepted target remains and design-wall material should be left as
-  exploration instead of being selected into the queue.
+  `../specification/`.
+- A target is found to be already implemented by the current specification and
+  only remaining proposal work should stay here.
+- New proposal work is added, split, superseded, or removed.
 
 ## Skip Unless Needed
 
-- Use `../reference/` when you need current implemented behavior.
-- Use `../phases/` only for implementation order.
+- Use `../specification/` when you need current implemented behavior.
 - Do not open `*-full.md` proposal records until a short proposal page names
   the section needed for the task.

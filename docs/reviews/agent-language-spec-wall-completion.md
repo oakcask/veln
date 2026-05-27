@@ -1,37 +1,34 @@
 # Agent-Language Spec Wall Completion Review
 
-Status: complete for accepted implementation targets and the current advisory
+Status: complete for selected implementation targets and the current advisory
 repair candidate boundary.
 
-This review covers the no-target route after
-[../proposals/target-queue.md](../proposals/target-queue.md) reported no
-accepted targets. The historical implementation target was the
-repair-loop portion of the open design-wall material under
+This review covers the former no-target route. The historical implementation
+target was the repair-loop portion of the design-wall material under
 [../proposals/agent-language-spec-wall/README.md](../proposals/agent-language-spec-wall/README.md).
 The completed implementation target is the advisory, machine-readable repair
 candidate boundary before a dedicated repair command exists.
 
 ## Completion Check
 
-- `../proposals/target-queue.md` reports no accepted targets.
+- `../proposals/` now allows proposal pages to be chosen as proposal work when
+  current specification behavior does not already cover them.
 - `../proposals/agent-language-spec-wall/open-questions.md` now routes the
   resolved first-slice questions to source-decision records and current
-  language reference pages.
-- Current implemented behavior routes through `../reference/language/`, with
+  language specification pages.
+- Current implemented behavior routes through `../specification/`, with
   short topic pages for source surface, names and effects, contracts, holes,
   commands, JSON output, execution, and editor support.
-- The remaining design-wall pages are explicitly exploratory. New work from
-  those pages must first become a selected proposal target before changing
-  current behavior.
+- The remaining design-wall pages are explicitly exploratory proposal work.
 - `../proposals/agent-language-spec-wall/repair-command.md` keeps the dedicated
   repair command, final candidate schema, multi-file edit representation,
-  ranking model, and confirmation protocol as open command-level work.
-- `../reference/language/commands.md` and
-  `../reference/language/commands-full.md` state the implemented command
+  ranking model, and confirmation protocol as proposed command-level work.
+- `../specification/commands.md` and
+  `../specification/commands-full.md` state the implemented command
   boundary: no `veln repair` command exists, and repair edits appear only as
   advisory `check --json` diagnostic details.
-- `../reference/language/holes.md` and
-  `../reference/language/diagnostics-json.md` now route the implemented
+- `../specification/holes.md` and
+  `../specification/diagnostics-json.md` now route the implemented
   advisory candidate record: concrete edits stay unapplied, candidates include
   target, edit summary, evidence, known limits, blocking obligations,
   verification hint, and `application_status: "unapplied"`, and
@@ -47,14 +44,15 @@ candidate boundary before a dedicated repair command exists.
 
 The design-wall directory still holds broad thesis, historical question
 inventory, and future repair-command work. That is intentional proposal
-history, not incomplete accepted work for the current target. Open command
-details stay bounded by `../proposals/agent-language-spec-wall/repair-command.md`;
-they do not reopen the target queue unless promoted as a new accepted target.
+history, not incomplete selected work for the current target. Command details
+stay bounded by `../proposals/agent-language-spec-wall/repair-command.md`;
+they do not change current behavior until implemented and promoted into the
+language specification.
 
 The prelude complexity decision is an intentional non-promise in the current
-reference. `../reference/language/names-effects.md` documents value semantics,
+reference. `../specification/names-effects.md` documents value semantics,
 source-order traversal, `Result` short-circuiting, and the absence of
-asymptotic complexity guarantees, so the `accepted-proposal` status on that
+asymptotic complexity guarantees, so the `proposed` status on that
 record is not a blocking implementation target.
 
 ## Verification
@@ -66,10 +64,10 @@ Current repair-boundary review:
 - `cargo test -p veln-sema`
 - `cargo test -p veln-cli --test check_json`
 
-Earlier accepted-target review evidence:
+Earlier selected-target review evidence:
 
-- `rg` over `../proposals/` and `../reference/source-decisions/` for accepted
-  and open status labels.
+- `rg` over `../proposals/` and `../reference/source-decisions/` for proposal
+  status labels.
 - `cargo test -p veln-test doctest`
 - `cargo test -p veln-cli --test check_json negative_doctest`
 - `cargo test -p veln-cli --test toolchain_harness`

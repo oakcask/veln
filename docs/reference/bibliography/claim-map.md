@@ -41,4 +41,4 @@ full bibliography notes.
 - Do not read the full claim map when a source-decision record already carries
   enough rationale for the task.
 - Do not use bibliography notes as implementation status; current behavior
-  belongs under `../language/`.
+  belongs under `../../specification/`.

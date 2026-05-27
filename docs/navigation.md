@@ -7,22 +7,22 @@ routes below are not enough.
 
 ## Read First
 
-- Current behavior: [reference/language/README.md](reference/language/README.md).
-- Planned or accepted targets: [proposals/target-queue.md](proposals/target-queue.md).
-- Rationale routes: [reference/language/source-decisions.md](reference/language/source-decisions.md).
+- Current behavior: [specification/README.md](specification/README.md).
+- Planned or accepted proposal work: [proposals/README.md](proposals/README.md).
+- Rationale routes: [specification/source-decisions.md](specification/source-decisions.md).
 - Document movement rules: [document-status.md](document-status.md).
 
 ## Choose One Route
 
-- Current behavior: [reference/language/topic-map.md](reference/language/topic-map.md).
+- Current behavior: [specification/topic-map.md](specification/topic-map.md).
 - Diagnostics or JSON output:
-  [reference/language/diagnostics-json.md](reference/language/diagnostics-json.md)
-  and [reference/language/json-output.md](reference/language/json-output.md).
+  [specification/diagnostics-json.md](specification/diagnostics-json.md)
+  and [specification/json-output.md](specification/json-output.md).
 - Proposal implementation:
   [proposals/implementation-route.md](proposals/implementation-route.md).
-- Accepted target selection:
-  [proposals/target-queue.md](proposals/target-queue.md).
-- Reviews, phases, bibliography, or rationale:
+- Proposal work:
+  [proposals/README.md](proposals/README.md).
+- Reviews, bibliography, or rationale:
   [navigation-full.md#history-and-evidence](navigation-full.md#history-and-evidence).
 - Documentation maintenance:
   [document-status.md](document-status.md) and
@@ -30,10 +30,10 @@ routes below are not enough.
 
 ## Boundary Rules
 
-- Current behavior pages under `reference/language/` win over proposal, phase,
-  and review wording.
-- Proposal text is not current behavior until the language reference also says
-  so.
+- Current behavior pages under `specification/` win over proposal and
+  review wording.
+- Proposal text is not current behavior until the language specification also
+  says so.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
 

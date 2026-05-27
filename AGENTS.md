@@ -3,10 +3,10 @@
 * Do not write calendar dates in documentation, source, comments, filenames,
   or metadata unless testing date-pattern behavior or preserving an externally
   defined identifier such as a URL.
-* Treat `docs/reference/language/` as the source of current implemented
+* Treat `docs/specification/` as the source of current implemented
   behavior. Treat `docs/proposals/` as planned or accepted work only; do not
-  cite or edit proposal text as current behavior unless the matching reference
-  page also states it.
+  cite or edit proposal text as current behavior unless the matching
+  specification page also states it.
 * When adding or changing human diagnostics, keep the primary message focused
   on the specific failed fact at the reported span. Put causes, provenance,
   repair hints, and other related locations in `related` notes, and add human

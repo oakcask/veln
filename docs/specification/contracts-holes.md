@@ -1,7 +1,7 @@
 # Contracts And Holes
 
 This page is the routing entry for implemented contract and hole behavior.
-Read the focused reference pages first; open the full detail files only when
+Read the focused specification pages first; open the full detail files only when
 you need exact rules or examples.
 
 ## Read First

@@ -5,11 +5,11 @@ behavior needs rationale or compatibility context.
 
 ## Read First
 
-- Current CLI behavior: [../language/commands.md](../language/commands.md).
+- Current CLI behavior: [../../specification/commands.md](../../specification/commands.md).
 - Current machine-readable output route:
-  [../language/json-output.md](../language/json-output.md).
+  [../../specification/json-output.md](../../specification/json-output.md).
 - Current runtime output behavior:
-  [../language/execution.md](../language/execution.md).
+  [../../specification/execution.md](../../specification/execution.md).
 
 ## Read When
 
@@ -46,8 +46,8 @@ behavior needs rationale or compatibility context.
 
 ## Skip Unless Needed
 
-Use [../language/commands.md](../language/commands.md),
-[../language/diagnostics-json.md](../language/diagnostics-json.md),
-[../language/run-json.md](../language/run-json.md), or
-[../language/test-json.md](../language/test-json.md) before opening these
+Use [../../specification/commands.md](../../specification/commands.md),
+[../../specification/diagnostics-json.md](../../specification/diagnostics-json.md),
+[../../specification/run-json.md](../../specification/run-json.md), or
+[../../specification/test-json.md](../../specification/test-json.md) before opening these
 decision records for implemented behavior.

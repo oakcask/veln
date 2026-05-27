@@ -246,7 +246,7 @@ non-call target, or a call whose callee is not a name path, reports
 `type.pipeline_target`.
 
 Method-call-shaped syntax such as `value.method(args)` is parsed as a call
-whose callee is a field access, but it is not a valid first-slice call form.
+whose callee is a field access, but it is not a valid implemented call form.
 The checker reports `type.method_call` at the method name and expects the
 canonical named function-call spelling with the receiver passed explicitly.
 

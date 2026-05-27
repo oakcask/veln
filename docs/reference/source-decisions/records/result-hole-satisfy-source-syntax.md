@@ -20,7 +20,7 @@ _ satisfy value => value.name != ""
 The first-slice grammar should extend `Hole` like this:
 
 The implemented production is maintained in
-[Source Surface](../../language/source-surface.md#expressions).
+[Source Surface](../../../specification/source-surface.md#expressions).
 
 `BindingName` names the candidate value that would replace the hole. The
 binding is read-only and scoped only to the `ContractPredicate` after `=>`.

@@ -36,6 +36,6 @@ support or citation context.
 ## Skip Unless Needed
 
 - Do not use bibliography pages as current language behavior; start in
-  `../language/` for behavior questions.
+  `../../specification/` for behavior questions.
 - Do not open full bibliography records before a short page identifies the
   selected source family, claim, or reference.

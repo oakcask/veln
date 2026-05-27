@@ -1,17 +1,17 @@
 # Language Surface Decisions
 
-Read these records only when the categorized language reference needs rationale
+Read these records only when the categorized language specification needs rationale
 or compatibility context.
 
 ## Read First
 
 - Current syntax and source grammar:
-  [../language/source-surface.md](../language/source-surface.md).
-- Current type and value behavior: [../language/types.md](../language/types.md).
+  [../../specification/source-surface.md](../../specification/source-surface.md).
+- Current type and value behavior: [../../specification/types.md](../../specification/types.md).
 - Current contract and hole behavior:
-  [../language/contracts-holes.md](../language/contracts-holes.md).
+  [../../specification/contracts-holes.md](../../specification/contracts-holes.md).
 - Current name, prelude, stdio, and effect behavior:
-  [../language/names-effects.md](../language/names-effects.md).
+  [../../specification/names-effects.md](../../specification/names-effects.md).
 
 ## Read When
 
@@ -56,8 +56,8 @@ or compatibility context.
 
 ## Skip Unless Needed
 
-Use [../language/source-surface.md](../language/source-surface.md),
-[../language/types.md](../language/types.md),
-[../language/contracts-holes.md](../language/contracts-holes.md), or
-[../language/names-effects.md](../language/names-effects.md) before opening
+Use [../../specification/source-surface.md](../../specification/source-surface.md),
+[../../specification/types.md](../../specification/types.md),
+[../../specification/contracts-holes.md](../../specification/contracts-holes.md), or
+[../../specification/names-effects.md](../../specification/names-effects.md) before opening
 these decision records for implemented behavior.
