@@ -17,7 +17,9 @@ Proposal text is not current language behavior unless
 - Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the selected JVM
   backend proposal. It routes current implementation status, bytecode migration
   detail, verification boundaries, and promotion cleanup without making planned
-  bytecode behavior current specification.
+  bytecode behavior current specification. Use
+  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md)
+  only when checking the current completion gate.
 - Use [reference-followups.md](reference-followups.md) for follow-up work that
   is absent from the current specification.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md) only

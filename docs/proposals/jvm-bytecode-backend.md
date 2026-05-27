@@ -11,6 +11,10 @@ proposal as current behavior until implementation is promoted there.
 
 - Implementation status and remaining proposal work:
   [jvm-bytecode-backend-full.md#implementation-status](jvm-bytecode-backend-full.md#implementation-status).
+- Completion criteria:
+  [jvm-bytecode-backend-full.md#completion-criteria](jvm-bytecode-backend-full.md#completion-criteria).
+- Current completion review:
+  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 - Current execution and JVM backend behavior:
   [../specification/execution.md](../specification/execution.md).
 - Current command setup behavior:
@@ -37,6 +41,10 @@ The proposal is not complete. Current behavior no longer requires a separate
 migration step rather than direct `typed IR -> class files` lowering. Continue
 from
 [implementation status](jvm-bytecode-backend-full.md#implementation-status)
+and
+[completion criteria](jvm-bytecode-backend-full.md#completion-criteria),
+then check the current review in
+[../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md)
 before promoting behavior into the specification.
 
 ## Detail Routes
@@ -57,6 +65,8 @@ before promoting behavior into the specification.
   [completion criteria](jvm-bytecode-backend-full.md#completion-criteria),
   [implementation defaults](jvm-bytecode-backend-full.md#implementation-defaults),
   and [promotion route](jvm-bytecode-backend-full.md#promotion-route).
+- Current handoff review for why the proposal remains open:
+  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 
 ## Boundary
 

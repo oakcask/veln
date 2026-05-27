@@ -9,6 +9,8 @@ planned behavior, not current specification behavior.
 
 - Current proposal status and next implementation work:
   [implementation status](#implementation-status).
+- Current completion gate review:
+  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 - Current implemented behavior:
   [../specification/execution.md](../specification/execution.md) and
   [../specification/commands.md](../specification/commands.md).
@@ -45,6 +47,12 @@ Remaining proposal work:
 - add the required JVM backend CI job after structural checks exist
 - promote only observable setup, runtime, and command JSON behavior into the
   specification after direct classfile emission is implemented
+
+The remaining work is not satisfied by moving the existing Java source
+compilation helper behind a different API. A completion claim must remove
+source-level Java generation from the ordinary `run` and `test` backend path.
+Current gate evidence lives in
+[../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 
 ## Problem
 
@@ -216,22 +224,40 @@ not a user-facing runtime requirement.
 
 ## Completion Criteria
 
-- Existing JVM runtime behavior fixtures pass through direct classfile
-  emission.
-- A migration-only matrix compares Java source lowering and classfile lowering
-  for the implemented IR subset.
-- The bytecode path has setup coverage proving `javac` is no longer required
-  for ordinary `run` and `test` execution.
+Use this section to decide whether an implementation claim is complete enough
+to promote into the specification.
+
+The implemented IR subset is every typed IR construct that the current JVM
+backend accepts on the ordinary `run` and `test` paths. It includes all runtime
+fixture groups listed under [fixture scope](#fixture-scope). An implementation
+that excludes any group is incomplete unless this proposal is revised to name
+the excluded construct and explain why the current JVM backend should stop
+accepting it.
+
+A completion claim must satisfy all of these gates:
+
+- Direct classfile emission is the ordinary backend path: `run` and `test`
+  lower typed IR to classfile artifacts for the selected program and required
+  helpers without writing generated Java source or invoking a Java source
+  compiler.
+- Existing JVM runtime behavior fixtures pass through the bytecode path, and
+  cache hits and misses preserve command-visible exit status, stdout, stderr,
+  runtime contract reports, and test events.
 - Missing `java` remains a runner error with the existing human and JSON
-  behavior.
-- Cache hits and misses preserve command-visible behavior.
-- Bytecode-specific tests verify that generated classes load, execute, and can
-  be inspected with `javap -verbose`.
-- CI has one required JVM backend job that exercises runtime fixtures and
-  structural bytecode checks on a pinned JDK.
+  behavior, while setup coverage proves `javac` is no longer required for
+  ordinary execution.
+- While the Java source backend still exists, the CLI fixture harness has an
+  internal migration matrix with bytecode, Java-source, and parity modes. The
+  selector must not become a public CLI flag, stable JSON field, or
+  user-facing diagnostic.
+- Bytecode-specific tests verify stable structural facts through class loading
+  and `javap -verbose`: classfile target version, expected entry descriptors,
+  required verifier metadata, and absence of an ordinary `javac` requirement.
 - No test treats classfile bytes, complete `javap` output, constant-pool
   indexes, bytecode offsets, local variable slots, helper names, or ordinary
   instruction ordering as stable language facts.
+- A checked-in JVM backend workflow runs bytecode backend unit tests, runtime
+  fixture tests, setup tests, and structural bytecode tests on one pinned JDK.
 
 ## Implementation Defaults
 
