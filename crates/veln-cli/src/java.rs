@@ -13,10 +13,10 @@ pub(crate) enum JvmRunResult {
 
 pub(crate) fn prepare_and_run_jvm(
     build_dir: &Path,
-    java: &veln_backend_jvm::JavaProgram,
+    program: &veln_backend_jvm::JvmProgram,
     java_args: &[String],
 ) -> Result<ExitCode, String> {
-    let result = prepare_and_run_jvm_capture(build_dir, java, "veln run", java_args)?;
+    let result = prepare_and_run_jvm_capture(build_dir, program, "veln run", java_args)?;
     let output = match result {
         JvmRunResult::Ran(output) => output,
         JvmRunResult::ToolError(message) => {
@@ -30,21 +30,21 @@ pub(crate) fn prepare_and_run_jvm(
 
 pub(crate) fn prepare_and_run_jvm_capture(
     build_dir: &Path,
-    java: &veln_backend_jvm::JavaProgram,
+    program: &veln_backend_jvm::JvmProgram,
     command_name: &str,
     java_args: &[String],
 ) -> Result<JvmRunResult, String> {
-    prepare_and_run_jvm_capture_with_env(build_dir, java, command_name, &[], java_args)
+    prepare_and_run_jvm_capture_with_env(build_dir, program, command_name, &[], java_args)
 }
 
 pub(crate) fn prepare_and_run_jvm_capture_with_env(
     _build_dir: &Path,
-    java: &veln_backend_jvm::JavaProgram,
+    program: &veln_backend_jvm::JvmProgram,
     command_name: &str,
     java_env: &[(&str, &OsStr)],
     java_args: &[String],
 ) -> Result<JvmRunResult, String> {
-    let class_dir = match ensure_cached_jvm_classes(java, command_name)? {
+    let class_dir = match ensure_cached_jvm_classes(program)? {
         CachedJvmClasses::Ready(path) => path,
         CachedJvmClasses::ToolError(message) => return Ok(JvmRunResult::ToolError(message)),
     };
@@ -72,8 +72,7 @@ enum CachedJvmClasses {
 }
 
 fn ensure_cached_jvm_classes(
-    java: &veln_backend_jvm::JavaProgram,
-    command_name: &str,
+    program: &veln_backend_jvm::JvmProgram,
 ) -> Result<CachedJvmClasses, String> {
     let cache_root = env::current_dir()
         .map_err(|error| error.to_string())?
@@ -81,7 +80,7 @@ fn ensure_cached_jvm_classes(
         .join("veln-cache")
         .join("jvm");
     fs::create_dir_all(&cache_root).map_err(|error| error.to_string())?;
-    let key = jvm_class_cache_key(java);
+    let key = jvm_class_cache_key(program);
     let cache_dir = cache_root.join(&key);
     let marker = cache_dir.join(".veln-cache-ok");
     if marker.is_file() {
@@ -93,41 +92,9 @@ fn ensure_cached_jvm_classes(
 
     let compile_dir =
         create_cache_compile_dir(&cache_root, &key).map_err(|error| error.to_string())?;
-    for source in &java.sources {
-        fs::write(compile_dir.join(&source.path), &source.contents)
+    for class in &program.classes {
+        fs::write(compile_dir.join(&class.path), &class.contents)
             .map_err(|error| error.to_string())?;
-    }
-
-    fs::write(
-        compile_dir.join("VelnClassfileCompiler.java"),
-        CLASSFILE_COMPILER_SOURCE,
-    )
-    .map_err(|error| error.to_string())?;
-
-    let compiler_output = ProcessCommand::new("java")
-        .arg("VelnClassfileCompiler.java")
-        .args(java.sources.iter().map(|source| source.path.as_str()))
-        .current_dir(&compile_dir)
-        .output();
-    let compiler_output = match compiler_output {
-        Ok(output) => output,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            let _ = fs::remove_dir_all(&compile_dir);
-            return Ok(CachedJvmClasses::ToolError(missing_java_message(
-                command_name,
-            )));
-        }
-        Err(error) => {
-            let _ = fs::remove_dir_all(&compile_dir);
-            return Err(error.to_string());
-        }
-    };
-    if !compiler_output.status.success() {
-        let _ = fs::remove_dir_all(&compile_dir);
-        return Ok(CachedJvmClasses::ToolError(format!(
-            "veln: JVM class preparation failed with status {}",
-            compiler_output.status
-        )));
     }
     if !compile_dir.join("VelnEntry.class").is_file() {
         let _ = fs::remove_dir_all(&compile_dir);
@@ -181,15 +148,13 @@ fn create_cache_compile_dir(cache_root: &Path, key: &str) -> io::Result<PathBuf>
     ))
 }
 
-fn jvm_class_cache_key(java: &veln_backend_jvm::JavaProgram) -> String {
+fn jvm_class_cache_key(program: &veln_backend_jvm::JvmProgram) -> String {
     let mut hash = Fnv64::new();
-    hash.write(b"veln-jvm-class-cache-v1\0");
-    hash.write(CLASSFILE_COMPILER_SOURCE.as_bytes());
-    hash.write(b"\0");
-    for source in &java.sources {
-        hash.write(source.path.as_bytes());
+    hash.write(b"veln-jvm-class-cache-v2\0");
+    for class in &program.classes {
+        hash.write(class.path.as_bytes());
         hash.write(b"\0");
-        hash.write(source.contents.as_bytes());
+        hash.write(&class.contents);
         hash.write(b"\0");
     }
     format!("{:016x}", hash.finish())
@@ -259,65 +224,22 @@ fn missing_java_message(command_name: &str) -> String {
     format!("veln: `java` was not found; install a JDK to use `{command_name}`")
 }
 
-const CLASSFILE_COMPILER_SOURCE: &str = r#"import java.io.File;
-import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
-import javax.tools.JavaCompiler;
-import javax.tools.StandardJavaFileManager;
-import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
-
-public final class VelnClassfileCompiler {
-    private VelnClassfileCompiler() {}
-
-    public static void main(String[] args) throws Exception {
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
-            System.err.println("system Java compiler is unavailable");
-            System.exit(1);
-        }
-        try (StandardJavaFileManager files = compiler.getStandardFileManager(
-            null,
-            null,
-            StandardCharsets.UTF_8
-        )) {
-            files.setLocation(StandardLocation.CLASS_OUTPUT, Arrays.asList(new File(".")));
-            Iterable units = files.getJavaFileObjectsFromStrings(Arrays.asList(args));
-            List<String> options = Arrays.asList("-g:none", "-source", "8", "-target", "8");
-            Boolean ok = compiler.getTask(
-                new PrintWriter(System.err, true),
-                files,
-                null,
-                options,
-                null,
-                units
-            ).call();
-            if (!Boolean.TRUE.equals(ok)) {
-                System.exit(1);
-            }
-        }
-    }
-}
-"#;
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use veln_backend_jvm::{JavaProgram, JavaSourceFile};
+    use veln_backend_jvm::{JvmClassFile, JvmProgram};
 
     static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 
-    fn java_program(sources: &[(&str, &str)]) -> JavaProgram {
-        JavaProgram {
-            sources: sources
+    fn jvm_program(classes: &[(&str, &[u8])]) -> JvmProgram {
+        JvmProgram {
+            classes: classes
                 .iter()
-                .map(|(path, contents)| JavaSourceFile {
+                .map(|(path, contents)| JvmClassFile {
                     path: (*path).to_string(),
-                    contents: (*contents).to_string(),
+                    contents: (*contents).to_vec(),
                 })
                 .collect(),
         }
@@ -338,22 +260,22 @@ mod tests {
     }
 
     #[test]
-    fn jvm_class_cache_key_tracks_source_path_contents_and_order() {
-        let base = java_program(&[
-            ("VelnProgram.java", "class VelnProgram {}"),
-            ("VelnRuntime.java", "class VelnRuntime {}"),
+    fn jvm_class_cache_key_tracks_class_path_contents_and_order() {
+        let base = jvm_program(&[
+            ("VelnProgram.class", b"class VelnProgram {}"),
+            ("VelnRuntime.class", b"class VelnRuntime {}"),
         ]);
-        let changed_contents = java_program(&[
-            ("VelnProgram.java", "class VelnProgram { int value; }"),
-            ("VelnRuntime.java", "class VelnRuntime {}"),
+        let changed_contents = jvm_program(&[
+            ("VelnProgram.class", b"class VelnProgram { int value; }"),
+            ("VelnRuntime.class", b"class VelnRuntime {}"),
         ]);
-        let changed_path = java_program(&[
-            ("Entry.java", "class VelnProgram {}"),
-            ("VelnRuntime.java", "class VelnRuntime {}"),
+        let changed_path = jvm_program(&[
+            ("Entry.class", b"class VelnProgram {}"),
+            ("VelnRuntime.class", b"class VelnRuntime {}"),
         ]);
-        let changed_order = java_program(&[
-            ("VelnRuntime.java", "class VelnRuntime {}"),
-            ("VelnProgram.java", "class VelnProgram {}"),
+        let changed_order = jvm_program(&[
+            ("VelnRuntime.class", b"class VelnRuntime {}"),
+            ("VelnProgram.class", b"class VelnProgram {}"),
         ]);
 
         let base_key = jvm_class_cache_key(&base);

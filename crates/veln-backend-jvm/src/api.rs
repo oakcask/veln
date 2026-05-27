@@ -1,5 +1,6 @@
 use veln_ir::TypedProgram;
 
+use crate::classfile::ClassfileEmitter;
 use crate::emit::ProgramEmitter;
 use crate::java::java_type_identifier;
 
@@ -21,6 +22,26 @@ impl JavaProgram {
 pub struct JavaSourceFile {
     pub path: String,
     pub contents: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JvmProgram {
+    pub classes: Vec<JvmClassFile>,
+}
+
+impl JvmProgram {
+    pub fn class(&self, path: &str) -> Option<&[u8]> {
+        self.classes
+            .iter()
+            .find(|class| class.path == path)
+            .map(|class| class.contents.as_slice())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct JvmClassFile {
+    pub path: String,
+    pub contents: Vec<u8>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -123,6 +144,36 @@ pub fn generate_java_with_entry_arg_types_options(
     };
     let emitter = ProgramEmitter::new(program, options);
     emitter.emit_with_entry(entry_function, entry_arg_types)
+}
+
+pub fn generate_classfiles_with_entry(program: &TypedProgram, entry_function: &str) -> JvmProgram {
+    generate_classfiles_with_entry_arg_types(program, entry_function, &[])
+}
+
+pub fn generate_classfiles_with_entry_arg_types(
+    program: &TypedProgram,
+    entry_function: &str,
+    entry_arg_types: &[EntryArgType],
+) -> JvmProgram {
+    generate_classfiles_with_entry_arg_types_options(
+        program,
+        entry_function,
+        entry_arg_types,
+        &JavaBackendOptions::default(),
+    )
+}
+
+pub fn generate_classfiles_with_entry_arg_types_options(
+    program: &TypedProgram,
+    entry_function: &str,
+    entry_arg_types: &[EntryArgType],
+    options: &JavaBackendOptions,
+) -> JvmProgram {
+    let options = SanitizedOptions {
+        program_class: java_type_identifier(&options.program_class),
+        runtime_class: java_type_identifier(&options.runtime_class),
+    };
+    ClassfileEmitter::new(program, options).emit(entry_function, entry_arg_types)
 }
 
 #[derive(Clone, Debug)]

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use veln_ast::{FunctionKind, SurfaceModule};
-use veln_backend_jvm::generate_java_with_entry;
+use veln_backend_jvm::generate_classfiles_with_entry;
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
 use veln_sema::{analyze_surface_module, lower_checked_surface_module};
@@ -87,7 +87,7 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
         return Ok(());
     };
 
-    let java = generate_java_with_entry(&ir, &case.name);
+    let jvm = generate_classfiles_with_entry(&ir, &case.name);
     let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
     let event_file = build_dir.join("stdio-events.tsv");
     let contract_error_file = build_dir.join("contract-errors.tsv");
@@ -96,7 +96,7 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
         ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
     ];
     let result =
-        prepare_and_run_jvm_capture_with_env(&build_dir, &java, "veln test", &event_env, &[]);
+        prepare_and_run_jvm_capture_with_env(&build_dir, &jvm, "veln test", &event_env, &[]);
     let event_trace = fs::read_to_string(&event_file).unwrap_or_default();
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
     let cleanup_result = fs::remove_dir_all(&build_dir);

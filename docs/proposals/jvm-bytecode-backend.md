@@ -1,11 +1,10 @@
 # JVM Bytecode Backend
 
-Status: proposed
+Status: implemented
 
-This page routes the selected proposal to make the JVM backend emit JVM class
-files directly. Current implemented behavior remains under
-[../specification/execution.md](../specification/execution.md); do not use this
-proposal as current behavior until implementation is promoted there.
+This page routes the implemented proposal that makes the JVM backend emit JVM
+class files directly. Current implemented behavior remains under
+[../specification/execution.md](../specification/execution.md).
 
 ## Read First
 
@@ -36,16 +35,15 @@ does not require `javac` for ordinary `run` or `test` execution.
 
 ## Current Handoff
 
-The proposal is not complete. Current behavior no longer requires a separate
-`javac` executable for ordinary `run` and `test`, but it is still a
-migration step rather than direct `typed IR -> class files` lowering. Continue
-from
-[implementation status](jvm-bytecode-backend-full.md#implementation-status)
-and
-[completion criteria](jvm-bytecode-backend-full.md#completion-criteria),
-then check the current review in
-[../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md)
-before promoting behavior into the specification.
+The ordinary `run` and `test` path now lowers typed IR to JVM classfile
+artifacts and no longer writes generated Java source or invokes a Java source
+compiler during ordinary execution. The implemented command-visible behavior is
+promoted in [../specification/execution.md](../specification/execution.md) and
+[../specification/commands.md](../specification/commands.md).
+
+The Java source backend API remains only as a migration baseline for backend
+tests. Current review evidence and follow-up cleanup live in
+[../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 
 ## Detail Routes
 
@@ -61,9 +59,9 @@ before promoting behavior into the specification.
   [CI strategy](jvm-bytecode-backend-full.md#ci-strategy)
   and
   [cache and setup behavior](jvm-bytecode-backend-full.md#cache-and-setup-behavior).
-- Completion criteria, implementation defaults, and promotion cleanup:
+- Completion criteria, implementation notes, and promotion cleanup:
   [completion criteria](jvm-bytecode-backend-full.md#completion-criteria),
-  [implementation defaults](jvm-bytecode-backend-full.md#implementation-defaults),
+  [implementation notes](jvm-bytecode-backend-full.md#implementation-notes),
   and [promotion route](jvm-bytecode-backend-full.md#promotion-route).
 - Current handoff review for why the proposal remains open:
   [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
@@ -79,8 +77,8 @@ backend details.
 
 - Do not open [jvm-bytecode-backend-full.md](jvm-bytecode-backend-full.md)
   before choosing one detail route above.
-- Do not use this page as current JVM backend behavior until the specification
-  is updated after implementation.
+- Use the specification pages, not this proposal page, for current JVM backend
+  behavior.
 - Do not add Java interop, stable JVM ABI, public class names, or bytecode
   layout guarantees through this proposal.
 - Do not promote unrelated JVM behavior through this proposal.

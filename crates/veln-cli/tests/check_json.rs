@@ -52,37 +52,21 @@ impl TestProject {
     }
 
     fn test_with_path(&self, args: &[&str], path: &str) -> Output {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
-        command.current_dir(&self.root);
-        command.env("PATH", path);
-        command.arg("test");
-        for arg in args {
-            command.arg(arg);
-        }
-        command.output().expect("veln should run")
+        self.veln_with_path("test", args, path)
     }
 
     #[cfg(unix)]
-    fn bin_dir_with_counting_java(&self) -> (PathBuf, PathBuf) {
+    fn bin_dir_with_fake_java(&self) -> PathBuf {
         let bin = self.root.join("bin");
         fs::create_dir_all(&bin).expect("bin directory should be created");
-        let count_file = self.root.join("jvm-class-preparation-count");
         let java = bin.join("java");
-        fs::write(
-            &java,
-            format!(
-                "#!/bin/sh\nif [ \"$1\" = 'VelnClassfileCompiler.java' ]; then\n  if read count < '{}'; then :; else count=0; fi\n  count=$((count + 1))\n  printf '%s\\n' \"$count\" > '{}'\n  : > VelnEntry.class\nfi\nexit 0\n",
-                count_file.display(),
-                count_file.display(),
-            ),
-        )
-        .expect("fake java should be written");
+        fs::write(&java, "#!/bin/sh\nexit 0\n").expect("fake java should be written");
         let mut permissions = fs::metadata(&java)
             .expect("fake java metadata should be available")
             .permissions();
         permissions.set_mode(0o755);
         fs::set_permissions(&java, permissions).expect("fake java should be executable");
-        (bin, count_file)
+        bin
     }
 
     #[cfg(unix)]
@@ -109,10 +93,14 @@ impl TestProject {
     }
 
     fn run_with_path(&self, args: &[&str], path: &str) -> Output {
+        self.veln_with_path("run", args, path)
+    }
+
+    fn veln_with_path(&self, subcommand: &str, args: &[&str], path: &str) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
         command.current_dir(&self.root);
         command.env("PATH", path);
-        command.arg("run");
+        command.arg(subcommand);
         for arg in args {
             command.arg(arg);
         }
@@ -3070,40 +3058,140 @@ fn run_succeeds_with_only_java_on_path() {
 }
 
 #[cfg(unix)]
-#[test]
-fn run_reuses_cached_jvm_class_preparation() {
-    let project = TestProject::new("run-build-cache");
-    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
-    let (bin, count_file) = project.bin_dir_with_counting_java();
+#[derive(Clone, Copy)]
+enum JvmCacheCommand {
+    Run,
+    Test,
+}
+
+#[cfg(unix)]
+struct JvmCacheFixture {
+    path: &'static str,
+    source: &'static str,
+}
+
+#[cfg(unix)]
+impl JvmCacheCommand {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Run => "run",
+            Self::Test => "test",
+        }
+    }
+
+    fn args(self) -> &'static [&'static str] {
+        match self {
+            Self::Run => &["main", "main.veln"],
+            Self::Test => &[],
+        }
+    }
+
+    fn initial_fixture(self) -> JvmCacheFixture {
+        match self {
+            Self::Run => JvmCacheFixture {
+                path: "main.veln",
+                source: "pub fn main() -> () effects []\n  ()\nend\n",
+            },
+            Self::Test => JvmCacheFixture {
+                path: "main_test.veln",
+                source: "test passes() -> () effects []\n  ()\nend\n",
+            },
+        }
+    }
+
+    fn changed_fixture(self) -> JvmCacheFixture {
+        match self {
+            Self::Run => JvmCacheFixture {
+                path: "main.veln",
+                source: "pub fn main() -> Int effects []\n  1\nend\n",
+            },
+            Self::Test => JvmCacheFixture {
+                path: "main_test.veln",
+                source: concat!(
+                    "test passes() -> () effects [stdio]\n",
+                    "  stdio::println(\"changed\")\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            },
+        }
+    }
+
+    fn execute(self, project: &TestProject, path: &str) -> Output {
+        match self {
+            Self::Run => project.run_with_path(self.args(), path),
+            Self::Test => project.test_with_path(self.args(), path),
+        }
+    }
+}
+
+#[cfg(unix)]
+fn assert_reuses_cached_jvm_class_preparation(command: JvmCacheCommand) {
+    let project = TestProject::new(&format!("{}-build-cache", command.label()));
+    let fixture = command.initial_fixture();
+    project.write(fixture.path, fixture.source);
+    let bin = project.bin_dir_with_fake_java();
     let path = bin.to_str().expect("bin path should be UTF-8");
 
-    let first = project.run_with_path(&["main", "main.veln"], path);
-    let second = project.run_with_path(&["main", "main.veln"], path);
+    let first = command.execute(&project, path);
+    let second = command.execute(&project, path);
 
     assert!(first.status.success(), "{}", stderr(&first));
     assert!(second.status.success(), "{}", stderr(&second));
-    let count =
-        fs::read_to_string(count_file).expect("JVM class preparation count should be written");
-    assert_eq!(count.trim(), "1");
+    assert_jvm_class_cache_entry_count(&project, 1);
+}
+
+#[cfg(unix)]
+fn assert_reprepares_cached_jvm_classes_after_source_changes(command: JvmCacheCommand) {
+    let project = TestProject::new(&format!("{}-build-cache-source-change", command.label()));
+    let initial = command.initial_fixture();
+    project.write(initial.path, initial.source);
+    let bin = project.bin_dir_with_fake_java();
+    let path = bin.to_str().expect("bin path should be UTF-8");
+
+    let first = command.execute(&project, path);
+    let changed = command.changed_fixture();
+    project.write(changed.path, changed.source);
+    let second = command.execute(&project, path);
+
+    assert!(first.status.success(), "{}", stderr(&first));
+    assert!(second.status.success(), "{}", stderr(&second));
+    assert_jvm_class_cache_entry_count(&project, 2);
+}
+
+#[cfg(unix)]
+fn assert_jvm_class_cache_entry_count(project: &TestProject, expected: usize) {
+    let cache = project.root.join("target/veln-cache/jvm");
+    let count = fs::read_dir(cache)
+        .expect("JVM class cache should be readable")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().join(".veln-cache-ok").is_file())
+        .count();
+    assert_eq!(count, expected);
+}
+
+#[cfg(unix)]
+#[test]
+fn run_reuses_cached_jvm_class_preparation() {
+    assert_reuses_cached_jvm_class_preparation(JvmCacheCommand::Run);
 }
 
 #[cfg(unix)]
 #[test]
 fn run_reprepares_cached_jvm_classes_after_source_changes() {
-    let project = TestProject::new("run-build-cache-source-change");
-    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
-    let (bin, count_file) = project.bin_dir_with_counting_java();
-    let path = bin.to_str().expect("bin path should be UTF-8");
+    assert_reprepares_cached_jvm_classes_after_source_changes(JvmCacheCommand::Run);
+}
 
-    let first = project.run_with_path(&["main", "main.veln"], path);
-    project.write("main.veln", "pub fn main() -> Int effects []\n  1\nend\n");
-    let second = project.run_with_path(&["main", "main.veln"], path);
+#[cfg(unix)]
+#[test]
+fn test_reuses_cached_jvm_class_preparation() {
+    assert_reuses_cached_jvm_class_preparation(JvmCacheCommand::Test);
+}
 
-    assert!(first.status.success(), "{}", stderr(&first));
-    assert!(second.status.success(), "{}", stderr(&second));
-    let count =
-        fs::read_to_string(count_file).expect("JVM class preparation count should be written");
-    assert_eq!(count.trim(), "2");
+#[cfg(unix)]
+#[test]
+fn test_reprepares_cached_jvm_classes_after_source_changes() {
+    assert_reprepares_cached_jvm_classes_after_source_changes(JvmCacheCommand::Test);
 }
 
 #[test]

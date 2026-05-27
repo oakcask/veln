@@ -45,7 +45,8 @@ test case, including calls made by spawned tasks.
 
 ## JVM Backend
 
-The JVM backend generates Java source for the implemented IR subset:
+The JVM backend emits classfile artifacts directly for the implemented IR
+subset:
 
 - functions, parameters, locals, expression statements, and returns
 - omitted tail expressions as `()` returns
@@ -143,7 +144,7 @@ blame; `ensure` uses implementation blame. When `?` propagates an error result
 out of a function, the function's `ensure` clauses run before that early
 return.
 
-The JVM execution path keeps a persistent class cache for generated Java
-sources compiled to JVM classfiles. Cache hits may skip source compilation, but
-command results, stdout, stderr, contract traces, and captured stdio events are
-defined as if the generated program was compiled for that invocation.
+The JVM execution path keeps a persistent class cache for generated JVM
+classfile artifacts. Cache hits may skip artifact preparation, but command
+results, stdout, stderr, contract traces, and captured stdio events are defined
+as if the selected program was emitted for that invocation.

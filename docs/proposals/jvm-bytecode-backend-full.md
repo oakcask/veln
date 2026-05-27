@@ -1,9 +1,10 @@
 # JVM Bytecode Backend Full
 
-Status: proposed
+Status: implemented
 
-This page expands [jvm-bytecode-backend.md](jvm-bytecode-backend.md). It is
-planned behavior, not current specification behavior.
+This page expands [jvm-bytecode-backend.md](jvm-bytecode-backend.md). It records
+the proposal and implementation evidence; current command behavior belongs in
+the specification pages.
 
 ## Route Map
 
@@ -21,45 +22,25 @@ planned behavior, not current specification behavior.
 
 ## Implementation Status
 
-This proposal is not complete.
+This proposal is implemented for the ordinary `run` and `test` backend path.
 
-Current behavior already removes the separate `javac` process from ordinary
-`run` and `test` execution. It also keeps missing `java` as the user-facing
-runner setup error, uses a persistent JVM class cache, and keys that cache with
-the compiler helper contents.
+Current behavior lowers typed IR to JVM classfile artifacts, writes those
+artifacts into the persistent JVM class cache, and invokes `java` on the cached
+entry class. Ordinary execution does not write generated Java source, write a
+compiler helper, invoke a Java source compiler, or require `javac`. Missing
+`java` remains the user-facing runner setup error.
 
-That is a migration step, not the accepted backend route. The backend still
-exposes `JavaProgram` and generated Java source as the lowering output. The CLI
-writes a JVM-hosted compiler helper and launches `java` on that helper, which
-then uses the host Java Compiler API. The updated tests prove that a `javac`
-executable is not required; they do not prove that source-level Java generation
-is gone.
-
-Remaining proposal work:
-
-- add a Rust classfile writer behind the backend API so typed IR lowers
-  directly to class files
-- keep Java source lowering only as a migration baseline while a test-harness
-  backend selector compares it with true classfile lowering
-- add parity fixtures for the implemented IR subset, then keep those fixtures
-  as bytecode runtime regressions after the Java source route is removed
-- add `javap -verbose` smoke tests for stable structural facts
-- add the required JVM backend CI job after structural checks exist
-- promote only observable setup, runtime, and command JSON behavior into the
-  specification after direct classfile emission is implemented
-
-The remaining work is not satisfied by moving the existing Java source
-compilation helper behind a different API. A completion claim must remove
-source-level Java generation from the ordinary `run` and `test` backend path.
-Current gate evidence lives in
+The backend crate still exposes the older Java source API as a migration
+baseline for source-generation tests. That API is not used by ordinary
+commands. Current gate evidence and cleanup follow-ups live in
 [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 
 ## Problem
 
-The implemented JVM backend lowers typed IR to generated Java source, invokes
-`javac`, and then runs the resulting classes. That route was useful for the
-first executable slice because it kept the backend simple while the typed IR
-was still settling.
+The earlier JVM backend lowered typed IR to generated Java source, invoked a
+Java source compiler, and then ran the resulting classes. That route was useful
+for the first executable slice because it kept the backend simple while the
+typed IR was still settling.
 
 The reference execution boundary is already typed IR, not Java source. Keeping
 Java source generation as the long-term backend path adds a tool dependency,
@@ -208,8 +189,8 @@ ordinary `run` or `test` execution depend on `javap`.
 
 ## Cache And Setup Behavior
 
-The backend cache should move from generated Java source and compiled classes
-to bytecode backend artifacts. Cache keys may include backend version,
+The backend cache moved from generated Java source and compiled classes to
+bytecode backend artifacts. Cache keys may include backend version,
 classfile target, runtime helper version, typed IR content, entry selection,
 and relevant backend options.
 
@@ -246,9 +227,9 @@ A completion claim must satisfy all of these gates:
 - Missing `java` remains a runner error with the existing human and JSON
   behavior, while setup coverage proves `javac` is no longer required for
   ordinary execution.
-- While the Java source backend still exists, the CLI fixture harness has an
-  internal migration matrix with bytecode, Java-source, and parity modes. The
-  selector must not become a public CLI flag, stable JSON field, or
+- While the Java source backend remains available for migration tests, ordinary
+  CLI fixtures exercise the bytecode path. Any future parity selector must stay
+  internal and must not become a public CLI flag, stable JSON field, or
   user-facing diagnostic.
 - Bytecode-specific tests verify stable structural facts through class loading
   and `javap -verbose`: classfile target version, expected entry descriptors,
@@ -259,46 +240,31 @@ A completion claim must satisfy all of these gates:
 - A checked-in JVM backend workflow runs bytecode backend unit tests, runtime
   fixture tests, setup tests, and structural bytecode tests on one pinned JDK.
 
-## Implementation Defaults
+## Implementation Notes
 
-These answers guide the initial implementation unless later dependency review
-or proposal revision changes the constraints.
+These notes record the implementation choices for the first direct classfile
+backend.
 
-- Prefer `ristretto_classfile` for the first bytecode writer spike because it
-  supports classfile reading, writing, and verification. Use the newest release
-  after dependency review. If that release requires a newer Rust toolchain,
-  update the repository Rust toolchain policy as part of the same backend
-  adoption work instead of selecting an older crate release only to avoid the
-  toolchain update.
-- Target Java 8 class files for the first bytecode backend. This keeps generated
-  classes runnable on newer JDK lines while matching the current runtime helper
-  surface. The backend should generate verifier metadata required by that
-  target, including `StackMapTable` entries for generated methods with control
-  flow.
+- Use a local Rust classfile writer for generated program, entry, and function
+  adapter classes. This keeps ordinary execution independent of third-party
+  classfile writer dependencies and Java source compilers.
+- Keep the runtime helper as checked-in classfile assets built from the same
+  helper surface used by the previous Java source backend. The helper classfiles
+  target Java 8. Generated program and entry classfiles use a verifier-compatible
+  target that avoids making stack-map layout a language promise.
 - Emit only required verifier and execution metadata at first. Optional
   source-span debug attributes such as `SourceFile` and `LineNumberTable` may be
   added later behind an internal debug option. Do not emit `LocalVariableTable`
   as an initial promise because it can accidentally freeze local-slot layout.
-- Keep the Java source backend only as a migration-time parity and debug path
-  after bytecode becomes the default. Do not expose it as a stable user-facing
-  fallback. Remove it once bytecode runtime fixtures and structural checks cover
-  the implemented IR subset.
-- Expose backend selection through the test harness, not through public CLI
-  syntax. Fixture manifests may name internal backend modes such as Java source,
-  bytecode, or parity. If command-level selection is needed for integration
-  tests, use a clearly internal test-only environment variable and keep it out of
-  the language specification.
+- Keep the Java source backend only as a migration-time debug path after
+  bytecode becomes the default. Do not expose it as a stable user-facing
+  fallback. Remove or hide it once bytecode runtime fixtures and structural
+  checks fully replace source-generation tests.
 - Pin the required JVM backend CI job to an OpenJDK JDK distribution that can run
   Java 8 class files and provides `javap -verbose`. The job should install a JDK,
   not only a JRE, because structural classfile smoke tests depend on JDK tools.
 
-The remaining implementation-time checks are:
-
-- Confirm the selected `ristretto_classfile` release, transitive dependency
-  surface, unsafe-code policy, license metadata, and required Rust toolchain
-  before adding it to the workspace.
-- Confirm the harness selector cannot become observable command behavior through
-  documented flags, stable JSON fields, or user-facing diagnostics.
+The backend does not add a new third-party classfile dependency.
 
 ## Promotion Route
 

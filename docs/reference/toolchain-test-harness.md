@@ -18,8 +18,9 @@ reference for test organization, not a source for command behavior.
   public CLI.
 - Change this harness when a manifest needs a reusable assertion shape, command
   environment, repeated invocation, or fixture setup rule.
-- Use the JVM bytecode proposal for planned backend matrix behavior:
-  [../proposals/jvm-bytecode-backend.md](../proposals/jvm-bytecode-backend.md).
+- JVM backend fixtures exercise the implemented bytecode path by default. Use
+  the JVM bytecode proposal review for migration cleanup:
+  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 
 ## Case Layout
 
