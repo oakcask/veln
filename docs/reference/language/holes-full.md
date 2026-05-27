@@ -24,14 +24,19 @@ policy is `manual_review_required`.
 
 When a hole has a known expected type, the symbol query may include ranked
 visible binding candidates. A ranked candidate records a binding name, rendered
-binding type, rank, match reason, application policy, and a concrete replacement
-edit for the hole span. Exact type matches rank before broader assignable
-matches, and nearer visible bindings rank before older bindings with the same
-match quality. When a broader assignable match is statically satisfied by a
-`satisfy` repair constraint, its reason reports the repair discharge reason
-rather than the broad type match. The checker may bound ordinary manual-review
-candidates, but it keeps statically satisfied `satisfy` repair candidates even
-when they fall after that ordinary bound.
+binding type, rank, match reason, application policy, concrete replacement edit
+for the hole span, target node and span, edit summary, evidence, known limits,
+blocking obligations, verification hint, and `application_status:
+"unapplied"`. Exact type matches rank before broader assignable matches, and
+nearer visible bindings rank before older bindings with the same match quality.
+When a broader assignable match is statically satisfied by a `satisfy` repair
+constraint, its reason reports the repair discharge reason rather than the
+broad type match. Every candidate remains advisory and unapplied; even
+`safe_repair_candidate` records keep a verification blocking obligation until
+the candidate edit has been applied and the hinted command has been run. The
+checker may bound ordinary manual-review candidates, but it keeps statically
+satisfied `satisfy` repair candidates even when they fall after that ordinary
+bound.
 When different `satisfy` branches discharge different visible symbols, each
 candidate keeps the reason for the branch that discharged that candidate.
 

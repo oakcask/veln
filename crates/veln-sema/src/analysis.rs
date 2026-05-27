@@ -2665,7 +2665,7 @@ impl<'a> FunctionChecker<'a> {
         let expected_source =
             expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source);
         let candidate_queries =
-            self.candidate_queries(expected.map(|expected| &expected.ty), &expr.span, satisfy);
+            self.candidate_queries(expected.map(|expected| &expected.ty), expr, satisfy);
         let constraints = self.hole_constraints(satisfy, expected.map(|expected| &expected.ty));
         let mut diagnostic = Diagnostic::new(
             "hole.unfilled",
@@ -2803,7 +2803,7 @@ impl<'a> FunctionChecker<'a> {
     fn candidate_queries(
         &self,
         expected: Option<&Type>,
-        hole_span: &SourceSpan,
+        hole: &Expr,
         satisfy: Option<&SatisfyClause>,
     ) -> Vec<JsonValue> {
         let Some(expected) = expected.filter(|expected| **expected != Type::Unknown) else {
@@ -2818,7 +2818,7 @@ impl<'a> FunctionChecker<'a> {
         let repair_constraint =
             satisfy.and_then(|satisfy| self.satisfy_repair_constraint(satisfy, expected));
         let ranked_candidates =
-            self.ranked_symbol_candidates(expected, hole_span, repair_constraint.as_ref());
+            self.ranked_symbol_candidates(expected, hole, repair_constraint.as_ref());
         let mut query = vec![
             ("kind", JsonValue::string("symbol")),
             ("candidate_status", JsonValue::string("query_only")),
@@ -2853,7 +2853,7 @@ impl<'a> FunctionChecker<'a> {
     fn ranked_symbol_candidates(
         &self,
         expected: &Type,
-        hole_span: &SourceSpan,
+        hole: &Expr,
         satisfy: Option<&SatisfyRepairConstraint>,
     ) -> Vec<JsonValue> {
         let mut candidates = self
@@ -2884,50 +2884,78 @@ impl<'a> FunctionChecker<'a> {
             })
             .enumerate()
             .map(|(index, ((score, _, binding), static_satisfy))| {
+                let rank = index + 1;
+                let reason = if let Some(reason) = static_satisfy {
+                    reason
+                } else if score == 0 {
+                    "exact_type_match"
+                } else {
+                    "assignable_type_match"
+                };
+                let policy = if static_satisfy.is_some() {
+                    "safe_repair_candidate"
+                } else {
+                    "manual_review_required"
+                };
+                let satisfy_status = satisfy.map(|_| {
+                    if static_satisfy.is_some() {
+                        "statically_satisfied"
+                    } else {
+                        "blocked_until_discharged"
+                    }
+                });
                 let mut candidate = vec![
-                    (
-                        "candidate_id",
-                        JsonValue::string(format!("symbol-{}", index + 1)),
-                    ),
+                    ("candidate_id", JsonValue::string(format!("symbol-{rank}"))),
                     ("name", JsonValue::string(binding.name.clone())),
                     ("type", JsonValue::string(binding.ty.render())),
-                    ("rank", JsonValue::Number((index + 1) as i64)),
-                    (
-                        "reason",
-                        JsonValue::string(if let Some(reason) = static_satisfy {
-                            reason
-                        } else if score == 0 {
-                            "exact_type_match"
-                        } else {
-                            "assignable_type_match"
-                        }),
-                    ),
-                    (
-                        "application_policy",
-                        JsonValue::string(if static_satisfy.is_some() {
-                            "safe_repair_candidate"
-                        } else {
-                            "manual_review_required"
-                        }),
-                    ),
+                    ("rank", JsonValue::Number(rank as i64)),
+                    ("reason", JsonValue::string(reason)),
+                    ("application_policy", JsonValue::string(policy)),
                     (
                         "edits",
                         JsonValue::array([JsonValue::object([
                             ("kind", JsonValue::string("replace")),
-                            ("span", span_json(hole_span)),
+                            ("span", span_json(&hole.span)),
                             ("replacement", JsonValue::string(binding.name.clone())),
                         ])]),
                     ),
+                    (
+                        "target",
+                        JsonValue::object([
+                            ("node_id", JsonValue::string(hole.node_id.display("hole"))),
+                            ("span", span_json(&hole.span)),
+                        ]),
+                    ),
+                    (
+                        "edit_summary",
+                        JsonValue::string(format!("Replace hole with `{}`", binding.name)),
+                    ),
+                    (
+                        "evidence",
+                        candidate_evidence(expected, &binding.ty, rank, reason, satisfy_status),
+                    ),
+                    ("known_limits", candidate_known_limits(satisfy_status)),
+                    (
+                        "blocking_obligations",
+                        candidate_blocking_obligations(policy, satisfy_status),
+                    ),
+                    (
+                        "verification_hint",
+                        JsonValue::object([
+                            (
+                                "command",
+                                JsonValue::string(format!(
+                                    "veln check --json {}",
+                                    hole.span.file.as_str()
+                                )),
+                            ),
+                            ("scope", JsonValue::string("after_applying_candidate_edit")),
+                        ]),
+                    ),
+                    ("application_status", JsonValue::string("unapplied")),
                 ];
-                if satisfy.is_some() {
-                    candidate.push((
-                        "satisfy_status",
-                        JsonValue::string(if static_satisfy.is_some() {
-                            "statically_satisfied"
-                        } else {
-                            "blocked_until_discharged"
-                        }),
-                    ));
+                if let Some(satisfy_status) = satisfy_status {
+                    candidate.push(("satisfy_status", JsonValue::string(satisfy_status)));
                 }
                 JsonValue::object(candidate)
             })
@@ -3033,6 +3061,74 @@ impl<'a> FunctionChecker<'a> {
             ContractValidation::Valid
         )
     }
+}
+
+fn candidate_evidence(
+    expected: &Type,
+    actual: &Type,
+    rank: usize,
+    reason: &'static str,
+    satisfy_status: Option<&'static str>,
+) -> JsonValue {
+    let mut evidence = vec![
+        JsonValue::object([
+            ("kind", JsonValue::string("type")),
+            ("status", JsonValue::string("passed")),
+            ("expected_type", JsonValue::string(expected.render())),
+            ("candidate_type", JsonValue::string(actual.render())),
+        ]),
+        JsonValue::object([
+            ("kind", JsonValue::string("ranking")),
+            ("status", JsonValue::string("ranked")),
+            ("rank", JsonValue::Number(rank as i64)),
+            ("reason", JsonValue::string(reason)),
+        ]),
+        JsonValue::object([
+            ("kind", JsonValue::string("verification")),
+            ("status", JsonValue::string("not_run")),
+        ]),
+    ];
+    if let Some(satisfy_status) = satisfy_status {
+        let satisfy_reason = if satisfy_status == "statically_satisfied" {
+            reason
+        } else {
+            "not_statically_discharged"
+        };
+        evidence.push(JsonValue::object([
+            ("kind", JsonValue::string("satisfy")),
+            ("status", JsonValue::string(satisfy_status)),
+            ("reason", JsonValue::string(satisfy_reason)),
+        ]));
+    }
+    JsonValue::array(evidence)
+}
+
+fn candidate_known_limits(satisfy_status: Option<&'static str>) -> JsonValue {
+    let mut limits = vec![
+        JsonValue::string("edit is advisory and unapplied"),
+        JsonValue::string("tests and examples have not been run"),
+    ];
+    if satisfy_status == Some("blocked_until_discharged") {
+        limits.push(JsonValue::string(
+            "satisfy predicate is not statically discharged by this candidate",
+        ));
+    }
+    JsonValue::array(limits)
+}
+
+fn candidate_blocking_obligations(
+    application_policy: &'static str,
+    satisfy_status: Option<&'static str>,
+) -> JsonValue {
+    let mut obligations = Vec::new();
+    if application_policy == "manual_review_required" {
+        obligations.push(JsonValue::string("manual_review_required"));
+    }
+    if satisfy_status == Some("blocked_until_discharged") {
+        obligations.push(JsonValue::string("satisfy.blocked_until_discharged"));
+    }
+    obligations.push(JsonValue::string("verification.not_run"));
+    JsonValue::array(obligations)
 }
 
 fn contract_callee_segments(callee: &str) -> Vec<String> {
