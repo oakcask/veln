@@ -1,0 +1,9 @@
+command = ["run", "main", "main.veln", "--", "not-int"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["veln: invalid Int argument for parameter `value`: `not-int`"]

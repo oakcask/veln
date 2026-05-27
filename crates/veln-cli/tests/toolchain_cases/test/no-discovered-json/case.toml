@@ -1,0 +1,36 @@
+command = ["test", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-test-json/v0"
+
+[[json_assert]]
+path = "command"
+equals = "test"
+
+[[json_assert]]
+path = "status"
+equals = "blocked"
+
+[[json_assert]]
+path = "selection.targets.0"
+equals = "main_test.veln"
+
+[[json_assert]]
+path = "summary.errors"
+equals = 1
+
+[[json_assert]]
+path = "suite_errors.0.kind"
+equals = "discovery"
+
+[[json_assert]]
+path = "suite_errors.0.message"
+equals = "no test declarations were discovered"

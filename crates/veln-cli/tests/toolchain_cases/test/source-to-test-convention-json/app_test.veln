@@ -1,0 +1,4 @@
+test paired() -> Result((), AppError) effects []
+  helper()
+  _
+end
