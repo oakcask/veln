@@ -644,7 +644,7 @@ mod tests {
                 name: "items".to_string(),
                 expr: core_expr(
                     &items.expr,
-                    CoreType::list(CoreType::int()),
+                    CoreType::vec(CoreType::int()),
                     CoreExprKind::List(vec![
                         core_expr(
                             &item_exprs[0],

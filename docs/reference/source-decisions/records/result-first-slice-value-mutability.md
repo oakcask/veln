@@ -72,7 +72,7 @@ locking the language into that strategy.
 ## Open Details
 
 The exact standard-library names for functional container operations remain
-open. Examples include `list_append(items, item)`, `dict_insert(map, key,
+open. Examples include `vec_append(items, item)`, `dict_insert(map, key,
 value)`, or a future record-update form. The observable rule is that these
 operations produce a new value.
 

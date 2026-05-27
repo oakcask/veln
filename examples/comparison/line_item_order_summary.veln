@@ -18,9 +18,9 @@ fn parse_line(catalog: Dict(String, Int), line: String) -> Result({sku: String, 
   end
 end
 
-pub fn summarize_order(lines: List(String), catalog: Dict(String, Int)) -> result: Result({item_count: Int, subtotal_cents: Int}, {kind: String, input: String}) effects []
-  let items: List({sku: String, quantity: Int, unit_cents: Int}) = list_try_map_with(catalog, lines, parse_line)?
-  Ok(list_fold(items, {item_count: 0, subtotal_cents: 0}, add_summary))
+pub fn summarize_order(lines: Vec(String), catalog: Dict(String, Int)) -> result: Result({item_count: Int, subtotal_cents: Int}, {kind: String, input: String}) effects []
+  let items: Vec({sku: String, quantity: Int, unit_cents: Int}) = vec_try_map_with(catalog, lines, parse_line)?
+  Ok(vec_fold(items, {item_count: 0, subtotal_cents: 0}, add_summary))
 end
 
 pub fn main() -> Result((), {kind: String, input: String}) effects [stdio]

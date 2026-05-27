@@ -68,9 +68,9 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
         )),
         ("fs", "read_dir") => Some((
             vec![path_type()],
-            Type::result(Type::list(path_type()), Type::named("FsError", Vec::new())),
+            Type::result(Type::vec(path_type()), Type::named("FsError", Vec::new())),
         )),
-        ("process", "args") => Some((Vec::new(), Type::list(Type::string()))),
+        ("process", "args") => Some((Vec::new(), Type::vec(Type::string()))),
         ("process", "env") => Some((
             vec![Type::string()],
             Type::named("Option", vec![Type::string()]),
@@ -516,6 +516,6 @@ mod tests {
 
         let (_, return_type) =
             standard_library_signature(&path("process", "args")).expect("process signature");
-        assert_eq!(return_type, Type::list(Type::string()));
+        assert_eq!(return_type, Type::vec(Type::string()));
     }
 }

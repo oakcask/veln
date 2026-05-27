@@ -8,7 +8,7 @@ compatibility, and operator typing.
 Implemented type annotations:
 
 - primitives: `Bool`, `Int`, `Float`, `String`, and `()`
-- built-in type constructors: `Option(T)`, `Result(T, E)`, `List(T)`, and
+- built-in type constructors: `Option(T)`, `Result(T, E)`, `Vec(T)`, and
   `Dict(K, V)`
 - records: `{name: Type, ...}`
 - function types: `fn(T, ...) -> U` with optional `effects [name, ...]`
@@ -50,7 +50,7 @@ Expected types flow into holes and subexpressions from:
 - function call parameters
 - prelude helper parameters and return context
 - record fields
-- list elements
+- vec elements
 - dictionary keys and values
 - callable function declarations used as values
 - `Ok`, `Err`, `Some`, `None`, their `Result::` or `Option::` qualified
@@ -87,8 +87,8 @@ the scrutinee type and the arms that prove partial coverage.
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
 record and be assignable. Named types with the same constructor are compatible
-when their arguments are pairwise assignable, so `List(unknown)` accepts
-`List(Int)`. `Path` and `String` are distinct named types at assignment
+when their arguments are pairwise assignable, so `Vec(unknown)` accepts
+`Vec(Int)`. `Path` and `String` are distinct named types at assignment
 boundaries even while the current runtime stores paths with host strings.
 Function assignment checks parameter count, parameter types, return type, and
 effects. The actual callable's effects must all be present in the expected
@@ -133,7 +133,7 @@ Implemented operator typing:
 
 Operator typing permits `Int` operands where a selected `Float` operator
 expects a numeric operand. This widening is limited to numeric operators;
-ordinary assignment, return, record, list, and call argument checking still
+ordinary assignment, return, record, vec, and call argument checking still
 require `Float` where `Float` is declared.
 
 Float arithmetic and comparison operators lower as calls to compiler-known

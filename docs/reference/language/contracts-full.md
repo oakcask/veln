@@ -27,8 +27,8 @@ After parsing, the checker validates a small pure boolean subset:
   declared parameter types and the return type fits the predicate position
 - field access on record-typed values returned by discovered pure functions
 - qualified calls to discovered pure functions through `use` aliases
-- pure prelude helper calls such as `list_len(items)` and
-  `list_is_empty(items)`
+- pure prelude helper calls such as `vec_len(items)` and
+  `vec_is_empty(items)`
 - visible parameter bindings
 - explicit result bindings in `ensure` clauses
 

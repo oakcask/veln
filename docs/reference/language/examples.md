@@ -14,7 +14,7 @@ is recorded in
 The pure API is:
 
 ```veln
-summarize_order(lines: List(String), catalog: Dict(String, Int)) -> Result({item_count: Int, subtotal_cents: Int}, {kind: String, input: String})
+summarize_order(lines: Vec(String), catalog: Dict(String, Int)) -> Result({item_count: Int, subtotal_cents: Int}, {kind: String, input: String})
 ```
 
 Input lines use `sku,quantity` spelling. The implementation rejects malformed
@@ -25,8 +25,8 @@ functions.
 The example uses these implemented language features together:
 
 - dictionary lookup with `dict_get`
-- fallible list traversal with `list_try_map_with`
-- summary accumulation with `list_fold`
+- fallible vector traversal with `vec_try_map_with`
+- summary accumulation with `vec_fold`
 - `Result` propagation
 - record-shaped success and error values
 - `stdio::println` for the wrapper

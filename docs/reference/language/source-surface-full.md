@@ -215,13 +215,13 @@ Implemented expressions:
   `channel::close(tx)`
 - task effect calls: `task::spawn(job)`, `task::spawn[Item](job)`,
   `task::join(task)`, and `task::cancel(task)`
-- prelude helpers as bare calls such as `list_len(items)`
+- prelude helpers as bare calls such as `vec_len(items)`
 - records: `{name: value, ...}`
 - dictionaries: `{key_expr: value_expr, ...}` when the first entry is not a
   bare `name: value` field; identifier-led expression keys such as `seed + 1`
   are dictionary keys
 - record field access: `expr.name`
-- lists: `[value, ...]`
+- vec literals: `[value, ...]`
 - match expressions over literals, bindings, `_`, record patterns, and built-in
   constructors `Some`, `None`, `Ok`, `Err`, `Option::Some`, `Option::None`,
   `Result::Ok`, and `Result::Err`

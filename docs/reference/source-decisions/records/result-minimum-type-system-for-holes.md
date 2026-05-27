@@ -32,7 +32,7 @@ Local unification can then push those facts inward to holes without requiring a
 large inference engine. Built-in parametric forms are worth including because
 they appear in the proposed first slice and directly improve repair hints:
 `Result(User, ParseError)` is much more actionable than an opaque fallible
-value, and `List(User)` gives candidate search better shape than an unknown
+value, and `Vec(User)` gives candidate search better shape than an unknown
 collection.
 
 Avoiding generalized polymorphism keeps diagnostics simpler. A private helper

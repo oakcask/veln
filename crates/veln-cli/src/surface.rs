@@ -861,7 +861,7 @@ mod tests {
     fn test_entry_can_reach_function_value_reference() {
         let module = lower(concat!(
             "test foo() -> () effects []\n",
-            "  list_map([1], stringify)\n",
+            "  vec_map([1], stringify)\n",
             "  ()\n",
             "end\n",
             "fn stringify(value: Int) -> String effects []\n",
@@ -1002,7 +1002,7 @@ mod tests {
                         "mod app.main\n",
                         "use app.text\n",
                         "test foo() -> () effects []\n",
-                        "  list_map([1], text::stringify)\n",
+                        "  vec_map([1], text::stringify)\n",
                         "  ()\n",
                         "end\n",
                     ),

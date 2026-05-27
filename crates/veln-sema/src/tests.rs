@@ -6328,7 +6328,7 @@ fn accepts_first_slice_type_forms_and_record_expected_fields() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main() -> {score: Float, names: List(String), table: Dict(String, Int), ",
+            "fn main() -> {score: Float, names: Vec(String), table: Dict(String, Int), ",
             "callback: fn(Int) -> String}\n",
             "  {score: _, names: [], table: _, callback: _}\n",
             "end\n",
@@ -7079,8 +7079,8 @@ fn resolves_qualified_function_values_through_import_aliases() {
         concat!(
             "mod app.main\n",
             "use app.text\n",
-            "pub fn main() -> List(String) effects []\n",
-            "  list_map([1], text::stringify)\n",
+            "pub fn main() -> Vec(String) effects []\n",
+            "  vec_map([1], text::stringify)\n",
             "end\n",
         ),
     );
@@ -7270,26 +7270,26 @@ fn infers_prelude_helper_calls_from_expected_types() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(items: List(Int), other: List(Int), table: Dict(String, Int), ",
+            "pub fn main(items: Vec(Int), other: Vec(Int), table: Dict(String, Int), ",
             "mapper: fn(Int) -> String, keep: fn(Int) -> Bool, folder: fn(String, Int) -> String, ",
             "fallible: fn(Int) -> Result(String, AppError), opt: Option(Int), ",
             "fallible_with: fn(String, Int) -> Result(String, AppError), ",
             "opt_map: fn(Int) -> String, opt_next: fn(Int) -> Option(String), ",
             "res: Result(Int, AppError), err_map: fn(AppError) -> String, ",
             "res_next: fn(Int) -> Result(String, AppError)) -> {",
-            "count: Int, empty: Bool, pushed: List(Int), joined: List(Int), mapped: List(String), ",
-            "filtered: List(Int), folded: String, tried: Result(List(String), AppError), ",
-            "tried_with: Result(List(String), AppError), split: Option({left: String, right: String}), ",
+            "count: Int, empty: Bool, pushed: Vec(Int), joined: Vec(Int), mapped: Vec(String), ",
+            "filtered: Vec(Int), folded: String, tried: Result(Vec(String), AppError), ",
+            "tried_with: Result(Vec(String), AppError), split: Option({left: String, right: String}), ",
             "parsed: Result(Int, String), rendered: String, ",
             "found: Option(Int), has_key: Bool, inserted: Dict(String, Int), removed: Dict(String, Int), ",
             "opt_mapped: Option(String), opt_nexted: Option(String), opt_value: Int, ",
             "res_mapped: Result(String, AppError), res_err: Result(Int, String), ",
             "res_nexted: Result(String, AppError)} effects []\n",
-            "  {count: list_len(items), empty: list_is_empty(items), ",
-            "pushed: list_push(items, 1), joined: list_concat(items, other), ",
-            "mapped: list_map(items, mapper), filtered: list_filter(items, keep), ",
-            "folded: list_fold(items, \"\", folder), tried: list_try_map(items, fallible), ",
-            "tried_with: list_try_map_with(\"prefix\", items, fallible_with), ",
+            "  {count: vec_len(items), empty: vec_is_empty(items), ",
+            "pushed: vec_push(items, 1), joined: vec_concat(items, other), ",
+            "mapped: vec_map(items, mapper), filtered: vec_filter(items, keep), ",
+            "folded: vec_fold(items, \"\", folder), tried: vec_try_map(items, fallible), ",
+            "tried_with: vec_try_map_with(\"prefix\", items, fallible_with), ",
             "split: string_split_once(\"sku,2\", \",\"), parsed: string_parse_int(\"2\"), ",
             "rendered: int_to_string(2), ",
             "found: dict_get(table, \"a\"), has_key: dict_contains(table, \"a\"), ",
@@ -7326,7 +7326,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
         CoreExprKind::Call {
             target: CoreCallTarget::PreludeBuiltin(name),
             ..
-        } if name == "list_len"
+        } if name == "vec_len"
     ));
     assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
     let ir = lowered
@@ -7348,7 +7348,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
         IrExprKind::Call {
             target: IrCallTarget::PreludeBuiltin(name),
             ..
-        } if name == "list_len"
+        } if name == "vec_len"
     ));
 }
 
@@ -7434,15 +7434,15 @@ fn compiler_support_source_loads_text_through_standard_fs_subset() {
 }
 
 #[test]
-fn suggests_list_try_map_for_result_returning_map_callback() {
+fn suggests_vec_try_map_for_result_returning_map_callback() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
             "fn parse(value: Int) -> Result(String, AppError) effects []\n",
             "  Ok(\"ok\")\n",
             "end\n",
-            "pub fn main(items: List(Int)) -> List(String) effects []\n",
-            "  list_map(items, parse)\n",
+            "pub fn main(items: Vec(Int)) -> Vec(String) effects []\n",
+            "  vec_map(items, parse)\n",
             "end\n",
         ),
     );
@@ -7463,7 +7463,7 @@ fn suggests_list_try_map_for_result_returning_map_callback() {
         diagnostic
             .related
             .iter()
-            .any(|related| { related.to_json().contains("Use `list_try_map`") })
+            .any(|related| { related.to_json().contains("Use `vec_try_map`") })
     );
 }
 
@@ -7475,8 +7475,8 @@ fn lowers_function_declarations_as_callable_values() {
             "fn stringify(value: Int) -> String effects []\n",
             "  \"ok\"\n",
             "end\n",
-            "pub fn main(items: List(Int)) -> List(String) effects []\n",
-            "  list_map(items, stringify)\n",
+            "pub fn main(items: Vec(Int)) -> Vec(String) effects []\n",
+            "  vec_map(items, stringify)\n",
             "end\n",
         ),
     );
@@ -7945,7 +7945,7 @@ fn process_calls_require_process_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> List(String) effects []\n",
+            "pub fn main() -> Vec(String) effects []\n",
             "  process::args()\n",
             "end\n",
         ),
@@ -8919,9 +8919,9 @@ fn contract_predicate_accepts_prelude_helper_calls() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn first(items: List(Int)) -> Int effects []\n",
-            "require list_len(items) > 0\n",
-            "require not list_is_empty(items)\n",
+            "pub fn first(items: Vec(Int)) -> Int effects []\n",
+            "require vec_len(items) > 0\n",
+            "require not vec_is_empty(items)\n",
             "  1\n",
             "end\n",
         ),
@@ -8940,8 +8940,8 @@ fn satisfy_predicate_accepts_prelude_helper_calls() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn fallback(items: List(Int)) -> List(Int) effects []\n",
-            "  _value satisfy candidate => list_len(candidate) >= list_len(items)\n",
+            "pub fn fallback(items: Vec(Int)) -> Vec(Int) effects []\n",
+            "  _value satisfy candidate => vec_len(candidate) >= vec_len(items)\n",
             "end\n",
         ),
     );

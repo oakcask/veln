@@ -1019,7 +1019,7 @@ impl<'a> CoreLowerer<'a> {
     }
 
     fn lower_list(&mut self, expr: &Expr, items: &[Expr], expected: Option<&CoreType>) -> CoreExpr {
-        let item_expected = expected.and_then(CoreType::list_part).cloned();
+        let item_expected = expected.and_then(CoreType::vec_part).cloned();
         let items = items
             .iter()
             .map(|item| self.lower_expr(item, item_expected.as_ref()))
@@ -1029,7 +1029,7 @@ impl<'a> CoreLowerer<'a> {
                 .first()
                 .map_or(CoreType::Unknown, |item| item.ty.clone())
         });
-        self.core_expr(expr, CoreType::list(item_type), CoreExprKind::List(items))
+        self.core_expr(expr, CoreType::vec(item_type), CoreExprKind::List(items))
     }
 
     fn lower_match(
