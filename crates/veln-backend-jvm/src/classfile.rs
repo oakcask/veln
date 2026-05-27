@@ -1172,47 +1172,65 @@ fn runtime_classes() -> Vec<JvmClassFile> {
     const CLASSES: &[(&str, &[u8])] = &[
         (
             "VelnRuntime$1.class",
-            include_bytes!("../runtime/VelnRuntime$1.class"),
+            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$1.class")),
         ),
         (
             "VelnRuntime$Channel.class",
-            include_bytes!("../runtime/VelnRuntime$Channel.class"),
+            include_bytes!(concat!(
+                env!("OUT_DIR"),
+                "/runtime/VelnRuntime$Channel.class"
+            )),
         ),
         (
             "VelnRuntime$ContractFailure.class",
-            include_bytes!("../runtime/VelnRuntime$ContractFailure.class"),
+            include_bytes!(concat!(
+                env!("OUT_DIR"),
+                "/runtime/VelnRuntime$ContractFailure.class"
+            )),
         ),
         (
             "VelnRuntime$Fn.class",
-            include_bytes!("../runtime/VelnRuntime$Fn.class"),
+            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$Fn.class")),
         ),
         (
             "VelnRuntime$Option.class",
-            include_bytes!("../runtime/VelnRuntime$Option.class"),
+            include_bytes!(concat!(
+                env!("OUT_DIR"),
+                "/runtime/VelnRuntime$Option.class"
+            )),
         ),
         (
             "VelnRuntime$Receiver.class",
-            include_bytes!("../runtime/VelnRuntime$Receiver.class"),
+            include_bytes!(concat!(
+                env!("OUT_DIR"),
+                "/runtime/VelnRuntime$Receiver.class"
+            )),
         ),
         (
             "VelnRuntime$Result.class",
-            include_bytes!("../runtime/VelnRuntime$Result.class"),
+            include_bytes!(concat!(
+                env!("OUT_DIR"),
+                "/runtime/VelnRuntime$Result.class"
+            )),
         ),
         (
             "VelnRuntime$Sender.class",
-            include_bytes!("../runtime/VelnRuntime$Sender.class"),
+            include_bytes!(concat!(
+                env!("OUT_DIR"),
+                "/runtime/VelnRuntime$Sender.class"
+            )),
         ),
         (
             "VelnRuntime$Task.class",
-            include_bytes!("../runtime/VelnRuntime$Task.class"),
+            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$Task.class")),
         ),
         (
             "VelnRuntime$Unit.class",
-            include_bytes!("../runtime/VelnRuntime$Unit.class"),
+            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$Unit.class")),
         ),
         (
             "VelnRuntime.class",
-            include_bytes!("../runtime/VelnRuntime.class"),
+            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime.class")),
         ),
     ];
     CLASSES
