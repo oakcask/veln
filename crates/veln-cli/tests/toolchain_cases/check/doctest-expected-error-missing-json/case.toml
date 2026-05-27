@@ -1,0 +1,35 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = 1
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.details.kind"
+equals = "doctest_metadata"
+
+[[diagnostics]]
+id = "doctest.expected_failure_missing"
+severity = "error"
+kind = "doc"
+message = "negative doctest produced no error diagnostics"
+
+[diagnostics.span]
+file = "main.veln"
+line = 1
+column = 1
