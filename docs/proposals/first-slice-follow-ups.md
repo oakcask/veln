@@ -35,6 +35,19 @@ confirm whether any accepted first-slice follow-up target remains.
 - Formatter command behavior:
   [../reference/language/commands.md](../reference/language/commands.md).
 
+## Repair Loop
+
+This closed route preserves old links. Current hole and repair candidate
+behavior lives in [../reference/language/holes.md](../reference/language/holes.md)
+and [../reference/language/diagnostics-json.md](../reference/language/diagnostics-json.md).
+
+## Effects And Contracts
+
+This closed route preserves old links. Current effect behavior lives in
+[../reference/language/names-effects.md](../reference/language/names-effects.md),
+and current contract behavior lives in
+[../reference/language/contracts.md](../reference/language/contracts.md).
+
 ## Skip Unless Needed
 
 - Do not read the full record when the current language reference already
