@@ -2,6 +2,8 @@ name: test / rust
 
 on:
   push:
+    branches:
+      - main
     paths:
       - .github/workflows/test--rust.yaml
       - Cargo.lock
