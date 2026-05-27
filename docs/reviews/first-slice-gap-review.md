@@ -7,8 +7,6 @@ whether the current review evidence is relevant before opening the full record.
 
 - [../reference/language/README.md](../reference/language/README.md): current
   implemented language behavior.
-- [../proposals/first-slice-follow-ups.md](../proposals/first-slice-follow-ups.md):
-  accepted targets that still need implementation.
 - [../document-status.md](../document-status.md): status and promotion rules
   before moving review findings into proposals or reference material.
 
@@ -26,5 +24,5 @@ whether the current review evidence is relevant before opening the full record.
 
 - Do not use this review as the current language specification; start in
   `../reference/language/`.
-- Do not read the full review before checking whether the relevant follow-up is
-  still listed in `../proposals/first-slice-follow-ups.md`.
+- Do not read the full review before checking whether
+  `../proposals/target-queue.md` has an accepted target.

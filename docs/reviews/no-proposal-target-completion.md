@@ -10,8 +10,6 @@ target routes are the proposal queue pages.
 
 - `../proposals/target-queue.md` reports that no accepted targets currently
   remain.
-- `../proposals/first-slice-follow-ups.md` reports that no accepted
-  first-slice follow-up targets currently remain.
 - `../proposals/implementation-route.md` now stops target selection when the
   accepted target queue is empty.
 - `../proposals/target-queue-full.md` keeps the no-target fallback as open
@@ -34,5 +32,4 @@ choose work from open proposal history.
 
 - Checked `../proposals/target-queue.md`.
 - Checked `../proposals/target-queue-full.md`.
-- Checked `../proposals/first-slice-follow-ups.md`.
 - Checked `../proposals/implementation-route.md`.

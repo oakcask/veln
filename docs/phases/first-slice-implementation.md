@@ -11,8 +11,6 @@ choose the shortest current document before opening the full historical memo.
   implemented language behavior.
 - [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md):
   review routing and historical gap evidence.
-- [../proposals/first-slice-follow-ups.md](../proposals/first-slice-follow-ups.md):
-  accepted targets that still need implementation.
 
 ## Read When
 
@@ -29,4 +27,4 @@ choose the shortest current document before opening the full historical memo.
 - Do not read the full memo to answer a current language behavior question;
   start in `../reference/language/`.
 - Do not treat old completion notes as current status without checking
-  `../reviews/` and `../proposals/first-slice-follow-ups.md`.
+  `../reviews/` and `../proposals/target-queue.md`.

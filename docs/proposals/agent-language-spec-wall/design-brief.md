@@ -9,8 +9,6 @@ only when a current proposal or reference page points back to broad rationale.
 
 - Current implemented language behavior:
   [../../reference/language/README.md](../../reference/language/README.md).
-- Accepted first-slice follow-up targets:
-  [../first-slice-follow-ups.md](../first-slice-follow-ups.md).
 - Design-wall open-question route:
   [open-questions.md](open-questions.md).
 - Open repair command target:

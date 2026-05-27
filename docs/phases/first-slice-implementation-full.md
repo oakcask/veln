@@ -5,7 +5,7 @@ shape. It is a working plan, not a replacement for the decision records under
 [reference source decisions](../reference/source-decisions/README.md) and the
 [agent-language spec wall](../proposals/agent-language-spec-wall/README.md).
 Remaining accepted targets that are not fully implemented are tracked in
-[First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md).
+[proposal target queue](../proposals/target-queue.md).
 
 ## Goal
 
@@ -455,14 +455,14 @@ Item 3 review notes:
 - The dictionary part of item 3 is complete as type-system support:
   `Dict(K, V)` annotations parse, validate arity, render deterministically,
   and can flow into hole diagnostics. Dictionary value work is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#language-and-type-coverage).
+  [language type reference](../reference/language/types.md).
 - `hole.unfilled` includes the required details shape: `phase`, `node_id`,
   `label`, `expected_type`, `expected_type_source`, `constraints`,
   `local_bindings`, and `candidate_queries` are present. When an expected type
   is known, the checker emits a structured symbol candidate query, and related
   entries point at the closest available expected-type origin. Repair ranking
   work is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#repair-loop).
+  [hole reference](../reference/language/holes.md).
 - `status: "partial"` is appropriate for hole-only checks. The current
   top-level priority is also appropriate: parse and type errors keep
   `status: "error"` even if hole diagnostics exist.
@@ -502,7 +502,7 @@ Item 3 completion gate status:
   reaches holes through declared returns, local annotations, call arguments,
   record fields, collection elements, and `?` propagation into compatible
   `Result` returns. Match expression work is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#language-and-type-coverage);
+  [language type reference](../reference/language/types.md);
   contract-derived repair constraints are covered by item 4.
 - Complete: `hole.unfilled` diagnostics include required details keys, visible
   local bindings, useful candidate-query records when an expected type is
@@ -524,18 +524,18 @@ Item 4 completion gate status:
   check-JSON decision: `phase`, `node_id`, `effect`, `boundary`,
   `declared_effects`, `inferred_effects`, `provenance`, and
   `provenance_truncated`. Transitive helper inference work is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#effects-and-contracts).
+  [contracts and effects reference](../reference/language/contracts-holes.md).
 - Complete for the first-slice contract subset: `require` and `ensure`
   predicates are checked for boolean shape, effectful stdio use, unsupported
   calls, and unresolved predicate names. Runtime contract work is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#effects-and-contracts).
+  [contracts and effects reference](../reference/language/contracts-holes.md).
 - Complete: hole diagnostics include contract-derived repair constraints and
   `satisfy candidate => predicate` constraints, plus related entries pointing
   at constraint origins. The current `satisfy` implementation preserves the
   source suffix in parse and AST, exposes it in `hole.unfilled` constraints,
   and reports malformed or unusable candidate bindings. Candidate ranking and
   concrete repair generation are tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md#repair-loop).
+  [hole reference](../reference/language/holes.md).
 
 Item 5 completion gate status:
 
@@ -550,7 +550,7 @@ Item 5 completion gate status:
   lists, calls, module/use headers, and multi-function spacing.
 - Complete for comment safety: comment-bearing files are preserved
   byte-for-byte. Comment attachment is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#formatting).
+  [command reference](../reference/language/commands.md).
 
 Item 6 completion gate status:
 
@@ -640,7 +640,7 @@ Item 7 review notes:
   minimal boxed `Result`, `Option`, records, lists, unit, stdio builtins,
   callable values, operators, formatting, and `?` early `Err` propagation are
   present. Broader runtime semantics are tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#language-and-type-coverage).
+  [language type reference](../reference/language/types.md).
 - Focused backend tests are sufficient to proceed to item 8 because they cover
   Java emission shape and compile readiness when a JDK is available. Item 8
   should add end-to-end `run` fixtures for entry-point selection, argument
@@ -668,7 +668,7 @@ Item 8 completion gate status:
   JDK, missing entry reporting, missing `javac` reporting, and stdout/stderr
   forwarding when `javac` and `java` are available.
 - Complete for the item 8 gate. Remaining run and runtime targets are tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#lowering-and-execution).
+  [execution reference](../reference/language/execution.md).
 
 Item 8 review notes:
 
@@ -678,19 +678,19 @@ Item 8 review notes:
   named zero-argument function from the shared discovered source set and rejects
   missing or parameterized entries before compiling Java artifacts. Entry
   arguments are tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#lowering-and-execution).
+  [execution reference](../reference/language/execution.md).
 - Static gates are sufficient for this slice: parse errors, semantic errors,
   missing public effects, missing or parameterized entries, reachable holes, and
   checked-core/IR blockers stop before generated Java execution. The current
   command checks semantic errors across the discovered module before narrowing
   hole blocking to the entry-reachable module; narrower selected-entry behavior
   is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#lowering-and-execution).
+  [execution reference](../reference/language/execution.md).
 - Reachable-hole blocking matches the documented first-slice direct call graph
   scope. The current reachability graph follows selected entry plus direct
   function-name calls in expressions, allowing holes in unreachable functions.
   Broader reachability handling is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#lowering-and-execution).
+  [execution reference](../reference/language/execution.md).
 - JVM execution behavior is reasonable for item 8: generated sources are written
   to an isolated temporary build directory, `javac` runs before `java`, process
   stdout/stderr are forwarded, Java runtime exit status is preserved, and
@@ -715,7 +715,7 @@ Item 5 review notes:
   It prevents destructive trivia movement while keeping the lossless tree's
   comment retention available for later comment attachment. Formatter
   stabilization targets are tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#formatting).
+  [command reference](../reference/language/commands.md).
 - Fixture coverage is sufficient to start item 6, but it is not exhaustive
   formatter stabilization coverage.
 
@@ -732,7 +732,7 @@ Item 9 completion gate status:
 - Complete for the first-slice same-file example boundary: explicitly targeted
   non-`*_test.veln` files can contribute `test` declarations. Example extraction
   is tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#test-discovery-and-events).
+  [test JSON reference](../reference/language/test-json.md).
 - Complete: static gates block before user code execution on parse errors,
   semantic errors, reachable holes, and checked-core blockers. Blocked test
   JSON keeps top-level diagnostics and marks already discovered cases as
@@ -764,7 +764,7 @@ Item 9 review notes:
 - Same-file examples are complete only at the current first-slice boundary:
   an explicitly targeted non-test file contributes its `test` declarations as
   cases. Test discovery follow-ups are tracked in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#test-discovery-and-events).
+  [test JSON reference](../reference/language/test-json.md).
 - Static gate behavior is acceptable for this slice. Parse and semantic errors
   block the suite before Java execution, reachable holes and checked-core
   blockers block selected cases, runtime failures become failed cases, and JDK
@@ -776,11 +776,11 @@ Item 9 review notes:
   `terminator` field instead of appending it to `text`.
 - Coverage is sufficient for the first-slice claim, but test stabilization
   targets remain in
-  [First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups-full.md#test-discovery-and-events).
+  [test JSON reference](../reference/language/test-json.md).
 
 Next recommended implementation step: plan the next phase from a completed
 first slice using
-[First-Slice Follow-Up Targets](../proposals/first-slice-follow-ups.md).
+[proposal target queue](../proposals/target-queue.md).
 
 ## Related Decisions
 

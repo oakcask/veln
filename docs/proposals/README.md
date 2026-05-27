@@ -1,7 +1,7 @@
 # Proposals
 
-This directory keeps accepted or open design targets and short promotion notes
-for targets that have moved into the current language reference.
+This directory keeps accepted or open design targets that are not fully
+implemented.
 
 ## Read First
 
@@ -19,26 +19,9 @@ for targets that have moved into the current language reference.
 
 ## Read When
 
-- Use [first-slice-follow-ups.md](first-slice-follow-ups.md) for accepted
-  first-slice follow-up targets.
-- Self-hosting standard library behavior has moved into current behavior; use
-  [../reference/language/names-effects.md](../reference/language/names-effects.md)
-  first, and open
-  [self-hosting-standard-library.md](self-hosting-standard-library.md) only for
-  proposal history.
-- Editor semantic highlighting has moved into current behavior; use
-  [../reference/language/editor-support.md](../reference/language/editor-support.md)
-  first, and open
-  [editor-semantic-highlighting.md](editor-semantic-highlighting.md) only for
-  proposal history.
-- Toolchain test harness behavior is implemented for CLI integration tests;
-  use [toolchain-test-harness.md](toolchain-test-harness.md) for harness
-  organization and proposal history.
-- Match exhaustiveness has moved into current behavior; use
-  [../reference/language/source-surface.md](../reference/language/source-surface.md)
-  and [../reference/language/types.md](../reference/language/types.md) first,
-  and open [match-exhaustiveness.md](match-exhaustiveness.md) only for proposal
-  history.
+- Use [self-hosting-standard-library.md](self-hosting-standard-library.md) only
+  for future self-hosting standard library questions whose behavior is absent
+  from the current reference.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still open or only partially represented.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
@@ -51,7 +34,7 @@ for targets that have moved into the current language reference.
 - A target is found to be already implemented by the current reference and only
   remaining proposal work should stay queued.
 - No accepted target remains and design-wall material should be left as
-  exploration instead of being promoted into the queue.
+  exploration instead of being selected into the queue.
 
 ## Skip Unless Needed
 

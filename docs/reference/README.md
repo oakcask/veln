@@ -16,6 +16,8 @@ rationale or sources needed to maintain that behavior.
 - Human diagnostics: [language/diagnostics-json.md](language/diagnostics-json.md).
 - Machine-readable command output:
   [language/json-output.md](language/json-output.md).
+- CLI integration test harness:
+  [toolchain-test-harness.md](toolchain-test-harness.md).
 - Implemented rationale: [source-decisions/README.md](source-decisions/README.md),
   then [source-decisions/topic-map.md](source-decisions/topic-map.md) when the
   category is unclear.
@@ -25,6 +27,8 @@ rationale or sources needed to maintain that behavior.
 
 - Use `language/` before changing implemented behavior, tests, diagnostics,
   commands, JSON output, runtime behavior, or examples.
+- Use [toolchain-test-harness.md](toolchain-test-harness.md) before changing
+  CLI integration case layout or assertion policy.
 - Use `source-decisions/` after a language page needs rationale; start with
   its README before opening category pages or records.
 - Use `bibliography/` after a rationale or claim needs source support.

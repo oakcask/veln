@@ -29,8 +29,7 @@ promotion rules, or placement policy.
 
 - Use `reference/` for implemented behavior and durable rationale.
 - Use `proposals/` for planned or accepted behavior that is not fully
-  implemented, plus promoted proposal history that is no longer the current
-  behavior source.
+  implemented.
 - Use `reviews/` for evidence, gaps, and verification notes.
 - Use `phases/` for ordering, plans, and historical implementation notes.
 
