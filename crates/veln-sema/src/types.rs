@@ -648,13 +648,6 @@ pub(crate) fn is_assignable(expected: &Type, actual: &Type) -> bool {
                 args: actual_args,
             },
         ) => {
-            if expected_args.is_empty()
-                && actual_args.is_empty()
-                && ((expected_name == "Path" && actual_name == "String")
-                    || (expected_name == "String" && actual_name == "Path"))
-            {
-                return true;
-            }
             expected_name == actual_name
                 && expected_args.len() == actual_args.len()
                 && expected_args
@@ -1096,6 +1089,14 @@ mod tests {
         assert!(is_assignable(&Type::string(), &Type::Unknown));
         assert!(is_assignable(&expected_record, &actual_record));
         assert!(!is_assignable(&expected_record, &wrong_record));
+        assert!(!is_assignable(
+            &Type::named("Path", Vec::new()),
+            &Type::string()
+        ));
+        assert!(!is_assignable(
+            &Type::string(),
+            &Type::named("Path", Vec::new())
+        ));
         assert!(is_assignable(
             &expected_effectful_function,
             &actual_pure_function

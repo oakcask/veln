@@ -4,6 +4,8 @@ Status: promoted
 Implementation: implemented subset: descriptor-backed standard symbols,
 minimal `fs` and `process` intrinsics, one source-backed pure helper, and the
 compiler-support source-loading trial are promoted to the language reference.
+The `Path` standard library boundary no longer relies on `String` assignment
+compatibility.
 
 This is the routing page for the promoted standard library and compiler-known
 intrinsic work needed for eventual self-hosting. Use current behavior under

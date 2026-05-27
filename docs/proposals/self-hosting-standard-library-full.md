@@ -4,6 +4,8 @@ Status: promoted
 Implementation: implemented subset: descriptor-backed standard symbols,
 minimal `fs` and `process` intrinsics, one source-backed pure helper, and the
 compiler-support source-loading trial are promoted to the language reference.
+The `Path` standard library boundary no longer relies on `String` assignment
+compatibility.
 
 Read [self-hosting-standard-library.md](self-hosting-standard-library.md)
 first unless you need the complete implementation proposal.
@@ -346,8 +348,9 @@ subset.
 
 - Should standard library modules require explicit `use` declarations, or can
   first standard modules remain globally qualified like current `stdio`?
-- Should `Path` be an opaque type, a record, or a named string wrapper in the
-  first source-visible version?
+- A richer path representation remains open beyond the current source-visible
+  boundary. The implemented slice keeps `Path` distinct from `String` at
+  assignment boundaries while the runtime stores paths with host strings.
 - Should `fs::exists` return `Bool` or `Result(Bool, FsError)` when permission
   errors prevent reliable existence checks?
 - Should `process::exit` be typed as returning `()` or a future never type?

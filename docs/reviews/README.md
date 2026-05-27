@@ -5,6 +5,9 @@ gap lists that should guide follow-up work.
 
 ## Read First
 
+- [opaque-path-boundary-review.md](opaque-path-boundary-review.md)
+  records the completion review for the self-hosting standard library `Path`
+  boundary target.
 - [first-slice-gap-review.md](first-slice-gap-review.md)
   routes the first-slice review evidence. It points to the current reference,
   follow-up targets, and the full historical gap review.
