@@ -78,15 +78,15 @@ impl<'a> ClassfileEmitter<'a> {
             let mut method = MethodCode::new(Rc::clone(&class.constant_pool));
             let mut emitter = FunctionBytecodeEmitter::new(self, function);
             emitter.emit(&mut method);
-            class.add_method(
-                0x0008,
-                &self.function_name(&function.name),
-                &object_method_descriptor(function.params.len()),
-                method.max_stack,
-                method.max_locals,
-                method.code,
-                method.exceptions,
-            );
+            class.add_method(MethodInfo {
+                access_flags: 0x0008,
+                name: self.function_name(&function.name),
+                descriptor: object_method_descriptor(function.params.len()),
+                max_stack: method.max_stack,
+                max_locals: method.max_locals,
+                code: method.code,
+                exceptions: method.exceptions,
+            });
         }
         class.finish()
     }
@@ -114,15 +114,15 @@ impl<'a> ClassfileEmitter<'a> {
             &object_method_descriptor(function.params.len()),
         );
         code.op(0xb0);
-        class.add_method(
-            0x0081,
-            "call",
-            "([Ljava/lang/Object;)Ljava/lang/Object;",
-            code.max_stack,
-            2,
-            code.code,
-            Vec::new(),
-        );
+        class.add_method(MethodInfo {
+            access_flags: 0x0081,
+            name: "call".to_string(),
+            descriptor: "([Ljava/lang/Object;)Ljava/lang/Object;".to_string(),
+            max_stack: code.max_stack,
+            max_locals: 2,
+            code: code.code,
+            exceptions: Vec::new(),
+        });
         class.finish()
     }
 
@@ -211,15 +211,15 @@ impl<'a> ClassfileEmitter<'a> {
             catch_type: self.runtime_nested("ContractFailure"),
         });
 
-        class.add_method(
-            0x0009,
-            "main",
-            "([Ljava/lang/String;)V",
-            code.max_stack,
-            3,
-            code.code,
-            code.exceptions,
-        );
+        class.add_method(MethodInfo {
+            access_flags: 0x0009,
+            name: "main".to_string(),
+            descriptor: "([Ljava/lang/String;)V".to_string(),
+            max_stack: code.max_stack,
+            max_locals: 3,
+            code: code.code,
+            exceptions: code.exceptions,
+        });
         class.finish()
     }
 
@@ -1248,28 +1248,19 @@ impl ClassBuilder {
         code.aload(0);
         code.invokespecial(JAVA_LANG_OBJECT, "<init>", "()V");
         code.op(0xb1);
-        self.add_method(access_flags, "<init>", "()V", 1, 1, code.code, Vec::new());
+        self.add_method(MethodInfo {
+            access_flags,
+            name: "<init>".to_string(),
+            descriptor: "()V".to_string(),
+            max_stack: 1,
+            max_locals: 1,
+            code: code.code,
+            exceptions: Vec::new(),
+        });
     }
 
-    fn add_method(
-        &mut self,
-        access_flags: u16,
-        name: &str,
-        descriptor: &str,
-        max_stack: u16,
-        max_locals: u16,
-        code: Vec<u8>,
-        exceptions: Vec<ExceptionHandler>,
-    ) {
-        self.methods.push(MethodInfo {
-            access_flags,
-            name: name.to_string(),
-            descriptor: descriptor.to_string(),
-            max_stack,
-            max_locals,
-            code,
-            exceptions,
-        });
+    fn add_method(&mut self, method: MethodInfo) {
+        self.methods.push(method);
     }
 
     fn finish(self) -> Vec<u8> {
