@@ -18,6 +18,8 @@ pub const fn core_prelude_source(entry: &'static str) -> StdlibSource {
     }
 }
 
+pub static CORE_PRELUDE_VEC_IS_EMPTY: StdlibSource = core_prelude_source("vec_is_empty");
+
 pub static CORE_PRELUDE_OPTION_MAP: StdlibSource = core_prelude_source("option_map");
 
 pub static CORE_PRELUDE_OPTION_AND_THEN: StdlibSource = core_prelude_source("option_and_then");

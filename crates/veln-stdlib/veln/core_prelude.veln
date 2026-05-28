@@ -1,5 +1,9 @@
 mod core_prelude
 
+fn vec_is_empty(items: Vec(A)) -> Bool effects []
+	vec_len(items) == 0
+end
+
 fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
 	match value
 		Some(inner) => Some(f(inner))
