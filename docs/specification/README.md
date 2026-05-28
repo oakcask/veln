@@ -64,8 +64,7 @@ tracked in `../proposals/`.
   proposal directories.
 - Use command-specific JSON pages only after [json-output.md](json-output.md)
   routes the change.
-- Use `../reference/source-decisions/`, `../proposals/`, or
-  `../reviews/` only after the current behavior page does not answer the
-  question.
+- Use `../reference/source-decisions/` or `../proposals/` only after the
+  current behavior page does not answer the question.
 - Do not open full detail files until the matching short topic page points to a
   section that matters.

@@ -8,8 +8,6 @@ current workspace. Implemented decisions were moved to
 
 ## Read First
 
-- Target selection route:
-  [../target-selection.md](../target-selection.md).
 - [repair-command.md](repair-command.md) records the completed confirmation and
   override protocol target after pointing to current advisory candidate and
   repair command specification pages; open
@@ -26,15 +24,20 @@ current workspace. Implemented decisions were moved to
 
 ## Proposed Targets
 
-- No active target is selected from this directory as a whole.
+- This directory as a whole is broad context; use or create one short proposal
+  page for implementation work.
 - Implemented grammar, concurrency, effect-label, and comparison-task decisions
   now live under `../../reference/`.
 - The repair-command confirmation and explicit override target is implemented.
   Broader verification commands, ranking models, partial application, and
   general automatic repair behavior need a new short proposal page before they
   become targets.
-- Completion review:
-  [../../reviews/agent-language-spec-wall-completion.md](../../reviews/agent-language-spec-wall-completion.md).
+- The advisory repair candidate boundary is implemented: `check --json`
+  candidates stay unapplied, carry target and evidence records, include
+  explicit blocking obligations, and do not authorize automatic application.
+- CLI parser coverage keeps `veln repair` and `veln help repair` outside the
+  advisory-only boundary until the dedicated repair command specification is
+  used.
 - Use [../../reference/source-decisions/README.md](../../reference/source-decisions/README.md)
   before opening old decision records directly.
 

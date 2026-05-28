@@ -80,6 +80,12 @@ Use the specification pages above for the implemented multi-edit candidate
 shape, saved input matching, atomic write and rollback behavior, and remaining
 fail-closed gates.
 
+The earlier command-promotion target also completed saved candidate input,
+command-level repair JSON output, safe candidate selection, stale-span and
+target validation, overlap refusal, rollback, and post-edit check verification.
+Saved candidate input is a way to choose candidates; it is not write
+authorization by itself.
+
 ## Deferred Adjacent Work
 
 - Verification commands beyond the built-in post-edit check analysis.
@@ -102,9 +108,6 @@ fail-closed gates.
   is needed.
 - Use [repair-command-full.md](repair-command-full.md) only when auditing the
   completed command criteria.
-- Use
-  [../../reviews/repair-command-completion.md](../../reviews/repair-command-completion.md)
-  only when checking the previous command promotion evidence.
 - Open
   [../../reference/source-decisions/records/result-safe-repair-candidate-boundary.md](../../reference/source-decisions/records/result-safe-repair-candidate-boundary.md)
   only when the specification does not explain the advisory-versus-application

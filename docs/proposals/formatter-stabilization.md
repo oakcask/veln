@@ -14,8 +14,7 @@ for current `veln fmt` behavior.
   when exact command rules matter.
 - Implemented comment and source syntax:
   [../specification/source-surface.md](../specification/source-surface.md).
-- Completion evidence:
-  [../reviews/formatter-stabilization-completion.md](../reviews/formatter-stabilization-completion.md).
+- Completion evidence is summarized in this page.
 - Promotion mechanics:
   [implementation-route.md](implementation-route.md).
 
@@ -29,6 +28,12 @@ formatted source line.
 
 This proposal page is now history and routing. New formatter work should use a
 new proposal page unless it is already stated by `../specification/`.
+
+Parser recovery around formatter-owned layout accepts comment-separated imports
+and contract clauses through the same newline-tolerant declaration paths used
+by ordinary source parsing. Completion coverage included formatter tree tests
+for imports, contracts, and `end` lines, plus CLI JSON coverage for the same
+comment attachment behavior.
 
 ## Read When
 
