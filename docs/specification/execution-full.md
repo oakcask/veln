@@ -145,6 +145,11 @@ out of a function, the function's `ensure` clauses run before that early
 return.
 
 The JVM execution path keeps a persistent class cache for generated JVM
-classfile artifacts. Cache hits may skip artifact preparation, but command
-results, stdout, stderr, contract traces, and captured stdio events are defined
-as if the selected program was emitted for that invocation.
+classfile artifacts. Before cached classes are executed, the runner validates a
+cache manifest against the emitted class paths and classfile contents expected
+for the selected program. Missing manifests, incomplete entries, unexpected
+files, and class contents that do not match the expected digest are treated as
+invalid cache entries and are regenerated instead of executed. Cache hits may
+skip artifact preparation, but command results, stdout, stderr, contract traces,
+and captured stdio events are defined as if the selected program was emitted
+for that invocation.

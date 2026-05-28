@@ -3160,14 +3160,138 @@ fn assert_reprepares_cached_jvm_classes_after_source_changes(command: JvmCacheCo
 }
 
 #[cfg(unix)]
+fn assert_reprepares_cached_jvm_classes_after_poisoned_class(command: JvmCacheCommand) {
+    let project = TestProject::new(&format!("{}-build-cache-poisoned-class", command.label()));
+    let fixture = command.initial_fixture();
+    project.write(fixture.path, fixture.source);
+    let bin = project.bin_dir_with_fake_java();
+    let path = bin.to_str().expect("bin path should be UTF-8");
+
+    let first = command.execute(&project, path);
+    assert!(first.status.success(), "{}", stderr(&first));
+
+    let entry = only_jvm_class_cache_entry(&project);
+    let class_file = jvm_cache_class_files(&entry)
+        .into_iter()
+        .find(|path| {
+            path.file_name()
+                .is_some_and(|name| name == "VelnEntry.class")
+        })
+        .expect("entry class should be cached");
+    let original = fs::read(&class_file).expect("class should be readable");
+    fs::write(&class_file, b"poisoned").expect("class should be poisoned");
+
+    let second = command.execute(&project, path);
+
+    assert!(second.status.success(), "{}", stderr(&second));
+    assert_eq!(
+        fs::read(class_file).expect("class should be readable"),
+        original
+    );
+    assert_jvm_class_cache_entry_count(&project, 1);
+}
+
+#[cfg(unix)]
+fn assert_reprepares_marker_only_jvm_class_cache(command: JvmCacheCommand) {
+    let project = TestProject::new(&format!("{}-build-cache-marker-only", command.label()));
+    let fixture = command.initial_fixture();
+    project.write(fixture.path, fixture.source);
+    let bin = project.bin_dir_with_fake_java();
+    let path = bin.to_str().expect("bin path should be UTF-8");
+
+    let first = command.execute(&project, path);
+    assert!(first.status.success(), "{}", stderr(&first));
+
+    let entry = only_jvm_class_cache_entry(&project);
+    let manifest = entry.join(".veln-cache-manifest");
+    fs::remove_file(&manifest).expect("manifest should be removed");
+
+    let second = command.execute(&project, path);
+
+    assert!(second.status.success(), "{}", stderr(&second));
+    assert!(manifest.is_file());
+    assert_jvm_class_cache_entry_count(&project, 1);
+}
+
+#[cfg(unix)]
+fn assert_reprepares_incomplete_jvm_class_cache(command: JvmCacheCommand) {
+    let project = TestProject::new(&format!("{}-build-cache-incomplete", command.label()));
+    let fixture = command.initial_fixture();
+    project.write(fixture.path, fixture.source);
+    let bin = project.bin_dir_with_fake_java();
+    let path = bin.to_str().expect("bin path should be UTF-8");
+
+    let first = command.execute(&project, path);
+    assert!(first.status.success(), "{}", stderr(&first));
+
+    let entry = only_jvm_class_cache_entry(&project);
+    let class_file = jvm_cache_class_files(&entry)
+        .into_iter()
+        .find(|path| {
+            path.file_name()
+                .is_some_and(|name| name == "VelnEntry.class")
+        })
+        .expect("entry class should be cached");
+    fs::remove_file(&class_file).expect("entry class should be removed");
+
+    let second = command.execute(&project, path);
+
+    assert!(second.status.success(), "{}", stderr(&second));
+    assert!(class_file.is_file());
+    assert_jvm_class_cache_entry_count(&project, 1);
+}
+
+#[cfg(unix)]
 fn assert_jvm_class_cache_entry_count(project: &TestProject, expected: usize) {
+    let count = jvm_class_cache_entries(project).len();
+    assert_eq!(count, expected);
+}
+
+#[cfg(unix)]
+fn only_jvm_class_cache_entry(project: &TestProject) -> PathBuf {
+    let entries = jvm_class_cache_entries(project);
+    assert_eq!(entries.len(), 1);
+    entries
+        .into_iter()
+        .next()
+        .expect("one JVM cache entry should exist")
+}
+
+#[cfg(unix)]
+fn jvm_class_cache_entries(project: &TestProject) -> Vec<PathBuf> {
     let cache = project.root.join("target/veln-cache/jvm");
-    let count = fs::read_dir(cache)
+    fs::read_dir(cache)
         .expect("JVM class cache should be readable")
         .filter_map(Result::ok)
         .filter(|entry| entry.path().join(".veln-cache-ok").is_file())
-        .count();
-    assert_eq!(count, expected);
+        .map(|entry| entry.path())
+        .collect()
+}
+
+#[cfg(unix)]
+fn jvm_cache_class_files(dir: &std::path::Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    collect_jvm_cache_class_files(dir, &mut files);
+    files
+}
+
+#[cfg(unix)]
+fn collect_jvm_cache_class_files(dir: &std::path::Path, files: &mut Vec<PathBuf>) {
+    for entry in fs::read_dir(dir).expect("cache entry should be readable") {
+        let entry = entry.expect("cache entry file should be readable");
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .expect("cache file type should be readable");
+        if file_type.is_dir() {
+            collect_jvm_cache_class_files(&path, files);
+        } else if path
+            .extension()
+            .is_some_and(|extension| extension == "class")
+        {
+            files.push(path);
+        }
+    }
 }
 
 #[cfg(unix)]
@@ -3184,6 +3308,24 @@ fn run_reprepares_cached_jvm_classes_after_source_changes() {
 
 #[cfg(unix)]
 #[test]
+fn run_reprepares_cached_jvm_classes_after_poisoned_class() {
+    assert_reprepares_cached_jvm_classes_after_poisoned_class(JvmCacheCommand::Run);
+}
+
+#[cfg(unix)]
+#[test]
+fn run_reprepares_marker_only_jvm_class_cache() {
+    assert_reprepares_marker_only_jvm_class_cache(JvmCacheCommand::Run);
+}
+
+#[cfg(unix)]
+#[test]
+fn run_reprepares_incomplete_jvm_class_cache() {
+    assert_reprepares_incomplete_jvm_class_cache(JvmCacheCommand::Run);
+}
+
+#[cfg(unix)]
+#[test]
 fn test_reuses_cached_jvm_class_preparation() {
     assert_reuses_cached_jvm_class_preparation(JvmCacheCommand::Test);
 }
@@ -3192,6 +3334,24 @@ fn test_reuses_cached_jvm_class_preparation() {
 #[test]
 fn test_reprepares_cached_jvm_classes_after_source_changes() {
     assert_reprepares_cached_jvm_classes_after_source_changes(JvmCacheCommand::Test);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_reprepares_cached_jvm_classes_after_poisoned_class() {
+    assert_reprepares_cached_jvm_classes_after_poisoned_class(JvmCacheCommand::Test);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_reprepares_marker_only_jvm_class_cache() {
+    assert_reprepares_marker_only_jvm_class_cache(JvmCacheCommand::Test);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_reprepares_incomplete_jvm_class_cache() {
+    assert_reprepares_incomplete_jvm_class_cache(JvmCacheCommand::Test);
 }
 
 #[test]

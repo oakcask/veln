@@ -8,7 +8,8 @@ promotion rules, or placement policy.
 ## Read First
 
 - Current behavior belongs in [specification/README.md](specification/README.md).
-- Proposed targets belong in [proposals/README.md](proposals/README.md).
+- Active proposal targets and implemented proposal records belong in
+  [proposals/README.md](proposals/README.md).
 - Gap evidence belongs in [reviews/README.md](reviews/README.md).
 - Implemented language behavior belongs in
   [specification/README.md](specification/README.md).
@@ -30,7 +31,8 @@ promotion rules, or placement policy.
 
 - Use `specification/` for current implemented language behavior.
 - Use `reference/` for durable rationale and source support.
-- Use `proposals/` for proposed behavior that is not fully implemented.
+- Use `proposals/` for proposed behavior that is not fully implemented and for
+  implemented proposal records that still carry history or cleanup routes.
 - Use `reviews/` for evidence, gaps, and verification notes.
 
 ## Stop Rule

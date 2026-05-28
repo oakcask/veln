@@ -1,15 +1,18 @@
 # Proposal Implementation Route
 
-Use this page after choosing to turn proposal text into implemented behavior.
-Start from [README.md](README.md) when you only need to find the relevant
-proposal. Use [implementation-route-full.md](implementation-route-full.md) only
-for detailed comparison, promotion, or cleanup.
+Use this page after choosing to turn active proposal text into implemented
+behavior, or when an implemented proposal needs promotion cleanup. Start from
+[README.md](README.md) when you only need to find the relevant proposal. Use
+[implementation-route-full.md](implementation-route-full.md) only for detailed
+comparison, promotion, or cleanup.
 
 ## Choose A Target
 
-- Choose any short proposal page in this directory when the task explicitly
-  selects proposal work and the behavior is absent from
+- Choose any active short proposal page in this directory when the task
+  explicitly selects proposal work and the behavior is absent from
   `../specification/`.
+- For implemented proposal records, start with the matching specification page
+  and open the proposal only for history, evidence, or cleanup.
 - Keep the target to one short proposal page unless that page routes to a full
   detail record or companion proposal.
 
@@ -27,17 +30,18 @@ for detailed comparison, promotion, or cleanup.
 
 ## Target-Specific Routes
 
-- JVM bytecode backend:
+- Implemented JVM bytecode backend:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md) first, then
-  [jvm-bytecode-backend-full.md#implementation-status](jvm-bytecode-backend-full.md#implementation-status),
-  [jvm-bytecode-backend-full.md#completion-criteria](jvm-bytecode-backend-full.md#completion-criteria),
-  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md),
   [../specification/execution.md](../specification/execution.md),
   [../specification/commands.md](../specification/commands.md), and
   [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
-  Promote only command-visible setup behavior and runtime behavior after it is
-  implemented; keep bytecode layout, generated artifacts, backend selectors,
-  and structural test details out of `../specification/`.
+  Use
+  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md)
+  for completion evidence and
+  [jvm-bytecode-backend-full.md#completion-criteria](jvm-bytecode-backend-full.md#completion-criteria)
+  only when auditing the original gates. Keep bytecode layout, generated
+  artifacts, backend selectors, and structural test details out of
+  `../specification/`.
 
 ## Specification Update Routes
 

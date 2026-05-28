@@ -1,14 +1,16 @@
 # Proposal Implementation Route Full
 
-Use this page after [implementation-route.md](implementation-route.md) when a
-proposal target needs detailed comparison, reference promotion, or cleanup.
-This page routes planned work; it does not define current behavior.
+Use this page after [implementation-route.md](implementation-route.md) when an
+active proposal needs detailed comparison or an implemented proposal needs
+promotion cleanup. This page does not define current behavior.
 
 ## Choose A Target
 
-- Choose any short proposal page in this directory when the task explicitly
-  selects proposal work and the behavior is absent from
+- Choose any active short proposal page in this directory when the task
+  explicitly selects proposal work and the behavior is absent from
   `../specification/`.
+- For implemented proposal records, start with the matching specification page
+  and open proposal detail only for history, evidence, or cleanup.
 - Use design-wall material only when a short proposal page routes the task
   there.
 
@@ -31,20 +33,19 @@ This page routes planned work; it does not define current behavior.
 
 ## Target-Specific Routes
 
-- JVM bytecode backend:
+- Implemented JVM bytecode backend:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md) first, then
-  [jvm-bytecode-backend-full.md#implementation-status](jvm-bytecode-backend-full.md#implementation-status),
-  [jvm-bytecode-backend-full.md#completion-criteria](jvm-bytecode-backend-full.md#completion-criteria),
-  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md),
   [../specification/execution.md](../specification/execution.md),
   [../specification/commands.md](../specification/commands.md), and
   [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
-  After implementation, promote command-visible setup behavior, runtime
-  behavior, and command JSON behavior to the smallest matching specification
-  pages. Keep generated artifacts, bytecode layout, helper layout, backend
-  selectors, and structural test details in proposal, reference, test, or
-  implementation documentation unless a later accepted proposal makes them
-  user-facing behavior.
+  Use
+  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md)
+  for completion evidence and
+  [jvm-bytecode-backend-full.md#completion-criteria](jvm-bytecode-backend-full.md#completion-criteria)
+  only when auditing the original gates. Keep generated artifacts, bytecode
+  layout, helper layout, backend selectors, and structural test details in
+  proposal, reference, test, or implementation documentation unless a later
+  accepted proposal makes them user-facing behavior.
 
 ## Specification Update Routes
 

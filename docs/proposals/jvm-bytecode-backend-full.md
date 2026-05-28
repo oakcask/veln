@@ -2,17 +2,17 @@
 
 Status: implemented
 
-This page expands [jvm-bytecode-backend.md](jvm-bytecode-backend.md). It records
-the proposal and implementation evidence; current command behavior belongs in
-the specification pages.
+This page expands [jvm-bytecode-backend.md](jvm-bytecode-backend.md). It keeps
+the original proposal detail and implementation evidence; current command and
+execution behavior belongs in the specification pages.
 
 ## Route Map
 
-- Current proposal status and follow-up cleanup:
+- Outcome summary and follow-up cleanup:
   [implementation status](#implementation-status).
 - Current completion gate review:
   [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
-- Current implemented behavior:
+- Current implemented behavior, not repeated here:
   [../specification/execution.md](../specification/execution.md) and
   [../specification/commands.md](../specification/commands.md).
 - Harness organization:
@@ -23,12 +23,14 @@ the specification pages.
 ## Implementation Status
 
 This proposal is implemented for the ordinary `run` and `test` backend path.
+The command-visible behavior has been promoted to
+[../specification/execution.md](../specification/execution.md) and
+[../specification/commands.md](../specification/commands.md).
 
-Current behavior lowers typed IR to JVM classfile artifacts, writes those
+The ordinary path lowers typed IR to JVM classfile artifacts, writes those
 artifacts into the persistent JVM class cache, and invokes `java` on the cached
-entry class. Ordinary execution does not write generated Java source, write a
-compiler helper, invoke a Java source compiler, or require `javac`. Missing
-`java` remains the user-facing runner setup error.
+entry class. It does not write generated Java source, write a compiler helper,
+invoke a Java source compiler, or require `javac`.
 
 The backend crate still exposes the older Java source API as a migration
 baseline for source-generation tests. That API is not used by ordinary
