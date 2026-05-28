@@ -35,6 +35,7 @@ test("proposal target selection preserves the no-target route", () => {
   const noTargetReview = readDocsFile(
     "reviews/no-proposal-target-completion.md",
   );
+  const docsIndex = readDocsFile("README.md");
   const navigation = readDocsFile("navigation.md");
 
   assert.equal(fs.existsSync(path.join("prompts", "TARGET.md")), false);
@@ -62,7 +63,9 @@ test("proposal target selection preserves the no-target route", () => {
   );
   assertIncludes(
     proposalsIndex,
-    "Stop there when it says no active\n  target exists",
+    "It is the canonical route for\n" +
+      "  missing, stale, broad, exploratory, implemented-history, helper-pool, and\n" +
+      "  unset target state",
   );
   assertIncludes(
     proposalsIndex,
@@ -71,16 +74,15 @@ test("proposal target selection preserves the no-target route", () => {
   assertIncludes(proposalsIndex, "[target-selection.md](target-selection.md)");
   assertIncludes(
     proposalsIndex,
-    "Target decision, including missing, stale, broad, exploratory, implemented,\n" +
-      "  or unset target state",
+    "Target decision:\n  [target-selection.md](target-selection.md)",
   );
   assertIncludes(
     proposalsIndex,
-    "Implementation after one active short target is selected",
+    "Implementation after target selection names one active short page",
   );
   assertIncludes(
     proposalsIndex,
-    "Candidate details only after target selection names them",
+    "Candidate details only after target selection routes there",
   );
   assertIncludes(
     implementationRoute,
@@ -135,10 +137,25 @@ test("proposal target selection preserves the no-target route", () => {
     noTargetReview,
     "The no-target prompt state has no proposal completion checklist to implement or\npromote",
   );
+  assertIncludes(docsIndex, "Current proposal target state:");
+  assertIncludes(
+    docsIndex,
+    "Find, confirm, or reject a proposal target:",
+  );
+  assertIncludes(
+    docsIndex,
+    "target-selection route answers the task",
+  );
   assertIncludes(navigation, "Proposal target selection:");
   assertIncludes(
     navigation,
     "Proposal implementation after target selection names one active short target:",
+  );
+  assertIncludes(
+    navigation,
+    "Target state is decided only by\n" +
+      "  [proposals/target-selection.md](proposals/target-selection.md); other\n" +
+      "  proposal pages provide details after that route names them",
   );
 });
 
@@ -171,12 +188,11 @@ test("no-target prompt routes stay classified as non-active targets", () => {
 
   assertIncludes(
     proposalsIndex,
-    "Target decision, including missing, stale, broad, exploratory, implemented,\n" +
-      "  or unset target state:\n  [target-selection.md](target-selection.md)",
+    "Target decision:\n  [target-selection.md](target-selection.md)",
   );
   assertIncludes(
     proposalsIndex,
-    "Candidate details only after target selection names them:\n" +
+    "Candidate details only after target selection routes there:\n" +
       "  [reference-followups.md](reference-followups.md)",
   );
   assertIncludes(
@@ -196,6 +212,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
     targetSelection,
     "| Helper candidate pool | Choose exactly one descriptor-only pure helper",
   );
+  assertTargetClassRoutes(targetSelection);
   assertActiveTargetExampleIsNone(targetSelection);
 
   assertIncludes(referenceFollowups, "This page is an index");
@@ -428,15 +445,12 @@ function noTargetPromptRoutes() {
 function targetSelectionRouteSnippets() {
   return [
     "Status: routing",
-    "## Prompt State",
+    "## Current State",
     "no active proposal target",
-    "## Route By Class",
-    "| No target | Keep selection unset. | Stop here or create one short proposal page. |",
-    "| Active target | Continue only when selection names one short proposal page. | [implementation-route.md](implementation-route.md). |",
-    "| Implemented proposal record | Use the matching specification page for current behavior",
-    "| Broad follow-up index | Split one implementable short proposal page before implementation. | [reference-followups.md](reference-followups.md). |",
-    "| Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md). |",
-    "| Helper candidate pool | Choose exactly one descriptor-only pure helper",
+    "## Target Classes",
+    "Use this table instead of reopening candidate pages just to decide whether a\n" +
+      "target exists",
+    ...targetClassRouteRows(),
     "not a full detail\n   record, review, reference note, broad index, helper candidate pool, or\n   implemented proposal record",
     "If the behavior is already implemented, use the matching specification page",
     "If the behavior is broad, exploratory, or a helper candidate pool, split or\n   create one short proposal",
@@ -456,8 +470,29 @@ function assertActiveTargetExampleIsNone(targetSelection) {
 
   assert.equal(
     activeTargetRow,
-    "| Active target | Continue only when selection names one short proposal page. | [implementation-route.md](implementation-route.md). |",
+    targetClassRouteRows().find((line) => line.startsWith("| Active target |")),
   );
+}
+
+function assertTargetClassRoutes(targetSelection) {
+  const targetClassRows = targetSelection
+    .split("\n")
+    .filter((line) => line.startsWith("| "))
+    .filter((line) => !line.startsWith("| Class |"))
+    .filter((line) => !line.startsWith("| --- |"));
+
+  assert.deepEqual(targetClassRows, targetClassRouteRows());
+}
+
+function targetClassRouteRows() {
+  return [
+    "| No target | Keep selection unset. | Stop here or create one short proposal page. |",
+    "| Active target | Continue only when one short proposal page names one absent behavior. | [implementation-route.md](implementation-route.md). |",
+    "| Implemented record | Treat as history or cleanup evidence; use the matching specification page for current behavior. | [formatter-stabilization.md](formatter-stabilization.md), [jvm-bytecode-backend.md](jvm-bytecode-backend.md), [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md). |",
+    "| Broad follow-up index | Split one implementable short proposal page before implementation. | [reference-followups.md](reference-followups.md). |",
+    "| Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md). |",
+    "| Helper candidate pool | Choose exactly one descriptor-only pure helper, then create or select one short proposal page. | [self-hosting-standard-library.md](self-hosting-standard-library.md). |",
+  ];
 }
 
 function tempDocs(name) {

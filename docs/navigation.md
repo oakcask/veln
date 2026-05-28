@@ -22,7 +22,7 @@ routes below are not enough.
   [proposals/target-selection.md](proposals/target-selection.md).
 - Proposal implementation after target selection names one active short target:
   [proposals/implementation-route.md](proposals/implementation-route.md).
-- Proposal work:
+- Proposal directory routing:
   [proposals/README.md](proposals/README.md).
 - Reviews, bibliography, or rationale:
   [navigation-full.md#history-and-evidence](navigation-full.md#history-and-evidence).
@@ -36,6 +36,9 @@ routes below are not enough.
   review wording.
 - Proposal text is not current behavior until the language specification also
   says so.
+- Target state is decided only by
+  [proposals/target-selection.md](proposals/target-selection.md); other
+  proposal pages provide details after that route names them.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
 

@@ -11,8 +11,6 @@ promotion rules, or placement policy.
 - Active proposal targets and implemented proposal records belong in
   [proposals/README.md](proposals/README.md).
 - Gap evidence belongs in [reviews/README.md](reviews/README.md).
-- Implemented language behavior belongs in
-  [specification/README.md](specification/README.md).
 
 ## Choose One Route
 

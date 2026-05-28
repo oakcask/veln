@@ -13,13 +13,15 @@ first route is not obvious.
   treat the specification as current behavior.
 - Planned or accepted proposal work:
   [proposals/README.md](proposals/README.md).
+- Current proposal target state:
+  [proposals/target-selection.md](proposals/target-selection.md).
 - Rationale and source-support map: [reference/README.md](reference/README.md).
 
 ## Choose One Task
 
 - Change implemented language behavior:
   [specification/topic-map.md](specification/topic-map.md).
-- Find or confirm the current proposal target:
+- Find, confirm, or reject a proposal target:
   [proposals/target-selection.md](proposals/target-selection.md).
 - Promote a selected proposal into implemented behavior:
   [proposals/implementation-route.md](proposals/implementation-route.md).
@@ -53,4 +55,5 @@ first route is not obvious.
 
 - Do not treat proposal text as implemented behavior unless the specification
   also states it.
-- Do not read old review records before the current specification pages.
+- Do not read old review records before the current specification page or the
+  target-selection route answers the task.
