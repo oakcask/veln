@@ -1,0 +1,9 @@
+command = ["run", "main", "main.veln", "--", "1"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["veln: run entry parameter `value` cannot be supplied from a command-line argument", "veln: note: supported entry argument types are String, Int, Float, and Bool"]

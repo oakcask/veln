@@ -49,6 +49,8 @@ against the built `veln` binary.
   parse-clean files.
 - `check/source-metadata/`: ADR-lite doc records attached to source without
   changing static behavior.
+- `check/json-ok-envelope/`: successful `check --json` envelope fields and
+  zero-diagnostic summary behavior.
 - `check/module-imports/`: `mod`, `use`, import aliases, qualified calls, and
   qualified pipeline targets.
 - `check/qualified-no-fallback/`: qualified calls require a matching import
@@ -72,6 +74,8 @@ against the built `veln` binary.
   callable effects are narrower or wider than the expected function type.
 - `check/type-annotation-boundaries/`: public API annotation requirements,
   invalid type annotations, and top-level test declaration shape requirements.
+- `check/named-type-annotations/`: non-built-in named type paths with type
+  arguments inside value and function type annotations.
 - `check/manifest-metadata/`: source `mod` ownership wins over manifest module
   metadata.
 - `check/implicit-unit-return/`: omitted tail expressions returning `()` and
@@ -117,6 +121,8 @@ against the built `veln` binary.
   shutdown, and exit over stdin.
 - `lsp/semantic-tokens-unsaved-change/`: semantic tokens follow unsaved
   document content supplied by didChange.
+- `lsp/unopened-missing-file/`: semantic-token requests for unopened,
+  unreadable documents return an empty token data array.
 - `run/stdio-streams/`: `stdio::print`, `stdio::println`, `stdio::eprint`,
   and `stdio::eprintln` stream behavior.
 - `run/prelude-helpers/`: result-bearing prelude traversal helpers and
@@ -132,6 +138,13 @@ against the built `veln` binary.
   calls, and local shadowing of same-named function declarations.
 - `run/entry-arguments/`: selected run entry conversion for `String`, `Int`,
   `Float`, and `Bool` command-line arguments.
+- `run/missing-entry-gate/`: missing run entry names fail before execution.
+- `run/entry-argument-count-gate/`: run entry argument arity is checked before
+  execution.
+- `run/unsupported-entry-argument-type/`: unsupported run entry parameter types
+  are rejected before conversion.
+- `run/invalid-entry-argument/`: invalid command-line text for a supported
+  entry parameter type reports the named conversion error.
 - `run/contract-ensure-failure/`: runtime `ensure` failure details and
   implementation blame.
 - `run/contract-ensure-early-return/`: `ensure` checks before `?` early
@@ -163,6 +176,8 @@ against the built `veln` binary.
   `Result` propagation, and stdio output.
 - `test/discovered-tests/`: targetless discovery of conventional test files
   and non-test files containing top-level tests.
+- `test/no-discovered-json/`: targetless test discovery reports a blocked JSON
+  suite error when no top-level tests are discovered.
 - `test/top-level-tests/`: top-level `test` declarations, including
   `Result((), E)` tests and captured stdio event JSON, selected through the
   public test command.

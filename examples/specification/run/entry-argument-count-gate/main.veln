@@ -1,0 +1,4 @@
+// Entry argument arity is checked before running user code.
+pub fn main(value: String) -> String effects []
+  value
+end
