@@ -8,15 +8,15 @@ promotion rules, or placement policy.
 ## Read First
 
 - Current behavior belongs in [specification/README.md](specification/README.md).
-- Active proposal targets and implemented proposal records belong in
+- Proposal targets and implemented proposal records belong in
   [proposals/README.md](proposals/README.md).
-- Gap evidence belongs in [reviews/README.md](reviews/README.md).
+- Gap evidence belongs in the matching proposal or reference page.
 
 ## Choose One Route
 
 - Reading task only: return to [README.md](README.md) or
   [navigation.md](navigation.md).
-- Moving behavior, proposal, or review text:
+- Moving behavior or proposal text:
   [document-status-full.md#placement](document-status-full.md#placement).
 - Updating README or topic-page routing:
   [document-status-full.md#entry-pages](document-status-full.md#entry-pages).
@@ -31,7 +31,8 @@ promotion rules, or placement policy.
 - Use `reference/` for durable rationale and source support.
 - Use `proposals/` for proposed behavior that is not fully implemented and for
   implemented proposal records that still carry history or cleanup routes.
-- Use `reviews/` for evidence, gaps, and verification notes.
+- Keep evidence, gaps, and verification notes in the matching proposal or
+  reference page.
 
 ## Stop Rule
 
@@ -45,5 +46,5 @@ promotion rules, or placement policy.
 
 - Do not move proposal text into `specification/` until current code and tests
   support it.
-- Do not use proposal or review files as the source for current behavior when
+- Do not use proposal files as the source for current behavior when
   `specification/` has a matching page.

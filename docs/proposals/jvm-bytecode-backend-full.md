@@ -11,7 +11,7 @@ execution behavior belongs in the specification pages.
 - Outcome summary:
   [implementation status](#implementation-status).
 - Completion evidence and source-backend cleanup result:
-  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
+  [jvm-bytecode-backend.md](jvm-bytecode-backend.md#outcome).
 - Current implemented behavior, not repeated here:
   [../specification/execution.md](../specification/execution.md) and
   [../specification/commands.md](../specification/commands.md).
@@ -33,8 +33,7 @@ entry class. It does not write generated Java source, write a compiler helper,
 invoke a Java source compiler, or require `javac`.
 
 The Java source backend migration baseline has been removed. The cleanup result
-is recorded by the completion review:
-[../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
+is summarized by [jvm-bytecode-backend.md](jvm-bytecode-backend.md#outcome).
 
 ## Problem
 

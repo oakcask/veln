@@ -10,8 +10,8 @@ documentation placement, route policy, or status labels.
 - Put proposed design targets that are not fully implemented in `proposals/`.
 - Put implemented rationale and decision history in `reference/source-decisions/`.
 - Put planned or incomplete rationale and decision history in `proposals/`.
-- Put implementation gaps, verification evidence, and correction lists in
-  `reviews/`.
+- Put implementation gaps, verification evidence, and correction lists in the
+  matching proposal or reference page.
 - Treat `specification/` as the current behavior source before changing
   code, tests, diagnostics, or samples.
 
@@ -29,9 +29,9 @@ documentation placement, route policy, or status labels.
 
 - `specification/` is the first stop for implemented language behavior.
 - `reference/source-decisions/` is historical rationale grouped by topic.
-- `reviews/` contains longer evidence records behind short indexes.
 - `proposals/` contains proposed targets that still need promotion into the
-  specification after implementation.
+  specification after implementation, plus historical evidence needed for
+  follow-up routing.
 
 ## Labels
 
@@ -44,8 +44,6 @@ Use these status labels at the top of durable documents:
   absent or incomplete.
 - `routing`: the page is an index or selection route and does not define
   behavior by itself.
-- `no active target`: the proposal page preserves selection context while
-  explicitly saying implementation work is not selected there.
 - `closed`: a former proposal route remains only to preserve old links and no
   longer carries implementation requirements.
 - `superseded`: another document replaces this one.
@@ -65,7 +63,7 @@ Use these status labels at the top of durable documents:
 
 - Do not move text from a proposal into `specification/` until current code and
   tests support it.
-- Do not use proposal or review files as the source for current behavior when
+- Do not use proposal files as the source for current behavior when
   `specification/` has a matching page.
 - Do not add new long background sections to a README when a short route plus a
   full detail page would preserve the same content with less first-pass

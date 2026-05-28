@@ -9,8 +9,8 @@ reference for test organization, not a source for command behavior.
   [../specification/commands.md](../specification/commands.md).
 - JSON output behavior belongs in
   [../specification/json-output.md](../specification/json-output.md).
-- The completion review records verification evidence:
-  [toolchain-test-harness-completion.md](../reviews/toolchain-test-harness-completion.md).
+- Implemented manifest completion evidence is summarized in
+  [../proposals/toolchain-test-harness-extensions.md](../proposals/toolchain-test-harness-extensions.md).
 
 ## Read When
 
@@ -19,8 +19,8 @@ reference for test organization, not a source for command behavior.
 - Change this harness when a manifest needs a reusable assertion shape, command
   environment, repeated invocation, or fixture setup rule.
 - JVM backend fixtures exercise the implemented bytecode path by default. Use
-  the JVM bytecode completion review for the source-backend cleanup result:
-  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
+  [../proposals/jvm-bytecode-backend.md](../proposals/jvm-bytecode-backend.md)
+  for the source-backend cleanup result.
 
 ## Case Layout
 

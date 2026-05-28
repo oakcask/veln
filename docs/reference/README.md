@@ -38,7 +38,7 @@ behavior page needs rationale, source support, or toolchain reference material.
 ## Route Boundaries
 
 - Planned behavior belongs in `../proposals/`.
-- Gap evidence belongs in `../reviews/`.
+- Historical gap evidence belongs in the matching proposal or reference page.
 - Implemented language behavior belongs in
   [specification/README.md](../specification/README.md).
 - Use [../document-status.md](../document-status.md) before moving text between
@@ -50,5 +50,5 @@ behavior page needs rationale, source support, or toolchain reference material.
   section.
 - Do not scan individual source-decision records before a topic route points to
   one.
-- Do not use proposal or review text as current behavior when
-  `../specification/` has a matching page.
+- Do not use proposal text as current behavior when `../specification/` has a
+  matching page.

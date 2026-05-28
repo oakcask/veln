@@ -11,8 +11,7 @@ the specification pages for current command and execution behavior.
 - Current `run` and `test` behavior:
   [../specification/execution.md](../specification/execution.md) and
   [../specification/commands.md](../specification/commands.md).
-- Java source backend cleanup result:
-  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
+- Java source backend cleanup result is summarized on this page.
 - CLI fixture organization:
   [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
 
@@ -24,8 +23,15 @@ path now executes through the host JVM without requiring `javac`; the
 specification pages above own those current behavior facts.
 
 The old Java source backend API, internal source generator, and
-source-generation tests have been removed. That cleanup result is review
-evidence, not current language behavior.
+source-generation tests have been removed. The ordinary command path no longer
+builds `JavaProgram` artifacts for `run` or `test`, writes generated Java
+source, writes a compiler helper, or invokes a Java source compiler.
+
+Runtime coverage exercises cache hits and misses, missing `java`, setup without
+`javac`, stdio, contracts, process intrinsics, channels, tasks, function-typed
+values, doctest execution, and the comparison example. Backend structural tests
+assert classfile emission without Java sources, execution through `java`, and
+the expected classfile target and entry descriptor through `javap -verbose`.
 
 ## Read When
 
@@ -63,8 +69,8 @@ backend details.
   before choosing one detail route above.
 - Use the specification pages, not this proposal page, for current JVM backend
   behavior.
-- Use the completion review before opening the full proposal when the task is
-  cleanup evidence rather than original-gate auditing.
+- Use this page before opening the full proposal when the task is cleanup
+  evidence rather than original-gate auditing.
 - Do not add Java interop, stable JVM ABI, public class names, or bytecode
   layout guarantees through this proposal.
 - Do not promote unrelated JVM behavior through this proposal.

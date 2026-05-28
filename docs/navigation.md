@@ -18,9 +18,7 @@ routes below are not enough.
 - Diagnostics or JSON output:
   [specification/diagnostics-json.md](specification/diagnostics-json.md)
   and [specification/json-output.md](specification/json-output.md).
-- Proposal target selection:
-  [proposals/target-selection.md](proposals/target-selection.md).
-- Proposal implementation after target selection classifies an active target:
+- Proposal implementation and promotion:
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Proposal directory routing:
   [proposals/README.md](proposals/README.md).
@@ -36,9 +34,8 @@ routes below are not enough.
   review wording.
 - Proposal text is not current behavior until the language specification also
   says so.
-- Target state is decided only by
-  [proposals/target-selection.md](proposals/target-selection.md); other
-  proposal pages provide details after that route names them.
+- Proposal pages are all available implementation routes, but the
+  `specification/` pages still decide current behavior.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
 

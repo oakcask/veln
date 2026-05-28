@@ -7,20 +7,20 @@ specification-update router. This page does not define current behavior.
 
 ## Start From The Short Route
 
-- Confirm [target-selection.md](target-selection.md) names one short proposal
-  page before using this detail page.
+- Confirm one proposal page names the work before using this detail page.
 - Return to [implementation-route.md](implementation-route.md) for entry
   checks and the smallest specification page to update.
-- Stop here if selection is unset, broad, exploratory, or implemented history.
+- Stop here if the proposal is broad background, exploratory inventory, or
+  implemented history.
 
 ## Detailed Comparison
 
-- Compare only the selected target with current behavior in
+- Compare only the chosen proposal work with current behavior in
   [../specification/README.md](../specification/README.md).
 - Keep nearby design-wall, broad follow-up, and implemented-history text out of
   scope unless the selected short proposal page points to it.
-- Use [../reviews/first-slice-gap-review.md](../reviews/first-slice-gap-review.md)
-  for evidence about known gaps before treating a proposal as complete.
+- Use the selected proposal page for evidence about known gaps before treating
+  a proposal as complete.
 
 ## Promotion Cleanup
 

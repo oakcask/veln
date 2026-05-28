@@ -1,6 +1,6 @@
 # Self-Hosting Standard Library
 
-Status: no active target
+Status: proposed
 
 This page records completed prelude helper migrations and routes future
 source-backed candidates back through the implemented standard symbol split.
@@ -21,8 +21,8 @@ semantics, or descriptor metadata.
   [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates).
 - Completed helper migrations: `vec_map`, `vec_try_map`,
   `vec_try_map_with`.
-- Current target: none. Use [target-selection.md](target-selection.md) before
-  promoting a future helper into one concrete target.
+- Choose one descriptor-only pure helper before promoting future helper work
+  into one concrete target.
 
 ## Completed Helpers
 

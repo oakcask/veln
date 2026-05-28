@@ -1,21 +1,19 @@
 # Proposal Implementation Route
 
-Use this page after [target-selection.md](target-selection.md) names one active
-short proposal whose behavior is absent from `../specification/`. This page
-routes implementation and promotion mechanics; it does not choose targets or
-override a no-target decision. Use
+Use this page after choosing a proposal page whose behavior is absent from
+`../specification/`. This page routes implementation and promotion mechanics;
+it does not override the current language specification. Use
 [implementation-route-full.md](implementation-route-full.md) only for detailed
 comparison, promotion, or cleanup.
 
 ## Entry Check
 
-- Continue only when [target-selection.md](target-selection.md) classifies the
-  work as an active target.
-- Stop for no-target, broad, exploratory, helper-pool, or implemented-record
-  classes. Follow the next route named by target selection, and leave
-  `../specification/` unchanged unless an active target is later selected.
-- Keep the implementation scope to the active short proposal page unless that
-  page routes to a full detail record or companion proposal.
+- Start from the proposal page named by the task or from
+  [README.md](README.md).
+- Stop when the proposal page is implemented, closed, superseded, rejected, or
+  already covered by `../specification/`.
+- Keep the implementation scope to the chosen proposal page unless that page
+  routes to a full detail record or companion proposal.
 
 ## Compare And Promote
 
@@ -55,7 +53,7 @@ comparison, promotion, or cleanup.
 
 - Do not read broad design-wall material before the chosen short proposal page
   routes the task there.
-- Do not reclassify target state or repeat no-target evidence here; return to
-  [target-selection.md](target-selection.md).
+- Do not infer current behavior from proposal text; return to
+  `../specification/` for implemented behavior.
 - Do not treat proposal text as implemented behavior unless
   `../specification/` also states it.

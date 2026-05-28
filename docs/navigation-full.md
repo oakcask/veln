@@ -9,8 +9,8 @@ question.
 - Changing syntax, types, effects, contracts, holes, commands, JSON output,
   runtime behavior, or examples:
   [specification/topic-map.md](specification/topic-map.md).
-- Checking the stable boundary before using any proposal or review
-  record: [specification/overview.md](specification/overview.md).
+- Checking the stable boundary before using any proposal record:
+  [specification/overview.md](specification/overview.md).
 - Checking whether proposal text is current behavior: start with
   [specification/README.md](specification/README.md), then compare
   the chosen proposal through
@@ -18,9 +18,7 @@ question.
 
 ## Proposal Work
 
-- Choosing an implementation target:
-  [proposals/target-selection.md](proposals/target-selection.md).
-- Implementing or promoting an active proposal target:
+- Choosing, implementing, or promoting proposal work:
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Reading incomplete design-wall rationale:
   [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md).
@@ -36,7 +34,7 @@ question.
 - Routing from a topic area directly to rationale records:
   [reference/source-decisions/topic-map.md](reference/source-decisions/topic-map.md).
 - Checking gap evidence or completion claims:
-  [reviews/README.md](reviews/README.md).
+  [proposals/README.md](proposals/README.md).
 - Implemented language behavior:
   [specification/README.md](specification/README.md).
 - Source support for claims:
@@ -53,7 +51,7 @@ question.
 
 ## Status Work
 
-- Moving text between proposal, review, and reference areas:
+- Moving text between proposal and reference areas:
   [document-status.md](document-status.md).
 
 ## Documentation Maintenance
@@ -69,8 +67,9 @@ question.
 
 - Current behavior work: `specification/README.md` first, then the
   topic-specific short page, then the matching `*-full.md` file only if named.
-- Implementation target work: `proposals/target-selection.md` first, then
-  `proposals/implementation-route.md` only after one active target is chosen.
+- Implementation target work: start from `proposals/README.md`, open the
+  proposal page that matches the task, then use
+  `proposals/implementation-route.md` for promotion checks.
 - Documentation routing work: `document-status.md` first, then the README for
   only the directory whose classification is changing.
 - Rationale work: current specification page first, then
@@ -84,14 +83,13 @@ question.
 
 ## Route Boundaries
 
-- A behavior page under `specification/` wins over proposal, phase, and
-  review wording.
+- A behavior page under `specification/` wins over proposal and phase wording.
 - A proposal page can describe an implementation target, but it is not current
   behavior until the language specification also says so.
 - Promotion work updates the smallest matching language specification page and
   leaves unfinished proposal text in `proposals/`.
-- A review or phase page can explain why work happened, but it is not a route
-  for changing the language specification.
+- A proposal history or phase page can explain why work happened, but it is not
+  a route for changing the language specification.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
 - A `result-*.md` source-decision file is a record. Open it through
