@@ -10,8 +10,9 @@ requiring the full command reference on the first read.
   first for diagnostic shape, then
   [commands-full.md](commands-full.md) for exact command rules.
 - `fmt`: whole-invocation parse gate, deterministic formatting, tab-based
-  canonical indentation, `match` arm indentation, and comment preservation.
-  Use [commands-full.md](commands-full.md) only when the route summary is not
+  canonical indentation, `match` arm indentation, and comment preservation for
+  standalone and trailing line comments. Use
+  [commands-full.md](commands-full.md) only when the route summary is not
   enough.
 - `run`: entry resolution, argument conversion, static gates, direct JVM
   classfile execution without an ordinary Java source compiler requirement, and

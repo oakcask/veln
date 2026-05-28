@@ -15,6 +15,11 @@ also states it.
 
 ## Follow-Up Targets
 
+No formatter follow-up target is active on this page. The earlier formatter
+comment-attachment and stabilization target is implemented and routed through
+[formatter-stabilization.md](formatter-stabilization.md). New formatter work
+needs a new proposal page before this follow-up index can select it.
+
 - Broader executable reachability, entry selection, and runtime behavior not
   yet stated by [../specification/execution.md](../specification/execution.md).
 - Additional test discovery, example extraction, and test event reporting not

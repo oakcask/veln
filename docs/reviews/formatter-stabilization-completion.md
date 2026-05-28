@@ -9,7 +9,7 @@ stabilization proposal. It is review evidence, not current command behavior.
   [../proposals/formatter-stabilization.md](../proposals/formatter-stabilization.md).
 - Current formatter behavior:
   [../specification/commands.md](../specification/commands.md) and
-  [../specification/commands-full.md#veln-fmt](../specification/commands-full.md#veln-fmt).
+  [../specification/commands-full.md#veln-fmt-path](../specification/commands-full.md#veln-fmt-path).
 - Current comment and source syntax:
   [../specification/source-surface.md](../specification/source-surface.md).
 

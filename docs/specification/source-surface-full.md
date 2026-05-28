@@ -63,7 +63,7 @@ tokens before the `=`, the parser reports `parse.pattern` at the first extra
 token.
 
 Formatter indentation and comment preservation are command behavior. See
-[commands-full.md#veln-fmt](commands-full.md#veln-fmt) for the
+[commands-full.md#veln-fmt-path](commands-full.md#veln-fmt-path) for the
 canonical `veln fmt` layout.
 
 The final expression line is the returned value. If a body has no final

@@ -10,7 +10,7 @@ for current `veln fmt` behavior.
 
 - Current formatter behavior:
   [../specification/commands.md](../specification/commands.md), then
-  [../specification/commands-full.md#veln-fmt](../specification/commands-full.md#veln-fmt)
+  [../specification/commands-full.md#veln-fmt-path](../specification/commands-full.md#veln-fmt-path)
   when exact command rules matter.
 - Implemented comment and source syntax:
   [../specification/source-surface.md](../specification/source-surface.md).
