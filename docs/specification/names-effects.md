@@ -15,12 +15,20 @@ compiler-known calls.
   [file-system](names-effects-full.md#file-system-calls),
   [process](names-effects-full.md#process-calls), and
   [concurrency](names-effects-full.md#concurrency-calls).
-- Prelude helper signatures and value semantics:
-  [names-effects-full.md](names-effects-full.md#helper-signatures).
-- Source-backed helper set and descriptor-only helper boundary:
-  [names-effects-full.md](names-effects-full.md#source-backed-boundary).
+- Prelude helper signatures, value semantics, source-backed helper set, and
+  descriptor-only helper boundary:
+  [names-effects-full.md](names-effects-full.md#prelude-helpers).
 - Descriptor-backed standard symbols, source metadata, and the
   compiler-support source-loading trial:
+  [names-effects-full.md](names-effects-full.md#compiler-known-descriptor-table).
+
+## Fast Routes
+
+- Choosing the next source-backed pure helper candidate:
+  [names-effects-full.md](names-effects-full.md#source-backed-boundary).
+- Checking helper signatures before changing the prelude adapter:
+  [names-effects-full.md](names-effects-full.md#helper-signatures).
+- Checking standard symbol descriptor metadata:
   [names-effects-full.md](names-effects-full.md#compiler-known-descriptor-table).
 
 ## Read When
