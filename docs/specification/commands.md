@@ -13,12 +13,15 @@ requiring the full command reference on the first read.
   canonical indentation, `match` arm indentation, and comment preservation.
   Use [commands-full.md](commands-full.md) only when the route summary is not
   enough.
-- `run`: entry resolution, argument conversion, static gates, JVM execution,
-  and run JSON. Use [run-json.md](run-json.md) first for machine-readable
-  output, then [commands-full.md](commands-full.md) for exact command rules.
-- `test`: test and doctest selection, static gates, runtime failures, and test
-  JSON. Use [test-json.md](test-json.md) first for machine-readable output,
+- `run`: entry resolution, argument conversion, static gates, direct JVM
+  classfile execution without an ordinary Java source compiler requirement, and
+  run JSON. Use [run-json.md](run-json.md) first for machine-readable output,
   then [commands-full.md](commands-full.md) for exact command rules.
+- `test`: test and doctest selection, static gates, direct JVM classfile
+  execution without an ordinary Java source compiler requirement, runtime
+  failures, and test JSON. Use [test-json.md](test-json.md) first for
+  machine-readable output, then [commands-full.md](commands-full.md) for exact
+  command rules.
 - `explain`: diagnostic catalog lookup. Use
   [commands-full.md](commands-full.md) when diagnostic catalog behavior is the
   task.

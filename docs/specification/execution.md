@@ -9,8 +9,11 @@ execution reference.
   no errors.
 - Reachable executable blockers include holes, missing expressions,
   constructor arity gaps, call arity gaps, and recognized concurrency calls.
-- JVM details are backend details unless this reference marks a behavior as an
-  observable language boundary.
+- The ordinary JVM execution path emits classfile artifacts directly; Java
+  source generation and Java source compilation are not part of the observable
+  command boundary.
+- Other JVM details are backend details unless this reference marks a behavior
+  as an observable language boundary.
 
 ## Read When
 

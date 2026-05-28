@@ -19,7 +19,7 @@ reference for test organization, not a source for command behavior.
 - Change this harness when a manifest needs a reusable assertion shape, command
   environment, repeated invocation, or fixture setup rule.
 - JVM backend fixtures exercise the implemented bytecode path by default. Use
-  the JVM bytecode proposal review for migration cleanup:
+  the JVM bytecode completion review for the source-backend cleanup result:
   [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 
 ## Case Layout

@@ -31,16 +31,10 @@ comparison, promotion, or cleanup.
 ## Target-Specific Routes
 
 - Implemented JVM bytecode backend:
-  [jvm-bytecode-backend.md](jvm-bytecode-backend.md) first, then
-  [../specification/execution.md](../specification/execution.md),
-  [../specification/commands.md](../specification/commands.md), and
-  [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
-  Use
-  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md)
-  for completion evidence and
-  [jvm-bytecode-backend-full.md#completion-criteria](jvm-bytecode-backend-full.md#completion-criteria)
-  only when auditing the original gates. Keep bytecode layout, generated
-  artifacts, backend selectors, and structural test details out of
+  [jvm-bytecode-backend.md](jvm-bytecode-backend.md). That short page routes
+  current behavior, fixture organization, completion evidence, the Java source
+  backend cleanup result, and original gates. Keep bytecode layout,
+  generated artifacts, backend selectors, and structural test details out of
   `../specification/`.
 
 ## Specification Update Routes
