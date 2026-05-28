@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+contains = ["out\n"]
+
+[stderr]
+contains = ["err\n"]

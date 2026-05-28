@@ -1,5 +1,5 @@
 command = ["run", "--json", "main", "main.veln"]
-exit = 0
+exit = 1
 
 [requires]
 jdk = true
@@ -12,12 +12,12 @@ format = "empty"
 
 [[json_assert]]
 path = "status"
-equals = "passed"
+equals = "failed"
 
 [[json_assert]]
-path = "stdout"
-equals = "first\nleft\nright-a\nleft-a\nright\ntimeout\ntimeout\ncancelled\n"
+path = "exit_code"
+equals = 7
 
 [[json_assert]]
-path = "error"
-equals = null
+path = "error.kind"
+equals = "runtime"

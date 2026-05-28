@@ -1,0 +1,33 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"reason\":\"call_arity_mismatch\"", "\"reason\":\"result_constructor_arity_mismatch\"", "\"reason\":\"option_constructor_arity_mismatch\"", "\"reason\":\"missing_constructor_argument\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "core.call_arity_mismatch"
+kind = "type"
+message = "call expects 2 argument(s), but got 1"
+
+[[diagnostics]]
+id = "core.result_constructor_arity_mismatch"
+kind = "type"
+message = "result constructor expects 1 argument, but got 0"
+
+[[diagnostics]]
+id = "core.option_constructor_arity_mismatch"
+kind = "type"
+message = "option constructor expects 1 argument, but got 2"
+
+[[diagnostics]]
+id = "core.missing_expression"
+kind = "type"
+message = "expression is missing"

@@ -1,0 +1,36 @@
+// Doctests infer Result wrapper errors from documented APIs and propagated calls.
+pub fn parse_count(raw: String) -> Result(Int, String) effects []
+  string_parse_int(raw)
+end
+
+/// ```veln
+/// let count: Int = parse_count("7")?
+/// stdio::println(int_to_string(count))
+/// ```
+/// ```veln-output stream=stdout
+/// 7
+/// ```
+pub fn documented_result(raw: String) -> Result(Int, String) effects []
+  parse_count(raw)
+end
+
+/// ```veln
+/// let count: Int = parse_count("8")?
+/// stdio::println(int_to_string(count))
+/// ```
+/// ```veln-output stream=stdout
+/// 8
+/// ```
+pub fn inferred_from_call() -> () effects []
+  ()
+end
+
+/// ```veln
+/// stdio::eprintln("warn")
+/// ```
+/// ```veln-output stream=stderr
+/// warn
+/// ```
+pub fn stderr_doctest() -> () effects []
+  ()
+end

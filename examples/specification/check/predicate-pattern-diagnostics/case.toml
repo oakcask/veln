@@ -1,0 +1,48 @@
+command = ["check", "--json", "contract.veln", "malformed-satisfy.veln", "refutable-let.veln", "satisfy-candidate.veln", "satisfy-predicate.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"parse.contract_predicate\"", "\"id\":\"parse.satisfy_candidate\"", "\"id\":\"parse.satisfy_arrow\"", "\"id\":\"parse.satisfy_predicate\"", "\"id\":\"pattern.refutable_let\"", "\"id\":\"hole.satisfy_candidate_shadow\"", "\"id\":\"hole.satisfy_candidate_unused\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "parse.contract_predicate"
+kind = "contract"
+message = "hole syntax is not allowed in a contract predicate"
+
+[[diagnostics]]
+id = "parse.satisfy_candidate"
+kind = "parse"
+message = "satisfy clause is missing a candidate binding"
+
+[[diagnostics]]
+id = "parse.satisfy_arrow"
+kind = "parse"
+message = "satisfy clause is missing `=>`"
+
+[[diagnostics]]
+id = "parse.satisfy_predicate"
+kind = "parse"
+message = "pipeline syntax is not allowed in a contract predicate"
+
+[[diagnostics]]
+id = "pattern.refutable_let"
+kind = "type"
+message = "refutable let pattern is not supported"
+
+[[diagnostics]]
+id = "hole.satisfy_candidate_shadow"
+kind = "hole"
+message = "satisfy candidate `max` shadows a visible binding"
+
+[[diagnostics]]
+id = "hole.satisfy_candidate_unused"
+kind = "hole"
+message = "satisfy predicate does not reference candidate `max`"

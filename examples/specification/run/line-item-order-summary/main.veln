@@ -1,0 +1,32 @@
+// This executable specification summarizes line-item input into an order total.
+fn add_summary(summary: {item_count: Int, subtotal_cents: Int}, item: {sku: String, quantity: Int, unit_cents: Int}) -> {item_count: Int, subtotal_cents: Int} effects []
+  {item_count: summary.item_count + item.quantity, subtotal_cents: summary.subtotal_cents + item.quantity * item.unit_cents}
+end
+
+fn parse_line(catalog: Dict(String, Int), line: String) -> Result({sku: String, quantity: Int, unit_cents: Int}, {kind: String, input: String}) effects []
+  match string_split_once(line, ",")
+    Some(parts) => match string_parse_int(parts.right)
+      Ok(quantity) => match quantity <= 0
+        true => Err({kind: "bad_quantity", input: parts.right})
+        false => match dict_get(catalog, parts.left)
+          Some(price) => Ok({sku: parts.left, quantity: quantity, unit_cents: price})
+          None => Err({kind: "unknown_sku", input: parts.left})
+        end
+      end
+      Err(input) => Err({kind: "bad_quantity", input: input})
+    end
+    None => Err({kind: "malformed", input: line})
+  end
+end
+
+pub fn summarize_order(lines: Vec(String), catalog: Dict(String, Int)) -> result: Result({item_count: Int, subtotal_cents: Int}, {kind: String, input: String}) effects []
+  let items: Vec({sku: String, quantity: Int, unit_cents: Int}) = vec_try_map_with(catalog, lines, parse_line)?
+  Ok(vec_fold(items, {item_count: 0, subtotal_cents: 0}, add_summary))
+end
+
+pub fn main() -> Result((), {kind: String, input: String}) effects [stdio]
+  let summary: {item_count: Int, subtotal_cents: Int} = summarize_order(["tea,2", "cake,1"], {"tea": 250, "cake": 400})?
+  stdio::println(int_to_string(summary.item_count))
+  stdio::println(int_to_string(summary.subtotal_cents))
+  Ok(())
+end

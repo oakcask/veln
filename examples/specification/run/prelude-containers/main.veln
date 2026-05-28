@@ -32,10 +32,32 @@ end
 pub fn main() -> () effects [stdio]
   let values: Vec(Int) = vec_concat(vec_push([1], 2), [3])
   let kept: Vec(Int) = vec_filter(values, odd)
-  let dictionary: Dict(String, Int) = dict_remove(dict_insert({"a": 1}, "b", 2), "a")
+  let original: Dict(String, Int) = {"a": 1}
+  let updated: Dict(String, Int) = dict_insert(original, "b", 2)
+  let dictionary: Dict(String, Int) = dict_remove(updated, "a")
   match string_split_once("odd:2", ":")
     Some(parts) => stdio::println(parts.left)
     None => stdio::println("missing")
+  end
+  match string_split_once("plain", ":")
+    Some(parts) => stdio::println(parts.left)
+    None => stdio::println("no-separator")
+  end
+  match string_parse_int("42")
+    Ok(value) => stdio::println(int_to_string(value))
+    Err(error) => stdio::println(error)
+  end
+  match dict_get(original, "a")
+    Some(value) => stdio::println(int_to_string(value))
+    None => stdio::println("missing")
+  end
+  match dict_get(updated, "b")
+    Some(value) => stdio::println(int_to_string(value))
+    None => stdio::println("missing")
+  end
+  match dict_get(dictionary, "a")
+    Some(value) => stdio::println(int_to_string(value))
+    None => stdio::println("removed")
   end
   let second: String = match option_and_then(option_map(Some(3), double), positive)
     Some(value) => int_to_string(value)

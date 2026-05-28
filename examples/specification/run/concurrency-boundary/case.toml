@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "task\nchannel\n"
+equals = "task\ntask\nchannel\ninferred\n"
 
 [[json_assert]]
 path = "error"

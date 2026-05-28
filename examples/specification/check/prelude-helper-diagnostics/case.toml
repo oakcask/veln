@@ -1,0 +1,18 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["Use `vec_try_map` when the callback returns `Result`."]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"

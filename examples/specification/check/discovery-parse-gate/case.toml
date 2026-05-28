@@ -1,0 +1,32 @@
+command = ["check", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[diagnostics]]
+id = "parse.call_argument"
+severity = "error"
+kind = "parse"
+
+[diagnostics.span]
+file = "src/bad.veln"
+
+[[diagnostics]]
+id = "type.mismatch"
+severity = "error"
+kind = "type"
+
+[diagnostics.span]
+file = "src/clean.veln"

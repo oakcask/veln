@@ -8,19 +8,42 @@ fn choose(value: Option(Int)) -> Int effects []
   end
 end
 
-fn summarize(input: {count: Int, label: String}) -> {count: Int, label: String} effects []
+fn summarize(input: {count: Int, label: String,}) -> {count: Int, label: String,} effects []
   let {count: count, label: label} = input
   let _: Int = count + 1
   {count: count, label: label}
+end
+
+fn inferred_value()
+  1
+end
+
+fn qualified_option(value: Option(Int)) -> Int effects []
+  match value
+    Option::Some(count) => count
+    Option::None => 0
+  end
 end
 
 fn dictionary(seed: Int) -> Dict(Int, String) effects []
   {seed + 1: "next", 0: "zero"}
 end
 
+fn classify(result: Result({count: Int, label: String}, String)) -> String effects []
+  match result
+    Result::Ok({count: count, label: label}) => label
+    Result::Err(error) => error
+  end
+end
+
 pub fn main() -> Int effects []
   let value: Int = Some(2) |> choose()
   let summary = summarize({count: value, label: "ok"})
+  let qualified: Int = qualified_option(Option::Some(inferred_value()))
   let _: Dict(Int, String) = dictionary(summary.count)
-  summary.count
+  let grouped: Int = ((summary.count + qualified))
+  let label: String = classify(Result::Ok({count: grouped, label: "ok"}))
+  let failure: String = classify(Result::Err("err"))
+  let _: Bool = label == "ok" and failure != ""
+  grouped
 end
