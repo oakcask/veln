@@ -7439,7 +7439,8 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
             "vec_is_empty",
             "vec_len",
             "vec_map",
-            "vec_push"
+            "vec_push",
+            "vec_try_map"
         ]
     );
 }
@@ -7842,6 +7843,12 @@ fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
             "Result(String, String)",
             "fn(unknown) -> Result(String, String)",
         ),
+        (
+            "vec_try_map",
+            "Vec(Int)",
+            "Result(Vec(String), String)",
+            "fn(unknown) -> Result(String, String)",
+        ),
     ] {
         let source = SourceFile::new(
             "main.veln",
@@ -7921,6 +7928,21 @@ fn source_backed_vec_map_reports_user_call_site_diagnostics() {
             "end\n",
             "pub fn main(value: Int) -> Vec(String) effects []\n",
             "  vec_map(value, stringify)\n",
+            "end\n",
+        ),
+        "expected `Vec(unknown)`, but found `Int`",
+    );
+}
+
+#[test]
+fn source_backed_vec_try_map_reports_user_call_site_diagnostics() {
+    assert_source_backed_helper_user_call_site_type_mismatch(
+        concat!(
+            "fn stringify(value: Int) -> Result(String, String) effects []\n",
+            "  Ok(\"ok\")\n",
+            "end\n",
+            "pub fn main(value: Int) -> Result(Vec(String), String) effects []\n",
+            "  vec_try_map(value, stringify)\n",
             "end\n",
         ),
         "expected `Vec(unknown)`, but found `Int`",

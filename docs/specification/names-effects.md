@@ -26,7 +26,7 @@ compiler-known calls.
 
 - Confirming source-backed versus descriptor-only status before proposal work:
   [names-effects-full.md](names-effects-full.md#source-backed-boundary).
-- Choosing the next descriptor-only helper for self-hosting work:
+- Checking the selected descriptor-only helper for self-hosting work:
   [names-effects-full.md](names-effects-full.md#source-backed-boundary),
   then
   [../proposals/self-hosting-standard-library.md](../proposals/self-hosting-standard-library.md).

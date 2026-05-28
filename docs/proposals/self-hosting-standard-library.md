@@ -1,31 +1,31 @@
 # Self-Hosting Standard Library
 
-Status: `vec_map` target implemented
+Status: `vec_try_map` target implemented
 
-This page records the completed source-backed standard library target for
-`vec_map` and routes later helper candidate checks. Use the specification for
-current standard symbol behavior.
+This page records the completed source-backed standard library targets for
+`vec_map` and `vec_try_map` and routes later helper candidate checks. Use the
+specification for current standard symbol behavior.
 
 ## Read First
 
-- Completed helper: `vec_map`.
+- Completed helpers: `vec_map`, `vec_try_map`.
 - Verify current source-backed versus descriptor-only status:
   [../specification/names-effects.md](../specification/names-effects.md),
   then
   [../specification/names-effects-full.md#source-backed-boundary](../specification/names-effects-full.md#source-backed-boundary).
-- Confirm implemented helper signatures and value behavior:
-  [helper signatures](../specification/names-effects-full.md#helper-signatures)
-  and [value semantics](../specification/names-effects-full.md#value-semantics).
-- Check the embedded body syntax against
+- Read implemented signature and behavior only from the specification:
+  [helper signatures](../specification/names-effects-full.md#helper-signatures),
+  [value semantics](../specification/names-effects-full.md#value-semantics), and
   [../specification/source-surface.md](../specification/source-surface.md).
-- Treat later proposal work as active only while the selected helper remains
-  descriptor-only in the current specification.
+- Open the full proposal only for candidate selection rules:
+  [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates).
 
 ## Boundary
 
-The completed target moved `vec_map` from descriptor-only pure prelude helper
-status into the existing source-backed helper model. Valid work changed only
-source placement and descriptor metadata for this already implemented helper.
+The completed targets moved `vec_map` and `vec_try_map` from descriptor-only
+pure prelude helper status into the existing source-backed helper model. Valid
+work changed only source placement and descriptor metadata for already
+implemented helpers.
 
 Later targets must not add helper semantics, effects, runtime boundaries,
 parser features, module loading, source-level effect handlers, streaming,
@@ -47,8 +47,8 @@ split remain specification material.
 
 ## Read When
 
-- Checking the completed `vec_map` migration or moving another
-  descriptor-only helper into the source-backed pure-helper model.
+- Checking the completed `vec_map` or `vec_try_map` migrations, or moving
+  another descriptor-only helper into the source-backed pure-helper model.
 - Deciding which helpers must remain compiler-known until source-level effects
   or runtime boundaries are specified.
 - Checking whether a standard-library idea is implemented behavior or still

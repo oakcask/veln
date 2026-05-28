@@ -93,11 +93,11 @@ test("self-hosting proposal route starts from the implemented helper split", () 
 
   assertIncludes(
     proposal,
-    "records the completed source-backed standard library target for\n" +
-      "`vec_map`",
+    "records the completed source-backed standard library targets for\n" +
+      "`vec_map` and `vec_try_map`",
   );
   assertIncludes(proposal, "## Read First");
-  assertIncludes(proposal, "Completed helper: `vec_map`");
+  assertIncludes(proposal, "Completed helpers: `vec_map`, `vec_try_map`");
   assertIncludes(proposal, "## Boundary");
   assertIncludes(proposal, "## Work Route");
   assertIncludes(
@@ -106,8 +106,8 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   );
   assertIncludes(
     proposal,
-    "Valid work changed only\n" +
-      "source placement and descriptor metadata for this already implemented helper",
+    "work changed only source placement and descriptor metadata for already\n" +
+      "implemented helpers",
   );
   assertIncludes(proposal, "../specification/names-effects.md");
   assertIncludes(proposal, "../specification/source-surface.md");
@@ -120,7 +120,7 @@ test("self-hosting proposal route starts from the implemented helper split", () 
     fullProposal,
     "Remaining source-backed prelude work chooses from the descriptor-only pure",
   );
-  assertIncludes(namesEffects, "Choosing the next descriptor-only helper");
+  assertIncludes(namesEffects, "Checking the selected descriptor-only helper");
   assertIncludes(namesEffectsFull, "### Source-Backed Boundary");
   assertIncludes(
     namesEffectsFull,
@@ -132,7 +132,7 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   );
   assertIncludes(
     namesEffectsFull,
-    "descriptor-only pure helpers: `vec_fold`, `vec_try_map`",
+    "descriptor-only pure helpers: `vec_fold`, `vec_try_map_with`",
   );
 });
 

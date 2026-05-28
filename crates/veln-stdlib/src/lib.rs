@@ -30,6 +30,8 @@ pub static CORE_PRELUDE_VEC_MAP: StdlibSource = core_prelude_source("vec_map");
 
 pub static CORE_PRELUDE_VEC_FILTER: StdlibSource = core_prelude_source("vec_filter");
 
+pub static CORE_PRELUDE_VEC_TRY_MAP: StdlibSource = core_prelude_source("vec_try_map");
+
 pub static CORE_PRELUDE_OPTION_MAP: StdlibSource = core_prelude_source("option_map");
 
 pub static CORE_PRELUDE_OPTION_AND_THEN: StdlibSource = core_prelude_source("option_and_then");
