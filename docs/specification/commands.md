@@ -22,19 +22,19 @@ requiring the full command reference on the first read.
   failures, and test JSON. Use [test-json.md](test-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact
   command rules.
+- `repair`: preview or apply one safe advisory hole repair candidate. Use
+  [repair-candidates.md](repair-candidates.md) for the candidate boundary and
+  [repair-json.md](repair-json.md) for machine-readable output.
 - `explain`: diagnostic catalog lookup. Use
   [commands-full.md](commands-full.md) when diagnostic catalog behavior is the
   task.
 - `lsp`: stdio language-server startup for editor semantic highlighting. Use
   [editor-support.md](editor-support.md) first for semantic-token behavior.
-- No `repair` command is implemented. Hole repair candidates exposed through
-  `check --json` remain advisory and unapplied; use
-  [holes.md](holes.md) for candidate policy.
 
 ## Read When
 
 - Use [json-output.md](json-output.md) to choose the implemented reference for
-  `check --json`, `run --json`, or `test --json` output.
+  `check --json`, `run --json`, `test --json`, or `repair --json` output.
 - Use [source-surface.md](source-surface.md) when command behavior depends on
   source syntax, doctest fences, or module declarations.
 

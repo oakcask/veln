@@ -20,6 +20,12 @@ pub(crate) enum Command {
         json: bool,
         targets: Vec<PathBuf>,
     },
+    Repair {
+        json: bool,
+        apply: bool,
+        candidate_id: Option<String>,
+        inputs: Vec<PathBuf>,
+    },
     Explain {
         list: bool,
         diagnostic_id: Option<String>,
@@ -63,6 +69,11 @@ impl Command {
                     text: render_help(&args[..1]),
                 });
             }
+            "repair" if has_help_flag(args.iter().skip(1)) => {
+                return Ok(Self::Help {
+                    text: render_help(&args[..1]),
+                });
+            }
             "explain" if has_help_flag(args.iter().skip(1)) => {
                 return Ok(Self::Help {
                     text: render_help(&args[..1]),
@@ -80,6 +91,7 @@ impl Command {
                 reject_missing_run_entry(args.iter().skip(1))?;
             }
             "test" => reject_unknown_test_flags(args.iter().skip(1))?,
+            "repair" => reject_unknown_repair_flags(args.iter().skip(1))?,
             "explain" => reject_unknown_explain_flags(args.iter().skip(1))?,
             "lsp" => reject_lsp_arguments(args.iter().skip(1))?,
             "--help" | "-h" => {
@@ -128,6 +140,12 @@ impl Command {
             Some(("test", matches)) => Ok(Self::Test {
                 json: matches.get_flag("json"),
                 targets: path_values(matches, "targets"),
+            }),
+            Some(("repair", matches)) => Ok(Self::Repair {
+                json: matches.get_flag("json"),
+                apply: matches.get_flag("apply"),
+                candidate_id: matches.get_one::<String>("candidate").cloned(),
+                inputs: path_values(matches, "inputs"),
             }),
             Some(("explain", matches)) => Ok(Self::Explain {
                 list: matches.get_flag("list"),
@@ -202,6 +220,38 @@ fn app() -> ClapCommand {
                     Arg::new("targets")
                         .help("Source files, directories, or test targets")
                         .value_name("TARGETS")
+                        .num_args(0..)
+                        .value_parser(clap::value_parser!(PathBuf)),
+                ),
+        )
+        .subcommand(
+            ClapCommand::new("repair")
+                .about("Preview or apply repair candidates")
+                .arg(json_arg())
+                .arg(
+                    Arg::new("apply")
+                        .long("apply")
+                        .help("Apply one safe repair candidate")
+                        .conflicts_with("dry_run")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("dry_run")
+                        .long("dry-run")
+                        .help("Preview repair candidates without writing files")
+                        .action(ArgAction::SetTrue),
+                )
+                .arg(
+                    Arg::new("candidate")
+                        .long("candidate")
+                        .help("Repair candidate id to apply or select")
+                        .value_name("CANDIDATE_ID")
+                        .num_args(1),
+                )
+                .arg(
+                    Arg::new("inputs")
+                        .help("Source files or directories to repair")
+                        .value_name("INPUTS")
                         .num_args(0..)
                         .value_parser(clap::value_parser!(PathBuf)),
                 ),
@@ -333,6 +383,26 @@ fn reject_unknown_test_flags<'a>(args: impl Iterator<Item = &'a String>) -> Resu
     Ok(())
 }
 
+fn reject_unknown_repair_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
+    let mut args = args.peekable();
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--json" | "--apply" | "--dry-run" | "--help" | "-h" => {}
+            "--candidate" => {
+                let Some(value) = args.next() else {
+                    return Err("repair flag `--candidate` requires a value".to_string());
+                };
+                if value.starts_with('-') {
+                    return Err("repair flag `--candidate` requires a value".to_string());
+                }
+            }
+            flag if flag.starts_with('-') => return Err(format!("unknown repair flag `{flag}`")),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 fn reject_unknown_explain_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
     let mut diagnostic_id = None;
     for arg in args {
@@ -369,7 +439,7 @@ fn reject_unknown_help_topic(path: &[String]) -> Result<(), String> {
     }
 
     match path[0].as_str() {
-        "check" | "fmt" | "run" | "test" | "explain" | "lsp" | "help" => Ok(()),
+        "check" | "fmt" | "run" | "test" | "repair" | "explain" | "lsp" | "help" => Ok(()),
         command => Err(format!("unknown command `{command}`")),
     }
 }
@@ -406,12 +476,12 @@ mod tests {
 
     #[test]
     fn help_parser_reports_unknown_topics() {
-        let error = match parse(&["help", "repair"]) {
+        let error = match parse(&["help", "build"]) {
             Ok(_) => panic!("unknown help topic should fail"),
             Err(error) => error,
         };
 
-        assert_eq!(error, "unknown command `repair`");
+        assert_eq!(error, "unknown command `build`");
     }
 
     #[test]
@@ -551,6 +621,10 @@ mod tests {
             Command::Help { .. }
         ));
         assert!(matches!(
+            parse(&["repair", "--help"]).unwrap(),
+            Command::Help { .. }
+        ));
+        assert!(matches!(
             parse(&["explain", "--help"]).unwrap(),
             Command::Help { .. }
         ));
@@ -584,6 +658,44 @@ mod tests {
         };
 
         assert_eq!(error, "unknown test flag `--filter`");
+    }
+
+    #[test]
+    fn repair_parser_accepts_apply_candidate_json_and_inputs() {
+        let command = parse(&[
+            "repair",
+            "--json",
+            "--apply",
+            "--candidate",
+            "repair-1",
+            "src/main.veln",
+        ])
+        .expect("repair command should parse");
+
+        let Command::Repair {
+            json,
+            apply,
+            candidate_id,
+            inputs,
+        } = command
+        else {
+            panic!("expected repair command");
+        };
+
+        assert!(json);
+        assert!(apply);
+        assert_eq!(candidate_id.as_deref(), Some("repair-1"));
+        assert_eq!(inputs, [PathBuf::from("src/main.veln")]);
+    }
+
+    #[test]
+    fn repair_parser_reports_unknown_flags() {
+        let error = match parse(&["repair", "--force"]) {
+            Ok(_) => panic!("unknown repair flag should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown repair flag `--force`");
     }
 
     #[test]

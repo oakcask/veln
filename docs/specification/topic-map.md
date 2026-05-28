@@ -21,8 +21,10 @@ smallest specification page to read. Start with the short page; open the matchin
   contracts and holes.
 - Contract clauses, predicate validation, runtime obligations, blame, and
   result bindings: [contracts.md](contracts.md).
-- Hole diagnostics, safe repair records, satisfy constraints, and candidate
-  ranking: [holes.md](holes.md).
+- Hole diagnostics and satisfy constraints: [holes.md](holes.md).
+- Advisory repair candidate records, concrete edits, application policy, the
+  `repair` command gate, and future-work boundary:
+  [repair-candidates.md](repair-candidates.md).
 
 ## Commands And Output
 
@@ -33,10 +35,15 @@ smallest specification page to read. Start with the short page; open the matchin
 - Human diagnostics that need related notes or structured output coverage, and
   diagnostic JSON envelope, spans, related notes, and stable details:
   [diagnostics-json.md](diagnostics-json.md).
+- Hole candidate JSON fields and application policy:
+  [repair-candidates.md](repair-candidates.md), then
+  [diagnostics-json.md](diagnostics-json.md).
 - Run JSON records, output events, failures, and summaries:
   [run-json.md](run-json.md).
 - Test JSON selection, case records, failures, errors, and summaries:
   [test-json.md](test-json.md).
+- Repair JSON preview, apply, refusal, edit, verification, and summary records:
+  [repair-json.md](repair-json.md).
 
 ## Runtime, Examples, And Rationale
 

@@ -26,6 +26,12 @@ use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
     prelude_signature,
 };
+use crate::repair_candidates::{
+    APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED, APPLICATION_STATUS_UNAPPLIED,
+    CANDIDATE_STATUS_QUERY_ONLY, SATISFY_STATUS_BLOCKED_UNTIL_DISCHARGED,
+    SATISFY_STATUS_STATICALLY_SATISFIED, application_policy, candidate_blocking_obligations,
+    candidate_evidence, candidate_known_limits, candidate_satisfy_status,
+};
 use crate::types::{
     Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type, TypeEnvironment,
     is_assignable, parse_type_annotation,
@@ -2768,7 +2774,9 @@ impl<'a> FunctionChecker<'a> {
             let repair_status = expected
                 .and_then(|expected| self.satisfy_repair_constraint(satisfy, expected))
                 .filter(|constraint| self.constraint_has_assignable_candidate(expected, constraint))
-                .map_or("blocked_until_discharged", |_| "statically_satisfied");
+                .map_or(SATISFY_STATUS_BLOCKED_UNTIL_DISCHARGED, |_| {
+                    SATISFY_STATUS_STATICALLY_SATISFIED
+                });
             constraints.push(JsonValue::object([
                 ("kind", JsonValue::string("satisfy")),
                 ("text", JsonValue::string(satisfy.predicate.clone())),
@@ -2821,10 +2829,13 @@ impl<'a> FunctionChecker<'a> {
             self.ranked_symbol_candidates(expected, hole, repair_constraint.as_ref());
         let mut query = vec![
             ("kind", JsonValue::string("symbol")),
-            ("candidate_status", JsonValue::string("query_only")),
+            (
+                "candidate_status",
+                JsonValue::string(CANDIDATE_STATUS_QUERY_ONLY),
+            ),
             (
                 "application_policy",
-                JsonValue::string("manual_review_required"),
+                JsonValue::string(APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED),
             ),
             (
                 "query",
@@ -2892,18 +2903,9 @@ impl<'a> FunctionChecker<'a> {
                 } else {
                     "assignable_type_match"
                 };
-                let policy = if static_satisfy.is_some() {
-                    "safe_repair_candidate"
-                } else {
-                    "manual_review_required"
-                };
-                let satisfy_status = satisfy.map(|_| {
-                    if static_satisfy.is_some() {
-                        "statically_satisfied"
-                    } else {
-                        "blocked_until_discharged"
-                    }
-                });
+                let policy = application_policy(static_satisfy.is_some());
+                let satisfy_status =
+                    candidate_satisfy_status(satisfy.is_some(), static_satisfy.is_some());
                 let mut candidate = vec![
                     ("candidate_id", JsonValue::string(format!("symbol-{rank}"))),
                     ("name", JsonValue::string(binding.name.clone())),
@@ -2952,7 +2954,10 @@ impl<'a> FunctionChecker<'a> {
                             ("scope", JsonValue::string("after_applying_candidate_edit")),
                         ]),
                     ),
-                    ("application_status", JsonValue::string("unapplied")),
+                    (
+                        "application_status",
+                        JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
+                    ),
                 ];
                 if let Some(satisfy_status) = satisfy_status {
                     candidate.push(("satisfy_status", JsonValue::string(satisfy_status)));
@@ -3061,74 +3066,6 @@ impl<'a> FunctionChecker<'a> {
             ContractValidation::Valid
         )
     }
-}
-
-fn candidate_evidence(
-    expected: &Type,
-    actual: &Type,
-    rank: usize,
-    reason: &'static str,
-    satisfy_status: Option<&'static str>,
-) -> JsonValue {
-    let mut evidence = vec![
-        JsonValue::object([
-            ("kind", JsonValue::string("type")),
-            ("status", JsonValue::string("passed")),
-            ("expected_type", JsonValue::string(expected.render())),
-            ("candidate_type", JsonValue::string(actual.render())),
-        ]),
-        JsonValue::object([
-            ("kind", JsonValue::string("ranking")),
-            ("status", JsonValue::string("ranked")),
-            ("rank", JsonValue::Number(rank as i64)),
-            ("reason", JsonValue::string(reason)),
-        ]),
-        JsonValue::object([
-            ("kind", JsonValue::string("verification")),
-            ("status", JsonValue::string("not_run")),
-        ]),
-    ];
-    if let Some(satisfy_status) = satisfy_status {
-        let satisfy_reason = if satisfy_status == "statically_satisfied" {
-            reason
-        } else {
-            "not_statically_discharged"
-        };
-        evidence.push(JsonValue::object([
-            ("kind", JsonValue::string("satisfy")),
-            ("status", JsonValue::string(satisfy_status)),
-            ("reason", JsonValue::string(satisfy_reason)),
-        ]));
-    }
-    JsonValue::array(evidence)
-}
-
-fn candidate_known_limits(satisfy_status: Option<&'static str>) -> JsonValue {
-    let mut limits = vec![
-        JsonValue::string("edit is advisory and unapplied"),
-        JsonValue::string("tests and examples have not been run"),
-    ];
-    if satisfy_status == Some("blocked_until_discharged") {
-        limits.push(JsonValue::string(
-            "satisfy predicate is not statically discharged by this candidate",
-        ));
-    }
-    JsonValue::array(limits)
-}
-
-fn candidate_blocking_obligations(
-    application_policy: &'static str,
-    satisfy_status: Option<&'static str>,
-) -> JsonValue {
-    let mut obligations = Vec::new();
-    if application_policy == "manual_review_required" {
-        obligations.push(JsonValue::string("manual_review_required"));
-    }
-    if satisfy_status == Some("blocked_until_discharged") {
-        obligations.push(JsonValue::string("satisfy.blocked_until_discharged"));
-    }
-    obligations.push(JsonValue::string("verification.not_run"));
-    JsonValue::array(obligations)
 }
 
 fn contract_callee_segments(callee: &str) -> Vec<String> {

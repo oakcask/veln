@@ -8,8 +8,10 @@ gap lists that should guide follow-up work.
 - [jvm-bytecode-backend-completion.md](jvm-bytecode-backend-completion.md)
   records the current completion review for the selected JVM bytecode backend
   proposal and its source-backend cleanup result.
+- [repair-command-completion.md](repair-command-completion.md) records the
+  completion review for the repair command proposal promotion.
 - [agent-language-spec-wall-completion.md](agent-language-spec-wall-completion.md)
-  records the completion review for the current design-wall target route.
+  records the earlier advisory repair candidate boundary review.
 - [no-proposal-target-completion.md](no-proposal-target-completion.md)
   records the completion review for the current no-target prompt state.
 - [expected-error-doctest-completion.md](expected-error-doctest-completion.md)

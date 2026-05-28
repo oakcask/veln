@@ -14,8 +14,8 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
   [diagnostics-json-full.md](diagnostics-json-full.md#diagnostics).
 - Stable `details` payloads by diagnostic family:
   [diagnostics-json-full.md](diagnostics-json-full.md#stable-details).
-- Hole candidate JSON keeps statically satisfied safe repair candidates even
-  when ordinary manual-review candidates are bounded.
+- Advisory repair candidate fields and application-policy routing:
+  [repair-candidates.md](repair-candidates.md).
 
 ## Read When
 
@@ -23,6 +23,8 @@ human diagnostics that must stay aligned with structured diagnostic behavior.
 - Updating human diagnostics that also need structured output coverage.
 - Verifying whether diagnostic provenance, repair hints, or related notes are
   stable machine-readable behavior.
+- Changing hole candidate `details` payloads, candidate edits, or
+  application-policy fields.
 
 ## Skip Unless Needed
 

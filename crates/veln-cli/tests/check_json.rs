@@ -51,6 +51,10 @@ impl TestProject {
         self.veln(&["test"], args)
     }
 
+    fn repair(&self, args: &[&str]) -> Output {
+        self.veln(&["repair"], args)
+    }
+
     fn test_with_path(&self, args: &[&str], path: &str) -> Output {
         self.veln_with_path("test", args, path)
     }
@@ -151,6 +155,7 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
         "  fmt      Format source files\n",
         "  run      Run an entry function\n",
         "  test     Run tests\n",
+        "  repair   Preview or apply repair candidates\n",
         "  explain  Explain diagnostics\n",
         "  lsp      Run the language server on stdio\n",
         "  help     Print this message or the help of the given subcommand(s)\n",
@@ -208,6 +213,21 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
         "      --json  Emit machine-readable JSON\n",
         "  -h, --help  Print help\n",
     );
+    let repair_expected = concat!(
+        "Preview or apply repair candidates\n",
+        "\n",
+        "Usage: veln repair [OPTIONS] [INPUTS]...\n",
+        "\n",
+        "Arguments:\n",
+        "  [INPUTS]...  Source files or directories to repair\n",
+        "\n",
+        "Options:\n",
+        "      --json                      Emit machine-readable JSON\n",
+        "      --apply                     Apply one safe repair candidate\n",
+        "      --dry-run                   Preview repair candidates without writing files\n",
+        "      --candidate <CANDIDATE_ID>  Repair candidate id to apply or select\n",
+        "  -h, --help                      Print help\n",
+    );
     let explain_expected = concat!(
         "Explain diagnostics\n",
         "\n",
@@ -234,6 +254,7 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     let fmt_help_output = project.veln(&["fmt"], &["--help"]);
     let run_help_output = project.veln(&["run"], &["--help"]);
     let test_help_output = project.veln(&["test"], &["--help"]);
+    let repair_help_output = project.veln(&["repair"], &["--help"]);
     let explain_help_output = project.veln(&["explain"], &["--help"]);
     let explain_short_help_output = project.veln(&["explain"], &["-h"]);
     let lsp_help_output = project.veln(&["lsp"], &["--help"]);
@@ -269,6 +290,13 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
     );
     assert_eq!(stdout(&test_help_output), test_expected);
     assert_eq!(stderr(&test_help_output), "");
+    assert!(
+        repair_help_output.status.success(),
+        "{}",
+        stderr(&repair_help_output)
+    );
+    assert_eq!(stdout(&repair_help_output), repair_expected);
+    assert_eq!(stderr(&repair_help_output), "");
     assert!(
         explain_help_output.status.success(),
         "{}",
@@ -373,8 +401,7 @@ fn cli_reports_parser_errors_before_project_discovery() {
     let project = TestProject::new("cli-parser-errors");
 
     let unknown_command = project.veln(&[], &["wat"]);
-    let repair_command = project.veln(&[], &["repair"]);
-    let repair_help_topic = project.veln(&[], &["help", "repair"]);
+    let unknown_repair_flag = project.veln(&["repair"], &["--wat"]);
     let unknown_check_flag = project.veln(&["check"], &["--wat"]);
     let unknown_run_flag = project.veln(&["run"], &["--wat"]);
     let unknown_test_flag = project.veln(&["test"], &["--wat"]);
@@ -386,15 +413,11 @@ fn cli_reports_parser_errors_before_project_discovery() {
     assert_eq!(stdout(&unknown_command), "");
     assert_eq!(stderr(&unknown_command), "veln: unknown command `wat`\n");
 
-    assert_eq!(repair_command.status.code(), Some(2));
-    assert_eq!(stdout(&repair_command), "");
-    assert_eq!(stderr(&repair_command), "veln: unknown command `repair`\n");
-
-    assert_eq!(repair_help_topic.status.code(), Some(2));
-    assert_eq!(stdout(&repair_help_topic), "");
+    assert_eq!(unknown_repair_flag.status.code(), Some(2));
+    assert_eq!(stdout(&unknown_repair_flag), "");
     assert_eq!(
-        stderr(&repair_help_topic),
-        "veln: unknown command `repair`\n"
+        stderr(&unknown_repair_flag),
+        "veln: unknown repair flag `--wat`\n"
     );
 
     assert_eq!(unknown_check_flag.status.code(), Some(2));
@@ -2014,6 +2037,201 @@ fn check_json_reports_assignable_safe_satisfy_candidate_reason() {
             "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"hint\":1},\"by_kind\":{\"hole\":1}}",
         ],
     );
+}
+
+#[test]
+fn check_json_leaves_safe_repair_candidate_unapplied() {
+    let project = TestProject::new("safe-repair-candidate-unapplied");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"application_policy\":\"safe_repair_candidate\"",
+            "\"replacement\":\"order\"",
+            "\"application_status\":\"unapplied\"",
+            "\"verification_hint\":{\"command\":\"veln check --json main.veln\"",
+        ],
+    );
+    assert_eq!(project.read("main.veln"), source);
+}
+
+#[test]
+fn repair_previews_safe_candidates_without_writing() {
+    let project = TestProject::new("repair-preview");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+
+    let output = project.repair(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "repair-1: Replace hole with `order`",
+            "main.veln:2:3 -> `order`",
+            "[safe_repair_candidate]",
+        ],
+    );
+    assert_eq!(stderr(&output), "");
+    assert_eq!(project.read("main.veln"), source);
+}
+
+#[test]
+fn repair_json_reports_command_candidate_schema() {
+    let project = TestProject::new("repair-json-preview");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => candidate.ready == order.ready\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.repair(&["--json", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"command\":\"repair\"",
+            "\"mode\":\"preview\"",
+            "\"status\":\"preview\"",
+            "\"repair_id\":\"repair-1\"",
+            "\"source_candidate_id\":\"symbol-1\"",
+            "\"application_policy\":\"safe_repair_candidate\"",
+            "\"application_status\":\"unapplied\"",
+            "\"verification_command\":\"veln check --json main.veln\"",
+            "\"summary\":{\"candidate_count\":1,\"applicable_count\":1,\"applied_count\":0",
+        ],
+    );
+    assert_eq!(stderr(&output), "");
+}
+
+#[test]
+fn repair_apply_writes_single_safe_candidate_and_verifies() {
+    let project = TestProject::new("repair-apply");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => candidate.ready == order.ready\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.repair(&["--apply", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "applied repair-1 at main.veln:2:3 -> `order`",
+            "verification passed",
+        ],
+    );
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  order\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn repair_refuses_manual_review_candidates() {
+    let project = TestProject::new("repair-refuses-manual-review");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+
+    let output = project.repair(&["--apply", "main.veln"]);
+
+    assert!(!output.status.success(), "{}", stdout(&output));
+    assert_contains_all(
+        stdout(&output),
+        &["repair refused: no safe unapplied repair candidates"],
+    );
+    assert_eq!(project.read("main.veln"), source);
+}
+
+#[test]
+fn repair_rolls_back_when_verification_fails() {
+    let project = TestProject::new("repair-verification-failure");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+    project.write("bad.veln", "fn broken() -> Int\n  1\n");
+
+    let output = project.repair(&["--json", "--apply"]);
+    let stdout = stdout(&output);
+
+    assert!(!output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"refused\"",
+            "\"refusal_reason\":\"verification failed\"",
+            "\"verification\":{\"status\":\"failed\"",
+            "\"id\":\"parse.expected_end\"",
+        ],
+    );
+    assert_eq!(project.read("main.veln"), source);
+}
+
+#[test]
+fn check_rejects_repair_options_without_applying_candidate_edits() {
+    let project = TestProject::new("check-repair-options");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+
+    let repair_output = project.veln(&["check"], &["--repair", "main.veln"]);
+    let apply_output = project.veln(&["check"], &["--apply", "main.veln"]);
+
+    assert_eq!(repair_output.status.code(), Some(2));
+    assert_eq!(stdout(&repair_output), "");
+    assert_eq!(
+        stderr(&repair_output),
+        "veln: unknown check flag `--repair`\n"
+    );
+    assert_eq!(project.read("main.veln"), source);
+
+    assert_eq!(apply_output.status.code(), Some(2));
+    assert_eq!(stdout(&apply_output), "");
+    assert_eq!(
+        stderr(&apply_output),
+        "veln: unknown check flag `--apply`\n"
+    );
+    assert_eq!(project.read("main.veln"), source);
 }
 
 #[test]

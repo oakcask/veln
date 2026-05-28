@@ -15,6 +15,8 @@ details.
   failures, and summary shape.
 - `test --json`: [test-json.md](test-json.md) for selection, case, summary,
   failure, and error records.
+- `repair --json`: [repair-json.md](repair-json.md) for preview, apply,
+  refusal, candidate, edit, verification, and summary records.
 
 ## Read When
 
