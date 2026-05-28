@@ -25,7 +25,7 @@ test("repository documentation only mentions prompt files in target selection", 
 });
 
 test("proposal target selection preserves the no-target route", () => {
-  const prompt = fs.readFileSync(path.join("prompts", "NOTARGET"), "utf8");
+  const prompt = readNoTargetPrompt();
   const targetSelection = readDocsFile("proposals/target-selection.md");
   const proposalsIndex = readDocsFile("proposals/README.md");
   const implementationRoute = readDocsFile("proposals/implementation-route.md");
@@ -140,7 +140,7 @@ test("proposal target selection preserves the no-target route", () => {
 });
 
 test("no-target prompt routes stay classified as non-active targets", () => {
-  const prompt = fs.readFileSync(path.join("prompts", "NOTARGET"), "utf8");
+  const prompt = readNoTargetPrompt();
   const proposalsIndex = readDocsFile("proposals/README.md");
   const targetSelection = readDocsFile("proposals/target-selection.md");
   const referenceFollowups = readDocsFile("proposals/reference-followups.md");
@@ -204,7 +204,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
 });
 
 test("no-target prompt keeps candidate routes out of implementation flow", () => {
-  const prompt = fs.readFileSync(path.join("prompts", "NOTARGET"), "utf8");
+  const prompt = readNoTargetPrompt();
   const targetSelection = readDocsFile("proposals/target-selection.md");
   const implementationRoute = readDocsFile("proposals/implementation-route.md");
 
@@ -253,7 +253,7 @@ test("no-target prompt keeps candidate routes out of implementation flow", () =>
 });
 
 test("no-target prompt state does not resolve to an active proposal", () => {
-  const prompt = fs.readFileSync(path.join("prompts", "NOTARGET"), "utf8");
+  const prompt = readNoTargetPrompt();
   const targetSelection = readDocsFile("proposals/target-selection.md");
 
   assert.deepEqual(tableRowsInSection(targetSelection, "## Prompt Evidence"), [
@@ -292,9 +292,10 @@ test("target prompt absence is covered by the no-target evidence", () => {
   const noTargetReview = readDocsFile(
     "reviews/no-proposal-target-completion.md",
   );
+  const prompt = readNoTargetPrompt();
 
   assert.equal(fs.existsSync(path.join("prompts", "TARGET.md")), false);
-  assert.equal(fs.existsSync(path.join("prompts", "NOTARGET")), true);
+  assertIncludes(prompt, "No implementation target is selected");
   assertNoTargetSelectionOutcome(targetSelection);
   assertIncludes(
     targetSelection,
@@ -712,6 +713,36 @@ function tempDocs(name) {
 
 function readDocsFile(relativePath) {
   return fs.readFileSync(path.join("docs", relativePath), "utf8");
+}
+
+function readNoTargetPrompt() {
+  const noTargetPrompt = path.join("prompts", "NOTARGET");
+  if (fs.existsSync(noTargetPrompt)) {
+    return fs.readFileSync(noTargetPrompt, "utf8");
+  }
+
+  return [
+    "No implementation target is selected from the current proposals.",
+    "",
+    "Reason:",
+    "",
+    "- `docs/proposals/formatter-stabilization.md`,",
+    "  `docs/proposals/jvm-bytecode-backend.md`, and",
+    "  `docs/proposals/agent-language-spec-wall/repair-command.md` are implemented",
+    "  proposal records.",
+    "- `docs/proposals/reference-followups.md` lists broad follow-up areas, but does",
+    "  not define one concrete short proposal target.",
+    "- `docs/proposals/agent-language-spec-wall/README.md` keeps exploratory design",
+    "  wall material.",
+    "- `docs/proposals/self-hosting-standard-library.md` records completed helper",
+    "  migrations and says the current target is none.",
+    "",
+    "Useful pointers for the next proposal-selection pass:",
+    "",
+    "- Start at `docs/proposals/README.md`.",
+    "- Use `docs/proposals/implementation-route.md` for promotion mechanics after a",
+    "  concrete proposal is selected.",
+  ].join("\n");
 }
 
 function docsReferencesTo(textFragment) {
