@@ -351,7 +351,9 @@ The source-backed `vec_map`, `vec_try_map`, and `vec_try_map_with` entries are
 declared in `core_prelude` and may use other existing helpers such as
 `vec_fold` and `vec_push`; their step helpers are implementation details, and
 this source placement does not expose or stabilize a public vec
-representation.
+representation. For `vec_try_map_with`, the exported source entry is the
+descriptor entry point `vec_try_map_with`; the `vec_try_map_with_step` helper is
+ordinary private support source and is not a separate prelude descriptor.
 
 ### Compiler-Support Source
 
