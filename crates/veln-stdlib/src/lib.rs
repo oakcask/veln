@@ -26,6 +26,8 @@ pub static CORE_PRELUDE_VEC_PUSH: StdlibSource = core_prelude_source("vec_push")
 
 pub static CORE_PRELUDE_VEC_CONCAT: StdlibSource = core_prelude_source("vec_concat");
 
+pub static CORE_PRELUDE_VEC_MAP: StdlibSource = core_prelude_source("vec_map");
+
 pub static CORE_PRELUDE_VEC_FILTER: StdlibSource = core_prelude_source("vec_filter");
 
 pub static CORE_PRELUDE_OPTION_MAP: StdlibSource = core_prelude_source("option_map");

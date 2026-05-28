@@ -24,6 +24,16 @@ fn vec_append(items: Vec(A), item: A) -> Vec(A) effects []
 	vec_push(items, item)
 end
 
+fn vec_map(items: Vec(Item), f: fn(Item) -> A) -> Vec(A) effects []
+	let state: {values: Vec(A), map: fn(Item) -> A} = vec_fold(items, {values: [], map: f}, vec_map_step)
+	state.values
+end
+
+fn vec_map_step(state: {values: Vec(A), map: fn(Item) -> A}, item: Item) -> {values: Vec(A), map: fn(Item) -> A} effects []
+	let map = state.map
+	{values: vec_push(state.values, map(item)), map: map}
+end
+
 fn vec_filter(items: Vec(A), f: fn(A) -> Bool) -> Vec(A) effects []
 	let state: {values: Vec(A), keep: fn(A) -> Bool} = vec_fold(items, {values: [], keep: f}, vec_filter_step)
 	state.values
