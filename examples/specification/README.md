@@ -13,6 +13,20 @@ against the built `veln` binary.
 - Put the expected observable behavior in `case.toml`; keep the `.veln` files
   readable as examples of the language feature.
 
+## Placement Guidelines
+
+- Add cases here only when the fixture demonstrates a language or public CLI
+  behavior that is useful to read as Veln source.
+- A runtime case may require the current execution toolchain, but its expected
+  behavior must stay phrased as source-level output, diagnostics, exit status,
+  or command JSON.
+- Do not add cases whose main purpose is to verify backend-private mechanics:
+  artifact layout, classfile emission or validation, generated helper names,
+  cache reuse, backend-specific limits, host tool setup, or other implementation
+  details.
+- Put backend invariants in the backend crate tests, and put low-level CLI edge
+  cases in the CLI toolchain cases.
+
 ## Case Kinds
 
 - `check/`: static diagnostics and successful static validation.
@@ -35,6 +49,8 @@ against the built `veln` binary.
 - `check/source-metadata/`: ADR-lite doc records attached to source without
   changing static behavior.
 - `check/module-imports/`: `mod`, `use`, import aliases, and qualified calls.
+- `check/qualified-no-fallback/`: qualified calls require a matching import
+  alias and do not fall back to same-named bare functions.
 - `check/missing-module-identity/`: `use` declarations without a source module
   identity.
 - `check/name-module-boundaries/`: duplicate import aliases, functions,
@@ -44,9 +60,14 @@ against the built `veln` binary.
 - `check/predicate-pattern-diagnostics/`: unsupported contract and `satisfy`
   predicate syntax, malformed `satisfy` suffixes, refutable `let` patterns,
   and invalid `satisfy` candidate bindings.
+- `check/contract-validation-diagnostics/`: contract predicates that parse but
+  fail static validation for effectful calls, non-boolean facts, and missing
+  fields.
 - `check/type-effect-boundaries/`: private inference gaps, missing record
   fields, `Path` versus `String`, invalid pipeline targets,
   method-call-shaped syntax, unknown effects, and indirect effect inference.
+- `check/function-effect-boundaries/`: function-typed value compatibility when
+  callable effects are narrower or wider than the expected function type.
 - `check/type-annotation-boundaries/`: public API annotation requirements,
   invalid type annotations, and top-level test declaration shape requirements.
 - `check/manifest-metadata/`: source `mod` ownership wins over manifest module
@@ -72,6 +93,8 @@ against the built `veln` binary.
 - `check/effect-reserved-labels/`: reserved public effect labels accepted as
   declared compatibility boundaries.
 - `check/hole-satisfy/`: typed holes with `satisfy` repair constraints.
+- `check/named-hole-labels/`: named hole labels remain repair metadata and do
+  not become value declarations.
 - `check/human-ok/`: human `check` output for valid input.
 - `check/prelude-helper-diagnostics/`: fallible `vec_map` callback diagnostics
   and repair hints toward `vec_try_map`.
@@ -127,8 +150,6 @@ against the built `veln` binary.
   runtime errors.
 - `run/human-stdio/`: human `run` mode forwards stdout and stderr from the
   selected program.
-- `run/cache-stability/`: repeated JVM-backed execution through the public
-  cache boundary.
 - `run/line-item-order-summary/`: the implemented line-item order summary
   example using dictionary lookup, fallible traversal, folding, records,
   `Result` propagation, and stdio output.

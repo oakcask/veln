@@ -1,0 +1,31 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"contract.unsupported_construct\"", "\"reason\":\"effectful_operation\"", "\"id\":\"contract.type_mismatch\"", "\"reason\":\"non_boolean_predicate\"", "\"id\":\"contract.field_missing\"", "\"reason\":\"missing_field\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "contract.unsupported_construct"
+severity = "error"
+kind = "contract"
+message = "contract predicate contains an unsupported construct"
+
+[[diagnostics]]
+id = "contract.type_mismatch"
+severity = "error"
+kind = "contract"
+message = "contract predicate is not `Bool`"
+
+[[diagnostics]]
+id = "contract.field_missing"
+severity = "error"
+kind = "contract"
+message = "contract field `missing` is not present on `{total: Int}`"

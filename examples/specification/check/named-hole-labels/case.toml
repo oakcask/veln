@@ -1,0 +1,28 @@
+command = ["check", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"hole.unfilled\"", "\"label\":\"_candidate\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "partial"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[diagnostics]]
+id = "hole.unfilled"
+severity = "hint"
+kind = "hole"
+message = "hole requires a `Int` value"
+
+[diagnostics.span]
+file = "main.veln"
+line = 4
+column = 19

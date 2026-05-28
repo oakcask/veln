@@ -1,0 +1,10 @@
+// Qualified calls require a matching import alias and do not fall back to bare names.
+mod spec.qualified
+
+fn helper() -> Int
+  1
+end
+
+pub fn main() -> Int effects []
+  missing::helper()
+end
