@@ -24,8 +24,7 @@ does not define current language behavior or implementation steps.
 
 | Evidence | Decision |
 | --- | --- |
-| `prompts/TARGET.md` is absent. | Do not infer a target. |
-| `prompts/NOTARGET` says no implementation target is selected from the current proposals. | Keep selection unset. |
+| No active proposal target is selected by the local prompt state. | Keep selection unset. |
 
 ## Selection Outcomes
 
@@ -43,17 +42,16 @@ can proceed.
 
 ## Selection Check
 
-1. Read `prompts/TARGET.md` when it exists.
-2. When `prompts/TARGET.md` is absent, read `prompts/NOTARGET` if present.
-3. Keep selection unset when the prompt state says no target is selected.
-4. If a target is selected, verify that it is a short proposal page, not a full detail
+1. Check whether the local prompt state selects one active target.
+2. Keep selection unset when the prompt state says no target is selected.
+3. If a target is selected, verify that it is a short proposal page, not a full detail
    record, review, reference note, broad index, helper candidate pool, or
    implemented proposal record.
-5. If a target remains valid, compare the selected behavior with
+4. If a target remains valid, compare the selected behavior with
    [../specification/README.md](../specification/README.md).
-6. If the behavior is already implemented, use the matching specification page
+5. If the behavior is already implemented, use the matching specification page
    and treat the proposal as history or cleanup evidence.
-7. If the behavior is broad, exploratory, or a helper candidate pool, split or
+6. If the behavior is broad, exploratory, or a helper candidate pool, split or
    create one short proposal before treating it as an implementation target.
 
 Do not infer a target from broad follow-up indexes, exploratory inventories,

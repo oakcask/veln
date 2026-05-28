@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,6 +18,7 @@ if (isMainModule()) {
 
 export function validateDocsLinks(docsRoot) {
   const markdownFiles = listMarkdownFiles(docsRoot);
+  const repoRoot = findRepoRoot(docsRoot);
   const errors = [];
 
   for (const file of markdownFiles) {
@@ -28,6 +30,9 @@ export function validateDocsLinks(docsRoot) {
         errors.push(error);
       }
     }
+    errors.push(
+      ...validateVersionedPathReferences({ docsRoot, file, repoRoot, text }),
+    );
   }
 
   return {
@@ -61,6 +66,30 @@ function validateLocalLink({ docsRoot, fromFile, link }) {
   return undefined;
 }
 
+function validateVersionedPathReferences({ docsRoot, file, repoRoot, text }) {
+  const errors = [];
+  const relativeFrom = path.relative(docsRoot, file);
+  if (repoRoot === undefined) {
+    return errors;
+  }
+
+  for (const reference of localPathReferences(stripFencedCodeBlocks(text))) {
+    const repoRelativePath = repoRelativeReference({ file, reference, repoRoot });
+    if (repoRelativePath === undefined) {
+      continue;
+    }
+
+    const check = checkVersioned(repoRoot, repoRelativePath);
+    if (!check.versioned) {
+      errors.push(
+        `${relativeFrom}:${reference.line}: references unversioned path: ${reference.text}`,
+      );
+    }
+  }
+
+  return errors;
+}
+
 function listMarkdownFiles(root) {
   const files = [];
   for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
@@ -88,6 +117,77 @@ function localMarkdownLinks(text) {
     });
   }
   return links;
+}
+
+function localPathReferences(text) {
+  const references = [];
+
+  const codePattern = /`([^`\n]+)`/g;
+  for (const codeMatch of text.matchAll(codePattern)) {
+    const codeText = codeMatch[1];
+    if (codeText.includes("](")) {
+      continue;
+    }
+    const codeStart = codeMatch.index + 1;
+    for (const candidateMatch of pathCandidates(codeText)) {
+      references.push({
+        line: lineNumberAt(text, codeStart + candidateMatch.index),
+        text: candidateMatch.text,
+      });
+    }
+  }
+
+  return references;
+}
+
+function pathCandidates(text) {
+  const candidates = [];
+  const pattern =
+    /(?:\.{1,2}\/)?[A-Za-z0-9._@%-]+(?:\/[A-Za-z0-9._@%-]+)+\/?|(?<![A-Za-z0-9._@%-])[A-Za-z0-9._@%-]+\.(?:class|vsix)\b/g;
+
+  for (const match of text.matchAll(pattern)) {
+    const candidate = cleanPathReference(match[0]);
+    if (isRepositoryPathReference(candidate)) {
+      candidates.push({
+        index: match.index,
+        text: candidate,
+      });
+    }
+  }
+
+  return candidates;
+}
+
+function cleanPathReference(value) {
+  return value
+    .replace(/#.*/, "")
+    .replace(/[),.;:]+$/g, "");
+}
+
+function isRepositoryPathReference(value) {
+  return (
+    value !== "" &&
+    !value.startsWith("#") &&
+    !isExternalLink(value) &&
+    !path.isAbsolute(value) &&
+    !isPlaceholderPath(value) &&
+    (value.startsWith("./") ||
+      value.startsWith("../") ||
+      startsWithKnownRepoRoot(value) ||
+      hasFileExtension(value))
+  );
+}
+
+function isPlaceholderPath(value) {
+  return value.startsWith("path/to/");
+}
+
+function startsWithKnownRepoRoot(value) {
+  return /^(?:\.github|crates|docs|editors|prompts|toolchain_cases|workflow-scripts)\//.test(value);
+}
+
+function hasFileExtension(value) {
+  return /(?:^|\/)[^/]+\.[A-Za-z0-9]+\/?$/.test(value);
 }
 
 function markdownAnchors(text) {
@@ -138,6 +238,64 @@ function decodeUriPath(value) {
     .split("/")
     .map((segment) => decodeURIComponent(segment))
     .join(path.sep);
+}
+
+function repoRelativeReference({ file, reference, repoRoot }) {
+  const pathText = reference.text;
+  const decoded = decodeUriPath(pathText);
+  const relative = pathText.startsWith("./") || pathText.startsWith("../")
+    ? repoRelativePath(repoRoot, path.resolve(path.dirname(file), decoded))
+    : versionedRelativePath(repoRoot, path.resolve(path.dirname(file), decoded)) ??
+      repoRelativePath(repoRoot, path.resolve(repoRoot, decoded));
+
+  if (relative === undefined) {
+    return undefined;
+  }
+
+  return relative;
+}
+
+function versionedRelativePath(repoRoot, absolutePath) {
+  const relative = repoRelativePath(repoRoot, absolutePath);
+  if (relative === undefined) {
+    return undefined;
+  }
+
+  return checkVersioned(repoRoot, relative).versioned ? relative : undefined;
+}
+
+function repoRelativePath(repoRoot, absolutePath) {
+  const relative = path.relative(repoRoot, absolutePath);
+
+  if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
+    return undefined;
+  }
+
+  return relative;
+}
+
+function checkVersioned(repoRoot, repoRelativePath) {
+  const result = spawnSync(
+    "git",
+    ["ls-files", "--error-unmatch", "--", repoRelativePath],
+    { cwd: repoRoot },
+  );
+
+  return { versioned: result.status === 0 };
+}
+
+function findRepoRoot(start) {
+  let current = path.resolve(start);
+  while (true) {
+    if (fs.existsSync(path.join(current, ".git"))) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      return undefined;
+    }
+    current = parent;
+  }
 }
 
 function lineNumberAt(text, offset) {
