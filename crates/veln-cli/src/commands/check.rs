@@ -35,7 +35,7 @@ pub(crate) fn check_diagnostics(project: &mut Project) -> Vec<veln_diagnostics::
     let mut diagnostics = doctests.diagnostics;
     project.files.extend(doctests.sources);
 
-    let (module, parse_diagnostics) = load_surface_module(&project);
+    let (module, parse_diagnostics) = load_surface_module(project);
     diagnostics.extend(parse_diagnostics);
     diagnostics.extend(lower_checked_surface_module(&module).diagnostics);
 
