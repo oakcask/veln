@@ -22,9 +22,9 @@ language behavior unless `../specification/` also states it.
   details current specification.
 - Use [reference-followups.md](reference-followups.md) for follow-up work that
   is absent from the current specification.
-- Use [self-hosting-standard-library.md](self-hosting-standard-library.md) only
-  for future self-hosting standard library questions whose behavior is absent
-  from the current specification.
+- Use [self-hosting-standard-library.md](self-hosting-standard-library.md) for
+  remaining source-backed standard library work that is absent from the
+  current specification.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still exploratory or only partially
   represented.

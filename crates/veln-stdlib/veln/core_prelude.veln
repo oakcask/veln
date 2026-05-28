@@ -1,5 +1,12 @@
 mod core_prelude
 
+fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
+	match value
+		Some(inner) => Some(f(inner))
+		None => None
+	end
+end
+
 fn option_unwrap_or(value: Option(A), fallback: A) -> A effects []
 	match value
 		Some(inner) => inner

@@ -7,13 +7,24 @@ pub struct StdlibSource {
     pub text: &'static str,
 }
 
-pub const CORE_PRELUDE: StdlibSource = StdlibSource {
-    path: "stdlib/core_prelude.veln",
-    entry: "option_unwrap_or",
-    text: include_str!("../veln/core_prelude.veln"),
-};
+const CORE_PRELUDE_PATH: &str = "stdlib/core_prelude.veln";
+const CORE_PRELUDE_TEXT: &str = include_str!("../veln/core_prelude.veln");
 
-pub const COMPILER_SUPPORT: StdlibSource = StdlibSource {
+pub const fn core_prelude_source(entry: &'static str) -> StdlibSource {
+    StdlibSource {
+        path: CORE_PRELUDE_PATH,
+        entry,
+        text: CORE_PRELUDE_TEXT,
+    }
+}
+
+pub static CORE_PRELUDE_OPTION_MAP: StdlibSource = core_prelude_source("option_map");
+
+pub static CORE_PRELUDE_OPTION_UNWRAP_OR: StdlibSource = core_prelude_source("option_unwrap_or");
+
+pub static CORE_PRELUDE: StdlibSource = core_prelude_source("option_unwrap_or");
+
+pub static COMPILER_SUPPORT: StdlibSource = StdlibSource {
     path: "stdlib/compiler_support.veln",
     entry: "load_source_text",
     text: include_str!("../veln/compiler_support.veln"),
