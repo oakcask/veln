@@ -13,7 +13,7 @@ handoff rule.
 - `../proposals/` routes target decisions, promotion mechanics, and candidate
   inventory through short entry pages.
 - `../proposals/implementation-route.md` starts only after target selection
-  names one active short proposal page.
+  classifies the work as an active target.
 - Current implemented behavior remains routed through
   `../specification/`.
 

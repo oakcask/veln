@@ -9,10 +9,12 @@ comparison, promotion, or cleanup.
 
 ## Entry Check
 
-- Continue only when target selection names one short proposal page.
-- Stop if selection is unset, broad, exploratory, or implemented history.
-- Keep the target to one short proposal page unless that page routes to a full
-  detail record or companion proposal.
+- Continue only when [target-selection.md](target-selection.md) classifies the
+  work as an active target.
+- Stop for no-target, broad, exploratory, helper-pool, or implemented-record
+  classes and follow the next route named by target selection.
+- Keep the implementation scope to the active short proposal page unless that
+  page routes to a full detail record or companion proposal.
 - When selection is unset, return to [target-selection.md](target-selection.md)
   and do not update `../specification/`.
 
@@ -54,6 +56,7 @@ comparison, promotion, or cleanup.
 
 - Do not read broad design-wall material before the chosen short proposal page
   routes the task there.
-- Do not infer an active target from an implemented record or no-target state.
+- Do not reclassify target state here; return to
+  [target-selection.md](target-selection.md).
 - Do not treat proposal text as implemented behavior unless
   `../specification/` also states it.

@@ -10,27 +10,26 @@ does not define current language behavior or implementation steps.
 ## Read First
 
 - Current decision: no active proposal target.
-- Prompt evidence is recorded in the current decision below.
-- The target classes table is enough to reject broad, exploratory,
-  helper-pool, and implemented-record candidates.
-- Target implementation has no completion condition until one concrete short
-  proposal page names one absent behavior.
-- Use [implementation-route.md](implementation-route.md) only after that active
+- Prompt evidence and candidate classification are below.
+- Stop before implementation, promotion, or specification updates unless one
+  short proposal page names one absent behavior.
+- Use [implementation-route.md](implementation-route.md) only after one active
   target exists.
 - Current implemented behavior stays in
   [../specification/README.md](../specification/README.md).
 
 ## Current Decision
 
-- `prompts/TARGET.md` is absent.
-- `prompts/NOTARGET` says no implementation target is selected from the
-  current proposals.
-- Result: no active proposal target.
+| Evidence | Decision |
+| --- | --- |
+| `prompts/TARGET.md` is absent. | Do not infer a target. |
+| `prompts/NOTARGET` says no implementation target is selected from the current proposals. | Keep selection unset. |
+| Selection is unset. | Leave `../specification/` unchanged and record only routing clarification. |
 
 ## Target Classes
 
-Use this table instead of reopening candidate pages just to decide whether a
-target exists.
+Use this table instead of reopening candidate pages just to decide whether work
+can proceed.
 
 | Class | Decision | Next route |
 | --- | --- | --- |
@@ -41,15 +40,15 @@ target exists.
 | Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md). |
 | Helper candidate pool | Choose exactly one descriptor-only pure helper, then create or select one short proposal page. | [self-hosting-standard-library.md](self-hosting-standard-library.md). |
 
-## Selection Flow
+## Selection Check
 
 1. Read `prompts/TARGET.md` when it exists.
 2. When `prompts/TARGET.md` is absent, read `prompts/NOTARGET` if present.
 3. Keep selection unset when the prompt state says no target is selected.
-4. Verify that any selected page is a short proposal page, not a full detail
+4. If a target is selected, verify that it is a short proposal page, not a full detail
    record, review, reference note, broad index, helper candidate pool, or
    implemented proposal record.
-5. Compare the selected behavior with
+5. If a target remains valid, compare the selected behavior with
    [../specification/README.md](../specification/README.md).
 6. If the behavior is already implemented, use the matching specification page
    and treat the proposal as history or cleanup evidence.
@@ -62,14 +61,6 @@ create one short proposal page before treating proposal work as implementable.
 
 Evidence for the current no-target state lives in
 [../reviews/no-proposal-target-completion.md](../reviews/no-proposal-target-completion.md).
-
-## Handoff
-
-| State | Handoff |
-| --- | --- |
-| No target | Stop here, leave `../specification/` unchanged, and record only routing clarification. |
-| Active target | Use [implementation-route.md](implementation-route.md) after confirming the selected behavior is absent from `../specification/`. |
-| Broad, exploratory, or helper-pool work | Create or select one short proposal page before implementation. |
 
 ## Read When
 

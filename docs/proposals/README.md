@@ -17,11 +17,11 @@ text is not current language behavior unless `../specification/` also states it.
 
 - Target decision or candidate class:
   [target-selection.md](target-selection.md).
-- Implementation and promotion mechanics after target selection names one active
-  short page:
+- Implementation and promotion mechanics after target selection classifies the
+  work as an active target:
   [implementation-route.md](implementation-route.md).
-- Candidate inventory only after [target-selection.md](target-selection.md)
-  routes there:
+- Candidate pages, opened only after [target-selection.md](target-selection.md)
+  names their class or next route:
   [reference-followups.md](reference-followups.md),
   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md),
   [self-hosting-standard-library.md](self-hosting-standard-library.md),
@@ -32,7 +32,7 @@ text is not current language behavior unless `../specification/` also states it.
 ## Read When
 
 - Checking whether a proposal page can be the active target.
-- Choosing one implementable proposal before any promotion route starts.
+- Choosing one implementable proposal before any implementation route starts.
 - Checking completed prelude helper migrations after target selection routes
   to that helper pool.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
