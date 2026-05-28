@@ -43,6 +43,26 @@ impl TestProject {
         self.veln(&["fmt"], args)
     }
 
+    fn assert_fmt_idempotent(&self, args: &[&str], expected_files: &[(&str, &str)]) {
+        let output = self.fmt(args);
+
+        assert!(output.status.success(), "{}", stderr(&output));
+        assert_eq!(stdout(&output), "");
+        self.assert_files(expected_files);
+
+        let second_output = self.fmt(args);
+
+        assert!(second_output.status.success(), "{}", stderr(&second_output));
+        assert_eq!(stdout(&second_output), "");
+        self.assert_files(expected_files);
+    }
+
+    fn assert_files(&self, expected_files: &[(&str, &str)]) {
+        for (path, expected) in expected_files {
+            assert_eq!(self.read(path), *expected);
+        }
+    }
+
     fn run(&self, args: &[&str]) -> Output {
         self.veln(&["run"], args)
     }
@@ -1280,22 +1300,54 @@ fn fmt_formats_files_with_attached_standalone_comments() {
         ),
     );
 
-    let output = project.fmt(&["main.veln"]);
-
-    assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(
-        project.read("main.veln"),
-        concat!(
-            "// module docs\n",
-            "mod app\n",
-            "\n",
-            "/// public docs\n",
-            "pub fn main(value: ()) -> () effects [stdio]\n",
-            "\t// return docs\n",
-            "\t()\n",
-            "end\n",
-        )
+    let expected = concat!(
+        "// module docs\n",
+        "mod app\n",
+        "\n",
+        "/// public docs\n",
+        "pub fn main(value: ()) -> () effects [stdio]\n",
+        "\t// return docs\n",
+        "\t()\n",
+        "end\n",
     );
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
+}
+
+#[test]
+fn fmt_attaches_comments_to_imports_contracts_and_end_lines() {
+    let project = TestProject::new("fmt-comment-targets");
+    project.write(
+        "main.veln",
+        concat!(
+            "mod   app\n",
+            "// import docs\n",
+            "use   platform.io\n",
+            "// function docs\n",
+            "fn   main ( ready : Bool ) -> Unit\n",
+            "// require docs\n",
+            "require ready\n",
+            "// body docs\n",
+            "()\n",
+            "// end docs\n",
+            "end\n",
+        ),
+    );
+
+    let expected = concat!(
+        "mod app\n",
+        "// import docs\n",
+        "use platform.io\n",
+        "\n",
+        "// function docs\n",
+        "fn main(ready: Bool) -> ()\n",
+        "\t// require docs\n",
+        "\trequire ready\n",
+        "\t// body docs\n",
+        "\t()\n",
+        "\t// end docs\n",
+        "end\n",
+    );
+    project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);
 }
 
 #[test]

@@ -1,55 +1,44 @@
 # Formatter Stabilization
 
-Status: proposed
+Status: implemented
 
-This page owns the formatter follow-up target from
-[reference-followups.md](reference-followups.md). It describes work that is not
-current behavior unless `../specification/` also states it.
+This page routes the implemented formatter follow-up target from
+[reference-followups.md](reference-followups.md). Use the specification pages
+for current `veln fmt` behavior.
 
 ## Read First
 
-- Current `veln fmt` behavior:
+- Current formatter behavior:
   [../specification/commands.md](../specification/commands.md), then
-  [../specification/commands-full.md#veln-fmt-path](../specification/commands-full.md#veln-fmt-path)
+  [../specification/commands-full.md#veln-fmt](../specification/commands-full.md#veln-fmt)
   when exact command rules matter.
 - Implemented comment and source syntax:
   [../specification/source-surface.md](../specification/source-surface.md).
+- Completion evidence:
+  [../reviews/formatter-stabilization-completion.md](../reviews/formatter-stabilization-completion.md).
 - Promotion mechanics:
   [implementation-route.md](implementation-route.md).
 
-## Current Boundary
+## Outcome
 
-The implemented formatter already has a whole-invocation parse gate,
-deterministic formatting for implemented syntax, canonical tab indentation,
-`match` arm indentation, standalone line-comment attachment to the next parsed
-source line, trailing line-comment preservation, and multi-file idempotence
-coverage. Treat those as current behavior through `../specification/`, not this
-proposal page.
+The selected target promoted formatter comment attachment and formatting
+stabilization into `../specification/`. Standalone line comments now attach to
+the next parsed module header, import, function signature, contract clause,
+body line, or closing `end` line. Trailing line comments remain on the same
+formatted source line.
 
-## Proposed Target
-
-Define and implement formatter behavior beyond that current boundary, scoped to
-comment attachment and formatting stabilization. Keep the work to formatter
-behavior; do not include execution, test discovery, repair workflows, backend
-replacement, or standard library expansion.
-
-Before implementation, use this page only to route the target. After
-implementation, promote the supported behavior into the smallest matching
-`../specification/` page and leave only remaining absent formatter work here.
+This proposal page is now history and routing. New formatter work should use a
+new proposal page unless it is already stated by `../specification/`.
 
 ## Read When
 
-- Choosing the formatter follow-up target from
-  [reference-followups.md](reference-followups.md).
-- Comparing proposed formatter behavior against the implemented `veln fmt`
-  boundary before changing code or tests.
-- Cleaning up proposal text after formatter behavior has been implemented and
-  documented under `../specification/`.
+- Checking why the formatter follow-up target is no longer listed as active.
+- Reviewing completion evidence before removing or superseding this route.
+- Auditing proposal promotion mechanics for formatter behavior.
 
 ## Skip Unless Needed
 
 - Do not read this page for ordinary current `veln fmt` behavior.
+- Do not use this page as a source of current command behavior.
 - Do not use nearby follow-up bullets in
   [reference-followups.md](reference-followups.md) as formatter requirements.
-- Do not move formatter behavior into `../specification/` until code and tests
-  support it.

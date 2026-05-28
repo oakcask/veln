@@ -10,13 +10,11 @@ also states it.
 
 - Current behavior: [../specification/README.md](../specification/README.md).
 - Proposal index: [README.md](README.md).
-- Formatter follow-up target:
+- Implemented formatter follow-up record:
   [formatter-stabilization.md](formatter-stabilization.md).
 
 ## Follow-Up Targets
 
-- Formatter comment attachment and broader formatting stabilization:
-  [formatter-stabilization.md](formatter-stabilization.md).
 - Broader executable reachability, entry selection, and runtime behavior not
   yet stated by [../specification/execution.md](../specification/execution.md).
 - Additional test discovery, example extraction, and test event reporting not
@@ -34,5 +32,7 @@ also states it.
   it.
 - Remove a target from this page when the matching specification page fully states
   the implemented behavior.
+- Keep implemented records only when they route useful history or completion
+  evidence without restating current behavior.
 - Keep remaining proposed implementation work in this page or the matching
   short proposal page.

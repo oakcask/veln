@@ -31,16 +31,14 @@ promotion cleanup. This page does not define current behavior.
 - Use [../document-status.md](../document-status.md) before promoting,
   superseding, or rejecting proposal text.
 
-## Target-Specific Routes
+## Implemented Proposal Records
 
-- Formatter comment attachment and formatting stabilization:
-  [formatter-stabilization.md](formatter-stabilization.md). Keep current
-  `veln fmt` behavior anchored in
-  [../specification/commands.md](../specification/commands.md) and current
-  comment syntax anchored in
-  [../specification/source-surface.md](../specification/source-surface.md).
-  Do not include execution, test discovery, repair workflows, backend
-  replacement, or standard library expansion.
+- Implemented formatter stabilization:
+  [formatter-stabilization.md](formatter-stabilization.md). Use
+  [../specification/commands.md](../specification/commands.md) for current
+  `veln fmt` behavior and
+  [../reviews/formatter-stabilization-completion.md](../reviews/formatter-stabilization-completion.md)
+  for completion evidence.
 - Implemented JVM bytecode backend:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md). That short page routes
   current behavior, fixture organization, completion evidence, the Java source

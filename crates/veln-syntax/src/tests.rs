@@ -1134,6 +1134,47 @@ fn format_tree_attaches_standalone_comments_to_formatted_lines() {
 }
 
 #[test]
+fn format_tree_attaches_comments_to_imports_contracts_and_end_lines() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod   app\n",
+            "// import docs\n",
+            "use   platform.io\n",
+            "// function docs\n",
+            "fn   main ( ready : Bool ) -> Unit\n",
+            "// require docs\n",
+            "require ready\n",
+            "// body docs\n",
+            "()\n",
+            "// end docs\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "mod app\n",
+            "// import docs\n",
+            "use platform.io\n",
+            "\n",
+            "// function docs\n",
+            "fn main(ready: Bool) -> ()\n",
+            "\t// require docs\n",
+            "\trequire ready\n",
+            "\t// body docs\n",
+            "\t()\n",
+            "\t// end docs\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn reports_invalid_expression_token_and_recovers_to_next_line() {
     let source = SourceFile::new("main.veln", "fn main() -> ()\n  @\n  1\nend\n");
 

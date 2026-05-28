@@ -17,7 +17,7 @@ language behavior unless `../specification/` also states it.
 - Use [implementation-route.md](implementation-route.md) for proposal promotion
   mechanics after an explicit task selects proposal work.
 - Use [formatter-stabilization.md](formatter-stabilization.md) for the
-  formatter comment attachment and formatting stabilization follow-up target.
+  implemented formatter stabilization record and completion evidence route.
 - Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the implemented
   JVM backend proposal record. It routes current specification pages,
   completion evidence, and remaining cleanup without making backend layout
