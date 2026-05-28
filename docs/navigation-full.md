@@ -19,8 +19,8 @@ question.
 ## Proposal Work
 
 - Choosing an implementation target:
-  [proposals/README.md](proposals/README.md).
-- Promoting a completed proposal into current specification material:
+  [proposals/target-selection.md](proposals/target-selection.md).
+- Implementing or promoting an active proposal target:
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Reading incomplete design-wall rationale:
   [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md).
@@ -69,8 +69,8 @@ question.
 
 - Current behavior work: `specification/README.md` first, then the
   topic-specific short page, then the matching `*-full.md` file only if named.
-- Implementation target work: `proposals/README.md` first, then
-  `proposals/implementation-route.md` for the chosen target.
+- Implementation target work: `proposals/target-selection.md` first, then
+  `proposals/implementation-route.md` only after one active target is chosen.
 - Documentation routing work: `document-status.md` first, then the README for
   only the directory whose classification is changing.
 - Rationale work: current specification page first, then

@@ -21,7 +21,8 @@ semantics, or descriptor metadata.
   [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates).
 - Completed helper migrations: `vec_map`, `vec_try_map`,
   `vec_try_map_with`.
-- Current target: none.
+- Current target: none. Use [target-selection.md](target-selection.md) before
+  promoting a future helper into one concrete target.
 
 ## Completed Helpers
 
@@ -41,7 +42,7 @@ subprocess behavior, or public container representation guarantees.
 
 ## Work Route
 
-1. Choose the next helper from the descriptor-only pure-helper list.
+1. Choose exactly one helper from the descriptor-only pure-helper list.
 2. Read its implemented signature and value behavior from the specification.
 3. Open
    [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates)

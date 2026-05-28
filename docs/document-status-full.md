@@ -35,13 +35,17 @@ documentation placement, route policy, or status labels.
 
 ## Labels
 
-Use these status labels at the top of durable specification documents:
+Use these status labels at the top of durable documents:
 
 - `implemented`: use only for `specification/` behavior pages or implemented
   reference rationale pages whose described behavior is supported by current
   code and tests.
 - `proposed`: the target is committed as proposal text, but implementation is
   absent or incomplete.
+- `routing`: the page is an index or selection route and does not define
+  behavior by itself.
+- `no active target`: the proposal page preserves selection context while
+  explicitly saying implementation work is not selected there.
 - `closed`: a former proposal route remains only to preserve old links and no
   longer carries implementation requirements.
 - `superseded`: another document replaces this one.

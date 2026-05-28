@@ -1,30 +1,36 @@
 # No Proposal Target Completion Review
 
-Status: historical; superseded by open proposal selection.
+Status: evidence for no-target routing.
 
-This review covers the former selected-target model. Current proposal work is
-routed through `../proposals/`, where any proposal may be chosen when current
-reference behavior does not already cover it.
+This review records the evidence behind the current no-target route. Use
+`../proposals/target-selection.md` for the active routing decision and current
+handoff rule.
 
 ## Completion Check
 
-- `../proposals/` now treats proposal pages as available proposal work when
-  the current specification does not already cover them.
-- `../proposals/implementation-route.md` routes explicit proposal promotion
-  work without a selected-target gate.
-- Current implemented behavior remains routed through
-  `../specification/`.
+- `../proposals/target-selection.md` records the no-target prompt state, owns
+  candidate classification, and ends implementation prompts at routing.
+- `../proposals/implementation-route.md` starts only after target selection
+  classifies the work as an active target.
+- Current implemented behavior remains routed through `../specification/`.
 
 ## Review Result
 
-The former no-target condition no longer blocks implementation work. Proposal
-work still must be compared against implementation behavior before promotion,
-and current behavior still belongs under `../specification/`.
+The no-target prompt state has no proposal completion checklist to implement or
+promote. The correct action is routing only: keep current behavior under
+`../specification/`, avoid inferring a target from candidate pools or completed
+records, and treat implementation prompts as complete without code, promotion,
+or specification changes.
 
-The target review is therefore historical context only, not a current routing
-rule.
+When a task asks to satisfy the target proposal completion criteria, this review
+is the completion evidence for the no-target state. A new implementation target
+requires a separate short proposal selection before any code or specification
+promotion work starts.
 
 ## Verification
 
+- Checked `../proposals/target-selection.md`.
 - Checked `../proposals/`.
 - Checked `../proposals/implementation-route.md`.
+- Confirmed the target-selection route records the current no-target prompt
+  state.

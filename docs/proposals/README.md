@@ -1,51 +1,50 @@
 # Proposals
 
-This directory keeps active proposal targets and implemented proposal records
-that still route cleanup or promotion evidence. Proposal text is not current
-language behavior unless `../specification/` also states it.
+This directory keeps proposal routes, target candidates, and implemented
+proposal records that still carry useful history or cleanup evidence. Proposal
+text is not current language behavior unless `../specification/` also states it.
 
 ## Read First
 
-- Choose an active proposal for implementation work only when it describes
-  behavior absent from `../specification/`.
-- Treat implemented proposal records as history and cleanup routes. Use the
-  matching specification page for current behavior.
+- Need the current target decision, prompt evidence, stale-target checks, or
+  candidate classification:
+  [target-selection.md](target-selection.md).
+- Need implementation or promotion mechanics for an active target:
+  [implementation-route.md](implementation-route.md). Open it only after
+  target selection classifies one short proposal as active.
 - Status labels: [../document-status.md](../document-status.md).
 
-## Proposal Routes
+## Proposal Target Flow
 
-- Source-backed standard library:
-  [self-hosting-standard-library.md](self-hosting-standard-library.md) records
-  completed `vec_map`, `vec_try_map`, and `vec_try_map_with` migrations, then
-  routes future candidates back through the implemented helper split.
+1. Start with [target-selection.md](target-selection.md) for the target
+   decision, prompt evidence, and candidate class.
+2. Stop there when the outcome is no target, implemented record, broad index,
+   exploratory inventory, or helper candidate pool.
+3. Continue to [implementation-route.md](implementation-route.md) only for one
+   active short proposal whose behavior is absent from `../specification/`.
+4. Open candidate pages only after target selection names their class or next
+   route:
+   [reference-followups.md](reference-followups.md),
+   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md),
+   [self-hosting-standard-library.md](self-hosting-standard-library.md),
+   [formatter-stabilization.md](formatter-stabilization.md),
+   [jvm-bytecode-backend.md](jvm-bytecode-backend.md), or
+   [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
 
 ## Read When
 
-- Use [implementation-route.md](implementation-route.md) for proposal promotion
-  mechanics after an explicit task selects proposal work.
-- Use [formatter-stabilization.md](formatter-stabilization.md) for the
-  implemented formatter stabilization record and completion evidence route.
-- Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the implemented
-  JVM backend proposal record. It routes current specification pages,
-  completion evidence, and remaining cleanup without making backend layout
-  details current specification.
-- Use [reference-followups.md](reference-followups.md) for follow-up work that
-  is absent from the current specification.
-- Use [self-hosting-standard-library.md](self-hosting-standard-library.md)
-  when checking completed prelude helper migrations or choosing the next
-  descriptor-only pure-helper candidate.
-- Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
-  for design-wall material that is still exploratory or only partially
-  represented.
+- Checking whether a proposal page can be the active target or must stay as
+  history, inventory, or a candidate pool.
+- Checking completed prelude helper migrations after target selection routes
+  to that helper pool.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
   before changing target status.
 
 ## Update When
 
-- A target is implemented and the resulting behavior has been documented under
-  `../specification/`.
-- A target is found to be already implemented by the current specification and
-  only remaining proposal work should stay here.
+- A selected target becomes implemented and the resulting behavior is documented
+  under `../specification/`.
+- A candidate's target class changes.
 - New proposal work is added, split, superseded, or removed.
 
 ## Skip Unless Needed

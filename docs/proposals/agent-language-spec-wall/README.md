@@ -8,6 +8,8 @@ current workspace. Implemented decisions were moved to
 
 ## Read First
 
+- Target selection route:
+  [../target-selection.md](../target-selection.md).
 - [repair-command.md](repair-command.md) records the completed confirmation and
   override protocol target after pointing to current advisory candidate and
   repair command specification pages; open
@@ -24,12 +26,13 @@ current workspace. Implemented decisions were moved to
 
 ## Proposed Targets
 
+- No active target is selected from this directory as a whole.
 - Implemented grammar, concurrency, effect-label, and comparison-task decisions
   now live under `../../reference/`.
 - The repair-command confirmation and explicit override target is implemented.
   Broader verification commands, ranking models, partial application, and
-  general automatic repair behavior stay deferred unless a short proposal page
-  selects them.
+  general automatic repair behavior need a new short proposal page before they
+  become targets.
 - Completion review:
   [../../reviews/agent-language-spec-wall-completion.md](../../reviews/agent-language-spec-wall-completion.md).
 - Use [../../reference/source-decisions/README.md](../../reference/source-decisions/README.md)
