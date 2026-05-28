@@ -1,7 +1,8 @@
 # JVM Bytecode Backend Completion Review
 
-This review records the current completion gate for the selected JVM bytecode
-backend proposal. It is review evidence, not current language behavior.
+This review records the completion gate and Java source backend cleanup result
+for the selected JVM bytecode backend proposal. It is review evidence, not
+current language behavior.
 
 ## Read First
 
@@ -11,12 +12,15 @@ backend proposal. It is review evidence, not current language behavior.
 - Current implemented behavior:
   [../specification/execution.md](../specification/execution.md) and
   [../specification/commands.md](../specification/commands.md).
+- Java source backend cleanup result: [next handoff](#next-handoff).
 
 ## Result
 
 The ordinary `run` and `test` backend path now satisfies the direct classfile
 emission gate and has been promoted into the execution and command
 specifications.
+
+The Java source backend cleanup is also recorded in [next handoff](#next-handoff).
 
 ## Findings
 
@@ -36,18 +40,20 @@ run with `java`, and expose the expected classfile target version and entry
 descriptor through `javap -verbose`.
 
 A dedicated JVM backend workflow runs the bytecode backend tests and CLI
-fixture coverage on a pinned JDK. The old Java source backend API remains in
-the backend crate as a migration baseline for source-generation tests, but it
-is not used by ordinary `run` or `test`.
+fixture coverage on a pinned JDK. The old Java source backend API is no longer
+exported by the backend crate facade, and the internal Java source generator
+and source-generation tests have been removed.
 
 ## Next Handoff
 
 - Keep expanding bytecode-specific structural checks only around stable backend
   facts.
-- Remove or hide the Java source backend API once bytecode unit and fixture
-  coverage fully replace source-generation tests.
-- Add an internal parity selector only if the Java source baseline remains
-  needed for migration work.
+- Add an internal parity selector only if a temporary Java source baseline is
+  reintroduced for migration work.
+
+Current command behavior belongs in the specification pages, and test
+organization belongs in
+[../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
 
 ## Boundaries
 

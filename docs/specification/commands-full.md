@@ -95,8 +95,9 @@ arguments, not source inputs. Entry parameters may be declared as `String`,
 `Int` arguments parse as decimal signed integers, `Float` arguments parse as
 JVM double-precision decimal text, and `Bool` arguments must be exactly `true`
 or `false`. The reachable program is semantically checked, lowered to checked
-core, then typed IR, then JVM classfile artifacts. Reachability follows
-imported qualified calls by resolving the alias from selected-file `use`
+core, then typed IR, then JVM classfile artifacts. Ordinary execution does not
+write generated Java source or invoke a Java source compiler. Reachability
+follows imported qualified calls by resolving the alias from selected-file `use`
 declarations to the imported source module. Semantic
 diagnostics in functions unreachable from the selected entry do not block
 `run`.
@@ -179,7 +180,7 @@ already discovered cases are marked `blocked` with reason `static_gate`.
 Runtime failures become failed cases. Runtime contract failures inside a
 selected case use `failure.kind: "contract"` and include runtime contract
 details. JDK setup failures become case errors with reason `runner_error`,
-including a missing `java` before compilation or class loading.
+including a missing `java` before class loading.
 
 Doctest output mismatches become failed cases with `failure.kind: "output"` and
 `reason: "expected_output"`. JSON details include the mismatched stream,

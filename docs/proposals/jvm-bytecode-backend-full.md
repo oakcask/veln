@@ -8,9 +8,9 @@ execution behavior belongs in the specification pages.
 
 ## Route Map
 
-- Outcome summary and follow-up cleanup:
+- Outcome summary:
   [implementation status](#implementation-status).
-- Current completion gate review:
+- Completion evidence and source-backend cleanup result:
   [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 - Current implemented behavior, not repeated here:
   [../specification/execution.md](../specification/execution.md) and
@@ -32,9 +32,8 @@ artifacts into the persistent JVM class cache, and invokes `java` on the cached
 entry class. It does not write generated Java source, write a compiler helper,
 invoke a Java source compiler, or require `javac`.
 
-The backend crate still exposes the older Java source API as a migration
-baseline for source-generation tests. That API is not used by ordinary
-commands. Current gate evidence and cleanup follow-ups live in
+The Java source backend migration baseline has been removed. The cleanup result
+is recorded by the completion review:
 [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 
 ## Problem
