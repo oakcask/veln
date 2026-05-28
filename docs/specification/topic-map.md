@@ -23,6 +23,9 @@ smallest specification page to read. Start with the short page; open the matchin
   result bindings: [contracts.md](contracts.md).
 - Hole diagnostics, safe repair records, satisfy constraints, and candidate
   ranking: [holes.md](holes.md).
+- Advisory repair candidate records, concrete unapplied edits, application
+  policy, and future-command boundary:
+  [repair-candidates.md](repair-candidates.md).
 
 ## Commands And Output
 
@@ -32,6 +35,9 @@ smallest specification page to read. Start with the short page; open the matchin
   [json-output.md](json-output.md).
 - Human diagnostics that need related notes or structured output coverage, and
   diagnostic JSON envelope, spans, related notes, and stable details:
+  [diagnostics-json.md](diagnostics-json.md).
+- Hole candidate JSON fields and application policy:
+  [repair-candidates.md](repair-candidates.md), then
   [diagnostics-json.md](diagnostics-json.md).
 - Run JSON records, output events, failures, and summaries:
   [run-json.md](run-json.md).

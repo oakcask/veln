@@ -7,22 +7,19 @@ design brief or full open-question inventory first.
 
 ## Read First
 
-- Implemented command behavior:
-  [../../specification/commands.md](../../specification/commands.md).
-- Implemented hole repair candidate records:
-  [../../specification/holes.md](../../specification/holes.md).
-- Implemented `check --json` diagnostic shape:
-  [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md).
+- Current advisory repair candidate behavior and the absence of an implemented
+  repair command:
+  [../../specification/repair-candidates.md](../../specification/repair-candidates.md).
 - Safe repair candidate boundary:
   [../../reference/source-decisions/records/result-safe-repair-candidate-boundary.md](../../reference/source-decisions/records/result-safe-repair-candidate-boundary.md).
 
 ## Current Boundary
 
-- No dedicated `repair` command is implemented.
-- `check --json` may expose ranked hole candidates and concrete replacement
-  edits, but every emitted edit remains unapplied.
-- `safe_repair_candidate` means the candidate has discharged the implemented
-  static repair subset; it does not authorize automatic application.
+The current implemented boundary is
+[advisory repair candidates](../../specification/repair-candidates.md).
+This proposal starts where that boundary stops: command invocation,
+confirmation, override, and automatic application remain unresolved proposal
+work.
 
 ## Open Command-Level Work
 

@@ -7,11 +7,13 @@ exact rules or examples.
 
 - [Hole diagnostics and details](holes-full.md#hole-diagnostics) defines
   `hole.unfilled`, partial check status, and stable diagnostic detail fields.
-- [Repair candidates](holes-full.md#repair-candidates) defines
+- [repair-candidates.md](repair-candidates.md) routes the advisory
+  candidate boundary between hole diagnostics, `check --json`, and proposal
+  work.
+- [Repair candidates](holes-full.md#repair-candidates) defines exact
   candidate query records, ranking, application policy, and safe repair
   candidates, including boolean alias, predicate implication, and adjacent
-  integer-bound cases. Statically satisfied `satisfy` repair candidates remain
-  visible even when ordinary manual-review candidates are bounded.
+  integer-bound cases.
 - [Satisfy constraints](holes-full.md#satisfy-constraints) defines `satisfy`
   parsing, candidate scoping, validation, and static satisfaction.
 
@@ -19,6 +21,9 @@ exact rules or examples.
 
 - Use this page before changing hole parsing, expected-type flow, diagnostic
   details, candidate ranking, safe repair policy, or satisfy validation.
+- Use [repair-candidates.md](repair-candidates.md) first when the task is
+  about advisory candidate records rather than hole syntax or constraint
+  checking.
 - Use [contracts.md](contracts.md) only when a hole change reuses contract
   predicate validation or `require` evidence.
 

@@ -22,6 +22,8 @@ tracked in `../proposals/`.
   [topic-map.md#commands-and-output](topic-map.md#commands-and-output).
 - Human diagnostic wording, related notes, spans, or stable diagnostic details:
   [diagnostics-json.md](diagnostics-json.md).
+- Advisory hole repair candidates in `check --json`:
+  [repair-candidates.md](repair-candidates.md).
 - Runtime behavior, examples, or rationale:
   [topic-map.md#runtime-examples-and-rationale](topic-map.md#runtime-examples-and-rationale).
 
@@ -37,6 +39,8 @@ tracked in `../proposals/`.
 - Human diagnostics: [diagnostics-json.md](diagnostics-json.md) for the
   structured behavior that must stay aligned with diagnostic output, then
   [source-decisions.md](source-decisions.md) only for rationale.
+- Advisory repair candidates: [repair-candidates.md](repair-candidates.md)
+  before proposal material about a future repair command.
 - Runtime and examples: [execution.md](execution.md) and [examples.md](examples.md).
 - Editor support: [editor-support.md](editor-support.md).
 - Rationale: [source-decisions.md](source-decisions.md).

@@ -29,7 +29,7 @@ requiring the full command reference on the first read.
   [editor-support.md](editor-support.md) first for semantic-token behavior.
 - No `repair` command is implemented. Hole repair candidates exposed through
   `check --json` remain advisory and unapplied; use
-  [holes.md](holes.md) for candidate policy.
+  [repair-candidates.md](repair-candidates.md) for candidate policy.
 
 ## Read When
 

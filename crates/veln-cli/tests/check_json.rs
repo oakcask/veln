@@ -2017,6 +2017,32 @@ fn check_json_reports_assignable_safe_satisfy_candidate_reason() {
 }
 
 #[test]
+fn check_json_leaves_safe_repair_candidate_unapplied() {
+    let project = TestProject::new("safe-repair-candidate-unapplied");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"application_policy\":\"safe_repair_candidate\"",
+            "\"replacement\":\"order\"",
+            "\"application_status\":\"unapplied\"",
+            "\"verification_hint\":{\"command\":\"veln check --json main.veln\"",
+        ],
+    );
+    assert_eq!(project.read("main.veln"), source);
+}
+
+#[test]
 fn check_json_keeps_safe_satisfy_candidate_after_manual_candidate_bound() {
     let project = TestProject::new("safe-satisfy-candidate-bound");
     project.write(

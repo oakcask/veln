@@ -2768,7 +2768,9 @@ impl<'a> FunctionChecker<'a> {
             let repair_status = expected
                 .and_then(|expected| self.satisfy_repair_constraint(satisfy, expected))
                 .filter(|constraint| self.constraint_has_assignable_candidate(expected, constraint))
-                .map_or("blocked_until_discharged", |_| "statically_satisfied");
+                .map_or(SATISFY_STATUS_BLOCKED_UNTIL_DISCHARGED, |_| {
+                    SATISFY_STATUS_STATICALLY_SATISFIED
+                });
             constraints.push(JsonValue::object([
                 ("kind", JsonValue::string("satisfy")),
                 ("text", JsonValue::string(satisfy.predicate.clone())),
@@ -2821,10 +2823,13 @@ impl<'a> FunctionChecker<'a> {
             self.ranked_symbol_candidates(expected, hole, repair_constraint.as_ref());
         let mut query = vec![
             ("kind", JsonValue::string("symbol")),
-            ("candidate_status", JsonValue::string("query_only")),
+            (
+                "candidate_status",
+                JsonValue::string(CANDIDATE_STATUS_QUERY_ONLY),
+            ),
             (
                 "application_policy",
-                JsonValue::string("manual_review_required"),
+                JsonValue::string(APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED),
             ),
             (
                 "query",
@@ -2893,15 +2898,15 @@ impl<'a> FunctionChecker<'a> {
                     "assignable_type_match"
                 };
                 let policy = if static_satisfy.is_some() {
-                    "safe_repair_candidate"
+                    APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE
                 } else {
-                    "manual_review_required"
+                    APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED
                 };
                 let satisfy_status = satisfy.map(|_| {
                     if static_satisfy.is_some() {
-                        "statically_satisfied"
+                        SATISFY_STATUS_STATICALLY_SATISFIED
                     } else {
-                        "blocked_until_discharged"
+                        SATISFY_STATUS_BLOCKED_UNTIL_DISCHARGED
                     }
                 });
                 let mut candidate = vec![
@@ -2952,7 +2957,10 @@ impl<'a> FunctionChecker<'a> {
                             ("scope", JsonValue::string("after_applying_candidate_edit")),
                         ]),
                     ),
-                    ("application_status", JsonValue::string("unapplied")),
+                    (
+                        "application_status",
+                        JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
+                    ),
                 ];
                 if let Some(satisfy_status) = satisfy_status {
                     candidate.push(("satisfy_status", JsonValue::string(satisfy_status)));
@@ -3063,6 +3071,20 @@ impl<'a> FunctionChecker<'a> {
     }
 }
 
+const CANDIDATE_STATUS_QUERY_ONLY: &str = "query_only";
+const APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
+const APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE: &str = "safe_repair_candidate";
+const APPLICATION_STATUS_UNAPPLIED: &str = "unapplied";
+const SATISFY_STATUS_BLOCKED_UNTIL_DISCHARGED: &str = "blocked_until_discharged";
+const SATISFY_STATUS_STATICALLY_SATISFIED: &str = "statically_satisfied";
+const KNOWN_LIMIT_ADVISORY_UNAPPLIED: &str = "edit is advisory and unapplied";
+const KNOWN_LIMIT_VERIFICATION_NOT_RUN: &str = "tests and examples have not been run";
+const KNOWN_LIMIT_SATISFY_BLOCKED: &str =
+    "satisfy predicate is not statically discharged by this candidate";
+const OBLIGATION_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
+const OBLIGATION_SATISFY_BLOCKED: &str = "satisfy.blocked_until_discharged";
+const OBLIGATION_VERIFICATION_NOT_RUN: &str = "verification.not_run";
+
 fn candidate_evidence(
     expected: &Type,
     actual: &Type,
@@ -3089,7 +3111,7 @@ fn candidate_evidence(
         ]),
     ];
     if let Some(satisfy_status) = satisfy_status {
-        let satisfy_reason = if satisfy_status == "statically_satisfied" {
+        let satisfy_reason = if satisfy_status == SATISFY_STATUS_STATICALLY_SATISFIED {
             reason
         } else {
             "not_statically_discharged"
@@ -3105,13 +3127,11 @@ fn candidate_evidence(
 
 fn candidate_known_limits(satisfy_status: Option<&'static str>) -> JsonValue {
     let mut limits = vec![
-        JsonValue::string("edit is advisory and unapplied"),
-        JsonValue::string("tests and examples have not been run"),
+        JsonValue::string(KNOWN_LIMIT_ADVISORY_UNAPPLIED),
+        JsonValue::string(KNOWN_LIMIT_VERIFICATION_NOT_RUN),
     ];
-    if satisfy_status == Some("blocked_until_discharged") {
-        limits.push(JsonValue::string(
-            "satisfy predicate is not statically discharged by this candidate",
-        ));
+    if satisfy_status == Some(SATISFY_STATUS_BLOCKED_UNTIL_DISCHARGED) {
+        limits.push(JsonValue::string(KNOWN_LIMIT_SATISFY_BLOCKED));
     }
     JsonValue::array(limits)
 }
@@ -3121,13 +3141,13 @@ fn candidate_blocking_obligations(
     satisfy_status: Option<&'static str>,
 ) -> JsonValue {
     let mut obligations = Vec::new();
-    if application_policy == "manual_review_required" {
-        obligations.push(JsonValue::string("manual_review_required"));
+    if application_policy == APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED {
+        obligations.push(JsonValue::string(OBLIGATION_MANUAL_REVIEW_REQUIRED));
     }
-    if satisfy_status == Some("blocked_until_discharged") {
-        obligations.push(JsonValue::string("satisfy.blocked_until_discharged"));
+    if satisfy_status == Some(SATISFY_STATUS_BLOCKED_UNTIL_DISCHARGED) {
+        obligations.push(JsonValue::string(OBLIGATION_SATISFY_BLOCKED));
     }
-    obligations.push(JsonValue::string("verification.not_run"));
+    obligations.push(JsonValue::string(OBLIGATION_VERIFICATION_NOT_RUN));
     JsonValue::array(obligations)
 }
 

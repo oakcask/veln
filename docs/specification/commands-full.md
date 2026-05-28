@@ -14,7 +14,8 @@ behavior, gates, or output boundaries.
 
 No `veln repair` command is implemented. Candidate edits can appear only as
 advisory `check --json` diagnostic details and remain unapplied by command
-execution.
+execution. Use [repair-candidates.md](repair-candidates.md) for the advisory
+candidate boundary.
 
 <a id="veln-check"></a>
 
