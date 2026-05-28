@@ -11,6 +11,7 @@
     "syntaxes/veln.tmLanguage.json"
   ],
   "scripts": {
+    "test": "node --check extension.js && node --test extension.test.mjs",
     "vsix": "vsce package --no-dependencies --allow-missing-repository"
   },
   "extensionKind": [
@@ -101,6 +102,16 @@
             "lsp"
           ],
           "description": "Arguments passed to the Veln language server executable."
+        },
+        "veln.server.trace": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Controls Veln language server protocol tracing in the Veln output channel."
         }
       }
     }

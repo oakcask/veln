@@ -5,8 +5,12 @@ version.workspace = true
 publish = false
 
 [dependencies]
+veln-ast.workspace = true
+veln-diagnostics.workspace = true
 veln-editor.workspace = true
+veln-sema.workspace = true
 veln-source.workspace = true
+veln-syntax.workspace = true
 
 [lints]
 workspace = true

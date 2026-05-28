@@ -184,8 +184,12 @@ dependencies = [
 name = "veln-lsp"
 version = "0.1.0"
 dependencies = [
+ "veln-ast",
+ "veln-diagnostics",
  "veln-editor",
+ "veln-sema",
  "veln-source",
+ "veln-syntax",
 ]
 
 [[package]]
