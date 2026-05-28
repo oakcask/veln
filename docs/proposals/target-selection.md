@@ -56,6 +56,8 @@ language behavior.
 
 - With the current prompt state, there is no proposal completion checklist to
   promote into `../specification/`.
+- A request to review `prompts/TARGET.md` while that file is absent is unmet
+  because no concrete short proposal and no completion conditions are selected.
 - Leave current behavior unchanged and keep `../specification/` untouched.
 - The next implementation pass should first create or select one short proposal
   page whose behavior is absent from `../specification/`, then use
