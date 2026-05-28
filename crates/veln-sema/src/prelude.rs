@@ -94,41 +94,8 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
             ],
             direct_expected,
         )),
-        "vec_try_map" => {
-            let mapped_item = result_value.vec_part().cloned().unwrap_or(Type::Unknown);
-            Some((
-                vec![
-                    Type::vec(Type::Unknown),
-                    Type::Function {
-                        params: vec![Type::Unknown],
-                        return_type: Box::new(Type::result(
-                            mapped_item.clone(),
-                            result_error.clone(),
-                        )),
-                        effects: Vec::new(),
-                    },
-                ],
-                Type::result(Type::vec(mapped_item), result_error),
-            ))
-        }
-        "vec_try_map_with" => {
-            let mapped_item = result_value.vec_part().cloned().unwrap_or(Type::Unknown);
-            Some((
-                vec![
-                    Type::Unknown,
-                    Type::vec(Type::Unknown),
-                    Type::Function {
-                        params: vec![Type::Unknown, Type::Unknown],
-                        return_type: Box::new(Type::result(
-                            mapped_item.clone(),
-                            result_error.clone(),
-                        )),
-                        effects: Vec::new(),
-                    },
-                ],
-                Type::result(Type::vec(mapped_item), result_error),
-            ))
-        }
+        "vec_try_map" => Some(vec_try_map_signature(&result_value, result_error, false)),
+        "vec_try_map_with" => Some(vec_try_map_signature(&result_value, result_error, true)),
         "dict_get" => Some((
             vec![Type::dict(dict_key.clone(), option_item.clone()), dict_key],
             Type::named("Option", vec![option_item]),
@@ -218,6 +185,31 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
     }
 }
 
+fn vec_try_map_signature(
+    result_value: &Type,
+    result_error: Type,
+    with_context: bool,
+) -> (Vec<Type>, Type) {
+    let mapped_item = result_value.vec_part().cloned().unwrap_or(Type::Unknown);
+    let mut params = Vec::new();
+    let mut callback_params = Vec::new();
+
+    if with_context {
+        params.push(Type::Unknown);
+        callback_params.push(Type::Unknown);
+    }
+
+    params.push(Type::vec(Type::Unknown));
+    callback_params.push(Type::Unknown);
+    params.push(Type::Function {
+        params: callback_params,
+        return_type: Box::new(Type::result(mapped_item.clone(), result_error.clone())),
+        effects: Vec::new(),
+    });
+
+    (params, Type::result(Type::vec(mapped_item), result_error))
+}
+
 pub(crate) fn float_prefix_prelude_name(op: PrefixOp) -> Option<&'static str> {
     match op {
         PrefixOp::Negate => Some("float_negate"),
@@ -243,6 +235,37 @@ pub(crate) fn float_comparison_prelude_name(op: BinaryOp) -> Option<&'static str
         BinaryOp::GreaterEqual => Some("float_greater_equal"),
         _ => None,
     }
+}
+
+fn core_vec_try_map_signature(
+    result_value: &CoreType,
+    result_error: CoreType,
+    with_context: bool,
+) -> (Vec<CoreType>, CoreType) {
+    let mapped_item = result_value
+        .vec_part()
+        .cloned()
+        .unwrap_or(CoreType::Unknown);
+    let mut params = Vec::new();
+    let mut callback_params = Vec::new();
+
+    if with_context {
+        params.push(CoreType::Unknown);
+        callback_params.push(CoreType::Unknown);
+    }
+
+    params.push(CoreType::vec(CoreType::Unknown));
+    callback_params.push(CoreType::Unknown);
+    params.push(CoreType::Function {
+        params: callback_params,
+        return_type: Box::new(CoreType::result(mapped_item.clone(), result_error.clone())),
+        effects: Vec::new(),
+    });
+
+    (
+        params,
+        CoreType::result(CoreType::vec(mapped_item), result_error),
+    )
 }
 
 pub(crate) fn core_prelude_signature(
@@ -339,47 +362,8 @@ pub(crate) fn core_prelude_signature(
             ],
             direct_expected,
         ),
-        "vec_try_map" => {
-            let mapped_item = result_value
-                .vec_part()
-                .cloned()
-                .unwrap_or(CoreType::Unknown);
-            (
-                vec![
-                    CoreType::vec(CoreType::Unknown),
-                    CoreType::Function {
-                        params: vec![CoreType::Unknown],
-                        return_type: Box::new(CoreType::result(
-                            mapped_item.clone(),
-                            result_error.clone(),
-                        )),
-                        effects: Vec::new(),
-                    },
-                ],
-                CoreType::result(CoreType::vec(mapped_item), result_error),
-            )
-        }
-        "vec_try_map_with" => {
-            let mapped_item = result_value
-                .vec_part()
-                .cloned()
-                .unwrap_or(CoreType::Unknown);
-            (
-                vec![
-                    CoreType::Unknown,
-                    CoreType::vec(CoreType::Unknown),
-                    CoreType::Function {
-                        params: vec![CoreType::Unknown, CoreType::Unknown],
-                        return_type: Box::new(CoreType::result(
-                            mapped_item.clone(),
-                            result_error.clone(),
-                        )),
-                        effects: Vec::new(),
-                    },
-                ],
-                CoreType::result(CoreType::vec(mapped_item), result_error),
-            )
-        }
+        "vec_try_map" => core_vec_try_map_signature(&result_value, result_error, false),
+        "vec_try_map_with" => core_vec_try_map_signature(&result_value, result_error, true),
         "dict_get" => (
             vec![
                 CoreType::dict(dict_key.clone(), option_item.clone()),

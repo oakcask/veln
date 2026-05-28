@@ -7440,7 +7440,8 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
             "vec_len",
             "vec_map",
             "vec_push",
-            "vec_try_map"
+            "vec_try_map",
+            "vec_try_map_with"
         ]
     );
 }
@@ -7943,6 +7944,21 @@ fn source_backed_vec_try_map_reports_user_call_site_diagnostics() {
             "end\n",
             "pub fn main(value: Int) -> Result(Vec(String), String) effects []\n",
             "  vec_try_map(value, stringify)\n",
+            "end\n",
+        ),
+        "expected `Vec(unknown)`, but found `Int`",
+    );
+}
+
+#[test]
+fn source_backed_vec_try_map_with_reports_user_call_site_diagnostics() {
+    assert_source_backed_helper_user_call_site_type_mismatch(
+        concat!(
+            "fn stringify(context: String, value: Int) -> Result(String, String) effects []\n",
+            "  Ok(context)\n",
+            "end\n",
+            "pub fn main(value: Int) -> Result(Vec(String), String) effects []\n",
+            "  vec_try_map_with(\"prefix\", value, stringify)\n",
             "end\n",
         ),
         "expected `Vec(unknown)`, but found `Int`",
