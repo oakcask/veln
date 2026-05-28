@@ -8,7 +8,7 @@ class files directly. Current implemented behavior remains under
 
 ## Read First
 
-- Implementation status and remaining proposal work:
+- Implementation status and follow-up cleanup:
   [jvm-bytecode-backend-full.md#implementation-status](jvm-bytecode-backend-full.md#implementation-status).
 - Completion criteria:
   [jvm-bytecode-backend-full.md#completion-criteria](jvm-bytecode-backend-full.md#completion-criteria).
@@ -63,7 +63,7 @@ tests. Current review evidence and follow-up cleanup live in
   [completion criteria](jvm-bytecode-backend-full.md#completion-criteria),
   [implementation notes](jvm-bytecode-backend-full.md#implementation-notes),
   and [promotion route](jvm-bytecode-backend-full.md#promotion-route).
-- Current handoff review for why the proposal remains open:
+- Current handoff review and follow-up cleanup:
   [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 
 ## Boundary

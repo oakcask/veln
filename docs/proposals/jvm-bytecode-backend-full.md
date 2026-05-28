@@ -8,7 +8,7 @@ the specification pages.
 
 ## Route Map
 
-- Current proposal status and next implementation work:
+- Current proposal status and follow-up cleanup:
   [implementation status](#implementation-status).
 - Current completion gate review:
   [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
