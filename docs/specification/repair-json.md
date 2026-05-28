@@ -15,7 +15,8 @@ boundary and [commands.md](commands.md) for command gates.
 - `status`: `"preview"`, `"applied"`, or `"refused"`.
 - `selected_candidate`: the selected command-level candidate object, or `null`.
 - `candidates`: all command-level repair candidates found in the current
-  invocation.
+  invocation. When saved repair JSON inputs are present, this is the saved
+  candidate set normalized for the current invocation.
 - `applied_edits`: replacement edits written by the command. This is empty in
   preview and refusal output.
 - `verification`: verification status, command, and diagnostics.
@@ -39,6 +40,12 @@ Each command-level candidate contains:
 
 `repair --apply` applies only candidates whose `application_policy` is
 `"safe_repair_candidate"` and whose `application_status` is `"unapplied"`.
+When `--candidate` is present, the requested id may match either `repair_id` or
+`source_candidate_id`.
+
+Saved command-level candidates are renumbered with current command-local
+`repair_id` values. The saved command-level id remains accepted for
+`--candidate` selection, but it is not emitted as a separate field.
 
 ## Verification
 
@@ -57,9 +64,10 @@ JSON object shape.
 ## Refusals
 
 `status: "refused"` is stable machine-readable behavior for fail-closed cases:
-missing safe candidates, ambiguous candidate ids, non-applicable selected
-candidates, stale target spans, targets that no longer name holes, verification
-failure, and unsupported edit shapes.
+missing safe candidates, missing or ambiguous requested candidate ids,
+non-applicable selected candidates, saved candidates that are not current,
+stale target spans, targets that no longer name holes, verification failure,
+and unsupported edit shapes.
 
 `summary.refusal_reason` carries a short stable-enough routing string for human
 and agent workflows. It is not a diagnostic id.

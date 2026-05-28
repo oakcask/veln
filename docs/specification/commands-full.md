@@ -194,25 +194,33 @@ collect advisory hole repair candidates. Without `--apply`, the command is a
 preview: it prints command-level repair candidates and writes no source files.
 `--dry-run` is an explicit spelling of that default preview mode.
 
-Candidate input is recomputed from the current source files; the command does
-not consume a saved `check --json` file. Command-level candidate ids use the
-form `repair-N`. The original advisory candidate id from diagnostic details is
-also preserved as `source_candidate_id`. `--candidate` may name either id, but
-application refuses ambiguous ids.
+Candidate input is recomputed from the current source files unless one or more
+`*.json` inputs are present. A JSON input is treated as saved repair candidate
+input, not as a source file. Saved input may be a `repair --json` envelope, a
+command-level candidate object or array, a `check --json` envelope, or an
+advisory candidate object or array. Command-level candidate ids use the form
+`repair-N` and are assigned for the current invocation. The original advisory
+candidate id from diagnostic details is also preserved as
+`source_candidate_id`. `--candidate` may name either id, or a saved
+command-level id from a saved repair candidate, but application refuses
+ambiguous ids.
 
 Application is deliberately narrow. `--apply` applies exactly one candidate
 only when the selected advisory candidate has
 `application_policy: "safe_repair_candidate"` and
 `application_status: "unapplied"`. If no candidate is selected and exactly one
 safe unapplied candidate exists, that candidate is selected. If multiple safe
-candidates exist, application refuses until `--candidate` selects one.
+candidates exist, application refuses until `--candidate` selects one. Saved
+candidate input is not a write authorization: the selected saved candidate must
+exactly match a current safe candidate with the same advisory id and replacement
+edit before the command writes a file.
 
 The implemented edit representation is a single source-relative replacement.
 The replacement target must still be within the current file, must be on
 character boundaries, and must still name a hole. For a hole with a `satisfy`
 suffix, applying the repair replaces the hole and its suffix with the candidate
-replacement. Multi-file edits, multiple edits per candidate, saved candidate
-files, user-confirmed overrides, and partial application are not implemented.
+replacement. Multi-file edits, multiple edits per candidate, user-confirmed
+overrides, and partial application are not implemented.
 
 After writing, `repair --apply` reruns the same check analysis over the selected
 inputs. If verification reports any error diagnostic, the command restores the

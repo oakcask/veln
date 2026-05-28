@@ -250,7 +250,7 @@ fn app() -> ClapCommand {
                 )
                 .arg(
                     Arg::new("inputs")
-                        .help("Source files or directories to repair")
+                        .help("Source files, directories, or saved repair JSON files")
                         .value_name("INPUTS")
                         .num_args(0..)
                         .value_parser(clap::value_parser!(PathBuf)),
