@@ -13,7 +13,7 @@ first route is not obvious.
   treat the specification as current behavior.
 - Planned or accepted proposal work:
   [proposals/README.md](proposals/README.md).
-- Current proposal target state:
+- Proposal target decision:
   [proposals/target-selection.md](proposals/target-selection.md).
 - Rationale and source-support map: [reference/README.md](reference/README.md).
 

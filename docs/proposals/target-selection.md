@@ -2,54 +2,46 @@
 
 Status: routing
 
-Use this page when a task asks for the current target proposal, or when the
-target state is missing, stale, broad, exploratory, or points at implemented
-history. This is the single proposal-target decision page; it does not define
-current language behavior or implementation steps.
+Use this page when a task asks for the current target proposal, or when target
+state is missing, stale, broad, exploratory, or points at implemented history.
+This is the single proposal-target decision page and candidate-class index. It
+does not define current language behavior or implementation steps.
 
 ## Read First
 
-- Current prompt state has no active proposal target. Target implementation has
-  no completion condition until one concrete short proposal page is selected.
-- An active implementation target must be one short proposal page that names one
-  absent behavior.
-- Use [implementation-route.md](implementation-route.md) only after that target
-  exists.
+- Current decision: no active proposal target.
+- Prompt evidence is recorded in the current decision below.
+- The target classes table is enough to reject broad, exploratory,
+  helper-pool, and implemented-record candidates.
+- Target implementation has no completion condition until one concrete short
+  proposal page names one absent behavior.
+- Use [implementation-route.md](implementation-route.md) only after that active
+  target exists.
 - Current implemented behavior stays in
   [../specification/README.md](../specification/README.md).
 
-## Current State
+## Current Decision
 
 - `prompts/TARGET.md` is absent.
 - `prompts/NOTARGET` says no implementation target is selected from the
   current proposals.
 - Result: no active proposal target.
 
-## No-Target Rule
-
-- Stop before implementation, promotion, or specification updates.
-- Do not infer a target from broad follow-up indexes, exploratory inventories,
-  helper candidate pools, or implemented proposal records.
-- Clarify routing or create one short proposal page before treating proposal
-  work as implementable.
-- Evidence for this state lives in
-  [../reviews/no-proposal-target-completion.md](../reviews/no-proposal-target-completion.md).
-
 ## Target Classes
 
 Use this table instead of reopening candidate pages just to decide whether a
 target exists.
 
-| Class | Rule | Route |
+| Class | Decision | Next route |
 | --- | --- | --- |
-| No target | Keep selection unset. | Stop here or create one short proposal page. |
+| No target | Stop before implementation, promotion, or specification updates. | Stop here or create one short proposal page. |
 | Active target | Continue only when one short proposal page names one absent behavior. | [implementation-route.md](implementation-route.md). |
 | Implemented record | Treat as history or cleanup evidence; use the matching specification page for current behavior. | [formatter-stabilization.md](formatter-stabilization.md), [jvm-bytecode-backend.md](jvm-bytecode-backend.md), [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md). |
 | Broad follow-up index | Split one implementable short proposal page before implementation. | [reference-followups.md](reference-followups.md). |
 | Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md). |
 | Helper candidate pool | Choose exactly one descriptor-only pure helper, then create or select one short proposal page. | [self-hosting-standard-library.md](self-hosting-standard-library.md). |
 
-## Selection Checks
+## Selection Flow
 
 1. Read `prompts/TARGET.md` when it exists.
 2. When `prompts/TARGET.md` is absent, read `prompts/NOTARGET` if present.
@@ -64,13 +56,20 @@ target exists.
 7. If the behavior is broad, exploratory, or a helper candidate pool, split or
    create one short proposal before treating it as an implementation target.
 
+Do not infer a target from broad follow-up indexes, exploratory inventories,
+helper candidate pools, or implemented proposal records. Clarify routing or
+create one short proposal page before treating proposal work as implementable.
+
+Evidence for the current no-target state lives in
+[../reviews/no-proposal-target-completion.md](../reviews/no-proposal-target-completion.md).
+
 ## Handoff
 
-- No target: stop here, leave `../specification/` unchanged, and record only
-  routing clarification.
-- Active target: use [implementation-route.md](implementation-route.md) after
-  confirming the selected behavior is absent from `../specification/`.
-- New work: create or select one short proposal page before implementation.
+| State | Handoff |
+| --- | --- |
+| No target | Stop here, leave `../specification/` unchanged, and record only routing clarification. |
+| Active target | Use [implementation-route.md](implementation-route.md) after confirming the selected behavior is absent from `../specification/`. |
+| Broad, exploratory, or helper-pool work | Create or select one short proposal page before implementation. |
 
 ## Read When
 

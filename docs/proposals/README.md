@@ -6,21 +6,22 @@ text is not current language behavior unless `../specification/` also states it.
 
 ## Read First
 
-- Current target, prompt evidence, and candidate classes:
-  [target-selection.md](target-selection.md). It is the canonical route for
-  missing, stale, broad, exploratory, implemented-history, helper-pool, and
-  unset target state.
-- Implementation route after one active short proposal is selected:
+- Need the current target decision, prompt evidence, stale-target checks, or
+  candidate classification:
+  [target-selection.md](target-selection.md).
+- Already have one active short proposal page:
   [implementation-route.md](implementation-route.md).
 - Status labels: [../document-status.md](../document-status.md).
 
 ## Routes
 
-- Target decision:
+- Target decision or candidate class:
   [target-selection.md](target-selection.md).
-- Promotion mechanics after target selection names one active short page:
+- Implementation and promotion mechanics after target selection names one active
+  short page:
   [implementation-route.md](implementation-route.md).
-- Candidate inventory only after target selection routes there:
+- Candidate inventory only after [target-selection.md](target-selection.md)
+  routes there:
   [reference-followups.md](reference-followups.md),
   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md),
   [self-hosting-standard-library.md](self-hosting-standard-library.md),
@@ -32,8 +33,8 @@ text is not current language behavior unless `../specification/` also states it.
 
 - Checking whether a proposal page can be the active target.
 - Choosing one implementable proposal before any promotion route starts.
-- Checking completed prelude helper migrations after target selection routes to
-  that helper pool.
+- Checking completed prelude helper migrations after target selection routes
+  to that helper pool.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
   before changing target status.
 
