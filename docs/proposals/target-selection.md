@@ -37,13 +37,15 @@ routes selection only; it does not define current language behavior.
 ## Selection Rule
 
 1. Read `prompts/TARGET.md` when it exists.
-2. Verify that the selected page is a short proposal page, not a full detail
+2. When `prompts/TARGET.md` is absent, read `prompts/NOTARGET` if present and
+   keep the target unset when it says no implementation target is selected.
+3. Verify that the selected page is a short proposal page, not a full detail
    record, review, reference note, or implemented proposal record.
-3. Compare the selected behavior with
+4. Compare the selected behavior with
    [../specification/README.md](../specification/README.md).
-4. If the behavior is already implemented, use the matching specification page
+5. If the behavior is already implemented, use the matching specification page
    and treat the proposal as history or cleanup evidence.
-5. If the behavior is broad, exploratory, or a helper candidate pool, split or
+6. If the behavior is broad, exploratory, or a helper candidate pool, split or
    create one short proposal before treating it as an implementation target.
 
 ## Handoff
