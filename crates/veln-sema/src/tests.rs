@@ -7438,6 +7438,7 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
             "vec_filter",
             "vec_is_empty",
             "vec_len",
+            "vec_map",
             "vec_push"
         ]
     );
@@ -7804,6 +7805,12 @@ fn prelude_helpers_check_direct_expected_return_types() {
 #[test]
 fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
     for (helper, value_type, return_type, expected_callback) in [
+        (
+            "vec_map",
+            "Vec(Int)",
+            "Vec(String)",
+            "fn(unknown) -> String",
+        ),
         ("vec_filter", "Vec(Int)", "Vec(Int)", "fn(Int) -> Bool"),
         (
             "option_map",
@@ -7902,6 +7909,21 @@ fn source_backed_vec_concat_reports_user_call_site_diagnostics() {
             "end\n",
         ),
         "expected `Vec(Int)`, but found `Int`",
+    );
+}
+
+#[test]
+fn source_backed_vec_map_reports_user_call_site_diagnostics() {
+    assert_source_backed_helper_user_call_site_type_mismatch(
+        concat!(
+            "fn stringify(value: Int) -> String effects []\n",
+            "  \"ok\"\n",
+            "end\n",
+            "pub fn main(value: Int) -> Vec(String) effects []\n",
+            "  vec_map(value, stringify)\n",
+            "end\n",
+        ),
+        "expected `Vec(unknown)`, but found `Int`",
     );
 }
 

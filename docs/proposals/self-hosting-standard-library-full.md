@@ -4,7 +4,8 @@ Status: proposed
 
 This file keeps source-backed standard library proposal details after
 implemented standard library behavior moved to the language specification. Read
-[self-hosting-standard-library.md](self-hosting-standard-library.md) first.
+[self-hosting-standard-library.md](self-hosting-standard-library.md) first for
+the completed helper and the reusable candidate boundary.
 
 ## Goal
 
@@ -14,11 +15,9 @@ that cannot yet be expressed in source.
 
 ## Migration Pattern
 
-Use this pattern only after
-[self-hosting-standard-library.md](self-hosting-standard-library.md) selects a
-descriptor-only helper from the implemented specification route. Preserve the
-implemented source-backed helper pattern without restating helper semantics
-here:
+Use this pattern only after the short page selects a descriptor-only helper
+from the implemented specification route. Preserve the implemented
+source-backed helper pattern without restating helper semantics here:
 
 - choose a helper whose signature and value semantics are already implemented
 - add ordinary Veln source beside other core prelude source
@@ -33,7 +32,7 @@ here:
 Remaining source-backed prelude work chooses from the descriptor-only pure
 helpers listed in
 [../specification/names-effects.md](../specification/names-effects.md). Prefer
-a candidate when the specification already provides its signature, value
+a candidate only when the specification already provides its signature, value
 semantics, and descriptor-only status, and when:
 
 - its behavior is expressible in existing Veln source
@@ -48,8 +47,8 @@ representation guarantee.
 
 For signatures, value behavior, and the source-backed versus descriptor-only
 split, return to the specification. This proposal only keeps the candidate
-selection rule and migration boundary for behavior that is not yet source
-backed.
+selection rule, migration pattern, and future-work boundary for behavior that
+is not yet source backed.
 
 ## Later Layers
 

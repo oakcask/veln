@@ -325,12 +325,12 @@ fails. `int_to_string` renders an integer for display and string composition.
 The implemented standard symbol table has this current pure-helper split:
 
 - source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,
-  `vec_concat`, `vec_filter`, `dict_contains`, `option_map`,
+  `vec_concat`, `vec_map`, `vec_filter`, `dict_contains`, `option_map`,
   `option_and_then`, `option_unwrap_or`, `result_map`, `result_map_err`, and
   `result_and_then`
-- descriptor-only pure helpers: `vec_map`, `vec_fold`, `vec_try_map`,
-  `vec_try_map_with`, `dict_get`, `dict_insert`,
-  `dict_remove`, `string_split_once`, `string_parse_int`, and `int_to_string`
+- descriptor-only pure helpers: `vec_fold`, `vec_try_map`,
+  `vec_try_map_with`, `dict_get`, `dict_insert`, `dict_remove`,
+  `string_split_once`, `string_parse_int`, and `int_to_string`
 
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
 each helper and [Value Semantics](#value-semantics) for behavior. The
@@ -346,6 +346,9 @@ descriptor entry per exported helper entry point. The current checker still
 uses the descriptor-backed signature adapter, and the JVM backend still lowers
 each helper through the existing prelude runtime operation, so diagnostics stay
 anchored on user call sites rather than the embedded standard library source.
+The source-backed `vec_map` entry is declared in `core_prelude` and may use
+other existing helpers such as `vec_fold` and `vec_push`; this source placement
+does not expose or stabilize a public vec representation.
 
 ### Compiler-Support Source
 

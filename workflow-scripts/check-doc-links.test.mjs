@@ -93,17 +93,21 @@ test("self-hosting proposal route starts from the implemented helper split", () 
 
   assertIncludes(
     proposal,
-    "that the helper is still descriptor-only",
+    "records the completed source-backed standard library target for\n" +
+      "`vec_map`",
   );
-  assertIncludes(proposal, "## Scope");
+  assertIncludes(proposal, "## Read First");
+  assertIncludes(proposal, "Completed helper: `vec_map`");
+  assertIncludes(proposal, "## Boundary");
   assertIncludes(proposal, "## Work Route");
   assertIncludes(
     proposal,
-    "Confirm the helper is in the descriptor-only pure-helper list",
+    "Confirm the selected helper is still in the descriptor-only pure-helper",
   );
   assertIncludes(
     proposal,
-    "Valid work changes only source placement and descriptor metadata",
+    "Valid work changed only\n" +
+      "source placement and descriptor metadata for this already implemented helper",
   );
   assertIncludes(proposal, "../specification/names-effects.md");
   assertIncludes(proposal, "../specification/source-surface.md");
@@ -124,11 +128,11 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   );
   assertIncludes(
     namesEffectsFull,
-    "source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,\n  `vec_concat`, `vec_filter`",
+    "source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,\n  `vec_concat`, `vec_map`, `vec_filter`",
   );
   assertIncludes(
     namesEffectsFull,
-    "descriptor-only pure helpers: `vec_map`, `vec_fold`",
+    "descriptor-only pure helpers: `vec_fold`, `vec_try_map`",
   );
 });
 

@@ -8,11 +8,16 @@ language behavior unless `../specification/` also states it.
 
 - Choose an active proposal for implementation work only when it describes
   behavior absent from `../specification/`.
-- The active standard-library target is
-  [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Treat implemented proposal records as history and cleanup routes. Use the
   matching specification page for current behavior.
 - Status labels: [../document-status.md](../document-status.md).
+
+## Proposal Routes
+
+- Source-backed standard library:
+  [self-hosting-standard-library.md](self-hosting-standard-library.md) records
+  the implemented `vec_map` migration and routes candidate checks for later
+  helpers. Use its specification checks before opening full proposal details.
 
 ## Read When
 
@@ -26,9 +31,9 @@ language behavior unless `../specification/` also states it.
   details current specification.
 - Use [reference-followups.md](reference-followups.md) for follow-up work that
   is absent from the current specification.
-- Use [self-hosting-standard-library.md](self-hosting-standard-library.md) for
-  remaining descriptor-only pure prelude helper work that is absent from the
-  current specification.
+- Use [self-hosting-standard-library.md](self-hosting-standard-library.md)
+  when checking the completed `vec_map` migration or selecting a later
+  descriptor-only helper.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still exploratory or only partially
   represented.
