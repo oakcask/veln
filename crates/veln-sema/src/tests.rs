@@ -7329,6 +7329,26 @@ fn infers_prelude_helper_calls_from_expected_types() {
         } if name == "vec_len"
     ));
     assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
+    let source_backed_prelude_names = crate::standard_symbols::source_backed_symbols()
+        .filter(|symbol| symbol.module.is_none())
+        .map(|symbol| symbol.name)
+        .collect::<Vec<_>>();
+    let core_prelude_calls = fields
+        .iter()
+        .filter_map(|field| match &field.expr.kind {
+            CoreExprKind::Call {
+                target: CoreCallTarget::PreludeBuiltin(name),
+                ..
+            } => Some(name.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for name in &source_backed_prelude_names {
+        assert!(
+            core_prelude_calls.contains(name),
+            "{name} should keep prelude core lowering"
+        );
+    }
     let ir = lowered
         .ir
         .expect("complete prelude core should lower to IR");
@@ -7350,6 +7370,22 @@ fn infers_prelude_helper_calls_from_expected_types() {
             ..
         } if name == "vec_len"
     ));
+    let ir_prelude_calls = fields
+        .iter()
+        .filter_map(|field| match &field.value.kind {
+            IrExprKind::Call {
+                target: IrCallTarget::PreludeBuiltin(name),
+                ..
+            } => Some(name.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for name in &source_backed_prelude_names {
+        assert!(
+            ir_prelude_calls.contains(name),
+            "{name} should keep prelude IR lowering"
+        );
+    }
 }
 
 #[test]
@@ -7387,7 +7423,18 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
     }
 
     entries.sort_unstable();
-    assert_eq!(entries, ["option_map", "option_unwrap_or"]);
+    assert_eq!(
+        entries,
+        [
+            "option_and_then",
+            "option_map",
+            "option_unwrap_or",
+            "result_and_then",
+            "result_map",
+            "result_map_err",
+            "vec_is_empty"
+        ]
+    );
 }
 
 #[test]
@@ -7749,15 +7796,79 @@ fn prelude_helpers_check_direct_expected_return_types() {
 }
 
 #[test]
-fn source_backed_option_map_reports_user_call_site_diagnostics() {
+fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
+    for (helper, value_type, return_type, expected_callback) in [
+        (
+            "option_map",
+            "Option(Int)",
+            "Option(String)",
+            "fn(unknown) -> String",
+        ),
+        (
+            "option_and_then",
+            "Option(Int)",
+            "Option(String)",
+            "fn(unknown) -> Option(String)",
+        ),
+        (
+            "result_map",
+            "Result(Int, String)",
+            "Result(String, String)",
+            "fn(unknown) -> String",
+        ),
+        (
+            "result_map_err",
+            "Result(String, Int)",
+            "Result(String, String)",
+            "fn(unknown) -> String",
+        ),
+        (
+            "result_and_then",
+            "Result(Int, String)",
+            "Result(String, String)",
+            "fn(unknown) -> Result(String, String)",
+        ),
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                concat!(
+                    "fn to_int(value: Int) -> Int effects []\n",
+                    "  value\n",
+                    "end\n",
+                    "pub fn main(value: {}) -> {} effects []\n",
+                    "  {}(value, to_int)\n",
+                    "end\n",
+                ),
+                value_type, return_type, helper
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
+
+        let diagnostics = analyze_surface_module(&module);
+
+        assert_eq!(diagnostics.len(), 1, "{helper}");
+        assert_eq!(diagnostics[0].id, "type.mismatch");
+        assert_eq!(
+            diagnostics[0].message,
+            format!("expected `{expected_callback}`, but found `fn(Int) -> Int`")
+        );
+        let span = diagnostics[0]
+            .span
+            .as_ref()
+            .expect("diagnostic should point at user source");
+        assert_eq!(span.file.as_str(), "main.veln");
+    }
+}
+
+#[test]
+fn source_backed_vec_is_empty_reports_user_call_site_diagnostics() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn to_int(value: Int) -> Int effects []\n",
-            "  value\n",
-            "end\n",
-            "pub fn main(value: Option(Int)) -> Option(String) effects []\n",
-            "  option_map(value, to_int)\n",
+            "pub fn main(value: Int) -> Bool effects []\n",
+            "  vec_is_empty(value)\n",
             "end\n",
         ),
     );
@@ -7770,7 +7881,7 @@ fn source_backed_option_map_reports_user_call_site_diagnostics() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(
         diagnostics[0].message,
-        "expected `fn(unknown) -> String`, but found `fn(Int) -> Int`"
+        "expected `Vec(unknown)`, but found `Int`"
     );
     let span = diagnostics[0]
         .span

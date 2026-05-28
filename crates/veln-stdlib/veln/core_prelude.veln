@@ -1,8 +1,19 @@
 mod core_prelude
 
+fn vec_is_empty(items: Vec(A)) -> Bool effects []
+	vec_len(items) == 0
+end
+
 fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
 	match value
 		Some(inner) => Some(f(inner))
+		None => None
+	end
+end
+
+fn option_and_then(value: Option(A), f: fn(A) -> Option(B)) -> Option(B) effects []
+	match value
+		Some(inner) => f(inner)
 		None => None
 	end
 end
@@ -11,5 +22,26 @@ fn option_unwrap_or(value: Option(A), fallback: A) -> A effects []
 	match value
 		Some(inner) => inner
 		None => fallback
+	end
+end
+
+fn result_map(value: Result(A, E), f: fn(A) -> B) -> Result(B, E) effects []
+	match value
+		Ok(inner) => Ok(f(inner))
+		Err(error) => Err(error)
+	end
+end
+
+fn result_map_err(value: Result(A, E), f: fn(E) -> F) -> Result(A, F) effects []
+	match value
+		Ok(inner) => Ok(inner)
+		Err(error) => Err(f(error))
+	end
+end
+
+fn result_and_then(value: Result(A, E), f: fn(A) -> Result(B, E)) -> Result(B, E) effects []
+	match value
+		Ok(inner) => f(inner)
+		Err(error) => Err(error)
 	end
 end

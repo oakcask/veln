@@ -11,24 +11,44 @@ Move ordinary reusable behavior into Veln libraries while keeping the compiler
 responsible only for primitive runtime boundaries and compatibility metadata
 that cannot yet be expressed in source.
 
-## Promoted Source-Backed Helper Target
+## Implemented Baseline
 
-The selected `option_map` target has moved from a descriptor-only prelude
-helper into the source-backed pure-helper model already used by
-`option_unwrap_or`. Current behavior now belongs in
-`../specification/names-effects.md`.
+The source-backed pure-helper pattern already exists for the option and result
+helpers documented in `../specification/names-effects.md`. That page, not this
+proposal, defines the implemented helper signatures, value semantics, source
+metadata, diagnostics, and descriptor table behavior.
 
-The promotion stayed inside the existing helper path:
+Future work should preserve the implemented pattern without restating helper
+semantics in this proposal:
 
-- keep the source-visible `option_map(value, f)` signature compatible with the
-  current prelude adapter
-- add ordinary Veln source for the helper beside other core prelude source
+- keep the existing source-visible helper signature and semantics
+- add ordinary Veln source beside other core prelude source
 - record source metadata on the standard symbol descriptor
-- keep effects empty and keep diagnostics anchored on user call sites
+- keep effects empty for pure helpers
+- keep diagnostics anchored on user call sites
 - keep backend lowering and public helper semantics compatible with the
   implemented behavior
 
-## Later Library Layers
+## Remaining Pure Helper Candidates
+
+Remaining source-backed prelude work should choose from the descriptor-only
+pure helpers that already have implemented signatures and value semantics in
+`../specification/names-effects.md`. The proposal changes only where reusable
+helper bodies can live and what descriptor metadata records about that source.
+
+Prefer a candidate when:
+
+- its behavior is expressible in existing Veln source
+- it needs no new effect label, runtime boundary, parser feature, or public
+  complexity promise
+- it can continue using the descriptor-backed signature adapter and backend
+  lowering during migration
+
+Avoid a candidate when it depends on host I/O, process state, broad module
+loading, source-level effect handlers, streaming, subprocesses, or a container
+representation guarantee.
+
+## Later Layers
 
 Later source-backed library work may cover:
 
@@ -50,8 +70,8 @@ complexity guarantees through this proposal.
 
 ## Open Questions
 
-- Which descriptor-only pure helper should follow `option_map` after the
-  source-backed pattern is validated?
+- Which descriptor-only pure helper should move next after the source-backed
+  option and result helper pattern?
 - Which helpers must remain runtime intrinsics until user-defined effects or
   effect handlers exist?
 - Should process termination keep the current return shape or use a future
