@@ -342,14 +342,16 @@ syntax.
 Source-backed status is descriptor metadata as described in
 [Compiler-Known Descriptor Table](#compiler-known-descriptor-table). The
 embedded source is ordinary Veln source in the `core_prelude` module, with one
-descriptor entry per exported helper entry point. The current checker still
-uses the descriptor-backed signature adapter, and the JVM backend still lowers
-each helper through the existing prelude runtime operation, so diagnostics stay
+descriptor entry per exported helper entry point. The source metadata records
+the repository-relative standard library path and entry function name used for
+checking the embedded helper source. The current checker still uses the
+descriptor-backed signature adapter, and the JVM backend still lowers each
+helper through the existing prelude runtime operation, so diagnostics stay
 anchored on user call sites rather than the embedded standard library source.
 The source-backed `vec_map` and `vec_try_map` entries are declared in
 `core_prelude` and may use other existing helpers such as `vec_fold` and
-`vec_push`; this source placement does not expose or stabilize a public vec
-representation.
+`vec_push`; their step helpers are implementation details, and this source
+placement does not expose or stabilize a public vec representation.
 
 ### Compiler-Support Source
 
