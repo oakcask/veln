@@ -9,8 +9,7 @@ language behavior unless `../specification/` also states it.
 - Choose an active proposal for implementation work only when it describes
   behavior absent from `../specification/`.
 - The active standard-library target is
-  [self-hosting-standard-library.md](self-hosting-standard-library.md) when
-  continuing remaining descriptor-only pure prelude helper work.
+  [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Treat implemented proposal records as history and cleanup routes. Use the
   matching specification page for current behavior.
 - Status labels: [../document-status.md](../document-status.md).
@@ -28,8 +27,7 @@ language behavior unless `../specification/` also states it.
 - Use [reference-followups.md](reference-followups.md) for follow-up work that
   is absent from the current specification.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md) for
-  source-backed standard library boundaries, remaining descriptor-only helper
-  candidate selection, and pure prelude helper work that is absent from the
+  remaining descriptor-only pure prelude helper work that is absent from the
   current specification.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still exploratory or only partially

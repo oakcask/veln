@@ -14,14 +14,11 @@ that cannot yet be expressed in source.
 
 ## Migration Pattern
 
-The source-backed pure-helper pattern already exists for helpers documented in
-`../specification/names-effects.md`. That specification page, not this
-proposal, defines implemented helper signatures, value semantics, source
-metadata, diagnostics, descriptor table behavior, and the current
-source-backed versus descriptor-only split.
-
-After the specification identifies the candidate and source surface route,
-preserve the implemented pattern without restating helper semantics here:
+Use this pattern only after
+[self-hosting-standard-library.md](self-hosting-standard-library.md) selects a
+descriptor-only helper from the implemented specification route. Preserve the
+implemented source-backed helper pattern without restating helper semantics
+here:
 
 - choose a helper whose signature and value semantics are already implemented
 - add ordinary Veln source beside other core prelude source
@@ -34,19 +31,25 @@ preserve the implemented pattern without restating helper semantics here:
 ## Remaining Pure Helper Candidates
 
 Remaining source-backed prelude work chooses from the descriptor-only pure
-helpers listed in `../specification/names-effects.md`. Prefer a candidate when
-the specification already provides its signature, value semantics, and
-descriptor-only status, and when:
+helpers listed in
+[../specification/names-effects.md](../specification/names-effects.md). Prefer
+a candidate when the specification already provides its signature, value
+semantics, and descriptor-only status, and when:
 
 - its behavior is expressible in existing Veln source
 - it needs no new effect label, runtime boundary, parser feature, or public
-  complexity promise
+  container representation guarantee
 - it can continue using the descriptor-backed signature adapter and backend
   lowering during migration
 
 Avoid a candidate when it depends on host I/O, process state, broad module
 loading, source-level effect handlers, streaming, subprocesses, or a container
 representation guarantee.
+
+For signatures, value behavior, and the source-backed versus descriptor-only
+split, return to the specification. This proposal only keeps the candidate
+selection rule and migration boundary for behavior that is not yet source
+backed.
 
 ## Later Layers
 
