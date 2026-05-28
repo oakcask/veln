@@ -7354,11 +7354,11 @@ fn infers_prelude_helper_calls_from_expected_types() {
 
 #[test]
 fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
-    let mut count = 0;
+    let mut entries = Vec::new();
 
     for symbol in crate::standard_symbols::source_backed_symbols() {
-        count += 1;
         let source = symbol.source.expect("source metadata");
+        entries.push(source.entry);
         let file = SourceFile::new(source.path, source.text);
         let parsed = parse(&file);
         assert!(
@@ -7386,7 +7386,8 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
         );
     }
 
-    assert!(count > 0, "expected at least one source-backed helper");
+    entries.sort_unstable();
+    assert_eq!(entries, ["option_map", "option_unwrap_or"]);
 }
 
 #[test]

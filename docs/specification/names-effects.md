@@ -16,13 +16,11 @@ compiler-known calls.
   [names-effects-full.md](names-effects-full.md#process-calls).
 - Concurrency calls, executable reachability, and effect provenance:
   [names-effects-full.md](names-effects-full.md#concurrency-calls).
-- Prelude helpers and their value semantics:
+- Prelude helper signatures, source-backed status, and value semantics:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
-- Descriptor-backed compiler-known symbols:
+- Descriptor-backed compiler-known symbols, standard library source metadata,
+  and the compiler-support source-loading trial:
   [names-effects-full.md](names-effects-full.md#compiler-known-descriptor-table).
-- Embedded standard library source and the compiler-support source-loading
-  trial: [names-effects-full.md](names-effects-full.md#compiler-known-descriptor-table)
-  and [names-effects-full.md](names-effects-full.md#prelude-helpers).
 
 ## Read When
 

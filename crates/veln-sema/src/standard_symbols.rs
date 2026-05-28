@@ -12,15 +12,8 @@ pub(crate) struct StandardSymbolDescriptor {
     pub(crate) kind: StandardSymbolKind,
     pub(crate) effects: &'static [&'static str],
     pub(crate) lowering: Option<&'static str>,
-    pub(crate) source: Option<&'static StandardSymbolSource>,
+    pub(crate) source: Option<&'static veln_stdlib::StdlibSource>,
     pub(crate) stability: StandardSymbolStability,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct StandardSymbolSource {
-    pub(crate) path: &'static str,
-    pub(crate) entry: &'static str,
-    pub(crate) text: &'static str,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,18 +27,6 @@ const CONCURRENCY_EFFECTS: &[&str] = &["concurrency"];
 const FS_EFFECTS: &[&str] = &["fs"];
 const PROCESS_EFFECTS: &[&str] = &["process"];
 const PURE_EFFECTS: &[&str] = &[];
-
-const CORE_PRELUDE_SOURCE: StandardSymbolSource = StandardSymbolSource {
-    path: veln_stdlib::CORE_PRELUDE.path,
-    entry: veln_stdlib::CORE_PRELUDE.entry,
-    text: veln_stdlib::CORE_PRELUDE.text,
-};
-
-const COMPILER_SUPPORT_SOURCE: StandardSymbolSource = StandardSymbolSource {
-    path: veln_stdlib::COMPILER_SUPPORT.path,
-    entry: veln_stdlib::COMPILER_SUPPORT.entry,
-    text: veln_stdlib::COMPILER_SUPPORT.text,
-};
 
 const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("stdio", "print", STDIO_EFFECTS, "runtime.stdio.print"),
@@ -162,9 +143,12 @@ const PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("dict_contains"),
     prelude_symbol_descriptor("dict_insert"),
     prelude_symbol_descriptor("dict_remove"),
-    prelude_symbol_descriptor("option_map"),
+    source_prelude_symbol_descriptor("option_map", &veln_stdlib::CORE_PRELUDE_OPTION_MAP),
     prelude_symbol_descriptor("option_and_then"),
-    source_prelude_symbol_descriptor("option_unwrap_or", &CORE_PRELUDE_SOURCE),
+    source_prelude_symbol_descriptor(
+        "option_unwrap_or",
+        &veln_stdlib::CORE_PRELUDE_OPTION_UNWRAP_OR,
+    ),
     prelude_symbol_descriptor("result_map"),
     prelude_symbol_descriptor("result_map_err"),
     prelude_symbol_descriptor("result_and_then"),
@@ -201,7 +185,7 @@ const fn prelude_symbol_descriptor(name: &'static str) -> StandardSymbolDescript
 
 const fn source_prelude_symbol_descriptor(
     name: &'static str,
-    source: &'static StandardSymbolSource,
+    source: &'static veln_stdlib::StdlibSource,
 ) -> StandardSymbolDescriptor {
     StandardSymbolDescriptor {
         module: None,
@@ -236,8 +220,9 @@ pub(crate) fn source_backed_symbols() -> impl Iterator<Item = &'static StandardS
 }
 
 #[allow(dead_code)]
-pub(crate) fn compiler_support_sources() -> impl Iterator<Item = &'static StandardSymbolSource> {
-    [&COMPILER_SUPPORT_SOURCE].into_iter()
+pub(crate) fn compiler_support_sources() -> impl Iterator<Item = &'static veln_stdlib::StdlibSource>
+{
+    [&veln_stdlib::COMPILER_SUPPORT].into_iter()
 }
 
 pub(crate) fn effect_strings(symbol: &StandardSymbolDescriptor) -> Vec<String> {
@@ -284,16 +269,34 @@ mod tests {
     }
 
     #[test]
-    fn descriptor_table_carries_source_backed_helper_metadata() {
-        let symbol = prelude_symbol("option_unwrap_or").expect("source-backed helper descriptor");
-        let source = symbol.source.expect("source metadata");
+    fn source_backed_prelude_descriptors_carry_metadata() {
+        let expected = ["option_map", "option_unwrap_or"];
+        let mut entries = Vec::new();
 
-        assert_eq!(symbol.kind, StandardSymbolKind::Veln);
-        assert!(symbol.effects.is_empty());
+        for name in expected {
+            let symbol = prelude_symbol(name).expect("source-backed helper descriptor");
+            let source = symbol.source.expect("source metadata");
+
+            assert_eq!(symbol.kind, StandardSymbolKind::Veln);
+            assert!(symbol.effects.is_empty());
+            assert_eq!(symbol.lowering, None);
+            assert_eq!(source.entry, symbol.name);
+            assert_eq!(source.path, "stdlib/core_prelude.veln");
+            assert!(source.text.contains(&format!("fn {name}")));
+            entries.push(source.entry);
+        }
+
+        assert_eq!(entries, expected);
+    }
+
+    #[test]
+    fn descriptor_only_prelude_helpers_do_not_carry_source_metadata() {
+        let symbol = prelude_symbol("option_and_then").expect("prelude descriptor");
+
+        assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert_eq!(symbol.lowering, None);
-        assert_eq!(source.entry, symbol.name);
-        assert_eq!(source.path, "stdlib/core_prelude.veln");
-        assert!(source.text.contains("fn option_unwrap_or"));
+        assert!(symbol.effects.is_empty());
+        assert_eq!(symbol.source, None);
     }
 
     #[test]
@@ -326,7 +329,7 @@ mod tests {
             }
         }
 
-        assert!(count > 0, "expected at least one source-backed symbol");
+        assert_eq!(count, 2, "expected option_map and option_unwrap_or");
     }
 
     #[test]
