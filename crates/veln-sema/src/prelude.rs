@@ -487,7 +487,7 @@ mod tests {
     #[test]
     fn prelude_signature_is_gated_by_standard_symbol_descriptor() {
         let (params, return_type) =
-            prelude_signature("vec_len", None).expect("descriptor-backed helper signature");
+            prelude_signature("vec_len", None).expect("standard helper signature");
 
         assert_eq!(params, vec![Type::vec(Type::Unknown)]);
         assert_eq!(return_type, Type::int());

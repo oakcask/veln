@@ -130,7 +130,6 @@ const DESCRIPTOR_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("string_split_once"),
     prelude_symbol_descriptor("string_parse_int"),
     prelude_symbol_descriptor("int_to_string"),
-    prelude_symbol_descriptor("vec_len"),
     prelude_symbol_descriptor("vec_push"),
     prelude_symbol_descriptor("vec_map"),
     prelude_symbol_descriptor("vec_filter"),
@@ -143,6 +142,7 @@ const DESCRIPTOR_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
 ];
 
 const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
+    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_LEN),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_IS_EMPTY),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_CONCAT),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_MAP),
@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn descriptor_table_carries_prelude_purity_metadata() {
-        let symbol = prelude_symbol("vec_len").expect("prelude descriptor");
+        let symbol = prelude_symbol("vec_push").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(symbol.effects.is_empty());
@@ -305,6 +305,60 @@ mod tests {
         assert_eq!(symbol.lowering, None);
         assert!(symbol.effects.is_empty());
         assert_eq!(symbol.source, None);
+    }
+
+    #[test]
+    fn source_backed_boundary_matches_current_prelude_split() {
+        let source_backed = SOURCE_PRELUDE_SYMBOLS
+            .iter()
+            .map(|symbol| symbol.name)
+            .collect::<Vec<_>>();
+        let descriptor_only = DESCRIPTOR_PRELUDE_SYMBOLS
+            .iter()
+            .map(|symbol| symbol.name)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            source_backed,
+            [
+                "vec_len",
+                "vec_is_empty",
+                "vec_concat",
+                "option_map",
+                "option_and_then",
+                "option_unwrap_or",
+                "result_map",
+                "result_map_err",
+                "result_and_then",
+                "dict_contains"
+            ]
+        );
+        assert_eq!(
+            descriptor_only,
+            [
+                "float_negate",
+                "float_add",
+                "float_subtract",
+                "float_multiply",
+                "float_divide",
+                "float_less",
+                "float_less_equal",
+                "float_greater",
+                "float_greater_equal",
+                "string_split_once",
+                "string_parse_int",
+                "int_to_string",
+                "vec_push",
+                "vec_map",
+                "vec_filter",
+                "vec_fold",
+                "vec_try_map",
+                "vec_try_map_with",
+                "dict_get",
+                "dict_insert",
+                "dict_remove"
+            ]
+        );
     }
 
     #[test]

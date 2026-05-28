@@ -304,11 +304,11 @@ int_to_string(value: Int) -> String
 ### Value Semantics
 
 Container update helpers return new frozen values and do not mutate their input
-containers in place. `vec_concat` returns a vec containing the left input's
-items followed by the right input's items. `vec_is_empty` returns whether a vec
-contains no items. `dict_contains` returns true when `dict_get` would return
-`Some` for the same dictionary and key, and false when `dict_get` would return
-`None`.
+containers in place. `vec_len` returns the number of items in the input vec.
+`vec_concat` returns a vec containing the left input's items followed by the
+right input's items. `vec_is_empty` returns whether a vec contains no items.
+`dict_contains` returns true when `dict_get` would return `Some` for the same
+dictionary and key, and false when `dict_get` would return `None`.
 `vec_try_map` evaluates items in source order, stops at the first `Err`, and
 otherwise returns `Ok` containing the mapped frozen vec in source order.
 `vec_try_map_with` follows the same traversal and passes the unchanged context
@@ -322,14 +322,21 @@ fails. `int_to_string` renders an integer for display and string composition.
 
 ### Source-Backed Boundary
 
-The implemented standard symbol table has this prelude split:
+The implemented standard symbol table has this current pure-helper split:
 
-- source-backed pure helpers: `vec_is_empty`, `vec_concat`, `dict_contains`,
-  `option_map`, `option_and_then`, `option_unwrap_or`, `result_map`,
-  `result_map_err`, and `result_and_then`
-- descriptor-only pure helpers: the other prelude helpers listed in
-  [Helper Signatures](#helper-signatures), unless their descriptors record
-  source metadata
+- source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_concat`,
+  `dict_contains`, `option_map`, `option_and_then`, `option_unwrap_or`,
+  `result_map`, `result_map_err`, and `result_and_then`
+- descriptor-only pure helpers: `vec_push`, `vec_map`, `vec_filter`,
+  `vec_fold`, `vec_try_map`, `vec_try_map_with`, `dict_get`, `dict_insert`,
+  `dict_remove`, `string_split_once`, `string_parse_int`, and `int_to_string`
+
+Use [Helper Signatures](#helper-signatures) for the implemented signature of
+each helper and [Value Semantics](#value-semantics) for behavior. The
+descriptor-only list above is the implemented candidate pool for proposal work
+that moves one already specified pure helper into embedded source; the
+proposal must still check that the body is expressible with current source
+syntax.
 
 Source-backed status is descriptor metadata as described in
 [Compiler-Known Descriptor Table](#compiler-known-descriptor-table). The
