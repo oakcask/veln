@@ -59,6 +59,13 @@ page whose behavior is absent from `../specification/`, then use
 [implementation-route.md](implementation-route.md) for the comparison and
 promotion route.
 
+When a review task asks for the target from `prompts/TARGET.md` and that file
+is absent, treat the no-target state as incomplete proposal selection rather
+than completed implementation work. The handoff action is to leave current
+behavior unchanged, keep `../specification/` untouched, and route the next
+agent to select or create one concrete short proposal before any promotion
+review.
+
 ## Read When
 
 - A prompt target is missing, stale, or points to broad proposal material.
