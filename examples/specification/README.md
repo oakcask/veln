@@ -42,13 +42,15 @@ against the built `veln` binary.
 - `check/source-surface/`: modules, records, dictionaries, vecs, matches,
   qualified `Option` and `Result` constructors, pipelines, wildcard lets,
   record let and match patterns, private inference, parenthesized expressions,
-  and trailing record type fields.
+  nested match expressions in call and aggregate positions, and trailing
+  record type fields.
 - `check/discovery-parse-gate/`: default recursive source discovery, skipped
   build output, per-file parse gates, and semantic diagnostics from other
   parse-clean files.
 - `check/source-metadata/`: ADR-lite doc records attached to source without
   changing static behavior.
-- `check/module-imports/`: `mod`, `use`, import aliases, and qualified calls.
+- `check/module-imports/`: `mod`, `use`, import aliases, qualified calls, and
+  qualified pipeline targets.
 - `check/qualified-no-fallback/`: qualified calls require a matching import
   alias and do not fall back to same-named bare functions.
 - `check/missing-module-identity/`: `use` declarations without a source module
@@ -124,6 +126,7 @@ against the built `veln` binary.
   source-order vec traversal, and empty-vec checks.
 - `run/result-propagation/`: `Result` propagation, dictionary lookup, function
   values, and runtime JSON success.
+- `run/match-source-order/`: match arms are evaluated in source order.
 - `run/selected-reachability/`: selected-entry reachability, ignored
   unreachable semantic errors, imported function values, function-typed local
   calls, and local shadowing of same-named function declarations.
