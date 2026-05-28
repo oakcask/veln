@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -10,18 +11,6 @@ test("repository documentation links resolve", () => {
 
   assert.deepEqual(result.errors, []);
   assert.equal(result.valid, true);
-});
-
-test("repository documentation only mentions prompt files in target selection", () => {
-  const promptReferences = docsReferencesTo("prompts/");
-  const referencedFiles = new Set(
-    promptReferences.map((reference) => reference.relativePath),
-  );
-
-  assert.deepEqual([...referencedFiles], ["proposals/target-selection.md"]);
-  assert.equal(promptReferences.length, 4);
-  assert.equal(countReferencesTo(promptReferences, "prompts/TARGET.md"), 3);
-  assert.equal(countReferencesTo(promptReferences, "prompts/NOTARGET"), 2);
 });
 
 test("proposal target selection preserves the no-target route", () => {
@@ -49,10 +38,9 @@ test("proposal target selection preserves the no-target route", () => {
   for (const snippet of targetSelectionRouteSnippets()) {
     assertIncludes(targetSelection, snippet);
   }
-  assertIncludes(targetSelection, "`prompts/TARGET.md` is absent");
   assertIncludes(
     targetSelection,
-    "`prompts/NOTARGET` says no implementation target is selected",
+    "No active proposal target is selected by the local prompt state",
   );
   assertIncludes(
     targetSelection,
@@ -258,8 +246,7 @@ test("no-target prompt state does not resolve to an active proposal", () => {
 
   assert.deepEqual(tableRowsInSection(targetSelection, "## Prompt Evidence"), [
     "| Evidence | Decision |",
-    "| `prompts/TARGET.md` is absent. | Do not infer a target. |",
-    "| `prompts/NOTARGET` says no implementation target is selected from the current proposals. | Keep selection unset. |",
+    "| No active proposal target is selected by the local prompt state. | Keep selection unset. |",
   ]);
   assertNoTargetSelectionOutcome(targetSelection);
 
@@ -503,6 +490,31 @@ test("rejects links escaping the docs root", () => {
   ]);
 });
 
+test("rejects references to unversioned paths", () => {
+  using fixture = tempDocs("doc-links-unversioned");
+  fixture.git("init");
+  fixture.write("kept/file.md", "# Present\n");
+  fixture.git("add", "kept/file.md");
+  fixture.write(
+    "README.md",
+    [
+      "# Start",
+      "",
+      "Versioned paths like `kept/file.md` are allowed.",
+      "Do not cite `cache/generated.md`.",
+      "Do not mention build output like `Entry.class`.",
+    ].join("\n"),
+  );
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, [
+    "README.md:4: references unversioned path: cache/generated.md",
+    "README.md:5: references unversioned path: Entry.class",
+  ]);
+});
+
 test("resolves percent-encoded local paths and anchors", () => {
   using fixture = tempDocs("doc-links-encoded");
   fixture.write(
@@ -700,6 +712,15 @@ function tempDocs(name) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `${name}-`));
   return {
     root,
+    git(...args) {
+      const result = spawnSync("git", args, { cwd: root });
+      assert.equal(result.status, 0, result.stderr.toString());
+    },
+    writeRoot(relativePath, text) {
+      const target = path.join(root, relativePath);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, text);
+    },
     write(relativePath, text) {
       const target = path.join(root, relativePath);
       fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -743,32 +764,6 @@ function readNoTargetPrompt() {
     "- Use `docs/proposals/implementation-route.md` for promotion mechanics after a",
     "  concrete proposal is selected.",
   ].join("\n");
-}
-
-function docsReferencesTo(textFragment) {
-  const docsRoot = path.resolve("docs");
-  const references = [];
-
-  for (const file of listMarkdownFiles(docsRoot)) {
-    const text = fs.readFileSync(file, "utf8");
-    const lines = text.split("\n");
-    lines.forEach((line, index) => {
-      if (line.includes(textFragment)) {
-        references.push({
-          line: index + 1,
-          relativePath: path.relative(docsRoot, file),
-          text: line.trim(),
-        });
-      }
-    });
-  }
-
-  return references;
-}
-
-function countReferencesTo(references, textFragment) {
-  return references.filter((reference) => reference.text.includes(textFragment))
-    .length;
 }
 
 function assertIncludes(text, expected) {
