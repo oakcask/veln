@@ -120,7 +120,7 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   );
   assertIncludes(
     namesEffectsFull,
-    "descriptor-only pure helpers: `vec_push`, `vec_map`",
+    "descriptor-only pure helpers: `vec_map`, `vec_filter`",
   );
 });
 

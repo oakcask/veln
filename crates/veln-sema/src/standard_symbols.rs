@@ -130,7 +130,6 @@ const DESCRIPTOR_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("string_split_once"),
     prelude_symbol_descriptor("string_parse_int"),
     prelude_symbol_descriptor("int_to_string"),
-    prelude_symbol_descriptor("vec_push"),
     prelude_symbol_descriptor("vec_map"),
     prelude_symbol_descriptor("vec_filter"),
     prelude_symbol_descriptor("vec_fold"),
@@ -144,6 +143,7 @@ const DESCRIPTOR_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
 const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_LEN),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_IS_EMPTY),
+    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_PUSH),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_CONCAT),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_MAP),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_AND_THEN),
@@ -265,7 +265,7 @@ mod tests {
 
     #[test]
     fn descriptor_table_carries_prelude_purity_metadata() {
-        let symbol = prelude_symbol("vec_push").expect("prelude descriptor");
+        let symbol = prelude_symbol("dict_get").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(symbol.effects.is_empty());
@@ -323,6 +323,7 @@ mod tests {
             [
                 "vec_len",
                 "vec_is_empty",
+                "vec_push",
                 "vec_concat",
                 "option_map",
                 "option_and_then",
@@ -348,7 +349,6 @@ mod tests {
                 "string_split_once",
                 "string_parse_int",
                 "int_to_string",
-                "vec_push",
                 "vec_map",
                 "vec_filter",
                 "vec_fold",

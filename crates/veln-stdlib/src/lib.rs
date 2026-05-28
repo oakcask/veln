@@ -22,6 +22,8 @@ pub static CORE_PRELUDE_VEC_LEN: StdlibSource = core_prelude_source("vec_len");
 
 pub static CORE_PRELUDE_VEC_IS_EMPTY: StdlibSource = core_prelude_source("vec_is_empty");
 
+pub static CORE_PRELUDE_VEC_PUSH: StdlibSource = core_prelude_source("vec_push");
+
 pub static CORE_PRELUDE_VEC_CONCAT: StdlibSource = core_prelude_source("vec_concat");
 
 pub static CORE_PRELUDE_OPTION_MAP: StdlibSource = core_prelude_source("option_map");

@@ -12,6 +12,10 @@ fn vec_is_empty(items: Vec(A)) -> Bool effects []
 	vec_len(items) == 0
 end
 
+fn vec_push(items: Vec(A), value: A) -> Vec(A) effects []
+	vec_concat(items, [value])
+end
+
 fn vec_concat(left: Vec(A), right: Vec(A)) -> Vec(A) effects []
 	vec_fold(right, left, vec_append)
 end
