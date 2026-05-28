@@ -11,7 +11,7 @@ only when a current proposal or specification page points back to broad rational
   [../../specification/README.md](../../specification/README.md).
 - Design-wall open-question route:
   [open-questions.md](open-questions.md).
-- Proposed repair command target:
+- Repair command record:
   [repair-command.md](repair-command.md).
 
 ## Read When

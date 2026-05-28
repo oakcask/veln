@@ -3,6 +3,10 @@
 Status: complete for selected implementation targets and the current advisory
 repair candidate boundary.
 
+This record is historical for the advisory candidate slice. The later repair
+command promotion is reviewed in
+[repair-command-completion.md](repair-command-completion.md).
+
 This review covers the former no-target route. The historical implementation
 target was the repair-loop portion of the design-wall material under
 [../proposals/agent-language-spec-wall/README.md](../proposals/agent-language-spec-wall/README.md).

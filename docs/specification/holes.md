@@ -8,7 +8,7 @@ exact rules or examples.
 - [Hole diagnostics and details](holes-full.md#hole-diagnostics) defines
   `hole.unfilled`, partial check status, and stable diagnostic detail fields.
 - [repair-candidates.md](repair-candidates.md) is the first stop for advisory
-  candidate policy, `check --json` boundaries, and future-command routing.
+  candidate policy, `check --json` boundaries, and the `repair` command gate.
 - [Repair candidates](holes-full.md#repair-candidates) defines exact candidate
   query records, ranking rules, and safe-repair matching examples.
 - [Satisfy constraints](holes-full.md#satisfy-constraints) defines `satisfy`

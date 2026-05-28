@@ -12,7 +12,8 @@ you need exact rules or examples.
 - [holes.md](holes.md): implemented hole diagnostics, `satisfy` constraints,
   candidate ranking details, and satisfy predicate validation.
 - [repair-candidates.md](repair-candidates.md): advisory candidate records,
-  application policy, concrete unapplied edits, and future-command boundary.
+  application policy, concrete edits, `repair` command gate, and future-work
+  boundary.
 
 ## Read When
 
@@ -21,7 +22,7 @@ you need exact rules or examples.
 - Use [holes.md](holes.md) before changing hole diagnostics, expected-type flow,
   satisfy validation, or candidate ranking details.
 - Use [repair-candidates.md](repair-candidates.md) before changing candidate
-  fields, application policy, or future repair-command boundaries.
+  fields, application policy, `repair`, or future repair-command boundaries.
 - Use [contracts-full.md](contracts-full.md) or [holes-full.md](holes-full.md)
   when a task needs exact rules.
 - Use [contracts-holes-full.md](contracts-holes-full.md) only when a broad

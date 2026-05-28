@@ -99,10 +99,10 @@ automatic repair authorization is strict.
 
 ## Open Detail
 
-The future repair command still needs a full result schema for candidate
-preview, acceptance, rejection, and user-confirmed override. This decision only
-settles the ordinary check severity and the default automatic-application
-gate.
+The implemented repair command now has a result schema for preview,
+application refusal, and verification. User-confirmed override remains outside
+this decision, which settles the ordinary check severity and the default
+automatic-application gate.
 
 The source syntax for attaching `satisfy` predicates remains resolved
 elsewhere. This result assumes the predicate and candidate binding already

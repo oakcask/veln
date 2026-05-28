@@ -13,15 +13,7 @@ use crate::surface::load_surface_module;
 pub(crate) fn check(json: bool, inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let mut project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
-    let doctests = doctest_sources(&project.files);
-    let mut diagnostics = doctests.diagnostics;
-    project.files.extend(doctests.sources);
-
-    let (module, parse_diagnostics) = load_surface_module(&project);
-    diagnostics.extend(parse_diagnostics);
-    diagnostics.extend(lower_checked_surface_module(&module).diagnostics);
-
-    let diagnostics = reconcile_expected_doctest_failures(diagnostics, &doctests.expected_failures);
+    let diagnostics = check_diagnostics(&mut project);
     let has_errors = has_error(&diagnostics);
     let envelope = DiagnosticEnvelope::new(tool_info(), diagnostics);
 
@@ -36,4 +28,16 @@ pub(crate) fn check(json: bool, inputs: Vec<PathBuf>) -> Result<ExitCode, String
     } else {
         ExitCode::SUCCESS
     })
+}
+
+pub(crate) fn check_diagnostics(project: &mut Project) -> Vec<veln_diagnostics::Diagnostic> {
+    let doctests = doctest_sources(&project.files);
+    let mut diagnostics = doctests.diagnostics;
+    project.files.extend(doctests.sources);
+
+    let (module, parse_diagnostics) = load_surface_module(&project);
+    diagnostics.extend(parse_diagnostics);
+    diagnostics.extend(lower_checked_surface_module(&module).diagnostics);
+
+    reconcile_expected_doctest_failures(diagnostics, &doctests.expected_failures)
 }

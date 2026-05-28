@@ -8,9 +8,10 @@ current workspace. Implemented decisions were moved to
 
 ## Read First
 
-- [repair-command.md](repair-command.md) routes the proposed repair command
-  target, current advisory candidate behavior, and unresolved command-level
-  work.
+- [repair-command.md](repair-command.md) routes the implemented repair command
+  record, current advisory candidate behavior, and remaining command-level
+  work; open [repair-command-full.md](repair-command-full.md) only for
+  completion and handoff criteria.
 - [design-brief.md](design-brief.md) routes to the broad thesis and
   first-slice design anchors; open
   [design-brief-full.md](design-brief-full.md) only for the original brief.

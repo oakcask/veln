@@ -9,12 +9,9 @@ behavior, gates, or output boundaries.
 - [`veln fmt`](#veln-fmt)
 - [`veln run`](#veln-run)
 - [`veln test`](#veln-test)
+- [`veln repair`](#veln-repair)
 - [`veln explain`](#veln-explain)
 - [`veln lsp`](#veln-lsp)
-
-No `veln repair` command or applying repair workflow is implemented. Use
-[repair-candidates.md](repair-candidates.md) for the advisory candidate
-boundary and future-command routing.
 
 <a id="veln-check"></a>
 
@@ -187,6 +184,48 @@ Doctest output mismatches become failed cases with `failure.kind: "output"` and
 expected text, actual text, first differing logical line, bounded captured
 stdio events for the actual stream, and the expected-output fence span when
 available.
+
+<a id="veln-repair"></a>
+
+## `veln repair [--json] [--apply | --dry-run] [--candidate CANDIDATE_ID] [path ...]`
+
+`repair` uses the same source discovery and static analysis path as `check` to
+collect advisory hole repair candidates. Without `--apply`, the command is a
+preview: it prints command-level repair candidates and writes no source files.
+`--dry-run` is an explicit spelling of that default preview mode.
+
+Candidate input is recomputed from the current source files; the command does
+not consume a saved `check --json` file. Command-level candidate ids use the
+form `repair-N`. The original advisory candidate id from diagnostic details is
+also preserved as `source_candidate_id`. `--candidate` may name either id, but
+application refuses ambiguous ids.
+
+Application is deliberately narrow. `--apply` applies exactly one candidate
+only when the selected advisory candidate has
+`application_policy: "safe_repair_candidate"` and
+`application_status: "unapplied"`. If no candidate is selected and exactly one
+safe unapplied candidate exists, that candidate is selected. If multiple safe
+candidates exist, application refuses until `--candidate` selects one.
+
+The implemented edit representation is a single source-relative replacement.
+The replacement target must still be within the current file, must be on
+character boundaries, and must still name a hole. For a hole with a `satisfy`
+suffix, applying the repair replaces the hole and its suffix with the candidate
+replacement. Multi-file edits, multiple edits per candidate, saved candidate
+files, user-confirmed overrides, and partial application are not implemented.
+
+After writing, `repair --apply` reruns the same check analysis over the selected
+inputs. If verification reports any error diagnostic, the command restores the
+original file and exits unsuccessfully. Hint-only partial status, including
+remaining holes elsewhere, does not by itself roll back an applied edit.
+
+Human preview output lists candidate ids, summaries, target spans,
+replacements, and application policy. Human apply output reports the applied
+candidate and verification result. Human refusal output starts with
+`repair refused:` followed by the failed gate.
+
+With `--json`, `repair` emits the repair JSON record described in
+[repair-json.md](repair-json.md).
 
 <a id="veln-explain"></a>
 

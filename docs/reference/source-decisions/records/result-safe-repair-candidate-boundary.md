@@ -61,7 +61,8 @@ evolving evidence payloads behind the prototype boundary.
 
 ## First-Slice Rules
 
-- `veln repair` remains out of scope for the first implementation.
+- `veln repair` remained out of scope for the initial advisory-candidate
+  implementation.
 - Ordinary `veln check --json` diagnostics may include repair-relevant context,
   but first-slice diagnostics must not imply that an edit has been authorized.
 - A concrete candidate edit, if emitted by a prototype, must include:
