@@ -27,12 +27,40 @@ path = "selection.mode"
 equals = "explicit"
 
 [[json_assert]]
+path = "selection.confidence"
+equals = "complete"
+
+[[json_assert]]
+path = "selection.reason"
+equals = "user_selected"
+
+[[json_assert]]
 path = "summary.total"
-equals = 1
+equals = 2
 
 [[json_assert]]
 path = "summary.passed"
-equals = 1
+equals = 2
+
+[[json_assert]]
+path = "summary.failed"
+equals = 0
+
+[[json_assert]]
+path = "summary.skipped"
+equals = 0
+
+[[json_assert]]
+path = "summary.todo"
+equals = 0
+
+[[json_assert]]
+path = "summary.blocked"
+equals = 0
+
+[[json_assert]]
+path = "summary.errors"
+equals = 0
 
 [[json_assert]]
 path = "cases.0.name"
@@ -44,4 +72,48 @@ equals = "test"
 
 [[json_assert]]
 path = "cases.0.status"
+equals = "passed"
+
+[[json_assert]]
+path = "cases.0.reason"
+equals = null
+
+[[json_assert]]
+path = "cases.0.failure"
+equals = null
+
+[[json_assert]]
+path = "cases.0.events.0.kind"
+equals = "stdio"
+
+[[json_assert]]
+path = "cases.0.events.0.stream"
+equals = "stdout"
+
+[[json_assert]]
+path = "cases.0.events.0.operation"
+equals = "println"
+
+[[json_assert]]
+path = "cases.0.events.0.text"
+equals = "tested"
+
+[[json_assert]]
+path = "cases.0.events.0.terminator"
+equals = "newline"
+
+[[json_assert]]
+path = "cases.0.events.0.sequence"
+equals = 1
+
+[[json_assert]]
+path = "cases.1.name"
+equals = "fallible_behavior"
+
+[[json_assert]]
+path = "cases.1.kind"
+equals = "test"
+
+[[json_assert]]
+path = "cases.1.status"
 equals = "passed"

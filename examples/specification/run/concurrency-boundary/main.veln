@@ -28,9 +28,21 @@ pub fn main() -> () effects [concurrency, stdio]
     Some(value) => value
     None => "closed"
   end
+  let closed = channel::bounded[String](1)
+  channel::close(closed.tx)
+  let closed_recv: String = match channel::recv(closed.rx)
+    Some(value) => value
+    None => "closed"
+  end
+  let closed_send: String = match channel::send(closed.tx, "late")
+    Ok(_) => "sent"
+    Err(_) => "send-error"
+  end
   channel::close(pair.tx)
   stdio::println(task_output)
   stdio::println(typed_task_output)
   stdio::println(channel_output)
   stdio::println(inferred_output)
+  stdio::println(closed_recv)
+  stdio::println(closed_send)
 end

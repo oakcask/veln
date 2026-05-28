@@ -80,6 +80,8 @@ against the built `veln` binary.
   expressions plus call and constructor arity mismatches.
 - `check/contracts-result-binding/`: `require`, `ensure`, `invariant`,
   explicit result bindings, and pure prelude calls in predicates.
+- `check/contract-result-binding-scope/`: explicit result bindings are visible
+  only to same-function postconditions, and bare `result` is ordinary.
 - `check/contract-predicate-calls/`: contract predicates with alias-qualified
   pure calls, pure call return fields, numeric pure-call results, and function
   declaration values passed to predicate helpers.
@@ -118,7 +120,8 @@ against the built `veln` binary.
 - `run/prelude-helpers/`: result-bearing prelude traversal helpers and
   runtime stdio.
 - `run/prelude-containers/`: vec, dictionary, option, result, and string
-  prelude helper value semantics, including non-mutating container updates.
+  prelude helper value semantics, including non-mutating container updates,
+  source-order vec traversal, and empty-vec checks.
 - `run/result-propagation/`: `Result` propagation, dictionary lookup, function
   values, and runtime JSON success.
 - `run/selected-reachability/`: selected-entry reachability, ignored
@@ -137,7 +140,8 @@ against the built `veln` binary.
   declared effect boundaries, including present and missing environment
   lookups.
 - `run/concurrency-boundary/`: task and channel standard calls with declared
-  concurrency effects, including explicit and inferred item types.
+  concurrency effects, including explicit and inferred item types, sender
+  closing, closed receives, and failed sends.
 - `run/concurrency-selection/`: receive, priority selection, timeout selection,
   non-priority selection rotation, and task cancellation under the concurrency
   effect.
@@ -155,7 +159,8 @@ against the built `veln` binary.
   `Result` propagation, and stdio output.
 - `test/discovered-tests/`: targetless discovery of conventional test files
   and non-test files containing top-level tests.
-- `test/top-level-tests/`: top-level `test` declarations selected through the
+- `test/top-level-tests/`: top-level `test` declarations, including
+  `Result((), E)` tests and captured stdio event JSON, selected through the
   public test command.
 - `test/doctest-output/`: doctest expected-output fences.
 - `test/doctest-result-metadata/`: doctest `error` metadata and hidden setup.
@@ -164,7 +169,7 @@ against the built `veln` binary.
 - `test/static-gate-blocked-json/`: static gates block discovered cases in
   JSON output.
 - `test/doctest-output-mismatch-json/`: expected-output mismatch failure
-  details.
+  details, including first-difference and captured-event records.
 - `test/runtime-contract-failure-json/`: runtime contract failure details
   inside a selected test case.
 - `test/source-to-test-convention/`: explicit source targets selecting a paired

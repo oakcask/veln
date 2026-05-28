@@ -29,6 +29,10 @@ fn label_error(error: String) -> String effects []
   error
 end
 
+fn add(left: Int, right: Int) -> Int effects []
+  left + right
+end
+
 pub fn main() -> () effects [stdio]
   let values: Vec(Int) = vec_concat(vec_push([1], 2), [3])
   let kept: Vec(Int) = vec_filter(values, odd)
@@ -63,8 +67,9 @@ pub fn main() -> () effects [stdio]
     Some(value) => int_to_string(value)
     None => "none"
   end
+  let mapped: Vec(Int) = vec_map([1, 2], double)
   let third: String = match result_and_then(result_map(Ok(3), double), add_one)
-    Ok(value) => int_to_string(value + vec_len(kept))
+    Ok(value) => int_to_string(value + vec_len(kept) + vec_fold(mapped, 0, add))
     Err(error) => error
   end
   let fourth: String = match result_map_err(string_parse_int("bad"), label_error)
@@ -80,10 +85,15 @@ pub fn main() -> () effects [stdio]
     Ok(items) => int_to_string(vec_len(items))
     Err(error) => error
   end
+  let eighth: String = match vec_is_empty([])
+    true => "empty"
+    false => "nonempty"
+  end
   stdio::println(second)
   stdio::println(third)
   stdio::println(fourth)
   stdio::println(fifth)
   stdio::println(sixth)
   stdio::println(seventh)
+  stdio::println(eighth)
 end

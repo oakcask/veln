@@ -23,6 +23,10 @@ path = "status"
 equals = "passed"
 
 [[json_assert]]
+path = "exit_code"
+equals = 0
+
+[[json_assert]]
 path = "stdout"
 equals = "3\nctx\n"
 
