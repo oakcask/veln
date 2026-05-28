@@ -11,6 +11,7 @@
     "syntaxes/veln.tmLanguage.json"
   ],
   "scripts": {
+    "test": "node --check extension.js && node --test extension.test.mjs",
     "vsix": "vsce package --no-dependencies --allow-missing-repository"
   },
   "extensionKind": [

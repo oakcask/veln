@@ -26,11 +26,13 @@ const tokenModifiers = [
 ];
 
 class VelnLanguageServer {
-  constructor(command, args, cwd, output) {
+  constructor(command, args, cwd, output, onDiagnostics) {
     this.nextId = 1;
     this.pending = new Map();
     this.buffer = Buffer.alloc(0);
     this.output = output;
+    this.onDiagnostics = onDiagnostics;
+    this.syncedDocuments = new Map();
     this.process = childProcess.spawn(command, args, {
       cwd,
       stdio: ["pipe", "pipe", "pipe"],
@@ -65,16 +67,43 @@ class VelnLanguageServer {
       });
   }
 
-  semanticTokens(document) {
+  syncDocument(document) {
+    const uri = document.uri.toString();
+    if (this.syncedDocuments.get(uri) === document.version) {
+      return;
+    }
     const textDocument = {
-      uri: document.uri.toString(),
+      uri,
       languageId: "veln",
       version: document.version,
       text: document.getText(),
     };
-    this.sendNotification("textDocument/didOpen", { textDocument });
+    if (this.syncedDocuments.has(uri)) {
+      this.sendNotification("textDocument/didChange", {
+        textDocument: { uri, version: document.version },
+        contentChanges: [{ text: textDocument.text }],
+      });
+    } else {
+      this.sendNotification("textDocument/didOpen", { textDocument });
+    }
+    this.syncedDocuments.set(uri, document.version);
+  }
+
+  closeDocument(document) {
+    const uri = document.uri.toString();
+    if (!this.syncedDocuments.has(uri)) {
+      return;
+    }
+    this.syncedDocuments.delete(uri);
+    this.sendNotification("textDocument/didClose", {
+      textDocument: { uri },
+    });
+  }
+
+  semanticTokens(document) {
+    this.syncDocument(document);
     return this.sendRequest("textDocument/semanticTokens/full", {
-      textDocument: { uri: textDocument.uri },
+      textDocument: { uri: document.uri.toString() },
     });
   }
 
@@ -128,8 +157,16 @@ class VelnLanguageServer {
       }
       const body = this.buffer.slice(bodyStart, bodyEnd).toString();
       this.buffer = this.buffer.slice(bodyEnd);
-      this.handleResponse(JSON.parse(body));
+      this.handleMessage(JSON.parse(body));
     }
+  }
+
+  handleMessage(message) {
+    if (message.method === "textDocument/publishDiagnostics") {
+      this.onDiagnostics(message.params);
+      return;
+    }
+    this.handleResponse(message);
   }
 
   handleResponse(message) {
@@ -165,9 +202,50 @@ function resolveServerArguments(args) {
   return args.map((arg) => resolveServerCommand(arg));
 }
 
+function applyDiagnostics(collection, params) {
+  const uri = vscode.Uri.parse(params.uri);
+  const diagnostics = params.diagnostics.map((diagnostic) => {
+    const item = new vscode.Diagnostic(
+      new vscode.Range(
+        new vscode.Position(
+          diagnostic.range.start.line,
+          diagnostic.range.start.character,
+        ),
+        new vscode.Position(
+          diagnostic.range.end.line,
+          diagnostic.range.end.character,
+        ),
+      ),
+      diagnostic.message,
+      toDiagnosticSeverity(diagnostic.severity),
+    );
+    item.code = diagnostic.code;
+    item.source = diagnostic.source ?? "veln";
+    return item;
+  });
+  collection.set(uri, diagnostics);
+}
+
+function toDiagnosticSeverity(severity) {
+  switch (severity) {
+    case 1:
+      return vscode.DiagnosticSeverity.Error;
+    case 2:
+      return vscode.DiagnosticSeverity.Warning;
+    case 3:
+      return vscode.DiagnosticSeverity.Information;
+    case 4:
+      return vscode.DiagnosticSeverity.Hint;
+    default:
+      return vscode.DiagnosticSeverity.Error;
+  }
+}
+
 function activate(context) {
   const output = vscode.window.createOutputChannel("Veln");
+  const diagnostics = vscode.languages.createDiagnosticCollection("veln");
   context.subscriptions.push(output);
+  context.subscriptions.push(diagnostics);
   const command = vscode.workspace
     .getConfiguration("veln")
     .get("server.path", "veln");
@@ -179,6 +257,7 @@ function activate(context) {
     resolveServerArguments(args),
     workspaceFolderPath(),
     output,
+    (params) => applyDiagnostics(diagnostics, params),
   );
   const legend = new vscode.SemanticTokensLegend(tokenTypes, tokenModifiers);
   const provider = {
@@ -188,6 +267,33 @@ function activate(context) {
     },
   };
   context.subscriptions.push(server);
+  for (const document of vscode.workspace.textDocuments) {
+    if (document.languageId === "veln") {
+      server.syncDocument(document);
+    }
+  }
+  context.subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument((document) => {
+      if (document.languageId === "veln") {
+        server.syncDocument(document);
+      }
+    }),
+  );
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      if (event.document.languageId === "veln") {
+        server.syncDocument(event.document);
+      }
+    }),
+  );
+  context.subscriptions.push(
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      if (document.languageId === "veln") {
+        server.closeDocument(document);
+        diagnostics.delete(document.uri);
+      }
+    }),
+  );
   context.subscriptions.push(
     vscode.languages.registerDocumentSemanticTokensProvider(
       { language: "veln" },
@@ -202,4 +308,9 @@ function deactivate() {}
 module.exports = {
   activate,
   deactivate,
+  _test: {
+    VelnLanguageServer,
+    applyDiagnostics,
+    toDiagnosticSeverity,
+  },
 };

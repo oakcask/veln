@@ -5,8 +5,11 @@ use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
 
+use veln_ast::{SurfaceModule, lower_surface_ast};
+use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
-use veln_source::SourceFile;
+use veln_source::{SourceFile, SourceSpan};
+use veln_syntax::{ParseDiagnostic, parse};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SemanticTokensLegend {
@@ -42,6 +45,26 @@ pub fn semantic_tokens_full(source: &SourceFile) -> SemanticTokensFull {
         })
         .collect();
     SemanticTokensFull { data }
+}
+
+pub fn diagnostics(source: &SourceFile) -> Vec<Diagnostic> {
+    let parsed = parse(source);
+    let parse_diagnostics = parsed
+        .diagnostics
+        .iter()
+        .map(parse_diagnostic_to_envelope)
+        .collect::<Vec<_>>();
+    if !parse_diagnostics.is_empty() {
+        return parse_diagnostics;
+    }
+
+    let lowered = lower_surface_ast(&parsed.tree);
+    let module = SurfaceModule {
+        module: lowered.module,
+        uses: lowered.uses,
+        functions: lowered.functions,
+    };
+    veln_sema::lower_checked_surface_module(&module).diagnostics
 }
 
 pub fn run_stdio() -> io::Result<()> {
@@ -91,7 +114,8 @@ impl Server {
                     extract_string_field(message, "uri"),
                     extract_string_field(message, "text"),
                 ) {
-                    self.documents.insert(uri, text);
+                    self.documents.insert(uri.clone(), text);
+                    return vec![publish_diagnostics(&uri, self.document_text(&uri))];
                 }
                 Vec::new()
             }
@@ -100,7 +124,15 @@ impl Server {
                     extract_string_field(message, "uri"),
                     extract_string_field(message, "text"),
                 ) {
-                    self.documents.insert(uri, text);
+                    self.documents.insert(uri.clone(), text);
+                    return vec![publish_diagnostics(&uri, self.document_text(&uri))];
+                }
+                Vec::new()
+            }
+            "textDocument/didClose" => {
+                if let Some(uri) = extract_string_field(message, "uri") {
+                    self.documents.remove(&uri);
+                    return vec![empty_publish_diagnostics(&uri)];
                 }
                 Vec::new()
             }
@@ -146,6 +178,139 @@ fn semantic_tokens_result(uri: &str, text: String) -> String {
         .collect::<Vec<_>>()
         .join(",");
     format!("{{\"data\":[{data}]}}")
+}
+
+fn publish_diagnostics(uri: &str, text: String) -> String {
+    let source = SourceFile::new(display_path(uri), text);
+    let diagnostics = diagnostics(&source)
+        .into_iter()
+        .filter(|diagnostic| diagnostic_applies_to_uri(diagnostic, uri))
+        .map(|diagnostic| lsp_diagnostic_json(&diagnostic))
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        "{{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{{\"uri\":\"{}\",\"diagnostics\":[{diagnostics}]}}}}",
+        escape_json(uri)
+    )
+}
+
+fn empty_publish_diagnostics(uri: &str) -> String {
+    format!(
+        "{{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{{\"uri\":\"{}\",\"diagnostics\":[]}}}}",
+        escape_json(uri)
+    )
+}
+
+fn diagnostic_applies_to_uri(diagnostic: &Diagnostic, uri: &str) -> bool {
+    diagnostic
+        .span
+        .as_ref()
+        .is_none_or(|span| span.file.as_str() == display_path(uri))
+}
+
+fn lsp_diagnostic_json(diagnostic: &Diagnostic) -> String {
+    format!(
+        "{{\"range\":{},\"severity\":{},\"code\":\"{}\",\"source\":\"veln\",\"message\":\"{}\"}}",
+        range_json(diagnostic.span.as_ref()),
+        severity_code(diagnostic.severity),
+        escape_json(&diagnostic.id),
+        escape_json(&diagnostic.message),
+    )
+}
+
+fn range_json(span: Option<&SourceSpan>) -> String {
+    let Some(span) = span else {
+        return "{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":0}}"
+            .to_string();
+    };
+    format!(
+        "{{\"start\":{},\"end\":{}}}",
+        position_json(span.start.line, span.start.column),
+        position_json(span.end.line, span.end.column),
+    )
+}
+
+fn position_json(line: usize, column: usize) -> String {
+    format!(
+        "{{\"line\":{},\"character\":{}}}",
+        line.saturating_sub(1),
+        column.saturating_sub(1),
+    )
+}
+
+fn severity_code(severity: Severity) -> u8 {
+    match severity {
+        Severity::Error => 1,
+        Severity::Warning => 2,
+        Severity::Info => 3,
+        Severity::Hint => 4,
+    }
+}
+
+fn parse_diagnostic_to_envelope(diagnostic: &ParseDiagnostic) -> Diagnostic {
+    let kind = if diagnostic.parser_context == "contract_predicate" {
+        DiagnosticKind::Contract
+    } else {
+        DiagnosticKind::Parse
+    };
+    Diagnostic::new(
+        diagnostic.id,
+        Severity::Error,
+        kind,
+        diagnostic.message.clone(),
+        diagnostic.span.clone(),
+        JsonValue::object([
+            ("phase", JsonValue::string("parse")),
+            ("node_id", JsonValue::Null),
+            (
+                "parser_context",
+                JsonValue::string(diagnostic.parser_context),
+            ),
+            (
+                "unexpected",
+                JsonValue::object([
+                    (
+                        "kind",
+                        JsonValue::string(diagnostic.unexpected.kind.clone()),
+                    ),
+                    (
+                        "text",
+                        JsonValue::string(diagnostic.unexpected.text.clone()),
+                    ),
+                ]),
+            ),
+            (
+                "expected",
+                JsonValue::array(
+                    diagnostic
+                        .expected
+                        .iter()
+                        .map(|expected| JsonValue::string(*expected)),
+                ),
+            ),
+            (
+                "recovery",
+                JsonValue::object([
+                    (
+                        "strategy",
+                        JsonValue::string(diagnostic.recovery.strategy.as_str()),
+                    ),
+                    (
+                        "anchor",
+                        diagnostic
+                            .recovery
+                            .anchor
+                            .as_ref()
+                            .map_or(JsonValue::Null, |anchor| JsonValue::string(anchor.clone())),
+                    ),
+                    (
+                        "dropped_token_count",
+                        JsonValue::Number(diagnostic.recovery.dropped_token_count as i64),
+                    ),
+                ]),
+            ),
+        ]),
+    )
 }
 
 fn read_message(input: &mut impl BufRead) -> io::Result<Option<String>> {
@@ -353,6 +518,48 @@ mod tests {
         assert_eq!(responses.len(), 1);
         assert!(responses[0].contains(r#""id":2"#));
         assert!(responses[0].contains(r#""data":["#));
+    }
+
+    #[test]
+    fn server_publishes_parse_diagnostics_for_open_document() {
+        let mut server = Server::default();
+
+        let responses = server.handle_message(
+            r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://main.veln","text":"fn\n"}}}"#,
+        );
+
+        assert_eq!(responses.len(), 1);
+        assert!(responses[0].contains(r#""method":"textDocument/publishDiagnostics""#));
+        assert!(responses[0].contains(r#""source":"veln""#));
+        assert!(responses[0].contains(r#""severity":1"#));
+        assert!(responses[0].contains(r#""code":"parse."#));
+    }
+
+    #[test]
+    fn server_publishes_semantic_diagnostics_after_parse_succeeds() {
+        let mut server = Server::default();
+
+        let responses = server.handle_message(
+            r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://main.veln","text":"pub fn main() -> Int\n  1\nend\n"}}}"#,
+        );
+
+        assert_eq!(responses.len(), 1);
+        assert!(responses[0].contains(r#""code":"effect.missing_public""#));
+    }
+
+    #[test]
+    fn server_clears_diagnostics_for_closed_document() {
+        let mut server = Server::default();
+        server.handle_message(
+            r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://main.veln","text":"fn\n"}}}"#,
+        );
+
+        let responses = server.handle_message(
+            r#"{"jsonrpc":"2.0","method":"textDocument/didClose","params":{"textDocument":{"uri":"file://main.veln"}}}"#,
+        );
+
+        assert_eq!(responses.len(), 1);
+        assert!(responses[0].contains(r#""diagnostics":[]"#));
     }
 
     #[test]
