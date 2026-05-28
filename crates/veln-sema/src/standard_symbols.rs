@@ -132,7 +132,6 @@ const DESCRIPTOR_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("int_to_string"),
     prelude_symbol_descriptor("vec_len"),
     prelude_symbol_descriptor("vec_push"),
-    prelude_symbol_descriptor("vec_concat"),
     prelude_symbol_descriptor("vec_map"),
     prelude_symbol_descriptor("vec_filter"),
     prelude_symbol_descriptor("vec_fold"),
@@ -145,6 +144,7 @@ const DESCRIPTOR_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
 
 const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_IS_EMPTY),
+    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_CONCAT),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_MAP),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_AND_THEN),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_UNWRAP_OR),

@@ -304,9 +304,11 @@ int_to_string(value: Int) -> String
 ### Value Semantics
 
 Container update helpers return new frozen values and do not mutate their input
-containers in place. `vec_is_empty` returns whether a vec contains no items.
-`dict_contains` returns true when `dict_get` would return `Some` for the same
-dictionary and key, and false when `dict_get` would return `None`.
+containers in place. `vec_concat` returns a vec containing the left input's
+items followed by the right input's items. `vec_is_empty` returns whether a vec
+contains no items. `dict_contains` returns true when `dict_get` would return
+`Some` for the same dictionary and key, and false when `dict_get` would return
+`None`.
 `vec_try_map` evaluates items in source order, stops at the first `Err`, and
 otherwise returns `Ok` containing the mapped frozen vec in source order.
 `vec_try_map_with` follows the same traversal and passes the unchanged context
@@ -322,9 +324,9 @@ fails. `int_to_string` renders an integer for display and string composition.
 
 The implemented standard symbol table has this prelude split:
 
-- source-backed pure helpers: `vec_is_empty`, `dict_contains`, `option_map`,
-  `option_and_then`, `option_unwrap_or`, `result_map`, `result_map_err`, and
-  `result_and_then`
+- source-backed pure helpers: `vec_is_empty`, `vec_concat`, `dict_contains`,
+  `option_map`, `option_and_then`, `option_unwrap_or`, `result_map`,
+  `result_map_err`, and `result_and_then`
 - descriptor-only pure helpers: the other prelude helpers listed in
   [Helper Signatures](#helper-signatures), unless their descriptors record
   source metadata

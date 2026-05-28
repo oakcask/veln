@@ -7434,6 +7434,7 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
             "result_and_then",
             "result_map",
             "result_map_err",
+            "vec_concat",
             "vec_is_empty"
         ]
     );
@@ -7873,6 +7874,18 @@ fn source_backed_vec_is_empty_reports_user_call_site_diagnostics() {
             "end\n",
         ),
         "expected `Vec(unknown)`, but found `Int`",
+    );
+}
+
+#[test]
+fn source_backed_vec_concat_reports_user_call_site_diagnostics() {
+    assert_source_backed_helper_user_call_site_type_mismatch(
+        concat!(
+            "pub fn main(value: Int, other: Vec(Int)) -> Vec(Int) effects []\n",
+            "  vec_concat(value, other)\n",
+            "end\n",
+        ),
+        "expected `Vec(Int)`, but found `Int`",
     );
 }
 
