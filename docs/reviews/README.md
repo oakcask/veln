@@ -5,6 +5,8 @@ gap lists that should guide follow-up work.
 
 ## Read First
 
+- [no-proposal-target-completion.md](no-proposal-target-completion.md)
+  records the completion review for the current no-target prompt state.
 - [jvm-bytecode-backend-completion.md](jvm-bytecode-backend-completion.md)
   records the current completion review for the selected JVM bytecode backend
   proposal and its source-backend cleanup result.
@@ -14,8 +16,6 @@ gap lists that should guide follow-up work.
   completion review for the repair command proposal promotion.
 - [agent-language-spec-wall-completion.md](agent-language-spec-wall-completion.md)
   records the earlier advisory repair candidate boundary review.
-- [no-proposal-target-completion.md](no-proposal-target-completion.md)
-  records the completion review for the current no-target prompt state.
 - [expected-error-doctest-completion.md](expected-error-doctest-completion.md)
   records the completion review for expected-error doctest examples.
 - [toolchain-test-harness-completion.md](toolchain-test-harness-completion.md)

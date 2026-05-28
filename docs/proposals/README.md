@@ -1,30 +1,30 @@
 # Proposals
 
-This directory keeps active proposal targets and implemented proposal records
-that still route cleanup or promotion evidence. Proposal text is not current
-language behavior unless `../specification/` also states it.
+This directory keeps proposal routes, active target candidates, and implemented
+proposal records that still route useful history or cleanup evidence. Proposal
+text is not current language behavior unless `../specification/` also states it.
 
 ## Read First
 
-- Current target and candidate classification:
+- Current state: no active target; target selection records the prompt-file
+  evidence.
+- Target state and candidate classification:
   [target-selection.md](target-selection.md).
-- Implementation starts only after target selection names one short proposal
-  page for behavior absent from `../specification/`.
+- When target selection says no target is active, stop there instead of opening
+  the implementation route.
 - Status labels: [../document-status.md](../document-status.md).
 
-## Proposal Routes
+## Choose One Route
 
-- Target selection, no-target state, implemented records, broad indexes, and
-  exploratory inventories: [target-selection.md](target-selection.md). Start
-  here before inferring work from nearby proposal text.
-- Proposal implementation after one target is selected:
+- Missing, stale, broad, or unset target:
+  [target-selection.md](target-selection.md).
+- Implementation after one active short target is selected:
   [implementation-route.md](implementation-route.md).
-- Source-backed standard library:
-  [self-hosting-standard-library.md](self-hosting-standard-library.md) records
-  completed helper migrations and routes future helper selection.
-- Broad follow-up index:
+- Source-backed standard library helper selection:
+  [self-hosting-standard-library.md](self-hosting-standard-library.md).
+- Broad follow-up ideas that need short target pages:
   [reference-followups.md](reference-followups.md).
-- Design-wall inventory:
+- Agent-language design-wall inventory:
   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md).
 - Implemented proposal records:
   [formatter-stabilization.md](formatter-stabilization.md),
@@ -34,15 +34,9 @@ language behavior unless `../specification/` also states it.
 ## Read When
 
 - Use [target-selection.md](target-selection.md) when a target is missing,
-  unset, stale, or too broad.
+  unset, stale, too broad, or appears to point at implemented history.
 - Use [implementation-route.md](implementation-route.md) for proposal promotion
   mechanics after target selection names one concrete proposal.
-- Use [formatter-stabilization.md](formatter-stabilization.md) for the
-  implemented formatter stabilization record and completion evidence route.
-- Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the implemented
-  JVM backend proposal record. It routes current specification pages,
-  completion evidence, and remaining cleanup without making backend layout
-  details current specification.
 - Use [reference-followups.md](reference-followups.md) for follow-up work that
   is absent from the current specification.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md)
@@ -56,10 +50,10 @@ language behavior unless `../specification/` also states it.
 
 ## Update When
 
-- A target is implemented and the resulting behavior has been documented under
-  `../specification/`.
-- A target is found to be already implemented by the current specification and
-  only remaining proposal work should stay here.
+- A selected target becomes implemented and the resulting behavior is documented
+  under `../specification/`.
+- A candidate is found to be implemented history, broad follow-up work, or
+  exploratory inventory.
 - New proposal work is added, split, superseded, or removed.
 
 ## Skip Unless Needed

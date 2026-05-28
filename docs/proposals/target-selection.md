@@ -7,27 +7,32 @@ Use this page when a task asks for the current target proposal, when
 candidates look similar. This page routes selection only; it does not define
 current language behavior.
 
+## Prompt State
+
+- Current target: none.
+- `prompts/TARGET.md` is absent.
+- `prompts/NOTARGET` says no implementation target is selected from the
+  current proposals.
+- Keep the target unset instead of inferring work from nearby proposal text.
+
 ## Read First
 
-- Current target: none. `prompts/TARGET.md` is absent, and `prompts/NOTARGET`
-  says no implementation target is selected from the current proposals.
-- If `prompts/TARGET.md` is absent and `prompts/NOTARGET` is present, keep the
-  target unset instead of inferring one from nearby proposal text.
 - Current implemented behavior stays in
   [../specification/README.md](../specification/README.md).
 - An implementation target must be one short proposal page that names one
   missing behavior absent from the current specification.
+- If no short proposal page meets that rule, stop here or create one before
+  implementation.
 
 ## Selection Outcomes
 
-- Active target: one short proposal page names behavior missing from
-  `../specification/`. Use [implementation-route.md](implementation-route.md).
-- No-target state: keep selection unset. Stop here or create one short proposal
-  page before implementation.
-- Implemented proposal record: use the matching specification page for current
-  behavior, and open the proposal only for history, evidence, or cleanup.
-- Broad follow-up index or exploratory inventory: split one implementable
-  proposal page before treating any listed idea as a target.
+| State | Route |
+| --- | --- |
+| Active target | Use [implementation-route.md](implementation-route.md). |
+| No target | Keep selection unset. Stop here or create one short proposal page. |
+| Implemented proposal record | Use the matching specification page for current behavior. Open the proposal only for history, evidence, or cleanup. |
+| Broad follow-up index | Split one implementable short proposal page before implementation. |
+| Exploratory inventory | Select or create one short proposal page before implementation. |
 
 ## Selection Rule
 
@@ -41,7 +46,7 @@ current language behavior.
 5. If the behavior is broad or exploratory, split or create a short proposal
    before treating it as an implementation target.
 
-## Current Candidate Classification
+## Candidate Classification
 
 - [self-hosting-standard-library.md](self-hosting-standard-library.md) has no
   active helper target. It can produce a future target only after choosing one
@@ -58,6 +63,17 @@ current language behavior.
   are implemented proposal records. Start from the matching specification page
   unless checking history, evidence, or cleanup.
 
+## Handoff
+
+The current prompt state has no selected target, so there is no proposal
+completion checklist to promote into `../specification/`. Do not update the
+specification or create a stop marker from this state alone.
+
+The next implementation pass should first create or select one short proposal
+page whose behavior is absent from `../specification/`, then use
+[implementation-route.md](implementation-route.md) for the comparison and
+promotion route.
+
 ## Read When
 
 - A prompt target is missing, stale, or points to broad proposal material.
@@ -65,14 +81,6 @@ current language behavior.
 - Splitting broad follow-up material into one implementable proposal.
 - Auditing that proposal text stays out of current behavior documentation until
   code and tests support it.
-
-## Next Route
-
-- After one concrete target is selected, use
-  [implementation-route.md](implementation-route.md) for comparison and
-  promotion mechanics.
-- When no concrete target is selected, stop here or create one short proposal
-  page before implementation work.
 
 ## Skip Unless Needed
 

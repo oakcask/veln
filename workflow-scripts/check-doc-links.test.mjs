@@ -27,6 +27,12 @@ test("proposal target selection preserves the no-target route", () => {
   const targetSelection = readDocsFile("proposals/target-selection.md");
   const proposalsIndex = readDocsFile("proposals/README.md");
   const implementationRoute = readDocsFile("proposals/implementation-route.md");
+  const implementationRouteFull = readDocsFile(
+    "proposals/implementation-route-full.md",
+  );
+  const noTargetReview = readDocsFile(
+    "reviews/no-proposal-target-completion.md",
+  );
   const navigation = readDocsFile("navigation.md");
 
   assert.equal(fs.existsSync(path.join("prompts", "TARGET.md")), false);
@@ -41,19 +47,29 @@ test("proposal target selection preserves the no-target route", () => {
     assertIncludes(targetSelection, snippet);
   }
 
-  assertIncludes(proposalsIndex, "Current target and candidate classification:");
+  assertIncludes(
+    proposalsIndex,
+    "Current state: no active target; target selection records the prompt-file\n" +
+      "  evidence",
+  );
+  assertIncludes(proposalsIndex, "Target state and candidate classification:");
+  assertIncludes(
+    proposalsIndex,
+    "When target selection says no target is active, stop there instead of opening\n" +
+      "  the implementation route",
+  );
   assertIncludes(proposalsIndex, "[target-selection.md](target-selection.md)");
   assertIncludes(
     proposalsIndex,
-    "Target selection, no-target state, implemented records, broad indexes",
+    "Missing, stale, broad, or unset target",
   );
   assertIncludes(
     proposalsIndex,
-    "Proposal implementation after one target is selected",
+    "Implementation after one active short target is selected",
   );
   assertIncludes(
     proposalsIndex,
-    "records\n  completed helper migrations and routes future helper selection",
+    "Source-backed standard library helper selection",
   );
   assertIncludes(
     proposalsIndex,
@@ -61,17 +77,64 @@ test("proposal target selection preserves the no-target route", () => {
   );
   assertIncludes(
     implementationRoute,
-    "Continue here only for an active short proposal page whose behavior is absent",
+    "routes implementation and promotion mechanics; it does not choose targets",
   );
   assertIncludes(
     implementationRoute,
-    "Let [target-selection.md](target-selection.md) handle no-target states",
+    "Stop if selection is unset, broad, exploratory, or implemented history",
+  );
+  assertIncludes(
+    implementationRoute,
+    "The changed behavior is documented under `../specification/` only after code",
   );
   assertIncludes(
     implementationRoute,
     "Do not infer an active target from an implemented record or no-target state",
   );
+  assertIncludes(
+    implementationRouteFull,
+    "selected proposal needs detailed comparison, gap evidence, or promotion cleanup",
+  );
+  assertIncludes(
+    implementationRouteFull,
+    "The short route remains the entry point and\nspecification-update router",
+  );
+  assertIncludes(
+    implementationRouteFull,
+    "Return to [implementation-route.md](implementation-route.md) for entry",
+  );
+  assertIncludes(
+    implementationRouteFull,
+    "Stop here if selection is unset, broad, exploratory, or implemented history",
+  );
+  assertIncludes(
+    implementationRouteFull,
+    "This page does not define current behavior",
+  );
+  assertIncludes(
+    noTargetReview,
+    "Status: completion evidence for no-target routing",
+  );
+  assertIncludes(
+    noTargetReview,
+    "proposal implementation starts until target selection names or creates one\n" +
+      "short proposal page",
+  );
+  assertIncludes(
+    noTargetReview,
+    "`../proposals/implementation-route.md` starts only after target selection\n" +
+      "  names one active short proposal page",
+  );
+  assertIncludes(
+    noTargetReview,
+    "The no-target prompt state has no proposal completion checklist to implement or\n" +
+      "promote",
+  );
   assertIncludes(navigation, "Proposal target selection:");
+  assertIncludes(
+    navigation,
+    "Proposal implementation after target selection names one active short target:",
+  );
 });
 
 test("repair proposal route covers the completed confirmation target", () => {
@@ -294,23 +357,29 @@ function noTargetPromptRoutes() {
 function targetSelectionRouteSnippets() {
   return [
     "Status: routing",
+    "## Prompt State",
     "Current target: none",
-    "If `prompts/TARGET.md` is absent and `prompts/NOTARGET` is present",
-    "keep the\n  target unset instead of inferring one from nearby proposal text",
+    "`prompts/TARGET.md` is absent",
+    "`prompts/NOTARGET` says no implementation target is selected",
+    "Keep the target unset instead of inferring work from nearby proposal text",
     "## Selection Outcomes",
-    "Active target: one short proposal page names behavior missing",
-    "No-target state: keep selection unset",
-    "Implemented proposal record: use the matching specification page",
-    "Broad follow-up index or exploratory inventory: split one implementable",
+    "| Active target | Use [implementation-route.md](implementation-route.md). |",
+    "| No target | Keep selection unset. Stop here or create one short proposal page. |",
+    "| Implemented proposal record | Use the matching specification page for current behavior",
+    "| Broad follow-up index | Split one implementable short proposal page before implementation. |",
+    "| Exploratory inventory | Select or create one short proposal page before implementation. |",
     "not a full detail\n   record, review, reference note, or implemented proposal record",
     "If the behavior is already implemented, use the matching specification page",
     "If the behavior is broad or exploratory, split or create a short proposal",
-    "## Current Candidate Classification",
+    "## Candidate Classification",
     "[self-hosting-standard-library.md](self-hosting-standard-library.md) has no\n  active helper target",
     "[reference-followups.md](reference-followups.md) is a broad follow-up index",
     "keeps exploratory design-wall material",
     "are implemented proposal records",
-    "When no concrete target is selected, stop here or create one short proposal",
+    "## Handoff",
+    "there is no proposal\ncompletion checklist to promote into `../specification/`",
+    "Do not update the\nspecification or create a stop marker from this state alone",
+    "The next implementation pass should first create or select one short proposal",
     "Do not open full proposal records until a short proposal page names the\n  specific detail needed",
   ];
 }

@@ -1,22 +1,17 @@
 # Proposal Implementation Route
 
-Use this page after choosing to turn active proposal text into implemented
-behavior, or when an implemented proposal needs promotion cleanup. Start from
-[target-selection.md](target-selection.md) when the task has not already named
-one concrete target. Use [implementation-route-full.md](implementation-route-full.md)
-only for detailed comparison, promotion, or cleanup.
+Use this page after [target-selection.md](target-selection.md) names one active
+short proposal whose behavior is absent from `../specification/`. This page
+routes implementation and promotion mechanics; it does not choose targets.
+Use [implementation-route-full.md](implementation-route-full.md) only for
+detailed comparison, promotion, or cleanup.
 
-## Choose A Target
+## Entry Check
 
-- Start with [target-selection.md](target-selection.md) when the task has not
-  already named one concrete short proposal page.
-- Continue here only for an active short proposal page whose behavior is absent
-  from `../specification/`.
+- Continue only when target selection names one short proposal page.
+- Stop if selection is unset, broad, exploratory, or implemented history.
 - Keep the target to one short proposal page unless that page routes to a full
   detail record or companion proposal.
-- Let [target-selection.md](target-selection.md) handle no-target states,
-  implemented records, broad follow-up indexes, and exploratory inventories
-  before implementation work starts.
 
 ## Compare And Promote
 
@@ -29,28 +24,6 @@ only for detailed comparison, promotion, or cleanup.
   to choose the smallest specification page to update after the code changes.
 - Use [implementation-route-full.md](implementation-route-full.md) when the
   target requires gap evidence or promotion cleanup.
-
-## Implemented Proposal Records
-
-- Implemented formatter stabilization:
-  [formatter-stabilization.md](formatter-stabilization.md). Use
-  [../specification/commands.md](../specification/commands.md) for current
-  `veln fmt` behavior and
-  [../reviews/formatter-stabilization-completion.md](../reviews/formatter-stabilization-completion.md)
-  for completion evidence.
-- Completed confirmation and explicit override behavior around `veln repair`:
-  [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
-  Keep current behavior anchored in
-  [../specification/repair-candidates.md](../specification/repair-candidates.md).
-  Do not include broader ranking models, external verification commands,
-  partial application, or general automatic repair unless a short proposal page
-  selects that work.
-- Implemented JVM bytecode backend:
-  [jvm-bytecode-backend.md](jvm-bytecode-backend.md). That short page routes
-  current behavior, fixture organization, completion evidence, the Java source
-  backend cleanup result, and original gates. Keep bytecode layout,
-  generated artifacts, backend selectors, and structural test details out of
-  `../specification/`.
 
 ## Specification Update Routes
 
@@ -66,6 +39,13 @@ only for detailed comparison, promotion, or cleanup.
 - Command-specific machine-readable output:
   [../specification/json-output.md](../specification/json-output.md)
   before the command-specific JSON page.
+
+## Exit Check
+
+- The changed behavior is documented under `../specification/` only after code
+  and tests support it.
+- Remaining proposal text still describes only absent or incomplete behavior.
+- Proposal indexes route remaining work without restating current behavior.
 
 ## Skip Unless Needed
 

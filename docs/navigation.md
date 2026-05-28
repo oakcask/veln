@@ -20,7 +20,7 @@ routes below are not enough.
   and [specification/json-output.md](specification/json-output.md).
 - Proposal target selection:
   [proposals/target-selection.md](proposals/target-selection.md).
-- Proposal implementation after one target is selected:
+- Proposal implementation after target selection names one active short target:
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Proposal work:
   [proposals/README.md](proposals/README.md).

@@ -1,30 +1,32 @@
 # No Proposal Target Completion Review
 
-Status: historical; superseded by open proposal selection.
+Status: completion evidence for no-target routing.
 
-This review covers the former selected-target model. Current proposal work is
-routed through `../proposals/`, where any proposal may be chosen when current
-reference behavior does not already cover it.
+This review covers the current no-target prompt state. It records why no
+proposal implementation starts until target selection names or creates one
+short proposal page whose behavior is absent from the current specification.
 
 ## Completion Check
 
-- `../proposals/` now treats proposal pages as available proposal work when
-  the current specification does not already cover them.
-- `../proposals/implementation-route.md` routes explicit proposal promotion
-  work without a selected-target gate.
+- `../proposals/target-selection.md` records that no active target is selected.
+- `../proposals/` routes missing, stale, broad, and implemented-history
+  candidates back through target selection instead of inferring work from
+  nearby proposal text.
+- `../proposals/implementation-route.md` starts only after target selection
+  names one active short proposal page.
 - Current implemented behavior remains routed through
   `../specification/`.
 
 ## Review Result
 
-The former no-target condition no longer blocks implementation work. Proposal
-work still must be compared against implementation behavior before promotion,
-and current behavior still belongs under `../specification/`.
-
-The target review is therefore historical context only, not a current routing
-rule.
+The no-target prompt state has no proposal completion checklist to implement or
+promote. The correct completion action is documentation routing: keep current
+behavior under `../specification/`, keep proposal implementation behind one
+selected short target, and route future selection through
+`../proposals/target-selection.md`.
 
 ## Verification
 
+- Checked `../proposals/target-selection.md`.
 - Checked `../proposals/`.
 - Checked `../proposals/implementation-route.md`.
