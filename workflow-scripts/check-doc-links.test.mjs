@@ -279,6 +279,41 @@ test("no-target prompt keeps candidate routes out of implementation flow", () =>
   );
 });
 
+test("no-target prompt state does not resolve to an active proposal", () => {
+  const prompt = fs.readFileSync(path.join("prompts", "NOTARGET"), "utf8");
+  const targetSelection = readDocsFile("proposals/target-selection.md");
+
+  const decisionBullets = bulletsInSection(targetSelection, "## Current Decision");
+  assert.deepEqual(decisionBullets, [
+    "`prompts/TARGET.md` is absent.",
+    "`prompts/NOTARGET` says no implementation target is selected from the\n" +
+      "  current proposals.",
+    "Result: no active proposal target.",
+  ]);
+
+  assert.equal(selectedTargetFromPromptState(), null);
+
+  const classifiedPromptRoutes = classifyPromptRoutes(prompt, targetSelection);
+  assert.deepEqual(classifiedPromptRoutes, new Map([
+    ["docs/proposals/formatter-stabilization.md", "Implemented record"],
+    ["docs/proposals/jvm-bytecode-backend.md", "Implemented record"],
+    [
+      "docs/proposals/agent-language-spec-wall/repair-command.md",
+      "Implemented record",
+    ],
+    ["docs/proposals/reference-followups.md", "Broad follow-up index"],
+    ["docs/proposals/agent-language-spec-wall/README.md", "Exploratory inventory"],
+    ["docs/proposals/self-hosting-standard-library.md", "Helper candidate pool"],
+    ["docs/proposals/README.md", "proposal index"],
+    ["docs/proposals/implementation-route.md", "active-target route only"],
+  ]));
+
+  assert.equal(
+    Array.from(classifiedPromptRoutes.values()).includes("Active target"),
+    false,
+  );
+});
+
 test("repair proposal route covers the completed confirmation target", () => {
   const proposal = readDocsFile(
     "proposals/agent-language-spec-wall/repair-command.md",
@@ -565,6 +600,66 @@ function targetClassRoutes(targetSelection) {
     }
   }
   return routes;
+}
+
+function classifyPromptRoutes(prompt, targetSelection) {
+  const targetRoutes = targetClassRoutes(targetSelection);
+
+  return new Map(
+    promptProposalRoutes(prompt).map((route) => {
+      const targetRoute = route.replace("docs/proposals/", "");
+      if (targetRoute === "README.md") {
+        return [route, "proposal index"];
+      }
+      if (targetRoute === "implementation-route.md") {
+        return [route, "active-target route only"];
+      }
+      return [route, targetRoutes.get(targetRoute)];
+    }),
+  );
+}
+
+function selectedTargetFromPromptState() {
+  const targetPrompt = path.join("prompts", "TARGET.md");
+  if (fs.existsSync(targetPrompt)) {
+    return fs.readFileSync(targetPrompt, "utf8").trim() || null;
+  }
+
+  const noTargetPrompt = path.join("prompts", "NOTARGET");
+  if (fs.existsSync(noTargetPrompt)) {
+    return null;
+  }
+
+  return null;
+}
+
+function bulletsInSection(text, heading) {
+  const lines = text.split("\n");
+  const start = lines.findIndex((line) => line === heading);
+  assert.notEqual(start, -1, `missing heading: ${heading}`);
+
+  const bullets = [];
+  for (let index = start + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (line.startsWith("## ")) {
+      break;
+    }
+    if (!line.startsWith("- ")) {
+      continue;
+    }
+
+    const bullet = [line.slice(2)];
+    for (const continuation of lines.slice(index + 1)) {
+      if (continuation.startsWith("  ")) {
+        bullet.push(continuation);
+        index += 1;
+        continue;
+      }
+      break;
+    }
+    bullets.push(bullet.join("\n"));
+  }
+  return bullets;
 }
 
 function tableRowsInSection(text, heading) {
