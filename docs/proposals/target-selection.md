@@ -2,28 +2,43 @@
 
 Status: routing
 
-Use this page when a task asks for the current target proposal, when prompt
-state is missing or stale, or when proposal candidates look similar. This page
+Use this page when a task asks for the current target proposal or when prompt
+state is missing, stale, broad, or points at implemented history. This page
 routes selection only; it does not define current language behavior.
 
-## Current State
+## Current Target
 
-- Current target: none.
-- Prompt evidence: `prompts/TARGET.md` is absent, and `prompts/NOTARGET` says
-  no implementation target is selected from the current proposals.
-- Decision: keep the target unset instead of inferring work from nearby
-  proposal text.
+- `prompts/TARGET.md` is absent.
+- `prompts/NOTARGET` says no implementation target is selected from the
+  current proposals.
+- Result: no active proposal target. Stop before implementation or promotion
+  work unless a later prompt selects one concrete short proposal page.
 
 ## Read First
 
 - Current implemented behavior stays in
   [../specification/README.md](../specification/README.md).
-- An implementation target must be one short proposal page that names one absent
-  behavior.
-- If no short proposal page meets that rule, stop here or create one before any
-  implementation route starts.
+- An active implementation target must be one short proposal page that names one
+  absent behavior.
+- Use [implementation-route.md](implementation-route.md) only after that target
+  exists.
 
-## Target Classes
+## Selection Algorithm
+
+1. Read `prompts/TARGET.md` when it exists.
+2. When `prompts/TARGET.md` is absent, read `prompts/NOTARGET` if present.
+3. Keep selection unset when the prompt state says no target is selected.
+4. Verify that any selected page is a short proposal page, not a full detail
+   record, review, reference note, broad index, helper candidate pool, or
+   implemented proposal record.
+5. Compare the selected behavior with
+   [../specification/README.md](../specification/README.md).
+6. If the behavior is already implemented, use the matching specification page
+   and treat the proposal as history or cleanup evidence.
+7. If the behavior is broad, exploratory, or a helper candidate pool, split or
+   create one short proposal before treating it as an implementation target.
+
+## Candidate Classes
 
 | Class | How to proceed | Current examples |
 | --- | --- | --- |
@@ -34,37 +49,14 @@ routes selection only; it does not define current language behavior.
 | Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) |
 | Helper candidate pool | Choose exactly one descriptor-only pure helper, then create or select one short proposal page. | [self-hosting-standard-library.md](self-hosting-standard-library.md) |
 
-## Selection Rule
-
-1. Read `prompts/TARGET.md` when it exists.
-2. When `prompts/TARGET.md` is absent, read `prompts/NOTARGET` if present and
-   keep the target unset when it says no implementation target is selected.
-3. Verify that the selected page is a short proposal page, not a full detail
-   record, review, reference note, or implemented proposal record.
-4. Compare the selected behavior with
-   [../specification/README.md](../specification/README.md).
-5. If the behavior is already implemented, use the matching specification page
-   and treat the proposal as history or cleanup evidence.
-6. If the behavior is broad, exploratory, or a helper candidate pool, split or
-   create one short proposal before treating it as an implementation target.
-
 ## Handoff
 
-The current prompt state has no selected target, so there is no proposal
-completion checklist to promote into `../specification/`. Do not update the
-specification or create a stop marker from this state alone.
-
-The next implementation pass should first create or select one short proposal
-page whose behavior is absent from `../specification/`, then use
-[implementation-route.md](implementation-route.md) for the comparison and
-promotion route.
-
-When a review task asks for the target from `prompts/TARGET.md` and that file
-is absent, treat the no-target state as incomplete proposal selection rather
-than completed implementation work. The handoff action is to leave current
-behavior unchanged, keep `../specification/` untouched, and route the next
-agent to select or create one concrete short proposal before any promotion
-review.
+- With the current prompt state, there is no proposal completion checklist to
+  promote into `../specification/`.
+- Leave current behavior unchanged and keep `../specification/` untouched.
+- The next implementation pass should first create or select one short proposal
+  page whose behavior is absent from `../specification/`, then use
+  [implementation-route.md](implementation-route.md).
 
 ## Read When
 

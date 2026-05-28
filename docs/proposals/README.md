@@ -1,19 +1,19 @@
 # Proposals
 
-This directory keeps proposal routes, active target candidates, and implemented
-proposal records that still route useful history or cleanup evidence. Proposal
+This directory keeps proposal routes, target candidates, and implemented
+proposal records that still carry useful history or cleanup evidence. Proposal
 text is not current language behavior unless `../specification/` also states it.
 
 ## Read First
 
-- Current target, prompt evidence, and candidate classification:
-  [target-selection.md](target-selection.md).
-- Stop at target selection when it says no target is active.
-- Open [implementation-route.md](implementation-route.md) only after target
-  selection names one active short proposal.
+- Current target and prompt evidence:
+  [target-selection.md](target-selection.md). Stop there when it says no target
+  is active.
+- Implementation route after one active short proposal is selected:
+  [implementation-route.md](implementation-route.md).
 - Status labels: [../document-status.md](../document-status.md).
 
-## Choose One Route
+## Routes
 
 - Missing, stale, broad, exploratory, or unset target:
   [target-selection.md](target-selection.md).
@@ -32,18 +32,11 @@ text is not current language behavior unless `../specification/` also states it.
 
 ## Read When
 
-- Use [target-selection.md](target-selection.md) when a target is missing,
-  unset, stale, too broad, or appears to point at implemented history.
-- Use [implementation-route.md](implementation-route.md) for proposal promotion
-  mechanics after target selection names one concrete proposal.
-- Use [reference-followups.md](reference-followups.md) for follow-up work that
-  is absent from the current specification.
-- Use [self-hosting-standard-library.md](self-hosting-standard-library.md)
-  when checking completed prelude helper migrations or choosing the next
+- Checking whether a page is active target work, implemented history, broad
+  follow-up work, exploratory inventory, or a helper candidate pool.
+- Choosing one implementable proposal before any promotion route starts.
+- Checking completed prelude helper migrations or choosing the next
   descriptor-only pure-helper candidate.
-- Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
-  for design-wall inventory after target selection says the directory itself is
-  not an active target.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
   before changing target status.
 

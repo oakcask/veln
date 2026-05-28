@@ -1,17 +1,16 @@
 # No Proposal Target Completion Review
 
-Status: completion evidence for no-target routing.
+Status: evidence for no-target routing.
 
-This review covers the current no-target prompt state. It records why no
-proposal implementation starts until target selection names or creates one
-short proposal page whose behavior is absent from the current specification.
+This review records the evidence behind the current no-target route. Use
+`../proposals/target-selection.md` for the active routing decision.
 
 ## Completion Check
 
-- `../proposals/target-selection.md` records that no active target is selected.
-- `../proposals/` routes missing, stale, broad, and implemented-history
-  candidates back through target selection instead of inferring work from
-  nearby proposal text.
+- `../proposals/target-selection.md` records that no active target is selected
+  from the prompt state.
+- `../proposals/` routes missing, stale, broad, exploratory, helper-pool, and
+  implemented-history candidates back through target selection.
 - `../proposals/implementation-route.md` starts only after target selection
   names one active short proposal page.
 - Current implemented behavior remains routed through
@@ -20,9 +19,8 @@ short proposal page whose behavior is absent from the current specification.
 ## Review Result
 
 The no-target prompt state has no proposal completion checklist to implement or
-promote. The correct completion action is documentation routing: keep current
-behavior under `../specification/`, keep proposal implementation behind one
-selected short target, and route future selection through
+promote. The correct action is routing only: keep current behavior under
+`../specification/` and route future selection through
 `../proposals/target-selection.md`.
 
 ## Verification

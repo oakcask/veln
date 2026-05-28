@@ -19,7 +19,9 @@ test("repository documentation only mentions prompt files in target selection", 
   );
 
   assert.deepEqual([...referencedFiles], ["proposals/target-selection.md"]);
-  assert.equal(promptReferences.length, 2);
+  assert.equal(promptReferences.length, 4);
+  assert.equal(countReferencesTo(promptReferences, "prompts/TARGET.md"), 3);
+  assert.equal(countReferencesTo(promptReferences, "prompts/NOTARGET"), 2);
 });
 
 test("proposal target selection preserves the no-target route", () => {
@@ -46,19 +48,25 @@ test("proposal target selection preserves the no-target route", () => {
   for (const snippet of targetSelectionRouteSnippets()) {
     assertIncludes(targetSelection, snippet);
   }
+  assertIncludes(targetSelection, "`prompts/TARGET.md` is absent");
+  assertIncludes(
+    targetSelection,
+    "`prompts/NOTARGET` says no implementation target is selected",
+  );
+  assertIncludes(targetSelection, "Result: no active proposal target");
+  assertActiveTargetExampleIsNone(targetSelection);
 
   assertIncludes(
     proposalsIndex,
-    "Current target, prompt evidence, and candidate classification:",
+    "Current target and prompt evidence:",
   );
   assertIncludes(
     proposalsIndex,
-    "Stop at target selection when it says no target is active",
+    "Stop there when it says no target\n  is active",
   );
   assertIncludes(
     proposalsIndex,
-    "Open [implementation-route.md](implementation-route.md) only after target\n" +
-      "  selection names one active short proposal",
+    "Implementation route after one active short proposal is selected",
   );
   assertIncludes(proposalsIndex, "[target-selection.md](target-selection.md)");
   assertIncludes(
@@ -115,12 +123,11 @@ test("proposal target selection preserves the no-target route", () => {
   );
   assertIncludes(
     noTargetReview,
-    "Status: completion evidence for no-target routing",
+    "Status: evidence for no-target routing",
   );
   assertIncludes(
     noTargetReview,
-    "proposal implementation starts until target selection names or creates one\n" +
-      "short proposal page",
+    "records that no active target is selected\n  from the prompt state",
   );
   assertIncludes(
     noTargetReview,
@@ -129,8 +136,7 @@ test("proposal target selection preserves the no-target route", () => {
   );
   assertIncludes(
     noTargetReview,
-    "The no-target prompt state has no proposal completion checklist to implement or\n" +
-      "promote",
+    "The no-target prompt state has no proposal completion checklist to implement or\npromote",
   );
   assertIncludes(navigation, "Proposal target selection:");
   assertIncludes(
@@ -191,6 +197,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
     targetSelection,
     "| Helper candidate pool | Choose exactly one descriptor-only pure helper",
   );
+  assertActiveTargetExampleIsNone(targetSelection);
 
   assertIncludes(referenceFollowups, "This page is an index");
   assertIncludes(referenceFollowups, "No follow-up target\nis active here");
@@ -422,26 +429,36 @@ function noTargetPromptRoutes() {
 function targetSelectionRouteSnippets() {
   return [
     "Status: routing",
-    "## Current State",
-    "Current target: none",
-    "Prompt evidence: `prompts/TARGET.md` is absent, and `prompts/NOTARGET` says",
-    "Decision: keep the target unset instead of inferring work from nearby\n  proposal text",
-    "## Target Classes",
+    "## Current Target",
+    "no active proposal target",
+    "## Candidate Classes",
     "| No target | Keep selection unset. Stop here or create one short proposal page. | Current prompt state |",
     "| Active target | Use [implementation-route.md](implementation-route.md). | None |",
     "| Implemented proposal record | Use the matching specification page for current behavior",
     "| Broad follow-up index | Split one implementable short proposal page before implementation. | [reference-followups.md](reference-followups.md) |",
     "| Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) |",
     "| Helper candidate pool | Choose exactly one descriptor-only pure helper",
-    "not a full detail\n   record, review, reference note, or implemented proposal record",
+    "not a full detail\n   record, review, reference note, broad index, helper candidate pool, or\n   implemented proposal record",
     "If the behavior is already implemented, use the matching specification page",
     "If the behavior is broad, exploratory, or a helper candidate pool, split or\n   create one short proposal",
     "## Handoff",
-    "there is no proposal\ncompletion checklist to promote into `../specification/`",
-    "Do not update the\nspecification or create a stop marker from this state alone",
+    "there is no proposal completion checklist to\n  promote into `../specification/`",
+    "Leave current behavior unchanged and keep `../specification/` untouched",
     "The next implementation pass should first create or select one short proposal",
     "Do not open full proposal records until a short proposal page names the\n  specific detail needed",
   ];
+}
+
+function assertActiveTargetExampleIsNone(targetSelection) {
+  const activeTargetRow =
+    targetSelection
+      .split("\n")
+      .find((line) => line.startsWith("| Active target |")) ?? "";
+
+  assert.equal(
+    activeTargetRow,
+    "| Active target | Use [implementation-route.md](implementation-route.md). | None |",
+  );
 }
 
 function tempDocs(name) {
@@ -482,6 +499,11 @@ function docsReferencesTo(textFragment) {
   }
 
   return references;
+}
+
+function countReferencesTo(references, textFragment) {
+  return references.filter((reference) => reference.text.includes(textFragment))
+    .length;
 }
 
 function assertIncludes(text, expected) {
