@@ -47,6 +47,22 @@ fn vec_filter_step(state: {values: Vec(A), keep: fn(A) -> Bool}, item: A) -> {va
 	end
 end
 
+fn vec_try_map(items: Vec(Item), f: fn(Item) -> Result(A, E)) -> Result(Vec(A), E) effects []
+	let state: {values: Result(Vec(A), E), map: fn(Item) -> Result(A, E)} = vec_fold(items, {values: Ok([]), map: f}, vec_try_map_step)
+	state.values
+end
+
+fn vec_try_map_step(state: {values: Result(Vec(A), E), map: fn(Item) -> Result(A, E)}, item: Item) -> {values: Result(Vec(A), E), map: fn(Item) -> Result(A, E)} effects []
+	let map = state.map
+	match state.values
+		Ok(values) => match map(item)
+			Ok(mapped) => {values: Ok(vec_push(values, mapped)), map: map}
+			Err(error) => {values: Err(error), map: map}
+		end
+		Err(error) => {values: Err(error), map: map}
+	end
+end
+
 fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
 	match value
 		Some(inner) => Some(f(inner))

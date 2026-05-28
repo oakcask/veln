@@ -2,10 +2,10 @@
 
 Status: proposed
 
-This file keeps source-backed standard library proposal details after
-implemented standard library behavior moved to the language specification. Read
+This file keeps reusable source-backed standard library candidate rules after
+implemented helper behavior moved to the language specification. Read
 [self-hosting-standard-library.md](self-hosting-standard-library.md) first for
-the completed helper and the reusable candidate boundary.
+the completed helper route and candidate boundary.
 
 ## Goal
 
@@ -16,8 +16,8 @@ that cannot yet be expressed in source.
 ## Migration Pattern
 
 Use this pattern only after the short page selects a descriptor-only helper
-from the implemented specification route. Preserve the implemented
-source-backed helper pattern without restating helper semantics here:
+from the implemented specification route. Keep helper semantics in the
+specification and apply only the source-backed placement pattern here:
 
 - choose a helper whose signature and value semantics are already implemented
 - add ordinary Veln source beside other core prelude source
@@ -31,9 +31,10 @@ source-backed helper pattern without restating helper semantics here:
 
 Remaining source-backed prelude work chooses from the descriptor-only pure
 helpers listed in
-[../specification/names-effects.md](../specification/names-effects.md). Prefer
-a candidate only when the specification already provides its signature, value
-semantics, and descriptor-only status, and when:
+[../specification/names-effects.md](../specification/names-effects.md). The
+short proposal page names the selected helper. Prefer a candidate only when the
+specification already provides its signature, value semantics, and
+descriptor-only status, and when:
 
 - its behavior is expressible in existing Veln source
 - it needs no new effect label, runtime boundary, parser feature, or public
@@ -72,8 +73,7 @@ complexity guarantees through this proposal.
 
 ## Open Questions
 
-- Which descriptor-only pure helper should move next after the current
-  source-backed prelude pattern?
+- Which descriptor-only pure helper should follow the completed target set?
 - Which helpers must remain runtime intrinsics until user-defined effects or
   effect handlers exist?
 - Should process termination keep the current return shape or use a future
