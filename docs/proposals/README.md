@@ -18,9 +18,9 @@ text is not current language behavior unless `../specification/` also states it.
 
 - Target decision:
   [target-selection.md](target-selection.md).
-- Implementation after target selection names one active short page:
+- Promotion mechanics after target selection names one active short page:
   [implementation-route.md](implementation-route.md).
-- Candidate details only after target selection routes there:
+- Candidate inventory only after target selection routes there:
   [reference-followups.md](reference-followups.md),
   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md),
   [self-hosting-standard-library.md](self-hosting-standard-library.md),
@@ -32,8 +32,8 @@ text is not current language behavior unless `../specification/` also states it.
 
 - Checking whether a proposal page can be the active target.
 - Choosing one implementable proposal before any promotion route starts.
-- Checking completed prelude helper migrations only after target selection
-  routes to that helper pool.
+- Checking completed prelude helper migrations after target selection routes to
+  that helper pool.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
   before changing target status.
 

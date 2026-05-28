@@ -2,22 +2,21 @@
 
 Status: routing
 
-Use this page when a task asks for the current target proposal, or when target
-state is missing, stale, broad, exploratory, or points at implemented history.
-This page owns proposal-target classification only; it does not define current
-language behavior.
+Use this page when a task asks for the current target proposal, or when the
+target state is missing, stale, broad, exploratory, or points at implemented
+history. This is the single proposal-target decision page; it does not define
+current language behavior or implementation steps.
 
 ## Read First
 
-- Current prompt state has no active proposal target. Stop here before
-  implementation or promotion work unless a later prompt selects one concrete
-  short proposal page.
-- Current implemented behavior stays in
-  [../specification/README.md](../specification/README.md).
+- Current prompt state has no active proposal target. Target implementation has
+  no completion condition until one concrete short proposal page is selected.
 - An active implementation target must be one short proposal page that names one
   absent behavior.
 - Use [implementation-route.md](implementation-route.md) only after that target
   exists.
+- Current implemented behavior stays in
+  [../specification/README.md](../specification/README.md).
 
 ## Current State
 
@@ -25,6 +24,16 @@ language behavior.
 - `prompts/NOTARGET` says no implementation target is selected from the
   current proposals.
 - Result: no active proposal target.
+
+## No-Target Rule
+
+- Stop before implementation, promotion, or specification updates.
+- Do not infer a target from broad follow-up indexes, exploratory inventories,
+  helper candidate pools, or implemented proposal records.
+- Clarify routing or create one short proposal page before treating proposal
+  work as implementable.
+- Evidence for this state lives in
+  [../reviews/no-proposal-target-completion.md](../reviews/no-proposal-target-completion.md).
 
 ## Target Classes
 
@@ -40,7 +49,7 @@ target exists.
 | Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md). |
 | Helper candidate pool | Choose exactly one descriptor-only pure helper, then create or select one short proposal page. | [self-hosting-standard-library.md](self-hosting-standard-library.md). |
 
-## Selection Algorithm
+## Selection Checks
 
 1. Read `prompts/TARGET.md` when it exists.
 2. When `prompts/TARGET.md` is absent, read `prompts/NOTARGET` if present.
@@ -57,12 +66,11 @@ target exists.
 
 ## Handoff
 
-- With the current prompt state, there is no proposal completion checklist to
-  promote into `../specification/`.
-- Leave current behavior unchanged and keep `../specification/` untouched.
-- The next implementation pass should first create or select one short proposal
-  page whose behavior is absent from `../specification/`, then use
-  [implementation-route.md](implementation-route.md).
+- No target: stop here, leave `../specification/` unchanged, and record only
+  routing clarification.
+- Active target: use [implementation-route.md](implementation-route.md) after
+  confirming the selected behavior is absent from `../specification/`.
+- New work: create or select one short proposal page before implementation.
 
 ## Read When
 

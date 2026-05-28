@@ -78,15 +78,20 @@ test("proposal target selection preserves the no-target route", () => {
   );
   assertIncludes(
     proposalsIndex,
-    "Implementation after target selection names one active short page",
+    "Promotion mechanics after target selection names one active short page",
   );
   assertIncludes(
     proposalsIndex,
-    "Candidate details only after target selection routes there",
+    "Candidate inventory only after target selection routes there",
   );
   assertIncludes(
     implementationRoute,
-    "routes implementation and promotion mechanics; it does not choose targets",
+    "routes implementation and promotion mechanics; it does not choose targets or",
+  );
+  assertIncludes(
+    implementationRoute,
+    "When selection is unset, return to [target-selection.md](target-selection.md)\n" +
+      "  and do not update `../specification/`",
   );
   assertIncludes(
     implementationRoute,
@@ -192,7 +197,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   );
   assertIncludes(
     proposalsIndex,
-    "Candidate details only after target selection routes there:\n" +
+    "Candidate inventory only after target selection routes there:\n" +
       "  [reference-followups.md](reference-followups.md)",
   );
   assertIncludes(
@@ -455,9 +460,9 @@ function targetSelectionRouteSnippets() {
     "If the behavior is already implemented, use the matching specification page",
     "If the behavior is broad, exploratory, or a helper candidate pool, split or\n   create one short proposal",
     "## Handoff",
-    "there is no proposal completion checklist to\n  promote into `../specification/`",
-    "Leave current behavior unchanged and keep `../specification/` untouched",
-    "The next implementation pass should first create or select one short proposal",
+    "No target: stop here, leave `../specification/` unchanged",
+    "Active target: use [implementation-route.md](implementation-route.md) after",
+    "New work: create or select one short proposal page before implementation",
     "Do not open full proposal records until a short proposal page names the\n  specific detail needed",
   ];
 }

@@ -2,9 +2,10 @@
 
 Use this page after [target-selection.md](target-selection.md) names one active
 short proposal whose behavior is absent from `../specification/`. This page
-routes implementation and promotion mechanics; it does not choose targets.
-Use [implementation-route-full.md](implementation-route-full.md) only for
-detailed comparison, promotion, or cleanup.
+routes implementation and promotion mechanics; it does not choose targets or
+override a no-target decision. Use
+[implementation-route-full.md](implementation-route-full.md) only for detailed
+comparison, promotion, or cleanup.
 
 ## Entry Check
 
@@ -12,6 +13,8 @@ detailed comparison, promotion, or cleanup.
 - Stop if selection is unset, broad, exploratory, or implemented history.
 - Keep the target to one short proposal page unless that page routes to a full
   detail record or companion proposal.
+- When selection is unset, return to [target-selection.md](target-selection.md)
+  and do not update `../specification/`.
 
 ## Compare And Promote
 
