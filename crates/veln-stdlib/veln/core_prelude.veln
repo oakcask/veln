@@ -20,3 +20,24 @@ fn option_unwrap_or(value: Option(A), fallback: A) -> A effects []
 		None => fallback
 	end
 end
+
+fn result_map(value: Result(A, E), f: fn(A) -> B) -> Result(B, E) effects []
+	match value
+		Ok(inner) => Ok(f(inner))
+		Err(error) => Err(error)
+	end
+end
+
+fn result_map_err(value: Result(A, E), f: fn(E) -> F) -> Result(A, F) effects []
+	match value
+		Ok(inner) => Ok(inner)
+		Err(error) => Err(f(error))
+	end
+end
+
+fn result_and_then(value: Result(A, E), f: fn(A) -> Result(B, E)) -> Result(B, E) effects []
+	match value
+		Ok(inner) => f(inner)
+		Err(error) => Err(error)
+	end
+end

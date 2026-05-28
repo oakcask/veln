@@ -274,6 +274,8 @@ compatibility helpers or source-backed pure helpers, so a name must be present
 in that table before the prelude signature adapter assigns its compiler-known
 type. They do not infer effects.
 
+### Helper Signatures
+
 ```veln
 vec_len(items: Vec(A)) -> Int
 vec_is_empty(items: Vec(A)) -> Bool
@@ -299,6 +301,8 @@ string_parse_int(text: String) -> Result(Int, String)
 int_to_string(value: Int) -> String
 ```
 
+### Value Semantics
+
 Container update helpers return new frozen values and do not mutate their input
 containers in place. `vec_try_map` evaluates items in source order, stops at
 the first `Err`, and otherwise returns `Ok` containing the mapped frozen vec in
@@ -311,21 +315,28 @@ unchanged context value as the first callback argument. `vec_map`,
 integer spelling and returns the original input string in `Err` when parsing
 fails. `int_to_string` renders an integer for display and string composition.
 
-`option_map`, `option_and_then`, and `option_unwrap_or` are source-backed pure
-helpers in the implemented standard symbol table. The compiler build embeds
-their shared Veln source and records the source path and entry name on each
-descriptor. The embedded source is ordinary Veln source in the `core_prelude`
-module, with one descriptor entry per exported helper entry point. The current
-checker still uses the descriptor-backed signature adapter, and the JVM backend
-still lowers each helper through the existing prelude runtime operation, so
-diagnostics stay anchored on user call sites rather than the embedded standard
-library source. Other prelude helpers listed above remain descriptor-only
-unless their descriptors record source metadata.
+### Source-Backed Boundary
+
+`option_map`, `option_and_then`, `option_unwrap_or`, `result_map`,
+`result_map_err`, and `result_and_then` are source-backed pure helpers in the
+implemented standard symbol table. Source-backed status is descriptor metadata
+as described in [Compiler-Known Descriptor Table](#compiler-known-descriptor-table).
+The embedded source is ordinary Veln source in the `core_prelude` module, with
+one descriptor entry per exported helper entry point. The current checker still
+uses the descriptor-backed signature adapter, and the JVM backend still lowers
+each helper through the existing prelude runtime operation, so diagnostics stay
+anchored on user call sites rather than the embedded standard library source.
+Other prelude helpers listed above remain descriptor-only unless their
+descriptors record source metadata.
+
+### Compiler-Support Source
 
 The embedded `compiler_support` source contains
 `load_source_text(path: Path) -> Result(String, FsError) effects [fs]`. It is
 not a prelude helper. It is a small compiler-support subsystem used to exercise
 Veln source checking and JVM execution through `fs::read_to_string`.
+
+### Diagnostics And Tests
 
 When `vec_map` receives a callback whose return type is `Result`, the checker
 reports the ordinary callback type mismatch and adds a repair hint to use

@@ -5,22 +5,21 @@ compiler-known calls.
 
 ## Read First
 
-- Name-resolution namespaces, shadowing, duplicate checks, module ownership,
-  and metadata drift: [names-effects-full.md](names-effects-full.md).
-- Effect labels:
-  [names-effects-full.md](names-effects-full.md#effect-labels).
-- Stdio calls:
-  [names-effects-full.md](names-effects-full.md#stdio-calls).
-- File-system and process calls:
-  [names-effects-full.md](names-effects-full.md#file-system-calls) and
-  [names-effects-full.md](names-effects-full.md#process-calls).
-- Concurrency calls, executable reachability, and effect provenance:
+- Namespaces, shadowing, duplicate checks, module ownership, and metadata
+  drift: [names-effects-full.md](names-effects-full.md#name-resolution).
+- Effect labels and effect inference:
+  [names-effects-full.md](names-effects-full.md#effect-labels) and
   [names-effects-full.md](names-effects-full.md#concurrency-calls).
-- Prelude helper signatures, the source-backed option helper cluster,
-  descriptor-only helper boundary, and value semantics:
+- Compiler-known calls:
+  [stdio](names-effects-full.md#stdio-calls),
+  [file-system](names-effects-full.md#file-system-calls),
+  [process](names-effects-full.md#process-calls), and
+  [concurrency](names-effects-full.md#concurrency-calls).
+- Prelude helper signatures, value semantics, source-backed helper set, and
+  descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
-- Descriptor-backed compiler-known symbols, standard library source metadata,
-  and the compiler-support source-loading trial:
+- Descriptor-backed standard symbols, source metadata, and the
+  compiler-support source-loading trial:
   [names-effects-full.md](names-effects-full.md#compiler-known-descriptor-table).
 
 ## Read When

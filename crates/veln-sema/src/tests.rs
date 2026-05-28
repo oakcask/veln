@@ -7329,6 +7329,29 @@ fn infers_prelude_helper_calls_from_expected_types() {
         } if name == "vec_len"
     ));
     assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
+    let core_prelude_calls = fields
+        .iter()
+        .filter_map(|field| match &field.expr.kind {
+            CoreExprKind::Call {
+                target: CoreCallTarget::PreludeBuiltin(name),
+                ..
+            } => Some(name.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for name in [
+        "option_map",
+        "option_and_then",
+        "option_unwrap_or",
+        "result_map",
+        "result_map_err",
+        "result_and_then",
+    ] {
+        assert!(
+            core_prelude_calls.contains(&name),
+            "{name} should keep prelude core lowering"
+        );
+    }
     let ir = lowered
         .ir
         .expect("complete prelude core should lower to IR");
@@ -7350,6 +7373,29 @@ fn infers_prelude_helper_calls_from_expected_types() {
             ..
         } if name == "vec_len"
     ));
+    let ir_prelude_calls = fields
+        .iter()
+        .filter_map(|field| match &field.value.kind {
+            IrExprKind::Call {
+                target: IrCallTarget::PreludeBuiltin(name),
+                ..
+            } => Some(name.as_str()),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    for name in [
+        "option_map",
+        "option_and_then",
+        "option_unwrap_or",
+        "result_map",
+        "result_map_err",
+        "result_and_then",
+    ] {
+        assert!(
+            ir_prelude_calls.contains(&name),
+            "{name} should keep prelude IR lowering"
+        );
+    }
 }
 
 #[test]
@@ -7389,7 +7435,14 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
     entries.sort_unstable();
     assert_eq!(
         entries,
-        ["option_and_then", "option_map", "option_unwrap_or"]
+        [
+            "option_and_then",
+            "option_map",
+            "option_unwrap_or",
+            "result_and_then",
+            "result_map",
+            "result_map_err"
+        ]
     );
 }
 
@@ -7752,10 +7805,38 @@ fn prelude_helpers_check_direct_expected_return_types() {
 }
 
 #[test]
-fn source_backed_option_helpers_report_user_call_site_diagnostics() {
-    for (helper, expected_callback) in [
-        ("option_map", "fn(unknown) -> String"),
-        ("option_and_then", "fn(unknown) -> Option(String)"),
+fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
+    for (helper, value_type, return_type, expected_callback) in [
+        (
+            "option_map",
+            "Option(Int)",
+            "Option(String)",
+            "fn(unknown) -> String",
+        ),
+        (
+            "option_and_then",
+            "Option(Int)",
+            "Option(String)",
+            "fn(unknown) -> Option(String)",
+        ),
+        (
+            "result_map",
+            "Result(Int, String)",
+            "Result(String, String)",
+            "fn(unknown) -> String",
+        ),
+        (
+            "result_map_err",
+            "Result(String, Int)",
+            "Result(String, String)",
+            "fn(unknown) -> String",
+        ),
+        (
+            "result_and_then",
+            "Result(Int, String)",
+            "Result(String, String)",
+            "fn(unknown) -> Result(String, String)",
+        ),
     ] {
         let source = SourceFile::new(
             "main.veln",
@@ -7764,11 +7845,11 @@ fn source_backed_option_helpers_report_user_call_site_diagnostics() {
                     "fn to_int(value: Int) -> Int effects []\n",
                     "  value\n",
                     "end\n",
-                    "pub fn main(value: Option(Int)) -> Option(String) effects []\n",
+                    "pub fn main(value: {}) -> {} effects []\n",
                     "  {}(value, to_int)\n",
                     "end\n",
                 ),
-                helper
+                value_type, return_type, helper
             ),
         );
         let parsed = parse(&source);

@@ -143,9 +143,6 @@ const DESCRIPTOR_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("dict_contains"),
     prelude_symbol_descriptor("dict_insert"),
     prelude_symbol_descriptor("dict_remove"),
-    prelude_symbol_descriptor("result_map"),
-    prelude_symbol_descriptor("result_map_err"),
-    prelude_symbol_descriptor("result_and_then"),
 ];
 
 const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
@@ -157,6 +154,12 @@ const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     source_prelude_symbol_descriptor(
         "option_unwrap_or",
         &veln_stdlib::CORE_PRELUDE_OPTION_UNWRAP_OR,
+    ),
+    source_prelude_symbol_descriptor("result_map", &veln_stdlib::CORE_PRELUDE_RESULT_MAP),
+    source_prelude_symbol_descriptor("result_map_err", &veln_stdlib::CORE_PRELUDE_RESULT_MAP_ERR),
+    source_prelude_symbol_descriptor(
+        "result_and_then",
+        &veln_stdlib::CORE_PRELUDE_RESULT_AND_THEN,
     ),
 ];
 
@@ -306,7 +309,7 @@ mod tests {
 
     #[test]
     fn descriptor_only_prelude_helpers_do_not_carry_source_metadata() {
-        let symbol = prelude_symbol("result_and_then").expect("prelude descriptor");
+        let symbol = prelude_symbol("dict_get").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert_eq!(symbol.lowering, None);

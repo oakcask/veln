@@ -24,6 +24,12 @@ pub static CORE_PRELUDE_OPTION_AND_THEN: StdlibSource = core_prelude_source("opt
 
 pub static CORE_PRELUDE_OPTION_UNWRAP_OR: StdlibSource = core_prelude_source("option_unwrap_or");
 
+pub static CORE_PRELUDE_RESULT_MAP: StdlibSource = core_prelude_source("result_map");
+
+pub static CORE_PRELUDE_RESULT_MAP_ERR: StdlibSource = core_prelude_source("result_map_err");
+
+pub static CORE_PRELUDE_RESULT_AND_THEN: StdlibSource = core_prelude_source("result_and_then");
+
 pub static CORE_PRELUDE: StdlibSource = core_prelude_source("option_unwrap_or");
 
 pub static COMPILER_SUPPORT: StdlibSource = StdlibSource {

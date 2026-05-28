@@ -2,32 +2,35 @@
 
 Status: proposed
 
-This page routes source-backed standard library proposal work whose behavior is
-absent from the current specification. Implemented standard symbols, effects,
-and compiler-known calls live in
+This page routes the remaining source-backed standard library proposal work.
+Implemented standard symbols, effects, compiler-known calls, and already
+source-backed helpers live in
 [../specification/names-effects.md](../specification/names-effects.md).
 
 ## Current Target
 
-Continue the source-backed pure prelude helper path. The implemented option
-helper cluster is documented as current behavior in the specification:
+Continue the source-backed pure prelude helper path. The proposal area is the
+remaining descriptor-only pure helper set; already source-backed helpers are
+current behavior in the specification.
 
-- source-backed helper status and value semantics:
+Use this route for the next helper:
+
+- confirm the implemented helper signature, value semantics, and current
+  descriptor-only versus source-backed boundary:
   [../specification/names-effects-full.md#prelude-helpers](../specification/names-effects-full.md#prelude-helpers)
-- descriptor metadata boundary:
+- confirm standard symbol descriptor metadata expectations:
   [../specification/names-effects-full.md#compiler-known-descriptor-table](../specification/names-effects-full.md#compiler-known-descriptor-table)
-
-The proposal area is the remaining descriptor-only pure helper set. A next
-helper should keep its existing source-visible signature and semantics, add
-embedded source metadata to the standard symbol descriptor, keep effects empty,
-and preserve user-call-site diagnostics.
+- confirm the current source syntax available for the embedded helper body:
+  [../specification/source-surface.md](../specification/source-surface.md)
+- apply the candidate filter:
+  [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates)
 
 ## Read First
 
-- Current source surface:
-  [../specification/source-surface.md](../specification/source-surface.md).
-- Remaining proposal scope, candidate rules, and non-goals:
-  [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates).
+- Current helper behavior and source-backed boundary:
+  [../specification/names-effects.md](../specification/names-effects.md).
+- Remaining proposal scope and non-goals:
+  [self-hosting-standard-library-full.md](self-hosting-standard-library-full.md).
 
 ## Read When
 
