@@ -8,28 +8,24 @@ language behavior unless `../specification/` also states it.
 
 - Current target and candidate classification:
   [target-selection.md](target-selection.md).
-- Implementation work needs one short proposal page that describes behavior
-  absent from `../specification/`.
-- Treat implemented proposal records as history and cleanup routes. Use the
-  matching specification page for current behavior.
+- Implementation starts only after target selection names one short proposal
+  page for behavior absent from `../specification/`.
 - Status labels: [../document-status.md](../document-status.md).
 
 ## Proposal Routes
 
-- Target selection and no-target state:
-  [target-selection.md](target-selection.md). Start here before inferring work
-  from nearby proposal text.
+- Target selection, no-target state, implemented records, broad indexes, and
+  exploratory inventories: [target-selection.md](target-selection.md). Start
+  here before inferring work from nearby proposal text.
+- Proposal implementation after one target is selected:
+  [implementation-route.md](implementation-route.md).
 - Source-backed standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md) records
-  completed helper migrations. It can route a future target only after one
-  descriptor-only pure helper is selected.
+  completed helper migrations and routes future helper selection.
 - Broad follow-up index:
-  [reference-followups.md](reference-followups.md). Split or add a short
-  proposal page before treating any listed area as a target.
+  [reference-followups.md](reference-followups.md).
 - Design-wall inventory:
   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md).
-  Use it for exploratory material and implemented decision pointers, not as one
-  target.
 - Implemented proposal records:
   [formatter-stabilization.md](formatter-stabilization.md),
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md), and

@@ -8,17 +8,15 @@ only for detailed comparison, promotion, or cleanup.
 
 ## Choose A Target
 
-- Start with [target-selection.md](target-selection.md) when the task does not
-  already name one concrete short proposal page.
-- Choose any active short proposal page in this directory when the task
-  explicitly selects proposal work and the behavior is absent from
-  `../specification/`.
-- For implemented proposal records, start with the matching specification page
-  and open the proposal only for history, evidence, or cleanup.
+- Start with [target-selection.md](target-selection.md) when the task has not
+  already named one concrete short proposal page.
+- Continue here only for an active short proposal page whose behavior is absent
+  from `../specification/`.
 - Keep the target to one short proposal page unless that page routes to a full
   detail record or companion proposal.
-- If the only available material is a broad follow-up index or exploratory
-  design inventory, split out one short proposal page before implementation.
+- Let [target-selection.md](target-selection.md) handle no-target states,
+  implemented records, broad follow-up indexes, and exploratory inventories
+  before implementation work starts.
 
 ## Compare And Promote
 

@@ -31,85 +31,29 @@ test("proposal target selection preserves the no-target route", () => {
 
   assert.equal(fs.existsSync(path.join("prompts", "TARGET.md")), false);
   assertIncludes(prompt, "No implementation target is selected");
-  assertIncludes(prompt, "docs/proposals/formatter-stabilization.md");
-  assertIncludes(prompt, "docs/proposals/jvm-bytecode-backend.md");
-  assertIncludes(
-    prompt,
-    "docs/proposals/agent-language-spec-wall/repair-command.md",
-  );
-  assertIncludes(prompt, "docs/proposals/reference-followups.md");
-  assertIncludes(prompt, "docs/proposals/agent-language-spec-wall/README.md");
-  assertIncludes(prompt, "docs/proposals/self-hosting-standard-library.md");
-  assertIncludes(prompt, "docs/proposals/README.md");
-  assertIncludes(prompt, "docs/proposals/implementation-route.md");
+  for (const route of noTargetPromptRoutes()) {
+    assertIncludes(prompt, route);
+  }
   assertIncludes(prompt, "not define one concrete short proposal target");
   assertIncludes(prompt, "current target is none");
 
-  assertIncludes(targetSelection, "Status: routing");
-  assertIncludes(targetSelection, "Current target: none");
-  assertIncludes(
-    targetSelection,
-    "If `prompts/TARGET.md` is absent and `prompts/NOTARGET` is present",
-  );
-  assertIncludes(
-    targetSelection,
-    "keep the\n  target unset instead of inferring one from nearby proposal text",
-  );
-  assertIncludes(
-    targetSelection,
-    "not a full detail\n   record, review, reference note, or implemented proposal record",
-  );
-  assertIncludes(
-    targetSelection,
-    "If the behavior is already implemented, use the matching specification page",
-  );
-  assertIncludes(
-    targetSelection,
-    "If the behavior is broad or exploratory, split or create a short proposal",
-  );
-  assertIncludes(targetSelection, "## Candidate Map");
-  assertIncludes(
-    targetSelection,
-    "[self-hosting-standard-library.md](self-hosting-standard-library.md) has no\n  active helper target",
-  );
-  assertIncludes(
-    targetSelection,
-    "[reference-followups.md](reference-followups.md) is a broad follow-up index",
-  );
-  assertIncludes(
-    targetSelection,
-    "keeps exploratory design-wall material",
-  );
-  assertIncludes(
-    targetSelection,
-    "implemented proposal records",
-  );
-  assertIncludes(
-    targetSelection,
-    "When no concrete target is selected, stop here or create a short proposal",
-  );
-  assertIncludes(
-    targetSelection,
-    "Do not open full proposal records until a short proposal page names the\n  specific detail needed",
-  );
+  for (const snippet of targetSelectionRouteSnippets()) {
+    assertIncludes(targetSelection, snippet);
+  }
 
   assertIncludes(proposalsIndex, "Current target and candidate classification:");
   assertIncludes(proposalsIndex, "[target-selection.md](target-selection.md)");
   assertIncludes(
     proposalsIndex,
-    "Start here before inferring work\n  from nearby proposal text",
+    "Target selection, no-target state, implemented records, broad indexes",
   );
   assertIncludes(
     proposalsIndex,
-    "It can route a future target only after one\n  descriptor-only pure helper is selected",
+    "Proposal implementation after one target is selected",
   );
   assertIncludes(
     proposalsIndex,
-    "Split or add a short\n  proposal page before treating any listed area as a target",
-  );
-  assertIncludes(
-    proposalsIndex,
-    "Use it for exploratory material and implemented decision pointers, not as one\n  target",
+    "records\n  completed helper migrations and routes future helper selection",
   );
   assertIncludes(
     proposalsIndex,
@@ -117,11 +61,11 @@ test("proposal target selection preserves the no-target route", () => {
   );
   assertIncludes(
     implementationRoute,
-    "Start with [target-selection.md](target-selection.md)",
+    "Continue here only for an active short proposal page whose behavior is absent",
   );
   assertIncludes(
     implementationRoute,
-    "If the only available material is a broad follow-up index or exploratory\n  design inventory, split out one short proposal page before implementation",
+    "Let [target-selection.md](target-selection.md) handle no-target states",
   );
   assertIncludes(
     implementationRoute,
@@ -333,6 +277,43 @@ test("resolves percent-encoded local paths and anchors", () => {
   assert.deepEqual(result.errors, []);
   assert.equal(result.valid, true);
 });
+
+function noTargetPromptRoutes() {
+  return [
+    "docs/proposals/formatter-stabilization.md",
+    "docs/proposals/jvm-bytecode-backend.md",
+    "docs/proposals/agent-language-spec-wall/repair-command.md",
+    "docs/proposals/reference-followups.md",
+    "docs/proposals/agent-language-spec-wall/README.md",
+    "docs/proposals/self-hosting-standard-library.md",
+    "docs/proposals/README.md",
+    "docs/proposals/implementation-route.md",
+  ];
+}
+
+function targetSelectionRouteSnippets() {
+  return [
+    "Status: routing",
+    "Current target: none",
+    "If `prompts/TARGET.md` is absent and `prompts/NOTARGET` is present",
+    "keep the\n  target unset instead of inferring one from nearby proposal text",
+    "## Selection Outcomes",
+    "Active target: one short proposal page names behavior missing",
+    "No-target state: keep selection unset",
+    "Implemented proposal record: use the matching specification page",
+    "Broad follow-up index or exploratory inventory: split one implementable",
+    "not a full detail\n   record, review, reference note, or implemented proposal record",
+    "If the behavior is already implemented, use the matching specification page",
+    "If the behavior is broad or exploratory, split or create a short proposal",
+    "## Current Candidate Classification",
+    "[self-hosting-standard-library.md](self-hosting-standard-library.md) has no\n  active helper target",
+    "[reference-followups.md](reference-followups.md) is a broad follow-up index",
+    "keeps exploratory design-wall material",
+    "are implemented proposal records",
+    "When no concrete target is selected, stop here or create one short proposal",
+    "Do not open full proposal records until a short proposal page names the\n  specific detail needed",
+  ];
+}
 
 function tempDocs(name) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), `${name}-`));

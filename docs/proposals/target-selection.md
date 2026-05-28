@@ -11,14 +11,23 @@ current language behavior.
 
 - Current target: none. `prompts/TARGET.md` is absent, and `prompts/NOTARGET`
   says no implementation target is selected from the current proposals.
+- If `prompts/TARGET.md` is absent and `prompts/NOTARGET` is present, keep the
+  target unset instead of inferring one from nearby proposal text.
 - Current implemented behavior stays in
   [../specification/README.md](../specification/README.md).
 - An implementation target must be one short proposal page that names one
   missing behavior absent from the current specification.
-- Implemented proposal records, broad follow-up indexes, and exploratory design
-  inventories are not active targets by themselves.
-- If `prompts/TARGET.md` is absent and `prompts/NOTARGET` is present, keep the
-  target unset instead of inferring one from nearby proposal text.
+
+## Selection Outcomes
+
+- Active target: one short proposal page names behavior missing from
+  `../specification/`. Use [implementation-route.md](implementation-route.md).
+- No-target state: keep selection unset. Stop here or create one short proposal
+  page before implementation.
+- Implemented proposal record: use the matching specification page for current
+  behavior, and open the proposal only for history, evidence, or cleanup.
+- Broad follow-up index or exploratory inventory: split one implementable
+  proposal page before treating any listed idea as a target.
 
 ## Selection Rule
 
@@ -32,7 +41,7 @@ current language behavior.
 5. If the behavior is broad or exploratory, split or create a short proposal
    before treating it as an implementation target.
 
-## Candidate Map
+## Current Candidate Classification
 
 - [self-hosting-standard-library.md](self-hosting-standard-library.md) has no
   active helper target. It can produce a future target only after choosing one
@@ -62,7 +71,7 @@ current language behavior.
 - After one concrete target is selected, use
   [implementation-route.md](implementation-route.md) for comparison and
   promotion mechanics.
-- When no concrete target is selected, stop here or create a short proposal
+- When no concrete target is selected, stop here or create one short proposal
   page before implementation work.
 
 ## Skip Unless Needed
