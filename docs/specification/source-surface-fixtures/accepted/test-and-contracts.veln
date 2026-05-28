@@ -1,0 +1,5 @@
+test returns_ok() -> Result((), String) effects []
+require true
+  let value = Ok(())
+  value
+end

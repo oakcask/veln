@@ -1,4 +1,6 @@
 use super::*;
+use std::fs;
+use std::path::{Path, PathBuf};
 use veln_source::SourceFile;
 
 #[test]
@@ -491,6 +493,67 @@ fn token_kind_labels_cover_every_surface_token() {
     for (kind, label) in cases {
         assert_eq!(kind.label(), label);
     }
+}
+
+#[test]
+fn accepted_source_surface_fixtures_parse_without_diagnostics() {
+    for fixture in source_surface_fixtures("accepted") {
+        let text = fs::read_to_string(&fixture).expect("fixture should be readable");
+        let source = SourceFile::new(source_surface_fixture_name(&fixture), text);
+
+        let output = parse(&source);
+
+        assert!(
+            output.diagnostics.is_empty(),
+            "{} should parse without diagnostics: {:#?}",
+            fixture.display(),
+            output.diagnostics
+        );
+    }
+}
+
+#[test]
+fn rejected_source_surface_fixtures_produce_diagnostics() {
+    for fixture in source_surface_fixtures("rejected") {
+        let text = fs::read_to_string(&fixture).expect("fixture should be readable");
+        let source = SourceFile::new(source_surface_fixture_name(&fixture), text);
+
+        let output = parse(&source);
+
+        assert!(
+            !output.diagnostics.is_empty(),
+            "{} should produce at least one parse diagnostic",
+            fixture.display()
+        );
+    }
+}
+
+fn source_surface_fixtures(outcome: &str) -> Vec<PathBuf> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../docs/specification/source-surface-fixtures")
+        .join(outcome);
+    let mut fixtures = fs::read_dir(&root)
+        .unwrap_or_else(|error| panic!("failed to read {}: {error}", root.display()))
+        .map(|entry| entry.expect("fixture entry should be readable").path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "veln")
+        })
+        .collect::<Vec<_>>();
+    fixtures.sort();
+    assert!(
+        !fixtures.is_empty(),
+        "source-surface {outcome} fixtures should not be empty"
+    );
+    fixtures
+}
+
+fn source_surface_fixture_name(path: &Path) -> String {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    path.strip_prefix(&root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
 }
 
 #[test]

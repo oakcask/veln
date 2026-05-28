@@ -4,42 +4,55 @@ This file specifies the source subset implemented by the parser and AST.
 
 ## Grammar
 
+The formal grammar block is generated from the executable Prolog source
+surface specification. Keep semantic behavior, diagnostics, and rationale in
+the surrounding prose.
+
+<!-- source-surface-grammar:start -->
 ```text
 Module        ::= ModDecl? UseDecl* Item*
 ModDecl       ::= "mod" ModuleName NL
 UseDecl       ::= "use" ModuleName NL
+ModuleName    ::= Name ("." Name)*
 Item          ::= Function | TestDecl
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
-                  Contract*
-                  Body
-                  "end" NL?
+                  Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects NL
-                  Contract*
-                  Body
-                  "end" NL?
+                  Contract* Body "end" NL?
+ParamList     ::= Param ("," Param)* ","?
 Param         ::= Name (":" TypeText)?
 Return        ::= "->" ResultBinding? TypeText
 ResultBinding ::= Name ":"
 Effects       ::= "effects" "[" EffectList? "]"
+EffectList    ::= Name ("," Name)* ","?
 Contract      ::= ("require" | "ensure" | "invariant") ContractPredicate NL
-Body          ::= LetLine* ExprLine?
+Body          ::= (LetLine | ExprLine)*
 LetLine       ::= "let" LetPattern (":" TypeText)? "=" Expr NL
 LetPattern    ::= "_" | BindingName | RecordPattern
 ExprLine      ::= Expr NL
+Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*
+PrefixExpr    ::= ("not" | "-") PrefixExpr | PostfixExpr
+PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | "?")*
+PrimaryExpr   ::= Hole | Literal | NamePath | "(" Expr ")" | "()"
+                  | Record | Dict | List | Match
+Call          ::= "(" ArgList? ")"
+ArgList       ::= Expr ("," Expr)* ","?
+TypeArgs      ::= "[" TypeText ("," TypeText)* ","? "]"
+FieldAccess   ::= "." Name
 Record        ::= "{" (Name ":" Expr) ("," Name ":" Expr)* ","? "}"
 Dict          ::= "{" Expr ":" Expr ("," Expr ":" Expr)* ","? "}"
+List          ::= "[" ArgList? "]"
 Match         ::= "match" Expr NL MatchArm+ "end"
 MatchArm      ::= Pattern "=>" Expr NL
-TypeArgs      ::= "[" TypeText ("," TypeText)* ","? "]"
 Pattern       ::= "_" | BindingName | Literal | ConstructorPattern | RecordPattern
-ConstructorPattern ::= ConstructorName "(" PatternList? ")"
-                     | ConstructorName
+ConstructorPattern ::= ConstructorName "(" PatternList? ")" | ConstructorName
 ConstructorName ::= UpperName | Name "::" Name ("::" Name)*
 RecordPattern ::= "{" PatternFieldList? "}"
 PatternList   ::= Pattern ("," Pattern)* ","?
 PatternFieldList ::= PatternField ("," PatternField)* ","?
 PatternField  ::= Name ":" Pattern
 ```
+<!-- source-surface-grammar:end -->
 
 `Name` is an identifier. `UpperName` is an identifier whose first character is
 uppercase. `BindingName` is an unqualified identifier whose first character is

@@ -1,0 +1,3 @@
+fn broken() -> Int
+  1 2
+end
