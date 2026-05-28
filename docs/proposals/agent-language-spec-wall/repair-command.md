@@ -2,24 +2,26 @@
 
 Status: proposed
 
-This page routes the repair-loop proposal area without requiring the broad
+This page routes the repair-command proposal area without requiring the broad
 design brief or full open-question inventory first.
 
 ## Read First
 
-- Current advisory repair candidate behavior and the absence of an implemented
-  repair command:
+- Current advisory repair candidate behavior, application-policy boundary, and
+  future-command routing:
   [../../specification/repair-candidates.md](../../specification/repair-candidates.md).
 - Safe repair candidate boundary:
   [../../reference/source-decisions/records/result-safe-repair-candidate-boundary.md](../../reference/source-decisions/records/result-safe-repair-candidate-boundary.md).
+- Completion review for the implemented advisory candidate boundary:
+  [../../reviews/agent-language-spec-wall-completion.md](../../reviews/agent-language-spec-wall-completion.md).
 
 ## Current Boundary
 
 The current implemented boundary is
 [advisory repair candidates](../../specification/repair-candidates.md).
-This proposal starts where that boundary stops: command invocation,
-confirmation, override, and automatic application remain unresolved proposal
-work.
+This proposal starts where that boundary stops. Command invocation,
+confirmation, override, dry-run/apply modes, and edit application remain
+unresolved proposal work.
 
 ## Open Command-Level Work
 
@@ -58,31 +60,20 @@ this proposal only when all of these behavior points are specified and covered:
 - The implemented behavior is documented under `../../specification/`, and any
   remaining unresolved repair-loop behavior stays in proposal text.
 
-## Review Handoff
+## Handoff
 
 The completion conditions are not met. Current implementation and
-specification still stop at advisory candidates:
-
-- `crates/veln-cli/src/cli.rs` exposes `check`, `fmt`, `run`, `test`,
-  `explain`, and `lsp`, with no `repair` command or repair option.
-- `crates/veln-cli/tests/check_json.rs` asserts that `repair` and
-  `help repair` are unknown commands.
-- `crates/veln-cli/tests/check_json.rs` also asserts that
-  `safe_repair_candidate` edits remain unapplied after `check --json`.
-- `../../specification/commands.md`,
-  `../../specification/commands-full.md`, and
-  `../../specification/repair-candidates.md` state that no applying repair
-  command is implemented and that candidate edits remain advisory.
+specification still stop at advisory candidates; use
+[../../specification/repair-candidates.md](../../specification/repair-candidates.md)
+for that boundary and
+[../../reviews/agent-language-spec-wall-completion.md](../../reviews/agent-language-spec-wall-completion.md)
+for the supporting review evidence.
 
 Next work should first turn the open command-level points into explicit
-acceptance criteria. Implementation should then add command tests for the
-preview, apply, refusal, JSON, stale-target, verification-failure, and existing
-`check --json` advisory-boundary cases before promoting any behavior into
-`../../specification/`.
-
-Until these conditions are resolved, adding an applying `veln repair` command
-would be premature. Work may still improve advisory candidate records, but it
-must keep edits unapplied and follow the current specification boundary.
+acceptance criteria. Implementation should then add command tests for preview,
+application, refusal, JSON output, stale targets, verification failure, and
+preservation of the existing `check --json` advisory boundary before promoting
+any behavior into `../../specification/`.
 
 ## Read When
 

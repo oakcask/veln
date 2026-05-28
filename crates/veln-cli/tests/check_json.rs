@@ -374,6 +374,7 @@ fn cli_reports_parser_errors_before_project_discovery() {
 
     let unknown_command = project.veln(&[], &["wat"]);
     let repair_command = project.veln(&[], &["repair"]);
+    let repair_command_help = project.veln(&[], &["repair", "--help"]);
     let repair_help_topic = project.veln(&[], &["help", "repair"]);
     let unknown_check_flag = project.veln(&["check"], &["--wat"]);
     let unknown_run_flag = project.veln(&["run"], &["--wat"]);
@@ -389,6 +390,13 @@ fn cli_reports_parser_errors_before_project_discovery() {
     assert_eq!(repair_command.status.code(), Some(2));
     assert_eq!(stdout(&repair_command), "");
     assert_eq!(stderr(&repair_command), "veln: unknown command `repair`\n");
+
+    assert_eq!(repair_command_help.status.code(), Some(2));
+    assert_eq!(stdout(&repair_command_help), "");
+    assert_eq!(
+        stderr(&repair_command_help),
+        "veln: unknown command `repair`\n"
+    );
 
     assert_eq!(repair_help_topic.status.code(), Some(2));
     assert_eq!(stdout(&repair_help_topic), "");
@@ -2038,6 +2046,36 @@ fn check_json_leaves_safe_repair_candidate_unapplied() {
             "\"application_status\":\"unapplied\"",
             "\"verification_hint\":{\"command\":\"veln check --json main.veln\"",
         ],
+    );
+    assert_eq!(project.read("main.veln"), source);
+}
+
+#[test]
+fn check_rejects_repair_options_without_applying_candidate_edits() {
+    let project = TestProject::new("check-repair-options");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+
+    let repair_output = project.veln(&["check"], &["--repair", "main.veln"]);
+    let apply_output = project.veln(&["check"], &["--apply", "main.veln"]);
+
+    assert_eq!(repair_output.status.code(), Some(2));
+    assert_eq!(stdout(&repair_output), "");
+    assert_eq!(
+        stderr(&repair_output),
+        "veln: unknown check flag `--repair`\n"
+    );
+    assert_eq!(project.read("main.veln"), source);
+
+    assert_eq!(apply_output.status.code(), Some(2));
+    assert_eq!(stdout(&apply_output), "");
+    assert_eq!(
+        stderr(&apply_output),
+        "veln: unknown check flag `--apply`\n"
     );
     assert_eq!(project.read("main.veln"), source);
 }

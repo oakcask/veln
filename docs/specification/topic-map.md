@@ -21,8 +21,7 @@ smallest specification page to read. Start with the short page; open the matchin
   contracts and holes.
 - Contract clauses, predicate validation, runtime obligations, blame, and
   result bindings: [contracts.md](contracts.md).
-- Hole diagnostics, safe repair records, satisfy constraints, and candidate
-  ranking: [holes.md](holes.md).
+- Hole diagnostics and satisfy constraints: [holes.md](holes.md).
 - Advisory repair candidate records, concrete unapplied edits, application
   policy, and future-command boundary:
   [repair-candidates.md](repair-candidates.md).

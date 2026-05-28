@@ -400,8 +400,13 @@ mod tests {
             Ok(_) => panic!("unknown command should fail"),
             Err(error) => error,
         };
+        let repair_error = match parse(&["repair", "--help"]) {
+            Ok(_) => panic!("unknown repair command should fail"),
+            Err(error) => error,
+        };
 
         assert_eq!(error, "unknown command `build`");
+        assert_eq!(repair_error, "unknown command `repair`");
     }
 
     #[test]

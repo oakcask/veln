@@ -27,9 +27,9 @@ requiring the full command reference on the first read.
   task.
 - `lsp`: stdio language-server startup for editor semantic highlighting. Use
   [editor-support.md](editor-support.md) first for semantic-token behavior.
-- No `repair` command is implemented. Hole repair candidates exposed through
-  `check --json` remain advisory and unapplied; use
-  [repair-candidates.md](repair-candidates.md) for candidate policy.
+- No `repair` command or applying repair workflow is implemented; use
+  [repair-candidates.md](repair-candidates.md) for the advisory candidate
+  boundary and future-command routing.
 
 ## Read When
 

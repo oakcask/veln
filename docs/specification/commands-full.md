@@ -12,10 +12,9 @@ behavior, gates, or output boundaries.
 - [`veln explain`](#veln-explain)
 - [`veln lsp`](#veln-lsp)
 
-No `veln repair` command is implemented. Candidate edits can appear only as
-advisory `check --json` diagnostic details and remain unapplied by command
-execution. Use [repair-candidates.md](repair-candidates.md) for the advisory
-candidate boundary.
+No `veln repair` command or applying repair workflow is implemented. Use
+[repair-candidates.md](repair-candidates.md) for the advisory candidate
+boundary and future-command routing.
 
 <a id="veln-check"></a>
 

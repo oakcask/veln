@@ -1,33 +1,32 @@
 # Advisory Repair Candidates
 
-This page is the entry point for implemented advisory repair candidates. Start
-here when a task mentions repair candidates, safe repair, candidate edits, or a
-future repair command.
+This page is the entry point for the implemented boundary around advisory
+repair candidates. Start here when a task mentions repair candidates, safe
+repair, candidate edits, applying edits, or a future repair command.
 
-Candidate records may appear in `veln check --json`; they are not an applying
-repair workflow and are not a specification for a dedicated repair command.
+## Current Boundary
 
-## Read First
-
-- No `veln repair` command is implemented. Candidate edits are concrete
-  replacement suggestions inside diagnostics, but command execution leaves them
-  unapplied.
+- Candidate records may appear in `veln check --json` diagnostics. They are
+  advisory records, not an applying workflow.
+- Candidate edits are concrete replacement suggestions for the reported span,
+  but command execution leaves them unapplied.
 - Candidate application policy is evidence and review routing. Even
   `safe_repair_candidate` means the implemented static subset has discharged;
   it does not authorize automatic edit application.
+- No `veln repair` command or repair option is implemented. Invocation,
+  confirmation, override, and edit application remain proposal work.
 
-## Detail Routes
+## Choose Detail
 
-- Exact candidate ranking, `satisfy` repair constraints, and safe-repair
-  matching rules: [holes.md](holes.md).
-- Stable `check --json` envelope, diagnostic fields, and candidate `details`
-  payload boundaries: [diagnostics-json.md](diagnostics-json.md).
-- Implemented command availability and the explicit absence of `veln repair`:
-  [commands.md](commands.md).
-- Rationale for keeping candidates advisory until an edit is authorized:
+- Candidate fields, stable `check --json` envelope, diagnostic spans, and
+  `details` payload boundaries: [diagnostics-json.md](diagnostics-json.md).
+- Candidate ranking, `satisfy` repair constraints, safe-repair matching, and
+  exact examples: [holes.md](holes.md).
+- Implemented command availability and command gates: [commands.md](commands.md).
+- Rationale for keeping candidates advisory until edit application is
+  authorized:
   [source-decisions.md](source-decisions.md).
-- Proposed command invocation, confirmation, override, and application
-  behavior:
+- Proposed command invocation, confirmation, override, and applying workflow:
   [../proposals/agent-language-spec-wall/repair-command.md](../proposals/agent-language-spec-wall/repair-command.md).
 
 ## Read When
@@ -36,7 +35,7 @@ repair workflow and are not a specification for a dedicated repair command.
   blocking obligations, verification hints, or application policy.
 - Deciding whether repair-loop behavior belongs in implemented `check --json`
   diagnostics or remains proposal work for a future command.
-- Keeping the repair command proposal subordinate to current implemented
+- Auditing that proposal text stays subordinate to current implemented
   behavior.
 
 ## Skip Unless Needed
@@ -45,8 +44,13 @@ repair workflow and are not a specification for a dedicated repair command.
   matching rules.
 - Use [diagnostics-json-full.md](diagnostics-json-full.md) only for the full
   diagnostic field catalog.
-- Do not promote command invocation, confirmation, override, or automatic
-  application behavior into this specification until it is implemented.
 - Open
   [../reference/source-decisions/records/result-safe-repair-candidate-boundary.md](../reference/source-decisions/records/result-safe-repair-candidate-boundary.md)
   only when the advisory-versus-application rationale is needed.
+
+## Promotion Rule
+
+Do not promote command invocation, confirmation, override, dry-run/apply modes,
+multi-file edit application, or automatic repair behavior into this
+specification until the behavior is implemented and tested. Until then, keep
+that material in proposal text.
