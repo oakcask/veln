@@ -31,6 +31,17 @@ test("proposal target selection preserves the no-target route", () => {
 
   assert.equal(fs.existsSync(path.join("prompts", "TARGET.md")), false);
   assertIncludes(prompt, "No implementation target is selected");
+  assertIncludes(prompt, "docs/proposals/formatter-stabilization.md");
+  assertIncludes(prompt, "docs/proposals/jvm-bytecode-backend.md");
+  assertIncludes(
+    prompt,
+    "docs/proposals/agent-language-spec-wall/repair-command.md",
+  );
+  assertIncludes(prompt, "docs/proposals/reference-followups.md");
+  assertIncludes(prompt, "docs/proposals/agent-language-spec-wall/README.md");
+  assertIncludes(prompt, "docs/proposals/self-hosting-standard-library.md");
+  assertIncludes(prompt, "docs/proposals/README.md");
+  assertIncludes(prompt, "docs/proposals/implementation-route.md");
   assertIncludes(prompt, "not define one concrete short proposal target");
   assertIncludes(prompt, "current target is none");
 
@@ -43,6 +54,18 @@ test("proposal target selection preserves the no-target route", () => {
   assertIncludes(
     targetSelection,
     "keep the\n  target unset instead of inferring one from nearby proposal text",
+  );
+  assertIncludes(
+    targetSelection,
+    "not a full detail\n   record, review, reference note, or implemented proposal record",
+  );
+  assertIncludes(
+    targetSelection,
+    "If the behavior is already implemented, use the matching specification page",
+  );
+  assertIncludes(
+    targetSelection,
+    "If the behavior is broad or exploratory, split or create a short proposal",
   );
   assertIncludes(targetSelection, "## Candidate Map");
   assertIncludes(
@@ -65,12 +88,40 @@ test("proposal target selection preserves the no-target route", () => {
     targetSelection,
     "When no concrete target is selected, stop here or create a short proposal",
   );
+  assertIncludes(
+    targetSelection,
+    "Do not open full proposal records until a short proposal page names the\n  specific detail needed",
+  );
 
   assertIncludes(proposalsIndex, "Current target and candidate classification:");
   assertIncludes(proposalsIndex, "[target-selection.md](target-selection.md)");
   assertIncludes(
+    proposalsIndex,
+    "Start here before inferring work\n  from nearby proposal text",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "It can route a future target only after one\n  descriptor-only pure helper is selected",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "Split or add a short\n  proposal page before treating any listed area as a target",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "Use it for exploratory material and implemented decision pointers, not as one\n  target",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "Implemented proposal records:",
+  );
+  assertIncludes(
     implementationRoute,
     "Start with [target-selection.md](target-selection.md)",
+  );
+  assertIncludes(
+    implementationRoute,
+    "If the only available material is a broad follow-up index or exploratory\n  design inventory, split out one short proposal page before implementation",
   );
   assertIncludes(
     implementationRoute,
