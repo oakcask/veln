@@ -20,6 +20,8 @@ pub const fn core_prelude_source(entry: &'static str) -> StdlibSource {
 
 pub static CORE_PRELUDE_OPTION_MAP: StdlibSource = core_prelude_source("option_map");
 
+pub static CORE_PRELUDE_OPTION_AND_THEN: StdlibSource = core_prelude_source("option_and_then");
+
 pub static CORE_PRELUDE_OPTION_UNWRAP_OR: StdlibSource = core_prelude_source("option_unwrap_or");
 
 pub static CORE_PRELUDE: StdlibSource = core_prelude_source("option_unwrap_or");

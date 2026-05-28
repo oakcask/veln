@@ -7,6 +7,13 @@ fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
 	end
 end
 
+fn option_and_then(value: Option(A), f: fn(A) -> Option(B)) -> Option(B) effects []
+	match value
+		Some(inner) => f(inner)
+		None => None
+	end
+end
+
 fn option_unwrap_or(value: Option(A), fallback: A) -> A effects []
 	match value
 		Some(inner) => inner

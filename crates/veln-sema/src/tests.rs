@@ -7387,7 +7387,10 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
     }
 
     entries.sort_unstable();
-    assert_eq!(entries, ["option_map", "option_unwrap_or"]);
+    assert_eq!(
+        entries,
+        ["option_and_then", "option_map", "option_unwrap_or"]
+    );
 }
 
 #[test]
@@ -7749,34 +7752,42 @@ fn prelude_helpers_check_direct_expected_return_types() {
 }
 
 #[test]
-fn source_backed_option_map_reports_user_call_site_diagnostics() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "fn to_int(value: Int) -> Int effects []\n",
-            "  value\n",
-            "end\n",
-            "pub fn main(value: Option(Int)) -> Option(String) effects []\n",
-            "  option_map(value, to_int)\n",
-            "end\n",
-        ),
-    );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
+fn source_backed_option_helpers_report_user_call_site_diagnostics() {
+    for (helper, expected_callback) in [
+        ("option_map", "fn(unknown) -> String"),
+        ("option_and_then", "fn(unknown) -> Option(String)"),
+    ] {
+        let source = SourceFile::new(
+            "main.veln",
+            format!(
+                concat!(
+                    "fn to_int(value: Int) -> Int effects []\n",
+                    "  value\n",
+                    "end\n",
+                    "pub fn main(value: Option(Int)) -> Option(String) effects []\n",
+                    "  {}(value, to_int)\n",
+                    "end\n",
+                ),
+                helper
+            ),
+        );
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
 
-    let diagnostics = analyze_surface_module(&module);
+        let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 1);
-    assert_eq!(diagnostics[0].id, "type.mismatch");
-    assert_eq!(
-        diagnostics[0].message,
-        "expected `fn(unknown) -> String`, but found `fn(Int) -> Int`"
-    );
-    let span = diagnostics[0]
-        .span
-        .as_ref()
-        .expect("diagnostic should point at user source");
-    assert_eq!(span.file.as_str(), "main.veln");
+        assert_eq!(diagnostics.len(), 1, "{helper}");
+        assert_eq!(diagnostics[0].id, "type.mismatch");
+        assert_eq!(
+            diagnostics[0].message,
+            format!("expected `{expected_callback}`, but found `fn(Int) -> Int`")
+        );
+        let span = diagnostics[0]
+            .span
+            .as_ref()
+            .expect("diagnostic should point at user source");
+        assert_eq!(span.file.as_str(), "main.veln");
+    }
 }
 
 #[test]

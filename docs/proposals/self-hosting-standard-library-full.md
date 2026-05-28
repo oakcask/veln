@@ -13,10 +13,10 @@ that cannot yet be expressed in source.
 
 ## Implemented Baseline
 
-The source-backed pure-helper pattern already exists for helpers documented in
-`../specification/names-effects.md`. That page, not this proposal, defines the
-implemented helper signatures, value semantics, source metadata, diagnostics,
-and descriptor table behavior.
+The source-backed pure-helper pattern already exists for the option helpers
+documented in `../specification/names-effects.md`. That page, not this
+proposal, defines the implemented helper signatures, value semantics, source
+metadata, diagnostics, and descriptor table behavior.
 
 Future work should preserve that implemented pattern:
 
@@ -30,8 +30,8 @@ Future work should preserve that implemented pattern:
 
 ## Remaining Pure Helper Candidates
 
-Remaining source-backed prelude work should choose from descriptor-only pure
-helpers that already have implemented signatures and value semantics in
+Remaining source-backed prelude work should choose from the descriptor-only
+pure helpers that already have implemented signatures and value semantics in
 `../specification/names-effects.md`. The proposal does not change helper
 semantics; it changes where reusable helper bodies can live and what descriptor
 metadata records about that source.
@@ -70,8 +70,8 @@ complexity guarantees through this proposal.
 
 ## Open Questions
 
-- Which descriptor-only pure helper should move next after the current
-  source-backed pattern is validated?
+- Which descriptor-only pure helper should move next after the source-backed
+  option helper pattern?
 - Which helpers must remain runtime intrinsics until user-defined effects or
   effect handlers exist?
 - Should process termination keep the current return shape or use a future

@@ -16,7 +16,8 @@ compiler-known calls.
   [names-effects-full.md](names-effects-full.md#process-calls).
 - Concurrency calls, executable reachability, and effect provenance:
   [names-effects-full.md](names-effects-full.md#concurrency-calls).
-- Prelude helper signatures, source-backed status, and value semantics:
+- Prelude helper signatures, the source-backed option helper cluster,
+  descriptor-only helper boundary, and value semantics:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
 - Descriptor-backed compiler-known symbols, standard library source metadata,
   and the compiler-support source-loading trial:

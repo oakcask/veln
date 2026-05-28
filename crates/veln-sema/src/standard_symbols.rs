@@ -117,7 +117,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("process", "exit", PROCESS_EFFECTS, "runtime.process.exit"),
 ];
 
-const PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
+const DESCRIPTOR_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("float_negate"),
     prelude_symbol_descriptor("float_add"),
     prelude_symbol_descriptor("float_subtract"),
@@ -143,15 +143,21 @@ const PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("dict_contains"),
     prelude_symbol_descriptor("dict_insert"),
     prelude_symbol_descriptor("dict_remove"),
+    prelude_symbol_descriptor("result_map"),
+    prelude_symbol_descriptor("result_map_err"),
+    prelude_symbol_descriptor("result_and_then"),
+];
+
+const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     source_prelude_symbol_descriptor("option_map", &veln_stdlib::CORE_PRELUDE_OPTION_MAP),
-    prelude_symbol_descriptor("option_and_then"),
+    source_prelude_symbol_descriptor(
+        "option_and_then",
+        &veln_stdlib::CORE_PRELUDE_OPTION_AND_THEN,
+    ),
     source_prelude_symbol_descriptor(
         "option_unwrap_or",
         &veln_stdlib::CORE_PRELUDE_OPTION_UNWRAP_OR,
     ),
-    prelude_symbol_descriptor("result_map"),
-    prelude_symbol_descriptor("result_map_err"),
-    prelude_symbol_descriptor("result_and_then"),
 ];
 
 const fn runtime_symbol(
@@ -208,12 +214,18 @@ pub(crate) fn qualified_symbol(segments: &[String]) -> Option<&'static StandardS
 }
 
 pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescriptor> {
-    PRELUDE_SYMBOLS.iter().find(|symbol| symbol.name == name)
+    prelude_symbols().find(|symbol| symbol.name == name)
+}
+
+fn prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
+    DESCRIPTOR_PRELUDE_SYMBOLS
+        .iter()
+        .chain(SOURCE_PRELUDE_SYMBOLS.iter())
 }
 
 #[cfg(test)]
 pub(crate) fn source_backed_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
-    PRELUDE_SYMBOLS
+    SOURCE_PRELUDE_SYMBOLS
         .iter()
         .chain(QUALIFIED_SYMBOLS)
         .filter(|symbol| symbol.source.is_some())
@@ -270,10 +282,13 @@ mod tests {
 
     #[test]
     fn source_backed_prelude_descriptors_carry_metadata() {
-        let expected = ["option_map", "option_unwrap_or"];
+        let expected: Vec<_> = SOURCE_PRELUDE_SYMBOLS
+            .iter()
+            .map(|symbol| symbol.name)
+            .collect();
         let mut entries = Vec::new();
 
-        for name in expected {
+        for name in expected.iter().copied() {
             let symbol = prelude_symbol(name).expect("source-backed helper descriptor");
             let source = symbol.source.expect("source metadata");
 
@@ -291,7 +306,7 @@ mod tests {
 
     #[test]
     fn descriptor_only_prelude_helpers_do_not_carry_source_metadata() {
-        let symbol = prelude_symbol("option_and_then").expect("prelude descriptor");
+        let symbol = prelude_symbol("result_and_then").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert_eq!(symbol.lowering, None);
@@ -304,7 +319,7 @@ mod tests {
         let mut sources = BTreeSet::new();
         let mut count = 0;
 
-        for symbol in PRELUDE_SYMBOLS.iter().chain(QUALIFIED_SYMBOLS) {
+        for symbol in prelude_symbols().chain(QUALIFIED_SYMBOLS.iter()) {
             if let Some(source) = symbol.source {
                 count += 1;
                 assert_eq!(symbol.kind, StandardSymbolKind::Veln);
@@ -329,7 +344,11 @@ mod tests {
             }
         }
 
-        assert_eq!(count, 2, "expected option_map and option_unwrap_or");
+        assert_eq!(
+            count,
+            SOURCE_PRELUDE_SYMBOLS.len(),
+            "expected one source descriptor per source-backed prelude symbol"
+        );
     }
 
     #[test]
@@ -350,7 +369,7 @@ mod tests {
     fn prelude_descriptors_have_unique_source_names() {
         let mut names = BTreeSet::new();
 
-        for symbol in PRELUDE_SYMBOLS {
+        for symbol in prelude_symbols() {
             assert_eq!(symbol.module, None);
             assert!(
                 names.insert(symbol.name),

@@ -9,8 +9,8 @@ and compiler-known calls live in
 
 ## Current Target
 
-Continue the source-backed pure prelude helper path. The implemented baseline
-is documented as current behavior in the specification:
+Continue the source-backed pure prelude helper path. The implemented option
+helper cluster is documented as current behavior in the specification:
 
 - source-backed helper status and value semantics:
   [../specification/names-effects-full.md#prelude-helpers](../specification/names-effects-full.md#prelude-helpers)
@@ -18,7 +18,7 @@ is documented as current behavior in the specification:
   [../specification/names-effects-full.md#compiler-known-descriptor-table](../specification/names-effects-full.md#compiler-known-descriptor-table)
 
 The proposal area is the remaining descriptor-only pure helper set. A next
-helper should keep the existing source-visible signature and semantics, add
+helper should keep its existing source-visible signature and semantics, add
 embedded source metadata to the standard symbol descriptor, keep effects empty,
 and preserve user-call-site diagnostics.
 
@@ -26,8 +26,8 @@ and preserve user-call-site diagnostics.
 
 - Current source surface:
   [../specification/source-surface.md](../specification/source-surface.md).
-- Remaining proposal scope and non-goals:
-  [self-hosting-standard-library-full.md](self-hosting-standard-library-full.md).
+- Remaining proposal scope, candidate rules, and non-goals:
+  [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates).
 
 ## Read When
 
