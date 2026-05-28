@@ -9,16 +9,16 @@ also states it.
 ## Read First
 
 - Current behavior: [../specification/README.md](../specification/README.md).
-- Proposal index: [README.md](README.md).
+- Target selection route: [target-selection.md](target-selection.md).
 - Implemented formatter follow-up record:
   [formatter-stabilization.md](formatter-stabilization.md).
 
 ## Follow-Up Targets
 
-No formatter follow-up target is active on this page. The earlier formatter
-comment-attachment and stabilization target is implemented and routed through
-[formatter-stabilization.md](formatter-stabilization.md). New formatter work
-needs a new proposal page before this follow-up index can select it.
+This page is an index, not one implementation target. A listed area must become
+one short proposal page before implementation work starts. No follow-up target
+is active here; current selection state lives in
+[target-selection.md](target-selection.md).
 
 - Broader executable reachability, entry selection, and runtime behavior not
   yet stated by [../specification/execution.md](../specification/execution.md).

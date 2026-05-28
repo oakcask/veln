@@ -2,10 +2,14 @@
 
 Use this page after [implementation-route.md](implementation-route.md) when an
 active proposal needs detailed comparison or an implemented proposal needs
-promotion cleanup. This page does not define current behavior.
+promotion cleanup. Start from [target-selection.md](target-selection.md) when
+the task has not already named one concrete target. This page does not define
+current behavior.
 
 ## Choose A Target
 
+- Start with [target-selection.md](target-selection.md) when the task does not
+  already name one concrete short proposal page.
 - Choose any active short proposal page in this directory when the task
   explicitly selects proposal work and the behavior is absent from
   `../specification/`.
@@ -13,6 +17,8 @@ promotion cleanup. This page does not define current behavior.
   and open proposal detail only for history, evidence, or cleanup.
 - Use design-wall material only when a short proposal page routes the task
   there.
+- If the available material is a broad follow-up index or exploratory design
+  inventory, split out one short proposal page before implementation.
 
 ## Compare And Promote
 
@@ -39,6 +45,10 @@ promotion cleanup. This page does not define current behavior.
   `veln fmt` behavior and
   [../reviews/formatter-stabilization-completion.md](../reviews/formatter-stabilization-completion.md)
   for completion evidence.
+- Completed confirmation and explicit override behavior around `veln repair`:
+  [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
+  Keep current behavior anchored in
+  [../specification/repair-candidates.md](../specification/repair-candidates.md).
 - Implemented JVM bytecode backend:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md). That short page routes
   current behavior, fixture organization, completion evidence, the Java source
@@ -73,6 +83,7 @@ promotion cleanup. This page does not define current behavior.
 
 - Do not read broad design-wall material before the chosen short proposal page
   routes the task there.
+- Do not infer an active target from an implemented record or no-target state.
 - Do not keep implemented behavior in proposals merely to mark implementation
   status; keep current behavior in `../specification/` and leave only
   remaining proposal work in short route pages.

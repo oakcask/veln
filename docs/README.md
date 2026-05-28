@@ -19,7 +19,9 @@ first route is not obvious.
 
 - Change implemented language behavior:
   [specification/topic-map.md](specification/topic-map.md).
-- Promote a proposal into implemented behavior:
+- Find or confirm the current proposal target:
+  [proposals/target-selection.md](proposals/target-selection.md).
+- Promote a selected proposal into implemented behavior:
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Decide whether proposal text can move into current behavior:
   [document-status.md](document-status.md).

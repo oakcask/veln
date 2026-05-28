@@ -2,12 +2,14 @@
 
 Use this page after choosing to turn active proposal text into implemented
 behavior, or when an implemented proposal needs promotion cleanup. Start from
-[README.md](README.md) when you only need to find the relevant proposal. Use
-[implementation-route-full.md](implementation-route-full.md) only for detailed
-comparison, promotion, or cleanup.
+[target-selection.md](target-selection.md) when the task has not already named
+one concrete target. Use [implementation-route-full.md](implementation-route-full.md)
+only for detailed comparison, promotion, or cleanup.
 
 ## Choose A Target
 
+- Start with [target-selection.md](target-selection.md) when the task does not
+  already name one concrete short proposal page.
 - Choose any active short proposal page in this directory when the task
   explicitly selects proposal work and the behavior is absent from
   `../specification/`.
@@ -15,6 +17,8 @@ comparison, promotion, or cleanup.
   and open the proposal only for history, evidence, or cleanup.
 - Keep the target to one short proposal page unless that page routes to a full
   detail record or companion proposal.
+- If the only available material is a broad follow-up index or exploratory
+  design inventory, split out one short proposal page before implementation.
 
 ## Compare And Promote
 
@@ -69,5 +73,6 @@ comparison, promotion, or cleanup.
 
 - Do not read broad design-wall material before the chosen short proposal page
   routes the task there.
+- Do not infer an active target from an implemented record or no-target state.
 - Do not treat proposal text as implemented behavior unless
   `../specification/` also states it.

@@ -12,23 +12,71 @@ test("repository documentation links resolve", () => {
   assert.equal(result.valid, true);
 });
 
-test("repository documentation does not route through ignored prompt files", () => {
-  const docsRoot = path.resolve("docs");
-  const promptReferences = [];
+test("repository documentation only mentions prompt files in target selection", () => {
+  const promptReferences = docsReferencesTo("prompts/");
+  const referencedFiles = new Set(
+    promptReferences.map((reference) => reference.relativePath),
+  );
 
-  for (const file of listMarkdownFiles(docsRoot)) {
-    const text = fs.readFileSync(file, "utf8");
-    const lines = text.split("\n");
-    lines.forEach((line, index) => {
-      if (line.includes("prompts/")) {
-        promptReferences.push(
-          `${path.relative(docsRoot, file)}:${index + 1}: ${line.trim()}`,
-        );
-      }
-    });
-  }
+  assert.deepEqual([...referencedFiles], ["proposals/target-selection.md"]);
+  assert.equal(promptReferences.length, 4);
+});
 
-  assert.deepEqual(promptReferences, []);
+test("proposal target selection preserves the no-target route", () => {
+  const prompt = fs.readFileSync(path.join("prompts", "NOTARGET"), "utf8");
+  const targetSelection = readDocsFile("proposals/target-selection.md");
+  const proposalsIndex = readDocsFile("proposals/README.md");
+  const implementationRoute = readDocsFile("proposals/implementation-route.md");
+  const navigation = readDocsFile("navigation.md");
+
+  assert.equal(fs.existsSync(path.join("prompts", "TARGET.md")), false);
+  assertIncludes(prompt, "No implementation target is selected");
+  assertIncludes(prompt, "not define one concrete short proposal target");
+  assertIncludes(prompt, "current target is none");
+
+  assertIncludes(targetSelection, "Status: routing");
+  assertIncludes(targetSelection, "Current target: none");
+  assertIncludes(
+    targetSelection,
+    "If `prompts/TARGET.md` is absent and `prompts/NOTARGET` is present",
+  );
+  assertIncludes(
+    targetSelection,
+    "keep the\n  target unset instead of inferring one from nearby proposal text",
+  );
+  assertIncludes(targetSelection, "## Candidate Map");
+  assertIncludes(
+    targetSelection,
+    "[self-hosting-standard-library.md](self-hosting-standard-library.md) has no\n  active helper target",
+  );
+  assertIncludes(
+    targetSelection,
+    "[reference-followups.md](reference-followups.md) is a broad follow-up index",
+  );
+  assertIncludes(
+    targetSelection,
+    "keeps exploratory design-wall material",
+  );
+  assertIncludes(
+    targetSelection,
+    "implemented proposal records",
+  );
+  assertIncludes(
+    targetSelection,
+    "When no concrete target is selected, stop here or create a short proposal",
+  );
+
+  assertIncludes(proposalsIndex, "Current target and candidate classification:");
+  assertIncludes(proposalsIndex, "[target-selection.md](target-selection.md)");
+  assertIncludes(
+    implementationRoute,
+    "Start with [target-selection.md](target-selection.md)",
+  );
+  assertIncludes(
+    implementationRoute,
+    "Do not infer an active target from an implemented record or no-target state",
+  );
+  assertIncludes(navigation, "Proposal target selection:");
 });
 
 test("repair proposal route covers the completed confirmation target", () => {
@@ -98,11 +146,12 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   );
   assertIncludes(proposal, "## Read First");
   assertIncludes(proposal, "Current target: none");
+  assertIncludes(proposal, "[target-selection.md](target-selection.md)");
   assertIncludes(proposal, "## Boundary");
   assertIncludes(proposal, "## Work Route");
   assertIncludes(
     proposal,
-    "Choose the next helper from the descriptor-only pure-helper list",
+    "Choose exactly one helper from the descriptor-only pure-helper list",
   );
   assertIncludes(proposal, "## Completed Helpers");
   assertIncludes(proposal, "../specification/names-effects.md");
@@ -251,6 +300,27 @@ function tempDocs(name) {
 
 function readDocsFile(relativePath) {
   return fs.readFileSync(path.join("docs", relativePath), "utf8");
+}
+
+function docsReferencesTo(textFragment) {
+  const docsRoot = path.resolve("docs");
+  const references = [];
+
+  for (const file of listMarkdownFiles(docsRoot)) {
+    const text = fs.readFileSync(file, "utf8");
+    const lines = text.split("\n");
+    lines.forEach((line, index) => {
+      if (line.includes(textFragment)) {
+        references.push({
+          line: index + 1,
+          relativePath: path.relative(docsRoot, file),
+          text: line.trim(),
+        });
+      }
+    });
+  }
+
+  return references;
 }
 
 function assertIncludes(text, expected) {

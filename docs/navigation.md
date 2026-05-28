@@ -18,7 +18,9 @@ routes below are not enough.
 - Diagnostics or JSON output:
   [specification/diagnostics-json.md](specification/diagnostics-json.md)
   and [specification/json-output.md](specification/json-output.md).
-- Proposal implementation:
+- Proposal target selection:
+  [proposals/target-selection.md](proposals/target-selection.md).
+- Proposal implementation after one target is selected:
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Proposal work:
   [proposals/README.md](proposals/README.md).

@@ -6,23 +6,41 @@ language behavior unless `../specification/` also states it.
 
 ## Read First
 
-- Choose an active proposal for implementation work only when it describes
-  behavior absent from `../specification/`.
+- Current target and candidate classification:
+  [target-selection.md](target-selection.md).
+- Implementation work needs one short proposal page that describes behavior
+  absent from `../specification/`.
 - Treat implemented proposal records as history and cleanup routes. Use the
   matching specification page for current behavior.
 - Status labels: [../document-status.md](../document-status.md).
 
 ## Proposal Routes
 
+- Target selection and no-target state:
+  [target-selection.md](target-selection.md). Start here before inferring work
+  from nearby proposal text.
 - Source-backed standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md) records
-  completed `vec_map`, `vec_try_map`, and `vec_try_map_with` migrations, then
-  routes future candidates back through the implemented helper split.
+  completed helper migrations. It can route a future target only after one
+  descriptor-only pure helper is selected.
+- Broad follow-up index:
+  [reference-followups.md](reference-followups.md). Split or add a short
+  proposal page before treating any listed area as a target.
+- Design-wall inventory:
+  [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md).
+  Use it for exploratory material and implemented decision pointers, not as one
+  target.
+- Implemented proposal records:
+  [formatter-stabilization.md](formatter-stabilization.md),
+  [jvm-bytecode-backend.md](jvm-bytecode-backend.md), and
+  [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
 
 ## Read When
 
+- Use [target-selection.md](target-selection.md) when a target is missing,
+  unset, stale, or too broad.
 - Use [implementation-route.md](implementation-route.md) for proposal promotion
-  mechanics after an explicit task selects proposal work.
+  mechanics after target selection names one concrete proposal.
 - Use [formatter-stabilization.md](formatter-stabilization.md) for the
   implemented formatter stabilization record and completion evidence route.
 - Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the implemented
@@ -35,8 +53,8 @@ language behavior unless `../specification/` also states it.
   when checking completed prelude helper migrations or choosing the next
   descriptor-only pure-helper candidate.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
-  for design-wall material that is still exploratory or only partially
-  represented.
+  for design-wall material that is exploratory, deferred, or already represented
+  by reference decision records.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
   before changing target status.
 
