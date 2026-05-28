@@ -93,22 +93,23 @@ test("self-hosting proposal route starts from the implemented helper split", () 
 
   assertIncludes(
     proposal,
-    "records the completed source-backed standard library targets for\n" +
-      "`vec_map` and `vec_try_map`",
+    "routes the selected proposal target for moving `vec_try_map_with`\n" +
+      "into the existing source-backed pure-helper model",
   );
   assertIncludes(proposal, "## Read First");
-  assertIncludes(proposal, "Completed helpers: `vec_map`, `vec_try_map`");
+  assertIncludes(proposal, "Current target: `vec_try_map_with`");
   assertIncludes(proposal, "## Boundary");
   assertIncludes(proposal, "## Work Route");
   assertIncludes(
     proposal,
-    "Confirm the selected helper is still in the descriptor-only pure-helper",
+    "Confirm `vec_try_map_with` is still in the descriptor-only pure-helper",
   );
   assertIncludes(
     proposal,
-    "work changed only source placement and descriptor metadata for already\n" +
-      "implemented helpers",
+    "Do not document `vec_try_map_with` as source-backed in `../specification/`\n" +
+      "until the implementation and tests support that state",
   );
+  assertIncludes(proposal, "## Completed Helpers");
   assertIncludes(proposal, "../specification/names-effects.md");
   assertIncludes(proposal, "../specification/source-surface.md");
   assertIncludes(
@@ -120,7 +121,10 @@ test("self-hosting proposal route starts from the implemented helper split", () 
     fullProposal,
     "Remaining source-backed prelude work chooses from the descriptor-only pure",
   );
-  assertIncludes(namesEffects, "Checking the selected descriptor-only helper");
+  assertIncludes(
+    namesEffects,
+    "Checking the current self-hosting proposal target",
+  );
   assertIncludes(namesEffectsFull, "### Source-Backed Boundary");
   assertIncludes(
     namesEffectsFull,
