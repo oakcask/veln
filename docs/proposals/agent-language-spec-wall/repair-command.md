@@ -1,6 +1,6 @@
 # Repair Command Proposal Route
 
-Status: implemented first command boundary; saved candidate inputs proposed
+Status: implemented saved candidate input boundary; adjacent work proposed
 
 This page routes the promoted repair-command boundary and the remaining
 command-level proposal work without requiring the broad design brief or full
@@ -29,20 +29,28 @@ narrow `veln repair` command gate. `repair` previews command-level candidate
 records and `repair --apply` can apply exactly one safe unapplied advisory
 candidate after post-edit check verification.
 
-Candidate input is recomputed from current source analysis. Saved candidate
-files and other external candidate inputs are not current behavior.
+Candidate input can come from current source analysis or saved repair JSON
+input. Selecting a candidate by current `repair_id`, saved command-level id, or
+`source_candidate_id` is current behavior documented in
+[../../specification/repair-candidates.md](../../specification/repair-candidates.md).
 
-## Active Target: Saved Candidate Inputs
+## Completed Target: Saved Candidate Inputs
 
-The current remaining target is to let the repair command consume saved
-candidate inputs instead of requiring every invocation to recompute candidates
-only from source analysis.
+The repair command can consume saved candidate inputs instead of requiring the
+displayed candidate set to come only from source analysis.
 
-Keep this target subordinate to the implemented specification until code and
-tests promote it. The proposal work must preserve the current fail-closed
-application gate: a saved candidate input is not a write authorization by
-itself, and stale, ambiguous, non-applicable, or unsupported candidates must
-still refuse rather than apply.
+For implementation work, keep two ideas separate:
+
+- Candidate selection: choosing one current command-level candidate by
+  `repair_id` or `source_candidate_id`.
+- Candidate input: where the command-level candidates come from. Saved
+  candidate files belong here and are implemented for repair JSON inputs.
+
+The implemented boundary preserves the fail-closed application gate: a saved
+candidate input is not a write authorization by itself, and stale, ambiguous,
+non-applicable, or unsupported candidates refuse rather than apply. Current
+behavior is specified in
+[../../specification/repair-candidates.md](../../specification/repair-candidates.md).
 
 ## Adjacent Work
 
@@ -55,14 +63,14 @@ still refuse rather than apply.
 ## Command Detail
 
 Use [repair-command-full.md](repair-command-full.md) only when auditing the
-implemented completion record. Use this page for the saved candidate input
-target and adjacent command-level work.
+implemented first command completion record. Use this page for adjacent
+command-level work.
 
 ## Read When
 
 - Changing the boundary between advisory candidate JSON and an applying
   command.
-- Implementing saved candidate files or other repair candidate inputs.
+- Implementing adjacent repair candidate input routes beyond saved repair JSON.
 - Auditing whether new repair-loop behavior belongs in `check --json`,
   `explain`, or a future command.
 

@@ -38,7 +38,6 @@ The first applying command boundary is implemented. Use
 [../../specification/repair-json.md](../../specification/repair-json.md) for
 current behavior.
 
-Use [repair-command.md](repair-command.md) for the saved candidate input target
-and adjacent command-level proposal work. Do not promote broader repair-loop
-behavior into `../../specification/` before implementation and tests support
-it.
+Use [repair-command.md](repair-command.md) for adjacent command-level proposal
+work. Do not promote broader repair-loop behavior into `../../specification/`
+before implementation and tests support it.

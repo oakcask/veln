@@ -15,10 +15,11 @@ repair, candidate edits, applying edits, or the repair command.
   it authorizes only the narrow `veln repair --apply` gate described below.
 - `veln repair` previews command-level repair records and can apply one safe
   unapplied advisory candidate after rerunning check analysis. Confirmation,
-  override, saved candidate files, multi-file edits, and partial application
-  remain outside the implemented boundary.
-- The command recomputes candidate input from current source analysis. It does
-  not consume saved candidate files.
+  override, multi-file edits, and partial application remain outside the
+  implemented boundary.
+- The command can load candidate input from current source analysis or saved
+  repair JSON files. Saved inputs do not authorize writes by themselves; apply
+  still requires a matching current safe candidate.
 
 ## Concept Map
 
@@ -31,9 +32,25 @@ repair, candidate edits, applying edits, or the repair command.
 - `application_status: "unapplied"` is the current behavior for emitted
   candidate edits.
 - `repair_id` is the command-local id emitted by `veln repair`; the original
-  advisory candidate id is preserved as `source_candidate_id`.
+  advisory candidate id is preserved as `source_candidate_id`. `--candidate`
+  can match either id, and ambiguous matches refuse.
+- Saved command-level repair JSON input is renumbered for the current
+  invocation, but selection may also match the saved command-level id.
 - `verification_hint` names the check to run after a human or future command
   applies an edit.
+
+## Input Route
+
+- Source input route: read source inputs, rerun analysis, normalize advisory
+  candidates into command-level repair candidates, then optionally select one
+  by id.
+- Saved input route: when one or more `*.json` inputs are present, load
+  candidates from saved repair JSON instead of using recomputed candidates as
+  the displayed candidate set. Source inputs still control project discovery
+  and verification.
+- Saved input may be a `repair --json` envelope, a command-level candidate
+  object or array, a `check --json` envelope, or an advisory candidate object or
+  array.
 
 ## Choose Detail
 
@@ -76,14 +93,22 @@ and `application_status: "unapplied"`, the target is a single source-relative
 replacement, the span still names a hole in the current file, and post-edit
 check analysis reports no error diagnostics.
 
+When `--candidate` is present, selection may use either the command-local
+`repair_id` or the preserved advisory `source_candidate_id`. A missing or
+ambiguous id refuses before writing.
+
+For saved candidate input, apply also requires an exact matching current safe
+candidate with the same `source_candidate_id`, replacement edit, application
+policy, and application status. A saved candidate that is stale, unsupported, or
+no longer current refuses before writing.
+
 If verification fails after writing, the original source file is restored.
 Hint-only partial status, including remaining holes elsewhere, does not by
 itself roll back the edit.
 
 ## Remaining Proposal Boundary
 
-Do not promote confirmation, override, saved candidate files, multi-file edit
-application, partial application, or broader automatic repair behavior into
-this specification until the behavior is implemented and tested. Until then,
-keep that material in
+Do not promote confirmation, override, multi-file edit application, partial
+application, or broader automatic repair behavior into this specification until
+the behavior is implemented and tested. Until then, keep that material in
 [../proposals/agent-language-spec-wall/repair-command.md](../proposals/agent-language-spec-wall/repair-command.md).

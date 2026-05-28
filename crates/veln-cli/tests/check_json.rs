@@ -219,7 +219,7 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
         "Usage: veln repair [OPTIONS] [INPUTS]...\n",
         "\n",
         "Arguments:\n",
-        "  [INPUTS]...  Source files or directories to repair\n",
+        "  [INPUTS]...  Source files, directories, or saved repair JSON files\n",
         "\n",
         "Options:\n",
         "      --json                      Emit machine-readable JSON\n",
@@ -2155,6 +2155,150 @@ fn repair_apply_writes_single_safe_candidate_and_verifies() {
             "end\n",
         )
     );
+}
+
+#[test]
+fn repair_apply_accepts_source_candidate_id_and_verifies() {
+    let project = TestProject::new("repair-apply-source-candidate-id");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => candidate.ready == order.ready\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.repair(&["--apply", "--candidate", "symbol-1", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "applied repair-1 at main.veln:2:3 -> `order`",
+            "verification passed",
+        ],
+    );
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  order\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn repair_apply_refuses_missing_candidate_id_without_writing() {
+    let project = TestProject::new("repair-apply-missing-candidate");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+
+    let output = project.repair(&[
+        "--json",
+        "--apply",
+        "--candidate",
+        "saved-candidate-1",
+        "main.veln",
+    ]);
+    let stdout = stdout(&output);
+
+    assert!(!output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"refused\"",
+            "\"selected_candidate\":null",
+            "\"candidate_count\":1",
+            "\"applicable_count\":1",
+            "\"applied_count\":0",
+            "\"refusal_reason\":\"candidate `saved-candidate-1` was not found\"",
+            "\"verification\":{\"status\":\"not_run\"",
+        ],
+    );
+    assert_eq!(project.read("main.veln"), source);
+}
+
+#[test]
+fn repair_apply_consumes_saved_repair_json_candidate_input() {
+    let project = TestProject::new("repair-apply-saved-json");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  _value satisfy candidate => candidate.ready == order.ready\n",
+            "end\n",
+        ),
+    );
+    let preview = project.repair(&["--json", "main.veln"]);
+    assert!(preview.status.success(), "{}", stderr(&preview));
+    project.write("saved-candidates.json", stdout(&preview));
+
+    let output = project.repair(&[
+        "--apply",
+        "--candidate",
+        "symbol-1",
+        "saved-candidates.json",
+    ]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "applied repair-1 at main.veln:2:3 -> `order`",
+            "verification passed",
+        ],
+    );
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  order\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn repair_apply_refuses_saved_candidate_that_is_not_current() {
+    let project = TestProject::new("repair-refuses-stale-saved-json");
+    let original = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    let changed = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value\n",
+        "end\n",
+    );
+    project.write("main.veln", original);
+    let preview = project.repair(&["--json", "main.veln"]);
+    assert!(preview.status.success(), "{}", stderr(&preview));
+    project.write("saved-candidates.json", stdout(&preview));
+    project.write("main.veln", changed);
+
+    let output = project.repair(&["--json", "--apply", "saved-candidates.json"]);
+    let stdout = stdout(&output);
+
+    assert!(!output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"refused\"",
+            "\"selected_candidate\":{\"repair_id\":\"repair-1\"",
+            "\"refusal_reason\":\"saved candidate is not current\"",
+            "\"verification\":{\"status\":\"not_run\"",
+        ],
+    );
+    assert_eq!(project.read("main.veln"), changed);
 }
 
 #[test]

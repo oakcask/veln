@@ -5,5 +5,5 @@ mod json;
 mod severity;
 
 pub use envelope::{Diagnostic, DiagnosticEnvelope, SCHEMA_VERSION, ToolInfo, diagnostic_to_json};
-pub use json::JsonValue;
+pub use json::{JsonValue, parse_json_value};
 pub use severity::{CheckStatus, DiagnosticKind, Severity};

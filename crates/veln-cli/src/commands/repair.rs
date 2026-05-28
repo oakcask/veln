@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use veln_diagnostics::{Diagnostic, JsonValue, diagnostic_to_json};
+use veln_diagnostics::{Diagnostic, JsonValue, diagnostic_to_json, parse_json_value};
 use veln_project::Project;
 use veln_source::{LineCol, SourceSpan};
 
@@ -20,12 +20,25 @@ pub(crate) fn repair(
     inputs: Vec<PathBuf>,
 ) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
-    let project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
+    let (source_inputs, candidate_inputs) = split_repair_inputs(&inputs);
+    let project =
+        Project::discover(root.clone(), &source_inputs).map_err(|error| error.to_string())?;
     let mut check_project = project.clone();
     let diagnostics = check_diagnostics(&mut check_project);
-    let candidates = repair_candidates(&diagnostics);
+    let current_candidates = repair_candidates_from_diagnostics(&diagnostics);
+    let candidates = if candidate_inputs.is_empty() {
+        current_candidates.clone()
+    } else {
+        repair_candidates_from_saved_inputs(&root, &candidate_inputs)?
+    };
     let outcome = if apply {
-        apply_candidate(project, inputs, candidates, candidate_id)?
+        apply_candidate(
+            project,
+            source_inputs,
+            candidates,
+            candidate_id,
+            &current_candidates,
+        )?
     } else {
         RepairOutcome::preview(candidates, candidate_id)
     };
@@ -51,12 +64,19 @@ struct RepairCandidate {
     application_policy: String,
     application_status: String,
     edit_summary: String,
+    edit: RepairEdit,
+    verification_command: Option<String>,
+    source: JsonValue,
+    input_repair_id: Option<String>,
+    requires_current_match: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct RepairEdit {
     file: String,
     start: LineCol,
     end: LineCol,
     replacement: String,
-    verification_command: Option<String>,
-    source: JsonValue,
 }
 
 #[derive(Clone, Debug)]
@@ -72,10 +92,7 @@ struct RepairOutcome {
 
 #[derive(Clone, Debug)]
 struct AppliedEdit {
-    file: String,
-    start: LineCol,
-    end: LineCol,
-    replacement: String,
+    edit: RepairEdit,
 }
 
 #[derive(Clone, Debug)]
@@ -89,7 +106,10 @@ impl RepairOutcome {
     fn preview(candidates: Vec<RepairCandidate>, requested_candidate_id: Option<String>) -> Self {
         let selected = requested_candidate_id
             .as_deref()
-            .and_then(|id| unique_candidate(&candidates, id).ok().flatten().cloned());
+            .and_then(|id| match find_candidate_by_id(&candidates, id) {
+                CandidateIdMatch::Unique(candidate) => Some(candidate.clone()),
+                CandidateIdMatch::Missing | CandidateIdMatch::Ambiguous => None,
+            });
         Self {
             mode: "preview",
             status: "preview",
@@ -198,11 +218,9 @@ impl RepairCandidate {
     }
 
     fn matches_id(&self, id: &str) -> bool {
-        self.repair_id == id || self.source_candidate_id == id
-    }
-
-    fn span(&self) -> JsonValue {
-        span_json(&self.file, self.start, self.end)
+        self.repair_id == id
+            || self.source_candidate_id == id
+            || self.input_repair_id.as_deref() == Some(id)
     }
 
     fn to_json(&self) -> JsonValue {
@@ -222,14 +240,7 @@ impl RepairCandidate {
                 JsonValue::string(self.application_status.clone()),
             ),
             ("edit_summary", JsonValue::string(self.edit_summary.clone())),
-            (
-                "edit",
-                JsonValue::object([
-                    ("kind", JsonValue::string("replace")),
-                    ("span", self.span()),
-                    ("replacement", JsonValue::string(self.replacement.clone())),
-                ]),
-            ),
+            ("edit", self.edit.to_json()),
             (
                 "verification_command",
                 self.verification_command
@@ -241,13 +252,19 @@ impl RepairCandidate {
     }
 }
 
-impl AppliedEdit {
+impl RepairEdit {
     fn to_json(&self) -> JsonValue {
         JsonValue::object([
             ("kind", JsonValue::string("replace")),
             ("span", span_json(&self.file, self.start, self.end)),
             ("replacement", JsonValue::string(self.replacement.clone())),
         ])
+    }
+}
+
+impl AppliedEdit {
+    fn to_json(&self) -> JsonValue {
+        self.edit.to_json()
     }
 }
 
@@ -281,10 +298,10 @@ fn print_human(outcome: &RepairOutcome) {
                     "{}: {} at {}:{}:{} -> `{}` [{}]",
                     candidate.repair_id,
                     candidate.edit_summary,
-                    candidate.file,
-                    candidate.start.line,
-                    candidate.start.column,
-                    candidate.replacement,
+                    candidate.edit.file,
+                    candidate.edit.start.line,
+                    candidate.edit.start.column,
+                    candidate.edit.replacement,
                     candidate.application_policy
                 );
             }
@@ -297,10 +314,10 @@ fn print_human(outcome: &RepairOutcome) {
             println!(
                 "applied {} at {}:{}:{} -> `{}`",
                 candidate.repair_id,
-                candidate.file,
-                candidate.start.line,
-                candidate.start.column,
-                candidate.replacement
+                candidate.edit.file,
+                candidate.edit.start.line,
+                candidate.edit.start.column,
+                candidate.edit.replacement
             );
             println!("verification passed");
         }
@@ -322,6 +339,7 @@ fn apply_candidate(
     inputs: Vec<PathBuf>,
     candidates: Vec<RepairCandidate>,
     requested_candidate_id: Option<String>,
+    current_candidates: &[RepairCandidate],
 ) -> Result<RepairOutcome, String> {
     let applicable = candidates
         .iter()
@@ -336,16 +354,16 @@ fn apply_candidate(
     }
 
     let selected = match requested_candidate_id.as_deref() {
-        Some(id) => match unique_candidate(&candidates, id) {
-            Ok(Some(candidate)) => candidate.clone(),
-            Ok(None) => {
+        Some(id) => match find_candidate_by_id(&candidates, id) {
+            CandidateIdMatch::Unique(candidate) => candidate.clone(),
+            CandidateIdMatch::Missing => {
                 return Ok(RepairOutcome::refused(
                     candidates,
                     None,
                     format!("candidate `{id}` was not found"),
                 ));
             }
-            Err(()) => {
+            CandidateIdMatch::Ambiguous => {
                 return Ok(RepairOutcome::refused(
                     candidates,
                     None,
@@ -370,8 +388,17 @@ fn apply_candidate(
             "candidate is not safe to apply automatically",
         ));
     }
+    if selected.requires_current_match
+        && !has_current_applicable_match(&selected, current_candidates)
+    {
+        return Ok(RepairOutcome::refused(
+            candidates,
+            Some(selected),
+            "saved candidate is not current",
+        ));
+    }
 
-    let source_path = source_path(&project.root, &selected.file)?;
+    let source_path = source_path(&project.root, &selected.edit.file)?;
     let original = fs::read_to_string(&source_path).map_err(|error| error.to_string())?;
     let edit = match replace_span(&original, &selected) {
         Ok(edit) => edit,
@@ -397,10 +424,12 @@ fn apply_candidate(
     }
 
     let applied_edit = AppliedEdit {
-        file: selected.file.clone(),
-        start: selected.start,
-        end: edit.end,
-        replacement: selected.replacement.clone(),
+        edit: RepairEdit {
+            file: selected.edit.file.clone(),
+            start: selected.edit.start,
+            end: edit.end,
+            replacement: selected.edit.replacement.clone(),
+        },
     };
     Ok(RepairOutcome {
         mode: "apply",
@@ -417,7 +446,7 @@ fn apply_candidate(
     })
 }
 
-fn repair_candidates(diagnostics: &[Diagnostic]) -> Vec<RepairCandidate> {
+fn repair_candidates_from_diagnostics(diagnostics: &[Diagnostic]) -> Vec<RepairCandidate> {
     let mut candidates = Vec::new();
     for diagnostic in diagnostics {
         let Some(queries) = object_array(&diagnostic.details, "candidate_queries") else {
@@ -428,7 +457,7 @@ fn repair_candidates(diagnostics: &[Diagnostic]) -> Vec<RepairCandidate> {
                 continue;
             };
             for candidate in query_candidates {
-                if let Some(candidate) = RepairCandidate::from_details(candidates.len(), candidate)
+                if let Some(candidate) = RepairCandidate::from_advisory(candidates.len(), candidate)
                 {
                     candidates.push(candidate);
                 }
@@ -439,11 +468,14 @@ fn repair_candidates(diagnostics: &[Diagnostic]) -> Vec<RepairCandidate> {
 }
 
 impl RepairCandidate {
-    fn from_details(index: usize, candidate: &JsonValue) -> Option<Self> {
+    fn from_advisory(index: usize, candidate: &JsonValue) -> Option<Self> {
         let edits = object_array(candidate, "edits")?;
         let [edit] = edits.as_slice() else {
             return None;
         };
+        if object_string(edit, "kind")? != "replace" {
+            return None;
+        }
         let span = object_value(edit, "span").and_then(source_span)?;
         Some(Self {
             repair_id: format!("repair-{}", index + 1),
@@ -454,30 +486,177 @@ impl RepairCandidate {
             edit_summary: object_string(candidate, "edit_summary")
                 .unwrap_or("Replace source span")
                 .to_string(),
-            file: span.file.as_str().to_string(),
-            start: span.start,
-            end: span.end,
-            replacement: object_string(edit, "replacement")?.to_string(),
+            edit: RepairEdit {
+                file: span.file.as_str().to_string(),
+                start: span.start,
+                end: span.end,
+                replacement: object_string(edit, "replacement")?.to_string(),
+            },
             verification_command: object_value(candidate, "verification_hint")
                 .and_then(|hint| object_string(hint, "command"))
                 .map(str::to_string),
             source: candidate.clone(),
+            input_repair_id: None,
+            requires_current_match: false,
+        })
+    }
+
+    fn from_saved_advisory(index: usize, candidate: &JsonValue) -> Option<Self> {
+        let mut candidate = Self::from_advisory(index, candidate)?;
+        candidate.requires_current_match = true;
+        Some(candidate)
+    }
+
+    fn from_saved_command(index: usize, candidate: &JsonValue) -> Option<Self> {
+        let edit = object_value(candidate, "edit")?;
+        if object_string(edit, "kind")? != "replace" {
+            return None;
+        }
+        let span = object_value(edit, "span").and_then(source_span)?;
+        Some(Self {
+            repair_id: format!("repair-{}", index + 1),
+            source_candidate_id: object_string(candidate, "source_candidate_id")?.to_string(),
+            name: object_string(candidate, "name").unwrap_or("").to_string(),
+            application_policy: object_string(candidate, "application_policy")?.to_string(),
+            application_status: object_string(candidate, "application_status")?.to_string(),
+            edit_summary: object_string(candidate, "edit_summary")
+                .unwrap_or("Replace source span")
+                .to_string(),
+            edit: RepairEdit {
+                file: span.file.as_str().to_string(),
+                start: span.start,
+                end: span.end,
+                replacement: object_string(edit, "replacement")?.to_string(),
+            },
+            verification_command: object_string(candidate, "verification_command")
+                .map(str::to_string),
+            source: object_value(candidate, "source")
+                .cloned()
+                .unwrap_or_else(|| candidate.clone()),
+            input_repair_id: object_string(candidate, "repair_id").map(str::to_string),
+            requires_current_match: true,
         })
     }
 }
 
-fn unique_candidate<'a>(
-    candidates: &'a [RepairCandidate],
-    id: &str,
-) -> Result<Option<&'a RepairCandidate>, ()> {
+fn split_repair_inputs(inputs: &[PathBuf]) -> (Vec<PathBuf>, Vec<PathBuf>) {
+    inputs
+        .iter()
+        .cloned()
+        .partition(|input| !is_saved_candidate_input(input))
+}
+
+fn is_saved_candidate_input(input: &Path) -> bool {
+    input
+        .extension()
+        .is_some_and(|extension| extension == "json")
+}
+
+fn repair_candidates_from_saved_inputs(
+    root: &Path,
+    inputs: &[PathBuf],
+) -> Result<Vec<RepairCandidate>, String> {
+    let mut candidates = Vec::new();
+    for input in inputs {
+        let path = if input.is_absolute() {
+            input.clone()
+        } else {
+            root.join(input)
+        };
+        let source = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+        let value = parse_json_value(&source).map_err(|error| {
+            format!(
+                "invalid saved repair candidate input `{}`: {error}",
+                input.display()
+            )
+        })?;
+        collect_saved_repair_candidates(&value, &mut candidates);
+    }
+    Ok(candidates)
+}
+
+fn collect_saved_repair_candidates(value: &JsonValue, candidates: &mut Vec<RepairCandidate>) {
+    match value {
+        JsonValue::Array(values) => {
+            for value in values {
+                collect_saved_repair_candidates(value, candidates);
+            }
+        }
+        JsonValue::Object(_) => {
+            if let Some(candidate) = RepairCandidate::from_saved_command(candidates.len(), value) {
+                candidates.push(candidate);
+                return;
+            }
+            if let Some(candidate) = RepairCandidate::from_saved_advisory(candidates.len(), value) {
+                candidates.push(candidate);
+                return;
+            }
+            if let Some(values) = object_array(value, "candidates") {
+                for value in values {
+                    collect_saved_repair_candidates(value, candidates);
+                }
+            }
+            if let Some(values) = object_array(value, "diagnostics") {
+                for value in values {
+                    collect_saved_diagnostic_candidates(value, candidates);
+                }
+            }
+        }
+        JsonValue::Null | JsonValue::Bool(_) | JsonValue::Number(_) | JsonValue::String(_) => {}
+    }
+}
+
+fn collect_saved_diagnostic_candidates(value: &JsonValue, candidates: &mut Vec<RepairCandidate>) {
+    let Some(details) = object_value(value, "details") else {
+        return;
+    };
+    let Some(queries) = object_array(details, "candidate_queries") else {
+        return;
+    };
+    for query in queries {
+        let Some(query_candidates) = object_array(query, "candidates") else {
+            continue;
+        };
+        for candidate in query_candidates {
+            if let Some(candidate) =
+                RepairCandidate::from_saved_advisory(candidates.len(), candidate)
+            {
+                candidates.push(candidate);
+            }
+        }
+    }
+}
+
+fn has_current_applicable_match(
+    selected: &RepairCandidate,
+    current_candidates: &[RepairCandidate],
+) -> bool {
+    current_candidates
+        .iter()
+        .any(|candidate| candidate.is_applicable() && same_candidate_edit(selected, candidate))
+}
+
+fn same_candidate_edit(left: &RepairCandidate, right: &RepairCandidate) -> bool {
+    left.source_candidate_id == right.source_candidate_id && left.edit == right.edit
+}
+
+enum CandidateIdMatch<'a> {
+    Missing,
+    Unique(&'a RepairCandidate),
+    Ambiguous,
+}
+
+fn find_candidate_by_id<'a>(candidates: &'a [RepairCandidate], id: &str) -> CandidateIdMatch<'a> {
     let mut matches = candidates
         .iter()
         .filter(|candidate| candidate.matches_id(id))
         .collect::<Vec<_>>();
     if matches.len() > 1 {
-        return Err(());
+        return CandidateIdMatch::Ambiguous;
     }
-    Ok(matches.pop())
+    matches
+        .pop()
+        .map_or(CandidateIdMatch::Missing, CandidateIdMatch::Unique)
 }
 
 fn source_path(root: &Path, file: &str) -> Result<PathBuf, String> {
@@ -495,8 +674,8 @@ struct ResolvedEdit {
 }
 
 fn replace_span(source: &str, candidate: &RepairCandidate) -> Result<ResolvedEdit, String> {
-    let start = candidate.start.offset;
-    let mut end = candidate.end.offset;
+    let start = candidate.edit.start.offset;
+    let mut end = candidate.edit.end.offset;
     if start >= end || end > source.len() {
         return Err("repair target span is stale".to_string());
     }
@@ -513,9 +692,9 @@ fn replace_span(source: &str, candidate: &RepairCandidate) -> Result<ResolvedEdi
             .unwrap_or_else(|| source[end..].len());
     }
 
-    let mut repaired = String::with_capacity(source.len() + candidate.replacement.len());
+    let mut repaired = String::with_capacity(source.len() + candidate.edit.replacement.len());
     repaired.push_str(&source[..start]);
-    repaired.push_str(&candidate.replacement);
+    repaired.push_str(&candidate.edit.replacement);
     repaired.push_str(&source[end..]);
     Ok(ResolvedEdit {
         repaired,
@@ -618,20 +797,24 @@ mod tests {
             application_policy: APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE.to_string(),
             application_status: APPLICATION_STATUS_UNAPPLIED.to_string(),
             edit_summary: "Replace hole with `value`".to_string(),
-            file: "main.veln".to_string(),
-            start: LineCol {
-                line: 1,
-                column: start + 1,
-                offset: start,
+            edit: RepairEdit {
+                file: "main.veln".to_string(),
+                start: LineCol {
+                    line: 1,
+                    column: start + 1,
+                    offset: start,
+                },
+                end: LineCol {
+                    line: 1,
+                    column: end + 1,
+                    offset: end,
+                },
+                replacement: "value".to_string(),
             },
-            end: LineCol {
-                line: 1,
-                column: end + 1,
-                offset: end,
-            },
-            replacement: "value".to_string(),
             verification_command: None,
             source: JsonValue::Null,
+            input_repair_id: None,
+            requires_current_match: false,
         }
     }
 
@@ -647,5 +830,122 @@ mod tests {
         let error = replace_span("_hole\n", &candidate(0, 20)).expect_err("target is stale");
 
         assert_eq!(error, "repair target span is stale");
+    }
+
+    #[test]
+    fn replace_span_removes_satisfy_suffix() {
+        let edit = replace_span(
+            "fn main(order: Int) -> Int\n  _value satisfy candidate => candidate == order\nend\n",
+            &candidate(29, 35),
+        )
+        .expect("satisfy suffix should be included in the edit");
+
+        assert_eq!(edit.repaired, "fn main(order: Int) -> Int\n  value\nend\n");
+        assert_eq!(edit.end.line, 2);
+        assert_eq!(edit.end.column, 49);
+    }
+
+    #[test]
+    fn find_candidate_by_id_reports_ambiguous_source_candidate_ids() {
+        let first = candidate(0, 6);
+        let mut second = candidate(8, 14);
+        second.repair_id = "repair-2".to_string();
+
+        assert!(matches!(
+            find_candidate_by_id(&[first, second], "symbol-1"),
+            CandidateIdMatch::Ambiguous
+        ));
+    }
+
+    #[test]
+    fn repair_candidate_advisory_input_ignores_multiple_edits() {
+        let span = span_json(
+            "main.veln",
+            LineCol {
+                line: 2,
+                column: 3,
+                offset: 27,
+            },
+            LineCol {
+                line: 2,
+                column: 9,
+                offset: 33,
+            },
+        );
+        let candidate = JsonValue::object([
+            ("candidate_id", JsonValue::string("symbol-1")),
+            ("name", JsonValue::string("value")),
+            (
+                "application_policy",
+                JsonValue::string(APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE),
+            ),
+            (
+                "application_status",
+                JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
+            ),
+            (
+                "edits",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("replace")),
+                        ("span", span.clone()),
+                        ("replacement", JsonValue::string("value")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("replace")),
+                        ("span", span),
+                        ("replacement", JsonValue::string("other")),
+                    ]),
+                ]),
+            ),
+        ]);
+
+        assert!(RepairCandidate::from_advisory(0, &candidate).is_none());
+    }
+
+    #[test]
+    fn saved_command_candidate_preserves_input_repair_id_for_selection() {
+        let saved = JsonValue::object([
+            ("repair_id", JsonValue::string("repair-7")),
+            ("source_candidate_id", JsonValue::string("symbol-1")),
+            ("name", JsonValue::string("value")),
+            (
+                "application_policy",
+                JsonValue::string(APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE),
+            ),
+            (
+                "application_status",
+                JsonValue::string(APPLICATION_STATUS_UNAPPLIED),
+            ),
+            (
+                "edit",
+                JsonValue::object([
+                    ("kind", JsonValue::string("replace")),
+                    (
+                        "span",
+                        span_json(
+                            "main.veln",
+                            LineCol {
+                                line: 2,
+                                column: 3,
+                                offset: 27,
+                            },
+                            LineCol {
+                                line: 2,
+                                column: 9,
+                                offset: 33,
+                            },
+                        ),
+                    ),
+                    ("replacement", JsonValue::string("value")),
+                ]),
+            ),
+        ]);
+        let candidate = RepairCandidate::from_saved_command(0, &saved)
+            .expect("saved command candidate should load");
+
+        assert_eq!(candidate.repair_id, "repair-1");
+        assert!(candidate.matches_id("repair-7"));
+        assert!(candidate.requires_current_match);
     }
 }

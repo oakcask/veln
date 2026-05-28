@@ -30,11 +30,10 @@ comparison, promotion, or cleanup.
 
 ## Target-Specific Routes
 
-- Saved repair candidate inputs:
+- Adjacent repair command workflows:
   [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
   Keep current behavior anchored in
-  [../specification/repair-candidates.md](../specification/repair-candidates.md)
-  until implementation and tests promote saved candidate input behavior.
+  [../specification/repair-candidates.md](../specification/repair-candidates.md).
 - Implemented JVM bytecode backend:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md). That short page routes
   current behavior, fixture organization, completion evidence, the Java source
