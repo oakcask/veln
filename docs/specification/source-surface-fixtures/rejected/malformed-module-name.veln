@@ -1,0 +1,4 @@
+mod app.1
+fn main() -> ()
+  ()
+end

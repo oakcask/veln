@@ -1,0 +1,4 @@
+fn unpack(input: {count: Int}) -> Int
+  let {count: amount}: {count: Int} = input
+  {count: amount}.count
+end

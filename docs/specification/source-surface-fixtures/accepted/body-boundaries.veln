@@ -1,0 +1,10 @@
+fn grouped(value: Int) -> Int
+  let items = [
+    value,
+    value + 1,
+  ]
+  match value
+    0 => 1
+    other => other + 1
+  end
+end
