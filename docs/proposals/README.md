@@ -9,30 +9,32 @@ text is not current language behavior unless `../specification/` also states it.
 - Need the current target decision, prompt evidence, stale-target checks, or
   candidate classification:
   [target-selection.md](target-selection.md).
-- Already have one active short proposal page:
-  [implementation-route.md](implementation-route.md).
+- Need implementation or promotion mechanics for an active target:
+  [implementation-route.md](implementation-route.md). Open it only after
+  target selection classifies one short proposal as active.
 - Status labels: [../document-status.md](../document-status.md).
 
-## Routes
+## Proposal Target Flow
 
-- Target decision or candidate class:
-  [target-selection.md](target-selection.md).
-- Implementation and promotion mechanics after target selection classifies the
-  work as an active target:
-  [implementation-route.md](implementation-route.md).
-- Candidate pages, opened only after [target-selection.md](target-selection.md)
-  names their class or next route:
-  [reference-followups.md](reference-followups.md),
-  [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md),
-  [self-hosting-standard-library.md](self-hosting-standard-library.md),
-  [formatter-stabilization.md](formatter-stabilization.md),
-  [jvm-bytecode-backend.md](jvm-bytecode-backend.md), or
-  [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
+1. Start with [target-selection.md](target-selection.md) for the target
+   decision, prompt evidence, and candidate class.
+2. Stop there when the outcome is no target, implemented record, broad index,
+   exploratory inventory, or helper candidate pool.
+3. Continue to [implementation-route.md](implementation-route.md) only for one
+   active short proposal whose behavior is absent from `../specification/`.
+4. Open candidate pages only after target selection names their class or next
+   route:
+   [reference-followups.md](reference-followups.md),
+   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md),
+   [self-hosting-standard-library.md](self-hosting-standard-library.md),
+   [formatter-stabilization.md](formatter-stabilization.md),
+   [jvm-bytecode-backend.md](jvm-bytecode-backend.md), or
+   [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
 
 ## Read When
 
-- Checking whether a proposal page can be the active target.
-- Choosing one implementable proposal before any implementation route starts.
+- Checking whether a proposal page can be the active target or must stay as
+  history, inventory, or a candidate pool.
 - Checking completed prelude helper migrations after target selection routes
   to that helper pool.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence

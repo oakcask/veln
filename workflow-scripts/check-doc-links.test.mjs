@@ -54,54 +54,30 @@ test("proposal target selection preserves the no-target route", () => {
     targetSelection,
     "`prompts/NOTARGET` says no implementation target is selected",
   );
-  assertIncludes(targetSelection, "Result: no active proposal target");
+  assertIncludes(
+    targetSelection,
+    "Current decision: no active proposal target",
+  );
   assertActiveTargetExampleIsNone(targetSelection);
 
-  assertIncludes(
-    proposalsIndex,
-    "Need the current target decision, prompt evidence, stale-target checks, or\n" +
-      "  candidate classification:",
-  );
-  assertIncludes(
-    proposalsIndex,
-    "Already have one active short proposal page:",
-  );
-  assertIncludes(
-    proposalsIndex,
-    "Target decision or candidate class:\n" +
-      "  [target-selection.md](target-selection.md)",
-  );
-  assertIncludes(proposalsIndex, "[target-selection.md](target-selection.md)");
-  assertIncludes(
-    proposalsIndex,
-    "Implementation and promotion mechanics after target selection names one active\n" +
-      "  short page",
-  );
-  assertIncludes(
-    proposalsIndex,
-    "Candidate inventory only after [target-selection.md](target-selection.md)\n" +
-      "  routes there",
-  );
+  assertProposalIndexRoutes(proposalsIndex);
   assertIncludes(
     implementationRoute,
     "routes implementation and promotion mechanics; it does not choose targets or",
   );
   assertIncludes(
     implementationRoute,
-    "When selection is unset, return to [target-selection.md](target-selection.md)\n" +
-      "  and do not update `../specification/`",
+    "Stop for no-target, broad, exploratory, helper-pool, or implemented-record\n" +
+      "  classes",
   );
   assertIncludes(
     implementationRoute,
-    "Stop if selection is unset, broad, exploratory, or implemented history",
+    "leave\n" +
+      "  `../specification/` unchanged unless an active target is later selected",
   );
   assertIncludes(
     implementationRoute,
-    "The changed behavior is documented under `../specification/` only after code",
-  );
-  assertIncludes(
-    implementationRoute,
-    "Do not infer an active target from an implemented record or no-target state",
+    "Do not reclassify target state or repeat no-target evidence here",
   );
   assertIncludes(
     implementationRouteFull,
@@ -129,12 +105,13 @@ test("proposal target selection preserves the no-target route", () => {
   );
   assertIncludes(
     noTargetReview,
-    "records that no active target is selected\n  from the prompt state",
+    "records the no-target prompt state, owns\n" +
+      "  candidate classification, and ends implementation prompts at routing",
   );
   assertIncludes(
     noTargetReview,
     "`../proposals/implementation-route.md` starts only after target selection\n" +
-      "  names one active short proposal page",
+      "  classifies the work as an active target",
   );
   assertIncludes(
     noTargetReview,
@@ -152,7 +129,7 @@ test("proposal target selection preserves the no-target route", () => {
   assertIncludes(navigation, "Proposal target selection:");
   assertIncludes(
     navigation,
-    "Proposal implementation after target selection names one active short target:",
+    "Proposal implementation after target selection classifies an active target:",
   );
   assertIncludes(
     navigation,
@@ -189,16 +166,12 @@ test("no-target prompt routes stay classified as non-active targets", () => {
     "records completed helper\n  migrations and says the current target is none",
   );
 
+  assertProposalIndexRoutes(proposalsIndex);
   assertIncludes(
     proposalsIndex,
-    "Need the current target decision, prompt evidence, stale-target checks, or\n" +
-      "  candidate classification:",
-  );
-  assertIncludes(
-    proposalsIndex,
-    "Candidate inventory only after [target-selection.md](target-selection.md)\n" +
-      "  routes there:\n" +
-      "  [reference-followups.md](reference-followups.md)",
+    "Open candidate pages only after target selection names their class or next\n" +
+      "   route:\n" +
+      "   [reference-followups.md](reference-followups.md)",
   );
   assertIncludes(
     proposalsIndex,
@@ -283,13 +256,12 @@ test("no-target prompt state does not resolve to an active proposal", () => {
   const prompt = fs.readFileSync(path.join("prompts", "NOTARGET"), "utf8");
   const targetSelection = readDocsFile("proposals/target-selection.md");
 
-  const decisionBullets = bulletsInSection(targetSelection, "## Current Decision");
-  assert.deepEqual(decisionBullets, [
-    "`prompts/TARGET.md` is absent.",
-    "`prompts/NOTARGET` says no implementation target is selected from the\n" +
-      "  current proposals.",
-    "Result: no active proposal target.",
+  assert.deepEqual(tableRowsInSection(targetSelection, "## Prompt Evidence"), [
+    "| Evidence | Decision |",
+    "| `prompts/TARGET.md` is absent. | Do not infer a target. |",
+    "| `prompts/NOTARGET` says no implementation target is selected from the current proposals. | Keep selection unset. |",
   ]);
+  assertNoTargetSelectionOutcome(targetSelection);
 
   assert.equal(selectedTargetFromPromptState(), null);
 
@@ -311,6 +283,32 @@ test("no-target prompt state does not resolve to an active proposal", () => {
   assert.equal(
     Array.from(classifiedPromptRoutes.values()).includes("Active target"),
     false,
+  );
+});
+
+test("target prompt absence is covered by the no-target evidence", () => {
+  const targetSelection = readDocsFile("proposals/target-selection.md");
+  const implementationRoute = readDocsFile("proposals/implementation-route.md");
+  const noTargetReview = readDocsFile(
+    "reviews/no-proposal-target-completion.md",
+  );
+
+  assert.equal(fs.existsSync(path.join("prompts", "TARGET.md")), false);
+  assert.equal(fs.existsSync(path.join("prompts", "NOTARGET")), true);
+  assertNoTargetSelectionOutcome(targetSelection);
+  assertIncludes(
+    targetSelection,
+    "completion result is the routing decision without code, promotion, or\n" +
+      "specification changes",
+  );
+  assertIncludes(
+    implementationRoute,
+    "override a no-target decision",
+  );
+  assertIncludes(
+    noTargetReview,
+    "treat implementation prompts as complete without code, promotion,\n" +
+      "or specification changes",
   );
 });
 
@@ -541,21 +539,20 @@ function promptProposalRoutes(prompt) {
 function targetSelectionRouteSnippets() {
   return [
     "Status: routing",
-    "## Current Decision",
+    "## Read First",
+    "routing decision itself is\n  complete for implementation prompts",
+    "## Prompt Evidence",
     "no active proposal target",
-    "## Target Classes",
-    "Use this table instead of reopening candidate pages just to decide whether a\n" +
-      "target exists",
+    "## Selection Outcomes",
+    "Use this table instead of reopening candidate pages just to decide whether work\n" +
+      "can proceed",
     ...targetClassRouteRows(),
-    "## Selection Flow",
+    "## Selection Check",
     "not a full detail\n   record, review, reference note, broad index, helper candidate pool, or\n   implemented proposal record",
     "If the behavior is already implemented, use the matching specification page",
     "If the behavior is broad, exploratory, or a helper candidate pool, split or\n   create one short proposal",
     "Do not infer a target from broad follow-up indexes, exploratory inventories,\nhelper candidate pools, or implemented proposal records",
-    "## Handoff",
-    "| No target | Stop here, leave `../specification/` unchanged, and record only routing clarification. |",
-    "| Active target | Use [implementation-route.md](implementation-route.md) after confirming the selected behavior is absent from `../specification/`. |",
-    "| Broad, exploratory, or helper-pool work | Create or select one short proposal page before implementation. |",
+    "For the no-target outcome, there is no proposal completion checklist",
     "Do not open full proposal records until a short proposal page names the\n  specific detail needed",
   ];
 }
@@ -573,14 +570,17 @@ function assertActiveTargetExampleIsNone(targetSelection) {
 }
 
 function assertTargetClassRoutes(targetSelection) {
-  const targetClassRows = tableRowsInSection(targetSelection, "## Target Classes");
+  const targetClassRows = tableRowsInSection(
+    targetSelection,
+    "## Selection Outcomes",
+  );
 
   assert.deepEqual(targetClassRows, targetClassRouteRows());
 }
 
 function targetClassRouteRows() {
   return [
-    "| No target | Stop before implementation, promotion, or specification updates. | Stop here or create one short proposal page. |",
+    "| No target | Stop before implementation, promotion, or specification updates; leave `../specification/` unchanged. | Stop here, or create one short proposal page before implementation work. |",
     "| Active target | Continue only when one short proposal page names one absent behavior. | [implementation-route.md](implementation-route.md). |",
     "| Implemented record | Treat as history or cleanup evidence; use the matching specification page for current behavior. | [formatter-stabilization.md](formatter-stabilization.md), [jvm-bytecode-backend.md](jvm-bytecode-backend.md), [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md). |",
     "| Broad follow-up index | Split one implementable short proposal page before implementation. | [reference-followups.md](reference-followups.md). |",
@@ -591,7 +591,7 @@ function targetClassRouteRows() {
 
 function targetClassRoutes(targetSelection) {
   const routes = new Map();
-  const rows = tableRowsInSection(targetSelection, "## Target Classes");
+  const rows = tableRowsInSection(targetSelection, "## Selection Outcomes");
 
   for (const row of rows) {
     const [, targetClass, , routeCell] = row.split("|").map((cell) => cell.trim());
@@ -600,6 +600,43 @@ function targetClassRoutes(targetSelection) {
     }
   }
   return routes;
+}
+
+function assertNoTargetSelectionOutcome(targetSelection) {
+  const rows = tableRowsInSection(targetSelection, "## Selection Outcomes");
+  assert.equal(rows[0], targetClassRouteRows()[0]);
+  assertIncludes(
+    targetSelection,
+    "Keep selection unset when the prompt state says no target is selected",
+  );
+}
+
+function assertProposalIndexRoutes(proposalsIndex) {
+  assertIncludes(
+    proposalsIndex,
+    "Need the current target decision, prompt evidence, stale-target checks, or\n" +
+      "  candidate classification:",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "Need implementation or promotion mechanics for an active target:\n" +
+      "  [implementation-route.md](implementation-route.md). Open it only after\n" +
+      "  target selection classifies one short proposal as active.",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "## Proposal Target Flow",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "Stop there when the outcome is no target, implemented record, broad index,\n" +
+      "   exploratory inventory, or helper candidate pool",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "Continue to [implementation-route.md](implementation-route.md) only for one\n" +
+      "   active short proposal whose behavior is absent from `../specification/`",
+  );
 }
 
 function classifyPromptRoutes(prompt, targetSelection) {
@@ -631,35 +668,6 @@ function selectedTargetFromPromptState() {
   }
 
   return null;
-}
-
-function bulletsInSection(text, heading) {
-  const lines = text.split("\n");
-  const start = lines.findIndex((line) => line === heading);
-  assert.notEqual(start, -1, `missing heading: ${heading}`);
-
-  const bullets = [];
-  for (let index = start + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (line.startsWith("## ")) {
-      break;
-    }
-    if (!line.startsWith("- ")) {
-      continue;
-    }
-
-    const bullet = [line.slice(2)];
-    for (const continuation of lines.slice(index + 1)) {
-      if (continuation.startsWith("  ")) {
-        bullet.push(continuation);
-        index += 1;
-        continue;
-      }
-      break;
-    }
-    bullets.push(bullet.join("\n"));
-  }
-  return bullets;
 }
 
 function tableRowsInSection(text, heading) {

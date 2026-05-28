@@ -15,7 +15,9 @@ source of current language behavior.
 ## Evidence Routes
 
 - No active proposal target:
-  [no-proposal-target-completion.md](no-proposal-target-completion.md).
+  [no-proposal-target-completion.md](no-proposal-target-completion.md). Open
+  only after [../proposals/target-selection.md](../proposals/target-selection.md)
+  routes you to the evidence.
 - [jvm-bytecode-backend-completion.md](jvm-bytecode-backend-completion.md)
   records the JVM bytecode backend completion review and source-backend cleanup
   result.

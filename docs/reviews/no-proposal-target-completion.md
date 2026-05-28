@@ -8,22 +8,19 @@ handoff rule.
 
 ## Completion Check
 
-- `../proposals/target-selection.md` records that no active target is selected
-  from the prompt state and owns candidate classification.
-- `../proposals/` routes target decisions, promotion mechanics, and candidate
-  inventory through short entry pages.
+- `../proposals/target-selection.md` records the no-target prompt state, owns
+  candidate classification, and ends implementation prompts at routing.
 - `../proposals/implementation-route.md` starts only after target selection
   classifies the work as an active target.
-- Current implemented behavior remains routed through
-  `../specification/`.
+- Current implemented behavior remains routed through `../specification/`.
 
 ## Review Result
 
 The no-target prompt state has no proposal completion checklist to implement or
 promote. The correct action is routing only: keep current behavior under
 `../specification/`, avoid inferring a target from candidate pools or completed
-records, and route future selection through
-`../proposals/target-selection.md`.
+records, and treat implementation prompts as complete without code, promotion,
+or specification changes.
 
 ## Verification
 
