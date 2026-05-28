@@ -28,7 +28,8 @@ compiler-known calls.
   [names-effects-full.md](names-effects-full.md#source-backed-boundary).
 - Choosing the next descriptor-only helper for self-hosting work:
   [names-effects-full.md](names-effects-full.md#source-backed-boundary),
-  then [source-surface.md](source-surface.md).
+  then
+  [../proposals/self-hosting-standard-library.md](../proposals/self-hosting-standard-library.md).
 - Checking helper signatures before changing the prelude adapter:
   [names-effects-full.md](names-effects-full.md#helper-signatures).
 - Checking standard symbol descriptor metadata:

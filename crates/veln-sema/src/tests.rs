@@ -7435,6 +7435,7 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
             "result_map",
             "result_map_err",
             "vec_concat",
+            "vec_filter",
             "vec_is_empty",
             "vec_len",
             "vec_push"
@@ -7803,6 +7804,7 @@ fn prelude_helpers_check_direct_expected_return_types() {
 #[test]
 fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
     for (helper, value_type, return_type, expected_callback) in [
+        ("vec_filter", "Vec(Int)", "Vec(Int)", "fn(Int) -> Bool"),
         (
             "option_map",
             "Option(Int)",

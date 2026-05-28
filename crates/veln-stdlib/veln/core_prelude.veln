@@ -24,6 +24,19 @@ fn vec_append(items: Vec(A), item: A) -> Vec(A) effects []
 	vec_push(items, item)
 end
 
+fn vec_filter(items: Vec(A), f: fn(A) -> Bool) -> Vec(A) effects []
+	let state: {values: Vec(A), keep: fn(A) -> Bool} = vec_fold(items, {values: [], keep: f}, vec_filter_step)
+	state.values
+end
+
+fn vec_filter_step(state: {values: Vec(A), keep: fn(A) -> Bool}, item: A) -> {values: Vec(A), keep: fn(A) -> Bool} effects []
+	let keep = state.keep
+	match keep(item)
+		true => {values: vec_push(state.values, item), keep: keep}
+		false => state
+	end
+end
+
 fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
 	match value
 		Some(inner) => Some(f(inner))

@@ -93,14 +93,18 @@ test("self-hosting proposal route starts from the implemented helper split", () 
 
   assertIncludes(
     proposal,
-    "shows that the helper is still descriptor-only",
+    "that the helper is still descriptor-only",
   );
-  assertIncludes(proposal, "## Decision Route");
+  assertIncludes(proposal, "## Scope");
+  assertIncludes(proposal, "## Work Route");
   assertIncludes(
     proposal,
     "Confirm the helper is in the descriptor-only pure-helper list",
   );
-  assertIncludes(proposal, "## Candidate Guardrails");
+  assertIncludes(
+    proposal,
+    "Valid work changes only source placement and descriptor metadata",
+  );
   assertIncludes(proposal, "../specification/names-effects.md");
   assertIncludes(proposal, "../specification/source-surface.md");
   assertIncludes(
@@ -120,7 +124,11 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   );
   assertIncludes(
     namesEffectsFull,
-    "descriptor-only pure helpers: `vec_map`, `vec_filter`",
+    "source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,\n  `vec_concat`, `vec_filter`",
+  );
+  assertIncludes(
+    namesEffectsFull,
+    "descriptor-only pure helpers: `vec_map`, `vec_fold`",
   );
 });
 
