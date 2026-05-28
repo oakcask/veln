@@ -204,6 +204,57 @@ fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_entry_invariant_failure_blames_caller_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main(value: Bool) -> Bool effects []\n",
+        "invariant value\n",
+        "  value\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry_arg_types(&ir, "main", &[EntryArgType::Bool]);
+
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-entry-invariant-failure",
+        &program,
+        &["false"],
+    ) else {
+        return;
+    };
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("contract failure: invariant `value`"));
+    assert!(stderr.contains("blame caller"));
+}
+
+#[test]
+fn bytecode_backend_return_invariant_failure_blames_implementation_when_java_is_available() {
+    let mut ir = lower_to_ir(concat!(
+        "pub fn main(value: Bool) -> Bool effects []\n",
+        "invariant value\n",
+        "  false\n",
+        "end\n",
+    ));
+    // Exercise the return-position bytecode path directly; surface analysis
+    // rejects result bindings that duplicate parameter names.
+    ir.functions[0].return_binding = Some("value".to_string());
+    let program = generate_classfiles_with_entry_arg_types(&ir, "main", &[EntryArgType::Bool]);
+
+    let Some(output) = run_jvm_program_when_java_is_available(
+        "bytecode-return-invariant-failure",
+        &program,
+        &["true"],
+    ) else {
+        return;
+    };
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("contract failure: invariant `value`"));
+    assert!(stderr.contains("blame implementation"));
+}
+
+#[test]
 fn bytecode_backend_javap_reports_target_version_and_entry_descriptor_when_available() {
     if Command::new("javap").arg("-version").output().is_err() {
         return;

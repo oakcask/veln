@@ -25,3 +25,7 @@ equals = "invariant"
 [[json_assert]]
 path = "error.details.predicate"
 equals = "false"
+
+[[json_assert]]
+path = "error.details.blame"
+equals = "caller"
