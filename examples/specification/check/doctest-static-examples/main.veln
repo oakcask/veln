@@ -1,0 +1,10 @@
+// Doctest fences can be documentation-only or negative static examples.
+/// ```veln ignore
+/// stdio::println("not generated")
+/// ```
+/// ```veln fail
+/// let value: Int = "text"
+/// ```
+pub fn main() -> () effects []
+  ()
+end

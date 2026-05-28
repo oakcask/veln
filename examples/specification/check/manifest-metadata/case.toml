@@ -1,0 +1,27 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "module.metadata_drift"
+severity = "error"
+kind = "module"
+message = "manifest module name `spec.manifest` does not match source module `spec.source`"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 2
+column = 16

@@ -1,0 +1,27 @@
+command = ["test", "--json"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "cases.0.failure.kind"
+equals = "contract"
+
+[[json_assert]]
+path = "cases.0.failure.details.kind"
+equals = "contract"
+
+[[json_assert]]
+path = "cases.0.failure.details.clause"
+equals = "require"

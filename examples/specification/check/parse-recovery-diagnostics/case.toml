@@ -1,0 +1,13 @@
+command = ["check", "--json", "call.veln", "newline.veln", "pattern.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"parse.call_argument\"", "\"id\":\"parse.expected_newline\"", "\"id\":\"parse.pattern\"", "\"parser_context\"", "\"recovery\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

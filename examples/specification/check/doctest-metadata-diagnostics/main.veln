@@ -1,0 +1,28 @@
+// Doctest metadata diagnostics report invalid attributes and output fences.
+/// ```veln skip=true
+/// stdio::println("ready")
+/// ```
+/// ```veln error=
+/// let value = Ok(1)?
+/// ```
+/// ```veln-output
+/// ready
+/// ```
+/// ```veln-output stream=combined
+/// mixed
+/// ```
+/// ```veln
+/// stdio::println("ready")
+/// ```
+/// ```veln-output stream=stdout
+/// ready
+/// ```
+/// ```veln-output stream=stdout
+/// duplicate
+/// ```
+/// ```veln fail
+/// let value = 1
+/// ```
+pub fn main() -> () effects []
+  ()
+end

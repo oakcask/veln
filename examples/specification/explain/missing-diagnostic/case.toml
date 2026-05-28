@@ -1,0 +1,8 @@
+command = ["explain"]
+exit = 2
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["veln: explain requires a diagnostic id or --list"]

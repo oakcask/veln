@@ -1,0 +1,48 @@
+// Concurrency operations require the concurrency effect and report fallible joins.
+fn produce() -> String effects []
+  "task"
+end
+
+pub fn main() -> () effects [concurrency, stdio]
+  let task = task::spawn(produce)
+  let task_output: String = match task::join(task)
+    Ok(value) => value
+    Err(_) => "failed"
+  end
+  let typed_task = task::spawn[String](produce)
+  let typed_task_output: String = match task::join(typed_task)
+    Ok(value) => value
+    Err(_) => "failed"
+  end
+  let pair = channel::bounded[String](1)
+  let extra = channel::clone(pair.tx)
+  let _ = channel::send(extra, "channel")
+  let channel_output: String = match channel::select_priority_result(pair.rx, pair.rx)
+    Ok(Some(selected)) => selected.value
+    Ok(None) => "closed"
+    Err(_) => "interrupted"
+  end
+  let inferred: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)
+  let _ = channel::send(inferred.tx, "inferred")
+  let inferred_output: String = match channel::recv(inferred.rx)
+    Some(value) => value
+    None => "closed"
+  end
+  let closed = channel::bounded[String](1)
+  channel::close(closed.tx)
+  let closed_recv: String = match channel::recv(closed.rx)
+    Some(value) => value
+    None => "closed"
+  end
+  let closed_send: String = match channel::send(closed.tx, "late")
+    Ok(_) => "sent"
+    Err(_) => "send-error"
+  end
+  channel::close(pair.tx)
+  stdio::println(task_output)
+  stdio::println(typed_task_output)
+  stdio::println(channel_output)
+  stdio::println(inferred_output)
+  stdio::println(closed_recv)
+  stdio::println(closed_send)
+end

@@ -1,0 +1,8 @@
+command = ["explain", "--list"]
+exit = 0
+
+[stdout]
+contains = ["hole.unfilled - unfilled typed hole", "parse.contract_predicate - unsupported contract predicate syntax"]
+
+[stderr]
+format = "empty"

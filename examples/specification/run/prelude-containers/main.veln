@@ -1,0 +1,99 @@
+// Prelude container helpers preserve concrete Vec, Dict, Option, and Result behavior.
+fn odd(value: Int) -> Bool effects []
+  value != 2
+end
+
+fn double(value: Int) -> Int effects []
+  value * 2
+end
+
+fn positive(value: Int) -> Option(Int) effects []
+  match value > 0
+    true => Some(value)
+    false => None
+  end
+end
+
+fn add_one(value: Int) -> Result(Int, String) effects []
+  Ok(value + 1)
+end
+
+fn fallible_double(value: Int) -> Result(Int, String) effects []
+  match value == 2
+    true => Err("stop")
+    false => Ok(value * 2)
+  end
+end
+
+fn label_error(error: String) -> String effects []
+  error
+end
+
+fn add(left: Int, right: Int) -> Int effects []
+  left + right
+end
+
+pub fn main() -> () effects [stdio]
+  let values: Vec(Int) = vec_concat(vec_push([1], 2), [3])
+  let kept: Vec(Int) = vec_filter(values, odd)
+  let original: Dict(String, Int) = {"a": 1}
+  let updated: Dict(String, Int) = dict_insert(original, "b", 2)
+  let dictionary: Dict(String, Int) = dict_remove(updated, "a")
+  match string_split_once("odd:2", ":")
+    Some(parts) => stdio::println(parts.left)
+    None => stdio::println("missing")
+  end
+  match string_split_once("plain", ":")
+    Some(parts) => stdio::println(parts.left)
+    None => stdio::println("no-separator")
+  end
+  match string_parse_int("42")
+    Ok(value) => stdio::println(int_to_string(value))
+    Err(error) => stdio::println(error)
+  end
+  match dict_get(original, "a")
+    Some(value) => stdio::println(int_to_string(value))
+    None => stdio::println("missing")
+  end
+  match dict_get(updated, "b")
+    Some(value) => stdio::println(int_to_string(value))
+    None => stdio::println("missing")
+  end
+  match dict_get(dictionary, "a")
+    Some(value) => stdio::println(int_to_string(value))
+    None => stdio::println("removed")
+  end
+  let second: String = match option_and_then(option_map(Some(3), double), positive)
+    Some(value) => int_to_string(value)
+    None => "none"
+  end
+  let mapped: Vec(Int) = vec_map([1, 2], double)
+  let third: String = match result_and_then(result_map(Ok(3), double), add_one)
+    Ok(value) => int_to_string(value + vec_len(kept) + vec_fold(mapped, 0, add))
+    Err(error) => error
+  end
+  let fourth: String = match result_map_err(string_parse_int("bad"), label_error)
+    Ok(value) => int_to_string(value)
+    Err(error) => error
+  end
+  let fifth: String = match dict_contains(dictionary, "b")
+    true => "b"
+    false => "missing"
+  end
+  let sixth: String = int_to_string(option_unwrap_or(None, 7))
+  let seventh: String = match vec_try_map([1, 2, 3], fallible_double)
+    Ok(items) => int_to_string(vec_len(items))
+    Err(error) => error
+  end
+  let eighth: String = match vec_is_empty([])
+    true => "empty"
+    false => "nonempty"
+  end
+  stdio::println(second)
+  stdio::println(third)
+  stdio::println(fourth)
+  stdio::println(fifth)
+  stdio::println(sixth)
+  stdio::println(seventh)
+  stdio::println(eighth)
+end

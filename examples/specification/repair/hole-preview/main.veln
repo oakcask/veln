@@ -1,0 +1,5 @@
+// Repair preview exposes command-level candidates without writing the source.
+fn choose(fallback: Int) -> Int
+require fallback >= 0
+  _value satisfy candidate => candidate >= fallback
+end

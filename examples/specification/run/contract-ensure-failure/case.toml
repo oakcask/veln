@@ -1,0 +1,31 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "contract"
+
+[[json_assert]]
+path = "error.details.clause"
+equals = "ensure"
+
+[[json_assert]]
+path = "error.details.predicate"
+equals = "result > 0"
+
+[[json_assert]]
+path = "error.details.blame"
+equals = "implementation"

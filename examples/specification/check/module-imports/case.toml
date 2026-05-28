@@ -1,0 +1,16 @@
+command = ["check", "--json", "app.veln", "math.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "ok"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 0

@@ -1,0 +1,24 @@
+command = ["repair", "--json", "--candidate", "saved-repair", "saved-candidates.json"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "preview"
+
+[[json_assert]]
+path = "summary.candidate_count"
+equals = 1
+
+[[json_assert]]
+path = "selected_candidate.repair_id"
+equals = "repair-1"
+
+[[json_assert]]
+path = "selected_candidate.source.repair_id"
+equals = "saved-repair"

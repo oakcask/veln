@@ -1,0 +1,24 @@
+// Public APIs, test declarations, and type annotations have explicit boundaries.
+pub fn missing_parameter(value) -> Int effects []
+  1
+end
+
+pub fn missing_return(value: Int) effects []
+  value
+end
+
+pub fn missing_effects(value: Int) -> Int
+  value
+end
+
+fn invalid_builtins(value: Result(Int)) -> Option()
+  value
+end
+
+fn duplicate_record_type(input: {count: Int, count: String}) -> Int
+  0
+end
+
+test malformed_test(value: Int) -> Int
+  value
+end

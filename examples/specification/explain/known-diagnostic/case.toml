@@ -1,0 +1,8 @@
+command = ["explain", "hole.unfilled"]
+exit = 0
+
+[stdout]
+contains = ["hole.unfilled: unfilled typed hole", "Meaning:", "Repair:"]
+
+[stderr]
+format = "empty"

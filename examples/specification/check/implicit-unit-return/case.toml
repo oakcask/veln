@@ -1,0 +1,18 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.mismatch\"", "\"actual_type_source\":\"implicit_unit\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "type.mismatch"
+kind = "type"
+message = "expected `Int`, but found `()`"

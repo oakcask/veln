@@ -1,0 +1,67 @@
+command = ["test", "--json", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "cases.0.reason"
+equals = "expected_output"
+
+[[json_assert]]
+path = "cases.0.failure.kind"
+equals = "output"
+
+[[json_assert]]
+path = "cases.0.failure.details.kind"
+equals = "output"
+
+[[json_assert]]
+path = "cases.0.failure.details.stream"
+equals = "stdout"
+
+[[json_assert]]
+path = "cases.0.failure.details.expected"
+equals = "ready"
+
+[[json_assert]]
+path = "cases.0.failure.details.actual"
+equals = "waiting\n"
+
+[[json_assert]]
+path = "cases.0.failure.details.first_difference.line"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.failure.details.first_difference.expected"
+equals = "ready"
+
+[[json_assert]]
+path = "cases.0.failure.details.first_difference.actual"
+equals = "waiting"
+
+[[json_assert]]
+path = "cases.0.failure.details.actual_events.0.kind"
+equals = "stdio"
+
+[[json_assert]]
+path = "cases.0.failure.details.actual_events.0.operation"
+equals = "println"
+
+[[json_assert]]
+path = "cases.0.failure.details.actual_events.0.text"
+equals = "waiting"
+
+[[json_assert]]
+path = "cases.0.failure.details.expected_span.file"
+equals = "main.veln"

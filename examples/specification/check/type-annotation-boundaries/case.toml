@@ -1,0 +1,49 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["public parameter `value` has no type annotation", "public function has no return type annotation", "public function has no effects annotation", "\"id\":\"type.invalid_annotation\"", "test declaration has parameters", "test declaration returns `Int`", "test declaration has no effects annotation"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "type.public_signature_missing"
+severity = "error"
+kind = "type"
+message = "public parameter `value` has no type annotation"
+
+[[diagnostics]]
+id = "type.public_signature_missing"
+severity = "error"
+kind = "type"
+message = "public function has no return type annotation"
+
+[[diagnostics]]
+id = "effect.missing_public"
+severity = "error"
+kind = "effect"
+message = "public function has no effects annotation"
+
+[[diagnostics]]
+id = "test.parameters"
+severity = "error"
+kind = "type"
+message = "test declaration has parameters"
+
+[[diagnostics]]
+id = "test.return_type"
+severity = "error"
+kind = "type"
+message = "test declaration returns `Int`"
+
+[[diagnostics]]
+id = "effect.missing_test"
+severity = "error"
+kind = "effect"
+message = "test declaration has no effects annotation"

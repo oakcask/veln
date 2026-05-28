@@ -1,0 +1,4 @@
+// Build output discovery is skipped by the public check command.
+fn ignored() -> Int effects []
+  add(1 2)
+end

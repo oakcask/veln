@@ -1,0 +1,24 @@
+command = ["repair", "--json", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "command"
+equals = "repair"
+
+[[json_assert]]
+path = "mode"
+equals = "preview"
+
+[[json_assert]]
+path = "status"
+equals = "preview"
+
+[[json_assert]]
+path = "verification.status"
+equals = "not_run"

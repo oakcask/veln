@@ -1,0 +1,7 @@
+// Helper declarations participate in multi-file canonical formatting.
+fn parse ( raw : String ) -> Result ( Int , AppError ) effects [ ]
+ Ok ( 1 )
+end
+fn choose ( value : String , fallback : String ) -> String effects [ ]
+ if_missing ( { primary : value, nested : { fallback : fallback } } )
+end

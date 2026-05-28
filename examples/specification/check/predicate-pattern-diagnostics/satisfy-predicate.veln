@@ -1,0 +1,4 @@
+// Satisfy predicates use the contract-predicate grammar.
+fn choose() -> Int
+  _value satisfy candidate => candidate |> valid
+end

@@ -1,0 +1,7 @@
+// Module imports make public declarations available through their module path.
+mod spec.app
+use spec.math
+
+pub fn main() -> Int effects []
+  math::double(3)
+end

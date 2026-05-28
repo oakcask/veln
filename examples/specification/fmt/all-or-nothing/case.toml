@@ -1,0 +1,16 @@
+command = ["fmt", "bad.veln", "good.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["bad.veln:3:3: error[parse.invalid_token]: invalid token in expression"]
+
+[[file_assert]]
+path = "bad.veln"
+equals = "// One parse error prevents the formatter from writing any selected file.\nfn bad() -> ()\n  @\nend\n"
+
+[[file_assert]]
+path = "good.veln"
+equals = "// This parse-clean file must stay untouched when another selected file fails.\nfn   ok ( ) -> ()\n()\nend\n"

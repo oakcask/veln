@@ -1,0 +1,16 @@
+command = ["repair", "--json", "--apply", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "refused"
+
+[[json_assert]]
+path = "summary.refusal_reason"
+equals = "multiple safe repair candidates; choose one with `--candidate`"

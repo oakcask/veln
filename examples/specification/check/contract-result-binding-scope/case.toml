@@ -1,0 +1,57 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["unresolved contract_predicate `output`", "unresolved value `output`", "unresolved contract_predicate `result`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved contract_predicate `output`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 3
+column = 1
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved contract_predicate `output`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 8
+column = 1
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `output`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 13
+column = 3
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved contract_predicate `result`"
+
+[diagnostics.span]
+file = "main.veln"
+line = 17
+column = 1

@@ -1,0 +1,8 @@
+// Top-level test declarations are discovered and reported by the test command.
+test visible_behavior() -> () effects [stdio]
+  stdio::println("tested")
+end
+
+test fallible_behavior() -> Result((), String) effects []
+  Ok(())
+end

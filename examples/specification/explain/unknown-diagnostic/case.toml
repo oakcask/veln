@@ -1,0 +1,8 @@
+command = ["explain", "does.not.exist"]
+exit = 2
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["veln: no explanation for diagnostic `does.not.exist`"]

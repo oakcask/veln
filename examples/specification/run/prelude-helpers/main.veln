@@ -1,0 +1,28 @@
+// Fallible traversal helpers stop at the first Err and keep successful values ordered.
+fn attach(context: String, value: Int) -> Result({prefix: String, value: Int}, String) effects []
+  Ok({prefix: context, value: value})
+end
+
+fn stop_at_two(context: String, value: Int) -> Result({prefix: String, value: Int}, String) effects []
+  match value == 2
+    true => Err(context)
+    false => Ok({prefix: context, value: value})
+  end
+end
+
+fn add_value(total: Int, item: {prefix: String, value: Int}) -> Int effects []
+  total + item.value
+end
+
+pub fn main() -> () effects [stdio]
+  let mapped: Result(Vec({prefix: String, value: Int}), String) = vec_try_map_with("ctx", [1, 2], attach)
+  let stopped: Result(Vec({prefix: String, value: Int}), String) = vec_try_map_with("ctx", [1, 2, 3], stop_at_two)
+  match mapped
+    Ok(items) => stdio::println(int_to_string(vec_fold(items, 0, add_value)))
+    Err(error) => stdio::println(error)
+  end
+  match stopped
+    Ok(_) => stdio::println("unexpected")
+    Err(error) => stdio::println(error)
+  end
+end

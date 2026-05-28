@@ -1,0 +1,12 @@
+// Unknown effects and hidden helper effects are reported at effect boundaries.
+fn unknown() -> () effects [network]
+  ()
+end
+
+fn private_helper() -> () effects [stdio]
+  stdio::println("hidden")
+end
+
+pub fn main() -> () effects []
+  private_helper()
+end

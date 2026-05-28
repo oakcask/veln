@@ -1,0 +1,15 @@
+mod spec.contracts
+use spec.predicates
+
+fn local_positive(value: Int) -> Bool effects []
+  value > 0
+end
+
+pub fn checked(value: Int) -> output: Int effects []
+require predicates::positive(value)
+require predicates::apply(value, local_positive)
+require predicates::next_value(value) > value
+ensure predicates::summary(output).ready
+ensure predicates::summary(output).next > output
+  value
+end

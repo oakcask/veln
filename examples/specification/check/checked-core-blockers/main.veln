@@ -1,0 +1,16 @@
+// Check lowers parse-clean source far enough to report executable blockers.
+fn add(left: Int, right: Int) -> Int
+  left + right
+end
+
+fn make_result() -> Result(Int, AppError)
+  Ok()
+end
+
+fn make_option() -> Option(Int)
+  Some(1, 2)
+end
+
+pub fn main() -> Int effects []
+  add(1)
+end

@@ -1,0 +1,6 @@
+// Imports require a module identity before the module boundary can be checked.
+use platform.io
+
+fn main() -> ()
+  ()
+end

@@ -1,0 +1,31 @@
+command = ["test", "--json", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "selection.mode"
+equals = "explicit"
+
+[[json_assert]]
+path = "summary.total"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "paired_file_is_selected"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "passed"

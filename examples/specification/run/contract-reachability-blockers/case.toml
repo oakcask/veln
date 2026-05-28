@@ -1,0 +1,9 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["hint[hole.unfilled]: hole requires a `Bool` value", "veln: run blocked: checked program is not executable"]

@@ -1,0 +1,8 @@
+command = ["repair", "--json", "--apply", "--override", "--candidate", "repair-1", "main.veln"]
+exit = 2
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["the following required arguments were not provided:", "--confirm <CANDIDATE_ID>"]
