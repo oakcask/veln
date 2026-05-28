@@ -30,6 +30,14 @@ comparison, promotion, or cleanup.
 
 ## Target-Specific Routes
 
+- Formatter comment attachment and formatting stabilization:
+  [formatter-stabilization.md](formatter-stabilization.md). Keep current
+  `veln fmt` behavior anchored in
+  [../specification/commands.md](../specification/commands.md) and current
+  comment syntax anchored in
+  [../specification/source-surface.md](../specification/source-surface.md).
+  Do not include execution, test discovery, repair workflows, backend
+  replacement, or standard library expansion.
 - Completed confirmation and explicit override behavior around `veln repair`:
   [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
   Keep current behavior anchored in

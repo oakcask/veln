@@ -10,11 +10,13 @@ also states it.
 
 - Current behavior: [../specification/README.md](../specification/README.md).
 - Proposal index: [README.md](README.md).
+- Formatter follow-up target:
+  [formatter-stabilization.md](formatter-stabilization.md).
 
 ## Follow-Up Targets
 
-- Formatter comment attachment and broader formatting stabilization beyond
-  the currently documented command behavior.
+- Formatter comment attachment and broader formatting stabilization:
+  [formatter-stabilization.md](formatter-stabilization.md).
 - Broader executable reachability, entry selection, and runtime behavior not
   yet stated by [../specification/execution.md](../specification/execution.md).
 - Additional test discovery, example extraction, and test event reporting not

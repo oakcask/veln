@@ -7,6 +7,8 @@ smallest section to read before opening the full grammar notes.
 
 - Module headers, imports, functions, tests, declarations, comments, doctests,
   and ADR-lite metadata: [source-surface-full.md](source-surface-full.md).
+  Use [commands.md](commands.md) for formatter layout and comment preservation
+  behavior.
 - Expression forms, constructors, records, dictionaries, lists, matches,
   pipelines, and method-call diagnostics:
   [source-surface-full.md](source-surface-full.md#expressions).

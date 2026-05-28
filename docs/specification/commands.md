@@ -39,6 +39,9 @@ requiring the full command reference on the first read.
   `check --json`, `run --json`, `test --json`, or `repair --json` output.
 - Use [source-surface.md](source-surface.md) when command behavior depends on
   source syntax, doctest fences, or module declarations.
+- Use [../proposals/formatter-stabilization.md](../proposals/formatter-stabilization.md)
+  only when a task explicitly selects formatter behavior beyond the implemented
+  `veln fmt` boundary.
 
 ## Skip Unless Needed
 
