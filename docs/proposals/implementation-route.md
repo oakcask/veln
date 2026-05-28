@@ -28,8 +28,14 @@ comparison, promotion, or cleanup.
 - Use [implementation-route-full.md](implementation-route-full.md) when the
   target requires gap evidence or promotion cleanup.
 
-## Target-Specific Routes
+## Implemented Proposal Records
 
+- Implemented formatter stabilization:
+  [formatter-stabilization.md](formatter-stabilization.md). Use
+  [../specification/commands.md](../specification/commands.md) for current
+  `veln fmt` behavior and
+  [../reviews/formatter-stabilization-completion.md](../reviews/formatter-stabilization-completion.md)
+  for completion evidence.
 - Completed confirmation and explicit override behavior around `veln repair`:
   [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
   Keep current behavior anchored in

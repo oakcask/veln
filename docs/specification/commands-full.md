@@ -72,8 +72,11 @@ idempotent formatting across multiple input files.
 Standalone line comments attach to the next parsed source line during
 formatting. The formatter preserves the comment text and emits it with the
 same indentation as the formatted module header, import, function signature,
-contract clause, body line, or closing `end` line it documents. Trailing line
-comments after source code stay on the same formatted source line.
+contract clause, body line, or closing `end` line it documents. Comment-only
+lines between module headers, imports, function signatures, contract clauses,
+body lines, and closing `end` lines do not prevent parsing or deterministic
+formatting of those declarations. Trailing line comments after source code stay
+on the same formatted source line.
 
 <a id="veln-run"></a>
 

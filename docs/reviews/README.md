@@ -8,6 +8,8 @@ gap lists that should guide follow-up work.
 - [jvm-bytecode-backend-completion.md](jvm-bytecode-backend-completion.md)
   records the current completion review for the selected JVM bytecode backend
   proposal and its source-backend cleanup result.
+- [formatter-stabilization-completion.md](formatter-stabilization-completion.md)
+  records the completion review for the formatter stabilization target.
 - [repair-command-completion.md](repair-command-completion.md) records the
   completion review for the repair command proposal promotion.
 - [agent-language-spec-wall-completion.md](agent-language-spec-wall-completion.md)

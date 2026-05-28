@@ -99,10 +99,7 @@ impl<'a> Parser<'a> {
             None
         };
 
-        let mut uses = Vec::new();
-        while self.at(TokenKind::Use) {
-            uses.push(self.parse_named_header(TokenKind::Use, "use_declaration").1);
-        }
+        let uses = self.parse_use_declarations();
 
         let mut items = Vec::new();
         while !self.at(TokenKind::Eof) {
@@ -172,6 +169,17 @@ impl<'a> Parser<'a> {
         )
     }
 
+    fn parse_use_declarations(&mut self) -> Vec<UseDecl> {
+        let mut uses = Vec::new();
+        loop {
+            self.eat_newlines();
+            if !self.at(TokenKind::Use) {
+                return uses;
+            }
+            uses.push(self.parse_named_header(TokenKind::Use, "use_declaration").1);
+        }
+    }
+
     fn parse_function_like(&mut self, kind: FunctionKind) -> FunctionDecl {
         let start = self.current().range;
         let visibility = match kind {
@@ -239,13 +247,7 @@ impl<'a> Parser<'a> {
         };
         self.expect_newline(context);
 
-        let mut contracts = Vec::new();
-        while self.at(TokenKind::Require)
-            || self.at(TokenKind::Ensure)
-            || self.at(TokenKind::Invariant)
-        {
-            contracts.push(self.parse_contract());
-        }
+        let contracts = self.parse_contracts();
 
         let mut body = Vec::new();
         let mut end_present = false;
@@ -358,6 +360,24 @@ impl<'a> Parser<'a> {
             text,
             span: self.source.span(start_token.range.cover(end)),
         }
+    }
+
+    fn parse_contracts(&mut self) -> Vec<ContractClause> {
+        let mut contracts = Vec::new();
+        loop {
+            self.eat_newlines();
+            if !self.at_contract_clause() {
+                return contracts;
+            }
+            contracts.push(self.parse_contract());
+        }
+    }
+
+    fn at_contract_clause(&self) -> bool {
+        matches!(
+            self.current().kind,
+            TokenKind::Require | TokenKind::Ensure | TokenKind::Invariant
+        )
     }
 
     fn parse_body_line(&mut self) -> BodyLine {
