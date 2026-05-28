@@ -21,6 +21,8 @@ boundary and [commands.md](commands.md) for command gates.
   preview and refusal output and may contain edits from more than one source
   file after a successful multi-edit candidate.
 - `verification`: verification status, command, and diagnostics.
+- `confirmation`: explicit user confirmation record, or `null`.
+- `override`: explicit override record, or `null`.
 - `summary`: candidate, applicable, applied, and refusal counts.
 
 ## Candidates
@@ -44,6 +46,10 @@ Each command-level candidate contains:
 When `--candidate` is present, the requested id may match either `repair_id` or
 `source_candidate_id`.
 
+`repair --apply --override --confirm CANDIDATE_ID` may apply a
+`manual_review_required` candidate when the candidate is still `unapplied` and
+all target, rollback, and post-edit verification gates pass.
+
 Saved command-level candidates are renumbered with current command-local
 `repair_id` values. The saved command-level id remains accepted for
 `--candidate` selection, but it is not emitted as a separate field. Saved
@@ -64,12 +70,31 @@ single `edit` shape as input; repair JSON output emits `edits`.
 command when available. `verification.diagnostics` uses the normal diagnostic
 JSON object shape.
 
+## Confirmation And Override
+
+Successful output includes `confirmation` when `--confirm` was supplied:
+
+- `confirmed_candidate_id`: the id string accepted from the command line.
+- `repair_id`: the selected command-local candidate id.
+- `source_candidate_id`: the selected advisory candidate id.
+- `override`: `true` when `--override` was supplied.
+
+Successful output includes `override` when `--override` was supplied:
+
+- `application_policy`: the selected candidate policy accepted by override.
+- `application_status`: the selected candidate status accepted by override.
+- `accepted_obligations`: string obligations copied from the advisory
+  candidate's `blocking_obligations` when present.
+
+Preview output and refusal output set both records to `null`.
+
 ## Refusals
 
 `status: "refused"` is stable machine-readable behavior for fail-closed cases:
 missing safe candidates, missing or ambiguous requested candidate ids,
-non-applicable selected candidates, saved candidates that are not current,
-stale target spans, targets that no longer name holes, overlapping edits,
+non-applicable selected candidates, missing or mismatched confirmation,
+saved candidates that are not current, stale target spans, targets that no
+longer name holes, overlapping edits,
 verification failure, and unsupported edit shapes.
 
 `summary.refusal_reason` carries a short stable-enough routing string for human

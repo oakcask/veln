@@ -30,10 +30,13 @@ comparison, promotion, or cleanup.
 
 ## Target-Specific Routes
 
-- Adjacent repair command workflows:
+- Completed confirmation and explicit override behavior around `veln repair`:
   [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
   Keep current behavior anchored in
   [../specification/repair-candidates.md](../specification/repair-candidates.md).
+  Do not include broader ranking models, external verification commands,
+  partial application, or general automatic repair unless a short proposal page
+  selects that work.
 - Implemented JVM bytecode backend:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md). That short page routes
   current behavior, fixture organization, completion evidence, the Java source

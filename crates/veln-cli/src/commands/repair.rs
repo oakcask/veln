@@ -10,13 +10,35 @@ use veln_source::{LineCol, SourceSpan};
 use crate::commands::check::check_diagnostics;
 use crate::diagnostics::{has_error, tool_info};
 
+const APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
 const APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE: &str = "safe_repair_candidate";
 const APPLICATION_STATUS_UNAPPLIED: &str = "unapplied";
+const REPAIR_COMMAND: &str = "repair";
+const REPAIR_MODE_APPLY: &str = "apply";
+const REPAIR_MODE_PREVIEW: &str = "preview";
+const REPAIR_STATUS_APPLIED: &str = "applied";
+const REPAIR_STATUS_PREVIEW: &str = "preview";
+const REPAIR_STATUS_REFUSED: &str = "refused";
+const VERIFICATION_STATUS_FAILED: &str = "failed";
+const VERIFICATION_STATUS_NOT_RUN: &str = "not_run";
+const VERIFICATION_STATUS_PASSED: &str = "passed";
+
+const REFUSAL_CANDIDATE_NOT_AUTOMATIC: &str = "candidate is not safe to apply automatically";
+const REFUSAL_MULTIPLE_SAFE_CANDIDATES: &str =
+    "multiple safe repair candidates; choose one with `--candidate`";
+const REFUSAL_NO_SAFE_CANDIDATES: &str = "no safe unapplied repair candidates";
+const REFUSAL_OVERRIDE_REQUIRES_CONFIRMATION: &str = "override requires `--confirm <candidate_id>`";
+const REFUSAL_OVERRIDE_UNSUPPORTED_POLICY: &str = "override candidate policy is not supported";
+const REFUSAL_OVERRIDE_STATUS_NOT_UNAPPLIED: &str = "override candidate is not unapplied";
+const REFUSAL_SAVED_CANDIDATE_NOT_CURRENT: &str = "saved candidate is not current";
+const REFUSAL_VERIFICATION_FAILED: &str = "verification failed";
 
 pub(crate) fn repair(
     json: bool,
     apply: bool,
     candidate_id: Option<String>,
+    confirm_id: Option<String>,
+    override_requested: bool,
     inputs: Vec<PathBuf>,
 ) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
@@ -36,7 +58,11 @@ pub(crate) fn repair(
             project,
             source_inputs,
             candidates,
-            candidate_id,
+            RepairApplyOptions {
+                requested_candidate_id: candidate_id,
+                confirmed_candidate_id: confirm_id,
+                override_requested,
+            },
             &current_candidates,
         )?
     } else {
@@ -87,6 +113,8 @@ struct RepairOutcome {
     selected: Option<RepairCandidate>,
     applied_edits: Vec<AppliedEdit>,
     verification: Verification,
+    confirmation: Option<RepairConfirmation>,
+    override_record: Option<RepairOverride>,
     refusal_reason: Option<String>,
 }
 
@@ -102,6 +130,28 @@ struct Verification {
     diagnostics: Vec<Diagnostic>,
 }
 
+#[derive(Clone, Debug)]
+struct RepairConfirmation {
+    confirmed_candidate_id: String,
+    repair_id: String,
+    source_candidate_id: String,
+    override_requested: bool,
+}
+
+#[derive(Clone, Debug)]
+struct RepairOverride {
+    application_policy: String,
+    application_status: String,
+    accepted_obligations: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+struct RepairApplyOptions {
+    requested_candidate_id: Option<String>,
+    confirmed_candidate_id: Option<String>,
+    override_requested: bool,
+}
+
 impl RepairOutcome {
     fn preview(candidates: Vec<RepairCandidate>, requested_candidate_id: Option<String>) -> Self {
         let selected = requested_candidate_id
@@ -111,16 +161,18 @@ impl RepairOutcome {
                 CandidateIdMatch::Missing | CandidateIdMatch::Ambiguous => None,
             });
         Self {
-            mode: "preview",
-            status: "preview",
+            mode: REPAIR_MODE_PREVIEW,
+            status: REPAIR_STATUS_PREVIEW,
             candidates,
             selected,
             applied_edits: Vec::new(),
             verification: Verification {
-                status: "not_run",
+                status: VERIFICATION_STATUS_NOT_RUN,
                 command: None,
                 diagnostics: Vec::new(),
             },
+            confirmation: None,
+            override_record: None,
             refusal_reason: None,
         }
     }
@@ -131,22 +183,24 @@ impl RepairOutcome {
         reason: impl Into<String>,
     ) -> Self {
         Self {
-            mode: "apply",
-            status: "refused",
+            mode: REPAIR_MODE_APPLY,
+            status: REPAIR_STATUS_REFUSED,
             candidates,
             selected,
             applied_edits: Vec::new(),
             verification: Verification {
-                status: "not_run",
+                status: VERIFICATION_STATUS_NOT_RUN,
                 command: None,
                 diagnostics: Vec::new(),
             },
+            confirmation: None,
+            override_record: None,
             refusal_reason: Some(reason.into()),
         }
     }
 
     fn exit_success(&self) -> bool {
-        self.status != "refused"
+        self.status != REPAIR_STATUS_REFUSED
     }
 
     fn to_json(&self) -> String {
@@ -160,7 +214,7 @@ impl RepairOutcome {
                     ("version", JsonValue::string(tool.version)),
                 ]),
             ),
-            ("command", JsonValue::string("repair")),
+            ("command", JsonValue::string(REPAIR_COMMAND)),
             ("mode", JsonValue::string(self.mode)),
             ("status", JsonValue::string(self.status)),
             (
@@ -179,6 +233,18 @@ impl RepairOutcome {
             ),
             ("verification", self.verification.to_json()),
             (
+                "confirmation",
+                self.confirmation
+                    .as_ref()
+                    .map_or(JsonValue::Null, RepairConfirmation::to_json),
+            ),
+            (
+                "override",
+                self.override_record
+                    .as_ref()
+                    .map_or(JsonValue::Null, RepairOverride::to_json),
+            ),
+            (
                 "summary",
                 JsonValue::object([
                     (
@@ -190,7 +256,7 @@ impl RepairOutcome {
                         JsonValue::Number(
                             self.candidates
                                 .iter()
-                                .filter(|candidate| candidate.is_applicable())
+                                .filter(|candidate| candidate.is_safe_unapplied())
                                 .count() as i64,
                         ),
                     ),
@@ -212,7 +278,7 @@ impl RepairOutcome {
 }
 
 impl RepairCandidate {
-    fn is_applicable(&self) -> bool {
+    fn is_safe_unapplied(&self) -> bool {
         self.application_policy == APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE
             && self.application_status == APPLICATION_STATUS_UNAPPLIED
     }
@@ -289,9 +355,71 @@ impl Verification {
     }
 }
 
+impl RepairConfirmation {
+    fn new(
+        confirmed_candidate_id: String,
+        selected: &RepairCandidate,
+        override_requested: bool,
+    ) -> Self {
+        Self {
+            confirmed_candidate_id,
+            repair_id: selected.repair_id.clone(),
+            source_candidate_id: selected.source_candidate_id.clone(),
+            override_requested,
+        }
+    }
+
+    fn to_json(&self) -> JsonValue {
+        JsonValue::object([
+            (
+                "confirmed_candidate_id",
+                JsonValue::string(self.confirmed_candidate_id.clone()),
+            ),
+            ("repair_id", JsonValue::string(self.repair_id.clone())),
+            (
+                "source_candidate_id",
+                JsonValue::string(self.source_candidate_id.clone()),
+            ),
+            ("override", JsonValue::Bool(self.override_requested)),
+        ])
+    }
+}
+
+impl RepairOverride {
+    fn from_candidate(candidate: &RepairCandidate) -> Self {
+        Self {
+            application_policy: candidate.application_policy.clone(),
+            application_status: candidate.application_status.clone(),
+            accepted_obligations: object_string_array(&candidate.source, "blocking_obligations")
+                .unwrap_or_default(),
+        }
+    }
+
+    fn to_json(&self) -> JsonValue {
+        JsonValue::object([
+            (
+                "application_policy",
+                JsonValue::string(self.application_policy.clone()),
+            ),
+            (
+                "application_status",
+                JsonValue::string(self.application_status.clone()),
+            ),
+            (
+                "accepted_obligations",
+                JsonValue::array(
+                    self.accepted_obligations
+                        .iter()
+                        .map(|obligation| JsonValue::string(obligation.clone())),
+                ),
+            ),
+        ])
+    }
+}
+
 fn print_human(outcome: &RepairOutcome) {
     match outcome.status {
-        "preview" => {
+        REPAIR_STATUS_PREVIEW => {
             if outcome.candidates.is_empty() {
                 println!("no repair candidates found");
                 return;
@@ -312,7 +440,7 @@ fn print_human(outcome: &RepairOutcome) {
                 );
             }
         }
-        "applied" => {
+        REPAIR_STATUS_APPLIED => {
             let Some(candidate) = &outcome.selected else {
                 println!("repair applied");
                 return;
@@ -332,7 +460,7 @@ fn print_human(outcome: &RepairOutcome) {
             );
             println!("verification passed");
         }
-        "refused" => {
+        REPAIR_STATUS_REFUSED => {
             println!(
                 "repair refused: {}",
                 outcome
@@ -349,22 +477,16 @@ fn apply_candidate(
     project: Project,
     inputs: Vec<PathBuf>,
     candidates: Vec<RepairCandidate>,
-    requested_candidate_id: Option<String>,
+    options: RepairApplyOptions,
     current_candidates: &[RepairCandidate],
 ) -> Result<RepairOutcome, String> {
-    let applicable = candidates
-        .iter()
-        .filter(|candidate| candidate.is_applicable())
-        .collect::<Vec<_>>();
-    if applicable.is_empty() {
-        return Ok(RepairOutcome::refused(
-            candidates,
-            None,
-            "no safe unapplied repair candidates",
-        ));
-    }
+    let applicable = safe_unapplied_candidates(&candidates);
 
-    let selected = match requested_candidate_id.as_deref() {
+    let selection_id = options
+        .requested_candidate_id
+        .as_deref()
+        .or(options.confirmed_candidate_id.as_deref());
+    let selected = match selection_id {
         Some(id) => match find_candidate_by_id(&candidates, id) {
             CandidateIdMatch::Unique(candidate) => candidate.clone(),
             CandidateIdMatch::Missing => {
@@ -383,29 +505,88 @@ fn apply_candidate(
             }
         },
         None if applicable.len() == 1 => applicable[0].clone(),
+        None if applicable.is_empty() => {
+            return Ok(RepairOutcome::refused(
+                candidates,
+                None,
+                REFUSAL_NO_SAFE_CANDIDATES,
+            ));
+        }
         None => {
             return Ok(RepairOutcome::refused(
                 candidates,
                 None,
-                "multiple safe repair candidates; choose one with `--candidate`",
+                REFUSAL_MULTIPLE_SAFE_CANDIDATES,
             ));
         }
     };
 
-    if !selected.is_applicable() {
+    if options.override_requested && options.confirmed_candidate_id.is_none() {
         return Ok(RepairOutcome::refused(
             candidates,
             Some(selected),
-            "candidate is not safe to apply automatically",
+            REFUSAL_OVERRIDE_REQUIRES_CONFIRMATION,
+        ));
+    }
+    if let Some(confirmed_candidate_id) = options.confirmed_candidate_id.as_deref() {
+        match find_candidate_by_id(&candidates, confirmed_candidate_id) {
+            CandidateIdMatch::Unique(candidate) if candidate.repair_id == selected.repair_id => {}
+            CandidateIdMatch::Unique(_) => {
+                return Ok(RepairOutcome::refused(
+                    candidates,
+                    Some(selected),
+                    "confirmed candidate does not match selected candidate",
+                ));
+            }
+            CandidateIdMatch::Missing => {
+                return Ok(RepairOutcome::refused(
+                    candidates,
+                    Some(selected),
+                    format!("confirmed candidate `{confirmed_candidate_id}` was not found"),
+                ));
+            }
+            CandidateIdMatch::Ambiguous => {
+                return Ok(RepairOutcome::refused(
+                    candidates,
+                    Some(selected),
+                    format!("confirmed candidate `{confirmed_candidate_id}` is ambiguous"),
+                ));
+            }
+        }
+    }
+
+    if !selected.is_safe_unapplied() && !options.override_requested {
+        return Ok(RepairOutcome::refused(
+            candidates,
+            Some(selected),
+            REFUSAL_CANDIDATE_NOT_AUTOMATIC,
+        ));
+    }
+    if options.override_requested
+        && !selected.is_safe_unapplied()
+        && selected.application_policy != APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED
+    {
+        return Ok(RepairOutcome::refused(
+            candidates,
+            Some(selected),
+            REFUSAL_OVERRIDE_UNSUPPORTED_POLICY,
+        ));
+    }
+    if options.override_requested && selected.application_status != APPLICATION_STATUS_UNAPPLIED {
+        return Ok(RepairOutcome::refused(
+            candidates,
+            Some(selected),
+            REFUSAL_OVERRIDE_STATUS_NOT_UNAPPLIED,
         ));
     }
     if selected.requires_current_match
+        && !options.override_requested
         && !has_current_applicable_match(&selected, current_candidates)
     {
         return Ok(RepairOutcome::refused(
             candidates,
             Some(selected),
-            "saved candidate is not current",
+            REFUSAL_SAVED_CANDIDATE_NOT_CURRENT,
         ));
     }
 
@@ -424,9 +605,10 @@ fn apply_candidate(
         for file_edit in &edit_plan.files {
             fs::write(&file_edit.path, &file_edit.original).map_err(|error| error.to_string())?;
         }
-        let mut outcome = RepairOutcome::refused(candidates, Some(selected), "verification failed");
+        let mut outcome =
+            RepairOutcome::refused(candidates, Some(selected), REFUSAL_VERIFICATION_FAILED);
         outcome.verification = Verification {
-            status: "failed",
+            status: VERIFICATION_STATUS_FAILED,
             command: outcome
                 .selected
                 .as_ref()
@@ -437,18 +619,37 @@ fn apply_candidate(
     }
 
     Ok(RepairOutcome {
-        mode: "apply",
-        status: "applied",
+        mode: REPAIR_MODE_APPLY,
+        status: REPAIR_STATUS_APPLIED,
         candidates,
         selected: Some(selected.clone()),
         applied_edits: edit_plan.applied_edits,
         verification: Verification {
-            status: "passed",
+            status: VERIFICATION_STATUS_PASSED,
             command: selected.verification_command.clone(),
             diagnostics: verification_diagnostics,
         },
+        confirmation: options
+            .confirmed_candidate_id
+            .map(|confirmed_candidate_id| {
+                RepairConfirmation::new(
+                    confirmed_candidate_id,
+                    &selected,
+                    options.override_requested,
+                )
+            }),
+        override_record: options
+            .override_requested
+            .then(|| RepairOverride::from_candidate(&selected)),
         refusal_reason: None,
     })
+}
+
+fn safe_unapplied_candidates(candidates: &[RepairCandidate]) -> Vec<&RepairCandidate> {
+    candidates
+        .iter()
+        .filter(|candidate| candidate.is_safe_unapplied())
+        .collect()
 }
 
 fn repair_candidates_from_diagnostics(diagnostics: &[Diagnostic]) -> Vec<RepairCandidate> {
@@ -678,7 +879,7 @@ fn has_current_applicable_match(
             continue;
         }
         let has_current_match = current_candidates.iter().any(|candidate| {
-            candidate.is_applicable()
+            candidate.is_safe_unapplied()
                 && candidate.source_candidate_id == selected.source_candidate_id
                 && candidate
                     .edits
@@ -948,6 +1149,18 @@ fn object_array<'a>(value: &'a JsonValue, key: &str) -> Option<&'a Vec<JsonValue
         JsonValue::Array(values) => Some(values),
         _ => None,
     }
+}
+
+fn object_string_array(value: &JsonValue, key: &str) -> Option<Vec<String>> {
+    object_array(value, key).map(|values| {
+        values
+            .iter()
+            .filter_map(|value| match value {
+                JsonValue::String(value) => Some(value.clone()),
+                _ => None,
+            })
+            .collect()
+    })
 }
 
 fn object_string<'a>(value: &'a JsonValue, key: &str) -> Option<&'a str> {

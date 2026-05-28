@@ -35,8 +35,17 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             json,
             apply,
             candidate_id,
+            confirm_id,
+            override_requested,
             inputs,
-        } => commands::repair::repair(json, apply, candidate_id, inputs),
+        } => commands::repair::repair(
+            json,
+            apply,
+            candidate_id,
+            confirm_id,
+            override_requested,
+            inputs,
+        ),
         Command::Explain {
             list,
             diagnostic_id,
