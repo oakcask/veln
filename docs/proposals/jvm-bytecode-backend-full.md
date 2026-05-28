@@ -190,9 +190,24 @@ ordinary `run` or `test` execution depend on `javap`.
 ## Cache And Setup Behavior
 
 The backend cache moved from generated Java source and compiled classes to
-bytecode backend artifacts. Cache keys may include backend version,
-classfile target, runtime helper version, typed IR content, entry selection,
-and relevant backend options.
+bytecode backend artifacts. Cache identity must be derived from a cryptographic
+digest over length-framed backend inputs: backend version, classfile target,
+runtime helper version, typed IR content, entry selection, emitted class paths,
+emitted classfile contents, and relevant backend options.
+
+The cache is not a trusted source of executable bytecode. A cache hit must
+validate that the completed cache entry matches the expected manifest before it
+is passed to `java`. The manifest must name the expected class paths and content
+digests for the selected program, and the runner must reject and rebuild entries
+whose marker, manifest, class set, or class contents do not match. A marker file
+alone is not enough to prove that a cache entry is complete or safe to execute.
+
+Cache publication must be atomic from a temporary directory, and all
+create-or-reuse races must revalidate the winning cache entry before execution.
+If another process creates the destination between preparation and publication,
+the runner must treat that entry exactly like any other cache hit: validate it,
+reuse it only if it matches the expected manifest, and otherwise discard or
+replace it without executing its classes.
 
 Cache hits and misses must preserve command-visible behavior: exit status,
 stdout, stderr, runtime contract reports, and test events must be the same as
@@ -224,6 +239,9 @@ A completion claim must satisfy all of these gates:
 - Existing JVM runtime behavior fixtures pass through the bytecode path, and
   cache hits and misses preserve command-visible exit status, stdout, stderr,
   runtime contract reports, and test events.
+- Cache tests cover poisoned entries, incomplete entries, weak marker-only
+  entries, and publication races. The runner must validate a manifest keyed by a
+  cryptographic digest before executing cached classes.
 - Missing `java` remains a runner error with the existing human and JSON
   behavior, while setup coverage proves `javac` is no longer required for
   ordinary execution.

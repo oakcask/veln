@@ -59,6 +59,10 @@ tests. Current review evidence and follow-up cleanup live in
   [CI strategy](jvm-bytecode-backend-full.md#ci-strategy)
   and
   [cache and setup behavior](jvm-bytecode-backend-full.md#cache-and-setup-behavior).
+- Cache security requirements live in
+  [cache and setup behavior](jvm-bytecode-backend-full.md#cache-and-setup-behavior):
+  cache hits must validate a manifest keyed by a cryptographic digest before
+  executing cached classes.
 - Completion criteria, implementation notes, and promotion cleanup:
   [completion criteria](jvm-bytecode-backend-full.md#completion-criteria),
   [implementation notes](jvm-bytecode-backend-full.md#implementation-notes),
