@@ -22,11 +22,10 @@ requiring the full command reference on the first read.
   failures, and test JSON. Use [test-json.md](test-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact
   command rules.
-- `repair`: preview or apply one safe advisory hole repair candidate from
-  current source analysis or saved repair JSON input, selected by `repair_id`
-  or `source_candidate_id` when `--candidate` is present. Use
-  [repair-candidates.md](repair-candidates.md) for the candidate and input
-  boundary, and [repair-json.md](repair-json.md) for machine-readable output.
+- `repair`: preview or apply one safe advisory hole repair candidate. Use
+  [repair-candidates.md](repair-candidates.md) for candidate input, selection,
+  and the fail-closed apply gate, and [repair-json.md](repair-json.md) for
+  machine-readable output.
 - `explain`: diagnostic catalog lookup. Use
   [commands-full.md](commands-full.md) when diagnostic catalog behavior is the
   task.

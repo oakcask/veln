@@ -18,7 +18,8 @@ boundary and [commands.md](commands.md) for command gates.
   invocation. When saved repair JSON inputs are present, this is the saved
   candidate set normalized for the current invocation.
 - `applied_edits`: replacement edits written by the command. This is empty in
-  preview and refusal output.
+  preview and refusal output and may contain edits from more than one source
+  file after a successful multi-edit candidate.
 - `verification`: verification status, command, and diagnostics.
 - `summary`: candidate, applicable, applied, and refusal counts.
 
@@ -33,7 +34,7 @@ Each command-level candidate contains:
 - `application_policy`: copied from the advisory candidate.
 - `application_status`: copied from the advisory candidate.
 - `edit_summary`: human-oriented summary.
-- `edit`: a single `replace` edit with source-relative `span` and
+- `edits`: one or more `replace` edits with source-relative `span` and
   `replacement`.
 - `verification_command`: the advisory verification command when present.
 - `source`: the original advisory candidate object from diagnostic details.
@@ -45,7 +46,9 @@ When `--candidate` is present, the requested id may match either `repair_id` or
 
 Saved command-level candidates are renumbered with current command-local
 `repair_id` values. The saved command-level id remains accepted for
-`--candidate` selection, but it is not emitted as a separate field.
+`--candidate` selection, but it is not emitted as a separate field. Saved
+command-level candidates may use the current `edits` array shape or the legacy
+single `edit` shape as input; repair JSON output emits `edits`.
 
 ## Verification
 
@@ -55,7 +58,7 @@ Saved command-level candidates are renumbered with current command-local
 - `"passed"` after an applied edit is written and check analysis reports no
   error diagnostics.
 - `"failed"` when check analysis reports an error after writing; in this case
-  the source file is restored before output is printed.
+  every written source file is restored before output is printed.
 
 `verification.command` is the selected candidate's advisory verification
 command when available. `verification.diagnostics` uses the normal diagnostic
@@ -66,8 +69,8 @@ JSON object shape.
 `status: "refused"` is stable machine-readable behavior for fail-closed cases:
 missing safe candidates, missing or ambiguous requested candidate ids,
 non-applicable selected candidates, saved candidates that are not current,
-stale target spans, targets that no longer name holes, verification failure,
-and unsupported edit shapes.
+stale target spans, targets that no longer name holes, overlapping edits,
+verification failure, and unsupported edit shapes.
 
 `summary.refusal_reason` carries a short stable-enough routing string for human
 and agent workflows. It is not a diagnostic id.

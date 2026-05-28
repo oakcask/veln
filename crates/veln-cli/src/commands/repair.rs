@@ -64,7 +64,7 @@ struct RepairCandidate {
     application_policy: String,
     application_status: String,
     edit_summary: String,
-    edit: RepairEdit,
+    edits: Vec<RepairEdit>,
     verification_command: Option<String>,
     source: JsonValue,
     input_repair_id: Option<String>,
@@ -240,7 +240,10 @@ impl RepairCandidate {
                 JsonValue::string(self.application_status.clone()),
             ),
             ("edit_summary", JsonValue::string(self.edit_summary.clone())),
-            ("edit", self.edit.to_json()),
+            (
+                "edits",
+                JsonValue::array(self.edits.iter().map(RepairEdit::to_json)),
+            ),
             (
                 "verification_command",
                 self.verification_command
@@ -294,14 +297,17 @@ fn print_human(outcome: &RepairOutcome) {
                 return;
             }
             for candidate in &outcome.candidates {
+                let Some(edit) = candidate.edits.first() else {
+                    continue;
+                };
                 println!(
                     "{}: {} at {}:{}:{} -> `{}` [{}]",
                     candidate.repair_id,
                     candidate.edit_summary,
-                    candidate.edit.file,
-                    candidate.edit.start.line,
-                    candidate.edit.start.column,
-                    candidate.edit.replacement,
+                    edit.file,
+                    edit.start.line,
+                    edit.start.column,
+                    edit.replacement,
                     candidate.application_policy
                 );
             }
@@ -311,13 +317,18 @@ fn print_human(outcome: &RepairOutcome) {
                 println!("repair applied");
                 return;
             };
+            let Some(edit) = candidate.edits.first() else {
+                println!("repair applied");
+                println!("verification passed");
+                return;
+            };
             println!(
                 "applied {} at {}:{}:{} -> `{}`",
                 candidate.repair_id,
-                candidate.edit.file,
-                candidate.edit.start.line,
-                candidate.edit.start.column,
-                candidate.edit.replacement
+                edit.file,
+                edit.start.line,
+                edit.start.column,
+                edit.replacement
             );
             println!("verification passed");
         }
@@ -398,19 +409,21 @@ fn apply_candidate(
         ));
     }
 
-    let source_path = source_path(&project.root, &selected.edit.file)?;
-    let original = fs::read_to_string(&source_path).map_err(|error| error.to_string())?;
-    let edit = match replace_span(&original, &selected) {
-        Ok(edit) => edit,
+    let edit_plan = match build_edit_plan(&project.root, &selected) {
+        Ok(edit_plan) => edit_plan,
         Err(reason) => return Ok(RepairOutcome::refused(candidates, Some(selected), reason)),
     };
-    fs::write(&source_path, &edit.repaired).map_err(|error| error.to_string())?;
+    for file_edit in &edit_plan.files {
+        fs::write(&file_edit.path, &file_edit.repaired).map_err(|error| error.to_string())?;
+    }
 
     let mut verify_project =
         Project::discover(project.root.clone(), &inputs).map_err(|error| error.to_string())?;
     let verification_diagnostics = check_diagnostics(&mut verify_project);
     if has_error(&verification_diagnostics) {
-        fs::write(&source_path, original).map_err(|error| error.to_string())?;
+        for file_edit in &edit_plan.files {
+            fs::write(&file_edit.path, &file_edit.original).map_err(|error| error.to_string())?;
+        }
         let mut outcome = RepairOutcome::refused(candidates, Some(selected), "verification failed");
         outcome.verification = Verification {
             status: "failed",
@@ -423,20 +436,12 @@ fn apply_candidate(
         return Ok(outcome);
     }
 
-    let applied_edit = AppliedEdit {
-        edit: RepairEdit {
-            file: selected.edit.file.clone(),
-            start: selected.edit.start,
-            end: edit.end,
-            replacement: selected.edit.replacement.clone(),
-        },
-    };
     Ok(RepairOutcome {
         mode: "apply",
         status: "applied",
         candidates,
         selected: Some(selected.clone()),
-        applied_edits: vec![applied_edit],
+        applied_edits: edit_plan.applied_edits,
         verification: Verification {
             status: "passed",
             command: selected.verification_command.clone(),
@@ -469,36 +474,19 @@ fn repair_candidates_from_diagnostics(diagnostics: &[Diagnostic]) -> Vec<RepairC
 
 impl RepairCandidate {
     fn from_advisory(index: usize, candidate: &JsonValue) -> Option<Self> {
-        let edits = object_array(candidate, "edits")?;
-        let [edit] = edits.as_slice() else {
-            return None;
-        };
-        if object_string(edit, "kind")? != "replace" {
-            return None;
-        }
-        let span = object_value(edit, "span").and_then(source_span)?;
-        Some(Self {
-            repair_id: format!("repair-{}", index + 1),
-            source_candidate_id: object_string(candidate, "candidate_id")?.to_string(),
-            name: object_string(candidate, "name").unwrap_or("").to_string(),
-            application_policy: object_string(candidate, "application_policy")?.to_string(),
-            application_status: object_string(candidate, "application_status")?.to_string(),
-            edit_summary: object_string(candidate, "edit_summary")
-                .unwrap_or("Replace source span")
-                .to_string(),
-            edit: RepairEdit {
-                file: span.file.as_str().to_string(),
-                start: span.start,
-                end: span.end,
-                replacement: object_string(edit, "replacement")?.to_string(),
+        Self::from_parts(
+            index,
+            CandidateParts {
+                candidate,
+                source_candidate_id: object_string(candidate, "candidate_id")?,
+                input_repair_id: None,
+                edits: replace_edits_from_edits(candidate)?,
+                verification_command: object_value(candidate, "verification_hint")
+                    .and_then(|hint| object_string(hint, "command")),
+                source: candidate.clone(),
+                requires_current_match: false,
             },
-            verification_command: object_value(candidate, "verification_hint")
-                .and_then(|hint| object_string(hint, "command"))
-                .map(str::to_string),
-            source: candidate.clone(),
-            input_repair_id: None,
-            requires_current_match: false,
-        })
+        )
     }
 
     fn from_saved_advisory(index: usize, candidate: &JsonValue) -> Option<Self> {
@@ -508,35 +496,81 @@ impl RepairCandidate {
     }
 
     fn from_saved_command(index: usize, candidate: &JsonValue) -> Option<Self> {
-        let edit = object_value(candidate, "edit")?;
-        if object_string(edit, "kind")? != "replace" {
-            return None;
-        }
-        let span = object_value(edit, "span").and_then(source_span)?;
+        Self::from_parts(
+            index,
+            CandidateParts {
+                candidate,
+                source_candidate_id: object_string(candidate, "source_candidate_id")?,
+                input_repair_id: object_string(candidate, "repair_id"),
+                edits: replace_edits_from_saved_command(candidate)?,
+                verification_command: object_string(candidate, "verification_command"),
+                source: object_value(candidate, "source")
+                    .cloned()
+                    .unwrap_or_else(|| candidate.clone()),
+                requires_current_match: true,
+            },
+        )
+    }
+
+    fn from_parts(index: usize, parts: CandidateParts<'_>) -> Option<Self> {
         Some(Self {
             repair_id: format!("repair-{}", index + 1),
-            source_candidate_id: object_string(candidate, "source_candidate_id")?.to_string(),
-            name: object_string(candidate, "name").unwrap_or("").to_string(),
-            application_policy: object_string(candidate, "application_policy")?.to_string(),
-            application_status: object_string(candidate, "application_status")?.to_string(),
-            edit_summary: object_string(candidate, "edit_summary")
+            source_candidate_id: parts.source_candidate_id.to_string(),
+            name: object_string(parts.candidate, "name")
+                .unwrap_or("")
+                .to_string(),
+            application_policy: object_string(parts.candidate, "application_policy")?.to_string(),
+            application_status: object_string(parts.candidate, "application_status")?.to_string(),
+            edit_summary: object_string(parts.candidate, "edit_summary")
                 .unwrap_or("Replace source span")
                 .to_string(),
-            edit: RepairEdit {
-                file: span.file.as_str().to_string(),
-                start: span.start,
-                end: span.end,
-                replacement: object_string(edit, "replacement")?.to_string(),
-            },
-            verification_command: object_string(candidate, "verification_command")
-                .map(str::to_string),
-            source: object_value(candidate, "source")
-                .cloned()
-                .unwrap_or_else(|| candidate.clone()),
-            input_repair_id: object_string(candidate, "repair_id").map(str::to_string),
-            requires_current_match: true,
+            edits: parts.edits,
+            verification_command: parts.verification_command.map(str::to_string),
+            source: parts.source,
+            input_repair_id: parts.input_repair_id.map(str::to_string),
+            requires_current_match: parts.requires_current_match,
         })
     }
+}
+
+struct CandidateParts<'a> {
+    candidate: &'a JsonValue,
+    source_candidate_id: &'a str,
+    input_repair_id: Option<&'a str>,
+    edits: Vec<RepairEdit>,
+    verification_command: Option<&'a str>,
+    source: JsonValue,
+    requires_current_match: bool,
+}
+
+fn replace_edits_from_edits(candidate: &JsonValue) -> Option<Vec<RepairEdit>> {
+    let edits = object_array(candidate, "edits")?;
+    if edits.is_empty() {
+        return None;
+    }
+    edits.iter().map(replace_edit).collect()
+}
+
+fn replace_edits_from_saved_command(candidate: &JsonValue) -> Option<Vec<RepairEdit>> {
+    if let Some(edits) = replace_edits_from_edits(candidate) {
+        return Some(edits);
+    }
+    object_value(candidate, "edit")
+        .and_then(replace_edit)
+        .map(|edit| vec![edit])
+}
+
+fn replace_edit(edit: &JsonValue) -> Option<RepairEdit> {
+    if object_string(edit, "kind")? != "replace" {
+        return None;
+    }
+    let span = object_value(edit, "span").and_then(source_span)?;
+    Some(RepairEdit {
+        file: span.file.as_str().to_string(),
+        start: span.start,
+        end: span.end,
+        replacement: object_string(edit, "replacement")?.to_string(),
+    })
 }
 
 fn split_repair_inputs(inputs: &[PathBuf]) -> (Vec<PathBuf>, Vec<PathBuf>) {
@@ -631,13 +665,32 @@ fn has_current_applicable_match(
     selected: &RepairCandidate,
     current_candidates: &[RepairCandidate],
 ) -> bool {
-    current_candidates
-        .iter()
-        .any(|candidate| candidate.is_applicable() && same_candidate_edit(selected, candidate))
-}
-
-fn same_candidate_edit(left: &RepairCandidate, right: &RepairCandidate) -> bool {
-    left.source_candidate_id == right.source_candidate_id && left.edit == right.edit
+    let mut matched_non_empty_edit = false;
+    for edit in &selected.edits {
+        if is_satisfy_suffix_deletion(edit) {
+            if !selected.edits.iter().any(|other| {
+                !is_satisfy_suffix_deletion(other)
+                    && other.file == edit.file
+                    && other.end.offset == edit.start.offset
+            }) {
+                return false;
+            }
+            continue;
+        }
+        let has_current_match = current_candidates.iter().any(|candidate| {
+            candidate.is_applicable()
+                && candidate.source_candidate_id == selected.source_candidate_id
+                && candidate
+                    .edits
+                    .iter()
+                    .any(|current_edit| current_edit == edit)
+        });
+        if !has_current_match {
+            return false;
+        }
+        matched_non_empty_edit = true;
+    }
+    matched_non_empty_edit
 }
 
 enum CandidateIdMatch<'a> {
@@ -669,13 +722,101 @@ fn source_path(root: &Path, file: &str) -> Result<PathBuf, String> {
 
 #[derive(Debug)]
 struct ResolvedEdit {
-    repaired: String,
-    end: LineCol,
+    start: usize,
+    end: usize,
+    applied: AppliedEdit,
 }
 
-fn replace_span(source: &str, candidate: &RepairCandidate) -> Result<ResolvedEdit, String> {
-    let start = candidate.edit.start.offset;
-    let mut end = candidate.edit.end.offset;
+#[derive(Debug)]
+struct FileEdit {
+    path: PathBuf,
+    original: String,
+    repaired: String,
+}
+
+#[derive(Debug)]
+struct EditPlan {
+    files: Vec<FileEdit>,
+    applied_edits: Vec<AppliedEdit>,
+}
+
+struct PendingFileEdit {
+    file: String,
+    path: PathBuf,
+    original: String,
+    edits: Vec<ResolvedEdit>,
+}
+
+fn build_edit_plan(root: &Path, candidate: &RepairCandidate) -> Result<EditPlan, String> {
+    if candidate.edits.is_empty() {
+        return Err("unsupported edit shape".to_string());
+    }
+
+    let mut pending_files = Vec::<PendingFileEdit>::new();
+    for edit in &candidate.edits {
+        let pending_index = if let Some(index) = pending_files
+            .iter()
+            .position(|pending| pending.file == edit.file)
+        {
+            index
+        } else {
+            let path = source_path(root, &edit.file)?;
+            let original = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+            pending_files.push(PendingFileEdit {
+                file: edit.file.clone(),
+                path,
+                original,
+                edits: Vec::new(),
+            });
+            pending_files.len() - 1
+        };
+        let has_explicit_followup = candidate
+            .edits
+            .iter()
+            .any(|other| other.file == edit.file && other.start.offset == edit.end.offset);
+        let resolved = resolve_edit_span(
+            &pending_files[pending_index].original,
+            edit,
+            has_explicit_followup,
+        )?;
+        pending_files[pending_index].edits.push(resolved);
+    }
+
+    let mut files = Vec::new();
+    let mut applied_edits = Vec::new();
+    for mut pending in pending_files {
+        pending.edits.sort_by_key(|edit| edit.start);
+        for pair in pending.edits.windows(2) {
+            if pair[0].end > pair[1].start {
+                return Err("repair edits overlap".to_string());
+            }
+        }
+
+        let mut repaired = pending.original.clone();
+        for edit in pending.edits.iter().rev() {
+            repaired.replace_range(edit.start..edit.end, &edit.applied.edit.replacement);
+        }
+        applied_edits.extend(pending.edits.into_iter().map(|edit| edit.applied));
+        files.push(FileEdit {
+            path: pending.path,
+            original: pending.original,
+            repaired,
+        });
+    }
+
+    Ok(EditPlan {
+        files,
+        applied_edits,
+    })
+}
+
+fn resolve_edit_span(
+    source: &str,
+    edit: &RepairEdit,
+    has_explicit_followup: bool,
+) -> Result<ResolvedEdit, String> {
+    let start = edit.start.offset;
+    let mut end = edit.end.offset;
     if start >= end || end > source.len() {
         return Err("repair target span is stale".to_string());
     }
@@ -683,23 +824,61 @@ fn replace_span(source: &str, candidate: &RepairCandidate) -> Result<ResolvedEdi
         return Err("repair target span is not on character boundaries".to_string());
     }
     let target = &source[start..end];
-    if !target.trim_start().starts_with('_') {
+    if target.trim_start().starts_with('_') {
+        if !has_explicit_followup && source[end..].starts_with(" satisfy ") {
+            end += source[end..]
+                .find('\n')
+                .unwrap_or_else(|| source[end..].len());
+        }
+    } else if !(edit.replacement.is_empty() && is_satisfy_suffix_text(target)) {
         return Err("repair target no longer names a hole".to_string());
     }
-    if source[end..].starts_with(" satisfy ") {
-        end += source[end..]
-            .find('\n')
-            .unwrap_or_else(|| source[end..].len());
-    }
 
-    let mut repaired = String::with_capacity(source.len() + candidate.edit.replacement.len());
-    repaired.push_str(&source[..start]);
-    repaired.push_str(&candidate.edit.replacement);
-    repaired.push_str(&source[end..]);
     Ok(ResolvedEdit {
-        repaired,
-        end: line_col_at(source, end),
+        start,
+        end,
+        applied: AppliedEdit {
+            edit: RepairEdit {
+                file: edit.file.clone(),
+                start: edit.start,
+                end: line_col_at(source, end),
+                replacement: edit.replacement.clone(),
+            },
+        },
     })
+}
+
+fn is_satisfy_suffix_deletion(edit: &RepairEdit) -> bool {
+    edit.replacement.is_empty()
+}
+
+fn is_satisfy_suffix_text(text: &str) -> bool {
+    text.starts_with(" satisfy ") || text.starts_with("satisfy ")
+}
+
+#[cfg(test)]
+fn replace_span(source: &str, candidate: &RepairCandidate) -> Result<LegacyResolvedEdit, String> {
+    let edit = candidate
+        .edits
+        .first()
+        .ok_or_else(|| "unsupported edit shape".to_string())?;
+    let resolved = resolve_edit_span(source, edit, false)?;
+    let mut repaired = source.to_string();
+    repaired.replace_range(
+        resolved.start..resolved.end,
+        &resolved.applied.edit.replacement,
+    );
+    Ok(LegacyResolvedEdit {
+        repaired,
+        end: resolved.applied.edit.end,
+    })
+}
+
+#[cfg(test)]
+#[derive(Debug)]
+struct LegacyResolvedEdit {
+    repaired: String,
+    end: LineCol,
 }
 
 fn line_col_at(source: &str, offset: usize) -> LineCol {
@@ -797,7 +976,7 @@ mod tests {
             application_policy: APPLICATION_POLICY_SAFE_REPAIR_CANDIDATE.to_string(),
             application_status: APPLICATION_STATUS_UNAPPLIED.to_string(),
             edit_summary: "Replace hole with `value`".to_string(),
-            edit: RepairEdit {
+            edits: vec![RepairEdit {
                 file: "main.veln".to_string(),
                 start: LineCol {
                     line: 1,
@@ -810,7 +989,7 @@ mod tests {
                     offset: end,
                 },
                 replacement: "value".to_string(),
-            },
+            }],
             verification_command: None,
             source: JsonValue::Null,
             input_repair_id: None,
@@ -858,7 +1037,7 @@ mod tests {
     }
 
     #[test]
-    fn repair_candidate_advisory_input_ignores_multiple_edits() {
+    fn repair_candidate_advisory_input_accepts_multiple_edits() {
         let span = span_json(
             "main.veln",
             LineCol {
@@ -900,7 +1079,39 @@ mod tests {
             ),
         ]);
 
-        assert!(RepairCandidate::from_advisory(0, &candidate).is_none());
+        let candidate =
+            RepairCandidate::from_advisory(0, &candidate).expect("candidate should load");
+
+        assert_eq!(candidate.edits.len(), 2);
+    }
+
+    #[test]
+    fn build_edit_plan_refuses_overlapping_edits() {
+        let root = std::env::temp_dir().join(format!("veln-repair-overlap-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("test root should be created");
+        fs::write(root.join("main.veln"), "__hole\n").expect("source should be written");
+
+        let mut candidate = candidate(0, 6);
+        candidate.edits.push(RepairEdit {
+            file: "main.veln".to_string(),
+            start: LineCol {
+                line: 1,
+                column: 2,
+                offset: 1,
+            },
+            end: LineCol {
+                line: 1,
+                column: 7,
+                offset: 6,
+            },
+            replacement: "other".to_string(),
+        });
+
+        let error = build_edit_plan(&root, &candidate).expect_err("overlap should refuse");
+
+        assert_eq!(error, "repair edits overlap");
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
@@ -947,5 +1158,6 @@ mod tests {
         assert_eq!(candidate.repair_id, "repair-1");
         assert!(candidate.matches_id("repair-7"));
         assert!(candidate.requires_current_match);
+        assert_eq!(candidate.edits.len(), 1);
     }
 }
