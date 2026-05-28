@@ -8,15 +8,16 @@ repair, candidate edits, applying edits, or the repair command.
 
 - Candidate records may appear in `veln check --json` diagnostics. They are
   advisory records, not an applying workflow.
-- Candidate edits are concrete replacement suggestions for the reported span,
-  but command execution leaves them unapplied.
+- Candidate edits are concrete replacement suggestions tied to source spans,
+  but `check` command execution leaves them unapplied.
 - Candidate application policy is evidence and review routing. Even
   `safe_repair_candidate` means the implemented static subset has discharged;
   it authorizes only the narrow `veln repair --apply` gate described below.
 - `veln repair` previews command-level repair records and can apply one safe
-  unapplied advisory candidate after rerunning check analysis. Confirmation,
-  override, multi-file edits, and partial application remain outside the
-  implemented boundary.
+  unapplied advisory candidate after rerunning check analysis. One selected
+  candidate may contain multiple replacement edits and may touch more than one
+  source file. Confirmation, override, and partial application remain outside
+  the implemented boundary.
 - The command can load candidate input from current source analysis or saved
   repair JSON files. Saved inputs do not authorize writes by themselves; apply
   still requires a matching current safe candidate.
@@ -34,10 +35,12 @@ repair, candidate edits, applying edits, or the repair command.
 - `repair_id` is the command-local id emitted by `veln repair`; the original
   advisory candidate id is preserved as `source_candidate_id`. `--candidate`
   can match either id, and ambiguous matches refuse.
+- Candidate selection chooses one command-level candidate. Candidate input
+  decides where the displayed command-level candidates come from.
 - Saved command-level repair JSON input is renumbered for the current
   invocation, but selection may also match the saved command-level id.
-- `verification_hint` names the check to run after a human or future command
-  applies an edit.
+- `verification_hint` names the check to run after a human or command applies
+  candidate edits.
 
 ## Input Route
 
@@ -89,26 +92,29 @@ repair, candidate edits, applying edits, or the repair command.
 
 `veln repair --apply` is fail-closed. It applies exactly one candidate only when
 the selected advisory candidate has `application_policy: "safe_repair_candidate"`
-and `application_status: "unapplied"`, the target is a single source-relative
-replacement, the span still names a hole in the current file, and post-edit
-check analysis reports no error diagnostics.
+and `application_status: "unapplied"`, every replacement target is
+source-relative and still valid in the current file, non-empty replacements
+still name holes, explicit empty replacements are limited to `satisfy` suffix
+removal, edits in the same file do not overlap, and post-edit check analysis
+reports no error diagnostics.
 
 When `--candidate` is present, selection may use either the command-local
 `repair_id` or the preserved advisory `source_candidate_id`. A missing or
 ambiguous id refuses before writing.
 
-For saved candidate input, apply also requires an exact matching current safe
-candidate with the same `source_candidate_id`, replacement edit, application
-policy, and application status. A saved candidate that is stale, unsupported, or
-no longer current refuses before writing.
+For saved candidate input, apply also requires current safe evidence for each
+non-empty replacement edit with the same `source_candidate_id`, application
+policy, and application status. Explicit empty `satisfy` suffix removals are
+validated against the current source text. A saved candidate that is stale,
+unsupported, or no longer current refuses before writing.
 
-If verification fails after writing, the original source file is restored.
-Hint-only partial status, including remaining holes elsewhere, does not by
-itself roll back the edit.
+If verification fails after writing, every source file written by the candidate
+is restored. Hint-only partial status, including remaining holes elsewhere,
+does not by itself roll back the edit.
 
 ## Remaining Proposal Boundary
 
-Do not promote confirmation, override, multi-file edit application, partial
-application, or broader automatic repair behavior into this specification until
-the behavior is implemented and tested. Until then, keep that material in
+Do not promote confirmation, override, partial application, or broader automatic
+repair behavior into this specification until the behavior is implemented and
+tested. Until then, keep that material in
 [../proposals/agent-language-spec-wall/repair-command.md](../proposals/agent-language-spec-wall/repair-command.md).

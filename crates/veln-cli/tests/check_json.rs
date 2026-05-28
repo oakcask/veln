@@ -2301,6 +2301,172 @@ fn repair_apply_refuses_saved_candidate_that_is_not_current() {
     assert_eq!(project.read("main.veln"), changed);
 }
 
+fn saved_command_candidate_with_edits(
+    edit_summary: &str,
+    edits: &[(&str, usize, usize, usize, usize, &str)],
+) -> String {
+    let edits = edits
+        .iter()
+        .map(
+            |(file, start_column, start_offset, end_column, end_offset, replacement)| {
+                format!(
+                    r#"{{"kind":"replace","span":{{"file":"{file}","start":{{"line":2,"column":{start_column},"offset":{start_offset}}},"end":{{"line":2,"column":{end_column},"offset":{end_offset}}}}},"replacement":"{replacement}"}}"#
+                )
+            },
+        )
+        .collect::<Vec<_>>()
+        .join(",");
+    format!(
+        r#"{{"candidates":[{{"repair_id":"repair-7","source_candidate_id":"symbol-1","name":"order","application_policy":"safe_repair_candidate","application_status":"unapplied","edit_summary":"{edit_summary}","edits":[{edits}]}}]}}"#
+    )
+}
+
+#[test]
+fn repair_apply_writes_saved_multi_span_command_candidate_and_verifies() {
+    let project = TestProject::new("repair-saved-multi-span");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+    project.write(
+        "saved-candidates.json",
+        &saved_command_candidate_with_edits(
+            "Replace two spans",
+            &[
+                ("main.veln", 3, 61, 9, 67, "order"),
+                ("main.veln", 9, 67, 61, 119, ""),
+            ],
+        ),
+    );
+
+    let output = project.repair(&["--json", "--apply", "saved-candidates.json"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"applied\"",
+            "\"selected_candidate\":{\"repair_id\":\"repair-1\"",
+            "\"candidate_count\":1",
+            "\"applied_count\":2",
+            "\"verification\":{\"status\":\"passed\"",
+        ],
+    );
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  order\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn repair_apply_writes_saved_multi_file_command_candidate_and_verifies() {
+    let project = TestProject::new("repair-saved-multi-file");
+    let main_source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    let helper_source = concat!(
+        "fn helper(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", main_source);
+    project.write("helper.veln", helper_source);
+    project.write(
+        "saved-candidates.json",
+        &saved_command_candidate_with_edits(
+            "Replace across files",
+            &[
+                ("main.veln", 3, 61, 9, 67, "order"),
+                ("helper.veln", 3, 63, 9, 69, "order"),
+            ],
+        ),
+    );
+
+    let output = project.repair(&["--json", "--apply", "saved-candidates.json"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"applied\"",
+            "\"selected_candidate\":{\"repair_id\":\"repair-1\"",
+            "\"candidate_count\":1",
+            "\"applied_count\":2",
+            "\"verification\":{\"status\":\"passed\"",
+        ],
+    );
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  order\n",
+            "end\n",
+        )
+    );
+    assert_eq!(
+        project.read("helper.veln"),
+        concat!(
+            "fn helper(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  order\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn repair_apply_rolls_back_saved_multi_file_candidate_when_verification_fails() {
+    let project = TestProject::new("repair-saved-multi-file-rollback");
+    let main_source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    let helper_source = concat!(
+        "fn helper(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", main_source);
+    project.write("helper.veln", helper_source);
+    project.write("bad.veln", "fn broken() -> Int\n  1\n");
+    project.write(
+        "saved-candidates.json",
+        &saved_command_candidate_with_edits(
+            "Replace across files",
+            &[
+                ("main.veln", 3, 61, 9, 67, "order"),
+                ("helper.veln", 3, 63, 9, 69, "order"),
+            ],
+        ),
+    );
+
+    let output = project.repair(&["--json", "--apply", "saved-candidates.json"]);
+    let stdout = stdout(&output);
+
+    assert!(!output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"refused\"",
+            "\"refusal_reason\":\"verification failed\"",
+            "\"verification\":{\"status\":\"failed\"",
+            "\"id\":\"parse.expected_end\"",
+        ],
+    );
+    assert_eq!(project.read("main.veln"), main_source);
+    assert_eq!(project.read("helper.veln"), helper_source);
+}
+
 #[test]
 fn repair_refuses_manual_review_candidates() {
     let project = TestProject::new("repair-refuses-manual-review");

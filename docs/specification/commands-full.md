@@ -211,25 +211,30 @@ only when the selected advisory candidate has
 `application_status: "unapplied"`. If no candidate is selected and exactly one
 safe unapplied candidate exists, that candidate is selected. If multiple safe
 candidates exist, application refuses until `--candidate` selects one. Saved
-candidate input is not a write authorization: the selected saved candidate must
-exactly match a current safe candidate with the same advisory id and replacement
-edit before the command writes a file.
+candidate input is not a write authorization: each non-empty replacement edit
+in the selected saved candidate must match current safe evidence with the same
+advisory id before the command writes a file.
 
-The implemented edit representation is a single source-relative replacement.
-The replacement target must still be within the current file, must be on
-character boundaries, and must still name a hole. For a hole with a `satisfy`
-suffix, applying the repair replaces the hole and its suffix with the candidate
-replacement. Multi-file edits, multiple edits per candidate, user-confirmed
-overrides, and partial application are not implemented.
+The implemented edit representation is one or more source-relative
+replacements. A selected candidate may write multiple spans in one source file
+or spans across multiple source files. Replacement targets must still be within
+their current files and must be on character boundaries. Non-empty replacement
+targets must still name holes. Explicit empty replacements are accepted only
+for current `satisfy` suffix removal. Edits in the same file must not overlap.
+For a single hole replacement with no explicit suffix-removal edit, applying
+the repair also replaces the hole's `satisfy` suffix with the candidate
+replacement. User-confirmed overrides and partial application are not
+implemented.
 
 After writing, `repair --apply` reruns the same check analysis over the selected
 inputs. If verification reports any error diagnostic, the command restores the
-original file and exits unsuccessfully. Hint-only partial status, including
-remaining holes elsewhere, does not by itself roll back an applied edit.
+original contents of every written file and exits unsuccessfully. Hint-only
+partial status, including remaining holes elsewhere, does not by itself roll
+back an applied edit.
 
-Human preview output lists candidate ids, summaries, target spans,
-replacements, and application policy. Human apply output reports the applied
-candidate and verification result. Human refusal output starts with
+Human preview output lists candidate ids, summaries, a representative target
+span, replacement, and application policy. Human apply output reports the
+applied candidate and verification result. Human refusal output starts with
 `repair refused:` followed by the failed gate.
 
 With `--json`, `repair` emits the repair JSON record described in

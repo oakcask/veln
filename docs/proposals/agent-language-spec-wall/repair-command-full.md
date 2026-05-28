@@ -1,20 +1,24 @@
 # Repair Command Proposal Detail
 
-Status: implemented first command boundary
+Status: historical first command boundary
 
 This file keeps the detailed completion and remaining-work record for the
 repair command. Start with [repair-command.md](repair-command.md); read this
 file only when auditing the first command promotion.
 
+This record predates the saved candidate input boundary now specified in
+[../../specification/repair-candidates.md](../../specification/repair-candidates.md).
+Do not use this file as current command behavior.
+
 ## Completion Conditions
 
-The promoted implementation resolves the first applying command boundary as
+The first promoted implementation resolved the applying command boundary as
 follows:
 
 - The invocation shape is `veln repair [--json] [--apply | --dry-run]
   [--candidate CANDIDATE_ID] [path ...]`.
-- Candidate input is recomputed from current source analysis; saved candidate
-  files are not consumed.
+- Candidate input was recomputed from current source analysis; saved candidate
+  files were not consumed by this first command promotion.
 - Command-level candidate records live outside diagnostic `details` in
   `repair --json` output and preserve the advisory source candidate.
 - The default mode is preview. `--apply` writes exactly one safe unapplied
@@ -32,7 +36,8 @@ follows:
 
 ## Handoff
 
-The first applying command boundary is implemented. Use
+The first applying command boundary is implemented, and later saved candidate
+input behavior is specified outside this historical record. Use
 [../../specification/repair-candidates.md](../../specification/repair-candidates.md),
 [../../specification/commands.md](../../specification/commands.md), and
 [../../specification/repair-json.md](../../specification/repair-json.md) for
