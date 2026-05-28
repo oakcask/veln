@@ -3,7 +3,8 @@
 Status: proposed
 
 This file keeps source-backed standard library proposal details after
-implemented standard library behavior moved to the language specification.
+implemented standard library behavior moved to the language specification. Read
+[self-hosting-standard-library.md](self-hosting-standard-library.md) first.
 
 ## Goal
 
@@ -11,17 +12,18 @@ Move ordinary reusable behavior into Veln libraries while keeping the compiler
 responsible only for primitive runtime boundaries and compatibility metadata
 that cannot yet be expressed in source.
 
-## Implemented Baseline
+## Migration Pattern
 
-The source-backed pure-helper pattern already exists for the option and result
-helpers documented in `../specification/names-effects.md`. That page, not this
-proposal, defines the implemented helper signatures, value semantics, source
-metadata, diagnostics, and descriptor table behavior.
+The source-backed pure-helper pattern already exists for helpers documented in
+`../specification/names-effects.md`. That specification page, not this
+proposal, defines implemented helper signatures, value semantics, source
+metadata, diagnostics, descriptor table behavior, and the current
+source-backed versus descriptor-only split.
 
 Future work should preserve the implemented pattern without restating helper
-semantics in this proposal:
+semantics here:
 
-- keep the existing source-visible helper signature and semantics
+- choose a helper whose signature and value semantics are already implemented
 - add ordinary Veln source beside other core prelude source
 - record source metadata on the standard symbol descriptor
 - keep effects empty for pure helpers
@@ -31,13 +33,15 @@ semantics in this proposal:
 
 ## Remaining Pure Helper Candidates
 
-Remaining source-backed prelude work should choose from the descriptor-only
-pure helpers that already have implemented signatures and value semantics in
-`../specification/names-effects.md`. The proposal changes only where reusable
-helper bodies can live and what descriptor metadata records about that source.
+Remaining source-backed prelude work should choose from helpers that satisfy
+the migration pattern above. The proposal changes only where reusable helper
+bodies can live and what descriptor metadata records about that source.
 
 Prefer a candidate when:
 
+- it is listed as a descriptor-only pure prelude helper in
+  `../specification/names-effects.md`
+- its signature and value semantics are already specified there
 - its behavior is expressible in existing Veln source
 - it needs no new effect label, runtime boundary, parser feature, or public
   complexity promise
@@ -70,8 +74,8 @@ complexity guarantees through this proposal.
 
 ## Open Questions
 
-- Which descriptor-only pure helper should move next after the source-backed
-  option and result helper pattern?
+- Which descriptor-only pure helper should move next after the current
+  source-backed prelude pattern?
 - Which helpers must remain runtime intrinsics until user-defined effects or
   effect handlers exist?
 - Should process termination keep the current return shape or use a future

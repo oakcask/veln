@@ -4,6 +4,14 @@ fn vec_is_empty(items: Vec(A)) -> Bool effects []
 	vec_len(items) == 0
 end
 
+fn vec_concat(left: Vec(A), right: Vec(A)) -> Vec(A) effects []
+	vec_fold(right, left, vec_append)
+end
+
+fn vec_append(items: Vec(A), item: A) -> Vec(A) effects []
+	vec_push(items, item)
+end
+
 fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
 	match value
 		Some(inner) => Some(f(inner))
@@ -43,5 +51,12 @@ fn result_and_then(value: Result(A, E), f: fn(A) -> Result(B, E)) -> Result(B, E
 	match value
 		Ok(inner) => f(inner)
 		Err(error) => Err(error)
+	end
+end
+
+fn dict_contains(dict: Dict(K, V), key: K) -> Bool effects []
+	match dict_get(dict, key)
+		Some(_) => true
+		None => false
 	end
 end

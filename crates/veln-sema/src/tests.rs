@@ -7394,6 +7394,7 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
 
     for symbol in crate::standard_symbols::source_backed_symbols() {
         let source = symbol.source.expect("source metadata");
+        assert_eq!(symbol.name, source.entry);
         entries.push(source.entry);
         let file = SourceFile::new(source.path, source.text);
         let parsed = parse(&file);
@@ -7426,12 +7427,14 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
     assert_eq!(
         entries,
         [
+            "dict_contains",
             "option_and_then",
             "option_map",
             "option_unwrap_or",
             "result_and_then",
             "result_map",
             "result_map_err",
+            "vec_concat",
             "vec_is_empty"
         ]
     );
@@ -7864,14 +7867,45 @@ fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
 
 #[test]
 fn source_backed_vec_is_empty_reports_user_call_site_diagnostics() {
-    let source = SourceFile::new(
-        "main.veln",
+    assert_source_backed_helper_user_call_site_type_mismatch(
         concat!(
             "pub fn main(value: Int) -> Bool effects []\n",
             "  vec_is_empty(value)\n",
             "end\n",
         ),
+        "expected `Vec(unknown)`, but found `Int`",
     );
+}
+
+#[test]
+fn source_backed_vec_concat_reports_user_call_site_diagnostics() {
+    assert_source_backed_helper_user_call_site_type_mismatch(
+        concat!(
+            "pub fn main(value: Int, other: Vec(Int)) -> Vec(Int) effects []\n",
+            "  vec_concat(value, other)\n",
+            "end\n",
+        ),
+        "expected `Vec(Int)`, but found `Int`",
+    );
+}
+
+#[test]
+fn source_backed_dict_contains_reports_user_call_site_diagnostics() {
+    assert_source_backed_helper_user_call_site_type_mismatch(
+        concat!(
+            "pub fn main(value: Int) -> Bool effects []\n",
+            "  dict_contains(value, \"key\")\n",
+            "end\n",
+        ),
+        "expected `Dict(unknown, unknown)`, but found `Int`",
+    );
+}
+
+fn assert_source_backed_helper_user_call_site_type_mismatch(
+    source_text: &'static str,
+    expected_message: &'static str,
+) {
+    let source = SourceFile::new("main.veln", source_text);
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 
@@ -7879,10 +7913,7 @@ fn source_backed_vec_is_empty_reports_user_call_site_diagnostics() {
 
     assert_eq!(diagnostics.len(), 1);
     assert_eq!(diagnostics[0].id, "type.mismatch");
-    assert_eq!(
-        diagnostics[0].message,
-        "expected `Vec(unknown)`, but found `Int`"
-    );
+    assert_eq!(diagnostics[0].message, expected_message);
     let span = diagnostics[0]
         .span
         .as_ref()
