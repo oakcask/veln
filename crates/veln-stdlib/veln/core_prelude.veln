@@ -45,3 +45,10 @@ fn result_and_then(value: Result(A, E), f: fn(A) -> Result(B, E)) -> Result(B, E
 		Err(error) => Err(error)
 	end
 end
+
+fn dict_contains(dict: Dict(K, V), key: K) -> Bool effects []
+	match dict_get(dict, key)
+		Some(_) => true
+		None => false
+	end
+end

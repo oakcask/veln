@@ -74,8 +74,8 @@ complexity guarantees through this proposal.
 
 ## Open Questions
 
-- Which descriptor-only pure helper should move next after the source-backed
-  option and result helper pattern?
+- Which descriptor-only pure helper should move next after the current
+  source-backed prelude pattern?
 - Which helpers must remain runtime intrinsics until user-defined effects or
   effect handlers exist?
 - Should process termination keep the current return shape or use a future

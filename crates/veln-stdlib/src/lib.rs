@@ -32,6 +32,8 @@ pub static CORE_PRELUDE_RESULT_MAP_ERR: StdlibSource = core_prelude_source("resu
 
 pub static CORE_PRELUDE_RESULT_AND_THEN: StdlibSource = core_prelude_source("result_and_then");
 
+pub static CORE_PRELUDE_DICT_CONTAINS: StdlibSource = core_prelude_source("dict_contains");
+
 pub static CORE_PRELUDE: StdlibSource = core_prelude_source("option_unwrap_or");
 
 pub static COMPILER_SUPPORT: StdlibSource = StdlibSource {

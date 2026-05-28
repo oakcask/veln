@@ -24,7 +24,7 @@ compiler-known calls.
 
 ## Fast Routes
 
-- Choosing the next source-backed pure helper candidate:
+- Confirming source-backed versus descriptor-only status before proposal work:
   [names-effects-full.md](names-effects-full.md#source-backed-boundary).
 - Checking helper signatures before changing the prelude adapter:
   [names-effects-full.md](names-effects-full.md#helper-signatures).

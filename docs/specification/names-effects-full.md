@@ -305,6 +305,8 @@ int_to_string(value: Int) -> String
 
 Container update helpers return new frozen values and do not mutate their input
 containers in place. `vec_is_empty` returns whether a vec contains no items.
+`dict_contains` returns true when `dict_get` would return `Some` for the same
+dictionary and key, and false when `dict_get` would return `None`.
 `vec_try_map` evaluates items in source order, stops at the first `Err`, and
 otherwise returns `Ok` containing the mapped frozen vec in source order.
 `vec_try_map_with` follows the same traversal and passes the unchanged context
@@ -318,18 +320,22 @@ fails. `int_to_string` renders an integer for display and string composition.
 
 ### Source-Backed Boundary
 
-`vec_is_empty`, `option_map`, `option_and_then`, `option_unwrap_or`,
-`result_map`, `result_map_err`, and `result_and_then` are source-backed pure
-helpers in the implemented standard symbol table. Source-backed status is
-descriptor metadata as described in
-[Compiler-Known Descriptor Table](#compiler-known-descriptor-table).
-The embedded source is ordinary Veln source in the `core_prelude` module, with
-one descriptor entry per exported helper entry point. The current checker still
+The implemented standard symbol table has this prelude split:
+
+- source-backed pure helpers: `vec_is_empty`, `dict_contains`, `option_map`,
+  `option_and_then`, `option_unwrap_or`, `result_map`, `result_map_err`, and
+  `result_and_then`
+- descriptor-only pure helpers: the other prelude helpers listed in
+  [Helper Signatures](#helper-signatures), unless their descriptors record
+  source metadata
+
+Source-backed status is descriptor metadata as described in
+[Compiler-Known Descriptor Table](#compiler-known-descriptor-table). The
+embedded source is ordinary Veln source in the `core_prelude` module, with one
+descriptor entry per exported helper entry point. The current checker still
 uses the descriptor-backed signature adapter, and the JVM backend still lowers
 each helper through the existing prelude runtime operation, so diagnostics stay
 anchored on user call sites rather than the embedded standard library source.
-Other prelude helpers listed above remain descriptor-only unless their
-descriptors record source metadata.
 
 ### Compiler-Support Source
 
