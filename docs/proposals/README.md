@@ -6,17 +6,16 @@ text is not current language behavior unless `../specification/` also states it.
 
 ## Read First
 
-- Current state: no active target; target selection records the prompt-file
-  evidence.
-- Target state and candidate classification:
+- Current target, prompt evidence, and candidate classification:
   [target-selection.md](target-selection.md).
-- When target selection says no target is active, stop there instead of opening
-  the implementation route.
+- Stop at target selection when it says no target is active.
+- Open [implementation-route.md](implementation-route.md) only after target
+  selection names one active short proposal.
 - Status labels: [../document-status.md](../document-status.md).
 
 ## Choose One Route
 
-- Missing, stale, broad, or unset target:
+- Missing, stale, broad, exploratory, or unset target:
   [target-selection.md](target-selection.md).
 - Implementation after one active short target is selected:
   [implementation-route.md](implementation-route.md).
@@ -43,8 +42,8 @@ text is not current language behavior unless `../specification/` also states it.
   when checking completed prelude helper migrations or choosing the next
   descriptor-only pure-helper candidate.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
-  for design-wall material that is exploratory, deferred, or already represented
-  by reference decision records.
+  for design-wall inventory after target selection says the directory itself is
+  not an active target.
 - Use [../reviews/README.md](../reviews/README.md) when checking gap evidence
   before changing target status.
 

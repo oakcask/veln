@@ -19,7 +19,7 @@ test("repository documentation only mentions prompt files in target selection", 
   );
 
   assert.deepEqual([...referencedFiles], ["proposals/target-selection.md"]);
-  assert.equal(promptReferences.length, 4);
+  assert.equal(promptReferences.length, 2);
 });
 
 test("proposal target selection preserves the no-target route", () => {
@@ -49,19 +49,21 @@ test("proposal target selection preserves the no-target route", () => {
 
   assertIncludes(
     proposalsIndex,
-    "Current state: no active target; target selection records the prompt-file\n" +
-      "  evidence",
+    "Current target, prompt evidence, and candidate classification:",
   );
-  assertIncludes(proposalsIndex, "Target state and candidate classification:");
   assertIncludes(
     proposalsIndex,
-    "When target selection says no target is active, stop there instead of opening\n" +
-      "  the implementation route",
+    "Stop at target selection when it says no target is active",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "Open [implementation-route.md](implementation-route.md) only after target\n" +
+      "  selection names one active short proposal",
   );
   assertIncludes(proposalsIndex, "[target-selection.md](target-selection.md)");
   assertIncludes(
     proposalsIndex,
-    "Missing, stale, broad, or unset target",
+    "Missing, stale, broad, exploratory, or unset target",
   );
   assertIncludes(
     proposalsIndex,
@@ -166,7 +168,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
 
   assertIncludes(
     proposalsIndex,
-    "Missing, stale, broad, or unset target:\n  [target-selection.md](target-selection.md)",
+    "Missing, stale, broad, exploratory, or unset target:\n  [target-selection.md](target-selection.md)",
   );
   assertIncludes(
     proposalsIndex,
@@ -179,15 +181,15 @@ test("no-target prompt routes stay classified as non-active targets", () => {
 
   assertIncludes(
     targetSelection,
-    "[reference-followups.md](reference-followups.md) is a broad follow-up index",
+    "| Broad follow-up index | Split one implementable short proposal page before implementation. | [reference-followups.md](reference-followups.md) |",
   );
   assertIncludes(
     targetSelection,
-    "[agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)\n  keeps exploratory design-wall material",
+    "| Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) |",
   );
   assertIncludes(
     targetSelection,
-    "[self-hosting-standard-library.md](self-hosting-standard-library.md) has no\n  active helper target",
+    "| Helper candidate pool | Choose exactly one descriptor-only pure helper",
   );
 
   assertIncludes(referenceFollowups, "This page is an index");
@@ -420,25 +422,20 @@ function noTargetPromptRoutes() {
 function targetSelectionRouteSnippets() {
   return [
     "Status: routing",
-    "## Prompt State",
+    "## Current State",
     "Current target: none",
-    "`prompts/TARGET.md` is absent",
-    "`prompts/NOTARGET` says no implementation target is selected",
-    "Keep the target unset instead of inferring work from nearby proposal text",
-    "## Selection Outcomes",
-    "| Active target | Use [implementation-route.md](implementation-route.md). |",
-    "| No target | Keep selection unset. Stop here or create one short proposal page. |",
+    "Prompt evidence: `prompts/TARGET.md` is absent, and `prompts/NOTARGET` says",
+    "Decision: keep the target unset instead of inferring work from nearby\n  proposal text",
+    "## Target Classes",
+    "| No target | Keep selection unset. Stop here or create one short proposal page. | Current prompt state |",
+    "| Active target | Use [implementation-route.md](implementation-route.md). | None |",
     "| Implemented proposal record | Use the matching specification page for current behavior",
-    "| Broad follow-up index | Split one implementable short proposal page before implementation. |",
-    "| Exploratory inventory | Select or create one short proposal page before implementation. |",
+    "| Broad follow-up index | Split one implementable short proposal page before implementation. | [reference-followups.md](reference-followups.md) |",
+    "| Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) |",
+    "| Helper candidate pool | Choose exactly one descriptor-only pure helper",
     "not a full detail\n   record, review, reference note, or implemented proposal record",
     "If the behavior is already implemented, use the matching specification page",
-    "If the behavior is broad or exploratory, split or create a short proposal",
-    "## Candidate Classification",
-    "[self-hosting-standard-library.md](self-hosting-standard-library.md) has no\n  active helper target",
-    "[reference-followups.md](reference-followups.md) is a broad follow-up index",
-    "keeps exploratory design-wall material",
-    "are implemented proposal records",
+    "If the behavior is broad, exploratory, or a helper candidate pool, split or\n   create one short proposal",
     "## Handoff",
     "there is no proposal\ncompletion checklist to promote into `../specification/`",
     "Do not update the\nspecification or create a stop marker from this state alone",
