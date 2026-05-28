@@ -1,0 +1,23 @@
+// Concurrency operations require the concurrency effect and report fallible joins.
+fn produce() -> String effects []
+  "task"
+end
+
+pub fn main() -> () effects [concurrency, stdio]
+  let task = task::spawn(produce)
+  let task_output: String = match task::join(task)
+    Ok(value) => value
+    Err(_) => "failed"
+  end
+  let pair = channel::bounded[String](1)
+  let extra = channel::clone(pair.tx)
+  let _ = channel::send(extra, "channel")
+  let channel_output: String = match channel::select_priority_result(pair.rx, pair.rx)
+    Ok(Some(selected)) => selected.value
+    Ok(None) => "closed"
+    Err(_) => "interrupted"
+  end
+  channel::close(pair.tx)
+  stdio::println(task_output)
+  stdio::println(channel_output)
+end

@@ -1,6 +1,7 @@
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -8,8 +9,12 @@ static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 
 #[test]
 fn toolchain_cases_pass() {
-    let cases_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/toolchain_cases");
-    let cases = discover_cases(&cases_root);
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let cases_roots = [
+        manifest_dir.join("tests/toolchain_cases"),
+        manifest_dir.join("../../examples/specification"),
+    ];
+    let cases = discover_cases(&cases_roots);
     assert!(!cases.is_empty(), "expected at least one toolchain case");
 
     for case_dir in cases {
@@ -34,15 +39,24 @@ fn run_case(case_dir: &Path) {
         };
         let output = CapturedOutput::read(
             &context,
-            project.veln(&manifest.invocation.command, &manifest.invocation.env),
+            project.veln(
+                &manifest.invocation.command,
+                &manifest.invocation.env,
+                manifest.invocation.stdin.as_deref(),
+            ),
         );
         manifest.expectations.assert_matches(&context, &output);
+        manifest
+            .expectations
+            .assert_files_match(&context, &project.root);
     }
 }
 
-fn discover_cases(root: &Path) -> Vec<PathBuf> {
+fn discover_cases(roots: &[PathBuf]) -> Vec<PathBuf> {
     let mut cases = Vec::new();
-    collect_cases(root, &mut cases);
+    for root in roots {
+        collect_cases(root, &mut cases);
+    }
     cases.sort();
     cases
 }
@@ -102,14 +116,26 @@ impl TestProject {
         copy_fixture_dir(case_dir, case_dir, &self.root);
     }
 
-    fn veln(&self, args: &[String], env: &[(String, String)]) -> Output {
+    fn veln(&self, args: &[String], env: &[(String, String)], stdin: Option<&str>) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
         command.current_dir(&self.root);
         command.args(args);
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
         for (name, value) in env {
             command.env(name, value);
         }
-        command.output().expect("veln should run")
+        if stdin.is_some() {
+            command.stdin(Stdio::piped());
+        }
+        let mut child = command.spawn().expect("veln should spawn");
+        if let Some(input) = stdin {
+            let mut child_stdin = child.stdin.take().expect("veln stdin should be piped");
+            child_stdin
+                .write_all(input.as_bytes())
+                .expect("veln stdin should be written");
+        }
+        child.wait_with_output().expect("veln should run")
     }
 }
 
@@ -166,6 +192,7 @@ fn copy_fixture_dir(base: &Path, dir: &Path, target_root: &Path) {
 #[derive(Debug)]
 struct CaseInvocation {
     command: Vec<String>,
+    stdin: Option<String>,
     repeat: usize,
     env: Vec<(String, String)>,
 }
@@ -176,6 +203,7 @@ struct CaseExpectations {
     stdout: StreamExpectation,
     stderr: StreamExpectation,
     json_assertions: Vec<JsonAssertion>,
+    file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
 }
 
@@ -258,6 +286,26 @@ impl CaseExpectations {
             || !self.json_assertions.is_empty()
             || !self.diagnostics.is_empty()
     }
+
+    fn assert_files_match(&self, context: &CaseRunContext<'_>, project_root: &Path) {
+        for assertion in &self.file_assertions {
+            let path = project_root.join(&assertion.path);
+            let actual = fs::read_to_string(&path).unwrap_or_else(|error| {
+                panic!(
+                    "{}: failed to read asserted file `{}`: {error}",
+                    context.label(),
+                    assertion.path
+                )
+            });
+            assert_eq!(
+                actual,
+                assertion.equals,
+                "{}: file `{}` contents mismatch",
+                context.label(),
+                assertion.path
+            );
+        }
+    }
 }
 
 struct CaseRunContext<'a> {
@@ -304,6 +352,12 @@ enum StreamFormat {
 struct JsonAssertion {
     path: String,
     equals: JsonValue,
+}
+
+#[derive(Debug)]
+struct FileAssertion {
+    path: String,
+    equals: String,
 }
 
 #[derive(Debug)]
@@ -358,6 +412,7 @@ enum Section {
     Stdout,
     Stderr,
     JsonAssert(usize),
+    FileAssert(usize),
     Diagnostic(usize),
     DiagnosticSpan(usize),
     Requires,
@@ -367,12 +422,14 @@ enum Section {
 
 fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     let mut command = None;
+    let mut stdin = None;
     let mut exit = None;
     let mut repeat = 1;
     let mut env = Vec::new();
     let mut stdout = StreamExpectation::default();
     let mut stderr = StreamExpectation::default();
     let mut json_assertions = Vec::new();
+    let mut file_assertions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut requires = Requirements::default();
     let mut skip = SkipRules::default();
@@ -398,6 +455,13 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
                         equals: JsonValue::Null,
                     });
                     Section::JsonAssert(json_assertions.len() - 1)
+                }
+                "[[file_assert]]" => {
+                    file_assertions.push(FileAssertion {
+                        path: String::new(),
+                        equals: String::new(),
+                    });
+                    Section::FileAssert(file_assertions.len() - 1)
                 }
                 "[[diagnostics]]" => {
                     diagnostics.push(DiagnosticExpectation {
@@ -432,6 +496,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
         match section {
             Section::Root => match key {
                 "command" => command = Some(parse_string_array(path, line_number, value)),
+                "stdin" => stdin = Some(parse_string(path, line_number, value)),
                 "exit" => exit = Some(parse_i32(path, line_number, value)),
                 "repeat" => repeat = parse_positive_usize(path, line_number, value),
                 _ => manifest_error(path, line_number, format!("unknown root key `{key}`")),
@@ -463,6 +528,15 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
                     path,
                     line_number,
                     format!("unknown json_assert key `{key}`"),
+                ),
+            },
+            Section::FileAssert(index) => match key {
+                "path" => file_assertions[index].path = parse_string(path, line_number, value),
+                "equals" => file_assertions[index].equals = parse_string(path, line_number, value),
+                _ => manifest_error(
+                    path,
+                    line_number,
+                    format!("unknown file_assert key `{key}`"),
                 ),
             },
             Section::Diagnostic(index) => match key {
@@ -502,6 +576,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     let manifest = CaseManifest {
         invocation: CaseInvocation {
             command: command.unwrap_or_else(|| manifest_error(path, 0, "missing `command`")),
+            stdin,
             repeat,
             env,
         },
@@ -510,6 +585,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
             stdout,
             stderr,
             json_assertions,
+            file_assertions,
             diagnostics,
         },
         requires,
@@ -519,6 +595,11 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     for (index, assertion) in manifest.expectations.json_assertions.iter().enumerate() {
         if assertion.path.is_empty() {
             manifest_error(path, 0, format!("json_assert {index} is missing `path`"));
+        }
+    }
+    for (index, assertion) in manifest.expectations.file_assertions.iter().enumerate() {
+        if assertion.path.is_empty() {
+            manifest_error(path, 0, format!("file_assert {index} is missing `path`"));
         }
     }
     for (index, diagnostic) in manifest.expectations.diagnostics.iter().enumerate() {

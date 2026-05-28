@@ -1,0 +1,20 @@
+command = ["test", "--json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "blocked"
+
+[[json_assert]]
+path = "summary.blocked"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.reason"
+equals = "static_gate"

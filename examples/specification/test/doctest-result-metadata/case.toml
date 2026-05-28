@@ -1,0 +1,43 @@
+command = ["test", "--json", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-test-json/v0"
+
+[[json_assert]]
+path = "command"
+equals = "test"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "selection.mode"
+equals = "explicit"
+
+[[json_assert]]
+path = "summary.total"
+equals = 1
+
+[[json_assert]]
+path = "summary.passed"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.kind"
+equals = "doctest"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "passed"

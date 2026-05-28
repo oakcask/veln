@@ -1,0 +1,20 @@
+// Duplicate declarations report the repeated name and original declaration.
+mod spec.duplicates
+use platform.io
+use platform.io
+
+fn same() -> ()
+  ()
+end
+
+fn same(value: Int, value: Int) -> Int
+  let value = 1
+  let value = 2
+  value
+end
+
+fn record(input: {left: Int, left: String}) -> Int
+  match input
+    {left: item, right: item} => item
+  end
+end

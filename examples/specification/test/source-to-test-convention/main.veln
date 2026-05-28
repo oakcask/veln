@@ -1,0 +1,4 @@
+// Explicit source targets can select a same-directory paired test file.
+pub fn value() -> Int effects []
+  4
+end

@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln"]
+exit = 7
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "empty"

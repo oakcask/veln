@@ -1,0 +1,27 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "type.match_non_exhaustive"
+severity = "error"
+kind = "type"
+message = "match is missing case Err(_)"
+
+[diagnostics.span]
+file = "main.veln"
+line = 3
+column = 3

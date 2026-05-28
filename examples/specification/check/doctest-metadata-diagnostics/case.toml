@@ -1,0 +1,13 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["unknown doctest attribute `skip`", "empty doctest error type", "missing doctest output stream", "unknown doctest output stream `combined`", "duplicate expected stdout output fence", "\"id\":\"doctest.expected_failure_missing\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

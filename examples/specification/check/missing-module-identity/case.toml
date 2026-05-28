@@ -1,0 +1,18 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "module.missing_identity"
+severity = "error"
+kind = "module"
+message = "module import requires a module identity"

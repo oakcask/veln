@@ -1,0 +1,4 @@
+// A single safe repair candidate can be applied and verified.
+fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}
+  _value satisfy candidate => candidate.ready == order.ready
+end

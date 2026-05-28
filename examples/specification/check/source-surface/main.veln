@@ -1,0 +1,26 @@
+// This case exercises the implemented surface syntax for modules and expressions.
+mod spec.source
+
+fn choose(value: Option(Int)) -> Int effects []
+  match value
+    Some(count) => count
+    None => 0
+  end
+end
+
+fn summarize(input: {count: Int, label: String}) -> {count: Int, label: String} effects []
+  let {count: count, label: label} = input
+  let _: Int = count + 1
+  {count: count, label: label}
+end
+
+fn dictionary(seed: Int) -> Dict(Int, String) effects []
+  {seed + 1: "next", 0: "zero"}
+end
+
+pub fn main() -> Int effects []
+  let value: Int = Some(2) |> choose()
+  let summary = summarize({count: value, label: "ok"})
+  let _: Dict(Int, String) = dictionary(summary.count)
+  summary.count
+end

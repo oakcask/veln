@@ -1,0 +1,38 @@
+// Channel receive, priority selection, timeout selection, and task cancellation
+// are part of the declared concurrency boundary.
+fn idle() -> String effects [concurrency]
+  let pair = channel::bounded[String](0)
+  match channel::recv(pair.rx)
+    Some(value) => value
+    None => "closed"
+  end
+end
+
+pub fn main() -> () effects [concurrency, stdio]
+  let pair = channel::bounded[String](2)
+  let _ = channel::send(pair.tx, "first")
+  match channel::recv(pair.rx)
+    Some(value) => stdio::println(value)
+    None => stdio::println("missing")
+  end
+
+  let left = channel::bounded[String](1)
+  let right = channel::bounded[String](1)
+  let _ = channel::send(left.tx, "left")
+  let _ = channel::send(right.tx, "right")
+  match channel::select_priority(left.rx, right.rx)
+    Some(selected) => stdio::println(selected.value)
+    None => stdio::println("none")
+  end
+
+  let timeout = channel::bounded[String](1)
+  match channel::select_timeout_result(timeout.rx, timeout.rx, 0)
+    Ok(Some(selected)) => stdio::println(selected.value)
+    Ok(None) => stdio::println("timeout")
+    Err(_) => stdio::println("interrupted")
+  end
+
+  let task = task::spawn(idle)
+  task::cancel(task)
+  stdio::println("cancelled")
+end

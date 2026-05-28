@@ -1,0 +1,4 @@
+// Repeated JVM-backed execution should remain stable across cache reuse.
+pub fn main() -> () effects [stdio]
+  stdio::println("cached")
+end

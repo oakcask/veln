@@ -1,0 +1,5 @@
+// Failed invariants report the invariant clause at the function boundary.
+pub fn main() -> () effects []
+invariant false
+  ()
+end

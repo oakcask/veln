@@ -1,0 +1,13 @@
+command = ["check", "--json", "duplicates.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["duplicate import alias name `io`", "duplicate function declaration name `same`", "duplicate parameter name `value`", "duplicate local binding name `value`", "duplicate record field `left`", "duplicate pattern binding name `item`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

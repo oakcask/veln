@@ -1,0 +1,5 @@
+// Multiple safe repair candidates require explicit candidate selection.
+fn select(fallback: Int, spare: Int) -> Int
+require fallback >= 0
+  _choice satisfy candidate => candidate == candidate
+end

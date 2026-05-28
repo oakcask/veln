@@ -1,0 +1,5 @@
+// Failed postconditions blame the implementation boundary.
+pub fn main() -> result: Int effects []
+ensure result > 0
+  0
+end

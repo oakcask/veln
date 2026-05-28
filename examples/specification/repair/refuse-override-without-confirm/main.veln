@@ -1,0 +1,4 @@
+// Override repair application is refused without explicit confirmation.
+fn main(value: Int) -> Int
+  _
+end

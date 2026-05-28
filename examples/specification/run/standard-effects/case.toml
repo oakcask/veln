@@ -1,0 +1,27 @@
+command = ["run", "--json", "main", "main.veln", "--", "left", "right"]
+exit = 0
+repeat = 2
+
+[requires]
+jdk = true
+
+[env]
+VELN_SPEC_MESSAGE = "env"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "2\nenv\ncwd\n"
+
+[[json_assert]]
+path = "error"
+equals = null

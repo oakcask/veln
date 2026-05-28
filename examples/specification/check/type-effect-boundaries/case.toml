@@ -1,0 +1,13 @@
+command = ["check", "--json", "type-boundaries.veln", "effect-boundaries.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"type.private_inference_incomplete\"", "type `{present: Int}` has no field `missing`", "expected `Path`, but found `String`", "\"id\":\"type.pipeline_target\"", "\"id\":\"type.method_call\"", "\"id\":\"effect.unknown\"", "public function uses undeclared effect `stdio`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

@@ -1,0 +1,6 @@
+// A use declaration without a module header has no source module identity.
+use platform.io
+
+fn missing_identity() -> ()
+  ()
+end
