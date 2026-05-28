@@ -5,7 +5,7 @@ Status: proposed
 This file keeps reusable source-backed standard library candidate rules after
 implemented helper behavior moved to the language specification. Read
 [self-hosting-standard-library.md](self-hosting-standard-library.md) first for
-the completed helper route and candidate boundary.
+completed helper routes and the candidate boundary.
 
 ## Goal
 
@@ -73,7 +73,8 @@ complexity guarantees through this proposal.
 
 ## Open Questions
 
-- Which descriptor-only pure helper should follow the completed target set?
+- Which descriptor-only pure helper should become the next source-backed
+  target?
 - Which helpers must remain runtime intrinsics until user-defined effects or
   effect handlers exist?
 - Should process termination keep the current return shape or use a future

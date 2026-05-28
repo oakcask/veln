@@ -63,6 +63,23 @@ fn vec_try_map_step(state: {values: Result(Vec(A), E), map: fn(Item) -> Result(A
 	end
 end
 
+fn vec_try_map_with(context: C, items: Vec(Item), f: fn(C, Item) -> Result(A, E)) -> Result(Vec(A), E) effects []
+	let state: {values: Result(Vec(A), E), map: fn(C, Item) -> Result(A, E), context: C} = vec_fold(items, {values: Ok([]), map: f, context: context}, vec_try_map_with_step)
+	state.values
+end
+
+fn vec_try_map_with_step(state: {values: Result(Vec(A), E), map: fn(C, Item) -> Result(A, E), context: C}, item: Item) -> {values: Result(Vec(A), E), map: fn(C, Item) -> Result(A, E), context: C} effects []
+	let map = state.map
+	let context = state.context
+	match state.values
+		Ok(values) => match map(context, item)
+			Ok(mapped) => {values: Ok(vec_push(values, mapped)), map: map, context: context}
+			Err(error) => {values: Err(error), map: map, context: context}
+		end
+		Err(error) => {values: Err(error), map: map, context: context}
+	end
+end
+
 fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
 	match value
 		Some(inner) => Some(f(inner))

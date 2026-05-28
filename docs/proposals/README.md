@@ -16,8 +16,8 @@ language behavior unless `../specification/` also states it.
 
 - Source-backed standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md) records
-  the implemented `vec_map` and `vec_try_map` migrations and routes candidate
-  checks. Use its specification checks before opening full proposal details.
+  completed `vec_map`, `vec_try_map`, and `vec_try_map_with` migrations, then
+  routes future candidates back through the implemented helper split.
 
 ## Read When
 
@@ -32,8 +32,8 @@ language behavior unless `../specification/` also states it.
 - Use [reference-followups.md](reference-followups.md) for follow-up work that
   is absent from the current specification.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md)
-  when checking the completed `vec_map` or `vec_try_map` migrations, or
-  selecting a later descriptor-only helper.
+  when checking completed prelude helper migrations or choosing the next
+  descriptor-only pure-helper candidate.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still exploratory or only partially
   represented.

@@ -107,6 +107,53 @@ fn bytecode_backend_runs_result_try_collections_and_function_values_when_java_is
 }
 
 #[test]
+fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn attach(context: String, value: Int) -> Result({prefix: String, value: Int}, String) effects []\n",
+        "  Ok({prefix: context, value: value})\n",
+        "end\n",
+        "fn stop_at_two(context: String, value: Int) -> Result({prefix: String, value: Int}, String) effects []\n",
+        "  match value == 2\n",
+        "    true => Err(context)\n",
+        "    false => match value == 3\n",
+        "      true => Err(\"later\")\n",
+        "      false => Ok({prefix: context, value: value})\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+        "fn add_value(total: Int, item: {prefix: String, value: Int}) -> Int effects []\n",
+        "  total + item.value\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let mapped: Result(Vec({prefix: String, value: Int}), String) = vec_try_map_with(\"ctx\", [1, 2], attach)\n",
+        "  let stopped: Result(Vec({prefix: String, value: Int}), String) = vec_try_map_with(\"ctx\", [1, 2, 3], stop_at_two)\n",
+        "  match mapped\n",
+        "    Ok(items) => stdio::println(int_to_string(vec_fold(items, 0, add_value)))\n",
+        "    Err(error) => stdio::println(error)\n",
+        "  end\n",
+        "  match stopped\n",
+        "    Ok(_) => stdio::println(\"unexpected\")\n",
+        "    Err(error) => stdio::println(error)\n",
+        "  end\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-vec-try-map-with", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "3\nctx\n");
+}
+
+#[test]
 fn bytecode_backend_runs_task_function_values_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn produce() -> String effects []\n",

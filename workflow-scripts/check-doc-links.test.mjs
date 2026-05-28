@@ -93,22 +93,18 @@ test("self-hosting proposal route starts from the implemented helper split", () 
 
   assertIncludes(
     proposal,
-    "records the completed source-backed standard library targets for\n" +
-      "`vec_map` and `vec_try_map`",
+    "records completed prelude helper migrations and routes future\n" +
+      "source-backed candidates back through the implemented standard symbol split",
   );
   assertIncludes(proposal, "## Read First");
-  assertIncludes(proposal, "Completed helpers: `vec_map`, `vec_try_map`");
+  assertIncludes(proposal, "Current target: none");
   assertIncludes(proposal, "## Boundary");
   assertIncludes(proposal, "## Work Route");
   assertIncludes(
     proposal,
-    "Confirm the selected helper is still in the descriptor-only pure-helper",
+    "Choose the next helper from the descriptor-only pure-helper list",
   );
-  assertIncludes(
-    proposal,
-    "work changed only source placement and descriptor metadata for already\n" +
-      "implemented helpers",
-  );
+  assertIncludes(proposal, "## Completed Helpers");
   assertIncludes(proposal, "../specification/names-effects.md");
   assertIncludes(proposal, "../specification/source-surface.md");
   assertIncludes(
@@ -120,7 +116,10 @@ test("self-hosting proposal route starts from the implemented helper split", () 
     fullProposal,
     "Remaining source-backed prelude work chooses from the descriptor-only pure",
   );
-  assertIncludes(namesEffects, "Checking the selected descriptor-only helper");
+  assertIncludes(
+    namesEffects,
+    "Choosing the next self-hosting proposal target",
+  );
   assertIncludes(namesEffectsFull, "### Source-Backed Boundary");
   assertIncludes(
     namesEffectsFull,
@@ -132,7 +131,12 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   );
   assertIncludes(
     namesEffectsFull,
-    "descriptor-only pure helpers: `vec_fold`, `vec_try_map_with`",
+    "source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,\n" +
+      "  `vec_concat`, `vec_map`, `vec_filter`, `vec_try_map`, `vec_try_map_with`",
+  );
+  assertIncludes(
+    namesEffectsFull,
+    "descriptor-only pure helpers: `vec_fold`, `dict_get`",
   );
 });
 
