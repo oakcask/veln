@@ -19,6 +19,22 @@ path = "selection.mode"
 equals = "explicit"
 
 [[json_assert]]
+path = "selection.confidence"
+equals = "partial"
+
+[[json_assert]]
+path = "selection.reason"
+equals = "source_to_test_convention"
+
+[[json_assert]]
+path = "selection.targets.0"
+equals = "main.veln"
+
+[[json_assert]]
+path = "selection.targets.1"
+equals = "main_test.veln"
+
+[[json_assert]]
 path = "summary.total"
 equals = 1
 

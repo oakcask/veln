@@ -1,0 +1,9 @@
+command = ["run", "missing", "main.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["veln: run entry `missing` was not found"]

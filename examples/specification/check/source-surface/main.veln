@@ -25,6 +25,27 @@ fn qualified_option(value: Option(Int)) -> Int effects []
   end
 end
 
+fn render(value: Int) -> String effects []
+  int_to_string(value)
+end
+
+fn nested_match(input: Bool) -> {label: String, values: Vec(Int), chosen: Int} effects []
+  {
+    label: render(match input
+      true => 1
+      false => 0
+    end),
+    values: [match input
+      true => 2
+      false => 3
+    end],
+    chosen: match input
+      true => 4
+      false => 5
+    end,
+  }
+end
+
 fn dictionary(seed: Int) -> Dict(Int, String) effects []
   {seed + 1: "next", 0: "zero"}
 end
@@ -44,6 +65,9 @@ pub fn main() -> Int effects []
   let grouped: Int = ((summary.count + qualified))
   let label: String = classify(Result::Ok({count: grouped, label: "ok"}))
   let failure: String = classify(Result::Err("err"))
+  let placed = nested_match(label == "ok")
+  let _: String = placed.label
+  let _: Int = placed.chosen + vec_len(placed.values)
   let _: Bool = label == "ok" and failure != ""
   grouped
 end

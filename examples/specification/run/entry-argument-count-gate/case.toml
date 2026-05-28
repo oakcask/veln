@@ -1,0 +1,9 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["veln: run entry `main` expects 1 argument(s), got 0", "veln: note: pass entry arguments after `--`"]
