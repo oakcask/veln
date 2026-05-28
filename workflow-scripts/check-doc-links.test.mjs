@@ -137,6 +137,69 @@ test("proposal target selection preserves the no-target route", () => {
   );
 });
 
+test("no-target prompt routes stay classified as non-active targets", () => {
+  const prompt = fs.readFileSync(path.join("prompts", "NOTARGET"), "utf8");
+  const proposalsIndex = readDocsFile("proposals/README.md");
+  const targetSelection = readDocsFile("proposals/target-selection.md");
+  const referenceFollowups = readDocsFile("proposals/reference-followups.md");
+  const agentLanguageWall = readDocsFile(
+    "proposals/agent-language-spec-wall/README.md",
+  );
+  const selfHosting = readDocsFile("proposals/self-hosting-standard-library.md");
+
+  for (const route of noTargetPromptRoutes()) {
+    assertIncludes(prompt, route);
+  }
+
+  assertIncludes(
+    prompt,
+    "does\n  not define one concrete short proposal target",
+  );
+  assertIncludes(
+    prompt,
+    "keeps exploratory design\n  wall material",
+  );
+  assertIncludes(
+    prompt,
+    "records completed helper\n  migrations and says the current target is none",
+  );
+
+  assertIncludes(
+    proposalsIndex,
+    "Missing, stale, broad, or unset target:\n  [target-selection.md](target-selection.md)",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "Broad follow-up ideas that need short target pages:\n  [reference-followups.md](reference-followups.md)",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "Agent-language design-wall inventory:\n  [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)",
+  );
+
+  assertIncludes(
+    targetSelection,
+    "[reference-followups.md](reference-followups.md) is a broad follow-up index",
+  );
+  assertIncludes(
+    targetSelection,
+    "[agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)\n  keeps exploratory design-wall material",
+  );
+  assertIncludes(
+    targetSelection,
+    "[self-hosting-standard-library.md](self-hosting-standard-library.md) has no\n  active helper target",
+  );
+
+  assertIncludes(referenceFollowups, "This page is an index");
+  assertIncludes(referenceFollowups, "No follow-up target\nis active here");
+  assertIncludes(
+    agentLanguageWall,
+    "No active target is selected from this directory as a whole",
+  );
+  assertIncludes(selfHosting, "Status: no active target");
+  assertIncludes(selfHosting, "Current target: none");
+});
+
 test("repair proposal route covers the completed confirmation target", () => {
   const proposal = readDocsFile(
     "proposals/agent-language-spec-wall/repair-command.md",
