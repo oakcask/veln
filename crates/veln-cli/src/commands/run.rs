@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use veln_ast::FunctionKind;
-use veln_backend_jvm::{EntryArgType, generate_java_with_entry_arg_types};
+use veln_backend_jvm::{EntryArgType, generate_classfiles_with_entry_arg_types};
 use veln_diagnostics::{DiagnosticEnvelope, JsonValue};
 use veln_project::Project;
 use veln_sema::lower_checked_surface_module;
@@ -12,7 +12,7 @@ use veln_test::{TestFailure, contract_failure_from_trace};
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{
-    JavaRunResult, compile_and_run_java, compile_and_run_java_capture_with_env, create_build_dir,
+    JvmRunResult, create_build_dir, prepare_and_run_jvm, prepare_and_run_jvm_capture_with_env,
 };
 use crate::surface::{load_surface_module, reachable_entry_module};
 
@@ -77,12 +77,12 @@ pub(crate) fn run_entry(
         return Ok(ExitCode::from(1));
     };
 
-    let java = generate_java_with_entry_arg_types(&ir, &entry, &entry_arg_types);
+    let jvm = generate_classfiles_with_entry_arg_types(&ir, &entry, &entry_arg_types);
     let build_dir = create_build_dir("veln-run").map_err(|error| error.to_string())?;
     let result = if json {
-        run_json(&build_dir, &java, &entry_args)
+        run_json(&build_dir, &jvm, &entry_args)
     } else {
-        compile_and_run_java(&build_dir, &java, &entry_args)
+        prepare_and_run_jvm(&build_dir, &jvm, &entry_args)
     };
     let cleanup_result = fs::remove_dir_all(&build_dir);
     if let Err(error) = cleanup_result {
@@ -96,18 +96,19 @@ pub(crate) fn run_entry(
 
 fn run_json(
     build_dir: &std::path::Path,
-    java: &veln_backend_jvm::JavaProgram,
+    program: &veln_backend_jvm::JvmProgram,
     entry_args: &[String],
 ) -> Result<ExitCode, String> {
     let contract_error_file = build_dir.join("contract-errors.tsv");
     let event_env = [("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str())];
-    let result =
-        compile_and_run_java_capture_with_env(build_dir, java, "veln run", &event_env, entry_args)?;
+    let result = prepare_and_run_jvm_capture_with_env(
+        build_dir, program, "veln run", &event_env, entry_args,
+    )?;
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
 
     let report = match result {
-        JavaRunResult::ToolError(message) => RunJsonReport::tool_error(message),
-        JavaRunResult::Ran(output) => {
+        JvmRunResult::ToolError(message) => RunJsonReport::tool_error(message),
+        JvmRunResult::Ran(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
             let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
             let exit_code = output.status.code().unwrap_or(1);

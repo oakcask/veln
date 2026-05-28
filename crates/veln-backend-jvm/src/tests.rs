@@ -2185,6 +2185,82 @@ fn generated_sources_compile_when_javac_is_available() {
 }
 
 #[test]
+fn bytecode_backend_emits_classfiles_without_java_sources() {
+    let ir = lower_to_ir("pub fn main() -> () effects []\n  ()\nend\n");
+
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    assert!(program.class("VelnEntry.class").is_some());
+    assert!(program.class("VelnProgram.class").is_some());
+    assert!(program.class("VelnRuntime.class").is_some());
+    assert!(
+        program
+            .classes
+            .iter()
+            .all(|class| class.path.ends_with(".class"))
+    );
+}
+
+#[test]
+fn bytecode_backend_classfiles_run_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir("pub fn main() -> () effects [stdio]\n  stdio::println(\"ok\")\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let root = temp_dir("bytecode-run");
+    write_jvm_program(&root, &program);
+
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("VelnEntry")
+        .current_dir(&root)
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
+}
+
+#[test]
+fn bytecode_backend_javap_reports_target_version_and_entry_descriptor_when_available() {
+    if Command::new("javap").arg("-version").output().is_err() {
+        return;
+    }
+
+    let ir = lower_to_ir("pub fn main(value: String) -> String effects []\n  value\nend\n");
+    let program = generate_classfiles_with_entry_arg_types(&ir, "main", &[EntryArgType::String]);
+    let root = temp_dir("bytecode-javap");
+    write_jvm_program(&root, &program);
+
+    let output = Command::new("javap")
+        .arg("-verbose")
+        .arg("-classpath")
+        .arg(&root)
+        .arg("VelnEntry")
+        .output()
+        .expect("javap should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("major version: 49"));
+    assert!(stdout.contains("public static void main(java.lang.String[]);"));
+    assert!(stdout.contains("descriptor: ([Ljava/lang/String;)V"));
+}
+
+#[test]
 fn java_identifier_helpers_sanitize_keywords_and_collisions() {
     let mut used_names = std::collections::BTreeSet::new();
 
@@ -2364,4 +2440,10 @@ fn temp_dir(name: &str) -> std::path::PathBuf {
     ));
     fs::create_dir_all(&root).expect("test directory should be created");
     root
+}
+
+fn write_jvm_program(root: &std::path::Path, program: &JvmProgram) {
+    for class in &program.classes {
+        fs::write(root.join(&class.path), &class.contents).expect("classfile should be written");
+    }
 }

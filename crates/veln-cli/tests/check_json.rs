@@ -52,62 +52,55 @@ impl TestProject {
     }
 
     fn test_with_path(&self, args: &[&str], path: &str) -> Output {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
-        command.current_dir(&self.root);
-        command.env("PATH", path);
-        command.arg("test");
-        for arg in args {
-            command.arg(arg);
-        }
-        command.output().expect("veln should run")
+        self.veln_with_path("test", args, path)
     }
 
     #[cfg(unix)]
-    fn bin_dir_with_successful_javac(&self) -> PathBuf {
+    fn bin_dir_with_fake_java(&self) -> PathBuf {
         let bin = self.root.join("bin");
         fs::create_dir_all(&bin).expect("bin directory should be created");
-        let javac = bin.join("javac");
-        fs::write(&javac, "#!/bin/sh\nexit 0\n").expect("fake javac should be written");
-        let mut permissions = fs::metadata(&javac)
-            .expect("fake javac metadata should be available")
+        let java = bin.join("java");
+        fs::write(&java, "#!/bin/sh\nexit 0\n").expect("fake java should be written");
+        let mut permissions = fs::metadata(&java)
+            .expect("fake java metadata should be available")
             .permissions();
         permissions.set_mode(0o755);
-        fs::set_permissions(&javac, permissions).expect("fake javac should be executable");
+        fs::set_permissions(&java, permissions).expect("fake java should be executable");
         bin
     }
 
     #[cfg(unix)]
-    fn bin_dir_with_counting_jdk(&self) -> (PathBuf, PathBuf) {
+    fn bin_dir_with_real_java_only(&self) -> Option<PathBuf> {
+        let output = Command::new("sh")
+            .arg("-c")
+            .arg("command -v java")
+            .output()
+            .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let java_path = String::from_utf8(output.stdout).ok()?;
+        let java_path = java_path.trim();
+        if java_path.is_empty() {
+            return None;
+        }
+
         let bin = self.root.join("bin");
         fs::create_dir_all(&bin).expect("bin directory should be created");
-        let count_file = self.root.join("javac-count");
-        let javac = bin.join("javac");
-        fs::write(
-            &javac,
-            format!(
-                "#!/bin/sh\nif read count < '{}'; then :; else count=0; fi\ncount=$((count + 1))\nprintf '%s\\n' \"$count\" > '{}'\nexit 0\n",
-                count_file.display(),
-                count_file.display(),
-            ),
-        )
-        .expect("fake javac should be written");
-        let java = bin.join("java");
-        fs::write(&java, "#!/bin/sh\nexit 0\n").expect("fake java should be written");
-        for tool in [&javac, &java] {
-            let mut permissions = fs::metadata(tool)
-                .expect("fake tool metadata should be available")
-                .permissions();
-            permissions.set_mode(0o755);
-            fs::set_permissions(tool, permissions).expect("fake tool should be executable");
-        }
-        (bin, count_file)
+        std::os::unix::fs::symlink(java_path, bin.join("java"))
+            .expect("java symlink should be created");
+        Some(bin)
     }
 
     fn run_with_path(&self, args: &[&str], path: &str) -> Output {
+        self.veln_with_path("run", args, path)
+    }
+
+    fn veln_with_path(&self, subcommand: &str, args: &[&str], path: &str) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
         command.current_dir(&self.root);
         command.env("PATH", path);
-        command.arg("run");
+        command.arg(subcommand);
         for arg in args {
             command.arg(arg);
         }
@@ -2300,7 +2293,7 @@ fn run_treats_flag_like_values_after_separator_as_entry_arguments() {
     assert_eq!(stdout(&output), "");
     assert_contains_all(
         stderr(&output),
-        &["veln: `javac` was not found; install a JDK to use `veln run`"],
+        &["veln: `java` was not found; install a JDK to use `veln run`"],
     );
     assert!(
         !stderr(&output).contains("unknown run flag"),
@@ -2821,7 +2814,7 @@ fn run_ignores_unreachable_semantic_diagnostics() {
     assert_eq!(stdout(&output), "");
     assert_contains_all(
         stderr,
-        &["veln: `javac` was not found; install a JDK to use `veln run`"],
+        &["veln: `java` was not found; install a JDK to use `veln run`"],
     );
     assert!(
         !stderr.contains("type.mismatch"),
@@ -2852,7 +2845,7 @@ fn run_ignores_function_shadowed_by_local_binding() {
     assert_eq!(stdout(&output), "");
     assert_contains_all(
         stderr,
-        &["veln: `javac` was not found; install a JDK to use `veln run`"],
+        &["veln: `java` was not found; install a JDK to use `veln run`"],
     );
     assert!(
         !stderr.contains("hole.unfilled"),
@@ -2999,8 +2992,8 @@ fn run_rejects_invalid_bool_entry_argument_before_jdk_execution() {
 }
 
 #[test]
-fn run_reports_missing_javac_clearly() {
-    let project = TestProject::new("run-no-javac");
+fn run_reports_missing_java_clearly() {
+    let project = TestProject::new("run-no-java");
     project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
 
     let output = project.run_with_path(&["main", "main.veln"], "");
@@ -3009,13 +3002,13 @@ fn run_reports_missing_javac_clearly() {
     assert_eq!(stdout(&output), "");
     assert_contains_all(
         stderr(&output),
-        &["veln: `javac` was not found; install a JDK to use `veln run`"],
+        &["veln: `java` was not found; install a JDK to use `veln run`"],
     );
 }
 
 #[test]
-fn run_json_reports_missing_javac_as_runner_error() {
-    let project = TestProject::new("run-json-no-javac");
+fn run_json_reports_missing_java_as_runner_error() {
+    let project = TestProject::new("run-json-no-java");
     project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
 
     let output = project.run_with_path(&["--json", "main", "main.veln"], "");
@@ -3032,7 +3025,7 @@ fn run_json_reports_missing_javac_as_runner_error() {
             "\"exit_code\":1",
             "\"stdout\":\"\"",
             "\"stderr\":\"\"",
-            "\"error\":{\"kind\":\"runner\",\"message\":\"veln: `javac` was not found; install a JDK to use `veln run`\"",
+            "\"error\":{\"kind\":\"runner\",\"message\":\"veln: `java` was not found; install a JDK to use `veln run`\"",
             "\"details\":{\"phase\":\"tool\"}",
         ],
     );
@@ -3040,37 +3033,325 @@ fn run_json_reports_missing_javac_as_runner_error() {
 
 #[cfg(unix)]
 #[test]
-fn run_reuses_cached_java_compilation() {
-    let project = TestProject::new("run-build-cache");
-    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
-    let (bin, count_file) = project.bin_dir_with_counting_jdk();
+fn run_succeeds_with_only_java_on_path() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-java-only-path");
+    project.write(
+        "main.veln",
+        "pub fn main() -> () effects [stdio]\n  stdio::println(\"ok\")\nend\n",
+    );
+    let Some(bin) = project.bin_dir_with_real_java_only() else {
+        return;
+    };
+
+    let output = project.run_with_path(
+        &["main", "main.veln"],
+        bin.to_str().expect("bin path should be UTF-8"),
+    );
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stdout(&output), "ok\n");
+    assert_eq!(stderr(&output), "");
+}
+
+#[cfg(unix)]
+#[derive(Clone, Copy)]
+enum JvmCacheCommand {
+    Run,
+    Test,
+}
+
+#[cfg(unix)]
+struct JvmCacheFixture {
+    path: &'static str,
+    source: &'static str,
+}
+
+#[cfg(unix)]
+impl JvmCacheCommand {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Run => "run",
+            Self::Test => "test",
+        }
+    }
+
+    fn args(self) -> &'static [&'static str] {
+        match self {
+            Self::Run => &["main", "main.veln"],
+            Self::Test => &[],
+        }
+    }
+
+    fn initial_fixture(self) -> JvmCacheFixture {
+        match self {
+            Self::Run => JvmCacheFixture {
+                path: "main.veln",
+                source: "pub fn main() -> () effects []\n  ()\nend\n",
+            },
+            Self::Test => JvmCacheFixture {
+                path: "main_test.veln",
+                source: "test passes() -> () effects []\n  ()\nend\n",
+            },
+        }
+    }
+
+    fn changed_fixture(self) -> JvmCacheFixture {
+        match self {
+            Self::Run => JvmCacheFixture {
+                path: "main.veln",
+                source: "pub fn main() -> Int effects []\n  1\nend\n",
+            },
+            Self::Test => JvmCacheFixture {
+                path: "main_test.veln",
+                source: concat!(
+                    "test passes() -> () effects [stdio]\n",
+                    "  stdio::println(\"changed\")\n",
+                    "  ()\n",
+                    "end\n",
+                ),
+            },
+        }
+    }
+
+    fn execute(self, project: &TestProject, path: &str) -> Output {
+        match self {
+            Self::Run => project.run_with_path(self.args(), path),
+            Self::Test => project.test_with_path(self.args(), path),
+        }
+    }
+}
+
+#[cfg(unix)]
+fn assert_reuses_cached_jvm_class_preparation(command: JvmCacheCommand) {
+    let project = TestProject::new(&format!("{}-build-cache", command.label()));
+    let fixture = command.initial_fixture();
+    project.write(fixture.path, fixture.source);
+    let bin = project.bin_dir_with_fake_java();
     let path = bin.to_str().expect("bin path should be UTF-8");
 
-    let first = project.run_with_path(&["main", "main.veln"], path);
-    let second = project.run_with_path(&["main", "main.veln"], path);
+    let first = command.execute(&project, path);
+    let second = command.execute(&project, path);
 
     assert!(first.status.success(), "{}", stderr(&first));
     assert!(second.status.success(), "{}", stderr(&second));
-    let count = fs::read_to_string(count_file).expect("javac count should be written");
-    assert_eq!(count.trim(), "1");
+    assert_jvm_class_cache_entry_count(&project, 1);
+}
+
+#[cfg(unix)]
+fn assert_reprepares_cached_jvm_classes_after_source_changes(command: JvmCacheCommand) {
+    let project = TestProject::new(&format!("{}-build-cache-source-change", command.label()));
+    let initial = command.initial_fixture();
+    project.write(initial.path, initial.source);
+    let bin = project.bin_dir_with_fake_java();
+    let path = bin.to_str().expect("bin path should be UTF-8");
+
+    let first = command.execute(&project, path);
+    let changed = command.changed_fixture();
+    project.write(changed.path, changed.source);
+    let second = command.execute(&project, path);
+
+    assert!(first.status.success(), "{}", stderr(&first));
+    assert!(second.status.success(), "{}", stderr(&second));
+    assert_jvm_class_cache_entry_count(&project, 2);
+}
+
+#[cfg(unix)]
+fn assert_reprepares_cached_jvm_classes_after_poisoned_class(command: JvmCacheCommand) {
+    let project = TestProject::new(&format!("{}-build-cache-poisoned-class", command.label()));
+    let fixture = command.initial_fixture();
+    project.write(fixture.path, fixture.source);
+    let bin = project.bin_dir_with_fake_java();
+    let path = bin.to_str().expect("bin path should be UTF-8");
+
+    let first = command.execute(&project, path);
+    assert!(first.status.success(), "{}", stderr(&first));
+
+    let entry = only_jvm_class_cache_entry(&project);
+    let class_file = jvm_cache_class_files(&entry)
+        .into_iter()
+        .find(|path| {
+            path.file_name()
+                .is_some_and(|name| name == "VelnEntry.class")
+        })
+        .expect("entry class should be cached");
+    let original = fs::read(&class_file).expect("class should be readable");
+    fs::write(&class_file, b"poisoned").expect("class should be poisoned");
+
+    let second = command.execute(&project, path);
+
+    assert!(second.status.success(), "{}", stderr(&second));
+    assert_eq!(
+        fs::read(class_file).expect("class should be readable"),
+        original
+    );
+    assert_jvm_class_cache_entry_count(&project, 1);
+}
+
+#[cfg(unix)]
+fn assert_reprepares_marker_only_jvm_class_cache(command: JvmCacheCommand) {
+    let project = TestProject::new(&format!("{}-build-cache-marker-only", command.label()));
+    let fixture = command.initial_fixture();
+    project.write(fixture.path, fixture.source);
+    let bin = project.bin_dir_with_fake_java();
+    let path = bin.to_str().expect("bin path should be UTF-8");
+
+    let first = command.execute(&project, path);
+    assert!(first.status.success(), "{}", stderr(&first));
+
+    let entry = only_jvm_class_cache_entry(&project);
+    let manifest = entry.join(".veln-cache-manifest");
+    fs::remove_file(&manifest).expect("manifest should be removed");
+
+    let second = command.execute(&project, path);
+
+    assert!(second.status.success(), "{}", stderr(&second));
+    assert!(manifest.is_file());
+    assert_jvm_class_cache_entry_count(&project, 1);
+}
+
+#[cfg(unix)]
+fn assert_reprepares_incomplete_jvm_class_cache(command: JvmCacheCommand) {
+    let project = TestProject::new(&format!("{}-build-cache-incomplete", command.label()));
+    let fixture = command.initial_fixture();
+    project.write(fixture.path, fixture.source);
+    let bin = project.bin_dir_with_fake_java();
+    let path = bin.to_str().expect("bin path should be UTF-8");
+
+    let first = command.execute(&project, path);
+    assert!(first.status.success(), "{}", stderr(&first));
+
+    let entry = only_jvm_class_cache_entry(&project);
+    let class_file = jvm_cache_class_files(&entry)
+        .into_iter()
+        .find(|path| {
+            path.file_name()
+                .is_some_and(|name| name == "VelnEntry.class")
+        })
+        .expect("entry class should be cached");
+    fs::remove_file(&class_file).expect("entry class should be removed");
+
+    let second = command.execute(&project, path);
+
+    assert!(second.status.success(), "{}", stderr(&second));
+    assert!(class_file.is_file());
+    assert_jvm_class_cache_entry_count(&project, 1);
+}
+
+#[cfg(unix)]
+fn assert_jvm_class_cache_entry_count(project: &TestProject, expected: usize) {
+    let count = jvm_class_cache_entries(project).len();
+    assert_eq!(count, expected);
+}
+
+#[cfg(unix)]
+fn only_jvm_class_cache_entry(project: &TestProject) -> PathBuf {
+    let entries = jvm_class_cache_entries(project);
+    assert_eq!(entries.len(), 1);
+    entries
+        .into_iter()
+        .next()
+        .expect("one JVM cache entry should exist")
+}
+
+#[cfg(unix)]
+fn jvm_class_cache_entries(project: &TestProject) -> Vec<PathBuf> {
+    let cache = project.root.join("target/veln-cache/jvm");
+    fs::read_dir(cache)
+        .expect("JVM class cache should be readable")
+        .filter_map(Result::ok)
+        .filter(|entry| entry.path().join(".veln-cache-ok").is_file())
+        .map(|entry| entry.path())
+        .collect()
+}
+
+#[cfg(unix)]
+fn jvm_cache_class_files(dir: &std::path::Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    collect_jvm_cache_class_files(dir, &mut files);
+    files
+}
+
+#[cfg(unix)]
+fn collect_jvm_cache_class_files(dir: &std::path::Path, files: &mut Vec<PathBuf>) {
+    for entry in fs::read_dir(dir).expect("cache entry should be readable") {
+        let entry = entry.expect("cache entry file should be readable");
+        let path = entry.path();
+        let file_type = entry
+            .file_type()
+            .expect("cache file type should be readable");
+        if file_type.is_dir() {
+            collect_jvm_cache_class_files(&path, files);
+        } else if path
+            .extension()
+            .is_some_and(|extension| extension == "class")
+        {
+            files.push(path);
+        }
+    }
 }
 
 #[cfg(unix)]
 #[test]
-fn run_recompiles_cached_java_after_source_changes() {
-    let project = TestProject::new("run-build-cache-source-change");
-    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
-    let (bin, count_file) = project.bin_dir_with_counting_jdk();
-    let path = bin.to_str().expect("bin path should be UTF-8");
+fn run_reuses_cached_jvm_class_preparation() {
+    assert_reuses_cached_jvm_class_preparation(JvmCacheCommand::Run);
+}
 
-    let first = project.run_with_path(&["main", "main.veln"], path);
-    project.write("main.veln", "pub fn main() -> Int effects []\n  1\nend\n");
-    let second = project.run_with_path(&["main", "main.veln"], path);
+#[cfg(unix)]
+#[test]
+fn run_reprepares_cached_jvm_classes_after_source_changes() {
+    assert_reprepares_cached_jvm_classes_after_source_changes(JvmCacheCommand::Run);
+}
 
-    assert!(first.status.success(), "{}", stderr(&first));
-    assert!(second.status.success(), "{}", stderr(&second));
-    let count = fs::read_to_string(count_file).expect("javac count should be written");
-    assert_eq!(count.trim(), "2");
+#[cfg(unix)]
+#[test]
+fn run_reprepares_cached_jvm_classes_after_poisoned_class() {
+    assert_reprepares_cached_jvm_classes_after_poisoned_class(JvmCacheCommand::Run);
+}
+
+#[cfg(unix)]
+#[test]
+fn run_reprepares_marker_only_jvm_class_cache() {
+    assert_reprepares_marker_only_jvm_class_cache(JvmCacheCommand::Run);
+}
+
+#[cfg(unix)]
+#[test]
+fn run_reprepares_incomplete_jvm_class_cache() {
+    assert_reprepares_incomplete_jvm_class_cache(JvmCacheCommand::Run);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_reuses_cached_jvm_class_preparation() {
+    assert_reuses_cached_jvm_class_preparation(JvmCacheCommand::Test);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_reprepares_cached_jvm_classes_after_source_changes() {
+    assert_reprepares_cached_jvm_classes_after_source_changes(JvmCacheCommand::Test);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_reprepares_cached_jvm_classes_after_poisoned_class() {
+    assert_reprepares_cached_jvm_classes_after_poisoned_class(JvmCacheCommand::Test);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_reprepares_marker_only_jvm_class_cache() {
+    assert_reprepares_marker_only_jvm_class_cache(JvmCacheCommand::Test);
+}
+
+#[cfg(unix)]
+#[test]
+fn test_reprepares_incomplete_jvm_class_cache() {
+    assert_reprepares_incomplete_jvm_class_cache(JvmCacheCommand::Test);
 }
 
 #[test]
@@ -3948,8 +4229,8 @@ fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
 }
 
 #[test]
-fn test_json_reports_missing_javac_as_runner_error() {
-    let project = TestProject::new("test-no-javac");
+fn test_json_reports_missing_java_as_runner_error() {
+    let project = TestProject::new("test-no-java");
     project.write(
         "main_test.veln",
         "test passes() -> () effects []\n  ()\nend\n",
@@ -3966,14 +4247,14 @@ fn test_json_reports_missing_javac_as_runner_error() {
             "\"status\":\"error\"",
             "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":1}",
             "\"name\":\"passes\"",
-            "\"failure\":{\"kind\":\"runtime\",\"message\":\"veln: `javac` was not found; install a JDK to use `veln test`\"",
+            "\"failure\":{\"kind\":\"runtime\",\"message\":\"veln: `java` was not found; install a JDK to use `veln test`\"",
         ],
     );
 }
 
 #[test]
-fn test_human_reports_missing_javac_as_runner_error() {
-    let project = TestProject::new("test-human-no-javac");
+fn test_human_reports_missing_java_as_runner_error() {
+    let project = TestProject::new("test-human-no-java");
     project.write(
         "main_test.veln",
         "test passes() -> () effects []\n  ()\nend\n",
@@ -3986,34 +4267,45 @@ fn test_human_reports_missing_javac_as_runner_error() {
     assert_contains_all(
         stderr(&output),
         &[
-            "veln: test `passes` failed: veln: `javac` was not found; install a JDK to use `veln test`",
+            "veln: test `passes` failed: veln: `java` was not found; install a JDK to use `veln test`",
         ],
     );
 }
 
 #[cfg(unix)]
 #[test]
-fn test_json_reports_missing_java_after_successful_javac_as_runner_error() {
-    let project = TestProject::new("test-no-java-after-javac");
+fn test_json_succeeds_with_only_java_on_path() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("test-json-java-only-path");
     project.write(
         "main_test.veln",
-        "test passes() -> () effects []\n  ()\nend\n",
+        concat!(
+            "test passes() -> () effects [stdio]\n",
+            "  stdio::println(\"ok\")\n",
+            "  ()\n",
+            "end\n",
+        ),
     );
-    let bin = project.bin_dir_with_successful_javac();
+    let Some(bin) = project.bin_dir_with_real_java_only() else {
+        return;
+    };
 
-    let output = project.test_with_path(&["--json"], bin.to_str().expect("path should be UTF-8"));
+    let output =
+        project.test_with_path(&["--json"], bin.to_str().expect("bin path should be UTF-8"));
     let stdout = stdout(&output);
 
-    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert!(output.status.success(), "{}", stderr(&output));
     assert_eq!(stderr(&output), "");
     assert_contains_all(
         stdout,
         &[
-            "\"status\":\"error\"",
-            "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":1}",
-            "\"name\":\"passes\"",
-            "\"reason\":\"runner_error\"",
-            "\"failure\":{\"kind\":\"runtime\",\"message\":\"veln: `java` was not found; install a JDK to use `veln test`\"",
+            "\"status\":\"passed\"",
+            "\"summary\":{\"total\":1,\"passed\":1,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":0}",
+            "\"name\":\"passes\",\"kind\":\"test\",\"status\":\"passed\"",
+            "\"events\":[{\"kind\":\"stdio\",\"stream\":\"stdout\",\"operation\":\"println\",\"text\":\"ok\",\"terminator\":\"newline\"",
         ],
     );
 }
@@ -4215,6 +4507,9 @@ fn assert_contains_all(haystack: &str, needles: &[&str]) {
 }
 
 fn jdk_is_available() -> bool {
-    Command::new("javac").arg("-version").output().is_ok()
-        && Command::new("java").arg("-version").output().is_ok()
+    Command::new("java").arg("-version").output().is_ok()
+        && Command::new("java")
+            .arg("--list-modules")
+            .output()
+            .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("jdk.compiler"))
 }

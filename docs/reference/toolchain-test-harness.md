@@ -5,10 +5,22 @@ reference for test organization, not a source for command behavior.
 
 ## Read First
 
-- Command behavior belongs in [language/commands.md](../specification/commands.md).
-- JSON output behavior belongs in [language/json-output.md](../specification/json-output.md).
+- Command behavior belongs in
+  [../specification/commands.md](../specification/commands.md).
+- JSON output behavior belongs in
+  [../specification/json-output.md](../specification/json-output.md).
 - The completion review records verification evidence:
-  [../reviews/toolchain-test-harness-completion.md](../reviews/toolchain-test-harness-completion.md).
+  [toolchain-test-harness-completion.md](../reviews/toolchain-test-harness-completion.md).
+
+## Read When
+
+- Add a case under `toolchain_cases/` when behavior must be checked through the
+  public CLI.
+- Change this harness when a manifest needs a reusable assertion shape, command
+  environment, repeated invocation, or fixture setup rule.
+- JVM backend fixtures exercise the implemented bytecode path by default. Use
+  the JVM bytecode proposal review for migration cleanup:
+  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 
 ## Case Layout
 
@@ -25,6 +37,15 @@ assertions.
 Case manifests are declarative. They should describe the command, expected exit
 status, expected stdout or stderr fragments, and structured JSON expectations.
 They must not execute arbitrary shell commands.
+
+Treat `command`, `[env]`, and `repeat` as invocation settings. Treat `exit`,
+`[stdout]`, `[stderr]`, `[[json_assert]]`, and `[[diagnostics]]` as expected
+observable results.
+
+Use `[env]` for fixed environment variables that belong to the fixture. Use
+`repeat` when one isolated project should run the same command more than once,
+for example to compare command-visible behavior across cache misses and cache
+hits.
 
 JSON output should be parsed and checked semantically by default. Full JSON
 equality is reserved for schema smoke tests where exact envelope shape is the

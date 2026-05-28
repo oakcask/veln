@@ -1,16 +1,48 @@
 # JVM Bytecode Backend Full
 
-Status: proposed
+Status: implemented
 
-This page expands [jvm-bytecode-backend.md](jvm-bytecode-backend.md). It is
-planned behavior, not current specification behavior.
+This page expands [jvm-bytecode-backend.md](jvm-bytecode-backend.md). It keeps
+the original proposal detail and implementation evidence; current command and
+execution behavior belongs in the specification pages.
+
+## Route Map
+
+- Outcome summary and follow-up cleanup:
+  [implementation status](#implementation-status).
+- Current completion gate review:
+  [../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
+- Current implemented behavior, not repeated here:
+  [../specification/execution.md](../specification/execution.md) and
+  [../specification/commands.md](../specification/commands.md).
+- Harness organization:
+  [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
+- Promotion mechanics:
+  [implementation-route.md](implementation-route.md).
+
+## Implementation Status
+
+This proposal is implemented for the ordinary `run` and `test` backend path.
+The command-visible behavior has been promoted to
+[../specification/execution.md](../specification/execution.md) and
+[../specification/commands.md](../specification/commands.md).
+
+The ordinary path lowers typed IR to JVM classfile artifacts, writes those
+artifacts into the persistent JVM class cache, and invokes `java` on the cached
+entry class. It does not write generated Java source, write a compiler helper,
+invoke a Java source compiler, or require `javac`.
+
+The backend crate still exposes the older Java source API as a migration
+baseline for source-generation tests. That API is not used by ordinary
+commands. Current gate evidence and cleanup follow-ups live in
+[../reviews/jvm-bytecode-backend-completion.md](../reviews/jvm-bytecode-backend-completion.md).
 
 ## Problem
 
-The implemented JVM backend lowers typed IR to generated Java source, invokes
-`javac`, and then runs the resulting classes. That route was useful for the
-first executable slice because it kept the backend simple while the typed IR
-was still settling.
+The earlier JVM backend lowered typed IR to generated Java source, invoked a
+Java source compiler, and then ran the resulting classes. That route was useful
+for the first executable slice because it kept the backend simple while the
+typed IR was still settling.
 
 The reference execution boundary is already typed IR, not Java source. Keeping
 Java source generation as the long-term backend path adds a tool dependency,
@@ -62,9 +94,13 @@ should declare:
 - backend modes to run, such as Java source, bytecode, or parity comparison
 
 During migration, parity comparison should run the same fixture through each
-available JVM lowering path and compare normalized observable output. Backend
-setup diagnostics should be tested separately because direct classfile emission
-intentionally changes the `javac` dependency.
+available JVM lowering path and compare normalized observable output: exit
+status, stdout, stderr, structured JSON records, test events, and runtime
+contract failures. Backend setup diagnostics should be tested separately
+because direct classfile emission intentionally changes the `javac` dependency.
+The harness must not compare generated Java source, classfile bytes, bytecode
+instruction sequences, constant-pool indexes, class names, local variable
+slots, or helper layout.
 
 After migration, the same fixture layout should continue to exercise the
 bytecode backend directly.
@@ -155,10 +191,25 @@ ordinary `run` or `test` execution depend on `javap`.
 
 ## Cache And Setup Behavior
 
-The backend cache should move from generated Java source and compiled classes
-to bytecode backend artifacts. Cache keys may include backend version,
-classfile target, runtime helper version, typed IR content, entry selection,
-and relevant backend options.
+The backend cache moved from generated Java source and compiled classes to
+bytecode backend artifacts. Cache identity must be derived from a cryptographic
+digest over length-framed backend inputs: backend version, classfile target,
+runtime helper version, typed IR content, entry selection, emitted class paths,
+emitted classfile contents, and relevant backend options.
+
+The cache is not a trusted source of executable bytecode. A cache hit must
+validate that the completed cache entry matches the expected manifest before it
+is passed to `java`. The manifest must name the expected class paths and content
+digests for the selected program, and the runner must reject and rebuild entries
+whose marker, manifest, class set, or class contents do not match. A marker file
+alone is not enough to prove that a cache entry is complete or safe to execute.
+
+Cache publication must be atomic from a temporary directory, and all
+create-or-reuse races must revalidate the winning cache entry before execution.
+If another process creates the destination between preparation and publication,
+the runner must treat that entry exactly like any other cache hit: validate it,
+reuse it only if it matches the expected manifest, and otherwise discard or
+replace it without executing its classes.
 
 Cache hits and misses must preserve command-visible behavior: exit status,
 stdout, stderr, runtime contract reports, and test events must be the same as
@@ -169,65 +220,71 @@ Missing `java` remains a runner error because the selected program still runs
 on the JVM. Missing `javap` is a test-environment issue for structural tests,
 not a user-facing runtime requirement.
 
-## Acceptance Criteria
+## Completion Criteria
 
-- Existing JVM runtime behavior fixtures pass through direct classfile
-  emission.
-- A migration-only matrix compares Java source lowering and classfile lowering
-  for the implemented IR subset.
-- The bytecode path has setup coverage proving `javac` is no longer required
-  for ordinary `run` and `test` execution.
+Use this section to decide whether an implementation claim is complete enough
+to promote into the specification.
+
+The implemented IR subset is every typed IR construct that the current JVM
+backend accepts on the ordinary `run` and `test` paths. It includes all runtime
+fixture groups listed under [fixture scope](#fixture-scope). An implementation
+that excludes any group is incomplete unless this proposal is revised to name
+the excluded construct and explain why the current JVM backend should stop
+accepting it.
+
+A completion claim must satisfy all of these gates:
+
+- Direct classfile emission is the ordinary backend path: `run` and `test`
+  lower typed IR to classfile artifacts for the selected program and required
+  helpers without writing generated Java source or invoking a Java source
+  compiler.
+- Existing JVM runtime behavior fixtures pass through the bytecode path, and
+  cache hits and misses preserve command-visible exit status, stdout, stderr,
+  runtime contract reports, and test events.
+- Cache tests cover poisoned entries, incomplete entries, weak marker-only
+  entries, and publication races. The runner must validate a manifest keyed by a
+  cryptographic digest before executing cached classes.
 - Missing `java` remains a runner error with the existing human and JSON
-  behavior.
-- Cache hits and misses preserve command-visible behavior.
-- Bytecode-specific tests verify that generated classes load, execute, and can
-  be inspected with `javap -verbose`.
-- CI has one required JVM backend job that exercises runtime fixtures and
-  structural bytecode checks on a pinned JDK.
+  behavior, while setup coverage proves `javac` is no longer required for
+  ordinary execution.
+- While the Java source backend remains available for migration tests, ordinary
+  CLI fixtures exercise the bytecode path. Any future parity selector must stay
+  internal and must not become a public CLI flag, stable JSON field, or
+  user-facing diagnostic.
+- Bytecode-specific tests verify stable structural facts through class loading
+  and `javap -verbose`: classfile target version, expected entry descriptors,
+  required verifier metadata, and absence of an ordinary `javac` requirement.
 - No test treats classfile bytes, complete `javap` output, constant-pool
   indexes, bytecode offsets, local variable slots, helper names, or ordinary
   instruction ordering as stable language facts.
+- A checked-in JVM backend workflow runs bytecode backend unit tests, runtime
+  fixture tests, setup tests, and structural bytecode tests on one pinned JDK.
 
-## Working Answers
+## Implementation Notes
 
-These answers guide the initial implementation unless later dependency review
-or proposal revision changes the constraints.
+These notes record the implementation choices for the first direct classfile
+backend.
 
-- Prefer `ristretto_classfile` for the first bytecode writer spike because it
-  supports classfile reading, writing, and verification. Use the newest release
-  after dependency review. If that release requires a newer Rust toolchain,
-  update the repository Rust toolchain policy as part of the same backend
-  adoption work instead of selecting an older crate release only to avoid the
-  toolchain update.
-- Target Java 8 class files for the first bytecode backend. This keeps generated
-  classes runnable on newer JDK lines while matching the current runtime helper
-  surface. The backend should generate verifier metadata required by that
-  target, including `StackMapTable` entries for generated methods with control
-  flow.
+- Use a local Rust classfile writer for generated program, entry, and function
+  adapter classes. This keeps ordinary execution independent of third-party
+  classfile writer dependencies and Java source compilers.
+- Keep the runtime helper as checked-in classfile assets built from the same
+  helper surface used by the previous Java source backend. The helper classfiles
+  target Java 8. Generated program and entry classfiles use a verifier-compatible
+  target that avoids making stack-map layout a language promise.
 - Emit only required verifier and execution metadata at first. Optional
   source-span debug attributes such as `SourceFile` and `LineNumberTable` may be
   added later behind an internal debug option. Do not emit `LocalVariableTable`
   as an initial promise because it can accidentally freeze local-slot layout.
-- Keep the Java source backend only as a migration-time parity and debug path
-  after bytecode becomes the default. Do not expose it as a stable user-facing
-  fallback. Remove it once bytecode runtime fixtures and structural checks cover
-  the implemented IR subset.
-- Expose backend selection through the test harness, not through public CLI
-  syntax. Fixture manifests may name internal backend modes such as Java source,
-  bytecode, or parity. If command-level selection is needed for integration
-  tests, use a clearly internal test-only environment variable and keep it out of
-  the language specification.
+- Keep the Java source backend only as a migration-time debug path after
+  bytecode becomes the default. Do not expose it as a stable user-facing
+  fallback. Remove or hide it once bytecode runtime fixtures and structural
+  checks fully replace source-generation tests.
 - Pin the required JVM backend CI job to an OpenJDK JDK distribution that can run
   Java 8 class files and provides `javap -verbose`. The job should install a JDK,
   not only a JRE, because structural classfile smoke tests depend on JDK tools.
 
-The remaining implementation-time checks are:
-
-- Confirm the selected `ristretto_classfile` release, transitive dependency
-  surface, unsafe-code policy, license metadata, and required Rust toolchain
-  before adding it to the workspace.
-- Confirm the harness selector cannot become observable command behavior through
-  documented flags, stable JSON fields, or user-facing diagnostics.
+The backend does not add a new third-party classfile dependency.
 
 ## Promotion Route
 
@@ -235,5 +292,7 @@ When implementing this proposal, compare it against current behavior in
 [../specification/execution.md](../specification/execution.md),
 [../specification/commands.md](../specification/commands.md), and
 [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
-After implementation, promote only the observable behavior into the reference
-pages and leave backend artifact details as implementation details.
+After implementation, promote only observable command and runtime behavior into
+the specification pages. Keep generated artifacts, bytecode layout, helper
+layout, backend selectors, and structural test details out of the language
+specification unless a later proposal makes them user-facing behavior.

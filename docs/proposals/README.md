@@ -1,27 +1,30 @@
 # Proposals
 
-This directory keeps proposed design targets that are not fully implemented.
-Proposal text is not current language behavior unless
-`../specification/` also states it.
+This directory keeps active proposal targets and implemented proposal records
+that still route cleanup or promotion evidence. Proposal text is not current
+language behavior unless `../specification/` also states it.
 
 ## Read First
 
-- Any proposal in this directory may be chosen for implementation work when it
-  describes behavior absent from `../specification/`.
+- Choose an active proposal for implementation work only when it describes
+  behavior absent from `../specification/`.
+- Treat implemented proposal records as history and cleanup routes. Use the
+  matching specification page for current behavior.
 - Status labels: [../document-status.md](../document-status.md).
 
 ## Read When
 
 - Use [implementation-route.md](implementation-route.md) for proposal promotion
   mechanics after an explicit task selects proposal work.
+- Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the implemented
+  JVM backend proposal record. It routes current specification pages,
+  completion evidence, and remaining cleanup without making backend layout
+  details current specification.
 - Use [reference-followups.md](reference-followups.md) for follow-up work that
   is absent from the current specification.
 - Use [self-hosting-standard-library.md](self-hosting-standard-library.md) only
   for future self-hosting standard library questions whose behavior is absent
   from the current specification.
-- Use [jvm-bytecode-backend.md](jvm-bytecode-backend.md) for the proposal
-  to replace Java source generation with direct JVM classfile emission,
-  including runtime behavior, bytecode verification, and CI strategy.
 - Use [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)
   for design-wall material that is still exploratory or only partially
   represented.
@@ -41,3 +44,5 @@ Proposal text is not current language behavior unless
 - Use `../specification/` when you need current implemented behavior.
 - Do not open `*-full.md` proposal records until a short proposal page names
   the section needed for the task.
+- Do not read implemented proposal records before the matching specification
+  page unless you are checking history, evidence, or cleanup.

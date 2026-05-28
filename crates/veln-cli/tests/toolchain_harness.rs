@@ -27,42 +27,16 @@ fn run_case(case_dir: &Path) {
     let project = TestProject::new(case_name(case_dir));
     project.copy_fixtures(case_dir);
 
-    let output = project.veln(&manifest.command);
-    let stdout = stream_text(&output.stdout, case_dir, "stdout");
-    let stderr = stream_text(&output.stderr, case_dir, "stderr");
-
-    assert_eq!(
-        output.status.code(),
-        Some(manifest.exit),
-        "{}: expected exit {}, got {:?}\nstdout:\n{}\nstderr:\n{}",
-        case_dir.display(),
-        manifest.exit,
-        output.status.code(),
-        stdout,
-        stderr
-    );
-
-    assert_stream(case_dir, "stdout", &manifest.stdout, stdout);
-    assert_stream(case_dir, "stderr", &manifest.stderr, stderr);
-
-    let json = if manifest.needs_stdout_json() {
-        Some(parse_json(stdout).unwrap_or_else(|error| {
-            panic!(
-                "{}: stdout JSON parse failed: {error}\n{stdout}",
-                case_dir.display()
-            )
-        }))
-    } else {
-        None
-    };
-
-    if let Some(json) = json.as_ref() {
-        for assertion in &manifest.json_assertions {
-            assert_json_path(case_dir, json, assertion);
-        }
-        for diagnostic in &manifest.diagnostics {
-            assert_diagnostic(case_dir, json, diagnostic);
-        }
+    for run_index in 0..manifest.invocation.repeat {
+        let context = CaseRunContext {
+            case_dir,
+            run_number: run_index + 1,
+        };
+        let output = CapturedOutput::read(
+            &context,
+            project.veln(&manifest.invocation.command, &manifest.invocation.env),
+        );
+        manifest.expectations.assert_matches(&context, &output);
     }
 }
 
@@ -128,10 +102,13 @@ impl TestProject {
         copy_fixture_dir(case_dir, case_dir, &self.root);
     }
 
-    fn veln(&self, args: &[String]) -> Output {
+    fn veln(&self, args: &[String], env: &[(String, String)]) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_veln"));
         command.current_dir(&self.root);
         command.args(args);
+        for (name, value) in env {
+            command.env(name, value);
+        }
         command.output().expect("veln should run")
     }
 }
@@ -187,13 +164,25 @@ fn copy_fixture_dir(base: &Path, dir: &Path, target_root: &Path) {
 }
 
 #[derive(Debug)]
-struct CaseManifest {
+struct CaseInvocation {
     command: Vec<String>,
+    repeat: usize,
+    env: Vec<(String, String)>,
+}
+
+#[derive(Debug)]
+struct CaseExpectations {
     exit: i32,
     stdout: StreamExpectation,
     stderr: StreamExpectation,
     json_assertions: Vec<JsonAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
+}
+
+#[derive(Debug)]
+struct CaseManifest {
+    invocation: CaseInvocation,
+    expectations: CaseExpectations,
     requires: Requirements,
     skip: SkipRules,
 }
@@ -203,12 +192,6 @@ impl CaseManifest {
         let text = fs::read_to_string(path)
             .unwrap_or_else(|error| panic!("{}: failed to read manifest: {error}", path.display()));
         parse_manifest(path, &text)
-    }
-
-    fn needs_stdout_json(&self) -> bool {
-        self.stdout.format == Some(StreamFormat::Json)
-            || !self.json_assertions.is_empty()
-            || !self.diagnostics.is_empty()
     }
 
     fn skip_reason(&self) -> Option<String> {
@@ -229,6 +212,78 @@ impl CaseManifest {
             return Some(reason.to_string());
         }
         None
+    }
+}
+
+impl CaseExpectations {
+    fn assert_matches(&self, context: &CaseRunContext<'_>, output: &CapturedOutput) {
+        assert_eq!(
+            output.exit,
+            Some(self.exit),
+            "{}: expected exit {}, got {:?}\nstdout:\n{}\nstderr:\n{}",
+            context.label(),
+            self.exit,
+            output.exit,
+            output.stdout,
+            output.stderr
+        );
+
+        assert_stream(context, "stdout", &self.stdout, &output.stdout);
+        assert_stream(context, "stderr", &self.stderr, &output.stderr);
+
+        let json = if self.needs_stdout_json() {
+            Some(parse_json(&output.stdout).unwrap_or_else(|error| {
+                panic!(
+                    "{}: stdout JSON parse failed: {error}\n{}",
+                    context.label(),
+                    output.stdout
+                )
+            }))
+        } else {
+            None
+        };
+
+        if let Some(json) = json.as_ref() {
+            for assertion in &self.json_assertions {
+                assert_json_path(context, json, assertion);
+            }
+            for diagnostic in &self.diagnostics {
+                assert_diagnostic(context, json, diagnostic);
+            }
+        }
+    }
+
+    fn needs_stdout_json(&self) -> bool {
+        self.stdout.format == Some(StreamFormat::Json)
+            || !self.json_assertions.is_empty()
+            || !self.diagnostics.is_empty()
+    }
+}
+
+struct CaseRunContext<'a> {
+    case_dir: &'a Path,
+    run_number: usize,
+}
+
+impl CaseRunContext<'_> {
+    fn label(&self) -> String {
+        format!("{} run {}", self.case_dir.display(), self.run_number)
+    }
+}
+
+struct CapturedOutput {
+    exit: Option<i32>,
+    stdout: String,
+    stderr: String,
+}
+
+impl CapturedOutput {
+    fn read(context: &CaseRunContext<'_>, output: Output) -> Self {
+        Self {
+            exit: output.status.code(),
+            stdout: stream_text(output.stdout, context, "stdout"),
+            stderr: stream_text(output.stderr, context, "stderr"),
+        }
     }
 }
 
@@ -307,11 +362,14 @@ enum Section {
     DiagnosticSpan(usize),
     Requires,
     Skip,
+    Env,
 }
 
 fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     let mut command = None;
     let mut exit = None;
+    let mut repeat = 1;
+    let mut env = Vec::new();
     let mut stdout = StreamExpectation::default();
     let mut stderr = StreamExpectation::default();
     let mut json_assertions = Vec::new();
@@ -333,6 +391,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
                 "[stderr]" => Section::Stderr,
                 "[requires]" => Section::Requires,
                 "[skip]" => Section::Skip,
+                "[env]" => Section::Env,
                 "[[json_assert]]" => {
                     json_assertions.push(JsonAssertion {
                         path: String::new(),
@@ -374,6 +433,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
             Section::Root => match key {
                 "command" => command = Some(parse_string_array(path, line_number, value)),
                 "exit" => exit = Some(parse_i32(path, line_number, value)),
+                "repeat" => repeat = parse_positive_usize(path, line_number, value),
                 _ => manifest_error(path, line_number, format!("unknown root key `{key}`")),
             },
             Section::Stdout => parse_stream_key(path, line_number, &mut stdout, key, value, true),
@@ -392,6 +452,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
                 "reason" => skip.reason = Some(parse_string(path, line_number, value)),
                 _ => manifest_error(path, line_number, format!("unknown skip key `{key}`")),
             },
+            Section::Env => env.push((key.to_string(), parse_string(path, line_number, value))),
             Section::JsonAssert(index) => match key {
                 "path" => json_assertions[index].path = parse_string(path, line_number, value),
                 "equals" => {
@@ -439,22 +500,28 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     }
 
     let manifest = CaseManifest {
-        command: command.unwrap_or_else(|| manifest_error(path, 0, "missing `command`")),
-        exit: exit.unwrap_or_else(|| manifest_error(path, 0, "missing `exit`")),
-        stdout,
-        stderr,
-        json_assertions,
-        diagnostics,
+        invocation: CaseInvocation {
+            command: command.unwrap_or_else(|| manifest_error(path, 0, "missing `command`")),
+            repeat,
+            env,
+        },
+        expectations: CaseExpectations {
+            exit: exit.unwrap_or_else(|| manifest_error(path, 0, "missing `exit`")),
+            stdout,
+            stderr,
+            json_assertions,
+            diagnostics,
+        },
         requires,
         skip,
     };
 
-    for (index, assertion) in manifest.json_assertions.iter().enumerate() {
+    for (index, assertion) in manifest.expectations.json_assertions.iter().enumerate() {
         if assertion.path.is_empty() {
             manifest_error(path, 0, format!("json_assert {index} is missing `path`"));
         }
     }
-    for (index, diagnostic) in manifest.diagnostics.iter().enumerate() {
+    for (index, diagnostic) in manifest.expectations.diagnostics.iter().enumerate() {
         if diagnostic.id.is_empty() {
             manifest_error(path, 0, format!("diagnostics {index} is missing `id`"));
         }
@@ -636,6 +703,16 @@ fn parse_i64(path: &Path, line_number: usize, value: &str) -> i64 {
         .unwrap_or_else(|_| manifest_error(path, line_number, "expected integer"))
 }
 
+fn parse_positive_usize(path: &Path, line_number: usize, value: &str) -> usize {
+    let parsed = value
+        .parse()
+        .unwrap_or_else(|_| manifest_error(path, line_number, "expected positive integer"));
+    if parsed == 0 {
+        manifest_error(path, line_number, "expected positive integer");
+    }
+    parsed
+}
+
 fn manifest_error(path: &Path, line_number: usize, message: impl std::fmt::Display) -> ! {
     if line_number == 0 {
         panic!("{}: {message}", path.display());
@@ -643,18 +720,23 @@ fn manifest_error(path: &Path, line_number: usize, message: impl std::fmt::Displ
     panic!("{}:{line_number}: {message}", path.display());
 }
 
-fn stream_text<'a>(bytes: &'a [u8], case_dir: &Path, stream: &str) -> &'a str {
-    std::str::from_utf8(bytes)
-        .unwrap_or_else(|error| panic!("{}: {stream} should be UTF-8: {error}", case_dir.display()))
+fn stream_text(bytes: Vec<u8>, context: &CaseRunContext<'_>, stream: &str) -> String {
+    String::from_utf8(bytes)
+        .unwrap_or_else(|error| panic!("{}: {stream} should be UTF-8: {error}", context.label()))
 }
 
-fn assert_stream(case_dir: &Path, name: &str, expectation: &StreamExpectation, actual: &str) {
+fn assert_stream(
+    context: &CaseRunContext<'_>,
+    name: &str,
+    expectation: &StreamExpectation,
+    actual: &str,
+) {
     match expectation.format {
         Some(StreamFormat::Empty) => assert_eq!(
             actual,
             "",
             "{}: expected {name} to be empty, got:\n{actual}",
-            case_dir.display()
+            context.label()
         ),
         Some(StreamFormat::Text) | Some(StreamFormat::Json) | None => {}
     }
@@ -663,21 +745,24 @@ fn assert_stream(case_dir: &Path, name: &str, expectation: &StreamExpectation, a
         assert!(
             actual.contains(fragment),
             "{}: expected {name} to contain `{fragment}`, got:\n{actual}",
-            case_dir.display()
+            context.label()
         );
     }
 }
 
 fn jdk_is_available() -> bool {
-    Command::new("javac").arg("-version").output().is_ok()
-        && Command::new("java").arg("-version").output().is_ok()
+    Command::new("java").arg("-version").output().is_ok()
+        && Command::new("java")
+            .arg("--list-modules")
+            .output()
+            .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("jdk.compiler"))
 }
 
-fn assert_json_path(case_dir: &Path, json: &JsonValue, assertion: &JsonAssertion) {
+fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &JsonAssertion) {
     let actual = json_path(json, &assertion.path).unwrap_or_else(|| {
         panic!(
             "{}: JSON path `{}` was not found in {:?}",
-            case_dir.display(),
+            context.label(),
             assertion.path,
             json
         )
@@ -686,15 +771,19 @@ fn assert_json_path(case_dir: &Path, json: &JsonValue, assertion: &JsonAssertion
         actual,
         &assertion.equals,
         "{}: JSON path `{}` mismatch",
-        case_dir.display(),
+        context.label(),
         assertion.path
     );
 }
 
-fn assert_diagnostic(case_dir: &Path, json: &JsonValue, expected: &DiagnosticExpectation) {
+fn assert_diagnostic(
+    context: &CaseRunContext<'_>,
+    json: &JsonValue,
+    expected: &DiagnosticExpectation,
+) {
     let diagnostics = json_path(json, "diagnostics")
         .and_then(JsonValue::as_array)
-        .unwrap_or_else(|| panic!("{}: JSON diagnostics array missing", case_dir.display()));
+        .unwrap_or_else(|| panic!("{}: JSON diagnostics array missing", context.label()));
 
     let mut matches = diagnostics
         .iter()
@@ -727,7 +816,7 @@ fn assert_diagnostic(case_dir: &Path, json: &JsonValue, expected: &DiagnosticExp
     let diagnostic = matches.next().unwrap_or_else(|| {
         panic!(
             "{}: diagnostic `{}` was not found in {:?}",
-            case_dir.display(),
+            context.label(),
             expected.id,
             diagnostics
         )
@@ -735,20 +824,20 @@ fn assert_diagnostic(case_dir: &Path, json: &JsonValue, expected: &DiagnosticExp
     assert!(
         matches.next().is_none(),
         "{}: diagnostic `{}` matched more than one JSON diagnostic",
-        case_dir.display(),
+        context.label(),
         expected.id
     );
 
     assert_diagnostic_field(
-        case_dir,
+        context,
         diagnostic,
         &expected.id,
         "severity",
         &expected.severity,
     );
-    assert_diagnostic_field(case_dir, diagnostic, &expected.id, "kind", &expected.kind);
+    assert_diagnostic_field(context, diagnostic, &expected.id, "kind", &expected.kind);
     assert_diagnostic_field(
-        case_dir,
+        context,
         diagnostic,
         &expected.id,
         "message",
@@ -757,7 +846,7 @@ fn assert_diagnostic(case_dir: &Path, json: &JsonValue, expected: &DiagnosticExp
     if let Some(span) = &expected.span {
         if let Some(file) = &span.file {
             assert_json_equals(
-                case_dir,
+                context,
                 diagnostic,
                 &expected.id,
                 "span.file",
@@ -766,7 +855,7 @@ fn assert_diagnostic(case_dir: &Path, json: &JsonValue, expected: &DiagnosticExp
         }
         if let Some(line) = span.line {
             assert_json_equals(
-                case_dir,
+                context,
                 diagnostic,
                 &expected.id,
                 "span.start.line",
@@ -775,7 +864,7 @@ fn assert_diagnostic(case_dir: &Path, json: &JsonValue, expected: &DiagnosticExp
         }
         if let Some(column) = span.column {
             assert_json_equals(
-                case_dir,
+                context,
                 diagnostic,
                 &expected.id,
                 "span.start.column",
@@ -786,7 +875,7 @@ fn assert_diagnostic(case_dir: &Path, json: &JsonValue, expected: &DiagnosticExp
 }
 
 fn assert_diagnostic_field(
-    case_dir: &Path,
+    context: &CaseRunContext<'_>,
     diagnostic: &JsonValue,
     id: &str,
     field: &str,
@@ -794,7 +883,7 @@ fn assert_diagnostic_field(
 ) {
     if let Some(expected) = expected {
         assert_json_equals(
-            case_dir,
+            context,
             diagnostic,
             id,
             field,
@@ -804,7 +893,7 @@ fn assert_diagnostic_field(
 }
 
 fn assert_json_equals(
-    case_dir: &Path,
+    context: &CaseRunContext<'_>,
     json: &JsonValue,
     id: &str,
     path: &str,
@@ -813,7 +902,7 @@ fn assert_json_equals(
     let actual = json_path(json, path).unwrap_or_else(|| {
         panic!(
             "{}: diagnostic `{id}` JSON path `{path}` missing in {:?}",
-            case_dir.display(),
+            context.label(),
             json
         )
     });
@@ -821,7 +910,7 @@ fn assert_json_equals(
         actual,
         expected,
         "{}: diagnostic `{id}` JSON path `{path}` mismatch",
-        case_dir.display()
+        context.label()
     );
 }
 

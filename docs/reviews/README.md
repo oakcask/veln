@@ -5,6 +5,9 @@ gap lists that should guide follow-up work.
 
 ## Read First
 
+- [jvm-bytecode-backend-completion.md](jvm-bytecode-backend-completion.md)
+  records the current completion review for the selected JVM bytecode backend
+  proposal.
 - [agent-language-spec-wall-completion.md](agent-language-spec-wall-completion.md)
   records the completion review for the current design-wall target route.
 - [no-proposal-target-completion.md](no-proposal-target-completion.md)
