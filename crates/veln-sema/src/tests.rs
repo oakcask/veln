@@ -7749,6 +7749,37 @@ fn prelude_helpers_check_direct_expected_return_types() {
 }
 
 #[test]
+fn source_backed_option_map_reports_user_call_site_diagnostics() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn to_int(value: Int) -> Int effects []\n",
+            "  value\n",
+            "end\n",
+            "pub fn main(value: Option(Int)) -> Option(String) effects []\n",
+            "  option_map(value, to_int)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `fn(unknown) -> String`, but found `fn(Int) -> Int`"
+    );
+    let span = diagnostics[0]
+        .span
+        .as_ref()
+        .expect("diagnostic should point at user source");
+    assert_eq!(span.file.as_str(), "main.veln");
+}
+
+#[test]
 fn flows_call_argument_expected_type_into_holes() {
     let source = SourceFile::new(
         "main.veln",

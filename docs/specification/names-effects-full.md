@@ -314,11 +314,13 @@ fails. `int_to_string` renders an integer for display and string composition.
 `option_map` and `option_unwrap_or` are source-backed pure helpers in the
 implemented standard symbol table. The compiler build embeds their shared Veln
 source and records the source path and entry name on each descriptor. The
-current checker still uses the descriptor-backed signature adapter, and the JVM
-backend still lowers each helper through the existing prelude runtime
-operation, so diagnostics stay anchored on user call sites rather than the
-embedded standard library source. Other prelude helpers listed above remain
-descriptor-only unless their descriptors record source metadata.
+embedded source is ordinary Veln source in the `core_prelude` module, with one
+descriptor entry per exported helper entry point. The current checker still
+uses the descriptor-backed signature adapter, and the JVM backend still lowers
+each helper through the existing prelude runtime operation, so diagnostics stay
+anchored on user call sites rather than the embedded standard library source.
+Other prelude helpers listed above remain descriptor-only unless their
+descriptors record source metadata.
 
 The embedded `compiler_support` source contains
 `load_source_text(path: Path) -> Result(String, FsError) effects [fs]`. It is
