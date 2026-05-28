@@ -2,26 +2,29 @@
 
 Status: routing
 
-Use this page when a task asks for the current target proposal or when prompt
-state is missing, stale, broad, or points at implemented history. This page
-routes selection only; it does not define current language behavior.
-
-## Current Target
-
-- `prompts/TARGET.md` is absent.
-- `prompts/NOTARGET` says no implementation target is selected from the
-  current proposals.
-- Result: no active proposal target. Stop before implementation or promotion
-  work unless a later prompt selects one concrete short proposal page.
+Use this page when a task asks for the current target proposal, or when target
+state is missing, stale, broad, exploratory, or points at implemented history.
+This page owns proposal-target classification only; it does not define current
+language behavior.
 
 ## Read First
 
+- Current prompt state has no active proposal target. Stop before
+  implementation or promotion work unless a later prompt selects one concrete
+  short proposal page.
 - Current implemented behavior stays in
   [../specification/README.md](../specification/README.md).
 - An active implementation target must be one short proposal page that names one
   absent behavior.
 - Use [implementation-route.md](implementation-route.md) only after that target
   exists.
+
+## Prompt State
+
+- `prompts/TARGET.md` is absent.
+- `prompts/NOTARGET` says no implementation target is selected from the
+  current proposals.
+- Result: no active proposal target.
 
 ## Selection Algorithm
 
@@ -38,16 +41,16 @@ routes selection only; it does not define current language behavior.
 7. If the behavior is broad, exploratory, or a helper candidate pool, split or
    create one short proposal before treating it as an implementation target.
 
-## Candidate Classes
+## Route By Class
 
-| Class | How to proceed | Current examples |
+| Class | Decision | Next route |
 | --- | --- | --- |
-| No target | Keep selection unset. Stop here or create one short proposal page. | Current prompt state |
-| Active target | Use [implementation-route.md](implementation-route.md). | None |
-| Implemented proposal record | Use the matching specification page for current behavior. Open the proposal only for history, evidence, or cleanup. | [formatter-stabilization.md](formatter-stabilization.md), [jvm-bytecode-backend.md](jvm-bytecode-backend.md), [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md) |
-| Broad follow-up index | Split one implementable short proposal page before implementation. | [reference-followups.md](reference-followups.md) |
-| Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) |
-| Helper candidate pool | Choose exactly one descriptor-only pure helper, then create or select one short proposal page. | [self-hosting-standard-library.md](self-hosting-standard-library.md) |
+| No target | Keep selection unset. | Stop here or create one short proposal page. |
+| Active target | Continue only when selection names one short proposal page. | [implementation-route.md](implementation-route.md). |
+| Implemented proposal record | Use the matching specification page for current behavior. | Open the proposal only for history, evidence, or cleanup: [formatter-stabilization.md](formatter-stabilization.md), [jvm-bytecode-backend.md](jvm-bytecode-backend.md), [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md). |
+| Broad follow-up index | Split one implementable short proposal page before implementation. | [reference-followups.md](reference-followups.md). |
+| Exploratory inventory | Select or create one short proposal page before implementation. | [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md). |
+| Helper candidate pool | Choose exactly one descriptor-only pure helper, then create or select one short proposal page. | [self-hosting-standard-library.md](self-hosting-standard-library.md). |
 
 ## Handoff
 
