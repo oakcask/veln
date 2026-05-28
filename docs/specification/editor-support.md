@@ -62,7 +62,8 @@ The only Veln-specific semantic token modifiers are `test`, `result`, and
 stdio JSON-RPC server. The server advertises `textDocumentSync` and
 `semanticTokensProvider` with full-document semantic token support. It handles
 `initialize`, `initialized`, `shutdown`, `exit`, `textDocument/didOpen`,
-`textDocument/didChange`, and `textDocument/semanticTokens/full`.
+`textDocument/didChange`, `textDocument/didClose`, and
+`textDocument/semanticTokens/full`.
 
 The full response uses LSP relative integer encoding in groups of five:
 
@@ -104,6 +105,10 @@ The extension also registers a `veln` diagnostic collection. It listens for
 `textDocument/publishDiagnostics` messages from the language server and mirrors
 them into VSCode diagnostics so syntax and checker diagnostics appear in the
 Problems pane.
+
+The `veln.server.trace` setting controls protocol tracing in the Veln output
+channel. `messages` logs compact request, notification, and response summaries.
+`verbose` logs JSON messages with large document text redacted.
 
 ## Boundaries
 

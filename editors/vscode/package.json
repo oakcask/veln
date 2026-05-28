@@ -102,6 +102,16 @@
             "lsp"
           ],
           "description": "Arguments passed to the Veln language server executable."
+        },
+        "veln.server.trace": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Controls Veln language server protocol tracing in the Veln output channel."
         }
       }
     }

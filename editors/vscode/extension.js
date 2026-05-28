@@ -26,13 +26,18 @@ const tokenModifiers = [
 ];
 
 class VelnLanguageServer {
-  constructor(command, args, cwd, output, onDiagnostics) {
+  constructor(command, args, cwd, output, trace, onDiagnostics, onClearDiagnostics) {
     this.nextId = 1;
     this.pending = new Map();
     this.buffer = Buffer.alloc(0);
     this.output = output;
+    this.trace = trace;
     this.onDiagnostics = onDiagnostics;
+    this.onClearDiagnostics = onClearDiagnostics;
     this.syncedDocuments = new Map();
+    this.traceLine(
+      `starting server command=${JSON.stringify(command)} args=${JSON.stringify(args)} cwd=${JSON.stringify(cwd)}`,
+    );
     this.process = childProcess.spawn(command, args, {
       cwd,
       stdio: ["pipe", "pipe", "pipe"],
@@ -43,12 +48,15 @@ class VelnLanguageServer {
     });
     this.process.on("error", (error) => {
       this.output.appendLine(`Failed to start Veln language server: ${error.message}`);
+      this.onClearDiagnostics();
       for (const { reject } of this.pending.values()) {
         reject(error);
       }
       this.pending.clear();
     });
-    this.process.on("exit", () => {
+    this.process.on("exit", (code, signal) => {
+      this.traceLine(`server exited code=${code} signal=${signal}`);
+      this.onClearDiagnostics();
       for (const { reject } of this.pending.values()) {
         reject(new Error("Veln language server exited"));
       }
@@ -60,6 +68,7 @@ class VelnLanguageServer {
   }
 
   dispose() {
+    this.onClearDiagnostics();
     this.sendRequest("shutdown", {})
       .catch(() => undefined)
       .finally(() => {
@@ -108,23 +117,27 @@ class VelnLanguageServer {
   }
 
   sendNotification(method, params) {
-    this.write({
+    const message = {
       jsonrpc: "2.0",
       method,
       params,
-    });
+    };
+    this.traceMessage("client", message);
+    this.write(message);
   }
 
   sendRequest(method, params) {
     const id = this.nextId++;
-    this.write({
+    const message = {
       jsonrpc: "2.0",
       id,
       method,
       params,
-    });
+    };
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
+      this.traceMessage("client", message);
+      this.write(message);
     });
   }
 
@@ -157,7 +170,15 @@ class VelnLanguageServer {
       }
       const body = this.buffer.slice(bodyStart, bodyEnd).toString();
       this.buffer = this.buffer.slice(bodyEnd);
-      this.handleMessage(JSON.parse(body));
+      let message;
+      try {
+        message = JSON.parse(body);
+      } catch (error) {
+        this.output.appendLine(`Failed to parse Veln language server message: ${error.message}`);
+        continue;
+      }
+      this.traceMessage("server", message);
+      this.handleMessage(message);
     }
   }
 
@@ -181,6 +202,63 @@ class VelnLanguageServer {
       pending.resolve(message.result);
     }
   }
+
+  traceLine(line) {
+    if (this.trace === "off") {
+      return;
+    }
+    this.output.appendLine(`[lsp] ${line}`);
+  }
+
+  traceMessage(direction, message) {
+    if (this.trace === "off") {
+      return;
+    }
+    if (this.trace === "verbose") {
+      this.output.appendLine(`[lsp:${direction}] ${summarizeJson(message)}`);
+      return;
+    }
+    this.output.appendLine(`[lsp:${direction}] ${summarizeMessage(message)}`);
+  }
+}
+
+function summarizeMessage(message) {
+  const id = message.id === undefined ? "" : ` id=${message.id}`;
+  if (message.method) {
+    return `${message.method}${id}`;
+  }
+  if (message.error) {
+    return `response${id} error=${message.error.message}`;
+  }
+  if (message.result?.data) {
+    return `response${id} result.data.length=${message.result.data.length}`;
+  }
+  return `response${id} ok`;
+}
+
+function summarizeJson(value) {
+  const json = JSON.stringify(redactLargeText(value));
+  if (json.length <= 4000) {
+    return json;
+  }
+  return `${json.slice(0, 4000)}...`;
+}
+
+function redactLargeText(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactLargeText(item));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => [
+        key,
+        key === "text" && typeof child === "string"
+          ? `<${child.length} chars>`
+          : redactLargeText(child),
+      ]),
+    );
+  }
+  return value;
 }
 
 function workspaceFolderPath() {
@@ -204,19 +282,10 @@ function resolveServerArguments(args) {
 
 function applyDiagnostics(collection, params) {
   const uri = vscode.Uri.parse(params.uri);
-  const diagnostics = params.diagnostics.map((diagnostic) => {
+  const diagnostics = (params.diagnostics ?? []).map((diagnostic) => {
     const item = new vscode.Diagnostic(
-      new vscode.Range(
-        new vscode.Position(
-          diagnostic.range.start.line,
-          diagnostic.range.start.character,
-        ),
-        new vscode.Position(
-          diagnostic.range.end.line,
-          diagnostic.range.end.character,
-        ),
-      ),
-      diagnostic.message,
+      toRange(diagnostic.range),
+      diagnostic.message ?? "",
       toDiagnosticSeverity(diagnostic.severity),
     );
     item.code = diagnostic.code;
@@ -224,6 +293,21 @@ function applyDiagnostics(collection, params) {
     return item;
   });
   collection.set(uri, diagnostics);
+}
+
+function toRange(range) {
+  const start = range?.start ?? {};
+  const end = range?.end ?? start;
+  return new vscode.Range(
+    new vscode.Position(
+      Math.max(0, start.line ?? 0),
+      Math.max(0, start.character ?? 0),
+    ),
+    new vscode.Position(
+      Math.max(0, end.line ?? start.line ?? 0),
+      Math.max(0, end.character ?? start.character ?? 0),
+    ),
+  );
 }
 
 function toDiagnosticSeverity(severity) {
@@ -246,18 +330,18 @@ function activate(context) {
   const diagnostics = vscode.languages.createDiagnosticCollection("veln");
   context.subscriptions.push(output);
   context.subscriptions.push(diagnostics);
-  const command = vscode.workspace
-    .getConfiguration("veln")
-    .get("server.path", "veln");
-  const args = vscode.workspace
-    .getConfiguration("veln")
-    .get("server.arguments", ["lsp"]);
+  const config = vscode.workspace.getConfiguration("veln");
+  const command = config.get("server.path", "veln");
+  const args = config.get("server.arguments", ["lsp"]);
+  const trace = config.get("server.trace", "off");
   const server = new VelnLanguageServer(
     resolveServerCommand(command),
     resolveServerArguments(args),
     workspaceFolderPath(),
     output,
+    trace,
     (params) => applyDiagnostics(diagnostics, params),
+    () => diagnostics.clear(),
   );
   const legend = new vscode.SemanticTokensLegend(tokenTypes, tokenModifiers);
   const provider = {
@@ -311,6 +395,8 @@ module.exports = {
   _test: {
     VelnLanguageServer,
     applyDiagnostics,
+    summarizeMessage,
+    summarizeJson,
     toDiagnosticSeverity,
   },
 };

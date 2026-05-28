@@ -96,6 +96,8 @@ test("syncs open documents with didOpen and later didChange", () => {
     ["lsp"],
     "project",
     new FakeOutputChannel(),
+    "off",
+    () => {},
     () => {},
   );
   const document = fakeDocument({
@@ -119,13 +121,18 @@ test("syncs open documents with didOpen and later didChange", () => {
 
 test("closes synced documents and publishes server diagnostics callbacks", () => {
   const diagnostics = [];
+  let cleared = false;
   const { exports, spawnedProcesses } = loadExtension();
   const server = new exports._test.VelnLanguageServer(
     "veln",
     ["lsp"],
     "project",
     new FakeOutputChannel(),
+    "off",
     (params) => diagnostics.push(params),
+    () => {
+      cleared = true;
+    },
   );
   const document = fakeDocument({
     uri: "file://main.veln",
@@ -151,6 +158,106 @@ test("closes synced documents and publishes server diagnostics callbacks", () =>
   assert.deepEqual(JSON.parse(JSON.stringify(diagnostics)), [
     { uri: document.uri.toString(), diagnostics: [] },
   ]);
+  assert.equal(cleared, false);
+});
+
+test("traces compact protocol messages and redacts verbose document text", () => {
+  const { exports, spawnedProcesses } = loadExtension();
+  const output = new FakeOutputChannel();
+  const server = new exports._test.VelnLanguageServer(
+    "veln",
+    ["lsp"],
+    "project",
+    output,
+    "messages",
+    () => {},
+    () => {},
+  );
+  const document = fakeDocument({
+    uri: "file://main.veln",
+    version: 1,
+    text: "fn main() -> Int\n  1\nend\n",
+  });
+
+  server.syncDocument(document);
+  spawnedProcesses[0].stdout.emit(
+    "data",
+    frame({
+      jsonrpc: "2.0",
+      id: 1,
+      result: {},
+    }),
+  );
+
+  assert.match(output.lines[0], /^\[lsp\] starting server command=/);
+  assert(output.lines.includes("[lsp:client] initialize id=1"));
+  assert(output.lines.includes("[lsp:client] textDocument/didOpen"));
+  assert(output.lines.includes("[lsp:server] response id=1 ok"));
+
+  const verbose = exports._test.summarizeJson({
+    params: {
+      textDocument: {
+        text: "fn main() -> Int\n  1\nend\n",
+      },
+    },
+  });
+  assert.match(verbose, /"<\d+ chars>"/);
+  assert(!verbose.includes("fn main()"));
+});
+
+test("keeps reading messages after malformed server JSON", () => {
+  const diagnostics = [];
+  const { exports, spawnedProcesses } = loadExtension();
+  const output = new FakeOutputChannel();
+  new exports._test.VelnLanguageServer(
+    "veln",
+    ["lsp"],
+    "project",
+    output,
+    "off",
+    (params) => diagnostics.push(params),
+    () => {},
+  );
+
+  spawnedProcesses[0].stdout.emit(
+    "data",
+    Buffer.from("Content-Length: 1\r\n\r\n{"),
+  );
+  spawnedProcesses[0].stdout.emit(
+    "data",
+    frame({
+      jsonrpc: "2.0",
+      method: "textDocument/publishDiagnostics",
+      params: { uri: "file://main.veln", diagnostics: [] },
+    }),
+  );
+
+  assert.equal(output.lines.length, 1);
+  assert.match(output.lines[0], /^Failed to parse Veln language server message:/);
+  assert.deepEqual(JSON.parse(JSON.stringify(diagnostics)), [
+    { uri: "file://main.veln", diagnostics: [] },
+  ]);
+});
+
+test("clears diagnostics when the server exits", () => {
+  let cleared = false;
+  const { exports, spawnedProcesses } = loadExtension();
+  new exports._test.VelnLanguageServer(
+    "veln",
+    ["lsp"],
+    "project",
+    new FakeOutputChannel(),
+    "off",
+    () => {},
+    () => {
+      cleared = true;
+    },
+  );
+
+  spawnedProcesses[0].stdout.emit("data", frame({ jsonrpc: "2.0", id: 1, result: {} }));
+  spawnedProcesses[0].emit("exit", 1, null);
+
+  assert.equal(cleared, true);
 });
 
 function loadExtension() {
@@ -237,8 +344,17 @@ class FakeDiagnosticCollection {
 }
 
 class FakeOutputChannel {
-  append() {}
-  appendLine() {}
+  constructor() {
+    this.lines = [];
+  }
+
+  append(message) {
+    this.lines.push(message);
+  }
+
+  appendLine(message) {
+    this.lines.push(message);
+  }
 }
 
 class FakeChildProcess extends EventEmitter {
