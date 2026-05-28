@@ -24,6 +24,8 @@ pub(crate) enum Command {
         json: bool,
         apply: bool,
         candidate_id: Option<String>,
+        confirm_id: Option<String>,
+        override_requested: bool,
         inputs: Vec<PathBuf>,
     },
     Explain {
@@ -145,6 +147,8 @@ impl Command {
                 json: matches.get_flag("json"),
                 apply: matches.get_flag("apply"),
                 candidate_id: matches.get_one::<String>("candidate").cloned(),
+                confirm_id: matches.get_one::<String>("confirm").cloned(),
+                override_requested: matches.get_flag("override"),
                 inputs: path_values(matches, "inputs"),
             }),
             Some(("explain", matches)) => Ok(Self::Explain {
@@ -247,6 +251,22 @@ fn app() -> ClapCommand {
                         .help("Repair candidate id to apply or select")
                         .value_name("CANDIDATE_ID")
                         .num_args(1),
+                )
+                .arg(
+                    Arg::new("confirm")
+                        .long("confirm")
+                        .help("Confirm a repair candidate id before applying")
+                        .value_name("CANDIDATE_ID")
+                        .requires("apply")
+                        .num_args(1),
+                )
+                .arg(
+                    Arg::new("override")
+                        .long("override")
+                        .help("Apply a confirmed manual-review repair candidate")
+                        .requires("apply")
+                        .requires("confirm")
+                        .action(ArgAction::SetTrue),
                 )
                 .arg(
                     Arg::new("inputs")
@@ -387,13 +407,13 @@ fn reject_unknown_repair_flags<'a>(args: impl Iterator<Item = &'a String>) -> Re
     let mut args = args.peekable();
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--json" | "--apply" | "--dry-run" | "--help" | "-h" => {}
-            "--candidate" => {
+            "--json" | "--apply" | "--dry-run" | "--override" | "--help" | "-h" => {}
+            "--candidate" | "--confirm" => {
                 let Some(value) = args.next() else {
-                    return Err("repair flag `--candidate` requires a value".to_string());
+                    return Err(format!("repair flag `{arg}` requires a value"));
                 };
                 if value.starts_with('-') {
-                    return Err("repair flag `--candidate` requires a value".to_string());
+                    return Err(format!("repair flag `{arg}` requires a value"));
                 }
             }
             flag if flag.starts_with('-') => return Err(format!("unknown repair flag `{flag}`")),
@@ -676,6 +696,8 @@ mod tests {
             json,
             apply,
             candidate_id,
+            confirm_id,
+            override_requested,
             inputs,
         } = command
         else {
@@ -685,6 +707,39 @@ mod tests {
         assert!(json);
         assert!(apply);
         assert_eq!(candidate_id.as_deref(), Some("repair-1"));
+        assert_eq!(confirm_id, None);
+        assert!(!override_requested);
+        assert_eq!(inputs, [PathBuf::from("src/main.veln")]);
+    }
+
+    #[test]
+    fn repair_parser_accepts_confirmed_override() {
+        let command = parse(&[
+            "repair",
+            "--apply",
+            "--override",
+            "--confirm",
+            "symbol-1",
+            "src/main.veln",
+        ])
+        .expect("confirmed override should parse");
+
+        let Command::Repair {
+            apply,
+            candidate_id,
+            confirm_id,
+            override_requested,
+            inputs,
+            ..
+        } = command
+        else {
+            panic!("expected repair command");
+        };
+
+        assert!(apply);
+        assert_eq!(candidate_id, None);
+        assert_eq!(confirm_id.as_deref(), Some("symbol-1"));
+        assert!(override_requested);
         assert_eq!(inputs, [PathBuf::from("src/main.veln")]);
     }
 

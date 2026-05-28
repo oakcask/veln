@@ -226,6 +226,8 @@ fn cli_prints_help_for_empty_invocation_and_subcommand_help() {
         "      --apply                     Apply one safe repair candidate\n",
         "      --dry-run                   Preview repair candidates without writing files\n",
         "      --candidate <CANDIDATE_ID>  Repair candidate id to apply or select\n",
+        "      --confirm <CANDIDATE_ID>    Confirm a repair candidate id before applying\n",
+        "      --override                  Apply a confirmed manual-review repair candidate\n",
         "  -h, --help                      Print help\n",
     );
     let explain_expected = concat!(
@@ -2485,6 +2487,69 @@ fn repair_refuses_manual_review_candidates() {
         &["repair refused: no safe unapplied repair candidates"],
     );
     assert_eq!(project.read("main.veln"), source);
+}
+
+#[test]
+fn repair_refuses_manual_review_candidate_without_override() {
+    let project = TestProject::new("repair-refuses-manual-review-confirmed");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+
+    let output = project.repair(&["--apply", "--confirm", "symbol-1", "main.veln"]);
+
+    assert!(!output.status.success(), "{}", stdout(&output));
+    assert_contains_all(
+        stdout(&output),
+        &["repair refused: candidate is not safe to apply automatically"],
+    );
+    assert_eq!(project.read("main.veln"), source);
+}
+
+#[test]
+fn repair_override_applies_manual_review_candidate_and_records_confirmation() {
+    let project = TestProject::new("repair-override-manual-review");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  _value\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.repair(&[
+        "--json",
+        "--apply",
+        "--override",
+        "--confirm",
+        "symbol-1",
+        "main.veln",
+    ]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"applied\"",
+            "\"confirmation\":{\"confirmed_candidate_id\":\"symbol-1\",\"repair_id\":\"repair-1\",\"source_candidate_id\":\"symbol-1\",\"override\":true}",
+            "\"override\":{\"application_policy\":\"manual_review_required\",\"application_status\":\"unapplied\"",
+            "\"accepted_obligations\":[\"manual_review_required\"",
+            "\"verification\":{\"status\":\"passed\"",
+        ],
+    );
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  order\n",
+            "end\n",
+        )
+    );
 }
 
 #[test]

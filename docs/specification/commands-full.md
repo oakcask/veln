@@ -187,7 +187,7 @@ available.
 
 <a id="veln-repair"></a>
 
-## `veln repair [--json] [--apply | --dry-run] [--candidate CANDIDATE_ID] [path ...]`
+## `veln repair [--json] [--apply | --dry-run] [--candidate CANDIDATE_ID] [--confirm CANDIDATE_ID] [--override] [path ...]`
 
 `repair` uses the same source discovery and static analysis path as `check` to
 collect advisory hole repair candidates. Without `--apply`, the command is a
@@ -215,6 +215,21 @@ candidate input is not a write authorization: each non-empty replacement edit
 in the selected saved candidate must match current safe evidence with the same
 advisory id before the command writes a file.
 
+`--confirm CANDIDATE_ID` records explicit user confirmation for the selected
+candidate before writing. When `--candidate` and `--confirm` are both present,
+both ids must resolve to the same command-level candidate. If `--candidate` is
+omitted, `--confirm` may select the candidate to apply.
+
+`--override` is a separate write authority for manual-review candidates and
+requires `--confirm`. With override, the selected candidate may have
+`application_policy: "manual_review_required"`, but it must still have
+`application_status: "unapplied"`, a confirmed id, valid replacement targets,
+non-overlapping edits, and passing post-edit check analysis. Override does not
+partially apply candidates and does not skip span, hole-target, rollback, or
+verification gates. Saved candidate input remains advisory unless either the
+current safe-evidence gate passes or the user supplies the explicit override
+and confirmation flags.
+
 The implemented edit representation is one or more source-relative
 replacements. A selected candidate may write multiple spans in one source file
 or spans across multiple source files. Replacement targets must still be within
@@ -223,8 +238,7 @@ targets must still name holes. Explicit empty replacements are accepted only
 for current `satisfy` suffix removal. Edits in the same file must not overlap.
 For a single hole replacement with no explicit suffix-removal edit, applying
 the repair also replaces the hole's `satisfy` suffix with the candidate
-replacement. User-confirmed overrides and partial application are not
-implemented.
+replacement. Partial application is not implemented.
 
 After writing, `repair --apply` reruns the same check analysis over the selected
 inputs. If verification reports any error diagnostic, the command restores the

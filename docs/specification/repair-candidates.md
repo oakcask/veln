@@ -16,11 +16,15 @@ repair, candidate edits, applying edits, or the repair command.
 - `veln repair` previews command-level repair records and can apply one safe
   unapplied advisory candidate after rerunning check analysis. One selected
   candidate may contain multiple replacement edits and may touch more than one
-  source file. Confirmation, override, and partial application remain outside
-  the implemented boundary.
+  source file.
+- `veln repair --apply --override --confirm CANDIDATE_ID` can apply one
+  explicitly confirmed manual-review candidate while recording the override.
+  The override path does not skip target-shape, stale-span, overlap,
+  rollback, or post-edit verification gates.
 - The command can load candidate input from current source analysis or saved
   repair JSON files. Saved inputs do not authorize writes by themselves; apply
-  still requires a matching current safe candidate.
+  still requires either a matching current safe candidate or explicit override
+  confirmation.
 
 ## Concept Map
 
@@ -41,6 +45,11 @@ repair, candidate edits, applying edits, or the repair command.
   invocation, but selection may also match the saved command-level id.
 - `verification_hint` names the check to run after a human or command applies
   candidate edits.
+- `--confirm` records the user-confirmed id that resolved to the selected
+  candidate.
+- `--override` accepts a non-safe manual-review policy only with explicit
+  confirmation and records the accepted policy, status, and advisory blocking
+  obligations.
 
 ## Input Route
 
@@ -65,8 +74,7 @@ repair, candidate edits, applying edits, or the repair command.
 - `repair --json` output: [repair-json.md](repair-json.md).
 - Rationale for keeping advisory candidates separate from edit application:
   [source-decisions.md](source-decisions.md).
-- Remaining proposal material for confirmation, override, and broader applying
-  workflows:
+- Proposal route for broader applying workflows:
   [../proposals/agent-language-spec-wall/repair-command.md](../proposals/agent-language-spec-wall/repair-command.md).
 
 ## Read When
@@ -112,9 +120,26 @@ If verification fails after writing, every source file written by the candidate
 is restored. Hint-only partial status, including remaining holes elsewhere,
 does not by itself roll back the edit.
 
+## Confirmation And Override
+
+`--confirm CANDIDATE_ID` records explicit user confirmation for the selected
+candidate. When `--candidate` is also present, both ids must resolve to the same
+candidate; otherwise application refuses before writing.
+
+`--override` requires `--confirm` and permits a selected
+`manual_review_required` candidate to pass the application-policy gate. The
+selected candidate must still be `unapplied`, and every replacement target must
+pass the same source-relative, current-span, hole-target, explicit empty
+replacement, non-overlap, rollback, and post-edit verification rules as the
+safe path. Override may accept saved candidate input without matching current
+safe evidence, but only after those target and verification gates pass.
+
+Successful JSON output records `confirmation` and, when override was used,
+`override`. Refusals do not write files and leave those records null.
+
 ## Remaining Proposal Boundary
 
-Do not promote confirmation, override, partial application, or broader automatic
-repair behavior into this specification until the behavior is implemented and
-tested. Until then, keep that material in
+Do not promote partial application or broader automatic repair behavior into
+this specification until the behavior is implemented and tested. The current
+proposal route for that work is
 [../proposals/agent-language-spec-wall/repair-command.md](../proposals/agent-language-spec-wall/repair-command.md).

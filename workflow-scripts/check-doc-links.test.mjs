@@ -31,6 +31,58 @@ test("repository documentation does not route through ignored prompt files", () 
   assert.deepEqual(promptReferences, []);
 });
 
+test("repair proposal route covers the completed confirmation target", () => {
+  const proposal = readDocsFile(
+    "proposals/agent-language-spec-wall/repair-command.md",
+  );
+  const repairCandidates = readDocsFile("specification/repair-candidates.md");
+  const openQuestions = readDocsFile(
+    "proposals/agent-language-spec-wall/open-questions.md",
+  );
+
+  assertIncludes(
+    proposal,
+    "Status: confirmation and override target implemented",
+  );
+  assertIncludes(proposal, "## Completed Target");
+  assertIncludes(
+    proposal,
+    "The confirmation and override protocol for `veln repair` is implemented",
+  );
+  assertIncludes(proposal, "`--confirm CANDIDATE_ID`");
+  assertIncludes(proposal, "`--override` requires `--confirm`");
+  assertIncludes(proposal, "../../specification/repair-candidates.md");
+  assertIncludes(proposal, "../../specification/repair-json.md");
+  assertIncludes(proposal, "../../specification/commands.md");
+  assertIncludes(proposal, "../../specification/holes.md");
+  assertIncludes(proposal, "../../specification/diagnostics-json.md");
+  assertIncludes(proposal, "## Deferred Adjacent Work");
+  assertIncludes(proposal, "Verification commands beyond the built-in");
+  assertIncludes(proposal, "Partial application and general automatic repair");
+
+  assertIncludes(
+    repairCandidates,
+    "`veln repair --apply --override --confirm CANDIDATE_ID`",
+  );
+  assertIncludes(
+    repairCandidates,
+    "../proposals/agent-language-spec-wall/repair-command.md",
+  );
+  assertIncludes(
+    repairCandidates,
+    "Do not promote partial application or broader automatic",
+  );
+
+  assertIncludes(
+    openQuestions,
+    "Implemented repair-loop confirmation and explicit override protocol",
+  );
+  assertIncludes(
+    openQuestions,
+    "Broader repair-loop ranking, verification, partial application",
+  );
+});
+
 test("reports missing markdown files and anchors", () => {
   using fixture = tempDocs("doc-links-broken");
   fixture.write(
@@ -138,6 +190,17 @@ function tempDocs(name) {
       fs.rmSync(root, { force: true, recursive: true });
     },
   };
+}
+
+function readDocsFile(relativePath) {
+  return fs.readFileSync(path.join("docs", relativePath), "utf8");
+}
+
+function assertIncludes(text, expected) {
+  assert.ok(
+    text.includes(expected),
+    `expected documentation to include: ${expected}`,
+  );
 }
 
 function listMarkdownFiles(root) {

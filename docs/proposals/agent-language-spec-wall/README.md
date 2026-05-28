@@ -8,10 +8,11 @@ current workspace. Implemented decisions were moved to
 
 ## Read First
 
-- [repair-command.md](repair-command.md) routes remaining repair command
-  proposal work after pointing to current advisory candidate and repair command
-  specification pages; open [repair-command-full.md](repair-command-full.md)
-  only for previous completion and handoff criteria.
+- [repair-command.md](repair-command.md) records the completed confirmation and
+  override protocol target after pointing to current advisory candidate and
+  repair command specification pages; open
+  [repair-command-full.md](repair-command-full.md) only for previous completion
+  and handoff criteria.
 - [design-brief.md](design-brief.md) routes to the broad thesis and
   first-slice design anchors; open
   [design-brief-full.md](design-brief-full.md) only for the original brief.
@@ -25,8 +26,10 @@ current workspace. Implemented decisions were moved to
 
 - Implemented grammar, concurrency, effect-label, and comparison-task decisions
   now live under `../../reference/`.
-- Unresolved design-wall targets may be chosen as proposal work when the
-  current specification does not already cover the behavior.
+- The repair-command confirmation and explicit override target is implemented.
+  Broader verification commands, ranking models, partial application, and
+  general automatic repair behavior stay deferred unless a short proposal page
+  selects them.
 - Completion review:
   [../../reviews/agent-language-spec-wall-completion.md](../../reviews/agent-language-spec-wall-completion.md).
 - Use [../../reference/source-decisions/README.md](../../reference/source-decisions/README.md)

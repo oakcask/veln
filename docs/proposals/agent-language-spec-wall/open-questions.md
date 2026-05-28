@@ -28,9 +28,11 @@ full question inventory is kept in [open-questions-full.md](open-questions-full.
 
 - Implementation readiness, parser, checker, runtime, and diagnostics:
   [open-questions-full.md#implementation-readiness](open-questions-full.md#implementation-readiness).
-- Remaining repair-loop command boundary, candidate schema, edit
-  representation, ranking, and confirmation protocol:
+- Implemented repair-loop confirmation and explicit override protocol:
   [repair-command.md](repair-command.md).
+- Broader repair-loop ranking, verification, partial application, and automatic
+  application questions stay deferred unless [repair-command.md](repair-command.md)
+  selects them.
 - Surface syntax, types, runtime, contracts, effects, holes, toolchain, and
   module documentation topics:
   [open-questions-full.md#surface-syntax](open-questions-full.md#surface-syntax).
