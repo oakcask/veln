@@ -1,10 +1,10 @@
 # Repair Command Proposal Detail
 
-Status: implemented
+Status: implemented first command boundary
 
 This file keeps the detailed completion and remaining-work record for the
 repair command. Start with [repair-command.md](repair-command.md); read this
-file only when auditing the promotion or planning later repair-loop expansion.
+file only when auditing the first command promotion.
 
 ## Completion Conditions
 
@@ -38,7 +38,7 @@ The first applying command boundary is implemented. Use
 [../../specification/repair-json.md](../../specification/repair-json.md) for
 current behavior.
 
-Next work should treat saved candidate files, confirmation and override,
-multi-file edits, partial application, and external verification commands as
-new proposal work before promoting any broader behavior into
-`../../specification/`.
+Use [repair-command.md](repair-command.md) for the saved candidate input target
+and adjacent command-level proposal work. Do not promote broader repair-loop
+behavior into `../../specification/` before implementation and tests support
+it.

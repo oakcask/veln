@@ -17,6 +17,8 @@ repair, candidate edits, applying edits, or the repair command.
   unapplied advisory candidate after rerunning check analysis. Confirmation,
   override, saved candidate files, multi-file edits, and partial application
   remain outside the implemented boundary.
+- The command recomputes candidate input from current source analysis. It does
+  not consume saved candidate files.
 
 ## Concept Map
 
@@ -83,4 +85,5 @@ itself roll back the edit.
 Do not promote confirmation, override, saved candidate files, multi-file edit
 application, partial application, or broader automatic repair behavior into
 this specification until the behavior is implemented and tested. Until then,
-keep that material in proposal text.
+keep that material in
+[../proposals/agent-language-spec-wall/repair-command.md](../proposals/agent-language-spec-wall/repair-command.md).
