@@ -11,6 +11,9 @@ does not define current language behavior or implementation steps.
 
 - Current decision: no active proposal target; the routing decision itself is
   complete for implementation prompts.
+- When a task asks to implement the current target and no target is selected,
+  the completion condition is this no-target routing outcome, not code,
+  proposal promotion, or target invention.
 - Use the evidence and outcome table below before opening candidate pages.
 - Continue to [implementation-route.md](implementation-route.md) only after one
   short proposal page names one absent behavior.

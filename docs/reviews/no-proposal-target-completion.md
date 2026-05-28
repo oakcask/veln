@@ -22,6 +22,11 @@ promote. The correct action is routing only: keep current behavior under
 records, and treat implementation prompts as complete without code, promotion,
 or specification changes.
 
+When a task asks to satisfy the target proposal completion criteria, this review
+is the completion evidence for the no-target state. A new implementation target
+requires a separate short proposal selection before any code or specification
+promotion work starts.
+
 ## Verification
 
 - Checked `../proposals/target-selection.md`.
