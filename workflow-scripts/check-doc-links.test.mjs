@@ -83,6 +83,47 @@ test("repair proposal route covers the completed confirmation target", () => {
   );
 });
 
+test("self-hosting proposal route starts from the implemented helper split", () => {
+  const proposal = readDocsFile("proposals/self-hosting-standard-library.md");
+  const fullProposal = readDocsFile(
+    "proposals/self-hosting-standard-library-full.md",
+  );
+  const namesEffects = readDocsFile("specification/names-effects.md");
+  const namesEffectsFull = readDocsFile("specification/names-effects-full.md");
+
+  assertIncludes(
+    proposal,
+    "shows that the helper is still descriptor-only",
+  );
+  assertIncludes(proposal, "## Decision Route");
+  assertIncludes(
+    proposal,
+    "Confirm the helper is in the descriptor-only pure-helper list",
+  );
+  assertIncludes(proposal, "## Candidate Guardrails");
+  assertIncludes(proposal, "../specification/names-effects.md");
+  assertIncludes(proposal, "../specification/source-surface.md");
+  assertIncludes(
+    proposal,
+    "self-hosting-standard-library-full.md#remaining-pure-helper-candidates",
+  );
+
+  assertIncludes(
+    fullProposal,
+    "Remaining source-backed prelude work chooses from the descriptor-only pure",
+  );
+  assertIncludes(namesEffects, "Choosing the next descriptor-only helper");
+  assertIncludes(namesEffectsFull, "### Source-Backed Boundary");
+  assertIncludes(
+    namesEffectsFull,
+    "source-backed pure helpers: `vec_len`, `vec_is_empty`",
+  );
+  assertIncludes(
+    namesEffectsFull,
+    "descriptor-only pure helpers: `vec_map`, `vec_filter`",
+  );
+});
+
 test("reports missing markdown files and anchors", () => {
   using fixture = tempDocs("doc-links-broken");
   fixture.write(

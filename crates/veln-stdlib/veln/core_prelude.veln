@@ -1,7 +1,19 @@
 mod core_prelude
 
+fn vec_len(items: Vec(A)) -> Int effects []
+	vec_fold(items, 0, vec_len_step)
+end
+
+fn vec_len_step(count: Int, item: A) -> Int effects []
+	count + 1
+end
+
 fn vec_is_empty(items: Vec(A)) -> Bool effects []
 	vec_len(items) == 0
+end
+
+fn vec_push(items: Vec(A), value: A) -> Vec(A) effects []
+	vec_concat(items, [value])
 end
 
 fn vec_concat(left: Vec(A), right: Vec(A)) -> Vec(A) effects []

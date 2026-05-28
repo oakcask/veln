@@ -26,6 +26,9 @@ compiler-known calls.
 
 - Confirming source-backed versus descriptor-only status before proposal work:
   [names-effects-full.md](names-effects-full.md#source-backed-boundary).
+- Choosing the next descriptor-only helper for self-hosting work:
+  [names-effects-full.md](names-effects-full.md#source-backed-boundary),
+  then [source-surface.md](source-surface.md).
 - Checking helper signatures before changing the prelude adapter:
   [names-effects-full.md](names-effects-full.md#helper-signatures).
 - Checking standard symbol descriptor metadata:

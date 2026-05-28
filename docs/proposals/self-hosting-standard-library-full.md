@@ -20,8 +20,8 @@ proposal, defines implemented helper signatures, value semantics, source
 metadata, diagnostics, descriptor table behavior, and the current
 source-backed versus descriptor-only split.
 
-Future work should preserve the implemented pattern without restating helper
-semantics here:
+After the specification identifies the candidate and source surface route,
+preserve the implemented pattern without restating helper semantics here:
 
 - choose a helper whose signature and value semantics are already implemented
 - add ordinary Veln source beside other core prelude source
@@ -33,15 +33,11 @@ semantics here:
 
 ## Remaining Pure Helper Candidates
 
-Remaining source-backed prelude work should choose from helpers that satisfy
-the migration pattern above. The proposal changes only where reusable helper
-bodies can live and what descriptor metadata records about that source.
+Remaining source-backed prelude work chooses from the descriptor-only pure
+helpers listed in `../specification/names-effects.md`. Prefer a candidate when
+the specification already provides its signature, value semantics, and
+descriptor-only status, and when:
 
-Prefer a candidate when:
-
-- it is listed as a descriptor-only pure prelude helper in
-  `../specification/names-effects.md`
-- its signature and value semantics are already specified there
 - its behavior is expressible in existing Veln source
 - it needs no new effect label, runtime boundary, parser feature, or public
   complexity promise

@@ -2,10 +2,9 @@
 
 Status: proposed
 
-This page routes the active source-backed standard library proposal work.
-Implemented standard symbols, effects, compiler-known calls, helper semantics,
-and already source-backed helpers live in
-[../specification/names-effects.md](../specification/names-effects.md).
+This page routes the active source-backed standard library proposal work. Use
+it only after [../specification/names-effects.md](../specification/names-effects.md)
+shows that the helper is still descriptor-only.
 
 ## Current Target
 
@@ -14,23 +13,25 @@ source-backed helper model. The proposal changes helper source placement and
 descriptor metadata only; implemented signatures, value semantics, and the
 current source-backed split remain specification material.
 
-Read these in order for the next helper:
+## Decision Route
 
-- current helper behavior and descriptor-only versus source-backed split:
-  [../specification/names-effects.md](../specification/names-effects.md)
-- current source syntax available for the embedded helper body:
-  [../specification/source-surface.md](../specification/source-surface.md)
-- migration pattern and candidate filter:
-  [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates)
+1. Confirm the helper is in the descriptor-only pure-helper list in
+   [../specification/names-effects.md](../specification/names-effects.md).
+2. Confirm its implemented signature and value semantics on that same
+   specification route.
+3. Check [../specification/source-surface.md](../specification/source-surface.md)
+   for the source forms needed by the embedded body.
+4. Use
+   [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates)
+   only for migration mechanics and future-work boundaries.
 
-## Read First
+## Candidate Guardrails
 
-- Use [../specification/names-effects.md](../specification/names-effects.md)
-  first for all current standard symbol behavior.
-- Use
-  [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates)
-  only after the specification identifies a descriptor-only helper whose
-  behavior is already implemented.
+A valid target changes only source placement and descriptor metadata for one
+already implemented descriptor-only pure helper. It must not require new
+effects, runtime boundaries, parser features, module loading, source-level
+effect handlers, streaming, subprocess behavior, or public container
+representation guarantees.
 
 ## Read When
 
@@ -41,17 +42,9 @@ Read these in order for the next helper:
 - Checking whether a standard-library idea is current behavior or still future
   proposal work.
 
-## Candidate Rule
-
-A valid target is a pure prelude helper that already has an implemented
-signature and value semantics, is still descriptor-only, can be written with
-current source syntax, and needs no new effects, runtime boundary, parser
-feature, module loading, source-level effect handler, streaming, subprocess, or
-container representation guarantee.
-
 ## Skip Unless Needed
 
 - Do not use this page for current standard symbol behavior or helper
   semantics.
-- Do not open the full proposal when the current target and candidate rule
+- Do not open the full proposal when the current target and guardrails
   above answer the task.
