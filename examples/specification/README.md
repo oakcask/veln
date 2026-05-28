@@ -133,7 +133,8 @@ against the built `veln` binary.
   implementation blame.
 - `run/contract-ensure-early-return/`: `ensure` checks before `?` early
   returns.
-- `run/contract-invariant-failure/`: runtime `invariant` failure details.
+- `run/contract-invariant-failure/`: runtime `invariant` failure details and
+  caller blame at entry.
 - `run/contract-reachability-blockers/`: selected run reachability through
   pure helpers and function values used only by contract predicates.
 - `run/standard-effects/`: process and file-system standard calls with

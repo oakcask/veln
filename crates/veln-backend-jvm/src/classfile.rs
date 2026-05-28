@@ -243,6 +243,12 @@ struct FunctionBytecodeEmitter<'a, 'program> {
     max_local: u16,
 }
 
+#[derive(Clone, Copy)]
+enum ContractCheckPosition {
+    Entry,
+    Return,
+}
+
 impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     fn new(program: &'a ClassfileEmitter<'program>, function: &'a IrFunction) -> Self {
         let mut locals = BTreeMap::new();
@@ -265,7 +271,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .iter()
             .filter(|contract| contract.kind != ContractKind::Ensure)
         {
-            self.emit_contract_check(code, contract);
+            self.emit_contract_check(code, contract, ContractCheckPosition::Entry);
         }
         for stmt in &self.function.body {
             self.emit_stmt(code, stmt);
@@ -850,13 +856,20 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         }
     }
 
-    fn emit_contract_check(&mut self, code: &mut MethodCode, contract: &IrContract) {
+    fn emit_contract_check(
+        &mut self,
+        code: &mut MethodCode,
+        contract: &IrContract,
+        position: ContractCheckPosition,
+    ) {
         if contract.obligation_status != ContractObligationStatus::RuntimeRequired {
             return;
         }
-        let blame = match contract.kind {
-            ContractKind::Require => "caller",
-            ContractKind::Ensure | ContractKind::Invariant => "implementation",
+        let blame = match (contract.kind, position) {
+            (ContractKind::Require, _) => "caller",
+            (ContractKind::Ensure, _) => "implementation",
+            (ContractKind::Invariant, ContractCheckPosition::Entry) => "caller",
+            (ContractKind::Invariant, ContractCheckPosition::Return) => "implementation",
         };
         self.emit_contract_value(code, &contract.predicate);
         let clause = match contract.kind {
@@ -983,7 +996,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 ContractKind::Ensure | ContractKind::Invariant
             )
         }) {
-            self.emit_contract_check(code, contract);
+            self.emit_contract_check(code, contract, ContractCheckPosition::Return);
         }
         if let Some((binding, old)) = previous {
             if let Some(old) = old {
