@@ -1,8 +1,10 @@
 # Proposals
 
-This directory keeps planned work, candidate gates, implemented proposal
-records, and history that still matters for follow-up work. Proposal text is
-not current language behavior unless `../specification/` also states it.
+This directory keeps planned work and candidate gates. Completed proposal
+records move to `../reference/implemented-proposals/` after their observable
+behavior is documented under `../specification/` or checked examples. Proposal
+text is not current language behavior unless `../specification/` also states
+it.
 
 ## Start Here
 
@@ -34,39 +36,37 @@ not current language behavior unless `../specification/` also states it.
 - Tests, doctests, command analysis, and harness work:
   [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md),
   [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
-  [project-analysis-pipeline.md](project-analysis-pipeline.md) only when
-  checking implemented shared-analysis history, not as a new target.
 - Runtime, backend, and path representation work:
-  [jvm-bytecode-backend.md](jvm-bytecode-backend.md) and
   [path-runtime-representation.md](path-runtime-representation.md).
 - Repair workflow and design-wall follow-ups:
   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) and
   [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
 - Library and formatter follow-ups:
-  [self-hosting-standard-library.md](self-hosting-standard-library.md) and
-  [formatter-stabilization.md](formatter-stabilization.md).
+  [self-hosting-standard-library.md](self-hosting-standard-library.md).
+- Implemented proposal history:
+  [../reference/implemented-proposals/README.md](../reference/implemented-proposals/README.md).
 - Mixed follow-up inventory:
   [reference-followups.md](reference-followups.md).
 
 ## Read When
 
 - Choosing a proposal area after current behavior does not answer the task.
-- Checking whether a proposal page still describes absent behavior or history.
-- Checking residual scope or completion evidence before changing target status.
+- Checking whether a proposal page still describes absent behavior.
+- Checking residual scope before changing target status.
 
 ## Update When
 
 - Proposal work becomes implemented and the resulting behavior is documented
   under `../specification/`.
+- A completed proposal record moves to
+  `../reference/implemented-proposals/`.
 - A candidate gate changes, moves to its own page, completes, or is rejected.
 - New proposal work is added, split, superseded, or removed.
-- Historical evidence discovered elsewhere belongs in the matching proposal or
-  reference page.
+- Historical evidence discovered elsewhere belongs in the matching reference
+  page unless it describes absent behavior.
 
 ## Skip Unless Needed
 
 - Use `../specification/` when you need current implemented behavior.
-- Do not open `*-full.md` proposal records until a short proposal page names
-  the section needed for the task.
 - Do not read implemented proposal records before the matching specification
-  page unless you are checking history, evidence, or cleanup.
+  page and `../reference/implemented-proposals/` route.

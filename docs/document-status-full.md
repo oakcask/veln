@@ -22,6 +22,8 @@ documentation placement, route policy, or status labels.
   executable.
 - Put proposed design targets that are not fully implemented in `proposals/`.
 - Put implemented rationale and decision history in `reference/source-decisions/`.
+- Put implemented proposal records in `reference/implemented-proposals/` after
+  the observable behavior has moved into `specification/` or checked examples.
 - Put planned or incomplete rationale and decision history in `proposals/`.
 - Put implementation gaps, verification evidence, and correction lists in the
   matching proposal or reference page.
@@ -47,9 +49,10 @@ documentation placement, route policy, or status labels.
 
 - `specification/` is the first stop for implemented language behavior.
 - `reference/source-decisions/` is historical rationale grouped by topic.
+- `reference/implemented-proposals/` is completed proposal history and
+  completion evidence, not current behavior.
 - `proposals/` contains proposed targets that still need promotion into the
-  specification after implementation, plus historical evidence needed for
-  follow-up routing.
+  specification after implementation.
 
 ## Labels
 
@@ -73,7 +76,8 @@ Use these status labels at the top of durable documents:
   idea in the file exists in the product.
 - Proposal pages should not use `Implementation:` to describe current behavior.
 - When proposal behavior becomes implemented, move the behavior into
-  `specification/` and leave only absent proposal work or a short closed route.
+  `specification/`, move completed records to `reference/implemented-proposals/`,
+  and leave only absent proposal work or a short closed route.
 - Do not cite a proposal page as proof of current behavior; cite the matching
   `specification/` page.
 

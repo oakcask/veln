@@ -25,7 +25,7 @@ const NO_TARGET_ROUTES = [
   },
   {
     route: "docs/proposals/agent-language-spec-wall/repair-command.md",
-    role: "Implemented record",
+    role: "Candidate gate",
   },
   {
     route: "docs/proposals/README.md",
@@ -168,7 +168,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   );
   assertIncludes(
     prompt,
-    "current repair confirmation and override target as implemented",
+    "repair-loop behavior beyond the current command boundary",
   );
 
   assertProposalIndexRoutes(proposalsIndex);
@@ -194,8 +194,8 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   );
   assertIncludes(
     proposalsIndex,
-    "Do not open `*-full.md` proposal records until a short proposal page names\n" +
-      "  the section needed for the task.",
+    "Do not read implemented proposal records before the matching specification\n" +
+      "  page and `../reference/implemented-proposals/` route.",
   );
 
   assertIncludes(referenceFollowups, "This page is an index");
@@ -338,8 +338,9 @@ test("target prompt absence is covered by proposal routing", () => {
   assertIncludes(prompt, "No suitable proposal target is selected");
   assertIncludes(
     proposalsIndex,
-    "Proposal text is\n" +
-      "not current language behavior unless `../specification/` also states it.",
+    "Proposal\n" +
+      "text is not current language behavior unless `../specification/` also states\n" +
+      "it.",
   );
   assertIncludes(
     implementationRoute,
@@ -352,9 +353,12 @@ test("target prompt absence is covered by proposal routing", () => {
   );
 });
 
-test("repair proposal route covers the completed confirmation target", () => {
+test("repair proposal route points completed targets to reference records", () => {
   const proposal = readDocsFile(
     "proposals/agent-language-spec-wall/repair-command.md",
+  );
+  const implemented = readDocsFile(
+    "reference/implemented-proposals/repair-command-confirmation-override.md",
   );
   const repairCandidates = readDocsFile("specification/repair-candidates.md");
   const openQuestions = readDocsFile(
@@ -363,23 +367,29 @@ test("repair proposal route covers the completed confirmation target", () => {
 
   assertIncludes(
     proposal,
-    "Status: confirmation and override target implemented",
+    "Status: proposed follow-ups",
   );
-  assertIncludes(proposal, "## Completed Target");
   assertIncludes(
     proposal,
-    "The confirmation and override protocol for `veln repair` is implemented",
+    "Implemented repair command records live under\n" +
+      "`../../reference/implemented-proposals/`.",
   );
-  assertIncludes(proposal, "`--confirm CANDIDATE_ID`");
-  assertIncludes(proposal, "`--override` requires `--confirm`");
   assertIncludes(proposal, "../../specification/repair-candidates.md");
   assertIncludes(proposal, "../../specification/repair-json.md");
   assertIncludes(proposal, "../../specification/commands.md");
-  assertIncludes(proposal, "../../specification/holes.md");
-  assertIncludes(proposal, "../../specification/diagnostics-json.md");
+  assertIncludes(
+    proposal,
+    "../../reference/implemented-proposals/repair-command-confirmation-override.md",
+  );
   assertIncludes(proposal, "## Deferred Adjacent Work");
   assertIncludes(proposal, "Verification commands beyond the built-in");
   assertIncludes(proposal, "Partial application and general automatic repair");
+
+  assertIncludes(implemented, "`--confirm CANDIDATE_ID`");
+  assertIncludes(implemented, "`--override` requires `--confirm`");
+  assertIncludes(implemented, "../../specification/repair-candidates.md");
+  assertIncludes(implemented, "../../specification/repair-json.md");
+  assertIncludes(implemented, "../../specification/commands.md");
 
   assertIncludes(
     repairCandidates,
@@ -396,7 +406,7 @@ test("repair proposal route covers the completed confirmation target", () => {
 
   assertIncludes(
     openQuestions,
-    "Implemented repair-loop confirmation and explicit override protocol",
+    "../../reference/implemented-proposals/repair-command-confirmation-override.md",
   );
   assertIncludes(
     openQuestions,
@@ -746,9 +756,9 @@ function readNoTargetPrompt() {
     "- `docs/proposals/path-runtime-representation.md` requires one observable path",
     "  behavior that host-string storage cannot express; the page does not yet name",
     "  that behavior.",
-    "- `docs/proposals/agent-language-spec-wall/repair-command.md` records the",
-    "  current repair confirmation and override target as implemented; deferred",
-    "  adjacent work needs a new short proposal page first.",
+    "- `docs/proposals/agent-language-spec-wall/repair-command.md` routes only",
+    "  repair-loop behavior beyond the current command boundary; deferred adjacent",
+    "  work needs a new short proposal page first.",
     "- `docs/proposals/README.md` routes proposal areas.",
     "- `docs/proposals/implementation-route.md` applies only after a concrete",
     "  proposal target is selected.",

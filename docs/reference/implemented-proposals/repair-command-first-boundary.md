@@ -2,9 +2,9 @@
 
 Status: historical first command boundary
 
-This file keeps the detailed completion and remaining-work record for the
-repair command. Start with [repair-command.md](repair-command.md); read this
-file only when auditing the first command promotion.
+This file keeps the detailed completion record for the first repair command
+boundary. Start with [README.md](README.md); read this file only when auditing
+the first command promotion.
 
 This record predates the saved candidate input boundary now specified in
 [../../specification/repair-candidates.md](../../specification/repair-candidates.md).
@@ -43,6 +43,8 @@ input behavior is specified outside this historical record. Use
 [../../specification/repair-json.md](../../specification/repair-json.md) for
 current behavior.
 
-Use [repair-command.md](repair-command.md) for adjacent command-level proposal
-work. Do not promote broader repair-loop behavior into `../../specification/`
-before implementation and tests support it.
+Use
+[../../proposals/agent-language-spec-wall/repair-command.md](../../proposals/agent-language-spec-wall/repair-command.md)
+for adjacent command-level proposal work. Do not promote broader repair-loop
+behavior into `../../specification/` before implementation and tests support
+it.

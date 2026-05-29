@@ -1,6 +1,6 @@
 # Toolchain Test Harness Extensions
 
-Status: partially implemented
+Status: proposed follow-ups
 
 This page routes declarative harness follow-ups left outside the completed
 structured CLI integration test harness target. Implemented manifest fields

@@ -7,13 +7,16 @@ first-slice review. Use the specification pages for current command behavior.
 
 ## Read First
 
-- Current command behavior: [../specification/commands.md](../specification/commands.md).
-- Current execution gates: [../specification/execution.md](../specification/execution.md).
+- Current command behavior:
+  [../../specification/commands.md](../../specification/commands.md).
+- Current execution gates:
+  [../../specification/execution.md](../../specification/execution.md).
 - Current JSON output boundaries:
-  [../specification/json-output.md](../specification/json-output.md).
+  [../../specification/json-output.md](../../specification/json-output.md).
 - Use this page for completion evidence and cleanup routing only.
-- Use [implementation-route.md](implementation-route.md) only for a new or
-  reopened proposal target.
+- Use
+  [../../proposals/implementation-route.md](../../proposals/implementation-route.md)
+  only for a new or reopened proposal target.
 
 ## Outcome
 
@@ -24,8 +27,8 @@ diagnostics, checked-core readiness, and typed-IR readiness.
 `check`, `run`, `test`, and `repair` call that entry point and then apply only
 command-specific selection, output, execution, or write policy.
 
-This proposal page is now history and routing. New shared-analysis work should
-use a new proposal page unless it is already stated by `../specification/`.
+This record is now history and routing. New shared-analysis work should use a
+new proposal page unless it is already stated by `../../specification/`.
 
 ## Boundary
 

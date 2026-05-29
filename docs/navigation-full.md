@@ -33,8 +33,10 @@ question.
   then [reference/source-decisions/README.md](reference/source-decisions/README.md).
 - Routing from a topic area directly to rationale records:
   [reference/source-decisions/topic-map.md](reference/source-decisions/topic-map.md).
-- Checking gap evidence or completion claims:
+- Checking incomplete gap evidence:
   [proposals/README.md](proposals/README.md).
+- Checking completed proposal claims:
+  [reference/implemented-proposals/README.md](reference/implemented-proposals/README.md).
 - Implemented language behavior:
   [specification/README.md](specification/README.md).
 - Source support for claims:
@@ -70,6 +72,9 @@ question.
 - Implementation target work: start from `proposals/README.md`, open the
   proposal page that matches the task, then use
   `proposals/implementation-route.md` for promotion checks.
+- Completed proposal history: start from
+  [reference/implemented-proposals/README.md](reference/implemented-proposals/README.md)
+  after checking the current specification page.
 - Documentation routing work: `document-status.md` first, then the README for
   only the directory whose classification is changing.
 - Rationale work: current specification page first, then
@@ -86,10 +91,11 @@ question.
 - A behavior page under `specification/` wins over proposal and phase wording.
 - A proposal page can describe an implementation target, but it is not current
   behavior until the language specification also says so.
-- Promotion work updates the smallest matching language specification page and
-  leaves unfinished proposal text in `proposals/`.
-- A proposal history or phase page can explain why work happened, but it is not
-  a route for changing the language specification.
+- Promotion work updates the smallest matching language specification page,
+  moves completed records to `reference/implemented-proposals/`, and leaves
+  unfinished proposal text in `proposals/`.
+- A completed proposal record can explain why work happened, but it is not a
+  route for changing the language specification.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
 - A `result-*.md` source-decision file is a record. Open it through

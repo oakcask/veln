@@ -14,8 +14,9 @@ promotion rules, or placement policy.
   `examples/specification/`, generated grammar from
   `specification/source-surface-executable.pl`, compiler tests, or CLI
   harness cases.
-- Proposal targets and implemented proposal records belong in
-  [proposals/README.md](proposals/README.md).
+- Proposal targets belong in [proposals/README.md](proposals/README.md).
+- Implemented proposal records belong in
+  [reference/implemented-proposals/README.md](reference/implemented-proposals/README.md).
 - Gap evidence belongs in the matching proposal or reference page.
 
 ## Choose One Route
@@ -37,9 +38,9 @@ promotion rules, or placement policy.
 - Use prose specification pages to route, summarize, and explain checked
   behavior. Do not grow prose as a substitute for executable or mechanically
   verified examples when behavior can be expressed that way.
-- Use `reference/` for durable rationale and source support.
-- Use `proposals/` for proposed behavior that is not fully implemented and for
-  implemented proposal records that still carry history or cleanup routes.
+- Use `reference/` for durable rationale, source support, and completed
+  proposal records.
+- Use `proposals/` for proposed behavior that is not fully implemented.
 - Keep evidence, gaps, and verification notes in the matching proposal or
   reference page.
 

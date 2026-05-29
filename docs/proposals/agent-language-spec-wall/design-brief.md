@@ -11,15 +11,15 @@ only when a current proposal or specification page points back to broad rational
   [../../specification/README.md](../../specification/README.md).
 - Design-wall open-question route:
   [open-questions.md](open-questions.md).
-- Repair command record:
+- Repair command follow-up route:
   [repair-command.md](repair-command.md).
 
 ## Read When
 
 - The task needs the broad thesis for optimizing repair loops rather than short
   source alone.
-- The task needs repair-loop rationale after checking
-  [repair-command.md](repair-command.md).
+- The task needs repair-loop rationale after checking the current repair
+  specification and [repair-command.md](repair-command.md).
 - A proposal still depends on original design anchors for `Result`, `Option`,
   typed holes, contracts, effects, or JSON diagnostics.
 - You are auditing which parts of the original first-slice brief have already

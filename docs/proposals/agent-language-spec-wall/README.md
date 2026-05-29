@@ -4,15 +4,17 @@ Status: proposed
 
 This directory keeps design-wall material that is not fully implemented in the
 current workspace. Implemented decisions were moved to
-`../../reference/source-decisions/`.
+`../../reference/source-decisions/`, and completed proposal records were moved
+to `../../reference/implemented-proposals/`.
 
 ## Read First
 
-- [repair-command.md](repair-command.md) records the completed confirmation and
-  override protocol target after pointing to current advisory candidate and
-  repair command specification pages; open
-  [repair-command-full.md](repair-command-full.md) only for previous completion
-  and handoff criteria.
+- [repair-command.md](repair-command.md) routes repair-loop behavior beyond the
+  current advisory candidate and repair command specification pages.
+- Completed repair-command records:
+  [../../reference/implemented-proposals/repair-command-first-boundary.md](../../reference/implemented-proposals/repair-command-first-boundary.md)
+  and
+  [../../reference/implemented-proposals/repair-command-confirmation-override.md](../../reference/implemented-proposals/repair-command-confirmation-override.md).
 - [design-brief.md](design-brief.md) routes to the broad thesis and
   first-slice design anchors; open
   [design-brief-full.md](design-brief-full.md) only for the original brief.
@@ -28,10 +30,9 @@ current workspace. Implemented decisions were moved to
   page for implementation work.
 - Implemented grammar, concurrency, effect-label, and comparison-task decisions
   now live under `../../reference/`.
-- The repair-command confirmation and explicit override target is implemented.
-  Broader verification commands, ranking models, partial application, and
-  general automatic repair behavior need a new short proposal page before they
-  become targets.
+- Broader repair verification commands, ranking models, partial application,
+  and general automatic repair behavior need a new short proposal page before
+  they become targets.
 - The advisory repair candidate boundary is implemented: `check --json`
   candidates stay unapplied, carry target and evidence records, include
   explicit blocking obligations, and do not authorize automatic application.
@@ -46,4 +47,5 @@ current workspace. Implemented decisions were moved to
 This directory is for decisions whose proposed behavior is absent, partial, or
 only represented as a future compatibility target. When implementation and
 tests catch up to a decision, move that record to
-`../../reference/source-decisions/` and update both index files.
+`../../reference/source-decisions/` or
+`../../reference/implemented-proposals/` and update the matching index files.
