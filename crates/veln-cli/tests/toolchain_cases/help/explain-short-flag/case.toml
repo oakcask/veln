@@ -1,0 +1,14 @@
+command = ["explain", "-h"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+summary = "Explain diagnostics"
+usage = "veln explain [OPTIONS] [DIAGNOSTIC_ID]"
+arguments = ["  [DIAGNOSTIC_ID]  Diagnostic id to explain"]
+options = ["      --list  List known diagnostics", "  -h, --help  Print help"]

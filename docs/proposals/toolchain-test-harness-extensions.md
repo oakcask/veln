@@ -2,10 +2,9 @@
 
 Status: partially implemented
 
-This page records the declarative harness follow-up left outside the completed
-structured CLI integration test harness target. It is proposal work, not
-current test-harness behavior. Implemented manifest fields live in the
-reference harness documentation.
+This page routes declarative harness follow-ups left outside the completed
+structured CLI integration test harness target. Implemented manifest fields
+live in the reference harness documentation.
 
 ## Read First
 
@@ -17,41 +16,31 @@ reference harness documentation.
 - Current JVM execution and cache behavior:
   [../specification/execution.md](../specification/execution.md).
 - Use this page only for manifest capabilities that the reference page does
-  not yet list as implemented.
+  not list as implemented.
 
-## Already Implemented
+## Completed Slices
 
-The implemented case manifest already covers command invocation, fixture
-setup, repeated invocations inside one isolated project, environment and tool
-setup, exit status, stream checks, JSON assertions, diagnostic selectors, file
-content assertions, host requirements, and platform skips. Keep field-level
-details in
+The implemented case manifest covers command invocation, fixture setup,
+repeated invocations inside one isolated project, environment and tool setup,
+exit status, stream checks, JSON assertions, diagnostic selectors, file content
+assertions, host requirements, platform skips, project updates, command help
+assertions, and JVM cache assertions and mutations. Keep field-level details in
 [../reference/toolchain-test-harness.md#manifest-fields](../reference/toolchain-test-harness.md#manifest-fields).
 
-The fake external tool setup slice is implemented and documented in the
-reference page. Do not restate that field contract here.
+The fake external tool setup, command help assertion, and JVM cache assertion
+slices are implemented and documented in the reference page. Do not restate
+those field contracts here.
 
 ## Current Target
 
-Add declarative cache state assertions for command-visible generated JVM class
-cache behavior. This target should let `case.toml` fixtures cover behavior that
-bespoke Rust CLI tests currently inspect by hand:
+No smaller target is selected on this page.
 
-- Cache reuse across repeated `run` or `test` invocations in one isolated
-  project.
-- New cache entries after source changes.
-- Replacement of invalid or incomplete cache entries before execution.
+## Open Follow-Ups
 
-The assertion shape may inspect stable, command-visible cache state only. It
-must not expose classfile bytes, complete cache layout, backend cache keys, or
-other compiler internals as fixture expectations.
-
-## Later Inventory
-
-Keep later declarative harness features separate from this cache slice. Likely
-follow-ups include command help assertions, broad diagnostic detail checks, and
-new setup rules that replace repeated bespoke CLI test code across at least two
-command paths.
+After command help assertions, likely follow-ups include broad diagnostic detail
+checks and new setup rules that replace repeated bespoke CLI test code across
+at least two command paths. Move any large follow-up to its own proposal page
+before implementation.
 
 ## Non-Goals
 
@@ -64,19 +53,19 @@ command paths.
 
 ## Acceptance Checks
 
-- The new manifest feature replaces at least two bespoke CLI cache setup or
-  assertion patterns.
-- The reference page documents the new manifest field and its boundary.
+- New manifest features replace at least two bespoke CLI setup or assertion
+  patterns.
+- The reference page documents each new manifest field and its boundary.
 - Existing `toolchain_cases/` fixtures continue to run without changing their
   meaning.
 - Behavior-specific assertions still point to the specification page that owns
   the command or JSON rule under test.
-- Cache assertions stay out of `../specification/` unless they describe
+- Harness assertions stay out of `../specification/` unless they describe
   implemented language or command behavior rather than harness behavior.
 
 ## Update When
 
-- Document a completed manifest extension in
-  `../reference/toolchain-test-harness.md` after code and tests support it.
+- Document a completed manifest extension in the reference page after code and
+  tests support it.
 - Keep future declarative harness features on this page until a smaller
   proposal page is useful.

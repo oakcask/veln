@@ -1,0 +1,14 @@
+command = ["repair", "--help"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+summary = "Preview or apply repair candidates"
+usage = "veln repair [OPTIONS] [INPUTS]..."
+arguments = ["  [INPUTS]...  Source files, directories, or saved repair JSON files"]
+options = ["      --json                      Emit machine-readable JSON", "      --apply                     Apply one safe repair candidate", "      --dry-run                   Preview repair candidates without writing files", "      --candidate <CANDIDATE_ID>  Repair candidate id to apply or select", "      --confirm <CANDIDATE_ID>    Confirm a repair candidate id before applying", "      --override                  Apply a confirmed manual-review repair candidate", "  -h, --help                      Print help"]

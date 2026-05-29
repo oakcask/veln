@@ -8,6 +8,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
+const JVM_CACHE_DIR: &str = "target/veln-cache/jvm";
+const JVM_CACHE_MARKER: &str = ".veln-cache-ok";
+const JVM_CACHE_VALIDATION_RECORD: &str = ".veln-cache-manifest";
+const JVM_ENTRY_CLASS: &str = "VelnEntry.class";
+const JVM_CLASS_EXTENSION: &str = "class";
 
 #[test]
 fn toolchain_cases_pass() {
@@ -207,7 +212,10 @@ impl TestProject {
             .iter()
             .filter(|mutation| mutation.after_run == context.run_number)
         {
-            mutate_jvm_cache(context, &self.root, mutation.action, state);
+            let action = mutation
+                .action
+                .expect("JVM cache mutation action should be validated");
+            mutate_jvm_cache(context, &self.root, action, state);
         }
     }
 }
@@ -360,6 +368,7 @@ struct CaseExpectations {
     exit: i32,
     stdout: StreamExpectation,
     stderr: StreamExpectation,
+    help: Option<HelpExpectation>,
     json_assertions: Vec<JsonAssertion>,
     file_assertions: Vec<FileAssertion>,
     jvm_cache_assertions: Vec<JvmCacheAssertion>,
@@ -424,6 +433,9 @@ impl CaseExpectations {
 
         assert_stream(context, "stdout", &self.stdout, &output.stdout);
         assert_stream(context, "stderr", &self.stderr, &output.stderr);
+        if let Some(help) = &self.help {
+            help.assert_matches(context, output);
+        }
 
         let json = if self.needs_stdout_json() {
             Some(parse_json(&output.stdout).unwrap_or_else(|error| {
@@ -485,7 +497,7 @@ impl CaseExpectations {
             .filter(|assertion| assertion.run == context.run_number)
         {
             if let Some(expected) = assertion.ready_entries {
-                let actual = ready_jvm_cache_entries(project_root).len();
+                let actual = JvmCacheEntry::ready(project_root).len();
                 assert_eq!(
                     actual,
                     expected,
@@ -541,6 +553,109 @@ enum StreamFormat {
 }
 
 #[derive(Debug)]
+struct HelpExpectation {
+    stream: HelpStream,
+    summary: Option<String>,
+    usage: Option<String>,
+    commands: Vec<String>,
+    arguments: Vec<String>,
+    options: Vec<String>,
+    contains: Vec<String>,
+}
+
+impl Default for HelpExpectation {
+    fn default() -> Self {
+        Self {
+            stream: HelpStream::Stdout,
+            summary: None,
+            usage: None,
+            commands: Vec::new(),
+            arguments: Vec::new(),
+            options: Vec::new(),
+            contains: Vec::new(),
+        }
+    }
+}
+
+impl HelpExpectation {
+    fn assert_matches(&self, context: &CaseRunContext<'_>, output: &CapturedOutput) {
+        let stream = self.stream.text(output);
+        if let Some(summary) = &self.summary {
+            assert_eq!(
+                stream.lines().next(),
+                Some(summary.as_str()),
+                "{}: help summary mismatch on {}",
+                context.label(),
+                self.stream.name()
+            );
+        }
+        if let Some(usage) = &self.usage {
+            assert_help_contains(
+                context,
+                self.stream.name(),
+                stream,
+                &format!("Usage: {usage}\n"),
+            );
+        }
+        assert_help_section(
+            context,
+            self.stream.name(),
+            stream,
+            "Commands",
+            &self.commands,
+        );
+        assert_help_section(
+            context,
+            self.stream.name(),
+            stream,
+            "Arguments",
+            &self.arguments,
+        );
+        assert_help_section(
+            context,
+            self.stream.name(),
+            stream,
+            "Options",
+            &self.options,
+        );
+        for fragment in &self.contains {
+            assert_help_contains(context, self.stream.name(), stream, fragment);
+        }
+    }
+
+    fn has_assertion(&self) -> bool {
+        self.summary.is_some()
+            || self.usage.is_some()
+            || !self.commands.is_empty()
+            || !self.arguments.is_empty()
+            || !self.options.is_empty()
+            || !self.contains.is_empty()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum HelpStream {
+    Stdout,
+    Stderr,
+}
+
+impl HelpStream {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Stdout => "stdout",
+            Self::Stderr => "stderr",
+        }
+    }
+
+    fn text(self, output: &CapturedOutput) -> &str {
+        match self {
+            Self::Stdout => &output.stdout,
+            Self::Stderr => &output.stderr,
+        }
+    }
+}
+
+#[derive(Debug)]
 struct JsonAssertion {
     path: String,
     equals: JsonValue,
@@ -569,7 +684,7 @@ struct ProjectUpdate {
 #[derive(Debug)]
 struct JvmCacheMutation {
     after_run: usize,
-    action: JvmCacheMutationAction,
+    action: Option<JvmCacheMutationAction>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -577,6 +692,23 @@ enum JvmCacheMutationAction {
     CorruptRequiredFile,
     RemoveRequiredFile,
     RemoveValidationRecord,
+}
+
+impl JvmCacheMutationAction {
+    fn target(self) -> JvmCacheMutationTarget {
+        match self {
+            Self::CorruptRequiredFile | Self::RemoveRequiredFile => {
+                JvmCacheMutationTarget::RequiredClassFile
+            }
+            Self::RemoveValidationRecord => JvmCacheMutationTarget::ValidationRecord,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum JvmCacheMutationTarget {
+    RequiredClassFile,
+    ValidationRecord,
 }
 
 #[derive(Debug)]
@@ -700,6 +832,7 @@ enum Section {
     Root,
     Stdout,
     Stderr,
+    Help,
     JsonAssert(usize),
     FileAssert(usize),
     JvmCacheAssert(usize),
@@ -721,6 +854,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     let mut env = Vec::new();
     let mut stdout = StreamExpectation::default();
     let mut stderr = StreamExpectation::default();
+    let mut help = None;
     let mut json_assertions = Vec::new();
     let mut file_assertions = Vec::new();
     let mut jvm_cache_assertions = Vec::new();
@@ -743,6 +877,13 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
             section = match line {
                 "[stdout]" => Section::Stdout,
                 "[stderr]" => Section::Stderr,
+                "[help]" => {
+                    if help.is_some() {
+                        manifest_error(path, line_number, "duplicate help section");
+                    }
+                    help = Some(HelpExpectation::default());
+                    Section::Help
+                }
                 "[requires]" => Section::Requires,
                 "[skip]" => Section::Skip,
                 "[env]" => Section::Env,
@@ -780,7 +921,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
                 "[[jvm_cache_mutation]]" => {
                     jvm_cache_mutations.push(JvmCacheMutation {
                         after_run: 0,
-                        action: JvmCacheMutationAction::CorruptRequiredFile,
+                        action: None,
                     });
                     Section::JvmCacheMutation(jvm_cache_mutations.len() - 1)
                 }
@@ -824,6 +965,13 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
             },
             Section::Stdout => parse_stream_key(path, line_number, &mut stdout, key, value, true),
             Section::Stderr => parse_stream_key(path, line_number, &mut stderr, key, value, false),
+            Section::Help => parse_help_key(
+                path,
+                line_number,
+                help.as_mut().expect("help section should exist"),
+                key,
+                value,
+            ),
             Section::Requires => match key {
                 "jdk" => requires.jdk = parse_bool(path, line_number, value),
                 _ => manifest_error(path, line_number, format!("unknown requires key `{key}`")),
@@ -910,7 +1058,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
                 }
                 "action" => {
                     jvm_cache_mutations[index].action =
-                        parse_jvm_cache_mutation_action(path, line_number, value);
+                        Some(parse_jvm_cache_mutation_action(path, line_number, value));
                 }
                 _ => manifest_error(
                     path,
@@ -963,6 +1111,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
             exit: exit.unwrap_or_else(|| manifest_error(path, 0, "missing `exit`")),
             stdout,
             stderr,
+            help,
             json_assertions,
             file_assertions,
             jvm_cache_assertions,
@@ -979,6 +1128,11 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
         if assertion.path.is_empty() {
             manifest_error(path, 0, format!("json_assert {index} is missing `path`"));
         }
+    }
+    if let Some(help) = &manifest.expectations.help
+        && !help.has_assertion()
+    {
+        manifest_error(path, 0, "help section has no assertion");
     }
     for (index, assertion) in manifest.expectations.file_assertions.iter().enumerate() {
         if assertion.path.is_empty() {
@@ -1054,6 +1208,27 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
                 format!("jvm_cache_mutation {index} must run before a later repeat"),
             );
         }
+        if mutation.action.is_none() {
+            manifest_error(
+                path,
+                0,
+                format!("jvm_cache_mutation {index} is missing `action`"),
+            );
+        }
+    }
+    let uses_jvm_cache_manifest = !manifest.expectations.jvm_cache_assertions.is_empty()
+        || !manifest.jvm_cache_mutations.is_empty();
+    if uses_jvm_cache_manifest
+        && !matches!(
+            manifest.invocation.command.first().map(String::as_str),
+            Some("run" | "test")
+        )
+    {
+        manifest_error(
+            path,
+            0,
+            "JVM cache manifest fields require a `run` or `test` command",
+        );
     }
     for (index, diagnostic) in manifest.expectations.diagnostics.iter().enumerate() {
         if diagnostic.id.is_empty() {
@@ -1062,6 +1237,34 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     }
 
     manifest
+}
+
+fn parse_help_key(
+    path: &Path,
+    line_number: usize,
+    help: &mut HelpExpectation,
+    key: &str,
+    value: &str,
+) {
+    match key {
+        "stream" => help.stream = parse_help_stream(path, line_number, value),
+        "summary" => help.summary = Some(parse_string(path, line_number, value)),
+        "usage" => help.usage = Some(parse_string(path, line_number, value)),
+        "commands" => help.commands = parse_string_array(path, line_number, value),
+        "arguments" => help.arguments = parse_string_array(path, line_number, value),
+        "options" => help.options = parse_string_array(path, line_number, value),
+        "contains" => help.contains = parse_string_array(path, line_number, value),
+        _ => manifest_error(path, line_number, format!("unknown help key `{key}`")),
+    }
+}
+
+fn parse_help_stream(path: &Path, line_number: usize, value: &str) -> HelpStream {
+    let value = parse_string(path, line_number, value);
+    match value.as_str() {
+        "stdout" => HelpStream::Stdout,
+        "stderr" => HelpStream::Stderr,
+        _ => manifest_error(path, line_number, format!("unknown help stream `{value}`")),
+    }
 }
 
 fn parse_stream_key(
@@ -1322,6 +1525,35 @@ fn assert_stream(
     }
 }
 
+fn assert_help_section(
+    context: &CaseRunContext<'_>,
+    stream_name: &str,
+    stream: &str,
+    section: &str,
+    fragments: &[String],
+) {
+    if fragments.is_empty() {
+        return;
+    }
+    assert_help_contains(context, stream_name, stream, &format!("{section}:\n"));
+    for fragment in fragments {
+        assert_help_contains(context, stream_name, stream, fragment);
+    }
+}
+
+fn assert_help_contains(
+    context: &CaseRunContext<'_>,
+    stream_name: &str,
+    stream: &str,
+    fragment: &str,
+) {
+    assert!(
+        stream.contains(fragment),
+        "{}: expected help {stream_name} to contain `{fragment}`, got:\n{stream}",
+        context.label()
+    );
+}
+
 fn jdk_is_available() -> bool {
     Command::new("java").arg("-version").output().is_ok()
         && Command::new("java")
@@ -1398,7 +1630,7 @@ fn mutate_jvm_cache(
     action: JvmCacheMutationAction,
     state: &mut JvmCacheMutationState,
 ) {
-    let entries = ready_jvm_cache_entries(project_root);
+    let entries = JvmCacheEntry::ready(project_root);
     assert_eq!(
         entries.len(),
         1,
@@ -1410,102 +1642,87 @@ fn mutate_jvm_cache(
         .next()
         .expect("one JVM cache entry should exist");
 
+    let target = match action.target() {
+        JvmCacheMutationTarget::RequiredClassFile => entry.required_class_file(context),
+        JvmCacheMutationTarget::ValidationRecord => entry.validation_record(),
+    };
+    let original = fs::read(&target).unwrap_or_else(|error| {
+        panic!(
+            "{}: failed to read JVM cache mutation target `{}`: {error}",
+            context.label(),
+            target.display()
+        )
+    });
     match action {
         JvmCacheMutationAction::CorruptRequiredFile => {
-            let class_file = required_jvm_cache_class_file(context, &entry);
-            let original = fs::read(&class_file).unwrap_or_else(|error| {
-                panic!(
-                    "{}: failed to read JVM cache file `{}`: {error}",
-                    context.label(),
-                    class_file.display()
-                )
-            });
-            fs::write(&class_file, b"veln harness corrupt cache file\n").unwrap_or_else(|error| {
+            fs::write(&target, b"veln harness corrupt cache file\n").unwrap_or_else(|error| {
                 panic!(
                     "{}: failed to corrupt JVM cache file `{}`: {error}",
                     context.label(),
-                    class_file.display()
+                    target.display()
                 )
             });
-            state.push(class_file, original);
         }
-        JvmCacheMutationAction::RemoveRequiredFile => {
-            let class_file = required_jvm_cache_class_file(context, &entry);
-            let original = fs::read(&class_file).unwrap_or_else(|error| {
+        JvmCacheMutationAction::RemoveRequiredFile
+        | JvmCacheMutationAction::RemoveValidationRecord => {
+            fs::remove_file(&target).unwrap_or_else(|error| {
                 panic!(
-                    "{}: failed to read JVM cache file `{}`: {error}",
+                    "{}: failed to remove JVM cache mutation target `{}`: {error}",
                     context.label(),
-                    class_file.display()
+                    target.display()
                 )
             });
-            fs::remove_file(&class_file).unwrap_or_else(|error| {
-                panic!(
-                    "{}: failed to remove JVM cache file `{}`: {error}",
-                    context.label(),
-                    class_file.display()
-                )
-            });
-            state.push(class_file, original);
-        }
-        JvmCacheMutationAction::RemoveValidationRecord => {
-            let manifest = entry.join(".veln-cache-manifest");
-            let original = fs::read(&manifest).unwrap_or_else(|error| {
-                panic!(
-                    "{}: failed to read JVM cache validation record `{}`: {error}",
-                    context.label(),
-                    manifest.display()
-                )
-            });
-            fs::remove_file(&manifest).unwrap_or_else(|error| {
-                panic!(
-                    "{}: failed to remove JVM cache validation record `{}`: {error}",
-                    context.label(),
-                    manifest.display()
-                )
-            });
-            state.push(manifest, original);
         }
     }
+    state.push(target, original);
 }
 
-fn ready_jvm_cache_entries(project_root: &Path) -> Vec<PathBuf> {
-    let cache = project_root.join("target/veln-cache/jvm");
-    let Ok(entries) = fs::read_dir(cache) else {
-        return Vec::new();
-    };
-    let mut entries = entries
-        .filter_map(Result::ok)
-        .filter(|entry| entry.path().join(".veln-cache-ok").is_file())
-        .map(|entry| entry.path())
-        .collect::<Vec<_>>();
-    entries.sort();
-    entries
+#[derive(Debug)]
+struct JvmCacheEntry {
+    path: PathBuf,
 }
 
-fn required_jvm_cache_class_file(context: &CaseRunContext<'_>, entry: &Path) -> PathBuf {
-    let class_files = jvm_cache_class_files(context, entry);
-    class_files
-        .iter()
-        .find(|path| {
-            path.file_name()
-                .is_some_and(|name| name == "VelnEntry.class")
-        })
-        .or_else(|| class_files.first())
-        .cloned()
-        .unwrap_or_else(|| {
-            panic!(
-                "{}: JVM cache entry `{}` has no class files",
-                context.label(),
-                entry.display()
-            )
-        })
-}
+impl JvmCacheEntry {
+    fn ready(project_root: &Path) -> Vec<Self> {
+        let cache = project_root.join(JVM_CACHE_DIR);
+        let Ok(entries) = fs::read_dir(cache) else {
+            return Vec::new();
+        };
+        let mut entries = entries
+            .filter_map(Result::ok)
+            .filter(|entry| entry.path().join(JVM_CACHE_MARKER).is_file())
+            .map(|entry| Self { path: entry.path() })
+            .collect::<Vec<_>>();
+        entries.sort_by(|left, right| left.path.cmp(&right.path));
+        entries
+    }
 
-fn jvm_cache_class_files(context: &CaseRunContext<'_>, dir: &Path) -> Vec<PathBuf> {
-    let mut files = Vec::new();
-    collect_jvm_cache_class_files(context, dir, &mut files);
-    files.sort();
-    files
+    fn required_class_file(&self, context: &CaseRunContext<'_>) -> PathBuf {
+        let class_files = self.class_files(context);
+        class_files
+            .iter()
+            .find(|path| path.file_name().is_some_and(|name| name == JVM_ENTRY_CLASS))
+            .or_else(|| class_files.first())
+            .cloned()
+            .unwrap_or_else(|| {
+                panic!(
+                    "{}: JVM cache entry `{}` has no class files",
+                    context.label(),
+                    self.path.display()
+                )
+            })
+    }
+
+    fn validation_record(&self) -> PathBuf {
+        self.path.join(JVM_CACHE_VALIDATION_RECORD)
+    }
+
+    fn class_files(&self, context: &CaseRunContext<'_>) -> Vec<PathBuf> {
+        let mut files = Vec::new();
+        collect_jvm_cache_class_files(context, &self.path, &mut files);
+        files.sort();
+        files
+    }
 }
 
 fn collect_jvm_cache_class_files(
@@ -1539,7 +1756,7 @@ fn collect_jvm_cache_class_files(
             collect_jvm_cache_class_files(context, &path, files);
         } else if path
             .extension()
-            .is_some_and(|extension| extension == "class")
+            .is_some_and(|extension| extension == JVM_CLASS_EXTENSION)
         {
             files.push(path);
         }

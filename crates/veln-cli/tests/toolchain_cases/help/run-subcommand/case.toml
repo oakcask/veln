@@ -1,0 +1,14 @@
+command = ["run", "--help"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+summary = "Run an entry function"
+usage = "veln run [OPTIONS] <ENTRY> [INPUTS]... [-- [ENTRY_ARGS]...]"
+arguments = ["  <ENTRY>          Entry function name", "  [INPUTS]...      Source files or directories to run", "  [ENTRY_ARGS]...  Arguments passed to the entry function after `--`"]
+options = ["      --json  Emit machine-readable JSON", "  -h, --help  Print help"]

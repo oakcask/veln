@@ -1,0 +1,14 @@
+command = ["check", "--json", "--help"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+summary = "Check source files"
+usage = "veln check [OPTIONS] [INPUTS]..."
+arguments = ["  [INPUTS]...  Source files or directories to check"]
+options = ["      --json  Emit machine-readable JSON", "  -h, --help  Print help"]

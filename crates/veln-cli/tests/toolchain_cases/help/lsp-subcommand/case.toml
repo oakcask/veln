@@ -1,0 +1,14 @@
+command = ["lsp", "--help"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+stream = "stdout"
+summary = "Run the language server on stdio"
+usage = "veln lsp"
+options = ["  -h, --help  Print help"]
