@@ -110,8 +110,9 @@ against the built `veln` binary.
   negative static doctest fences.
 - `check/doctest-metadata-diagnostics/`: unknown and invalid doctest metadata,
   duplicate output fences, and missing expected failures.
-- `fmt/canonical-formatting/`: headers, imports, comments, contracts, match
-  indentation, operators, postfix `?`, lists, records, and idempotence.
+- `fmt/canonical-formatting/`: headers, imports, standalone and trailing
+  comments, contracts, match indentation, operators, postfix `?`, lists,
+  records, and idempotence.
 - `fmt/all-or-nothing/`: parse-failure write gate across multiple files.
 - `explain/known-diagnostic/`: known diagnostic explanation output.
 - `explain/list-catalog/`: implemented diagnostic catalog listing.
@@ -121,6 +122,8 @@ against the built `veln` binary.
   shutdown, and exit over stdin.
 - `lsp/semantic-tokens-unsaved-change/`: semantic tokens follow unsaved
   document content supplied by didChange.
+- `lsp/publish-diagnostics/`: diagnostics are published from open document
+  text and cleared after didClose.
 - `lsp/unopened-missing-file/`: semantic-token requests for unopened,
   unreadable documents return an empty token data array.
 - `run/stdio-streams/`: `stdio::print`, `stdio::println`, `stdio::eprint`,
