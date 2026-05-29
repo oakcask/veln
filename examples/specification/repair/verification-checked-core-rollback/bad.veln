@@ -1,0 +1,8 @@
+// Checked-core blockers in other files still fail repair verification.
+fn add(left: Int, right: Int) -> Int
+  left + right
+end
+
+fn broken() -> Int
+  add(1)
+end

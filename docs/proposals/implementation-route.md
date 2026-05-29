@@ -8,22 +8,22 @@ comparison, promotion, or cleanup.
 
 ## Entry Check
 
-- Start from the proposal page named by the task or from
-  [README.md](README.md).
-- Stop when the proposal page is implemented, closed, superseded, rejected, or
-  already covered by `../specification/`.
+- Start from the proposal page named by the task.
+- If no concrete target is selected, stop here and use
+  [target-selection.md](target-selection.md).
+- Treat proposal indexes, routing pages, and broad follow-up inventories as
+  navigation, not as implementation targets.
+- Stop when the target is implemented, closed, superseded, rejected, or already
+  covered by `../specification/`.
 - Keep the implementation scope to the chosen proposal page unless that page
   routes to a full detail record or companion proposal.
 
 ## Compare And Promote
 
-- Compare the target with current behavior in
-  [../specification/README.md](../specification/README.md) so the
-  implementation changes only the missing behavior.
+- Compare the target with the smallest current-behavior page named by
+  [../specification/topic-map.md](../specification/topic-map.md).
 - Keep the comparison scoped to the chosen target. Do not use nearby design-wall
   text as requirements unless the short proposal page points to it.
-- Use [../specification/topic-map.md](../specification/topic-map.md)
-  to choose the smallest specification page to update after the code changes.
 - Use [implementation-route-full.md](implementation-route-full.md) when the
   target requires gap evidence or promotion cleanup.
 

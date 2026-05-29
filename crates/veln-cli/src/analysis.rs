@@ -3,7 +3,10 @@ use std::collections::BTreeMap;
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_diagnostics::Diagnostic;
 use veln_project::Project;
-use veln_sema::{LoweredSurfaceModule, analyze_surface_module, lower_checked_surface_module};
+use veln_sema::{
+    LoweredSurfaceModule, analyze_surface_module, lower_analyzed_surface_module,
+    lower_checked_surface_module,
+};
 use veln_source::SourceSpan;
 use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_failures};
 
@@ -19,6 +22,8 @@ pub(crate) struct ProjectAnalysis {
     pub(crate) module: SurfaceModule,
     pub(crate) doctest_expectations: BTreeMap<String, DoctestExpectation>,
     source_diagnostics: Vec<Diagnostic>,
+    semantic_diagnostics: Vec<Diagnostic>,
+    checked: LoweredSurfaceModule,
     expected_doctest_failures: BTreeMap<String, SourceSpan>,
 }
 
@@ -45,14 +50,25 @@ pub(crate) fn analyze_project(mut project: Project, doctest_mode: DoctestMode) -
 
     let (module, parse_diagnostics) = load_surface_module(&project);
     source_diagnostics.extend(parse_diagnostics);
+    let semantic_diagnostics = analyze_surface_module(&module);
+    let checked = lower_analyzed_surface_module(&module, semantic_diagnostics.clone());
 
     ProjectAnalysis {
         project,
         module,
         doctest_expectations,
         source_diagnostics,
+        semantic_diagnostics,
+        checked,
         expected_doctest_failures,
     }
+}
+
+pub(crate) fn checked_project_diagnostics(
+    project: Project,
+    doctest_mode: DoctestMode,
+) -> Vec<Diagnostic> {
+    analyze_project(project, doctest_mode).checked_diagnostics()
 }
 
 impl ProjectAnalysis {
@@ -62,13 +78,13 @@ impl ProjectAnalysis {
 
     pub(crate) fn semantic_diagnostics(&self) -> Vec<Diagnostic> {
         let mut diagnostics = self.source_diagnostics.clone();
-        diagnostics.extend(analyze_surface_module(&self.module));
+        diagnostics.extend(self.semantic_diagnostics.clone());
         self.reconcile_doctest_failures(diagnostics)
     }
 
     pub(crate) fn checked_diagnostics(&self) -> Vec<Diagnostic> {
         let mut diagnostics = self.source_diagnostics.clone();
-        diagnostics.extend(lower_checked_surface_module(&self.module).diagnostics);
+        diagnostics.extend(self.checked.diagnostics.clone());
         self.reconcile_doctest_failures(diagnostics)
     }
 

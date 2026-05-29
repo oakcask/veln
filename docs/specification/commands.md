@@ -5,6 +5,17 @@ requiring the full command reference on the first read.
 
 ## Read First
 
+- `check`, `run`, `test`, and `repair` share the project analysis path for
+  source discovery, parse-clean surface loading, semantic diagnostics,
+  checked-core readiness, and selected-entry typed-IR readiness. Command
+  sections below cover only their selection, output, execution, or write
+  policy. Use
+  [commands-full.md#shared-command-analysis](commands-full.md#shared-command-analysis)
+  only when changing the shared path itself.
+- Command help: top-level help, subcommand help, and help-topic errors are
+  implemented command behavior. Use
+  [commands-full.md#command-help](commands-full.md#command-help) when changing
+  help parsing or output.
 - `check`: source discovery, parse/semantic diagnostics, checked-core
   blockers, and check JSON output. Use [diagnostics-json.md](diagnostics-json.md)
   first for diagnostic shape, then

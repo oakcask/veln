@@ -7,11 +7,15 @@ execution reference.
 
 - Checked core and typed IR are produced only after semantic diagnostics have
   no errors.
+- Shared command analysis keeps checked-core readiness and selected-entry
+  typed-IR readiness before command-specific execution or write policy.
 - Reachable executable blockers include holes, missing expressions,
   constructor arity gaps, call arity gaps, and recognized concurrency calls.
 - The ordinary JVM execution path emits classfile artifacts directly; Java
   source generation and Java source compilation are not part of the observable
   command boundary.
+- The generated JVM class cache validates manifests and classfile contents;
+  invalid or incomplete entries are regenerated before execution.
 - Other JVM details are backend details unless this reference marks a behavior
   as an observable language boundary.
 

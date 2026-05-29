@@ -55,7 +55,13 @@ pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
 }
 
 pub fn lower_checked_surface_module(module: &SurfaceModule) -> LoweredSurfaceModule {
-    let mut diagnostics = analyze_surface_module(module);
+    lower_analyzed_surface_module(module, analyze_surface_module(module))
+}
+
+pub fn lower_analyzed_surface_module(
+    module: &SurfaceModule,
+    mut diagnostics: Vec<Diagnostic>,
+) -> LoweredSurfaceModule {
     if diagnostics
         .iter()
         .any(|diagnostic| diagnostic.severity == Severity::Error)

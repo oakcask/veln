@@ -7,7 +7,7 @@ use veln_diagnostics::{Diagnostic, JsonValue, diagnostic_to_json, parse_json_val
 use veln_project::Project;
 use veln_source::{LineCol, SourceSpan};
 
-use crate::commands::check::check_diagnostics;
+use crate::analysis::{DoctestMode, checked_project_diagnostics};
 use crate::diagnostics::{has_error, tool_info};
 
 const APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED: &str = "manual_review_required";
@@ -45,7 +45,7 @@ pub(crate) fn repair(
     let (source_inputs, candidate_inputs) = split_repair_inputs(&inputs);
     let project =
         Project::discover(root.clone(), &source_inputs).map_err(|error| error.to_string())?;
-    let diagnostics = check_diagnostics(project.clone());
+    let diagnostics = checked_project_diagnostics(project.clone(), DoctestMode::Include);
     let current_candidates = repair_candidates_from_diagnostics(&diagnostics);
     let candidates = if candidate_inputs.is_empty() {
         current_candidates.clone()
@@ -599,7 +599,8 @@ fn apply_candidate(
 
     let verify_project =
         Project::discover(project.root.clone(), &inputs).map_err(|error| error.to_string())?;
-    let verification_diagnostics = check_diagnostics(verify_project);
+    let verification_diagnostics =
+        checked_project_diagnostics(verify_project, DoctestMode::Include);
     if has_error(&verification_diagnostics) {
         for file_edit in &edit_plan.files {
             fs::write(&file_edit.path, &file_edit.original).map_err(|error| error.to_string())?;

@@ -205,6 +205,8 @@ against the built `veln` binary.
   candidates.
 - `repair/apply-safe-candidate/`: `repair --apply` writes one safe candidate
   and verifies the result.
+- `repair/verification-checked-core-rollback/`: repair verification rolls back
+  when shared check analysis reports a checked-core blocker.
 - `repair/refuse-multiple-candidates/`: automatic apply refuses ambiguous safe
   candidates until one is selected.
 - `repair/refuse-override-without-confirm/`: override application requires
