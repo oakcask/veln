@@ -10,7 +10,9 @@ current behavior.
 
 - Current command behavior: [../specification/commands.md](../specification/commands.md).
 - Current execution gates: [../specification/execution.md](../specification/execution.md).
-- Historical first-slice gap evidence is summarized on this page.
+- Current JSON output boundaries:
+  [../specification/json-output.md](../specification/json-output.md).
+- Proposal implementation mechanics: [implementation-route.md](implementation-route.md).
 
 ## Target
 
@@ -41,6 +43,14 @@ only command-specific selection, output, execution, or write policy.
   prevent `run` or `test` from lowering the reachable entry.
 - Generated doctests and expected-error doctest reconciliation stay observable
   through the current command behavior.
+
+## Read When
+
+- Use this page for the shared command-analysis target only.
+- Use [implementation-route.md](implementation-route.md) before promoting any
+  behavior into `../specification/`.
+- Use the historical gap classification below only for scope checks or cleanup
+  routing.
 
 ## Historical Gap Classification
 

@@ -1,0 +1,28 @@
+command = ["repair", "--json", "src/bad.veln", "src/clean.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "preview"
+
+[[json_assert]]
+path = "summary.candidate_count"
+equals = 1
+
+[[json_assert]]
+path = "summary.applicable_count"
+equals = 1
+
+[[json_assert]]
+path = "candidates.0.source.satisfy_status"
+equals = "statically_satisfied"
+
+[[json_assert]]
+path = "candidates.0.edits.0.span.file"
+equals = "src/clean.veln"

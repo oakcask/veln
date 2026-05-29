@@ -1,0 +1,47 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[tools]
+java = "missing"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-run-json/v0"
+
+[[json_assert]]
+path = "command"
+equals = "run"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "exit_code"
+equals = 1
+
+[[json_assert]]
+path = "stdout"
+equals = ""
+
+[[json_assert]]
+path = "stderr"
+equals = ""
+
+[[json_assert]]
+path = "error.kind"
+equals = "runner"
+
+[[json_assert]]
+path = "error.message"
+equals = "veln: `java` was not found; install a JDK to use `veln run`"
+
+[[json_assert]]
+path = "error.details.phase"
+equals = "tool"

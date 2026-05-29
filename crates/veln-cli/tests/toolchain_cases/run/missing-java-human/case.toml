@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[tools]
+java = "missing"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["veln: `java` was not found; install a JDK to use `veln run`"]

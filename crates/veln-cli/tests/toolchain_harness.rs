@@ -1,5 +1,7 @@
 use std::fs;
 use std::io::Write;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -29,8 +31,9 @@ fn run_case(case_dir: &Path) {
         return;
     }
 
-    let project = TestProject::new(case_name(case_dir));
+    let project = TestProject::new(case_name(case_dir), &manifest.tools);
     project.copy_fixtures(case_dir);
+    project.setup_tools(&manifest.tools);
 
     for run_index in 0..manifest.invocation.repeat {
         let context = CaseRunContext {
@@ -95,10 +98,11 @@ fn case_name(case_dir: &Path) -> String {
 
 struct TestProject {
     root: PathBuf,
+    tool_path: Option<PathBuf>,
 }
 
 impl TestProject {
-    fn new(name: String) -> Self {
+    fn new(name: String, tools: &ToolSetup) -> Self {
         let id = NEXT_TEST_DIR.fetch_add(1, Ordering::Relaxed);
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -109,7 +113,8 @@ impl TestProject {
             std::process::id()
         ));
         fs::create_dir_all(&root).expect("test project directory should be created");
-        Self { root }
+        let tool_path = tools.needs_path().then(|| root.join(".veln-harness-tools"));
+        Self { root, tool_path }
     }
 
     fn copy_fixtures(&self, case_dir: &Path) {
@@ -122,6 +127,9 @@ impl TestProject {
         command.args(args);
         command.stdout(Stdio::piped());
         command.stderr(Stdio::piped());
+        if let Some(path) = &self.tool_path {
+            command.env("PATH", path);
+        }
         for (name, value) in env {
             command.env(name, value);
         }
@@ -136,6 +144,17 @@ impl TestProject {
                 .expect("veln stdin should be written");
         }
         child.wait_with_output().expect("veln should run")
+    }
+
+    fn setup_tools(&self, tools: &ToolSetup) {
+        let Some(tool_path) = &self.tool_path else {
+            return;
+        };
+        fs::create_dir_all(tool_path).expect("tool directory should be created");
+
+        for tool in tools.configured() {
+            tool.setup(tool_path);
+        }
     }
 }
 
@@ -189,6 +208,91 @@ fn copy_fixture_dir(base: &Path, dir: &Path, target_root: &Path) {
     }
 }
 
+fn setup_tool(tool_path: &Path, name: &str, availability: ToolAvailability) {
+    match availability {
+        ToolAvailability::Missing => {}
+        ToolAvailability::FakeSuccess => write_fake_success_tool(tool_path, name),
+        ToolAvailability::Real => {
+            let host_tool = find_host_tool(name)
+                .unwrap_or_else(|| panic!("host tool `{name}` should be available"));
+            install_real_tool(tool_path, name, &host_tool);
+        }
+    }
+}
+
+#[cfg(unix)]
+fn write_fake_success_tool(tool_path: &Path, name: &str) {
+    let tool = tool_path.join(name);
+    fs::write(&tool, "#!/bin/sh\nexit 0\n").expect("fake tool should be written");
+    let mut permissions = fs::metadata(&tool)
+        .expect("fake tool metadata should be available")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&tool, permissions).expect("fake tool should be executable");
+}
+
+#[cfg(windows)]
+fn write_fake_success_tool(tool_path: &Path, name: &str) {
+    for extension in ["bat", "cmd"] {
+        let tool = tool_path.join(format!("{name}.{extension}"));
+        fs::write(&tool, "@echo off\r\nexit /b 0\r\n").expect("fake tool should be written");
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+fn write_fake_success_tool(_tool_path: &Path, name: &str) {
+    panic!("fake tool `{name}` is not supported on this platform");
+}
+
+fn find_host_tool(name: &str) -> Option<PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    for dir in std::env::split_paths(&path) {
+        for candidate_name in host_tool_names(name) {
+            let candidate = dir.join(candidate_name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+    None
+}
+
+#[cfg(windows)]
+fn host_tool_names(name: &str) -> Vec<String> {
+    vec![
+        format!("{name}.exe"),
+        format!("{name}.cmd"),
+        format!("{name}.bat"),
+        name.to_string(),
+    ]
+}
+
+#[cfg(not(windows))]
+fn host_tool_names(name: &str) -> Vec<String> {
+    vec![name.to_string()]
+}
+
+#[cfg(unix)]
+fn install_real_tool(tool_path: &Path, name: &str, host_tool: &Path) {
+    std::os::unix::fs::symlink(host_tool, tool_path.join(name))
+        .expect("real tool symlink should be created");
+}
+
+#[cfg(windows)]
+fn install_real_tool(tool_path: &Path, name: &str, host_tool: &Path) {
+    let extension = host_tool
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or("exe");
+    fs::copy(host_tool, tool_path.join(format!("{name}.{extension}")))
+        .expect("real tool should be copied");
+}
+
+#[cfg(not(any(unix, windows)))]
+fn install_real_tool(_tool_path: &Path, name: &str, _host_tool: &Path) {
+    panic!("real tool `{name}` is not supported on this platform");
+}
+
 #[derive(Debug)]
 struct CaseInvocation {
     command: Vec<String>,
@@ -211,6 +315,7 @@ struct CaseExpectations {
 struct CaseManifest {
     invocation: CaseInvocation,
     expectations: CaseExpectations,
+    tools: ToolSetup,
     requires: Requirements,
     skip: SkipRules,
 }
@@ -223,7 +328,7 @@ impl CaseManifest {
     }
 
     fn skip_reason(&self) -> Option<String> {
-        if self.requires.jdk && !jdk_is_available() {
+        if self.requires_jdk() && !jdk_is_available() {
             return Some("requires a real JDK".to_string());
         }
         if self
@@ -240,6 +345,10 @@ impl CaseManifest {
             return Some(reason.to_string());
         }
         None
+    }
+
+    fn requires_jdk(&self) -> bool {
+        self.requires.jdk || self.tools.requires_jdk()
     }
 }
 
@@ -382,6 +491,76 @@ struct Requirements {
 }
 
 #[derive(Debug, Default)]
+struct ToolSetup {
+    java: Option<ToolAvailability>,
+}
+
+impl ToolSetup {
+    fn needs_path(&self) -> bool {
+        self.configured().next().is_some()
+    }
+
+    fn requires_jdk(&self) -> bool {
+        self.configured().any(ToolConfig::requires_jdk)
+    }
+
+    fn configured(&self) -> impl Iterator<Item = ToolConfig> {
+        self.java
+            .map(|availability| ToolName::Java.config(availability))
+            .into_iter()
+    }
+
+    fn set(&mut self, name: ToolName, availability: ToolAvailability) {
+        match name {
+            ToolName::Java => self.java = Some(availability),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ToolConfig {
+    name: ToolName,
+    availability: ToolAvailability,
+}
+
+impl ToolConfig {
+    fn requires_jdk(self) -> bool {
+        self.name == ToolName::Java && self.availability == ToolAvailability::Real
+    }
+
+    fn setup(self, tool_path: &Path) {
+        setup_tool(tool_path, self.name.as_str(), self.availability);
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ToolName {
+    Java,
+}
+
+impl ToolName {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Java => "java",
+        }
+    }
+
+    fn config(self, availability: ToolAvailability) -> ToolConfig {
+        ToolConfig {
+            name: self,
+            availability,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ToolAvailability {
+    Missing,
+    FakeSuccess,
+    Real,
+}
+
+#[derive(Debug, Default)]
 struct SkipRules {
     platforms: Vec<SkipPlatform>,
     reason: Option<String>,
@@ -418,6 +597,7 @@ enum Section {
     Requires,
     Skip,
     Env,
+    Tools,
 }
 
 fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
@@ -431,6 +611,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
     let mut json_assertions = Vec::new();
     let mut file_assertions = Vec::new();
     let mut diagnostics = Vec::new();
+    let mut tools = ToolSetup::default();
     let mut requires = Requirements::default();
     let mut skip = SkipRules::default();
     let mut section = Section::Root;
@@ -449,6 +630,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
                 "[requires]" => Section::Requires,
                 "[skip]" => Section::Skip,
                 "[env]" => Section::Env,
+                "[tools]" => Section::Tools,
                 "[[json_assert]]" => {
                     json_assertions.push(JsonAssertion {
                         path: String::new(),
@@ -518,6 +700,15 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
                 _ => manifest_error(path, line_number, format!("unknown skip key `{key}`")),
             },
             Section::Env => env.push((key.to_string(), parse_string(path, line_number, value))),
+            Section::Tools => match key {
+                "java" => {
+                    tools.set(
+                        ToolName::Java,
+                        parse_tool_availability(path, line_number, value),
+                    );
+                }
+                _ => manifest_error(path, line_number, format!("unknown tools key `{key}`")),
+            },
             Section::JsonAssert(index) => match key {
                 "path" => json_assertions[index].path = parse_string(path, line_number, value),
                 "equals" => {
@@ -588,6 +779,7 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
             file_assertions,
             diagnostics,
         },
+        tools,
         requires,
         skip,
     };
@@ -691,6 +883,20 @@ fn parse_skip_platform(path: &Path, line_number: usize, value: &str) -> SkipPlat
             path,
             line_number,
             format!("unknown skip platform `{value}`"),
+        ),
+    }
+}
+
+fn parse_tool_availability(path: &Path, line_number: usize, value: &str) -> ToolAvailability {
+    let value = parse_string(path, line_number, value);
+    match value.as_str() {
+        "missing" => ToolAvailability::Missing,
+        "fake-success" => ToolAvailability::FakeSuccess,
+        "real" => ToolAvailability::Real,
+        _ => manifest_error(
+            path,
+            line_number,
+            format!("unknown tool availability `{value}`"),
         ),
     }
 }
