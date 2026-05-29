@@ -7,6 +7,19 @@ documentation placement, route policy, or status labels.
 
 - Put language behavior that works in the current code and tests in
   `specification/`.
+- The long-term documentation direction is thin prose over executable or
+  mechanically checked behavior. When practical, move detailed behavior
+  statements into fixtures, generated grammar, compiler tests, or CLI harness
+  cases, and leave prose as routing, summary, and explanation.
+- Prefer executable or mechanically checked specification evidence for language
+  behavior when the behavior can be expressed that way. Use
+  `examples/specification/`, generated grammar from
+  `specification/source-surface-executable.pl`, compiler tests, or CLI harness
+  cases as the concrete evidence behind prose behavior pages.
+- Treat prose specification pages as routing and explanation over checked
+  behavior. A prose-only change should describe current behavior only when the
+  behavior is already covered by code and tests or cannot reasonably be made
+  executable.
 - Put proposed design targets that are not fully implemented in `proposals/`.
 - Put implemented rationale and decision history in `reference/source-decisions/`.
 - Put planned or incomplete rationale and decision history in `proposals/`.
@@ -14,12 +27,17 @@ documentation placement, route policy, or status labels.
   matching proposal or reference page.
 - Treat `specification/` as the current behavior source before changing
   code, tests, diagnostics, or samples.
+- When prose and executable evidence disagree, resolve the mismatch by changing
+  the implementation, executable evidence, or prose together instead of citing
+  one stale surface as authoritative.
 
 ## Entry Pages
 
 - Keep top-level and directory README files as routing pages.
 - Keep expected topic paths short when a file grows around historical detail;
   move the long body behind a sibling `*-full.md` file.
+- When executable evidence can replace detailed prose without losing reader
+  guidance, shrink the prose and link to the evidence instead.
 - Link from short pages to the specific full section needed for a task instead
   of asking readers to scan a full record.
 - Keep status and promotion rules in [document-status.md](document-status.md)

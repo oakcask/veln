@@ -8,6 +8,12 @@ promotion rules, or placement policy.
 ## Read First
 
 - Current behavior belongs in [specification/README.md](specification/README.md).
+- Keep prose specification thin over time by moving behavior detail into
+  executable or mechanically checked evidence when practical.
+- Prefer executable or checked specification evidence for language behavior:
+  `examples/specification/`, generated grammar from
+  `specification/source-surface-executable.pl`, compiler tests, or CLI
+  harness cases.
 - Proposal targets and implemented proposal records belong in
   [proposals/README.md](proposals/README.md).
 - Gap evidence belongs in the matching proposal or reference page.
@@ -28,6 +34,9 @@ promotion rules, or placement policy.
 ## Placement Summary
 
 - Use `specification/` for current implemented language behavior.
+- Use prose specification pages to route, summarize, and explain checked
+  behavior. Do not grow prose as a substitute for executable or mechanically
+  verified examples when behavior can be expressed that way.
 - Use `reference/` for durable rationale and source support.
 - Use `proposals/` for proposed behavior that is not fully implemented and for
   implemented proposal records that still carry history or cleanup routes.
@@ -39,8 +48,12 @@ promotion rules, or placement policy.
 - Keep top-level and directory README files as short routing pages.
 - Keep expected topic paths short when a file grows around historical detail;
   move the long body behind a sibling `*-full.md` file.
+- Prefer shrinking detailed prose when executable coverage can carry the same
+  behavior more directly.
 - Use `specification/` as the current behavior source before changing
   code, tests, diagnostics, or samples.
+- When prose and executable evidence disagree, resolve the mismatch by updating
+  the implementation, executable evidence, or prose together.
 
 ## Skip Unless Needed
 
