@@ -10,7 +10,8 @@ routes below are not enough.
 - Current behavior: [specification/README.md](specification/README.md).
 - Planned or accepted proposal work: [proposals/README.md](proposals/README.md).
 - Rationale routes: [specification/source-decisions.md](specification/source-decisions.md).
-- Document movement rules: [document-status.md](document-status.md).
+- Status, placement, and promotion boundaries:
+  [document-status.md](document-status.md).
 
 ## Choose One Route
 
@@ -30,12 +31,8 @@ routes below are not enough.
 
 ## Boundary Rules
 
-- Current behavior pages under `specification/` win over proposal and
-  review wording.
-- Proposal text is not current behavior until the language specification also
-  says so.
-- Proposal pages are all available implementation routes, but the
-  `specification/` pages still decide current behavior.
+- Use [document-status.md](document-status.md) for the current-behavior,
+  proposal, and reference placement rules.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
 

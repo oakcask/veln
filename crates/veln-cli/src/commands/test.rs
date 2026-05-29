@@ -3,42 +3,33 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use veln_ast::{FunctionKind, SurfaceModule};
+use veln_ast::FunctionKind;
 use veln_backend_jvm::generate_classfiles_with_entry;
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
-use veln_sema::{analyze_surface_module, lower_checked_surface_module};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
     apply_runtime_result, attach_doctest_expectations, compare_expected_output,
-    contract_failure_from_trace, discover_test_cases, doctest_sources, expand_test_targets,
-    reconcile_expected_doctest_failures, selected_test_files, stdio_call_spans,
-    stdio_events_from_output, stdio_events_from_trace,
+    contract_failure_from_trace, discover_test_cases, expand_test_targets, selected_test_files,
+    stdio_call_spans, stdio_events_from_output, stdio_events_from_trace,
 };
 
+use crate::analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{JvmRunResult, create_build_dir, prepare_and_run_jvm_capture_with_env};
-use crate::surface::{load_surface_module, reachable_entry_module};
 
 pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let explicit = !targets.is_empty();
     let target_expansion = expand_test_targets(&root, &targets);
-    let mut project =
+    let project =
         Project::discover(root, &target_expansion.targets).map_err(|error| error.to_string())?;
-    let doctests = doctest_sources(&project.files);
-    project.files.extend(doctests.sources);
-    let (module, mut diagnostics) = load_surface_module(&project);
-    diagnostics.extend(doctests.diagnostics);
-    let test_files = selected_test_files(&project, &module, explicit);
-    let mut cases = discover_test_cases(&module, &test_files);
-    attach_doctest_expectations(&mut cases, &doctests.expectations);
+    let analysis = analyze_project(project, DoctestMode::Include);
+    let test_files = selected_test_files(&analysis.project, &analysis.module, explicit);
+    let mut cases = discover_test_cases(&analysis.module, &test_files);
+    attach_doctest_expectations(&mut cases, &analysis.doctest_expectations);
     let mut suite_errors = Vec::new();
-
-    if !has_error(&diagnostics) {
-        diagnostics.extend(analyze_surface_module(&module));
-    }
-    diagnostics = reconcile_expected_doctest_failures(diagnostics, &doctests.expected_failures);
+    let diagnostics = analysis.semantic_diagnostics();
 
     if cases.is_empty() && !has_error(&diagnostics) {
         suite_errors.push(SuiteError::discovery(
@@ -53,12 +44,12 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
         }
     } else if suite_errors.is_empty() {
         for case in &mut cases {
-            run_test_case(&module, case)?;
+            run_test_case(&analysis, case)?;
         }
     }
 
     let report = TestReport::new(
-        TestSelection::new(&project, &test_files, explicit)
+        TestSelection::new(&analysis.project, &test_files, explicit)
             .source_to_test_convention(target_expansion.source_to_test_added_count),
         diagnostics,
         suite_errors,
@@ -78,9 +69,9 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     })
 }
 
-fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), String> {
-    let reachable_module = reachable_entry_module(module, &case.name, FunctionKind::Test);
-    let lowered = lower_checked_surface_module(&reachable_module);
+fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), String> {
+    let reachable = analysis.lower_reachable_entry(&case.name, FunctionKind::Test);
+    let lowered = reachable.lowered;
     let Some(ir) = lowered.ir else {
         case.status = TestCaseStatus::Blocked;
         case.reason = Some("static_gate".to_string());
@@ -118,7 +109,7 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
         }
     };
 
-    let call_spans = stdio_call_spans(&reachable_module);
+    let call_spans = stdio_call_spans(&reachable.module);
     case.events = if event_trace.is_empty() {
         stdio_events_from_output(&output, &case.source)
     } else {

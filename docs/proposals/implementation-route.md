@@ -29,6 +29,13 @@ comparison, promotion, or cleanup.
 
 ## Specification Update Routes
 
+- Shared command analysis, source discovery, checked-core readiness, typed-IR
+  readiness, and command parity:
+  [project-analysis-pipeline.md](project-analysis-pipeline.md), then
+  [../specification/commands.md](../specification/commands.md),
+  [../specification/execution.md](../specification/execution.md), and
+  [../specification/json-output.md](../specification/json-output.md) only for
+  implemented observable behavior.
 - Source syntax, tests, doctests, names, types, and effects:
   [../specification/topic-map.md#source-surface](../specification/topic-map.md#source-surface).
 - Runtime-failure doctest metadata and expected case outcomes:

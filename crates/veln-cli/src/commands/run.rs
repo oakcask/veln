@@ -7,14 +7,13 @@ use veln_ast::FunctionKind;
 use veln_backend_jvm::{EntryArgType, generate_classfiles_with_entry_arg_types};
 use veln_diagnostics::{DiagnosticEnvelope, JsonValue};
 use veln_project::Project;
-use veln_sema::lower_checked_surface_module;
 use veln_test::{TestFailure, contract_failure_from_trace};
 
+use crate::analysis::{DoctestMode, analyze_project};
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{
     JvmRunResult, create_build_dir, prepare_and_run_jvm, prepare_and_run_jvm_capture_with_env,
 };
-use crate::surface::{load_surface_module, reachable_entry_module};
 
 pub(crate) fn run_entry(
     json: bool,
@@ -24,14 +23,15 @@ pub(crate) fn run_entry(
 ) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
-    let (module, diagnostics) = load_surface_module(&project);
+    let analysis = analyze_project(project, DoctestMode::Exclude);
+    let diagnostics = analysis.source_diagnostics();
 
     if has_error(&diagnostics) {
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
         return Ok(ExitCode::from(1));
     }
 
-    let Some(entry_function) = module.functions.iter().find(|function| {
+    let Some(entry_function) = analysis.module.functions.iter().find(|function| {
         function.kind == FunctionKind::Function && function.name.as_deref() == Some(entry.as_str())
     }) else {
         eprintln!("veln: run entry `{entry}` was not found");
@@ -65,8 +65,8 @@ pub(crate) fn run_entry(
         entry_arg_types.push(arg_type);
     }
 
-    let reachable_module = reachable_entry_module(&module, &entry, FunctionKind::Function);
-    let lowered = lower_checked_surface_module(&reachable_module);
+    let reachable = analysis.lower_reachable_entry(&entry, FunctionKind::Function);
+    let lowered = reachable.lowered;
     if has_error(&lowered.diagnostics) {
         print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
         return Ok(ExitCode::from(1));

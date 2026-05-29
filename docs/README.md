@@ -9,11 +9,11 @@ first route is not obvious.
 
 - Current language behavior:
   [specification/README.md](specification/README.md).
-- If a proposal conflicts with the language specification, treat the
-  specification as current behavior.
 - Planned or accepted proposal work:
   [proposals/README.md](proposals/README.md).
 - Rationale and source-support map: [reference/README.md](reference/README.md).
+- Documentation placement and promotion rules:
+  [document-status.md](document-status.md).
 
 ## Choose One Task
 
@@ -21,8 +21,6 @@ first route is not obvious.
   [specification/topic-map.md](specification/topic-map.md).
 - Promote proposal work into implemented behavior:
   [proposals/implementation-route.md](proposals/implementation-route.md).
-- Decide whether proposal text can move into current behavior:
-  [document-status.md](document-status.md).
 - Update diagnostics, related notes, or command JSON behavior:
   [specification/diagnostics-json.md](specification/diagnostics-json.md)
   or [specification/json-output.md](specification/json-output.md).
@@ -48,7 +46,7 @@ first route is not obvious.
 
 ## Skip Unless Needed
 
-- Do not treat proposal text as implemented behavior unless the specification
-  also states it.
-- Do not read implemented proposal records before the current specification
-  page or the proposal route answers the task.
+- Use [document-status.md](document-status.md) for status and placement rules
+  instead of repeating those rules here.
+- Do not read implemented proposal records before the current specification page
+  or the proposal route answers the task.

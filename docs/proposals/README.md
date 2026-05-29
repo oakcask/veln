@@ -9,6 +9,8 @@ states it.
 
 - Need implementation or promotion mechanics for proposal work:
   [implementation-route.md](implementation-route.md).
+- Shared command analysis for `check`, `run`, `test`, and `repair`:
+  [project-analysis-pipeline.md](project-analysis-pipeline.md).
 - Runtime-failure doctest route:
   [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
 - Status labels: [../document-status.md](../document-status.md).
@@ -26,9 +28,11 @@ states it.
 
 ## Choose A Route
 
-- Tests, doctests, command analysis, and harness work:
-  [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md),
-  [project-analysis-pipeline.md](project-analysis-pipeline.md), and
+- Shared command analysis and command parity:
+  [project-analysis-pipeline.md](project-analysis-pipeline.md).
+- Doctest runtime expectations:
+  [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
+- Test harness work:
   [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md).
 - Runtime, backend, and path representation work:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md) and

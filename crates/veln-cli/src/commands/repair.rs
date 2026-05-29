@@ -45,8 +45,7 @@ pub(crate) fn repair(
     let (source_inputs, candidate_inputs) = split_repair_inputs(&inputs);
     let project =
         Project::discover(root.clone(), &source_inputs).map_err(|error| error.to_string())?;
-    let mut check_project = project.clone();
-    let diagnostics = check_diagnostics(&mut check_project);
+    let diagnostics = check_diagnostics(project.clone());
     let current_candidates = repair_candidates_from_diagnostics(&diagnostics);
     let candidates = if candidate_inputs.is_empty() {
         current_candidates.clone()
@@ -598,9 +597,9 @@ fn apply_candidate(
         fs::write(&file_edit.path, &file_edit.repaired).map_err(|error| error.to_string())?;
     }
 
-    let mut verify_project =
+    let verify_project =
         Project::discover(project.root.clone(), &inputs).map_err(|error| error.to_string())?;
-    let verification_diagnostics = check_diagnostics(&mut verify_project);
+    let verification_diagnostics = check_diagnostics(verify_project);
     if has_error(&verification_diagnostics) {
         for file_edit in &edit_plan.files {
             fs::write(&file_edit.path, &file_edit.original).map_err(|error| error.to_string())?;
