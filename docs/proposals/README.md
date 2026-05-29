@@ -20,6 +20,8 @@ states it.
 1. Start with the proposal page that matches the task. All proposal pages are
    available work routes unless their own status says they are implemented,
    closed, superseded, or rejected.
+   Proposal pages are all available implementation routes, but the
+   `specification/` pages still decide current behavior.
 2. Compare the proposal with `../specification/` before changing code. Stop
    when the specification already states the behavior.
 3. Use [implementation-route.md](implementation-route.md) for implementation,
@@ -28,11 +30,9 @@ states it.
 
 ## Choose A Route
 
-- Shared command analysis and command parity:
+- Tests, doctests, command analysis, and harness work:
   [project-analysis-pipeline.md](project-analysis-pipeline.md).
-- Doctest runtime expectations:
   [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
-- Test harness work:
   [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md).
 - Runtime, backend, and path representation work:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md) and

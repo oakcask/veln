@@ -23,6 +23,8 @@ routes below are not enough.
   [proposals/implementation-route.md](proposals/implementation-route.md).
 - Proposal directory routing:
   [proposals/README.md](proposals/README.md).
+  Proposal pages are all available implementation routes, but the
+  `specification/` pages still decide current behavior.
 - Reviews, bibliography, or rationale:
   [navigation-full.md#history-and-evidence](navigation-full.md#history-and-evidence).
 - Documentation maintenance:
