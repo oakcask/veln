@@ -1,0 +1,25 @@
+command = ["repair", "--json", "--apply"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"refusal_reason\":\"verification failed\"", "\"id\":\"core.call_arity_mismatch\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "refused"
+
+[[json_assert]]
+path = "verification.status"
+equals = "failed"
+
+[[json_assert]]
+path = "verification.diagnostics.0.id"
+equals = "core.call_arity_mismatch"
+
+[[file_assert]]
+path = "main.veln"
+equals = "// Repair verification rolls back when shared check analysis reports checked-core errors.\nfn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n  _value satisfy candidate => candidate.ready == order.ready\nend\n"

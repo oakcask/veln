@@ -17,13 +17,12 @@ also states it.
 ## Follow-Up Targets
 
 This page is an index, not one implementation target. A listed area should
-route to one short proposal page before implementation work starts.
+route to one short proposal page before implementation work starts. No listed
+area is the current selected target.
 
-- Shared project analysis across command entry points:
-  [project-analysis-pipeline.md](project-analysis-pipeline.md).
 - Runtime-failure doctest expectations:
   [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
-- Declarative CLI harness features beyond the implemented case manifest:
+- Declarative CLI harness features beyond the implemented manifest fields:
   [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md).
 - Runtime `Path` representation beyond the current source-visible assignment
   boundary:

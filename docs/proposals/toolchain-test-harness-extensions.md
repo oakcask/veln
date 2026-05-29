@@ -21,26 +21,24 @@ live in the reference harness documentation.
 ## Completed Slices
 
 The implemented case manifest covers command invocation, fixture setup,
-repeated invocations inside one isolated project, environment and tool setup,
-exit status, stream checks, JSON assertions, diagnostic selectors, file content
-assertions, host requirements, platform skips, project updates, command help
-assertions, and JVM cache assertions and mutations. Keep field-level details in
-[../reference/toolchain-test-harness.md#manifest-fields](../reference/toolchain-test-harness.md#manifest-fields).
+stream and JSON assertions, diagnostic selectors, file assertions, host and
+platform gates, command help assertions, and JVM cache assertions and
+mutations. Keep field-level details in the
+[reference harness manifest section](../reference/toolchain-test-harness.md#manifest-fields).
 
-The fake external tool setup, command help assertion, and JVM cache assertion
-slices are implemented and documented in the reference page. Do not restate
-those field contracts here.
+Do not restate implemented field contracts here. This page keeps only
+incomplete or unsplit harness-extension work.
 
 ## Current Target
 
-No smaller target is selected on this page.
+No smaller target is selected on this page. The command help assertion slice is
+complete; use the reference harness page for its field contract.
 
 ## Open Follow-Ups
 
-After command help assertions, likely follow-ups include broad diagnostic detail
-checks and new setup rules that replace repeated bespoke CLI test code across
-at least two command paths. Move any large follow-up to its own proposal page
-before implementation.
+Candidate follow-ups include broad diagnostic detail checks and setup rules
+that replace repeated bespoke CLI test code across at least two command paths.
+Move any large follow-up to its own proposal page before implementation.
 
 ## Non-Goals
 

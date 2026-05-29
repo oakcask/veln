@@ -5,6 +5,8 @@ behavior, gates, or output boundaries.
 
 ## Command Sections
 
+- [Shared command analysis](#shared-command-analysis)
+- [Command help](#command-help)
 - [`veln check`](#veln-check)
 - [`veln fmt`](#veln-fmt)
 - [`veln run`](#veln-run)
@@ -12,6 +14,33 @@ behavior, gates, or output boundaries.
 - [`veln repair`](#veln-repair)
 - [`veln explain`](#veln-explain)
 - [`veln lsp`](#veln-lsp)
+
+<a id="shared-command-analysis"></a>
+
+## Shared Command Analysis
+
+`check`, `run`, `test`, and `repair` use one project analysis path for source
+discovery, generated doctest sources when the command includes doctests, parse
+diagnostics, parse-clean surface module loading, semantic diagnostics,
+checked-core readiness, and selected-entry typed-IR readiness.
+
+Each command keeps selection, output, execution, and write policy outside that
+shared path. Command-specific sections below define those user-visible
+boundaries.
+
+<a id="command-help"></a>
+
+## Command Help
+
+Top-level help is printed for an empty invocation, `veln --help`, `veln -h`,
+and `veln help`. Subcommand help is printed for `veln help <command>` and for
+`--help` or `-h` before the command-specific argument separator.
+
+For `run`, help flags after `--` are entry arguments, not command help flags.
+Unknown help topics and extra help-topic arguments are command-line errors.
+
+Help invocations emit human help text on stdout and do not discover, parse,
+check, lower, compile, run, repair, or emit command JSON.
 
 <a id="veln-check"></a>
 

@@ -554,7 +554,7 @@ enum StreamFormat {
 
 #[derive(Debug)]
 struct HelpExpectation {
-    stream: HelpStream,
+    stream: OutputStream,
     summary: Option<String>,
     usage: Option<String>,
     commands: Vec<String>,
@@ -566,7 +566,7 @@ struct HelpExpectation {
 impl Default for HelpExpectation {
     fn default() -> Self {
         Self {
-            stream: HelpStream::Stdout,
+            stream: OutputStream::Stdout,
             summary: None,
             usage: None,
             commands: Vec::new(),
@@ -580,46 +580,25 @@ impl Default for HelpExpectation {
 impl HelpExpectation {
     fn assert_matches(&self, context: &CaseRunContext<'_>, output: &CapturedOutput) {
         let stream = self.stream.text(output);
+        let stream_name = self.stream.name();
+        let help_surface = format!("help {stream_name}");
         if let Some(summary) = &self.summary {
             assert_eq!(
                 stream.lines().next(),
                 Some(summary.as_str()),
                 "{}: help summary mismatch on {}",
                 context.label(),
-                self.stream.name()
+                stream_name
             );
         }
         if let Some(usage) = &self.usage {
-            assert_help_contains(
-                context,
-                self.stream.name(),
-                stream,
-                &format!("Usage: {usage}\n"),
-            );
+            assert_contains_fragment(context, &help_surface, stream, &format!("Usage: {usage}\n"));
         }
-        assert_help_section(
-            context,
-            self.stream.name(),
-            stream,
-            "Commands",
-            &self.commands,
-        );
-        assert_help_section(
-            context,
-            self.stream.name(),
-            stream,
-            "Arguments",
-            &self.arguments,
-        );
-        assert_help_section(
-            context,
-            self.stream.name(),
-            stream,
-            "Options",
-            &self.options,
-        );
+        assert_help_section(context, &help_surface, stream, "Commands", &self.commands);
+        assert_help_section(context, &help_surface, stream, "Arguments", &self.arguments);
+        assert_help_section(context, &help_surface, stream, "Options", &self.options);
         for fragment in &self.contains {
-            assert_help_contains(context, self.stream.name(), stream, fragment);
+            assert_contains_fragment(context, &help_surface, stream, fragment);
         }
     }
 
@@ -634,12 +613,12 @@ impl HelpExpectation {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum HelpStream {
+enum OutputStream {
     Stdout,
     Stderr,
 }
 
-impl HelpStream {
+impl OutputStream {
     fn name(self) -> &'static str {
         match self {
             Self::Stdout => "stdout",
@@ -651,6 +630,19 @@ impl HelpStream {
         match self {
             Self::Stdout => &output.stdout,
             Self::Stderr => &output.stderr,
+        }
+    }
+
+    fn parse(path: &Path, line_number: usize, value: &str) -> Self {
+        let value = parse_string(path, line_number, value);
+        match value.as_str() {
+            "stdout" => Self::Stdout,
+            "stderr" => Self::Stderr,
+            _ => manifest_error(
+                path,
+                line_number,
+                format!("unknown output stream `{value}`"),
+            ),
         }
     }
 }
@@ -1247,7 +1239,7 @@ fn parse_help_key(
     value: &str,
 ) {
     match key {
-        "stream" => help.stream = parse_help_stream(path, line_number, value),
+        "stream" => help.stream = OutputStream::parse(path, line_number, value),
         "summary" => help.summary = Some(parse_string(path, line_number, value)),
         "usage" => help.usage = Some(parse_string(path, line_number, value)),
         "commands" => help.commands = parse_string_array(path, line_number, value),
@@ -1255,15 +1247,6 @@ fn parse_help_key(
         "options" => help.options = parse_string_array(path, line_number, value),
         "contains" => help.contains = parse_string_array(path, line_number, value),
         _ => manifest_error(path, line_number, format!("unknown help key `{key}`")),
-    }
-}
-
-fn parse_help_stream(path: &Path, line_number: usize, value: &str) -> HelpStream {
-    let value = parse_string(path, line_number, value);
-    match value.as_str() {
-        "stdout" => HelpStream::Stdout,
-        "stderr" => HelpStream::Stderr,
-        _ => manifest_error(path, line_number, format!("unknown help stream `{value}`")),
     }
 }
 
@@ -1517,17 +1500,13 @@ fn assert_stream(
     }
 
     for fragment in &expectation.contains {
-        assert!(
-            actual.contains(fragment),
-            "{}: expected {name} to contain `{fragment}`, got:\n{actual}",
-            context.label()
-        );
+        assert_contains_fragment(context, name, actual, fragment);
     }
 }
 
 fn assert_help_section(
     context: &CaseRunContext<'_>,
-    stream_name: &str,
+    surface: &str,
     stream: &str,
     section: &str,
     fragments: &[String],
@@ -1535,21 +1514,21 @@ fn assert_help_section(
     if fragments.is_empty() {
         return;
     }
-    assert_help_contains(context, stream_name, stream, &format!("{section}:\n"));
+    assert_contains_fragment(context, surface, stream, &format!("{section}:\n"));
     for fragment in fragments {
-        assert_help_contains(context, stream_name, stream, fragment);
+        assert_contains_fragment(context, surface, stream, fragment);
     }
 }
 
-fn assert_help_contains(
+fn assert_contains_fragment(
     context: &CaseRunContext<'_>,
-    stream_name: &str,
-    stream: &str,
+    surface: &str,
+    actual: &str,
     fragment: &str,
 ) {
     assert!(
-        stream.contains(fragment),
-        "{}: expected help {stream_name} to contain `{fragment}`, got:\n{stream}",
+        actual.contains(fragment),
+        "{}: expected {surface} to contain `{fragment}`, got:\n{actual}",
         context.label()
     );
 }

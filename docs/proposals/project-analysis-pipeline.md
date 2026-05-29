@@ -1,10 +1,9 @@
 # Project Analysis Pipeline
 
-Status: proposed
+Status: implemented
 
-This page turns the remaining shared-analysis gap from the historical
-first-slice review into one implementation target. It is a proposal route, not
-current behavior.
+This page records the implemented shared-analysis target from the historical
+first-slice review. Use the specification pages for current command behavior.
 
 ## Read First
 
@@ -12,18 +11,23 @@ current behavior.
 - Current execution gates: [../specification/execution.md](../specification/execution.md).
 - Current JSON output boundaries:
   [../specification/json-output.md](../specification/json-output.md).
-- Proposal implementation mechanics: [implementation-route.md](implementation-route.md).
+- Use this page for completion evidence and cleanup routing only.
+- Use [implementation-route.md](implementation-route.md) only for a new or
+  reopened proposal target.
 
-## Target
+## Outcome
 
-Introduce one reusable project-analysis entry point that owns source discovery
-results, parse diagnostics, generated doctest sources, surface module loading,
-semantic diagnostics, checked-core readiness, and typed-IR readiness.
+The shared project-analysis entry point owns source discovery results, parse
+diagnostics, generated doctest sources, surface module loading, semantic
+diagnostics, checked-core readiness, and typed-IR readiness.
 
-`check`, `run`, `test`, and `repair` should call that entry point and then apply
-only command-specific selection, output, execution, or write policy.
+`check`, `run`, `test`, and `repair` call that entry point and then apply only
+command-specific selection, output, execution, or write policy.
 
-## Non-Goals
+This proposal page is now history and routing. New shared-analysis work should
+use a new proposal page unless it is already stated by `../specification/`.
+
+## Boundary
 
 - Do not change the documented source discovery rules.
 - Do not change current diagnostic ids, JSON envelopes, or human diagnostic
@@ -31,7 +35,7 @@ only command-specific selection, output, execution, or write policy.
 - Do not expand module loading, import syntax, test discovery, repair
   application, or backend behavior as part of this target.
 
-## Acceptance Checks
+## Completion Evidence
 
 - `check`, `run`, `test`, and `repair` use the same project-analysis API for
   parse-clean source loading and semantic analysis.
@@ -46,9 +50,9 @@ only command-specific selection, output, execution, or write policy.
 
 ## Read When
 
-- Use this page for the shared command-analysis target only.
-- Use [implementation-route.md](implementation-route.md) before promoting any
-  behavior into `../specification/`.
+- Checking why the shared command-analysis target is no longer listed as
+  active.
+- Reviewing completion evidence before removing or superseding this route.
 - Use the historical gap classification below only for scope checks or cleanup
   routing.
 
@@ -56,7 +60,8 @@ only command-specific selection, output, execution, or write policy.
 
 The first-slice gap review found seven areas:
 
-- Shared analysis pipeline: still partially open and captured by this proposal.
+- Shared analysis pipeline: implemented and retained here as completion
+  evidence.
 - Runtime contract enforcement: current contract pages now define the runtime
   obligation route, so this page does not own that behavior.
 - First-slice grammar coverage: the implemented `match` subset is now covered
@@ -64,11 +69,11 @@ The first-slice gap review found seven areas:
 - Prelude helper coverage: implemented helper semantics now belong to current
   names, effects, and runtime behavior.
 - `veln-test` crate boundary: architectural ownership can be revisited only
-  after this shared-analysis entry point exists.
+  through a separate proposal target.
 - Captured stdio event fidelity: current test JSON and source-decision records
   now own source-linked output event behavior.
 - Executable blockers missing from `check`: partially resolved and retained
-  here only as part of shared checked-core readiness.
+  here only as history for shared checked-core readiness.
 
 The historical review also verified that the broad test suite passed, sample
 `check --json` and `test --json` commands returned with static diagnostics, and
@@ -76,7 +81,6 @@ the previous sample `check` hang was not reproduced.
 
 ## Update When
 
-- Move implemented behavior into `../specification/` only when it changes
-  observable command behavior.
-- Move reusable architecture guidance into `../reference/` after the shared
-  entry point exists and tests cover the command parity checks.
+- New command-analysis work becomes implemented and belongs in the current
+  specification or a separate proposal route.
+- This historical route stops carrying useful completion evidence.

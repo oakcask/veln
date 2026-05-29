@@ -6,6 +6,11 @@ details.
 
 ## Read First
 
+- `check --json`, `run --json`, `test --json`, and `repair --json` keep their
+  command-specific envelopes while reusing the shared command analysis path
+  described by [commands.md](commands.md).
+- Help output is human command output, not command JSON. Use
+  [commands.md](commands.md) for top-level and subcommand help behavior.
 - Human diagnostic wording, related notes, spans, or stable diagnostic details:
   [diagnostics-json.md](diagnostics-json.md). Keep human output and structured
   output aligned before checking command-specific behavior.
