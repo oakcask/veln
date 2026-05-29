@@ -1,0 +1,14 @@
+command = ["test", "--help"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+summary = "Run tests"
+usage = "veln test [OPTIONS] [TARGETS]..."
+arguments = ["  [TARGETS]...  Source files, directories, or test targets"]
+options = ["      --json  Emit machine-readable JSON", "  -h, --help  Print help"]
