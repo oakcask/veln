@@ -4,7 +4,7 @@ use stdio
 pub   fn main ( raw : String ) -> Result ( { value : Int, tags : Vec(String) } , AppError ) effects [ stdio ]
  require raw != ""
  ensure output.value >= 0 and not ( output.value == - 1 )
- let parsed : Int = parse ( raw ) ?
+ let parsed : Int = parse ( raw ) ? // parsed value
 // preserve body comment
  let payload : { message : String, values : Vec(Int) } = { message : raw , values : [ 1 , 2 , add ( 3 , 4 ) ] }
  match Some ( parsed )
