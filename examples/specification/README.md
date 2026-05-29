@@ -8,6 +8,11 @@ against the built `veln` binary.
 
 - Use this directory when a behavior should be visible as source code and also
   checked through the public CLI.
+- Treat these cases as executable specification evidence for user-visible
+  language and CLI behavior. Keep matching prose in `../../docs/specification/`
+  aligned with the observable expectations here.
+- Prefer adding or improving a case here over expanding prose when the behavior
+  is observable through source, diagnostics, command output, or JSON.
 - Keep case names grouped by command surface: `check`, `fmt`, `explain`,
   `lsp`, `run`, `test`, and `repair`.
 - Put the expected observable behavior in `case.toml`; keep the `.veln` files
