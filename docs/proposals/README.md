@@ -19,6 +19,11 @@ not current language behavior unless `../specification/` also states it.
 - Stop when the matching specification page already states the behavior.
 - Do not begin implementation from this index or from
   [reference-followups.md](reference-followups.md) alone.
+- Treat this index, target selection, and implementation routing as separate
+  steps: this page chooses an area, [target-selection.md](target-selection.md)
+  chooses or rejects a concrete target, and
+  [implementation-route.md](implementation-route.md) applies only after that
+  target exists.
 - Keep candidate-gate wording in [target-selection.md](target-selection.md);
   this page only routes to proposal areas.
 - Read [implementation-route.md](implementation-route.md) only after one short

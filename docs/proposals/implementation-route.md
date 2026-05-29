@@ -11,6 +11,8 @@ comparison, promotion, or cleanup.
 - Start from the proposal page named by the task.
 - If no concrete target is selected, stop here and use
   [target-selection.md](target-selection.md).
+- Treat proposal indexes, routing pages, and broad follow-up inventories as
+  navigation, not as implementation targets.
 - Stop when the target is implemented, closed, superseded, rejected, or already
   covered by `../specification/`.
 - Keep the implementation scope to the chosen proposal page unless that page

@@ -14,7 +14,7 @@ proposal.
 - Implementation mechanics after a target is selected:
   [implementation-route.md](implementation-route.md).
 
-## Current Target
+## Current Prompt State
 
 No concrete proposal target is selected when no concrete target prompt is
 present or the prompt state says no target is selected. That state has no
@@ -25,6 +25,16 @@ narrow target out of the follow-up inventory. Return to [README.md](README.md)
 after selecting the target area; use
 [implementation-route.md](implementation-route.md) only after a concrete page
 owns the target.
+
+## Decision Flow
+
+1. If a prompt names one concrete proposal page, read that page and compare it
+   with the matching `../specification/` page before implementation.
+2. If no concrete prompt is selected, stay on the candidate gates below.
+3. If a candidate gate is still broad, split the smallest observable behavior
+   into a short proposal page before implementation.
+4. Use [implementation-route.md](implementation-route.md) only after the short
+   proposal page states the selected target.
 
 ## Candidate Gates
 

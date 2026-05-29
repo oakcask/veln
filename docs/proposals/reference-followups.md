@@ -21,6 +21,8 @@ This page is an index, not one implementation target. A listed area should
 route to one short proposal page before implementation work starts. No listed
 area is the current selected target; use
 [target-selection.md](target-selection.md) for current candidate gates.
+Keep candidate-gate detail on that page so this inventory stays a broad
+follow-up map.
 
 - Current candidate gates: [target-selection.md](target-selection.md).
 - Proposal area routing: [README.md](README.md#choose-a-route).

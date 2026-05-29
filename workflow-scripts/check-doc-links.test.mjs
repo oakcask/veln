@@ -38,6 +38,11 @@ const NO_TARGET_ROUTES = [
     routingOnly: true,
   },
 ];
+const TARGET_PROMPT = path.join("prompts", "TARGET.md");
+const NO_TARGET_PROMPT = path.join("prompts", "NOTARGET");
+const NO_TARGET_HEADING = "# No Proposal Target Selected";
+const NO_TARGET_SUMMARY =
+  "No suitable proposal target is selected for the next implementation session.";
 
 test("repository documentation links resolve", () => {
   const result = validateDocsLinks(path.resolve("docs"));
@@ -57,7 +62,7 @@ test("proposal routing preserves the no-target prompt route", () => {
   const docsIndex = readDocsFile("README.md");
   const navigation = readDocsFile("navigation.md");
 
-  assert.equal(fs.existsSync(path.join("prompts", "TARGET.md")), false);
+  assert.equal(fs.existsSync(TARGET_PROMPT), false);
   assert.equal(
     fs.existsSync(path.join("docs", "proposals", "target-selection.md")),
     true,
@@ -129,6 +134,15 @@ test("proposal routing preserves the no-target prompt route", () => {
     "[proposals/target-selection.md](proposals/target-selection.md) when no\n" +
       "  concrete target is named, then",
   );
+});
+
+test("no-target prompt content is the active proposal prompt state", () => {
+  const prompt = readNoTargetPrompt();
+
+  assert.equal(prompt, readNoTargetPrompt());
+  assertIncludes(prompt, NO_TARGET_HEADING);
+  assertIncludes(prompt, NO_TARGET_SUMMARY);
+  assert.deepEqual(promptProposalRoutes(prompt), noTargetPromptRoutes());
 });
 
 test("no-target prompt routes stay classified as non-active targets", () => {
@@ -320,7 +334,7 @@ test("target prompt absence is covered by proposal routing", () => {
   const implementationRoute = readDocsFile("proposals/implementation-route.md");
   const prompt = readNoTargetPrompt();
 
-  assert.equal(fs.existsSync(path.join("prompts", "TARGET.md")), false);
+  assert.equal(fs.existsSync(TARGET_PROMPT), false);
   assertIncludes(prompt, "No suitable proposal target is selected");
   assertIncludes(
     proposalsIndex,
@@ -670,13 +684,11 @@ function classifyPromptRoutes(prompt) {
 }
 
 function selectedTargetFromPromptState() {
-  const targetPrompt = path.join("prompts", "TARGET.md");
-  if (fs.existsSync(targetPrompt)) {
-    return fs.readFileSync(targetPrompt, "utf8").trim() || null;
+  if (fs.existsSync(TARGET_PROMPT)) {
+    return fs.readFileSync(TARGET_PROMPT, "utf8").trim() || null;
   }
 
-  const noTargetPrompt = path.join("prompts", "NOTARGET");
-  if (fs.existsSync(noTargetPrompt)) {
+  if (fs.existsSync(NO_TARGET_PROMPT)) {
     return null;
   }
 
@@ -712,15 +724,14 @@ function readDocsFile(relativePath) {
 }
 
 function readNoTargetPrompt() {
-  const noTargetPrompt = path.join("prompts", "NOTARGET");
-  if (fs.existsSync(noTargetPrompt)) {
-    return fs.readFileSync(noTargetPrompt, "utf8");
+  if (fs.existsSync(NO_TARGET_PROMPT)) {
+    return fs.readFileSync(NO_TARGET_PROMPT, "utf8");
   }
 
   return [
-    "# No Proposal Target Selected",
+    NO_TARGET_HEADING,
     "",
-    "No suitable proposal target is selected for the next implementation session.",
+    NO_TARGET_SUMMARY,
     "",
     "Inspected proposal routes:",
     "",
