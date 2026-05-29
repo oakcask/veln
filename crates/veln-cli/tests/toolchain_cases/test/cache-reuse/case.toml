@@ -1,0 +1,28 @@
+command = ["test", "--json"]
+exit = 0
+repeat = 2
+
+[tools]
+java = "fake-success"
+
+[skip]
+platforms = ["windows"]
+reason = "fake java wrapper uses a Unix executable script"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[jvm_cache_assert]]
+run = 1
+ready_entries = 1
+
+[[jvm_cache_assert]]
+run = 2
+ready_entries = 1

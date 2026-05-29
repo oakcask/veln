@@ -1,0 +1,33 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+repeat = 2
+
+[tools]
+java = "fake-success"
+
+[skip]
+platforms = ["windows"]
+reason = "fake java wrapper uses a Unix executable script"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[jvm_cache_assert]]
+run = 1
+ready_entries = 1
+
+[[jvm_cache_mutation]]
+after_run = 1
+action = "remove-required-file"
+
+[[jvm_cache_assert]]
+run = 2
+ready_entries = 1
+repaired_mutations = true
