@@ -32,7 +32,8 @@ incomplete or unsplit harness-extension work.
 ## Current Target
 
 No smaller target is selected on this page. The command help assertion slice is
-complete; use the reference harness page for its field contract.
+complete; use [target-selection.md](target-selection.md) for the current
+proposal-level target status.
 
 ## Open Follow-Ups
 

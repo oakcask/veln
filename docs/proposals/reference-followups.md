@@ -10,7 +10,8 @@ also states it.
 
 - Current behavior: [../specification/README.md](../specification/README.md).
 - Proposal routing and promotion mechanics:
-  [README.md](README.md) and [implementation-route.md](implementation-route.md).
+  [README.md](README.md), [target-selection.md](target-selection.md), and
+  [implementation-route.md](implementation-route.md).
 - Use the follow-up target list below only after current behavior does not
   already cover the task.
 
@@ -18,7 +19,8 @@ also states it.
 
 This page is an index, not one implementation target. A listed area should
 route to one short proposal page before implementation work starts. No listed
-area is the current selected target.
+area is the current selected target; use
+[target-selection.md](target-selection.md) for current candidate gates.
 
 - Runtime-failure doctest expectations:
   [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).

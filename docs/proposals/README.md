@@ -7,8 +7,8 @@ states it.
 
 ## Read First
 
-- Current target: no concrete proposal target is selected. Use the route list
-  below to choose or split a future target.
+- Current target and candidate gates:
+  [target-selection.md](target-selection.md).
 - Need implementation or promotion mechanics for proposal work:
   [implementation-route.md](implementation-route.md).
 - Implemented shared command analysis record:
@@ -19,9 +19,9 @@ states it.
 
 ## Proposal Flow
 
-1. Start with the proposal page that matches the task. All proposal pages are
-   available work routes unless their own status says they are implemented,
-   closed, superseded, or rejected.
+1. Start with [target-selection.md](target-selection.md) when no concrete
+   target is named; otherwise start with the proposal page that matches the
+   task.
 2. Compare the proposal with `../specification/` before changing code. Stop
    when the specification already states the behavior.
 3. Use [implementation-route.md](implementation-route.md) for implementation,
@@ -32,7 +32,7 @@ states it.
 
 - Tests, doctests, command analysis, and harness work:
   [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md)
-  for remaining declarative harness follow-ups that are not yet split.
+  for remaining declarative harness follow-ups that are not yet split;
   [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
   [project-analysis-pipeline.md](project-analysis-pipeline.md) only when
   checking implemented shared-analysis history, not as a new target.
@@ -52,8 +52,7 @@ states it.
 
 - Checking whether a proposal page still describes absent behavior or must stay
   as history, inventory, or a candidate pool.
-- Checking completed prelude helper migrations before choosing more helper
-  migration work.
+- Choosing the next target from candidate gates.
 - Checking historical gaps that have been revalidated as proposal work.
 - Checking residual scope that has been split into a short proposal route.
 - Checking completion evidence before changing target status.

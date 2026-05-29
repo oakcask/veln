@@ -10,6 +10,8 @@ comparison, promotion, or cleanup.
 
 - Start from the proposal page named by the task or from
   [README.md](README.md).
+- If no concrete target is selected, use
+  [target-selection.md](target-selection.md) before implementation work.
 - Stop when the proposal page is implemented, closed, superseded, rejected, or
   already covered by `../specification/`.
 - Keep the implementation scope to the chosen proposal page unless that page

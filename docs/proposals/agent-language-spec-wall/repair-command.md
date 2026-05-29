@@ -15,6 +15,8 @@ inventory, or completed command record first.
   [../../specification/commands.md](../../specification/commands.md).
 - Repair command JSON envelope and command-level candidate shape:
   [../../specification/repair-json.md](../../specification/repair-json.md).
+- Current proposal-level target status:
+  [../target-selection.md](../target-selection.md).
 
 ## Current Implemented Boundary
 
