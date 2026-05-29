@@ -1,0 +1,19 @@
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[tools]
+java = "real"
+
+[skip]
+platforms = ["windows"]
+reason = "real java path setup uses a Unix symlink"
+
+[stdout]
+format = "text"
+contains = ["ok\n"]
+
+[stderr]
+format = "empty"

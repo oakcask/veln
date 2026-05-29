@@ -4,55 +4,41 @@ Status: proposed
 
 This page records the declarative harness follow-up left outside the completed
 structured CLI integration test harness target. It is proposal work, not
-current test-harness behavior.
+current test-harness behavior. The fake external tool setup slice is
+implemented in the reference harness documentation.
 
 ## Read First
 
 - Implemented harness organization:
   [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
-- Implemented manifest completion notes are summarized below.
 - Current command and JSON behavior:
   [../specification/commands.md](../specification/commands.md) and
   [../specification/json-output.md](../specification/json-output.md).
+- Use this page only for manifest capabilities that the reference page does
+  not yet list as implemented.
 
-## Current Boundary
+## Implemented Baseline
 
-The manifest covers reusable command invocation, exit status, stream
-fragments, semantic JSON assertions, diagnostic selectors, JDK requirements,
-platform skips, fixture copying, fixed environment variables, and repeated
-invocations inside one isolated project.
-
-Case discovery walks `tests/toolchain_cases/` for `case.toml` files and runs
-each case in a temporary project. Fixture copying treats the case directory as
-the project tree and excludes only `case.toml`. JSON output is parsed and
-checked semantically, so cases assert stable paths and diagnostic fields
-instead of relying on full JSON string equality.
-
-Existing declarative cases cover check, run, and test behavior including valid
-JSON output, human diagnostics, type diagnostics, nested discovery, ignored
-build output, manifest module drift, entry resolution, entry argument errors,
-JSON contract failure, no discovered tests, source-to-test convention
-selection, static gate blocking, doctest expected output, and runtime stdio
-capture.
+The implemented case manifest already covers command invocation, stdin, fixed
+environment variables, repeated invocations inside one isolated project,
+fixture copying, exit status, stream fragments, semantic JSON assertions,
+diagnostic selectors, file content assertions, JDK requirements, and platform
+skips. Keep those details in
+[../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
 
 Bespoke Rust integration tests still own setup that the manifest cannot
 describe cleanly, including fake tool installation, generated-cache side-effect
-inspection, command help assertions, formatter mutation checks, and broad
-diagnostic detail checks.
+inspection, command help assertions, and broad diagnostic detail checks.
 
-## Target
+## Future Inventory
 
-Add one narrow declarative capability at a time when multiple bespoke CLI
-integration tests need the same setup or assertion pattern.
+Keep later declarative harness features separate from completed slices. Likely
+follow-ups include:
 
-Preferred first targets are:
-
-- Fake external tool setup for commands that need controlled JVM tool
-  availability.
 - Cache state assertions that can inspect command-visible generated-cache
   behavior without exposing backend cache internals as language facts.
-- File mutation assertions for commands such as formatter or repair checks
-  that intentionally write source files.
+- New assertion shapes or setup rules that replace repeated bespoke CLI test
+  code across at least two command paths.
 
 ## Non-Goals
 
@@ -75,8 +61,7 @@ Preferred first targets are:
 
 ## Update When
 
-- Move implemented harness organization into
-  `../reference/toolchain-test-harness.md` after code and tests support the new
-  manifest feature.
+- Document a completed manifest extension in
+  `../reference/toolchain-test-harness.md` after code and tests support it.
 - Keep future declarative harness features on this page until a smaller
   proposal page is useful.

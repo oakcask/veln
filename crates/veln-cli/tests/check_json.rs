@@ -93,29 +93,6 @@ impl TestProject {
         bin
     }
 
-    #[cfg(unix)]
-    fn bin_dir_with_real_java_only(&self) -> Option<PathBuf> {
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg("command -v java")
-            .output()
-            .ok()?;
-        if !output.status.success() {
-            return None;
-        }
-        let java_path = String::from_utf8(output.stdout).ok()?;
-        let java_path = java_path.trim();
-        if java_path.is_empty() {
-            return None;
-        }
-
-        let bin = self.root.join("bin");
-        fs::create_dir_all(&bin).expect("bin directory should be created");
-        std::os::unix::fs::symlink(java_path, bin.join("java"))
-            .expect("java symlink should be created");
-        Some(bin)
-    }
-
     fn run_with_path(&self, args: &[&str], path: &str) -> Output {
         self.veln_with_path("run", args, path)
     }
@@ -3636,72 +3613,6 @@ fn run_rejects_invalid_bool_entry_argument_before_jdk_execution() {
     );
 }
 
-#[test]
-fn run_reports_missing_java_clearly() {
-    let project = TestProject::new("run-no-java");
-    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
-
-    let output = project.run_with_path(&["main", "main.veln"], "");
-
-    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
-    assert_eq!(stdout(&output), "");
-    assert_contains_all(
-        stderr(&output),
-        &["veln: `java` was not found; install a JDK to use `veln run`"],
-    );
-}
-
-#[test]
-fn run_json_reports_missing_java_as_runner_error() {
-    let project = TestProject::new("run-json-no-java");
-    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
-
-    let output = project.run_with_path(&["--json", "main", "main.veln"], "");
-    let stdout = stdout(&output);
-
-    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
-    assert_eq!(stderr(&output), "");
-    assert_contains_all(
-        stdout,
-        &[
-            "\"schema_version\":\"veln-run-json/v0\"",
-            "\"command\":\"run\"",
-            "\"status\":\"error\"",
-            "\"exit_code\":1",
-            "\"stdout\":\"\"",
-            "\"stderr\":\"\"",
-            "\"error\":{\"kind\":\"runner\",\"message\":\"veln: `java` was not found; install a JDK to use `veln run`\"",
-            "\"details\":{\"phase\":\"tool\"}",
-        ],
-    );
-}
-
-#[cfg(unix)]
-#[test]
-fn run_succeeds_with_only_java_on_path() {
-    if !jdk_is_available() {
-        return;
-    }
-
-    let project = TestProject::new("run-java-only-path");
-    project.write(
-        "main.veln",
-        "pub fn main() -> () effects [stdio]\n  stdio::println(\"ok\")\nend\n",
-    );
-    let Some(bin) = project.bin_dir_with_real_java_only() else {
-        return;
-    };
-
-    let output = project.run_with_path(
-        &["main", "main.veln"],
-        bin.to_str().expect("bin path should be UTF-8"),
-    );
-
-    assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(stdout(&output), "ok\n");
-    assert_eq!(stderr(&output), "");
-}
-
 #[cfg(unix)]
 #[derive(Clone, Copy)]
 enum JvmCacheCommand {
@@ -5020,88 +4931,6 @@ fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
     assert_contains_all(
         stderr(&output),
         &["main_test.veln:2:3: hint[hole.unfilled]: hole requires a `Result((), AppError)` value"],
-    );
-}
-
-#[test]
-fn test_json_reports_missing_java_as_runner_error() {
-    let project = TestProject::new("test-no-java");
-    project.write(
-        "main_test.veln",
-        "test passes() -> () effects []\n  ()\nend\n",
-    );
-
-    let output = project.test_with_path(&["--json"], "");
-    let stdout = stdout(&output);
-
-    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
-    assert_eq!(stderr(&output), "");
-    assert_contains_all(
-        stdout,
-        &[
-            "\"status\":\"error\"",
-            "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":1}",
-            "\"name\":\"passes\"",
-            "\"failure\":{\"kind\":\"runtime\",\"message\":\"veln: `java` was not found; install a JDK to use `veln test`\"",
-        ],
-    );
-}
-
-#[test]
-fn test_human_reports_missing_java_as_runner_error() {
-    let project = TestProject::new("test-human-no-java");
-    project.write(
-        "main_test.veln",
-        "test passes() -> () effects []\n  ()\nend\n",
-    );
-
-    let output = project.test_with_path(&[], "");
-
-    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
-    assert_eq!(stdout(&output), "error passes\n");
-    assert_contains_all(
-        stderr(&output),
-        &[
-            "veln: test `passes` failed: veln: `java` was not found; install a JDK to use `veln test`",
-        ],
-    );
-}
-
-#[cfg(unix)]
-#[test]
-fn test_json_succeeds_with_only_java_on_path() {
-    if !jdk_is_available() {
-        return;
-    }
-
-    let project = TestProject::new("test-json-java-only-path");
-    project.write(
-        "main_test.veln",
-        concat!(
-            "test passes() -> () effects [stdio]\n",
-            "  stdio::println(\"ok\")\n",
-            "  ()\n",
-            "end\n",
-        ),
-    );
-    let Some(bin) = project.bin_dir_with_real_java_only() else {
-        return;
-    };
-
-    let output =
-        project.test_with_path(&["--json"], bin.to_str().expect("bin path should be UTF-8"));
-    let stdout = stdout(&output);
-
-    assert!(output.status.success(), "{}", stderr(&output));
-    assert_eq!(stderr(&output), "");
-    assert_contains_all(
-        stdout,
-        &[
-            "\"status\":\"passed\"",
-            "\"summary\":{\"total\":1,\"passed\":1,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":0}",
-            "\"name\":\"passes\",\"kind\":\"test\",\"status\":\"passed\"",
-            "\"events\":[{\"kind\":\"stdio\",\"stream\":\"stdout\",\"operation\":\"println\",\"text\":\"ok\",\"terminator\":\"newline\"",
-        ],
     );
 }
 

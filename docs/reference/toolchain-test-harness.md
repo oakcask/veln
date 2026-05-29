@@ -9,7 +9,7 @@ reference for test organization, not a source for command behavior.
   [../specification/commands.md](../specification/commands.md).
 - JSON output behavior belongs in
   [../specification/json-output.md](../specification/json-output.md).
-- Implemented manifest completion evidence is summarized in
+- Planned manifest extensions belong in
   [../proposals/toolchain-test-harness-extensions.md](../proposals/toolchain-test-harness-extensions.md).
 
 ## Read When
@@ -24,13 +24,14 @@ reference for test organization, not a source for command behavior.
 
 ## Case Layout
 
-The CLI harness discovers case directories that contain `case.toml`. Each case
-is copied into a temporary project before the command runs, so fixtures stay
-isolated from the repository checkout.
+The CLI harness discovers case directories that contain `case.toml` under
+`tests/toolchain_cases/` and `examples/specification/`. Each case is copied
+into a temporary project before the command runs, so fixtures stay isolated
+from the repository checkout.
 
 Cases are grouped by command or behavior area. The harness owns command
-execution, fixture copying, exit-status checks, stream checks, and JSON
-assertions.
+execution, fixture copying, exit-status checks, stream checks, JSON
+assertions, diagnostic selectors, and file content assertions.
 
 ## Manifest Policy
 
@@ -38,14 +39,26 @@ Case manifests are declarative. They should describe the command, expected exit
 status, expected stdout or stderr fragments, and structured JSON expectations.
 They must not execute arbitrary shell commands.
 
-Treat `command`, `[env]`, and `repeat` as invocation settings. Treat `exit`,
-`[stdout]`, `[stderr]`, `[[json_assert]]`, and `[[diagnostics]]` as expected
-observable results.
+Treat `command`, `[env]`, `repeat`, and `[tools]` as invocation settings.
+Treat `exit`, `[stdout]`, `[stderr]`, `[[json_assert]]`, `[[diagnostics]]`,
+and `[[file_assert]]` as expected observable results.
+
+Use `stdin` only for protocol-style command input that is part of the fixture,
+such as LSP exchanges. Use `[requires]` for host capabilities the case needs,
+and `[skip]` for platform-specific exclusions with an explicit reason.
 
 Use `[env]` for fixed environment variables that belong to the fixture. Use
 `repeat` when one isolated project should run the same command more than once,
 for example to compare command-visible behavior across cache misses and cache
 hits.
+
+Use `[tools]` for controlled external tool availability owned by the harness.
+The implemented key is `java`, with values `"missing"`, `"fake-success"`, and
+`"real"`. `"missing"` runs the command with an isolated tool path that contains
+no Java launcher. `"fake-success"` installs a harness-owned Java wrapper that
+exits successfully without running arbitrary manifest code. `"real"` exposes
+the host Java launcher under the isolated tool path; cases that use it should
+also declare `[requires] jdk = true`.
 
 JSON output should be parsed and checked semantically by default. Full JSON
 equality is reserved for schema smoke tests where exact envelope shape is the

@@ -1,0 +1,46 @@
+command = ["test", "--json"]
+exit = 0
+
+[requires]
+jdk = true
+
+[tools]
+java = "real"
+
+[skip]
+platforms = ["windows"]
+reason = "real java path setup uses a Unix symlink"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "summary.total"
+equals = 1
+
+[[json_assert]]
+path = "summary.passed"
+equals = 1
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "passes"
+
+[[json_assert]]
+path = "cases.0.kind"
+equals = "test"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "passed"
+
+[[json_assert]]
+path = "cases.0.events.0.text"
+equals = "ok"
