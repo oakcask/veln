@@ -1,38 +1,33 @@
 # Proposals
 
-This directory keeps proposal routes, proposal candidates, implemented proposal
-records, and historical evidence that still matters for follow-up work.
-Proposal text is not current language behavior unless `../specification/` also
-states it.
+This directory keeps planned work, candidate gates, implemented proposal
+records, and history that still matters for follow-up work. Proposal text is
+not current language behavior unless `../specification/` also states it.
 
-## Read First
+## Start Here
 
-- Current target and candidate gates:
+- No concrete target named, or checking whether a target exists:
   [target-selection.md](target-selection.md).
-- Need implementation or promotion mechanics for proposal work:
+- Concrete proposal page already named: read that page first, then compare it
+  with `../specification/` before changing code.
+- Implementation, promotion, or cleanup mechanics after a target is chosen:
   [implementation-route.md](implementation-route.md).
-- Implemented shared command analysis record:
-  [project-analysis-pipeline.md](project-analysis-pipeline.md).
-- Runtime-failure doctest route:
-  [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
-- Status labels: [../document-status.md](../document-status.md).
+- Status labels and placement rules: [../document-status.md](../document-status.md).
 
-## Proposal Flow
+## Stop Rule
 
-1. Start with [target-selection.md](target-selection.md) when no concrete
-   target is named; otherwise start with the proposal page that matches the
-   task.
-2. Compare the proposal with `../specification/` before changing code. Stop
-   when the specification already states the behavior.
-3. Use [implementation-route.md](implementation-route.md) for implementation,
-   promotion, and cleanup checks.
-4. Use the categorized route list below when the task names a proposal area.
+- Stop when the matching specification page already states the behavior.
+- Do not begin implementation from this index or from
+  [reference-followups.md](reference-followups.md) alone.
+- Keep candidate-gate wording in [target-selection.md](target-selection.md);
+  this page only routes to proposal areas.
+- Read [implementation-route.md](implementation-route.md) only after one short
+  proposal page owns the target.
 
 ## Choose A Route
 
 - Tests, doctests, command analysis, and harness work:
-  [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md)
-  for remaining declarative harness follow-ups that are not yet split;
+  [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md),
   [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
   [project-analysis-pipeline.md](project-analysis-pipeline.md) only when
   checking implemented shared-analysis history, not as a new target.
@@ -50,18 +45,15 @@ states it.
 
 ## Read When
 
-- Checking whether a proposal page still describes absent behavior or must stay
-  as history, inventory, or a candidate pool.
-- Choosing the next target from candidate gates.
-- Checking historical gaps that have been revalidated as proposal work.
-- Checking residual scope that has been split into a short proposal route.
-- Checking completion evidence before changing target status.
+- Choosing a proposal area after current behavior does not answer the task.
+- Checking whether a proposal page still describes absent behavior or history.
+- Checking residual scope or completion evidence before changing target status.
 
 ## Update When
 
 - Proposal work becomes implemented and the resulting behavior is documented
   under `../specification/`.
-- A candidate's target class changes.
+- A candidate gate changes, moves to its own page, completes, or is rejected.
 - New proposal work is added, split, superseded, or removed.
 - Historical evidence discovered elsewhere belongs in the matching proposal or
   reference page.

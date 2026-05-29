@@ -3,25 +3,33 @@
 Status: routing
 
 Use this page when a session asks for the current proposal target and no
-concrete target file is named. It is a routing page, not an implementation
-proposal. Return to [README.md](README.md) after choosing or creating one
-short proposal target.
+concrete proposal page is named. This is a routing page, not an implementation
+proposal.
 
 ## Read First
 
-- Current implemented behavior: [../specification/README.md](../specification/README.md).
-- Proposal implementation mechanics:
+- Current implemented behavior:
+  [../specification/README.md](../specification/README.md).
+- Proposal area index: [README.md](README.md).
+- Implementation mechanics after a target is selected:
   [implementation-route.md](implementation-route.md).
-- Mixed follow-up inventory:
-  [reference-followups.md](reference-followups.md).
 
 ## Current Target
 
-No concrete proposal target is selected. Do not begin implementation from the
-broad follow-up inventory alone; first choose an existing short proposal page
-or split a narrow target out of that inventory.
+No concrete proposal target is selected when no concrete target prompt is
+present or the prompt state says no target is selected. That state has no
+proposal completion conditions to implement.
+
+Before changing code, choose an existing short proposal page or split one
+narrow target out of the follow-up inventory. Return to [README.md](README.md)
+after selecting the target area; use
+[implementation-route.md](implementation-route.md) only after a concrete page
+owns the target.
 
 ## Candidate Gates
+
+This section is the single short list of no-target candidate gates. Proposal
+indexes link here instead of copying these gate descriptions.
 
 - Declarative harness work:
   [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md)
@@ -52,8 +60,9 @@ or split a narrow target out of that inventory.
    repair workflow.
 3. Keep the target small enough that tests, implementation, and specification
    promotion can move together.
-4. Add or update the short proposal page before using
-   [implementation-route.md](implementation-route.md).
+4. Add or update the short proposal page before using implementation mechanics.
+5. Keep `../specification/` unchanged until code and tests support the selected
+   behavior.
 
 ## Update When
 
@@ -61,3 +70,9 @@ or split a narrow target out of that inventory.
 - A candidate gate is satisfied, split, completed, superseded, or rejected.
 - A proposal page changes status in a way that affects whether it can be the
   next target.
+
+## Skip Unless Needed
+
+- Do not copy candidate gates into proposal indexes; link here instead.
+- Do not use [reference-followups.md](reference-followups.md) as an
+  implementation target until a short proposal page names the concrete slice.

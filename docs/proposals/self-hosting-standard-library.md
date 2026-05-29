@@ -24,6 +24,9 @@ semantics, or descriptor metadata.
 - Current proposal-level target status:
   [target-selection.md](target-selection.md).
 
+Choose one descriptor-only pure helper before promoting future helper work
+into one concrete target.
+
 ## Completed Helpers
 
 `vec_map`, `vec_try_map`, and `vec_try_map_with` already moved from

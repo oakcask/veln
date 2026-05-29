@@ -12,35 +12,32 @@ also states it.
 - Proposal routing and promotion mechanics:
   [README.md](README.md), [target-selection.md](target-selection.md), and
   [implementation-route.md](implementation-route.md).
-- Use the follow-up target list below only after current behavior does not
+- Use the follow-up routing list below only after current behavior does not
   already cover the task.
 
-## Follow-Up Targets
+## Follow-Up Routing
 
 This page is an index, not one implementation target. A listed area should
 route to one short proposal page before implementation work starts. No listed
 area is the current selected target; use
 [target-selection.md](target-selection.md) for current candidate gates.
 
-- Runtime-failure doctest expectations:
-  [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
-- Declarative CLI harness features beyond the implemented manifest fields:
-  [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md).
-- Runtime `Path` representation beyond the current source-visible assignment
-  boundary:
-  [path-runtime-representation.md](path-runtime-representation.md).
-- Repair application workflows beyond the implemented confirmation, override,
-  and post-edit check boundary:
-  [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
-- Backend replacement work covered by
-  [jvm-bytecode-backend.md](jvm-bytecode-backend.md).
-- Self-hosting standard library expansion covered by
-  [self-hosting-standard-library.md](self-hosting-standard-library.md).
+- Current candidate gates: [target-selection.md](target-selection.md).
+- Proposal area routing: [README.md](README.md#choose-a-route).
+- Implementation and promotion checks:
+  [implementation-route.md](implementation-route.md).
+- Implemented backend and formatter records:
+  [jvm-bytecode-backend.md](jvm-bytecode-backend.md) and
+  [formatter-stabilization.md](formatter-stabilization.md).
+
+Keep concrete candidate wording on the linked short proposal pages. This page
+only routes broad follow-up areas after a task has already ruled out current
+specification behavior.
 
 ## Update When
 
-- Move a target into `../reference/` only after current code and tests support
-  it.
+- Move durable rationale into `../reference/` only after current code and
+  tests support the behavior.
 - Remove a target from this page when the matching specification page fully states
   the implemented behavior.
 - Keep implemented records only when they route useful history or completion
