@@ -37,11 +37,15 @@ assertions, diagnostic selectors, and file content assertions.
 ## Manifest Fields
 
 - Invocation and fixture setup: `command`, `stdin`, `repeat`, `[env]`,
-  `[tools]`, `[requires]`, and `[skip]`.
+  `[tools]`, `[requires]`, `[skip]`, and `[[project_update]]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
-  `[[json_assert]]`, `[[diagnostics]]`, and `[[file_assert]]`.
+  `[[json_assert]]`, `[[diagnostics]]`, `[[file_assert]]`, and
+  `[[jvm_cache_assert]]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
   `"real"`.
+- JVM cache setup: `[[jvm_cache_mutation]]` can corrupt or remove a
+  harness-selected required cache file, or remove a cache validation record
+  after a selected run.
 
 ## Manifest Policy
 
@@ -55,11 +59,25 @@ and `[skip]` for platform-specific exclusions with an explicit reason.
 
 Use `[env]` for fixed environment variables that belong to the fixture. Use
 `repeat` when one isolated project should run the same command more than once.
-Repeated invocations can check stable stdout, stderr, exit status, JSON, and
-file results across command-visible state changes. Dedicated generated-cache
-state assertions are not implemented here; keep that work in
-[../proposals/toolchain-test-harness-extensions.md](../proposals/toolchain-test-harness-extensions.md)
-until the manifest field exists.
+Repeated invocations can check stable stdout, stderr, exit status, JSON, file
+results, and JVM class cache state across command-visible state changes.
+
+Use `[[project_update]]` for declarative fixture changes before a specific
+repeat. Its fields are `before_run`, `path`, and `contents`. Paths are project
+relative and cannot escape the isolated fixture directory.
+
+Use `[[jvm_cache_assert]]` to check stable generated JVM class cache state after
+a specific repeat. Its `run` field selects the repeat. `ready_entries` checks
+how many command-ready cache entries exist. `repaired_mutations = true` checks
+that prior `[[jvm_cache_mutation]]` changes were replaced by a later command
+run.
+
+Use `[[jvm_cache_mutation]]` only to prepare cache repair scenarios between
+repeated `run` or `test` invocations. Its fields are `after_run` and `action`.
+Supported actions are `"corrupt-required-file"`, `"remove-required-file"`, and
+`"remove-validation-record"`. These actions are semantic harness operations;
+case manifests must not assert classfile bytes, cache keys, the full cache
+layout, or backend internals.
 
 Use `[tools]` for controlled external tool availability owned by the harness.
 The implemented key is `java`, with values `"missing"`, `"fake-success"`, and
