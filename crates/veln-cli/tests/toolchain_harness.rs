@@ -1129,10 +1129,10 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
             manifest_error(path, 0, format!("json_assert {index} is missing `path`"));
         }
     }
-    if let Some(help) = &manifest.expectations.help {
-        if !help.has_assertion() {
-            manifest_error(path, 0, "help section has no assertion");
-        }
+    if let Some(help) = &manifest.expectations.help
+        && !help.has_assertion()
+    {
+        manifest_error(path, 0, "help section has no assertion");
     }
     for (index, assertion) in manifest.expectations.file_assertions.iter().enumerate() {
         if assertion.path.is_empty() {
@@ -1719,47 +1719,46 @@ impl JvmCacheEntry {
 
     fn class_files(&self, context: &CaseRunContext<'_>) -> Vec<PathBuf> {
         let mut files = Vec::new();
-        self.collect_class_files(context, &self.path, &mut files);
+        collect_jvm_cache_class_files(context, &self.path, &mut files);
         files.sort();
         files
     }
+}
 
-    fn collect_class_files(
-        &self,
-        context: &CaseRunContext<'_>,
-        dir: &Path,
-        files: &mut Vec<PathBuf>,
-    ) {
-        let entries = fs::read_dir(dir).unwrap_or_else(|error| {
+fn collect_jvm_cache_class_files(
+    context: &CaseRunContext<'_>,
+    dir: &Path,
+    files: &mut Vec<PathBuf>,
+) {
+    let entries = fs::read_dir(dir).unwrap_or_else(|error| {
+        panic!(
+            "{}: failed to read JVM cache entry `{}`: {error}",
+            context.label(),
+            dir.display()
+        )
+    });
+    for entry in entries {
+        let entry = entry.unwrap_or_else(|error| {
             panic!(
-                "{}: failed to read JVM cache entry `{}`: {error}",
-                context.label(),
-                dir.display()
+                "{}: failed to read JVM cache file: {error}",
+                context.label()
             )
         });
-        for entry in entries {
-            let entry = entry.unwrap_or_else(|error| {
-                panic!(
-                    "{}: failed to read JVM cache file: {error}",
-                    context.label()
-                )
-            });
-            let path = entry.path();
-            let file_type = entry.file_type().unwrap_or_else(|error| {
-                panic!(
-                    "{}: failed to read JVM cache file type `{}`: {error}",
-                    context.label(),
-                    path.display()
-                )
-            });
-            if file_type.is_dir() {
-                self.collect_class_files(context, &path, files);
-            } else if path
-                .extension()
-                .is_some_and(|extension| extension == JVM_CLASS_EXTENSION)
-            {
-                files.push(path);
-            }
+        let path = entry.path();
+        let file_type = entry.file_type().unwrap_or_else(|error| {
+            panic!(
+                "{}: failed to read JVM cache file type `{}`: {error}",
+                context.label(),
+                path.display()
+            )
+        });
+        if file_type.is_dir() {
+            collect_jvm_cache_class_files(context, &path, files);
+        } else if path
+            .extension()
+            .is_some_and(|extension| extension == JVM_CLASS_EXTENSION)
+        {
+            files.push(path);
         }
     }
 }
