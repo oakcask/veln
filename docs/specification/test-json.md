@@ -14,8 +14,9 @@ This page routes implemented JSON output for `veln test --json`.
 - Discovery and explicit target selection:
   [test-json-full.md](test-json-full.md#selection).
 - Counts in `summary`: [test-json-full.md](test-json-full.md#summary).
-- Case records, doctests, runtime failures, expected-output mismatches, and
-  captured stdio events: [test-json-full.md](test-json-full.md#cases).
+- Case records, doctests, runtime failures, runtime expectation mismatches,
+  expected-output mismatches, and captured stdio events:
+  [test-json-full.md](test-json-full.md#cases).
 - Static gate behavior: [test-json-full.md](test-json-full.md#static-gate).
 
 ## Skip Unless Needed

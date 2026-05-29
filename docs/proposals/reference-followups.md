@@ -9,16 +9,10 @@ also states it.
 ## Read First
 
 - Current behavior: [../specification/README.md](../specification/README.md).
-- Shared command analysis target:
-  [project-analysis-pipeline.md](project-analysis-pipeline.md).
-- Runtime-failure doctest target:
-  [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
-- Declarative CLI harness follow-up:
-  [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md).
-- Path runtime representation follow-up:
-  [path-runtime-representation.md](path-runtime-representation.md).
-- Implemented formatter follow-up record:
-  [formatter-stabilization.md](formatter-stabilization.md).
+- Proposal routing and promotion mechanics:
+  [README.md](README.md) and [implementation-route.md](implementation-route.md).
+- Use the follow-up target list below only after current behavior does not
+  already cover the task.
 
 ## Follow-Up Targets
 

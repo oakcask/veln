@@ -150,27 +150,43 @@ targets, and any automatically discovered source file that contains a top-level
 return type and `effects [...]` clause, and are not ordinary callable
 functions.
 
+## Documentation Comments And Doctests
+
 Documentation line comments may contain executable doctest fences. A doc
 comment fence whose info string is `veln` is extracted as generated test source
-for `veln check` and `veln test`. The fence may include `error=<TypePath>` to
-make the generated wrapper return `Result((), <TypePath>)` and append an
-implicit `Ok(())` success value. If the fence omits `error=<TypePath>`, contains
-`?`, and immediately documents a public function with an explicit
-`Result(_, E)` return type, the generated wrapper uses `Result((), E)` and also
-appends the implicit `Ok(())` success value. If there is no documented result
-context, the wrapper error type is inferred when every `?` applies to a known
-function call returning `Result(_, E)` and all such calls use the same `E`. Any
-other `veln` fence attribute reports `doctest.unknown_metadata`, and an empty
-`error=` value reports `doctest.invalid_metadata`. A following doc comment fence
-whose info string is `veln-output stream=stdout` or
-`veln-output stream=stderr` attaches expected output to the immediately
-preceding generated doctest. A `veln ignore` fence is treated as a
-documentation-only code example and does not create a generated doctest.
-An executable fence marked `veln fail` is a negative static example. It is
-checked as a generated private function and is accepted only when that generated
-source produces at least one error diagnostic. Hint-only diagnostics do not
-satisfy the expected failure. It is not selected as a runtime doctest case and
-cannot attach expected output.
+for `veln check` and `veln test`.
+
+Executable doctest metadata is one concept with separate checks:
+
+- `error=<TypePath>` makes the generated wrapper return
+  `Result((), <TypePath>)` and append an implicit `Ok(())` success value. If the
+  fence omits `error=<TypePath>`, contains `?`, and immediately documents a
+  public function with an explicit `Result(_, E)` return type, the generated
+  wrapper uses `Result((), E)` and also appends the implicit `Ok(())` success
+  value. If there is no documented result context, the wrapper error type is
+  inferred when every `?` applies to a known function call returning
+  `Result(_, E)` and all such calls use the same `E`.
+- `runtime=contract`, `clause=<Clause>`, and `predicate=<Predicate>` on a
+  positive executable doctest expect a runtime contract failure. Optional
+  `function=<Name>` and `blame=<Side>` attributes further constrain that
+  runtime failure match.
+- `ignore` treats the fence as a documentation-only code example and does not
+  create a generated doctest.
+- `fail` marks a negative static example. It is checked as a generated private
+  function and is accepted only when that generated source produces at least one
+  error diagnostic. Hint-only diagnostics do not satisfy the expected failure.
+  It is not selected as a runtime doctest case and cannot attach expected
+  output.
+
+Any other `veln` fence attribute reports `doctest.unknown_metadata`. Empty
+runtime metadata values, unsupported runtime expectation kinds,
+`runtime=contract` without both `clause` and `predicate`, and an empty `error=`
+value report `doctest.invalid_metadata`.
+
+An adjacent doc comment fence whose info string is
+`veln-output stream=stdout` or `veln-output stream=stderr` attaches expected
+output to the immediately preceding generated doctest.
+
 Inside an executable `veln` fence, a line that starts with `# ` is hidden setup:
 the generated test includes the line after removing the marker. Hidden setup is
 useful for imports, helpers, and bindings that the documented sample should use
@@ -327,6 +343,6 @@ same visible bindings as `require` and cannot read an explicit result binding.
 Implemented lowering and execution do not include user-defined ADT
 declarations, method calls, loops, mutation, classes, traits, macros,
 comprehensions, anonymous functions, custom operators, task selection, package
-manifest fields beyond `[modules]`, foreign declarations, or
-doctest metadata other than `error`, `ignore`, `fail`, and `veln-output`
-stream selection.
+manifest fields beyond `[modules]`, foreign declarations, or doctest metadata
+other than `error`, `ignore`, `fail`, `runtime=contract`, runtime contract
+detail attributes, and `veln-output` stream selection.

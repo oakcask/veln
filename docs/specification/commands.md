@@ -20,7 +20,8 @@ requiring the full command reference on the first read.
   then [commands-full.md](commands-full.md) for exact command rules.
 - `test`: test and doctest selection, static gates, direct JVM classfile
   execution without an ordinary Java source compiler requirement, runtime
-  failures, and test JSON. Use [test-json.md](test-json.md) first for
+  failures, and test JSON. Use [source-surface.md](source-surface.md) first for
+  doctest fence metadata, [test-json.md](test-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact
   command rules.
 - `repair`: preview, apply one safe advisory hole repair candidate, or apply

@@ -117,8 +117,15 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   assertProposalIndexRoutes(proposalsIndex);
   assertIncludes(
     proposalsIndex,
-    "Use these routes when the task names a proposal area:\n" +
-      "   [reference-followups.md](reference-followups.md),",
+    "Use the categorized route list below when the task names a proposal area.",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "## Choose A Route",
+  );
+  assertIncludes(
+    proposalsIndex,
+    "Tests, doctests, command analysis, and harness work:",
   );
   assertIncludes(
     proposalsIndex,

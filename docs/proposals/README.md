@@ -9,6 +9,8 @@ states it.
 
 - Need implementation or promotion mechanics for proposal work:
   [implementation-route.md](implementation-route.md).
+- Runtime-failure doctest route:
+  [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
 - Status labels: [../document-status.md](../document-status.md).
 
 ## Proposal Flow
@@ -20,17 +22,25 @@ states it.
    when the specification already states the behavior.
 3. Use [implementation-route.md](implementation-route.md) for implementation,
    promotion, and cleanup checks.
-4. Use these routes when the task names a proposal area:
-   [reference-followups.md](reference-followups.md),
-   [project-analysis-pipeline.md](project-analysis-pipeline.md),
-   [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md),
-   [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md),
-   [path-runtime-representation.md](path-runtime-representation.md),
-   [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md),
-   [self-hosting-standard-library.md](self-hosting-standard-library.md),
-   [formatter-stabilization.md](formatter-stabilization.md),
-   [jvm-bytecode-backend.md](jvm-bytecode-backend.md), or
-   [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
+4. Use the categorized route list below when the task names a proposal area.
+
+## Choose A Route
+
+- Tests, doctests, command analysis, and harness work:
+  [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md),
+  [project-analysis-pipeline.md](project-analysis-pipeline.md), and
+  [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md).
+- Runtime, backend, and path representation work:
+  [jvm-bytecode-backend.md](jvm-bytecode-backend.md) and
+  [path-runtime-representation.md](path-runtime-representation.md).
+- Repair workflow and design-wall follow-ups:
+  [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) and
+  [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
+- Library and formatter follow-ups:
+  [self-hosting-standard-library.md](self-hosting-standard-library.md) and
+  [formatter-stabilization.md](formatter-stabilization.md).
+- Mixed follow-up inventory:
+  [reference-followups.md](reference-followups.md).
 
 ## Read When
 
