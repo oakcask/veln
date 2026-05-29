@@ -36,10 +36,10 @@ assertions, diagnostic selectors, and file content assertions.
 
 ## Manifest Fields
 
-- Invocation setup: `command`, `stdin`, `repeat`, `[env]`, `[tools]`,
-  `[requires]`, and `[skip]`.
-- Observable results: `exit`, `[stdout]`, `[stderr]`, `[[json_assert]]`,
-  `[[diagnostics]]`, and `[[file_assert]]`.
+- Invocation and fixture setup: `command`, `stdin`, `repeat`, `[env]`,
+  `[tools]`, `[requires]`, and `[skip]`.
+- Observable command results: `exit`, `[stdout]`, `[stderr]`,
+  `[[json_assert]]`, `[[diagnostics]]`, and `[[file_assert]]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
   `"real"`.
 
@@ -54,9 +54,12 @@ such as LSP exchanges. Use `[requires]` for host capabilities the case needs,
 and `[skip]` for platform-specific exclusions with an explicit reason.
 
 Use `[env]` for fixed environment variables that belong to the fixture. Use
-`repeat` when one isolated project should run the same command more than once,
-for example to compare command-visible behavior across cache misses and cache
-hits.
+`repeat` when one isolated project should run the same command more than once.
+Repeated invocations can check stable stdout, stderr, exit status, JSON, and
+file results across command-visible state changes. Dedicated generated-cache
+state assertions are not implemented here; keep that work in
+[../proposals/toolchain-test-harness-extensions.md](../proposals/toolchain-test-harness-extensions.md)
+until the manifest field exists.
 
 Use `[tools]` for controlled external tool availability owned by the harness.
 The implemented key is `java`, with values `"missing"`, `"fake-success"`, and

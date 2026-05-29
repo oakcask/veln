@@ -4,8 +4,8 @@ Status: partially implemented
 
 This page records the declarative harness follow-up left outside the completed
 structured CLI integration test harness target. It is proposal work, not
-current test-harness behavior. The fake external tool setup slice has moved to
-the reference harness documentation.
+current test-harness behavior. Implemented manifest fields live in the
+reference harness documentation.
 
 ## Read First
 
@@ -14,31 +14,44 @@ the reference harness documentation.
 - Current command and JSON behavior:
   [../specification/commands.md](../specification/commands.md) and
   [../specification/json-output.md](../specification/json-output.md).
-- Use this page only for remaining manifest capabilities that the reference
-  page does not yet list as implemented.
+- Current JVM execution and cache behavior:
+  [../specification/execution.md](../specification/execution.md).
+- Use this page only for manifest capabilities that the reference page does
+  not yet list as implemented.
 
 ## Already Implemented
 
-The implemented case manifest already covers command invocation, stdin, fixed
-environment variables, repeated invocations inside one isolated project,
-fixture copying, exit status, stream fragments, semantic JSON assertions,
-diagnostic selectors, file content assertions, controlled Java availability,
-JDK requirements, and platform skips. Keep those details in
-[../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
+The implemented case manifest already covers command invocation, fixture
+setup, repeated invocations inside one isolated project, environment and tool
+setup, exit status, stream checks, JSON assertions, diagnostic selectors, file
+content assertions, host requirements, and platform skips. Keep field-level
+details in
+[../reference/toolchain-test-harness.md#manifest-fields](../reference/toolchain-test-harness.md#manifest-fields).
 
-Bespoke Rust integration tests still own setup that the manifest cannot
-describe cleanly, including generated-cache side-effect inspection, command
-help assertions, and broad diagnostic detail checks.
+The fake external tool setup slice is implemented and documented in the
+reference page. Do not restate that field contract here.
 
-## Remaining Inventory
+## Current Target
 
-Keep later declarative harness features separate from completed slices. Likely
-follow-ups include:
+Add declarative cache state assertions for command-visible generated JVM class
+cache behavior. This target should let `case.toml` fixtures cover behavior that
+bespoke Rust CLI tests currently inspect by hand:
 
-- Cache state assertions that can inspect command-visible generated-cache
-  behavior without exposing backend cache internals as language facts.
-- New assertion shapes or setup rules that replace repeated bespoke CLI test
-  code across at least two command paths.
+- Cache reuse across repeated `run` or `test` invocations in one isolated
+  project.
+- New cache entries after source changes.
+- Replacement of invalid or incomplete cache entries before execution.
+
+The assertion shape may inspect stable, command-visible cache state only. It
+must not expose classfile bytes, complete cache layout, backend cache keys, or
+other compiler internals as fixture expectations.
+
+## Later Inventory
+
+Keep later declarative harness features separate from this cache slice. Likely
+follow-ups include command help assertions, broad diagnostic detail checks, and
+new setup rules that replace repeated bespoke CLI test code across at least two
+command paths.
 
 ## Non-Goals
 
@@ -51,13 +64,15 @@ follow-ups include:
 
 ## Acceptance Checks
 
-- The new manifest feature replaces at least two bespoke CLI setup or
+- The new manifest feature replaces at least two bespoke CLI cache setup or
   assertion patterns.
 - The reference page documents the new manifest field and its boundary.
 - Existing `toolchain_cases/` fixtures continue to run without changing their
   meaning.
 - Behavior-specific assertions still point to the specification page that owns
   the command or JSON rule under test.
+- Cache assertions stay out of `../specification/` unless they describe
+  implemented language or command behavior rather than harness behavior.
 
 ## Update When
 
