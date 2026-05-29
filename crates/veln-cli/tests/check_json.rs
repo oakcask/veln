@@ -142,8 +142,10 @@ fn explain_lists_known_diagnostics() {
 
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(stdout(&output).contains("hole.unfilled - unfilled typed hole"));
-    assert!(stdout(&output)
-        .contains("parse.contract_predicate - unsupported contract predicate syntax"));
+    assert!(
+        stdout(&output)
+            .contains("parse.contract_predicate - unsupported contract predicate syntax")
+    );
     assert!(stdout(&output).contains("parse.satisfy_candidate - missing satisfy candidate"));
     assert!(stdout(&output).contains("parse.satisfy_arrow - missing satisfy arrow"));
     assert!(stdout(&output).contains("hole.satisfy_candidate_unused - unused satisfy candidate"));
