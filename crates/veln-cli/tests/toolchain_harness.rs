@@ -152,8 +152,8 @@ impl TestProject {
         };
         fs::create_dir_all(tool_path).expect("tool directory should be created");
 
-        if let Some(java) = tools.java {
-            setup_tool(tool_path, "java", java);
+        for tool in tools.configured() {
+            tool.setup(tool_path);
         }
     }
 }
@@ -328,10 +328,7 @@ impl CaseManifest {
     }
 
     fn skip_reason(&self) -> Option<String> {
-        if self.requires.jdk && !jdk_is_available() {
-            return Some("requires a real JDK".to_string());
-        }
-        if self.tools.requires_jdk() && !jdk_is_available() {
+        if self.requires_jdk() && !jdk_is_available() {
             return Some("requires a real JDK".to_string());
         }
         if self
@@ -348,6 +345,10 @@ impl CaseManifest {
             return Some(reason.to_string());
         }
         None
+    }
+
+    fn requires_jdk(&self) -> bool {
+        self.requires.jdk || self.tools.requires_jdk()
     }
 }
 
@@ -496,11 +497,59 @@ struct ToolSetup {
 
 impl ToolSetup {
     fn needs_path(&self) -> bool {
-        self.java.is_some()
+        self.configured().next().is_some()
     }
 
     fn requires_jdk(&self) -> bool {
-        self.java == Some(ToolAvailability::Real)
+        self.configured().any(ToolConfig::requires_jdk)
+    }
+
+    fn configured(&self) -> impl Iterator<Item = ToolConfig> {
+        self.java
+            .map(|availability| ToolName::Java.config(availability))
+            .into_iter()
+    }
+
+    fn set(&mut self, name: ToolName, availability: ToolAvailability) {
+        match name {
+            ToolName::Java => self.java = Some(availability),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct ToolConfig {
+    name: ToolName,
+    availability: ToolAvailability,
+}
+
+impl ToolConfig {
+    fn requires_jdk(self) -> bool {
+        self.name == ToolName::Java && self.availability == ToolAvailability::Real
+    }
+
+    fn setup(self, tool_path: &Path) {
+        setup_tool(tool_path, self.name.as_str(), self.availability);
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ToolName {
+    Java,
+}
+
+impl ToolName {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Java => "java",
+        }
+    }
+
+    fn config(self, availability: ToolAvailability) -> ToolConfig {
+        ToolConfig {
+            name: self,
+            availability,
+        }
     }
 }
 
@@ -653,7 +702,10 @@ fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
             Section::Env => env.push((key.to_string(), parse_string(path, line_number, value))),
             Section::Tools => match key {
                 "java" => {
-                    tools.java = Some(parse_tool_availability(path, line_number, value));
+                    tools.set(
+                        ToolName::Java,
+                        parse_tool_availability(path, line_number, value),
+                    );
                 }
                 _ => manifest_error(path, line_number, format!("unknown tools key `{key}`")),
             },

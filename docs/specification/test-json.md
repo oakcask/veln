@@ -7,6 +7,7 @@ This page routes implemented JSON output for `veln test --json`.
 - The envelope uses schema version `veln-test-json/v0`.
 - The top-level status is `passed`, `failed`, `blocked`, or `error`.
 - Parse and semantic diagnostics block Java compilation and execution.
+- JDK setup failures become case errors with `reason: "runner_error"`.
 
 ## Read When
 

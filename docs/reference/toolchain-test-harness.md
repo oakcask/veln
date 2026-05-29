@@ -9,7 +9,8 @@ reference for test organization, not a source for command behavior.
   [../specification/commands.md](../specification/commands.md).
 - JSON output behavior belongs in
   [../specification/json-output.md](../specification/json-output.md).
-- Planned manifest extensions belong in
+- This page owns implemented manifest fields. Planned manifest extensions
+  belong in
   [../proposals/toolchain-test-harness-extensions.md](../proposals/toolchain-test-harness-extensions.md).
 
 ## Read When
@@ -33,15 +34,20 @@ Cases are grouped by command or behavior area. The harness owns command
 execution, fixture copying, exit-status checks, stream checks, JSON
 assertions, diagnostic selectors, and file content assertions.
 
+## Manifest Fields
+
+- Invocation setup: `command`, `stdin`, `repeat`, `[env]`, `[tools]`,
+  `[requires]`, and `[skip]`.
+- Observable results: `exit`, `[stdout]`, `[stderr]`, `[[json_assert]]`,
+  `[[diagnostics]]`, and `[[file_assert]]`.
+- External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
+  `"real"`.
+
 ## Manifest Policy
 
 Case manifests are declarative. They should describe the command, expected exit
 status, expected stdout or stderr fragments, and structured JSON expectations.
 They must not execute arbitrary shell commands.
-
-Treat `command`, `[env]`, `repeat`, and `[tools]` as invocation settings.
-Treat `exit`, `[stdout]`, `[stderr]`, `[[json_assert]]`, `[[diagnostics]]`,
-and `[[file_assert]]` as expected observable results.
 
 Use `stdin` only for protocol-style command input that is part of the fixture,
 such as LSP exchanges. Use `[requires]` for host capabilities the case needs,

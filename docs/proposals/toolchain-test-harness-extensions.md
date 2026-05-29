@@ -1,11 +1,11 @@
 # Toolchain Test Harness Extensions
 
-Status: proposed
+Status: partially implemented
 
 This page records the declarative harness follow-up left outside the completed
 structured CLI integration test harness target. It is proposal work, not
-current test-harness behavior. The fake external tool setup slice is
-implemented in the reference harness documentation.
+current test-harness behavior. The fake external tool setup slice has moved to
+the reference harness documentation.
 
 ## Read First
 
@@ -14,23 +14,23 @@ implemented in the reference harness documentation.
 - Current command and JSON behavior:
   [../specification/commands.md](../specification/commands.md) and
   [../specification/json-output.md](../specification/json-output.md).
-- Use this page only for manifest capabilities that the reference page does
-  not yet list as implemented.
+- Use this page only for remaining manifest capabilities that the reference
+  page does not yet list as implemented.
 
-## Implemented Baseline
+## Already Implemented
 
 The implemented case manifest already covers command invocation, stdin, fixed
 environment variables, repeated invocations inside one isolated project,
 fixture copying, exit status, stream fragments, semantic JSON assertions,
-diagnostic selectors, file content assertions, JDK requirements, and platform
-skips. Keep those details in
+diagnostic selectors, file content assertions, controlled Java availability,
+JDK requirements, and platform skips. Keep those details in
 [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
 
 Bespoke Rust integration tests still own setup that the manifest cannot
-describe cleanly, including fake tool installation, generated-cache side-effect
-inspection, command help assertions, and broad diagnostic detail checks.
+describe cleanly, including generated-cache side-effect inspection, command
+help assertions, and broad diagnostic detail checks.
 
-## Future Inventory
+## Remaining Inventory
 
 Keep later declarative harness features separate from completed slices. Likely
 follow-ups include:
