@@ -1,18 +1,22 @@
 # Doctest Runtime Failure Expectations
 
-Status: proposed
+Status: initial route implemented; broader runtime failure matching remains
+proposed
 
-This page records the runtime-failure follow-up that was outside the
-expected-error doctest completion target. It is proposal work, not current
-behavior.
+This page records remaining runtime-failure follow-up work outside the
+implemented contract-failure doctest route. Current behavior is specified in
+`../specification/`.
 
 ## Read First
 
-- Current doctest behavior: [../specification/commands.md](../specification/commands.md)
-  and [../specification/test-json.md](../specification/test-json.md).
-- Current contract runtime failures:
+- Current doctest command behavior:
+  [../specification/commands.md](../specification/commands.md).
+- Current doctest JSON case shape:
+  [../specification/test-json.md](../specification/test-json.md).
+- Current runtime contract failure shape:
   [../specification/contracts.md](../specification/contracts.md).
-- Static expected-error doctest completion notes are summarized below.
+- Proposal mechanics and promotion checks:
+  [implementation-route.md](implementation-route.md).
 
 ## Current Boundary
 
@@ -20,25 +24,29 @@ behavior.
 when generated source produces an error diagnostic before execution. They do
 not describe expected runtime failures.
 
-The completed static target extracts negative doctests as generated private
-functions for `check` and `test`, consumes matching top-level error diagnostics,
-and reports `doctest.expected_failure_missing` at the `veln fail` fence when no
-error diagnostic appears. Hint-only diagnostics remain visible and do not
-satisfy the expected failure. Negative doctests do not create expected-output
-attachments.
-
-Completion coverage included accepted negative doctests, missing expected
-failures for `check --json`, and missing expected failures blocking
-`test --json`.
+Positive doctests may use `runtime=contract` metadata to expect a runtime
+contract failure. Broader panic matching, arbitrary stderr matching, and
+command-status assertions remain outside the implemented surface.
 
 ## Target
 
-Define a doctest metadata form for examples that are expected to pass static
-checking, execute, and fail at runtime in a specific way.
+Expand runtime failure expectations beyond the initial contract-failure route
+only when a concrete failure class has structured test JSON details and CLI
+coverage.
 
-The first target should cover one narrow runtime failure class before expanding
-the surface. Runtime contract failure is the preferred initial class because
-the current test JSON schema already has structured contract failure details.
+## Work Route
+
+- Start from the implemented `test` and doctest rules in
+  [../specification/commands.md](../specification/commands.md) and
+  [../specification/test-json.md](../specification/test-json.md).
+- Reuse existing structured runtime failure records where possible rather than
+  inventing a second failure shape.
+- Keep expected-output comparison independent from expected runtime failure
+  matching; one route decides output text, the other decides runtime failure
+  kind and details.
+- Promote additional behavior into `../specification/` only after code and CLI
+  coverage prove the new metadata, pass condition, mismatch condition, and
+  blocked condition.
 
 ## Non-Goals
 
@@ -50,10 +58,10 @@ the current test JSON schema already has structured contract failure details.
 
 ## Acceptance Checks
 
-- A positive static doctest with the new runtime-failure metadata is selected
-  and executed.
-- The doctest passes only when the selected runtime failure kind and key
-  details match.
+- A positive static doctest with the additional runtime-failure metadata is
+  selected and executed.
+- The doctest passes only when the selected runtime failure kind and key details
+  match.
 - If execution succeeds, fails with a different runtime failure, or is blocked
   before execution, the doctest case fails or blocks with structured test JSON.
 - Expected-output comparison remains separate from expected runtime failure
@@ -61,6 +69,6 @@ the current test JSON schema already has structured contract failure details.
 
 ## Update When
 
-- Add the implemented metadata and test JSON behavior to
+- Add any newly implemented metadata and test JSON behavior to
   `../specification/commands.md` and `../specification/test-json.md` only after
   code and CLI coverage exist.

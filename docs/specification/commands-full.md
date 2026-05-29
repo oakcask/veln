@@ -149,13 +149,20 @@ not generated, checked, selected, or paired with expected output. A `veln fail`
 fence is a negative static example: `check` and `test` accept it only when its
 generated source produces at least one error diagnostic; hint-only diagnostics
 do not satisfy the expected failure. A negative doctest is not selected as a
-runtime doctest case. Other unknown executable doctest attributes and empty
-`error=` values are static doc diagnostics. A line inside an executable doctest
-fence that starts with `# ` is hidden setup: the generated test includes the
-line after the marker, so the example can bind helpers without exposing harness
-code in the documented sample. In `check`, generated doctests participate in
-parse and semantic diagnostics. In `test`, generated positive doctests are
-selected as doctest cases.
+runtime doctest case. A positive doctest fence may include
+`runtime=contract clause=<Clause> predicate=<Predicate>` to expect a runtime
+contract failure after static checking succeeds. The initial runtime
+expectation matches `require`, `ensure`, or `invariant` by contract failure
+kind, runtime phase, clause, and predicate; optional `function=<Name>` and
+`blame=<Side>` attributes further constrain the match. Other unknown
+executable doctest attributes, empty metadata values, missing runtime contract
+`clause` or `predicate`, and unsupported runtime expectation kinds are static
+doc diagnostics. A line inside an executable doctest fence that starts with
+`# ` is hidden setup: the generated test includes the line after the marker,
+so the example can bind helpers without exposing harness code in the
+documented sample. In `check`, generated doctests participate in parse and
+semantic diagnostics. In `test`, generated positive doctests are selected as
+doctest cases.
 
 An adjacent doc comment fence whose info string is
 `veln-output stream=stdout` or `veln-output stream=stderr` records expected
@@ -179,8 +186,14 @@ Static diagnostics block the suite before Java execution. In JSON output,
 already discovered cases are marked `blocked` with reason `static_gate`.
 Runtime failures become failed cases. Runtime contract failures inside a
 selected case use `failure.kind: "contract"` and include runtime contract
-details. JDK setup failures become case errors with reason `runner_error`,
-including a missing `java` before class loading.
+details. A doctest with runtime contract failure metadata passes that route
+only when the actual runtime contract failure matches the expected details. If
+execution succeeds or fails differently, the case fails with
+`failure.kind: "runtime_expectation"` and
+`reason: "expected_runtime_failure"`. If static diagnostics block execution,
+the discovered doctest case is blocked with `reason: "static_gate"`. JDK setup
+failures become case errors with reason `runner_error`, including a missing
+`java` before class loading.
 
 Doctest output mismatches become failed cases with `failure.kind: "output"` and
 `reason: "expected_output"`. JSON details include the mismatched stream,

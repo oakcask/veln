@@ -149,27 +149,29 @@ pub fn discover_test_cases(module: &SurfaceModule, test_files: &BTreeSet<String>
             reason: None,
             failure: None,
             expected_output: None,
+            expected_runtime_failure: None,
             events: Vec::new(),
             diagnostics: Vec::new(),
         })
         .collect()
 }
 
-pub fn attach_expected_outputs(
+pub fn attach_doctest_expectations(
     cases: &mut [TestCase],
-    expected_outputs: &BTreeMap<String, ExpectedOutput>,
+    expectations: &BTreeMap<String, DoctestExpectation>,
 ) {
     for case in cases {
-        if let Some(expected_output) = expected_outputs.get(&case.name) {
+        if let Some(expectation) = expectations.get(&case.name) {
             case.kind = "doctest".to_string();
-            case.expected_output = Some(expected_output.clone());
+            case.expected_output = expectation.expected_output.clone();
+            case.expected_runtime_failure = expectation.expected_runtime_failure.clone();
         }
     }
 }
 
 pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
     let mut generated_sources = Vec::new();
-    let mut expected_outputs = BTreeMap::new();
+    let mut expectations = BTreeMap::new();
     let mut expected_failures = BTreeMap::new();
     let mut diagnostics = Vec::new();
     let mut next_index = 1;
@@ -188,7 +190,13 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
             }
             generated_sources.push(SourceFile::new(generated_path, generated));
             if !doctest.should_fail {
-                expected_outputs.insert(name, doctest.expected_output);
+                expectations.insert(
+                    name,
+                    DoctestExpectation {
+                        expected_output: doctest.expected_output,
+                        expected_runtime_failure: doctest.expected_runtime_failure,
+                    },
+                );
             }
             next_index += 1;
         }
@@ -196,7 +204,7 @@ pub fn doctest_sources(sources: &[SourceFile]) -> DoctestSources {
 
     DoctestSources {
         sources: generated_sources,
-        expected_outputs,
+        expectations,
         expected_failures,
         diagnostics,
     }
@@ -281,6 +289,44 @@ pub fn compare_expected_output(case: &mut TestCase) {
         expected_span,
         actual_events,
     ));
+}
+
+pub fn apply_runtime_result(case: &mut TestCase, actual_failure: Option<TestFailure>) {
+    let Some(expected) = &case.expected_runtime_failure else {
+        if let Some(failure) = actual_failure {
+            case.status = TestCaseStatus::Failed;
+            case.failure = Some(failure);
+        } else {
+            case.status = TestCaseStatus::Passed;
+        }
+        return;
+    };
+
+    match actual_failure {
+        Some(failure) if expected.matches(&failure) => {
+            case.status = TestCaseStatus::Passed;
+            case.reason = None;
+            case.failure = None;
+        }
+        Some(failure) => {
+            case.status = TestCaseStatus::Failed;
+            case.reason = Some("expected_runtime_failure".to_string());
+            case.failure = Some(TestFailure::runtime_expectation(
+                "runtime failure did not match expectation",
+                expected,
+                Some(failure),
+            ));
+        }
+        None => {
+            case.status = TestCaseStatus::Failed;
+            case.reason = Some("expected_runtime_failure".to_string());
+            case.failure = Some(TestFailure::runtime_expectation(
+                "expected runtime contract failure did not occur",
+                expected,
+                None,
+            ));
+        }
+    }
 }
 
 pub fn stdio_call_spans(module: &SurfaceModule) -> BTreeMap<(String, String), SourceSpan> {
@@ -727,6 +773,7 @@ pub struct TestCase {
     pub reason: Option<String>,
     pub failure: Option<TestFailure>,
     pub expected_output: Option<ExpectedOutput>,
+    pub expected_runtime_failure: Option<ExpectedRuntimeFailure>,
     pub events: Vec<JsonValue>,
     pub diagnostics: Vec<Diagnostic>,
 }
@@ -842,6 +889,25 @@ impl TestFailure {
         }
     }
 
+    pub fn runtime_expectation(
+        message: impl Into<String>,
+        expected: &ExpectedRuntimeFailure,
+        actual: Option<TestFailure>,
+    ) -> Self {
+        Self {
+            kind: "runtime_expectation".to_string(),
+            message: message.into(),
+            details: JsonValue::object([
+                ("kind", JsonValue::string("runtime_expectation")),
+                ("expected", expected.to_json()),
+                (
+                    "actual",
+                    actual.map_or(JsonValue::Null, |failure| failure.to_json()),
+                ),
+            ]),
+        }
+    }
+
     pub fn to_json(&self) -> JsonValue {
         JsonValue::object([
             ("kind", JsonValue::string(self.kind.clone())),
@@ -856,9 +922,15 @@ impl TestFailure {
 
 pub struct DoctestSources {
     pub sources: Vec<SourceFile>,
-    pub expected_outputs: BTreeMap<String, ExpectedOutput>,
+    pub expectations: BTreeMap<String, DoctestExpectation>,
     pub expected_failures: BTreeMap<String, SourceSpan>,
     pub diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Clone, Debug)]
+pub struct DoctestExpectation {
+    pub expected_output: Option<ExpectedOutput>,
+    pub expected_runtime_failure: Option<ExpectedRuntimeFailure>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -867,6 +939,51 @@ pub struct ExpectedOutput {
     pub stderr: Option<String>,
     pub stdout_span: Option<SourceSpan>,
     pub stderr_span: Option<SourceSpan>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ExpectedRuntimeFailure {
+    pub kind: String,
+    pub clause: String,
+    pub predicate: String,
+    pub function: Option<String>,
+    pub blame: Option<String>,
+    pub span: SourceSpan,
+}
+
+impl ExpectedRuntimeFailure {
+    fn matches(&self, failure: &TestFailure) -> bool {
+        if self.kind != "contract" || failure.kind != "contract" {
+            return false;
+        }
+        json_object_field(&failure.details, "kind") == Some("contract")
+            && json_object_field(&failure.details, "phase") == Some("runtime")
+            && json_object_field(&failure.details, "clause") == Some(self.clause.as_str())
+            && json_object_field(&failure.details, "predicate") == Some(self.predicate.as_str())
+            && self.function.as_deref().is_none_or(|function| {
+                json_object_field(&failure.details, "function") == Some(function)
+            })
+            && self
+                .blame
+                .as_deref()
+                .is_none_or(|blame| json_object_field(&failure.details, "blame") == Some(blame))
+    }
+
+    fn to_json(&self) -> JsonValue {
+        let mut fields = vec![
+            ("kind", JsonValue::string(self.kind.clone())),
+            ("clause", JsonValue::string(self.clause.clone())),
+            ("predicate", JsonValue::string(self.predicate.clone())),
+            ("span", source_span_to_json(&self.span)),
+        ];
+        if let Some(function) = &self.function {
+            fields.push(("function", JsonValue::string(function.clone())));
+        }
+        if let Some(blame) = &self.blame {
+            fields.push(("blame", JsonValue::string(blame.clone())));
+        }
+        JsonValue::object(fields)
+    }
 }
 
 pub struct OutputDifference {
@@ -899,7 +1016,8 @@ impl OutputDifference {
 struct ExtractedDoctest {
     code: Vec<String>,
     error_type: Option<String>,
-    expected_output: ExpectedOutput,
+    expected_output: Option<ExpectedOutput>,
+    expected_runtime_failure: Option<ExpectedRuntimeFailure>,
     should_fail: bool,
     fail_span: Option<SourceSpan>,
 }
@@ -908,6 +1026,7 @@ enum Fence {
     Veln {
         lines: Vec<String>,
         error_type: Option<String>,
+        expected_runtime_failure: Option<ExpectedRuntimeFailure>,
         ignored: bool,
         should_fail: bool,
         fail_span: Option<SourceSpan>,
@@ -957,6 +1076,7 @@ fn extract_doctests(
                     Fence::Veln {
                         lines,
                         error_type,
+                        expected_runtime_failure,
                         ignored,
                         should_fail,
                         fail_span,
@@ -968,7 +1088,8 @@ fn extract_doctests(
                             pending = Some(ExtractedDoctest {
                                 code: lines,
                                 error_type,
-                                expected_output: ExpectedOutput::default(),
+                                expected_output: None,
+                                expected_runtime_failure,
                                 should_fail,
                                 fail_span,
                             });
@@ -981,23 +1102,24 @@ fn extract_doctests(
                     } => {
                         if let Some(doctest) = &mut pending {
                             let output = lines.join("\n");
+                            let expected_output = doctest.expected_output.get_or_insert_default();
                             if stream == "stdout" {
-                                if let Some(first_span) = &doctest.expected_output.stdout_span {
+                                if let Some(first_span) = &expected_output.stdout_span {
                                     diagnostics.push(duplicate_output_diagnostic(
                                         &stream, &span, first_span,
                                     ));
                                 } else {
-                                    doctest.expected_output.stdout = Some(output);
-                                    doctest.expected_output.stdout_span = Some(span);
+                                    expected_output.stdout = Some(output);
+                                    expected_output.stdout_span = Some(span);
                                 }
                             } else if stream == "stderr" {
-                                if let Some(first_span) = &doctest.expected_output.stderr_span {
+                                if let Some(first_span) = &expected_output.stderr_span {
                                     diagnostics.push(duplicate_output_diagnostic(
                                         &stream, &span, first_span,
                                     ));
                                 } else {
-                                    doctest.expected_output.stderr = Some(output);
-                                    doctest.expected_output.stderr_span = Some(span);
+                                    expected_output.stderr = Some(output);
+                                    expected_output.stderr_span = Some(span);
                                 }
                             }
                         }
@@ -1022,6 +1144,10 @@ fn extract_doctests(
                 fence = Some(Fence::Veln {
                     lines: Vec::new(),
                     error_type: doctest_error_type(info).map(ToString::to_string),
+                    expected_runtime_failure: doctest_runtime_failure(
+                        info,
+                        source.span(line_range),
+                    ),
                     ignored: doctest_ignored(info),
                     should_fail: doctest_should_fail(info),
                     fail_span: doctest_should_fail(info).then(|| source.span(line_range)),
@@ -1113,6 +1239,32 @@ fn doctest_should_fail(info: &str) -> bool {
     info.split_whitespace().skip(1).any(|field| field == "fail")
 }
 
+fn doctest_runtime_failure(info: &str, span: SourceSpan) -> Option<ExpectedRuntimeFailure> {
+    let runtime = metadata_value(info, "runtime")?;
+    if runtime != "contract" {
+        return None;
+    }
+    Some(ExpectedRuntimeFailure {
+        kind: "contract".to_string(),
+        clause: metadata_value(info, "clause")
+            .unwrap_or_default()
+            .to_string(),
+        predicate: metadata_value(info, "predicate")
+            .unwrap_or_default()
+            .to_string(),
+        function: metadata_value(info, "function").map(ToString::to_string),
+        blame: metadata_value(info, "blame").map(ToString::to_string),
+        span,
+    })
+}
+
+fn metadata_value<'a>(info: &'a str, name: &str) -> Option<&'a str> {
+    info.split_whitespace()
+        .skip(1)
+        .find_map(|field| field.strip_prefix(name)?.strip_prefix('='))
+        .filter(|value| !value.is_empty())
+}
+
 fn output_fence_info(info: &str) -> bool {
     info.split_whitespace().next() == Some("veln-output")
 }
@@ -1127,7 +1279,9 @@ fn output_fence_stream(info: &str) -> Option<&str> {
 }
 
 fn veln_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
-    info.split_whitespace()
+    let has_runtime_contract = metadata_value(info, "runtime") == Some("contract");
+    let mut diagnostics: Vec<Diagnostic> = info
+        .split_whitespace()
         .skip(1)
         .filter_map(|field| {
             if field.starts_with("error=") {
@@ -1145,6 +1299,56 @@ fn veln_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
                             ]),
                         )
                     })
+            } else if let Some(value) = field.strip_prefix("runtime=") {
+                if value.is_empty() {
+                    Some(doctest_metadata_diagnostic(
+                        "doctest.invalid_metadata",
+                        "empty doctest runtime failure kind",
+                        span.clone(),
+                        JsonValue::object([
+                            ("kind", JsonValue::string("doctest_metadata")),
+                            ("attribute", JsonValue::string("runtime")),
+                        ]),
+                    ))
+                } else if value != "contract" {
+                    Some(doctest_metadata_diagnostic(
+                        "doctest.invalid_metadata",
+                        format!("unknown doctest runtime failure kind `{value}`"),
+                        span.clone(),
+                        JsonValue::object([
+                            ("kind", JsonValue::string("doctest_metadata")),
+                            ("attribute", JsonValue::string("runtime")),
+                            ("runtime", JsonValue::string(value)),
+                        ]),
+                    ))
+                } else {
+                    None
+                }
+            } else if let Some((attribute, value)) = runtime_failure_detail_field(field) {
+                if !has_runtime_contract {
+                    Some(doctest_metadata_diagnostic(
+                        "doctest.unknown_metadata",
+                        format!("unknown doctest attribute `{attribute}`"),
+                        span.clone(),
+                        JsonValue::object([
+                            ("kind", JsonValue::string("doctest_metadata")),
+                            ("attribute", JsonValue::string(attribute)),
+                            ("fence", JsonValue::string("veln")),
+                        ]),
+                    ))
+                } else {
+                    value.is_empty().then(|| {
+                        doctest_metadata_diagnostic(
+                            "doctest.invalid_metadata",
+                            format!("empty doctest runtime contract {attribute}"),
+                            span.clone(),
+                            JsonValue::object([
+                                ("kind", JsonValue::string("doctest_metadata")),
+                                ("attribute", JsonValue::string(attribute)),
+                            ]),
+                        )
+                    })
+                }
             } else if matches!(field, "ignore" | "fail") {
                 None
             } else {
@@ -1166,7 +1370,45 @@ fn veln_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
                 ))
             }
         })
-        .collect()
+        .collect();
+
+    if has_runtime_contract {
+        if metadata_value(info, "clause").is_none() {
+            diagnostics.push(doctest_metadata_diagnostic(
+                "doctest.invalid_metadata",
+                "missing doctest runtime contract clause",
+                span.clone(),
+                JsonValue::object([
+                    ("kind", JsonValue::string("doctest_metadata")),
+                    ("attribute", JsonValue::string("clause")),
+                ]),
+            ));
+        }
+        if metadata_value(info, "predicate").is_none() {
+            diagnostics.push(doctest_metadata_diagnostic(
+                "doctest.invalid_metadata",
+                "missing doctest runtime contract predicate",
+                span,
+                JsonValue::object([
+                    ("kind", JsonValue::string("doctest_metadata")),
+                    ("attribute", JsonValue::string("predicate")),
+                ]),
+            ));
+        }
+    }
+
+    diagnostics
+}
+
+fn runtime_failure_detail_field(field: &str) -> Option<(&str, &str)> {
+    ["clause", "predicate", "function", "blame"]
+        .into_iter()
+        .find_map(|attribute| {
+            field
+                .strip_prefix(attribute)
+                .and_then(|rest| rest.strip_prefix('='))
+                .map(|value| (attribute, value))
+        })
 }
 
 fn output_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
@@ -1461,6 +1703,13 @@ fn json_field<'a>(fields: &'a [(String, JsonValue)], key: &str) -> Option<&'a st
         }
         None
     })
+}
+
+fn json_object_field<'a>(value: &'a JsonValue, key: &str) -> Option<&'a str> {
+    let JsonValue::Object(fields) = value else {
+        return None;
+    };
+    json_field(fields, key)
 }
 
 fn normalize_lines(text: &str) -> String {
@@ -1772,7 +2021,7 @@ mod tests {
     }
 
     #[test]
-    fn attach_expected_outputs_marks_matching_cases_as_doctests() {
+    fn attach_doctest_expectations_marks_matching_cases_as_doctests() {
         let module = module(concat!(
             "test doctest_1() -> () effects []\n",
             "  ()\n",
@@ -1783,16 +2032,19 @@ mod tests {
         ));
         let test_files = BTreeSet::from(["main_test.veln".to_string()]);
         let mut cases = discover_test_cases(&module, &test_files);
-        let expected_outputs = BTreeMap::from([(
+        let expectations = BTreeMap::from([(
             "doctest_1".to_string(),
-            ExpectedOutput {
-                stdout: Some("ready".to_string()),
-                stderr: Some("warn".to_string()),
-                ..ExpectedOutput::default()
+            DoctestExpectation {
+                expected_output: Some(ExpectedOutput {
+                    stdout: Some("ready".to_string()),
+                    stderr: Some("warn".to_string()),
+                    ..ExpectedOutput::default()
+                }),
+                expected_runtime_failure: None,
             },
         )]);
 
-        attach_expected_outputs(&mut cases, &expected_outputs);
+        attach_doctest_expectations(&mut cases, &expectations);
 
         assert_eq!(cases[0].kind, "doctest");
         assert_eq!(
@@ -1888,6 +2140,7 @@ mod tests {
                 reason: Some("runner_error".to_string()),
                 failure: Some(TestFailure::runtime("javac not found")),
                 expected_output: None,
+                expected_runtime_failure: None,
                 events: Vec::new(),
                 diagnostics: Vec::new(),
             }],
@@ -1969,11 +2222,84 @@ mod tests {
             )
         );
         let expected = doctests
-            .expected_outputs
+            .expectations
             .get("doctest_1")
             .expect("expected output should be recorded");
-        assert_eq!(expected.stdout.as_deref(), Some("ready"));
-        assert_eq!(expected.stderr, None);
+        let output = expected
+            .expected_output
+            .as_ref()
+            .expect("expected output should be recorded");
+        assert_eq!(output.stdout.as_deref(), Some("ready"));
+        assert_eq!(output.stderr, None);
+    }
+
+    #[test]
+    fn extracts_doctest_runtime_contract_failure_expectation() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln runtime=contract clause=require predicate=false function=reject blame=caller\n",
+                "/// reject()\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  reject()\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        let expected = doctests
+            .expectations
+            .get("doctest_1")
+            .expect("runtime expectation should be recorded");
+        let expected = expected
+            .expected_runtime_failure
+            .as_ref()
+            .expect("runtime expectation should be recorded");
+        assert_eq!(expected.kind, "contract");
+        assert_eq!(expected.clause, "require");
+        assert_eq!(expected.predicate, "false");
+        assert_eq!(expected.function.as_deref(), Some("reject"));
+        assert_eq!(expected.blame.as_deref(), Some("caller"));
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
+    fn runtime_contract_expectation_requires_predicate_metadata() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "/// ```veln runtime=contract clause=require\n",
+                "/// reject()\n",
+                "/// ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(doctests.diagnostics.len(), 1);
+        assert_eq!(doctests.diagnostics[0].id, "doctest.invalid_metadata");
+        assert_eq!(
+            doctests.diagnostics[0].message,
+            "missing doctest runtime contract predicate"
+        );
+        assert_eq!(
+            doctests.diagnostics[0].details.to_json(),
+            "{\"kind\":\"doctest_metadata\",\"attribute\":\"predicate\"}"
+        );
     }
 
     #[test]
@@ -1997,10 +2323,14 @@ mod tests {
 
         assert_eq!(doctests.sources.len(), 1);
         let expected = doctests
-            .expected_outputs
+            .expectations
             .get("doctest_1")
             .expect("first expected output should be kept");
-        assert_eq!(expected.stdout.as_deref(), Some("ready"));
+        let output = expected
+            .expected_output
+            .as_ref()
+            .expect("expected output should be recorded");
+        assert_eq!(output.stdout.as_deref(), Some("ready"));
         assert_eq!(doctests.diagnostics.len(), 1);
         assert_eq!(doctests.diagnostics[0].id, "doctest.duplicate_output");
         assert_eq!(
@@ -2031,10 +2361,14 @@ mod tests {
 
         assert_eq!(doctests.sources.len(), 1);
         let expected = doctests
-            .expected_outputs
+            .expectations
             .get("doctest_1")
             .expect("expected stderr output should be captured");
-        assert_eq!(expected.stderr.as_deref(), Some("warn"));
+        let output = expected
+            .expected_output
+            .as_ref()
+            .expect("expected output should be recorded");
+        assert_eq!(output.stderr.as_deref(), Some("warn"));
         assert_eq!(doctests.diagnostics.len(), 1);
         assert_eq!(doctests.diagnostics[0].id, "doctest.duplicate_output");
         assert_eq!(
@@ -2117,11 +2451,10 @@ mod tests {
             )
         );
         let expected = doctests
-            .expected_outputs
+            .expectations
             .get("doctest_1")
-            .expect("doctest should have an output entry");
-        assert_eq!(expected.stdout, None);
-        assert_eq!(expected.stderr, None);
+            .expect("doctest should have an expectation record");
+        assert!(expected.expected_output.is_none());
         assert!(
             doctests.diagnostics.is_empty(),
             "{:#?}",
@@ -2148,11 +2481,10 @@ mod tests {
 
         assert_eq!(doctests.sources.len(), 1);
         let expected = doctests
-            .expected_outputs
+            .expectations
             .get("doctest_1")
-            .expect("doctest should have an output entry");
-        assert_eq!(expected.stdout, None);
-        assert_eq!(expected.stderr, None);
+            .expect("doctest should have an expectation record");
+        assert!(expected.expected_output.is_none());
         assert!(
             doctests.diagnostics.is_empty(),
             "{:#?}",
@@ -2207,11 +2539,10 @@ mod tests {
 
         assert_eq!(doctests.sources.len(), 1);
         let expected = doctests
-            .expected_outputs
+            .expectations
             .get("doctest_1")
-            .expect("doctest should keep an empty expectation record");
-        assert_eq!(expected.stdout, None);
-        assert_eq!(expected.stderr, None);
+            .expect("doctest should keep an expectation record");
+        assert!(expected.expected_output.is_none());
         assert_eq!(doctests.diagnostics.len(), 1);
         assert_eq!(doctests.diagnostics[0].id, "doctest.invalid_metadata");
         assert_eq!(
@@ -2242,11 +2573,10 @@ mod tests {
 
         assert_eq!(doctests.sources.len(), 1);
         let expected = doctests
-            .expected_outputs
+            .expectations
             .get("doctest_1")
-            .expect("doctest should keep an empty expectation record");
-        assert_eq!(expected.stdout, None);
-        assert_eq!(expected.stderr, None);
+            .expect("doctest should keep an expectation record");
+        assert!(expected.expected_output.is_none());
         assert_eq!(doctests.diagnostics.len(), 1);
         assert_eq!(doctests.diagnostics[0].id, "doctest.invalid_metadata");
         assert_eq!(
@@ -2273,7 +2603,7 @@ mod tests {
         let doctests = doctest_sources(&[source]);
 
         assert!(doctests.sources.is_empty());
-        assert!(doctests.expected_outputs.is_empty());
+        assert!(doctests.expectations.is_empty());
         assert!(
             doctests.diagnostics.is_empty(),
             "{:#?}",
@@ -2304,7 +2634,7 @@ mod tests {
                 "end\n",
             )
         );
-        assert!(doctests.expected_outputs.is_empty());
+        assert!(doctests.expectations.is_empty());
         assert_eq!(doctests.expected_failures.len(), 1);
         assert!(
             doctests
@@ -2761,6 +3091,7 @@ mod tests {
                 stderr: None,
                 ..ExpectedOutput::default()
             }),
+            expected_runtime_failure: None,
             events: vec![stdio_event(
                 "stdout",
                 "println",
@@ -2811,6 +3142,7 @@ mod tests {
                 stderr: Some("warn".to_string()),
                 ..ExpectedOutput::default()
             }),
+            expected_runtime_failure: None,
             events: vec![
                 stdio_event(
                     "stdout",
@@ -2864,6 +3196,7 @@ mod tests {
                 stderr: None,
                 ..ExpectedOutput::default()
             }),
+            expected_runtime_failure: None,
             events: vec![stdio_event(
                 "stdout",
                 "println",
@@ -2912,6 +3245,7 @@ mod tests {
                 stderr: None,
                 ..ExpectedOutput::default()
             }),
+            expected_runtime_failure: None,
             events: vec![
                 stdio_event("stdout", "println", "ready", "newline", 1, "call-1", &span),
                 stdio_event("stdout", "println", "next", "newline", 2, "call-2", &span),
@@ -3100,6 +3434,111 @@ mod tests {
     }
 
     #[test]
+    fn expected_runtime_contract_failure_marks_matching_case_passed() {
+        let source_file = SourceFile::new(
+            "main.veln#doctest-1_test.veln",
+            "test doctest_1() -> () effects [stdio]\n  reject()\nend\n",
+        );
+        let span = source_file.span(TextRange::new(0, source_file.len()));
+        let mut case = TestCase {
+            id: "case-1".to_string(),
+            name: "doctest_1".to_string(),
+            kind: "doctest".to_string(),
+            status: TestCaseStatus::Passed,
+            source: TestCaseSource {
+                file: "main.veln#doctest-1_test.veln".to_string(),
+                node_id: "test-1".to_string(),
+                span: span.clone(),
+            },
+            reason: None,
+            failure: None,
+            expected_output: None,
+            expected_runtime_failure: Some(ExpectedRuntimeFailure {
+                kind: "contract".to_string(),
+                clause: "require".to_string(),
+                predicate: "false".to_string(),
+                function: Some("reject".to_string()),
+                blame: Some("caller".to_string()),
+                span: span.clone(),
+            }),
+            events: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        let failure = TestFailure::contract(
+            "contract failure: require `false` in `reject` blame caller".to_string(),
+            "require".to_string(),
+            "false".to_string(),
+            "reject".to_string(),
+            "caller".to_string(),
+            "contract-1".to_string(),
+            span,
+        );
+
+        apply_runtime_result(&mut case, Some(failure));
+
+        assert_eq!(case.status, TestCaseStatus::Passed);
+        assert!(case.reason.is_none());
+        assert!(case.failure.is_none());
+    }
+
+    #[test]
+    fn expected_runtime_contract_failure_reports_mismatch() {
+        let source_file = SourceFile::new(
+            "main.veln#doctest-1_test.veln",
+            "test doctest_1() -> () effects [stdio]\n  reject()\nend\n",
+        );
+        let span = source_file.span(TextRange::new(0, source_file.len()));
+        let mut case = TestCase {
+            id: "case-1".to_string(),
+            name: "doctest_1".to_string(),
+            kind: "doctest".to_string(),
+            status: TestCaseStatus::Passed,
+            source: TestCaseSource {
+                file: "main.veln#doctest-1_test.veln".to_string(),
+                node_id: "test-1".to_string(),
+                span: span.clone(),
+            },
+            reason: None,
+            failure: None,
+            expected_output: None,
+            expected_runtime_failure: Some(ExpectedRuntimeFailure {
+                kind: "contract".to_string(),
+                clause: "require".to_string(),
+                predicate: "true".to_string(),
+                function: Some("reject".to_string()),
+                blame: Some("caller".to_string()),
+                span: span.clone(),
+            }),
+            events: Vec::new(),
+            diagnostics: Vec::new(),
+        };
+        let failure = TestFailure::contract(
+            "contract failure: require `false` in `reject` blame caller".to_string(),
+            "require".to_string(),
+            "false".to_string(),
+            "reject".to_string(),
+            "caller".to_string(),
+            "contract-1".to_string(),
+            span,
+        );
+
+        apply_runtime_result(&mut case, Some(failure));
+
+        assert_eq!(case.status, TestCaseStatus::Failed);
+        assert_eq!(case.reason.as_deref(), Some("expected_runtime_failure"));
+        let failure_json = case
+            .failure
+            .expect("mismatch should fail")
+            .to_json()
+            .to_json();
+        assert!(failure_json.contains("\"kind\":\"runtime_expectation\""));
+        assert!(failure_json.contains("\"expected\":{\"kind\":\"contract\""));
+        assert!(failure_json.contains("\"predicate\":\"true\""));
+        assert!(failure_json.contains("\"actual\":{\"kind\":\"contract\""));
+        assert!(failure_json.contains("\"predicate\":\"false\""));
+    }
+
+    #[test]
     fn contract_trace_skips_non_contract_and_malformed_lines() {
         let trace = concat!(
             "stdio\tstdout\tprint\n",
@@ -3216,6 +3655,7 @@ mod tests {
                 stderr: Some("warn".to_string()),
                 ..ExpectedOutput::default()
             }),
+            expected_runtime_failure: None,
             events: vec![
                 stdio_event(
                     "stdout",
@@ -3275,6 +3715,7 @@ mod tests {
                 stderr: None,
                 ..ExpectedOutput::default()
             }),
+            expected_runtime_failure: None,
             events: (1..=5)
                 .map(|sequence| {
                     stdio_event(
@@ -3362,6 +3803,7 @@ mod tests {
             reason: None,
             failure: None,
             expected_output: None,
+            expected_runtime_failure: None,
             events: Vec::new(),
             diagnostics: Vec::new(),
         };

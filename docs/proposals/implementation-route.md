@@ -31,6 +31,10 @@ comparison, promotion, or cleanup.
 
 - Source syntax, tests, doctests, names, types, and effects:
   [../specification/topic-map.md#source-surface](../specification/topic-map.md#source-surface).
+- Runtime-failure doctest metadata and expected case outcomes:
+  [../specification/commands.md](../specification/commands.md) and
+  [../specification/test-json.md](../specification/test-json.md) after
+  implementation coverage exists.
 - Repair candidates, satisfy constraints, and hole diagnostics:
   [../specification/holes.md](../specification/holes.md) and
   [../specification/diagnostics-json.md](../specification/diagnostics-json.md).

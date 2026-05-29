@@ -4801,6 +4801,156 @@ fn test_json_reports_doctest_expected_output_mismatch_when_jdk_is_available() {
 }
 
 #[test]
+fn test_json_passes_doctest_expected_runtime_contract_failure_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("test-json-doctest-runtime-contract");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn reject() -> () effects []\n",
+            "require false\n",
+            "  ()\n",
+            "end\n",
+            "/// ```veln runtime=contract clause=require predicate=false function=reject blame=caller\n",
+            "/// reject()\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["--json", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"passed\"",
+            "\"summary\":{\"total\":1,\"passed\":1,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":0,\"errors\":0}",
+            "\"name\":\"doctest_1\",\"kind\":\"doctest\",\"status\":\"passed\"",
+            "\"failure\":null",
+        ],
+    );
+}
+
+#[test]
+fn test_json_reports_doctest_expected_runtime_contract_mismatch_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("test-json-doctest-runtime-contract-mismatch");
+    project.write(
+        "main.veln",
+        concat!(
+            "fn reject() -> () effects []\n",
+            "require false\n",
+            "  ()\n",
+            "end\n",
+            "/// ```veln runtime=contract clause=require predicate=true function=reject blame=caller\n",
+            "/// reject()\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["--json", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"failed\"",
+            "\"name\":\"doctest_1\",\"kind\":\"doctest\",\"status\":\"failed\"",
+            "\"reason\":\"expected_runtime_failure\"",
+            "\"failure\":{\"kind\":\"runtime_expectation\",\"message\":\"runtime failure did not match expectation\"",
+            "\"expected\":{\"kind\":\"contract\",\"clause\":\"require\",\"predicate\":\"true\"",
+            "\"actual\":{\"kind\":\"contract\",\"message\":\"contract failure: require `false` in `reject` blame caller\"",
+            "\"predicate\":\"false\"",
+        ],
+    );
+}
+
+#[test]
+fn test_json_reports_missing_doctest_expected_runtime_failure_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("test-json-doctest-runtime-contract-missing");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln runtime=contract clause=require predicate=false\n",
+            "/// ()\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["--json", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"failed\"",
+            "\"name\":\"doctest_1\",\"kind\":\"doctest\",\"status\":\"failed\"",
+            "\"reason\":\"expected_runtime_failure\"",
+            "\"failure\":{\"kind\":\"runtime_expectation\",\"message\":\"expected runtime contract failure did not occur\"",
+            "\"expected\":{\"kind\":\"contract\",\"clause\":\"require\",\"predicate\":\"false\"",
+            "\"actual\":null",
+        ],
+    );
+}
+
+#[test]
+fn test_json_blocks_doctest_expected_runtime_failure_before_execution() {
+    let project = TestProject::new("test-json-doctest-runtime-contract-blocked");
+    project.write(
+        "main.veln",
+        concat!(
+            "/// ```veln runtime=contract clause=require predicate=false\n",
+            "/// let value: Int = \"no\"\n",
+            "/// ```\n",
+            "pub fn main() -> () effects []\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.test(&["--json", "main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"blocked\"",
+            "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":1,\"errors\":0}",
+            "\"name\":\"doctest_1\",\"kind\":\"doctest\",\"status\":\"blocked\"",
+            "\"reason\":\"static_gate\"",
+            "\"span\":{\"file\":\"main.veln#doctest-1_test.veln\"",
+        ],
+    );
+}
+
+#[test]
 fn test_human_reports_source_to_test_selection_note() {
     let project = TestProject::new("test-human-source-to-test-convention");
     project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");

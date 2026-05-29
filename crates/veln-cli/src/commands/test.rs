@@ -10,9 +10,10 @@ use veln_project::Project;
 use veln_sema::{analyze_surface_module, lower_checked_surface_module};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
-    attach_expected_outputs, compare_expected_output, contract_failure_from_trace,
-    discover_test_cases, doctest_sources, expand_test_targets, reconcile_expected_doctest_failures,
-    selected_test_files, stdio_call_spans, stdio_events_from_output, stdio_events_from_trace,
+    apply_runtime_result, attach_doctest_expectations, compare_expected_output,
+    contract_failure_from_trace, discover_test_cases, doctest_sources, expand_test_targets,
+    reconcile_expected_doctest_failures, selected_test_files, stdio_call_spans,
+    stdio_events_from_output, stdio_events_from_trace,
 };
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
@@ -31,7 +32,7 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     diagnostics.extend(doctests.diagnostics);
     let test_files = selected_test_files(&project, &module, explicit);
     let mut cases = discover_test_cases(&module, &test_files);
-    attach_expected_outputs(&mut cases, &doctests.expected_outputs);
+    attach_doctest_expectations(&mut cases, &doctests.expectations);
     let mut suite_errors = Vec::new();
 
     if !has_error(&diagnostics) {
@@ -124,13 +125,15 @@ fn run_test_case(module: &SurfaceModule, case: &mut TestCase) -> Result<(), Stri
         stdio_events_from_trace(&event_trace, &call_spans, &case.source)
     };
     if output.status.success() {
-        case.status = TestCaseStatus::Passed;
-        compare_expected_output(case);
+        apply_runtime_result(case, None);
     } else {
-        case.status = TestCaseStatus::Failed;
         let message = format!("test process exited with status {}", output.status);
-        case.failure = contract_failure_from_trace(&contract_error_trace)
+        let actual_failure = contract_failure_from_trace(&contract_error_trace)
             .or_else(|| Some(TestFailure::runtime(message)));
+        apply_runtime_result(case, actual_failure);
+    }
+    if case.status == TestCaseStatus::Passed {
+        compare_expected_output(case);
     }
     Ok(())
 }
