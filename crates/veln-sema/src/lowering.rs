@@ -661,64 +661,54 @@ impl<'a> CoreLowerer<'a> {
         segments: &[String],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
-        match segments {
-            segments => match self.environment.adts.nullary_constructor(
-                segments,
-                self.function.module_name.as_deref(),
-                &self.environment.uses,
-            ) {
-                ConstructorLookup::Found(constructor) => {
-                    let ty = expected
-                        .filter(|expected| {
-                            adt::core_adt_args(expected, constructor.descriptor).is_some()
-                        })
-                        .cloned()
-                        .unwrap_or_else(|| adt::core_constructed_type(constructor, &[]));
-                    self.core_expr(expr, ty, core_nullary_constructor_kind(constructor))
+        match self.environment.adts.nullary_constructor(
+            segments,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+        ) {
+            ConstructorLookup::Found(constructor) => {
+                let ty = expected
+                    .filter(|expected| {
+                        adt::core_adt_args(expected, constructor.descriptor).is_some()
+                    })
+                    .cloned()
+                    .unwrap_or_else(|| adt::core_constructed_type(constructor, &[]));
+                self.core_expr(expr, ty, core_nullary_constructor_kind(constructor))
+            }
+            _ => match segments {
+                [name] => {
+                    if let Some(binding) = self
+                        .bindings
+                        .iter()
+                        .rev()
+                        .find(|binding| binding.name == *name)
+                    {
+                        self.core_expr(expr, binding.ty.clone(), CoreExprKind::Local(name.clone()))
+                    } else if let Some(function) = self.environment.function(name) {
+                        self.core_expr(
+                            expr,
+                            core_type(&function.ty()),
+                            CoreExprKind::FunctionValue(name.clone()),
+                        )
+                    } else {
+                        self.core_expr(expr, CoreType::Unknown, CoreExprKind::Local(name.clone()))
+                    }
                 }
-                _ => match segments {
-                    [name] => {
-                        if let Some(binding) = self
-                            .bindings
-                            .iter()
-                            .rev()
-                            .find(|binding| binding.name == *name)
-                        {
-                            self.core_expr(
-                                expr,
-                                binding.ty.clone(),
-                                CoreExprKind::Local(name.clone()),
-                            )
-                        } else if let Some(function) = self.environment.function(name) {
-                            self.core_expr(
-                                expr,
-                                core_type(&function.ty()),
-                                CoreExprKind::FunctionValue(name.clone()),
-                            )
-                        } else {
-                            self.core_expr(
-                                expr,
-                                CoreType::Unknown,
-                                CoreExprKind::Local(name.clone()),
-                            )
-                        }
+                _ => {
+                    if let Some(function) = self.environment.function_path(segments) {
+                        self.core_expr(
+                            expr,
+                            core_type(&function.ty()),
+                            CoreExprKind::FunctionValue(function.name.clone()),
+                        )
+                    } else {
+                        self.core_expr(
+                            expr,
+                            CoreType::Unknown,
+                            CoreExprKind::Local(segments.join("::")),
+                        )
                     }
-                    _ => {
-                        if let Some(function) = self.environment.function_path(segments) {
-                            self.core_expr(
-                                expr,
-                                core_type(&function.ty()),
-                                CoreExprKind::FunctionValue(function.name.clone()),
-                            )
-                        } else {
-                            self.core_expr(
-                                expr,
-                                CoreType::Unknown,
-                                CoreExprKind::Local(segments.join("::")),
-                            )
-                        }
-                    }
-                },
+                }
             },
         }
     }
@@ -749,15 +739,15 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> Option<CoreExpr> {
-        if let ExprKind::NamePath(segments) = &callee.kind {
-            if let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+        if let ExprKind::NamePath(segments) = &callee.kind
+            && let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
                 segments,
                 self.function.module_name.as_deref(),
                 &self.environment.uses,
-            ) && !constructor.variant.payload_fields.is_empty()
-            {
-                return Some(self.lower_adt_constructor(expr, args, expected, constructor));
-            }
+            )
+            && !constructor.variant.payload_fields.is_empty()
+        {
+            return Some(self.lower_adt_constructor(expr, args, expected, constructor));
         }
         None
     }

@@ -1453,73 +1453,61 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: Option<&ExpectedType>,
     ) -> Type {
-        match segments {
-            segments => match self.environment.adts.nullary_constructor(
-                segments,
-                self.function.module_name.as_deref(),
-                &self.environment.uses,
-            ) {
-                ConstructorLookup::Found(constructor) => {
-                    let inferred = expected
-                        .and_then(|expected| {
-                            adt::adt_args(&expected.ty, constructor.descriptor)
-                                .map(|_| expected.ty.clone())
-                        })
-                        .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
-                    if expected.is_none() && type_contains_unknown(&inferred) {
-                        self.push_ambiguous_constructor_type(
-                            expr.node_id,
-                            expr.span.clone(),
-                            &segments.join("::"),
-                            &inferred,
-                        );
-                    }
-                    inferred
-                }
-                ConstructorLookup::Ambiguous => {
-                    self.push_ambiguous_name(
+        match self.environment.adts.nullary_constructor(
+            segments,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+        ) {
+            ConstructorLookup::Found(constructor) => {
+                let inferred = expected
+                    .and_then(|expected| {
+                        adt::adt_args(&expected.ty, constructor.descriptor)
+                            .map(|_| expected.ty.clone())
+                    })
+                    .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
+                if expected.is_none() && type_contains_unknown(&inferred) {
+                    self.push_ambiguous_constructor_type(
                         expr.node_id,
                         expr.span.clone(),
                         &segments.join("::"),
-                        "value",
+                        &inferred,
                     );
-                    Type::Unknown
                 }
-                ConstructorLookup::Missing => match segments {
-                    [name] => {
-                        if let Some(binding) = self
-                            .bindings
-                            .iter()
-                            .rev()
-                            .find(|binding| binding.name == *name)
-                        {
-                            binding.ty.clone()
-                        } else if let Some(function) = self.environment.function(name) {
-                            function.ty()
-                        } else {
-                            self.push_unresolved_name(
-                                expr.node_id,
-                                expr.span.clone(),
-                                name,
-                                "value",
-                            );
-                            Type::Unknown
-                        }
-                    }
-                    _ => {
-                        if let Some(function) = self.environment.function_path(segments) {
-                            return function.ty();
-                        }
-                        let symbol = segments.join("::");
-                        self.push_unresolved_name(
-                            expr.node_id,
-                            expr.span.clone(),
-                            &symbol,
-                            "value",
-                        );
+                inferred
+            }
+            ConstructorLookup::Ambiguous => {
+                self.push_ambiguous_name(
+                    expr.node_id,
+                    expr.span.clone(),
+                    &segments.join("::"),
+                    "value",
+                );
+                Type::Unknown
+            }
+            ConstructorLookup::Missing => match segments {
+                [name] => {
+                    if let Some(binding) = self
+                        .bindings
+                        .iter()
+                        .rev()
+                        .find(|binding| binding.name == *name)
+                    {
+                        binding.ty.clone()
+                    } else if let Some(function) = self.environment.function(name) {
+                        function.ty()
+                    } else {
+                        self.push_unresolved_name(expr.node_id, expr.span.clone(), name, "value");
                         Type::Unknown
                     }
-                },
+                }
+                _ => {
+                    if let Some(function) = self.environment.function_path(segments) {
+                        return function.ty();
+                    }
+                    let symbol = segments.join("::");
+                    self.push_unresolved_name(expr.node_id, expr.span.clone(), &symbol, "value");
+                    Type::Unknown
+                }
             },
         }
     }
