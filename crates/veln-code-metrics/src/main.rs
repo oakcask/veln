@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::env;
 use std::ffi::OsStr;
 use std::fmt;
@@ -79,6 +80,10 @@ fn main() {
             std::process::exit(1);
         }
     }
+
+    if findings.iter().any(Finding::blocks_merge) {
+        std::process::exit(1);
+    }
 }
 
 #[derive(Debug)]
@@ -86,6 +91,7 @@ struct Config {
     dependency_cycle_limit: usize,
     dependency_hotspots: usize,
     dependency_summary: bool,
+    deny_numbered_split_files: bool,
     github_annotations: bool,
     file_line_threshold: usize,
     max_warnings: usize,
@@ -99,6 +105,7 @@ impl Config {
         let mut dependency_hotspots = DEFAULT_DEPENDENCY_HOTSPOTS;
         let mut dependency_summary = false;
         let mut github_annotations = false;
+        let mut deny_numbered_split_files = false;
         let mut file_line_threshold = DEFAULT_FILE_LINE_THRESHOLD;
         let mut max_warnings = DEFAULT_MAX_WARNINGS;
         let mut roots = Vec::new();
@@ -121,6 +128,7 @@ impl Config {
                         .ok_or_else(|| "--dependency-hotspots requires a value".to_string())?;
                     dependency_hotspots = parse_positive_usize("--dependency-hotspots", &value)?;
                 }
+                "--deny-numbered-split-files" => deny_numbered_split_files = true,
                 "--github-annotations" => github_annotations = true,
                 "--file-line-threshold" => {
                     let value = args
@@ -158,6 +166,7 @@ impl Config {
             dependency_cycle_limit,
             dependency_hotspots,
             dependency_summary,
+            deny_numbered_split_files,
             github_annotations,
             file_line_threshold,
             max_warnings,
@@ -168,7 +177,7 @@ impl Config {
 }
 
 fn usage() -> String {
-    "usage: veln-code-metrics [--github-annotations] [--dependency-summary] [--dependency-hotspots N] [--dependency-cycle-limit N] [--file-line-threshold N] [--max-warnings N] [--threshold N] [PATH ...]"
+    "usage: veln-code-metrics [--github-annotations] [--dependency-summary] [--dependency-hotspots N] [--dependency-cycle-limit N] [--deny-numbered-split-files] [--file-line-threshold N] [--max-warnings N] [--threshold N] [PATH ...]"
         .to_string()
 }
 
@@ -206,9 +215,14 @@ impl AbcMetrics {
 enum Finding {
     Function(FunctionFinding),
     File(FileFinding),
+    NumberedSplitFile(NumberedSplitFileFinding),
 }
 
 impl Finding {
+    fn blocks_merge(&self) -> bool {
+        matches!(self, Self::NumberedSplitFile(_))
+    }
+
     fn compare(left: &Self, right: &Self) -> std::cmp::Ordering {
         right
             .rank()
@@ -222,6 +236,7 @@ impl Finding {
         match self {
             Self::Function(finding) => &finding.file,
             Self::File(finding) => &finding.file,
+            Self::NumberedSplitFile(finding) => &finding.file,
         }
     }
 
@@ -229,6 +244,7 @@ impl Finding {
         match self {
             Self::Function(finding) => finding.github_warning(),
             Self::File(finding) => finding.github_warning(),
+            Self::NumberedSplitFile(finding) => finding.github_error(),
         }
     }
 
@@ -236,6 +252,7 @@ impl Finding {
         match self {
             Self::Function(finding) => &finding.name,
             Self::File(_) => "file",
+            Self::NumberedSplitFile(_) => "numbered split file",
         }
     }
 
@@ -243,6 +260,7 @@ impl Finding {
         match self {
             Self::Function(finding) => finding.line,
             Self::File(finding) => finding.line,
+            Self::NumberedSplitFile(finding) => finding.line,
         }
     }
 
@@ -250,6 +268,7 @@ impl Finding {
         match self {
             Self::Function(finding) => finding.metrics.score(),
             Self::File(finding) => finding.lines as f64 / 100.0,
+            Self::NumberedSplitFile(_) => f64::INFINITY,
         }
     }
 }
@@ -259,6 +278,7 @@ impl fmt::Display for Finding {
         match self {
             Self::Function(finding) => write!(formatter, "{finding}"),
             Self::File(finding) => write!(formatter, "{finding}"),
+            Self::NumberedSplitFile(finding) => write!(formatter, "{finding}"),
         }
     }
 }
@@ -313,6 +333,37 @@ impl FileFinding {
     }
 }
 
+#[derive(Debug, PartialEq)]
+struct NumberedSplitFileFinding {
+    file: PathBuf,
+    line: usize,
+}
+
+impl NumberedSplitFileFinding {
+    fn github_error(&self) -> String {
+        format!(
+            "::error file={},line={},title={}::{}",
+            annotation_property_escape(self.file.to_string_lossy().as_ref()),
+            self.line,
+            annotation_property_escape("Numbered split file"),
+            annotation_message_escape(
+                "Rename this Rust file to describe its responsibility before merging; numbered bucket files hide ownership and make code-metric refactors mechanical"
+            )
+        )
+    }
+}
+
+impl fmt::Display for NumberedSplitFileFinding {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{}:{}: numbered split file name; rename this Rust file to describe its responsibility",
+            self.file.display(),
+            self.line
+        )
+    }
+}
+
 impl fmt::Display for FileFinding {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -361,8 +412,11 @@ fn collect_findings(config: &Config) -> Result<Vec<Finding>, String> {
     let files = collect_configured_rust_files(config)?;
 
     let mut findings = Vec::new();
-    for file in files {
-        findings.extend(analyze_file(&file, config)?);
+    for file in &files {
+        findings.extend(analyze_file(file, config)?);
+    }
+    if config.deny_numbered_split_files {
+        findings.extend(numbered_split_file_findings(&files));
     }
     Ok(findings)
 }
@@ -414,6 +468,42 @@ fn analyze_file(path: &Path, config: &Config) -> Result<Vec<Finding>, String> {
         }));
     }
     Ok(findings)
+}
+
+fn numbered_split_file_findings(files: &[PathBuf]) -> Vec<Finding> {
+    let mut groups: BTreeMap<(PathBuf, String), Vec<PathBuf>> = BTreeMap::new();
+    for file in files {
+        if let Some((directory, prefix)) = numbered_suffix_group(file) {
+            groups
+                .entry((directory, prefix))
+                .or_default()
+                .push(file.clone());
+        }
+    }
+
+    groups
+        .into_values()
+        .filter(|group| group.len() > 1)
+        .flatten()
+        .map(|file| Finding::NumberedSplitFile(NumberedSplitFileFinding { file, line: 1 }))
+        .collect()
+}
+
+fn numbered_suffix_group(path: &Path) -> Option<(PathBuf, String)> {
+    let stem = path
+        .file_stem()
+        .and_then(OsStr::to_str)
+        .filter(|stem| !stem.is_empty())?;
+    let prefix_end = stem
+        .bytes()
+        .rposition(|byte| !byte.is_ascii_digit())
+        .map(|index| index + 1)?;
+    if prefix_end == stem.len() || prefix_end == 0 {
+        return None;
+    }
+
+    let directory = path.parent().unwrap_or_else(|| Path::new("")).to_path_buf();
+    Some((directory, stem[..prefix_end].to_string()))
 }
 
 fn analyze_source(path: &Path, source: &str, threshold: f64) -> Result<Vec<Finding>, String> {
@@ -562,7 +652,7 @@ impl<'ast> Visit<'ast> for AbcVisitor {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     use super::*;
 
@@ -629,6 +719,7 @@ fn fallback() -> i32 {
             dependency_cycle_limit: DEFAULT_DEPENDENCY_CYCLE_LIMIT,
             dependency_hotspots: DEFAULT_DEPENDENCY_HOTSPOTS,
             dependency_summary: false,
+            deny_numbered_split_files: false,
             github_annotations: false,
             file_line_threshold: 3,
             max_warnings: 10,
@@ -667,5 +758,58 @@ fn fallback() -> i32 {
         assert_eq!(config.dependency_hotspots, 3);
         assert_eq!(config.dependency_cycle_limit, 2);
         assert_eq!(config.roots, vec![PathBuf::from("crates")]);
+    }
+
+    #[test]
+    fn identifies_numbered_suffix_groups() {
+        assert_eq!(
+            numbered_suffix_group(Path::new("nested/parser01.rs")),
+            Some((PathBuf::from("nested"), "parser".to_string()))
+        );
+        assert_eq!(
+            numbered_suffix_group(Path::new("sha256.rs")),
+            Some((PathBuf::from(""), "sha".to_string()))
+        );
+        assert_eq!(numbered_suffix_group(Path::new("partitions.rs")), None);
+        assert_eq!(numbered_suffix_group(Path::new("part.rs")), None);
+        assert_eq!(numbered_suffix_group(Path::new("123.rs")), None);
+    }
+
+    #[test]
+    fn reports_numbered_suffix_series_with_shared_prefix() {
+        let findings = numbered_split_file_findings(&[
+            PathBuf::from("parser01.rs"),
+            PathBuf::from("parser02.rs"),
+            PathBuf::from("sha256.rs"),
+            PathBuf::from("nested/parser03.rs"),
+            PathBuf::from("nested/parser04.rs"),
+        ]);
+
+        let files = findings.iter().map(Finding::file).collect::<Vec<_>>();
+        assert_eq!(
+            files,
+            vec![
+                Path::new("parser01.rs"),
+                Path::new("parser02.rs"),
+                Path::new("nested/parser03.rs"),
+                Path::new("nested/parser04.rs"),
+            ]
+        );
+    }
+
+    #[test]
+    fn numbered_split_file_finding_blocks_merge() {
+        let finding = Finding::NumberedSplitFile(NumberedSplitFileFinding {
+            file: PathBuf::from("part01.rs"),
+            line: 1,
+        });
+
+        assert!(finding.blocks_merge());
+        assert!(
+            finding
+                .github_annotation()
+                .contains("Rename this Rust file"),
+            "annotation should tell maintainers what action is required"
+        );
     }
 }
