@@ -7439,6 +7439,7 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
             "result_map_err",
             "vec_concat",
             "vec_filter",
+            "vec_fold",
             "vec_is_empty",
             "vec_len",
             "vec_map",
