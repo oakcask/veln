@@ -298,6 +298,27 @@ fn descriptor_routed_option_constructor_checks_expected_item_type() {
 }
 
 #[test]
+fn descriptor_routed_qualified_option_constructor_checks_expected_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> Option(Int)\n  Option::Some(\"no\")\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
+    assert_diagnostic_span(&diagnostics[0], 2, 16, 2, 20);
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"expected_type\":\"Int\""));
+    assert!(details.contains("\"actual_type\":\"String\""));
+    assert!(details.contains("\"constraint\":\"call_argument\""));
+}
+
+#[test]
 fn descriptor_routed_result_arity_diagnostic_keeps_call_span() {
     let source = SourceFile::new(
         "main.veln",
@@ -800,6 +821,44 @@ fn match_exhaustiveness_reports_missing_option_case() {
         .iter()
         .find(|diagnostic| diagnostic.id == "type.match_non_exhaustive")
         .expect("missing option case should be diagnosed");
+    assert_eq!(diagnostic.message, "match is missing case None");
+    assert_diagnostic_span(diagnostic, 2, 3, 4, 6);
+    assert_eq!(diagnostic.related.len(), 2);
+    let related = diagnostic
+        .related
+        .iter()
+        .map(|note| note.to_json())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(related.contains("Scrutinee has type `Option(Int)`."));
+    assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
+    assert!(related.contains("This arm covers Some(_)."));
+    assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
+}
+
+#[test]
+fn match_exhaustiveness_reports_qualified_option_case_with_source_anchors() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Option(Int)) -> String effects []\n",
+            "  match value\n",
+            "    Option::Some(count) => \"some\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.match_non_exhaustive")
+        .expect("missing option case should be diagnosed");
+    assert_eq!(diagnostic.kind, DiagnosticKind::Type);
     assert_eq!(diagnostic.message, "match is missing case None");
     assert_diagnostic_span(diagnostic, 2, 3, 4, 6);
     assert_eq!(diagnostic.related.len(), 2);
