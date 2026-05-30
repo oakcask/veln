@@ -30,7 +30,8 @@ requiring the full command reference on the first read.
   run JSON. Use [run-json.md](run-json.md) first for machine-readable output,
   then [commands-full.md](commands-full.md) for exact command rules.
 - `test`: test and doctest selection, static gates, direct JVM classfile
-  execution without an ordinary Java source compiler requirement, runtime
+  execution without an ordinary Java source compiler requirement,
+  `runtime=contract` and `runtime=result` doctest expectations, runtime
   failures, and test JSON. Use [source-surface.md](source-surface.md) first for
   doctest fence metadata, [test-json.md](test-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact

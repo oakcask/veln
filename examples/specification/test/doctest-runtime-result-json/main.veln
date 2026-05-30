@@ -1,4 +1,9 @@
 // Doctest runtime result expectations match returned Err values.
+fn reject() -> () effects []
+require false
+  ()
+end
+
 /// ```veln error=String runtime=result value=bad
 /// stdio::println("before failure")
 /// Err("bad")?
@@ -13,6 +18,10 @@
 ///
 /// ```veln error=String runtime=result value=bad
 /// ()
+/// ```
+///
+/// ```veln runtime=result value=bad
+/// reject()
 /// ```
 pub fn main() -> () effects []
   ()

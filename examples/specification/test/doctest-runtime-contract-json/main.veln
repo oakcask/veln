@@ -19,6 +19,10 @@ end
 /// ```veln runtime=contract clause=require predicate=false
 /// ()
 /// ```
+///
+/// ```veln error=String runtime=contract clause=require predicate=false
+/// Err("actual")?
+/// ```
 pub fn main() -> () effects []
   ()
 end

@@ -8,6 +8,9 @@ This page routes implemented JSON output for `veln test --json`.
 - The top-level status is `passed`, `failed`, `blocked`, or `error`.
 - Parse and semantic diagnostics block Java compilation and execution.
 - JDK setup failures become case errors with `reason: "runner_error"`.
+- Doctest `runtime=contract` and `runtime=result` expectations pass only when
+  the selected runtime failure details match; mismatches use
+  `reason: "expected_runtime_failure"`.
 
 ## Read When
 
