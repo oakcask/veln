@@ -73,18 +73,10 @@ Successful JSON output records `confirmation` and, when override was used,
 
 ## Executable Evidence
 
-The applying-command boundary is covered by executable specification cases:
-
-- `../../examples/specification/repair/apply-safe-candidate/`: one safe
-  candidate is applied and verified.
-- `../../examples/specification/repair/apply-confirmed-override/`: one
-  confirmed manual-review candidate is applied through override and recorded.
-- `../../examples/specification/repair/refuse-override-without-confirm/`:
-  override refuses without explicit confirmation.
-- `../../examples/specification/repair/saved-apply-requires-current-match/`:
-  saved repair JSON does not authorize writes without a current safe match.
-- `../../examples/specification/repair/verification-checked-core-rollback/`:
-  verification failure restores written files.
+The applying-command boundary is covered by the executable repair case route in
+`examples/specification/repair/README.md`. Use that index for safe apply,
+confirmed override, override refusal, saved-input freshness, verification, and
+rollback evidence instead of expanding this page with every fixture.
 
 ## Remaining Proposal Boundary
 
