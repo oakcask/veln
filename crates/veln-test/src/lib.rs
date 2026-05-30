@@ -1131,11 +1131,12 @@ fn duplicate_output_diagnostic(
 }
 
 fn doc_comment_content(line: &str) -> Option<&str> {
-    line.trim_start().strip_prefix("///")
+    let line = line.trim_start();
+    line.strip_prefix("##").or_else(|| line.strip_prefix("///"))
 }
 
 fn doctest_code_line(content: &str) -> String {
-    content.strip_prefix("# ").unwrap_or(content).to_string()
+    content.strip_prefix("> ").unwrap_or(content).to_string()
 }
 
 fn veln_fence_info(info: &str) -> bool {
@@ -1923,12 +1924,12 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// stdio::println(\"ready\")\n",
-                "/// ```\n",
-                "/// ```veln-output stream=stdout\n",
-                "/// ready\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
+                "## ```veln-output stream=stdout\n",
+                "## ready\n",
+                "## ```\n",
                 "pub fn main() -> () effects []\n",
                 "  ()\n",
                 "end\n",
@@ -2586,10 +2587,10 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// # let greeting = \"ready\"\n",
-                "/// stdio::println(greeting)\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## > let greeting = \"ready\"\n",
+                "## stdio::println(greeting)\n",
+                "## ```\n",
             ),
         );
 
@@ -2601,6 +2602,40 @@ mod tests {
             concat!(
                 "test doctest_1() -> () effects [stdio]\n",
                 "  let greeting = \"ready\"\n",
+                "  stdio::println(greeting)\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
+    fn keeps_visible_hash_comments_inside_doctest_fences() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "## ```veln\n",
+                "## > let greeting = \"ready\"\n",
+                "## # visible example comment\n",
+                "## stdio::println(greeting)\n",
+                "## ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  let greeting = \"ready\"\n",
+                "  # visible example comment\n",
                 "  stdio::println(greeting)\n",
                 "  ()\n",
                 "end\n",

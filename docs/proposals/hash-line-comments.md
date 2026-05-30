@@ -1,10 +1,11 @@
 # Hash Line Comments
 
-Status: proposed
+Status: partially implemented compatibility stage
 
 This page proposes changing the source line comment marker from `//` to `#`.
-It is proposal work, not current language behavior unless `../specification/`
-also states it.
+The compatibility-stage behavior already documented in `../specification/` is
+current language behavior. Remaining migration and deprecation work stays
+proposal work until the matching specification page states it.
 
 ## Read First
 
@@ -18,20 +19,21 @@ also states it.
 
 ## Current Boundary
 
-The implemented lexer treats `//` through the end of the line as a comment.
-Documentation comments are a convention over the same token shape: doc
-comments start with `///`, and doctest extraction plus ADR-lite metadata strip
-that prefix before reading Markdown fences or metadata fields.
+The implemented lexer treats both `#` and legacy `//` through the end of the
+line as comments. Documentation comments are a convention over the same token
+shape: canonical doc comments start with `##`, legacy doc comments start with
+`///`, and doctest extraction plus ADR-lite metadata strip either prefix before
+reading Markdown fences or metadata fields.
 
-The source grammar's executable Prolog model also treats `//` as trivia.
+The source grammar's executable Prolog model treats both `#` and `//` as
+trivia.
 Formatter behavior preserves parsed comment text, attaches standalone comments
 to nearby formatted source lines, and keeps trailing comments on the same
-formatted line.
+formatted line. It does not yet rewrite legacy spelling to canonical spelling.
 
-Executable doctests currently use a leading `# ` inside a `veln` fence as a
-hidden setup marker. That marker is not a Veln source comment today, but it
-would collide with ordinary visible source comments if `#` becomes the comment
-marker.
+Executable doctests use a leading `> ` inside a `veln` fence as a hidden setup
+marker. A visible `#` line inside a doctest fence remains example source and is
+included as a normal source comment.
 
 ## Target
 
@@ -98,24 +100,29 @@ of the doctest content, not "first non-whitespace `>`". That keeps ordinary
 example indentation meaningful and avoids hiding an indented expression by
 accident.
 
-The existing `# ` hidden setup marker can be accepted during a transition while
-`//` comments are still accepted, but it should not remain part of the final
-target surface after `#` comments become canonical.
+The old `# ` hidden setup marker is not part of the compatibility stage because
+it collides with visible source comments.
 
 ## Work Route
 
-1. Add lexer support for `#` and `##` comments while keeping current `//` and
-   `///` comments accepted as legacy spellings.
-2. Add doctest extraction support for `##` doc comments and `> ` setup
-   lines.
-3. Update formatter golden tests so newly formatted files emit `#` and `##`
-   while preserving source text only where lossless legacy preservation is
-   explicitly required.
-4. Update examples, fixtures, executable Prolog grammar, editor fallback
-   grammar, semantic token expectations, and command/specification docs.
-5. Add a targeted diagnostic or migration note for legacy `//` and `///`
+Completed compatibility-stage coverage:
+
+1. Lexer support for `#` and `##` comments while keeping `//` and `///`
+   accepted as legacy spellings.
+2. Doctest extraction support for `##` doc comments and `> ` setup lines.
+3. Formatter golden tests for standalone, trailing, and documentation hash
+   comments, with legacy comment text preserved when it appears in input.
+4. Executable Prolog grammar, editor fallback grammar, semantic token
+   expectations, command/specification docs, and a focused hash-comment source
+   fixture.
+
+Remaining route:
+
+1. Migrate examples and fixtures that still use legacy comment spelling without
+   intentionally covering compatibility.
+2. Add a targeted diagnostic or migration note for legacy `//` and `///`
    comments if the project wants a gradual deprecation path.
-6. After examples and tests no longer require legacy comments, remove legacy
+3. After examples and tests no longer require legacy comments, remove legacy
    `//` and `///` acceptance or keep it only behind a clearly documented
    compatibility mode.
 
@@ -126,16 +133,10 @@ switch would make examples, doctests, formatter snapshots, editor grammars,
 and fixture coverage fail at once, and would make it harder to identify the
 real semantic regressions.
 
-During the compatibility stage, `veln fmt` should choose one of two deliberate
-behaviors:
-
-- canonicalize legacy `//` and `///` comments to `#` and `##`; or
-- preserve legacy text only when lossless formatting already requires exact
-  comment text preservation.
-
-The implementation should choose one formatter behavior before accepting the
-syntax change. Silent mixed-style output would increase generation variance and
-make agent-authored examples less predictable.
+During the compatibility stage, `veln fmt` preserves legacy `//` and `///`
+text when it appears in parse-clean input. A later migration command or
+formatter policy can canonicalize legacy comments, but silent mixed-style
+generation should remain deliberate rather than accidental.
 
 ## Non-Goals
 
@@ -146,8 +147,9 @@ make agent-authored examples less predictable.
   ADR-lite field names.
 - Do not add a second documentation-comment form that remains canonical beside
   `##`.
-- Do not promote this proposal into current behavior until the specification
-  pages and examples are updated.
+- Do not remove legacy comment handling until the remaining examples and tests
+  that depend on legacy spelling are intentionally migrated or classified as
+  compatibility coverage.
 
 ## Acceptance Checks
 
@@ -179,14 +181,13 @@ make agent-authored examples less predictable.
 - Should generated documentation preserve the author's original comment
   marker during compatibility, or always render from the canonical `##`
   spelling?
-- How long should `# ` hidden setup remain accepted after `> ` exists?
 - Should a negative doctest be allowed to opt out of `> ` hidden setup when it
   intentionally demonstrates a line-start `>` parse error?
 
 ## Update When
 
-- The lexer, formatter, doctest extractor, or editor grammar starts accepting
-  hash comments.
 - The project chooses a concrete legacy-comment deprecation policy.
-- The current source specification is updated to make hash comments current
-  behavior.
+- The remaining examples and fixtures are migrated to canonical comment
+  spelling.
+- Legacy `//` and `///` acceptance changes from compatibility behavior to a
+  warning, error, or documented mode.

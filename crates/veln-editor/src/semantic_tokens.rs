@@ -833,7 +833,7 @@ mod tests {
             "main.veln",
             concat!(
                 "fn main(flag: Bool) -> Bool\n",
-                "  _ satisfy candidate => true\n",
+                "  _ satisfy candidate => true # tail comment\n",
                 "end\n"
             ),
         );
@@ -852,6 +852,11 @@ mod tests {
         assert!(tokens.contains(&(
             "true".to_string(),
             SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "# tail comment".to_string(),
+            SemanticTokenType::Comment,
             SemanticTokenModifiers::empty().bits()
         )));
     }

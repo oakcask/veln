@@ -4178,10 +4178,10 @@ fn check_json_typechecks_hidden_doctest_setup_lines() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln\n",
-            "/// # let greeting = \"ready\"\n",
-            "/// stdio::println(greeting)\n",
-            "/// ```\n",
+            "## ```veln\n",
+            "## > let greeting = \"ready\"\n",
+            "## stdio::println(greeting)\n",
+            "## ```\n",
             "pub fn main() -> () effects []\n",
             "  ()\n",
             "end\n",

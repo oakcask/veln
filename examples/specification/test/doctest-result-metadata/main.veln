@@ -1,8 +1,8 @@
-// Doctest metadata declares the expected error type for Result propagation.
-/// ```veln error=String
-/// # let raw = "42"
-/// let _: () = check_count(raw)?
-/// ```
+# Doctest metadata declares the expected error type for Result propagation.
+## ```veln error=String
+## > let raw = "42"
+## let _: () = check_count(raw)?
+## ```
 pub fn parse_count(raw: String) -> Result(Int, String) effects []
   string_parse_int(raw)
 end

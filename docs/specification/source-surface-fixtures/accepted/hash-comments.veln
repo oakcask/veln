@@ -1,0 +1,7 @@
+# module comment
+mod app.comments
+
+## helper docs
+fn helper(value: Int) -> Int
+  value # trailing comment
+end

@@ -89,6 +89,28 @@ test("maps all LSP diagnostic severities", () => {
   );
 });
 
+test("configures hash comments for editor fallback", () => {
+  const extensionRoot = path.dirname(fileURLToPath(import.meta.url));
+  const languageConfiguration = JSON.parse(
+    fs.readFileSync(
+      path.join(extensionRoot, "language-configuration.json"),
+      "utf8",
+    ),
+  );
+  const grammar = JSON.parse(
+    fs.readFileSync(
+      path.join(extensionRoot, "syntaxes", "veln.tmLanguage.json"),
+      "utf8",
+    ),
+  );
+
+  assert.equal(languageConfiguration.comments.lineComment, "#");
+  assert.deepEqual(grammar.repository.comments.patterns[0], {
+    name: "comment.line.hash.veln",
+    match: "#.*$",
+  });
+});
+
 test("syncs open documents with didOpen and later didChange", () => {
   const { exports, spawnedProcesses } = loadExtension();
   const server = new exports._test.VelnLanguageServer(

@@ -139,6 +139,34 @@ fn reports_missing_end() {
 fn lossless_tree_retains_trivia() {
     let source = SourceFile::new(
         "main.veln",
+        "# module comment\nfn id(value: Int) -> Int\n  value # tail comment\nend\n",
+    );
+
+    let output = parse(&source);
+    let tokens = output.tree.lossless_tokens().collect::<Vec<_>>();
+
+    assert!(
+        tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::Comment && token.text == "# module comment")
+    );
+    assert!(
+        tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::Whitespace)
+    );
+    assert!(
+        tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::Comment && token.text == "# tail comment")
+    );
+    assert_eq!(output.tree.items.len(), 1);
+}
+
+#[test]
+fn lossless_tree_keeps_legacy_line_comments_as_trivia() {
+    let source = SourceFile::new(
+        "main.veln",
         "// module comment\nfn id(value: Int) -> Int\n  value // tail comment\nend\n",
     );
 
@@ -153,11 +181,6 @@ fn lossless_tree_retains_trivia() {
     assert!(
         tokens
             .iter()
-            .any(|token| token.kind == TokenKind::Whitespace)
-    );
-    assert!(
-        tokens
-            .iter()
             .any(|token| token.kind == TokenKind::Comment && token.text == "// tail comment")
     );
     assert_eq!(output.tree.items.len(), 1);
@@ -168,13 +191,13 @@ fn parses_adr_lite_records_from_doc_comments() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "/// @adr\n",
-            "/// id: order-summary\n",
-            "/// status: accepted\n",
-            "/// scope: pub fn summarize\n",
-            "/// context: Summaries need source-adjacent rationale.\n",
-            "/// decision: Keep the public API pure.\n",
-            "/// consequences: Runtime behavior ignores this record.\n",
+            "## @adr\n",
+            "## id: order-summary\n",
+            "## status: accepted\n",
+            "## scope: pub fn summarize\n",
+            "## context: Summaries need source-adjacent rationale.\n",
+            "## decision: Keep the public API pure.\n",
+            "## consequences: Runtime behavior ignores this record.\n",
             "pub fn summarize() -> () effects []\n",
             "\t()\n",
             "end\n",
@@ -1147,11 +1170,11 @@ fn format_tree_formats_attached_line_comments() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "// header\n",
+            "# header\n",
             "fn   main ( ) -> ()\n",
-            "  _ // hole\n",
-            "// close docs\n",
-            "end // function end\n",
+            "  _ # hole\n",
+            "# close docs\n",
+            "end # function end\n",
         ),
     );
 
@@ -1161,11 +1184,11 @@ fn format_tree_formats_attached_line_comments() {
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "// header\n",
+            "# header\n",
             "fn main() -> ()\n",
-            "\t_  // hole\n",
-            "\t// close docs\n",
-            "end  // function end\n",
+            "\t_  # hole\n",
+            "\t# close docs\n",
+            "end  # function end\n",
         )
     );
 }

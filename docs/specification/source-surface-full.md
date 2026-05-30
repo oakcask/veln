@@ -65,6 +65,10 @@ not uppercase. `TypeText` is collected from source and parsed by the semantic
 type parser. Contract predicates parse through a narrower predicate production
 before semantic contract validation.
 
+Line comments start with `#` and run through the end of the line.
+Documentation line comments use `##`. During the compatibility stage, legacy
+`//` and `///` comments are still accepted as equivalent line-comment trivia.
+
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`
 entries parse as dictionaries, including keys that are identifier-led
@@ -200,10 +204,12 @@ An adjacent doc comment fence whose info string is
 `veln-output stream=stdout` or `veln-output stream=stderr` attaches expected
 output to the immediately preceding generated doctest.
 
-Inside an executable `veln` fence, a line that starts with `# ` is hidden setup:
+Inside an executable `veln` fence, a line that starts with `> ` is hidden setup:
 the generated test includes the line after removing the marker. Hidden setup is
 useful for imports, helpers, and bindings that the documented sample should use
-without displaying harness-only setup as example code.
+without displaying harness-only setup as example code. A visible `#` line
+inside the fence remains source text and is included as a normal source
+comment.
 Unknown `veln-output` attributes, missing `stream`, and stream values other
 than `stdout` or `stderr` report doctest metadata diagnostics. A doctest may
 attach at most one expected-output fence for each stream. A second
@@ -212,18 +218,18 @@ attach at most one expected-output fence for each stream. A second
 the selected expectation.
 
 Documentation line comments may also contain ADR-lite records. A complete
-record starts with `/// @adr` or `/// @adr-lite` and then provides these fields
+record starts with `## @adr` or `## @adr-lite` and then provides these fields
 as `key: value` doc-comment lines: `id`, `status`, `scope`, `context`,
 `decision`, and `consequences`.
 
 ```veln
-/// @adr
-/// id: module-boundary
-/// status: accepted
-/// scope: module
-/// context: Module identity is compiler-visible.
-/// decision: Keep the source header canonical.
-/// consequences: Manifest metadata cannot rename the module.
+## @adr
+## id: module-boundary
+## status: accepted
+## scope: module
+## context: Module identity is compiler-visible.
+## decision: Keep the source header canonical.
+## consequences: Manifest metadata cannot rename the module.
 mod app.core
 ```
 

@@ -31,6 +31,10 @@
     "comments": {
       "patterns": [
         {
+          "name": "comment.line.hash.veln",
+          "match": "#.*$"
+        },
+        {
           "name": "comment.line.double-slash.veln",
           "match": "//.*$"
         }
