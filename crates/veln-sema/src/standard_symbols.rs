@@ -27,6 +27,11 @@ const CONCURRENCY_EFFECTS: &[&str] = &["concurrency"];
 const FS_EFFECTS: &[&str] = &["fs"];
 const PROCESS_EFFECTS: &[&str] = &["process"];
 const PURE_EFFECTS: &[&str] = &[];
+#[cfg(test)]
+const COMPLETED_SELF_HOSTING_HELPERS: &[&str] = &["vec_map", "vec_try_map", "vec_try_map_with"];
+#[cfg(test)]
+const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] =
+    &["vec_map_step", "vec_try_map_step", "vec_try_map_with_step"];
 
 const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("stdio", "print", STDIO_EFFECTS, "runtime.stdio.print"),
@@ -117,7 +122,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("process", "exit", PROCESS_EFFECTS, "runtime.process.exit"),
 ];
 
-const DESCRIPTOR_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
+const FLOAT_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("float_negate"),
     prelude_symbol_descriptor("float_add"),
     prelude_symbol_descriptor("float_subtract"),
@@ -127,6 +132,9 @@ const DESCRIPTOR_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("float_less_equal"),
     prelude_symbol_descriptor("float_greater"),
     prelude_symbol_descriptor("float_greater_equal"),
+];
+
+const SELF_HOSTING_CANDIDATE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("string_split_once"),
     prelude_symbol_descriptor("string_parse_int"),
     prelude_symbol_descriptor("int_to_string"),
@@ -145,13 +153,13 @@ const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_FILTER),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_TRY_MAP),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_TRY_MAP_WITH),
+    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_CONTAINS),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_MAP),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_AND_THEN),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_UNWRAP_OR),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_RESULT_MAP),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_RESULT_MAP_ERR),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_RESULT_AND_THEN),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_CONTAINS),
 ];
 
 const fn runtime_symbol(
@@ -211,9 +219,13 @@ pub(crate) fn prelude_symbol(name: &str) -> Option<&'static StandardSymbolDescri
 }
 
 fn prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
-    DESCRIPTOR_PRELUDE_SYMBOLS
+    descriptor_only_prelude_symbols().chain(SOURCE_PRELUDE_SYMBOLS.iter())
+}
+
+fn descriptor_only_prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
+    FLOAT_PRELUDE_SYMBOLS
         .iter()
-        .chain(SOURCE_PRELUDE_SYMBOLS.iter())
+        .chain(SELF_HOSTING_CANDIDATE_SYMBOLS.iter())
 }
 
 #[cfg(test)]
@@ -308,13 +320,53 @@ mod tests {
     }
 
     #[test]
+    fn completed_source_backed_helper_migrations_are_descriptor_entries() {
+        for name in COMPLETED_SELF_HOSTING_HELPERS {
+            let symbol = prelude_symbol(name).expect("completed helper descriptor");
+            let source = symbol.source.expect("completed helper source metadata");
+
+            assert_eq!(symbol.kind, StandardSymbolKind::Veln);
+            assert_eq!(symbol.effects, PURE_EFFECTS);
+            assert_eq!(symbol.lowering, None);
+            assert_eq!(symbol.name, source.entry);
+            assert_eq!(source.path, "stdlib/core_prelude.veln");
+            assert!(
+                source.text.contains(&format!("fn {name}(")),
+                "completed helper source should define {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn source_backed_step_helpers_are_not_prelude_descriptors() {
+        for name in SOURCE_BACKED_PRIVATE_HELPERS {
+            assert_eq!(prelude_symbol(name), None);
+        }
+    }
+
+    #[test]
+    fn remaining_self_hosting_candidates_stay_descriptor_only() {
+        for name in SELF_HOSTING_CANDIDATE_SYMBOLS
+            .iter()
+            .map(|symbol| symbol.name)
+        {
+            let symbol = prelude_symbol(name).expect("candidate helper descriptor");
+
+            assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
+            assert_eq!(symbol.effects, PURE_EFFECTS);
+            assert_eq!(symbol.lowering, None);
+            assert_eq!(symbol.source, None);
+            assert_eq!(symbol.stability, StandardSymbolStability::CompatibilityOnly);
+        }
+    }
+
+    #[test]
     fn source_backed_boundary_matches_current_prelude_split() {
         let source_backed = SOURCE_PRELUDE_SYMBOLS
             .iter()
             .map(|symbol| symbol.name)
             .collect::<Vec<_>>();
-        let descriptor_only = DESCRIPTOR_PRELUDE_SYMBOLS
-            .iter()
+        let descriptor_only = descriptor_only_prelude_symbols()
             .map(|symbol| symbol.name)
             .collect::<Vec<_>>();
 
@@ -329,13 +381,13 @@ mod tests {
                 "vec_filter",
                 "vec_try_map",
                 "vec_try_map_with",
+                "dict_contains",
                 "option_map",
                 "option_and_then",
                 "option_unwrap_or",
                 "result_map",
                 "result_map_err",
-                "result_and_then",
-                "dict_contains"
+                "result_and_then"
             ]
         );
         assert_eq!(
