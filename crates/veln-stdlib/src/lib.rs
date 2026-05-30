@@ -40,6 +40,8 @@ pub static CORE_PRELUDE_DICT_CONTAINS: StdlibSource = core_prelude_source("dict_
 
 pub static CORE_PRELUDE_DICT_INSERT: StdlibSource = core_prelude_source("dict_insert");
 
+pub static CORE_PRELUDE_DICT_REMOVE: StdlibSource = core_prelude_source("dict_remove");
+
 pub static CORE_PRELUDE_OPTION_MAP: StdlibSource = core_prelude_source("option_map");
 
 pub static CORE_PRELUDE_OPTION_AND_THEN: StdlibSource = core_prelude_source("option_and_then");

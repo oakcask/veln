@@ -95,6 +95,10 @@ fn dict_insert(dict: Dict(K, V), key: K, value: V) -> Dict(K, V) effects []
 	dict_insert(dict, key, value)
 end
 
+fn dict_remove(dict: Dict(K, V), key: K) -> Dict(K, V) effects []
+	dict_remove(dict, key)
+end
+
 fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
 	match value
 		Some(inner) => Some(f(inner))

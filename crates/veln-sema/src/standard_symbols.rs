@@ -34,6 +34,7 @@ const COMPLETED_SELF_HOSTING_HELPERS: &[&str] = &[
     "vec_try_map_with",
     "dict_get",
     "dict_insert",
+    "dict_remove",
 ];
 #[cfg(test)]
 const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] =
@@ -145,7 +146,6 @@ const SELF_HOSTING_CANDIDATE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("string_parse_int"),
     prelude_symbol_descriptor("int_to_string"),
     prelude_symbol_descriptor("vec_fold"),
-    prelude_symbol_descriptor("dict_remove"),
 ];
 
 const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
@@ -160,6 +160,7 @@ const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_GET),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_CONTAINS),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_INSERT),
+    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_REMOVE),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_MAP),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_AND_THEN),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_UNWRAP_OR),
@@ -283,7 +284,7 @@ mod tests {
 
     #[test]
     fn descriptor_table_carries_prelude_purity_metadata() {
-        let symbol = prelude_symbol("dict_remove").expect("prelude descriptor");
+        let symbol = prelude_symbol("vec_fold").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(symbol.effects.is_empty());
@@ -317,7 +318,7 @@ mod tests {
 
     #[test]
     fn descriptor_only_prelude_helpers_do_not_carry_source_metadata() {
-        let symbol = prelude_symbol("dict_remove").expect("prelude descriptor");
+        let symbol = prelude_symbol("vec_fold").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert_eq!(symbol.lowering, None);
@@ -390,6 +391,7 @@ mod tests {
                 "dict_get",
                 "dict_contains",
                 "dict_insert",
+                "dict_remove",
                 "option_map",
                 "option_and_then",
                 "option_unwrap_or",
@@ -414,7 +416,6 @@ mod tests {
                 "string_parse_int",
                 "int_to_string",
                 "vec_fold",
-                "dict_remove"
             ]
         );
     }
