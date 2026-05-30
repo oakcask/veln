@@ -701,227 +701,352 @@ enum Section {
 }
 
 fn parse_manifest(path: &Path, text: &str) -> CaseManifest {
-    let mut command = None;
-    let mut stdin = None;
-    let mut exit = None;
-    let mut repeat = 1;
-    let mut env = Vec::new();
-    let mut stdout = StreamExpectation::default();
-    let mut stderr = StreamExpectation::default();
-    let mut help = None;
-    let mut json_assertions = Vec::new();
-    let mut file_assertions = Vec::new();
-    let mut diagnostics = Vec::new();
-    let mut tools = ToolSetup::default();
-    let mut requires = Requirements::default();
-    let mut skip = SkipRules::default();
-    let mut section = Section::Root;
-
+    let mut parser = ManifestParser::new(path);
     for (line_index, raw_line) in text.lines().enumerate() {
-        let line_number = line_index + 1;
+        parser.parse_line(line_index + 1, raw_line);
+    }
+    parser.finish()
+}
+
+struct ManifestParser<'a> {
+    path: &'a Path,
+    command: Option<Vec<String>>,
+    stdin: Option<String>,
+    exit: Option<i32>,
+    repeat: usize,
+    env: Vec<(String, String)>,
+    stdout: StreamExpectation,
+    stderr: StreamExpectation,
+    help: Option<HelpExpectation>,
+    json_assertions: Vec<JsonAssertion>,
+    file_assertions: Vec<FileAssertion>,
+    diagnostics: Vec<DiagnosticExpectation>,
+    tools: ToolSetup,
+    requires: Requirements,
+    skip: SkipRules,
+    section: Section,
+}
+
+impl<'a> ManifestParser<'a> {
+    fn new(path: &'a Path) -> Self {
+        Self {
+            path,
+            command: None,
+            stdin: None,
+            exit: None,
+            repeat: 1,
+            env: Vec::new(),
+            stdout: StreamExpectation::default(),
+            stderr: StreamExpectation::default(),
+            help: None,
+            json_assertions: Vec::new(),
+            file_assertions: Vec::new(),
+            diagnostics: Vec::new(),
+            tools: ToolSetup::default(),
+            requires: Requirements::default(),
+            skip: SkipRules::default(),
+            section: Section::Root,
+        }
+    }
+
+    fn parse_line(&mut self, line_number: usize, raw_line: &str) {
         let line = strip_comment(raw_line).trim();
         if line.is_empty() {
-            continue;
+            return;
         }
 
         if line.starts_with('[') {
-            section = match line {
-                "[stdout]" => Section::Stdout,
-                "[stderr]" => Section::Stderr,
-                "[help]" => {
-                    if help.is_some() {
-                        manifest_error(path, line_number, "duplicate help section");
-                    }
-                    help = Some(HelpExpectation::default());
-                    Section::Help
-                }
-                "[requires]" => Section::Requires,
-                "[skip]" => Section::Skip,
-                "[env]" => Section::Env,
-                "[tools]" => Section::Tools,
-                "[[json_assert]]" => {
-                    json_assertions.push(JsonAssertion {
-                        path: String::new(),
-                        equals: JsonValue::Null,
-                    });
-                    Section::JsonAssert(json_assertions.len() - 1)
-                }
-                "[[file_assert]]" => {
-                    file_assertions.push(FileAssertion {
-                        path: String::new(),
-                        equals: String::new(),
-                    });
-                    Section::FileAssert(file_assertions.len() - 1)
-                }
-                "[[diagnostics]]" => {
-                    diagnostics.push(DiagnosticExpectation {
-                        id: String::new(),
-                        severity: None,
-                        kind: None,
-                        message: None,
-                        span: None,
-                    });
-                    Section::Diagnostic(diagnostics.len() - 1)
-                }
-                "[diagnostics.span]" => {
-                    let Some(index) = diagnostics.len().checked_sub(1) else {
-                        manifest_error(path, line_number, "diagnostics.span needs a diagnostic");
-                    };
-                    if diagnostics[index].span.is_none() {
-                        diagnostics[index].span = Some(SpanExpectation::default());
-                    }
-                    Section::DiagnosticSpan(index)
-                }
-                _ => manifest_error(path, line_number, format!("unknown section `{line}`")),
-            };
-            continue;
+            self.parse_section_header(line, line_number);
+            return;
         }
 
         let (key, value) = line.split_once('=').unwrap_or_else(|| {
-            manifest_error(path, line_number, "expected `key = value`");
+            manifest_error(self.path, line_number, "expected `key = value`");
         });
-        let key = key.trim();
-        let value = value.trim();
+        self.parse_section_key(line_number, key.trim(), value.trim());
+    }
 
-        match section {
-            Section::Root => match key {
-                "command" => command = Some(parse_string_array(path, line_number, value)),
-                "stdin" => stdin = Some(parse_string(path, line_number, value)),
-                "exit" => exit = Some(parse_i32(path, line_number, value)),
-                "repeat" => repeat = parse_positive_usize(path, line_number, value),
-                _ => manifest_error(path, line_number, format!("unknown root key `{key}`")),
-            },
-            Section::Stdout => parse_stream_key(path, line_number, &mut stdout, key, value, true),
-            Section::Stderr => parse_stream_key(path, line_number, &mut stderr, key, value, false),
-            Section::Help => parse_help_key(
-                path,
+    fn parse_section_header(&mut self, line: &str, line_number: usize) {
+        self.section = match line {
+            "[stdout]" => Section::Stdout,
+            "[stderr]" => Section::Stderr,
+            "[help]" => self.parse_help_header(line_number),
+            "[requires]" => Section::Requires,
+            "[skip]" => Section::Skip,
+            "[env]" => Section::Env,
+            "[tools]" => Section::Tools,
+            "[[json_assert]]" => self.parse_json_assert_header(),
+            "[[file_assert]]" => self.parse_file_assert_header(),
+            "[[diagnostics]]" => self.parse_diagnostic_header(),
+            "[diagnostics.span]" => self.parse_diagnostic_span_header(line_number),
+            _ => manifest_error(self.path, line_number, format!("unknown section `{line}`")),
+        };
+    }
+
+    fn parse_help_header(&mut self, line_number: usize) -> Section {
+        if self.help.is_some() {
+            manifest_error(self.path, line_number, "duplicate help section");
+        }
+        self.help = Some(HelpExpectation::default());
+        Section::Help
+    }
+
+    fn parse_json_assert_header(&mut self) -> Section {
+        self.json_assertions.push(JsonAssertion {
+            path: String::new(),
+            equals: JsonValue::Null,
+        });
+        Section::JsonAssert(self.json_assertions.len() - 1)
+    }
+
+    fn parse_file_assert_header(&mut self) -> Section {
+        self.file_assertions.push(FileAssertion {
+            path: String::new(),
+            equals: String::new(),
+        });
+        Section::FileAssert(self.file_assertions.len() - 1)
+    }
+
+    fn parse_diagnostic_header(&mut self) -> Section {
+        self.diagnostics.push(DiagnosticExpectation {
+            id: String::new(),
+            severity: None,
+            kind: None,
+            message: None,
+            span: None,
+        });
+        Section::Diagnostic(self.diagnostics.len() - 1)
+    }
+
+    fn parse_diagnostic_span_header(&mut self, line_number: usize) -> Section {
+        let Some(index) = self.diagnostics.len().checked_sub(1) else {
+            manifest_error(
+                self.path,
                 line_number,
-                help.as_mut().expect("help section should exist"),
+                "diagnostics.span needs a diagnostic",
+            );
+        };
+        if self.diagnostics[index].span.is_none() {
+            self.diagnostics[index].span = Some(SpanExpectation::default());
+        }
+        Section::DiagnosticSpan(index)
+    }
+
+    fn parse_section_key(&mut self, line_number: usize, key: &str, value: &str) {
+        match self.section {
+            Section::Root => self.parse_root_key(line_number, key, value),
+            Section::Stdout => {
+                parse_stream_key(self.path, line_number, &mut self.stdout, key, value, true)
+            }
+            Section::Stderr => {
+                parse_stream_key(self.path, line_number, &mut self.stderr, key, value, false)
+            }
+            Section::Help => parse_help_key(
+                self.path,
+                line_number,
+                self.help.as_mut().expect("help section should exist"),
                 key,
                 value,
             ),
-            Section::Requires => match key {
-                "jdk" => requires.jdk = parse_bool(path, line_number, value),
-                _ => manifest_error(path, line_number, format!("unknown requires key `{key}`")),
-            },
-            Section::Skip => match key {
-                "platforms" => {
-                    skip.platforms = parse_string_array(path, line_number, value)
-                        .into_iter()
-                        .map(|platform| parse_skip_platform(path, line_number, &platform))
-                        .collect();
-                }
-                "reason" => skip.reason = Some(parse_string(path, line_number, value)),
-                _ => manifest_error(path, line_number, format!("unknown skip key `{key}`")),
-            },
-            Section::Env => env.push((key.to_string(), parse_string(path, line_number, value))),
-            Section::Tools => match key {
-                "java" => {
-                    tools.set(
-                        ToolName::Java,
-                        parse_tool_availability(path, line_number, value),
-                    );
-                }
-                _ => manifest_error(path, line_number, format!("unknown tools key `{key}`")),
-            },
-            Section::JsonAssert(index) => match key {
-                "path" => json_assertions[index].path = parse_string(path, line_number, value),
-                "equals" => {
-                    json_assertions[index].equals =
-                        parse_manifest_json_value(path, line_number, value)
-                }
-                _ => manifest_error(
-                    path,
-                    line_number,
-                    format!("unknown json_assert key `{key}`"),
-                ),
-            },
-            Section::FileAssert(index) => match key {
-                "path" => file_assertions[index].path = parse_string(path, line_number, value),
-                "equals" => file_assertions[index].equals = parse_string(path, line_number, value),
-                _ => manifest_error(
-                    path,
-                    line_number,
-                    format!("unknown file_assert key `{key}`"),
-                ),
-            },
-            Section::Diagnostic(index) => match key {
-                "id" => diagnostics[index].id = parse_string(path, line_number, value),
-                "severity" => {
-                    diagnostics[index].severity = Some(parse_string(path, line_number, value));
-                }
-                "kind" => diagnostics[index].kind = Some(parse_string(path, line_number, value)),
-                "message" => {
-                    diagnostics[index].message = Some(parse_string(path, line_number, value));
-                }
-                _ => manifest_error(
-                    path,
-                    line_number,
-                    format!("unknown diagnostics key `{key}`"),
-                ),
-            },
+            Section::Requires => self.parse_requires_key(line_number, key, value),
+            Section::Skip => self.parse_skip_key(line_number, key, value),
+            Section::Env => self
+                .env
+                .push((key.to_string(), parse_string(self.path, line_number, value))),
+            Section::Tools => self.parse_tools_key(line_number, key, value),
+            Section::JsonAssert(index) => {
+                self.parse_json_assert_key(index, line_number, key, value)
+            }
+            Section::FileAssert(index) => {
+                self.parse_file_assert_key(index, line_number, key, value)
+            }
+            Section::Diagnostic(index) => self.parse_diagnostic_key(index, line_number, key, value),
             Section::DiagnosticSpan(index) => {
-                let span = diagnostics[index]
-                    .span
-                    .as_mut()
-                    .expect("diagnostic span should exist");
-                match key {
-                    "file" => span.file = Some(parse_string(path, line_number, value)),
-                    "line" => span.line = Some(parse_i64(path, line_number, value)),
-                    "column" => span.column = Some(parse_i64(path, line_number, value)),
-                    _ => manifest_error(
-                        path,
-                        line_number,
-                        format!("unknown diagnostics.span key `{key}`"),
-                    ),
-                }
+                self.parse_diagnostic_span_key(index, line_number, key, value);
             }
         }
     }
 
-    let manifest = CaseManifest {
-        invocation: CaseInvocation {
-            command: command.unwrap_or_else(|| manifest_error(path, 0, "missing `command`")),
-            stdin,
-            repeat,
-            env,
-        },
-        expectations: CaseExpectations {
-            exit: exit.unwrap_or_else(|| manifest_error(path, 0, "missing `exit`")),
-            stdout,
-            stderr,
-            help,
-            json_assertions,
-            file_assertions,
-            diagnostics,
-        },
-        tools,
-        requires,
-        skip,
-    };
-
-    for (index, assertion) in manifest.expectations.json_assertions.iter().enumerate() {
-        if assertion.path.is_empty() {
-            manifest_error(path, 0, format!("json_assert {index} is missing `path`"));
-        }
-    }
-    if let Some(help) = &manifest.expectations.help
-        && !help.has_assertion()
-    {
-        manifest_error(path, 0, "help section has no assertion");
-    }
-    for (index, assertion) in manifest.expectations.file_assertions.iter().enumerate() {
-        if assertion.path.is_empty() {
-            manifest_error(path, 0, format!("file_assert {index} is missing `path`"));
-        }
-    }
-    for (index, diagnostic) in manifest.expectations.diagnostics.iter().enumerate() {
-        if diagnostic.id.is_empty() {
-            manifest_error(path, 0, format!("diagnostics {index} is missing `id`"));
+    fn parse_root_key(&mut self, line_number: usize, key: &str, value: &str) {
+        match key {
+            "command" => self.command = Some(parse_string_array(self.path, line_number, value)),
+            "stdin" => self.stdin = Some(parse_string(self.path, line_number, value)),
+            "exit" => self.exit = Some(parse_i32(self.path, line_number, value)),
+            "repeat" => self.repeat = parse_positive_usize(self.path, line_number, value),
+            _ => manifest_error(self.path, line_number, format!("unknown root key `{key}`")),
         }
     }
 
-    manifest
+    fn parse_requires_key(&mut self, line_number: usize, key: &str, value: &str) {
+        match key {
+            "jdk" => self.requires.jdk = parse_bool(self.path, line_number, value),
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown requires key `{key}`"),
+            ),
+        }
+    }
+
+    fn parse_skip_key(&mut self, line_number: usize, key: &str, value: &str) {
+        match key {
+            "platforms" => {
+                self.skip.platforms = parse_string_array(self.path, line_number, value)
+                    .into_iter()
+                    .map(|platform| parse_skip_platform(self.path, line_number, &platform))
+                    .collect();
+            }
+            "reason" => self.skip.reason = Some(parse_string(self.path, line_number, value)),
+            _ => manifest_error(self.path, line_number, format!("unknown skip key `{key}`")),
+        }
+    }
+
+    fn parse_tools_key(&mut self, line_number: usize, key: &str, value: &str) {
+        match key {
+            "java" => {
+                self.tools.set(
+                    ToolName::Java,
+                    parse_tool_availability(self.path, line_number, value),
+                );
+            }
+            _ => manifest_error(self.path, line_number, format!("unknown tools key `{key}`")),
+        }
+    }
+
+    fn parse_json_assert_key(&mut self, index: usize, line_number: usize, key: &str, value: &str) {
+        match key {
+            "path" => {
+                self.json_assertions[index].path = parse_string(self.path, line_number, value)
+            }
+            "equals" => {
+                self.json_assertions[index].equals =
+                    parse_manifest_json_value(self.path, line_number, value)
+            }
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown json_assert key `{key}`"),
+            ),
+        }
+    }
+
+    fn parse_file_assert_key(&mut self, index: usize, line_number: usize, key: &str, value: &str) {
+        match key {
+            "path" => {
+                self.file_assertions[index].path = parse_string(self.path, line_number, value)
+            }
+            "equals" => {
+                self.file_assertions[index].equals = parse_string(self.path, line_number, value)
+            }
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown file_assert key `{key}`"),
+            ),
+        }
+    }
+
+    fn parse_diagnostic_key(&mut self, index: usize, line_number: usize, key: &str, value: &str) {
+        match key {
+            "id" => self.diagnostics[index].id = parse_string(self.path, line_number, value),
+            "severity" => {
+                self.diagnostics[index].severity =
+                    Some(parse_string(self.path, line_number, value));
+            }
+            "kind" => {
+                self.diagnostics[index].kind = Some(parse_string(self.path, line_number, value))
+            }
+            "message" => {
+                self.diagnostics[index].message = Some(parse_string(self.path, line_number, value));
+            }
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown diagnostics key `{key}`"),
+            ),
+        }
+    }
+
+    fn parse_diagnostic_span_key(
+        &mut self,
+        index: usize,
+        line_number: usize,
+        key: &str,
+        value: &str,
+    ) {
+        let span = self.diagnostics[index]
+            .span
+            .as_mut()
+            .expect("diagnostic span should exist");
+        match key {
+            "file" => span.file = Some(parse_string(self.path, line_number, value)),
+            "line" => span.line = Some(parse_i64(self.path, line_number, value)),
+            "column" => span.column = Some(parse_i64(self.path, line_number, value)),
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown diagnostics.span key `{key}`"),
+            ),
+        }
+    }
+
+    fn finish(self) -> CaseManifest {
+        let manifest = CaseManifest {
+            invocation: CaseInvocation {
+                command: self
+                    .command
+                    .unwrap_or_else(|| manifest_error(self.path, 0, "missing `command`")),
+                stdin: self.stdin,
+                repeat: self.repeat,
+                env: self.env,
+            },
+            expectations: CaseExpectations {
+                exit: self
+                    .exit
+                    .unwrap_or_else(|| manifest_error(self.path, 0, "missing `exit`")),
+                stdout: self.stdout,
+                stderr: self.stderr,
+                help: self.help,
+                json_assertions: self.json_assertions,
+                file_assertions: self.file_assertions,
+                diagnostics: self.diagnostics,
+            },
+            tools: self.tools,
+            requires: self.requires,
+            skip: self.skip,
+        };
+
+        for (index, assertion) in manifest.expectations.json_assertions.iter().enumerate() {
+            if assertion.path.is_empty() {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!("json_assert {index} is missing `path`"),
+                );
+            }
+        }
+        if let Some(help) = &manifest.expectations.help
+            && !help.has_assertion()
+        {
+            manifest_error(self.path, 0, "help section has no assertion");
+        }
+        for (index, assertion) in manifest.expectations.file_assertions.iter().enumerate() {
+            if assertion.path.is_empty() {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!("file_assert {index} is missing `path`"),
+                );
+            }
+        }
+        for (index, diagnostic) in manifest.expectations.diagnostics.iter().enumerate() {
+            if diagnostic.id.is_empty() {
+                manifest_error(self.path, 0, format!("diagnostics {index} is missing `id`"));
+            }
+        }
+
+        manifest
+    }
 }
 
 fn parse_help_key(

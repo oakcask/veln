@@ -384,42 +384,14 @@ impl<'a> CoreLowerer<'a> {
 
     fn lower_expr(&mut self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {
         match &expr.kind {
-            ExprKind::Missing => {
-                self.missing_expression(expr, expected, "missing_expression");
-                self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
-            }
-            ExprKind::Hole { name, .. } => {
-                self.blockers.push(CoreBlocker::Hole {
-                    node_id: expr.node_id,
-                });
-                self.core_expr(
-                    expr,
-                    expected.cloned().unwrap_or(CoreType::Unknown),
-                    CoreExprKind::Hole {
-                        label: name.clone(),
-                    },
-                )
-            }
+            ExprKind::Missing => self.lower_missing_expr(expr, expected),
+            ExprKind::Hole { name, .. } => self.lower_hole_expr(expr, expected, name),
             ExprKind::NamePath(segments) => self.lower_name_path(expr, segments, expected),
-            ExprKind::StringLiteral(value) => self.core_expr(
-                expr,
-                CoreType::string(),
-                CoreExprKind::StringLiteral(value.clone()),
-            ),
-            ExprKind::IntLiteral(value) => self.core_expr(
-                expr,
-                CoreType::int(),
-                CoreExprKind::IntLiteral(value.clone()),
-            ),
-            ExprKind::FloatLiteral(value) => self.core_expr(
-                expr,
-                CoreType::float(),
-                CoreExprKind::FloatLiteral(value.clone()),
-            ),
-            ExprKind::BoolLiteral(value) => {
-                self.core_expr(expr, CoreType::bool(), CoreExprKind::BoolLiteral(*value))
-            }
-            ExprKind::Unit => self.core_expr(expr, CoreType::unit(), CoreExprKind::Unit),
+            ExprKind::StringLiteral(value) => self.lower_string_literal(expr, value),
+            ExprKind::IntLiteral(value) => self.lower_int_literal(expr, value),
+            ExprKind::FloatLiteral(value) => self.lower_float_literal(expr, value),
+            ExprKind::BoolLiteral(value) => self.lower_bool_literal(expr, *value),
+            ExprKind::Unit => self.lower_unit_literal(expr),
             ExprKind::TypeApply { .. } => {
                 self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
             }
@@ -432,97 +404,180 @@ impl<'a> CoreLowerer<'a> {
             ExprKind::Match { scrutinee, arms } => {
                 self.lower_match(expr, scrutinee, arms, expected)
             }
-            ExprKind::Prefix { op, expr: inner } => {
-                let expected_operand = match op {
-                    veln_ast::PrefixOp::Not => CoreType::bool(),
-                    veln_ast::PrefixOp::Negate => self.numeric_operand_type(expected, &[inner]),
-                };
-                if expected_operand == CoreType::float()
-                    && let Some(name) = float_prefix_prelude_name(*op)
-                {
-                    let arg = self.lower_expr(inner, Some(&CoreType::float()));
-                    return self.core_expr(
-                        expr,
-                        CoreType::float(),
-                        CoreExprKind::Call {
-                            target: CoreCallTarget::PreludeBuiltin(name.to_string()),
-                            args: vec![arg],
-                        },
-                    );
-                }
-                let lowered = self.lower_expr(inner, Some(&expected_operand));
-                self.core_expr(
-                    expr,
-                    expected_operand,
-                    CoreExprKind::Prefix {
-                        op: *op,
-                        expr: Box::new(lowered),
-                    },
-                )
-            }
+            ExprKind::Prefix { op, expr: inner } => self.lower_prefix(expr, *op, inner, expected),
             ExprKind::Binary { op, left, right } => {
-                if *op == BinaryOp::PipeGreater {
-                    return self.lower_pipeline(expr, left, right, expected);
-                }
-
-                let numeric_type = if is_ordering_op(*op) {
-                    self.numeric_operand_type(None, &[left, right])
-                } else {
-                    self.numeric_operand_type(expected, &[left, right])
-                };
-                if numeric_type == CoreType::float() {
-                    if let Some(name) = float_comparison_prelude_name(*op) {
-                        let left = self.lower_expr(left, Some(&CoreType::float()));
-                        let right = self.lower_expr(right, Some(&CoreType::float()));
-                        return self.core_expr(
-                            expr,
-                            CoreType::bool(),
-                            CoreExprKind::Call {
-                                target: CoreCallTarget::PreludeBuiltin(name.to_string()),
-                                args: vec![left, right],
-                            },
-                        );
-                    }
-                    if let Some(name) = float_arithmetic_prelude_name(*op) {
-                        let left = self.lower_expr(left, Some(&CoreType::float()));
-                        let right = self.lower_expr(right, Some(&CoreType::float()));
-                        return self.core_expr(
-                            expr,
-                            CoreType::float(),
-                            CoreExprKind::Call {
-                                target: CoreCallTarget::PreludeBuiltin(name.to_string()),
-                                args: vec![left, right],
-                            },
-                        );
-                    }
-                }
-                let (operand, result) = match op {
-                    BinaryOp::Or | BinaryOp::And => (CoreType::bool(), CoreType::bool()),
-                    BinaryOp::Equal | BinaryOp::NotEqual => (CoreType::Unknown, CoreType::bool()),
-                    BinaryOp::Less
-                    | BinaryOp::LessEqual
-                    | BinaryOp::Greater
-                    | BinaryOp::GreaterEqual => (numeric_type, CoreType::bool()),
-                    BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
-                        (numeric_type.clone(), numeric_type)
-                    }
-                    BinaryOp::PipeGreater => {
-                        unreachable!("pipeline handled before binary lowering")
-                    }
-                };
-                let left = self.lower_expr(left, Some(&operand));
-                let right = self.lower_expr(right, Some(&operand));
-                self.core_expr(
-                    expr,
-                    result,
-                    CoreExprKind::Binary {
-                        op: *op,
-                        left: Box::new(left),
-                        right: Box::new(right),
-                    },
-                )
+                self.lower_binary(expr, *op, left, right, expected)
             }
         }
+    }
+
+    fn lower_missing_expr(&mut self, expr: &Expr, expected: Option<&CoreType>) -> CoreExpr {
+        self.missing_expression(expr, expected, "missing_expression");
+        self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
+    }
+
+    fn lower_hole_expr(
+        &mut self,
+        expr: &Expr,
+        expected: Option<&CoreType>,
+        name: &Option<String>,
+    ) -> CoreExpr {
+        self.blockers.push(CoreBlocker::Hole {
+            node_id: expr.node_id,
+        });
+        self.core_expr(
+            expr,
+            expected.cloned().unwrap_or(CoreType::Unknown),
+            CoreExprKind::Hole {
+                label: name.clone(),
+            },
+        )
+    }
+
+    fn lower_string_literal(&self, expr: &Expr, value: &str) -> CoreExpr {
+        self.core_expr(
+            expr,
+            CoreType::string(),
+            CoreExprKind::StringLiteral(value.to_string()),
+        )
+    }
+
+    fn lower_int_literal(&self, expr: &Expr, value: &str) -> CoreExpr {
+        self.core_expr(
+            expr,
+            CoreType::int(),
+            CoreExprKind::IntLiteral(value.to_string()),
+        )
+    }
+
+    fn lower_float_literal(&self, expr: &Expr, value: &str) -> CoreExpr {
+        self.core_expr(
+            expr,
+            CoreType::float(),
+            CoreExprKind::FloatLiteral(value.to_string()),
+        )
+    }
+
+    fn lower_bool_literal(&self, expr: &Expr, value: bool) -> CoreExpr {
+        self.core_expr(expr, CoreType::bool(), CoreExprKind::BoolLiteral(value))
+    }
+
+    fn lower_unit_literal(&self, expr: &Expr) -> CoreExpr {
+        self.core_expr(expr, CoreType::unit(), CoreExprKind::Unit)
+    }
+
+    fn lower_prefix(
+        &mut self,
+        expr: &Expr,
+        op: veln_ast::PrefixOp,
+        inner: &Expr,
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        let expected_operand = match op {
+            veln_ast::PrefixOp::Not => CoreType::bool(),
+            veln_ast::PrefixOp::Negate => self.numeric_operand_type(expected, &[inner]),
+        };
+        if expected_operand == CoreType::float()
+            && let Some(name) = float_prefix_prelude_name(op)
+        {
+            let arg = self.lower_expr(inner, Some(&CoreType::float()));
+            return self.core_expr(
+                expr,
+                CoreType::float(),
+                CoreExprKind::Call {
+                    target: CoreCallTarget::PreludeBuiltin(name.to_string()),
+                    args: vec![arg],
+                },
+            );
+        }
+        let lowered = self.lower_expr(inner, Some(&expected_operand));
+        self.core_expr(
+            expr,
+            expected_operand,
+            CoreExprKind::Prefix {
+                op,
+                expr: Box::new(lowered),
+            },
+        )
+    }
+
+    fn lower_binary(
+        &mut self,
+        expr: &Expr,
+        op: BinaryOp,
+        left: &Expr,
+        right: &Expr,
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        if op == BinaryOp::PipeGreater {
+            return self.lower_pipeline(expr, left, right, expected);
+        }
+
+        let numeric_type = self.binary_numeric_operand_type(op, left, right, expected);
+        self.lower_float_binary_prelude_call(expr, op, left, right, &numeric_type)
+            .unwrap_or_else(|| self.lower_regular_binary(expr, op, left, right, numeric_type))
+    }
+
+    fn binary_numeric_operand_type(
+        &self,
+        op: BinaryOp,
+        left: &Expr,
+        right: &Expr,
+        expected: Option<&CoreType>,
+    ) -> CoreType {
+        if is_ordering_op(op) {
+            self.numeric_operand_type(None, &[left, right])
+        } else {
+            self.numeric_operand_type(expected, &[left, right])
+        }
+    }
+
+    fn lower_float_binary_prelude_call(
+        &mut self,
+        expr: &Expr,
+        op: BinaryOp,
+        left: &Expr,
+        right: &Expr,
+        numeric_type: &CoreType,
+    ) -> Option<CoreExpr> {
+        if numeric_type != &CoreType::float() {
+            return None;
+        }
+        let (name, return_type) = float_comparison_prelude_name(op)
+            .map(|name| (name, CoreType::bool()))
+            .or_else(|| float_arithmetic_prelude_name(op).map(|name| (name, CoreType::float())))?;
+        let left = self.lower_expr(left, Some(&CoreType::float()));
+        let right = self.lower_expr(right, Some(&CoreType::float()));
+        Some(self.core_expr(
+            expr,
+            return_type,
+            CoreExprKind::Call {
+                target: CoreCallTarget::PreludeBuiltin(name.to_string()),
+                args: vec![left, right],
+            },
+        ))
+    }
+
+    fn lower_regular_binary(
+        &mut self,
+        expr: &Expr,
+        op: BinaryOp,
+        left: &Expr,
+        right: &Expr,
+        numeric_type: CoreType,
+    ) -> CoreExpr {
+        let (operand, result) = binary_operand_and_result(op, numeric_type);
+        let left = self.lower_expr(left, Some(&operand));
+        let right = self.lower_expr(right, Some(&operand));
+        self.core_expr(
+            expr,
+            result,
+            CoreExprKind::Binary {
+                op,
+                left: Box::new(left),
+                right: Box::new(right),
+            },
+        )
     }
 
     fn lower_pipeline(
@@ -657,60 +712,61 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> CoreExpr {
+        if let Some(call) = self.lower_constructor_call(expr, callee, args, expected) {
+            return call;
+        }
+        if let Some(call) = self.lower_name_concurrency_call(expr, callee, args, expected) {
+            return call;
+        }
+        if let Some(call) = self.lower_type_applied_concurrency_call(expr, callee, args, expected) {
+            return call;
+        }
+        self.lower_general_call(expr, callee, args, expected)
+    }
+
+    fn lower_constructor_call(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&CoreType>,
+    ) -> Option<CoreExpr> {
         if let ExprKind::NamePath(segments) = &callee.kind {
             if let Some(is_ok) = result_constructor_kind(segments) {
-                return self.lower_result_constructor(expr, args, expected, is_ok);
+                return Some(self.lower_result_constructor(expr, args, expected, is_ok));
             }
             if is_option_some_constructor(segments) {
-                return self.lower_option_constructor(expr, args, expected);
-            }
-            if is_concurrency_call(segments) {
-                let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
-                let signature =
-                    core_concurrency_signature(segments, expected, handle_type.as_ref(), None);
-                if let Some((params, _)) = &signature
-                    && args.len() != params.len()
-                {
-                    self.unsupported_expression(
-                        expr,
-                        "call_arity_mismatch",
-                        format!(
-                            "call expects {} argument(s), but got {}",
-                            params.len(),
-                            args.len()
-                        ),
-                        Some(JsonValue::object([
-                            (
-                                "expected_argument_count",
-                                JsonValue::Number(params.len() as i64),
-                            ),
-                            (
-                                "actual_argument_count",
-                                JsonValue::Number(args.len() as i64),
-                            ),
-                        ])),
-                    );
-                }
-                let lowered_args = args
-                    .iter()
-                    .enumerate()
-                    .map(|(index, arg)| {
-                        let expected = signature.as_ref().and_then(|(params, _)| params.get(index));
-                        self.lower_expr(arg, expected)
-                    })
-                    .collect();
-                return self.core_expr(
-                    expr,
-                    signature
-                        .map(|(_, return_type)| return_type)
-                        .unwrap_or(CoreType::Unknown),
-                    CoreExprKind::Call {
-                        target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
-                        args: lowered_args,
-                    },
-                );
+                return Some(self.lower_option_constructor(expr, args, expected));
             }
         }
+        None
+    }
+
+    fn lower_name_concurrency_call(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&CoreType>,
+    ) -> Option<CoreExpr> {
+        let ExprKind::NamePath(segments) = &callee.kind else {
+            return None;
+        };
+        if !is_concurrency_call(segments) {
+            return None;
+        }
+        let handle_type = args.first().and_then(|arg| self.shallow_expr_type(arg));
+        let signature = core_concurrency_signature(segments, expected, handle_type.as_ref(), None);
+        Some(self.lower_concurrency_call_with_signature(expr, segments, args, signature))
+    }
+
+    fn lower_type_applied_concurrency_call(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&CoreType>,
+    ) -> Option<CoreExpr> {
         if let Some((segments, type_args)) = callee_name_path_and_type_args(callee)
             && is_concurrency_call(segments)
             && matches!(callee.kind, ExprKind::TypeApply { .. })
@@ -721,83 +777,56 @@ impl<'a> CoreLowerer<'a> {
                 .map(|ty| core_type(&ty));
             let signature =
                 core_concurrency_signature(segments, expected, None, explicit_item.as_ref());
-            if let Some((params, _)) = &signature
-                && args.len() != params.len()
-            {
-                self.unsupported_expression(
-                    expr,
-                    "call_arity_mismatch",
-                    format!(
-                        "call expects {} argument(s), but got {}",
-                        params.len(),
-                        args.len()
-                    ),
-                    Some(JsonValue::object([
-                        (
-                            "expected_argument_count",
-                            JsonValue::Number(params.len() as i64),
-                        ),
-                        (
-                            "actual_argument_count",
-                            JsonValue::Number(args.len() as i64),
-                        ),
-                    ])),
-                );
-            }
-            let lowered_args = args
-                .iter()
-                .enumerate()
-                .map(|(index, arg)| {
-                    let expected = signature.as_ref().and_then(|(params, _)| params.get(index));
-                    self.lower_expr(arg, expected)
-                })
-                .collect();
-            return self.core_expr(
-                expr,
-                signature
-                    .map(|(_, return_type)| return_type)
-                    .unwrap_or(CoreType::Unknown),
-                CoreExprKind::Call {
-                    target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
-                    args: lowered_args,
-                },
+            return Some(
+                self.lower_concurrency_call_with_signature(expr, segments, args, signature),
             );
         }
+        None
+    }
 
-        let signature = self.core_call_signature(callee, expected);
-        if let Some(signature) = &signature
-            && args.len() != signature.params.len()
-        {
-            self.unsupported_expression(
-                expr,
-                "call_arity_mismatch",
-                format!(
-                    "call expects {} argument(s), but got {}",
-                    signature.params.len(),
-                    args.len()
-                ),
-                Some(JsonValue::object([
-                    (
-                        "expected_argument_count",
-                        JsonValue::Number(signature.params.len() as i64),
-                    ),
-                    (
-                        "actual_argument_count",
-                        JsonValue::Number(args.len() as i64),
-                    ),
-                ])),
-            );
+    fn lower_concurrency_call_with_signature(
+        &mut self,
+        expr: &Expr,
+        segments: &[String],
+        args: &[Expr],
+        signature: Option<(Vec<CoreType>, CoreType)>,
+    ) -> CoreExpr {
+        if let Some((params, _)) = &signature {
+            self.validate_call_arity(expr, args.len(), params.len());
         }
-        let lowered_args = args
-            .iter()
-            .enumerate()
-            .map(|(index, arg)| {
-                let expected = signature
-                    .as_ref()
-                    .and_then(|signature| signature.params.get(index));
-                self.lower_expr(arg, expected)
-            })
-            .collect();
+        let lowered_args = self.lower_args_with_params(
+            args,
+            signature.as_ref().map(|(params, _)| params.as_slice()),
+        );
+        self.core_expr(
+            expr,
+            signature
+                .map(|(_, return_type)| return_type)
+                .unwrap_or(CoreType::Unknown),
+            CoreExprKind::Call {
+                target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
+                args: lowered_args,
+            },
+        )
+    }
+
+    fn lower_general_call(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&CoreType>,
+    ) -> CoreExpr {
+        let signature = self.core_call_signature(callee, expected);
+        if let Some(signature) = &signature {
+            self.validate_call_arity(expr, args.len(), signature.params.len());
+        }
+        let lowered_args = self.lower_args_with_params(
+            args,
+            signature
+                .as_ref()
+                .map(|signature| signature.params.as_slice()),
+        );
         let (target, return_type) = signature.map_or_else(
             || {
                 let symbol = callee_symbol(callee).unwrap_or_else(|| "<unknown>".to_string());
@@ -814,6 +843,38 @@ impl<'a> CoreLowerer<'a> {
                 args: lowered_args,
             },
         )
+    }
+
+    fn validate_call_arity(&mut self, expr: &Expr, actual: usize, expected: usize) {
+        if actual == expected {
+            return;
+        }
+        self.unsupported_expression(
+            expr,
+            "call_arity_mismatch",
+            format!("call expects {expected} argument(s), but got {actual}"),
+            Some(JsonValue::object([
+                (
+                    "expected_argument_count",
+                    JsonValue::Number(expected as i64),
+                ),
+                ("actual_argument_count", JsonValue::Number(actual as i64)),
+            ])),
+        );
+    }
+
+    fn lower_args_with_params(
+        &mut self,
+        args: &[Expr],
+        params: Option<&[CoreType]>,
+    ) -> Vec<CoreExpr> {
+        args.iter()
+            .enumerate()
+            .map(|(index, arg)| {
+                let expected = params.and_then(|params| params.get(index));
+                self.lower_expr(arg, expected)
+            })
+            .collect()
     }
 
     fn lower_result_constructor(
@@ -1332,4 +1393,18 @@ fn is_ordering_op(op: BinaryOp) -> bool {
         op,
         BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual
     )
+}
+
+fn binary_operand_and_result(op: BinaryOp, numeric_type: CoreType) -> (CoreType, CoreType) {
+    match op {
+        BinaryOp::Or | BinaryOp::And => (CoreType::bool(), CoreType::bool()),
+        BinaryOp::Equal | BinaryOp::NotEqual => (CoreType::Unknown, CoreType::bool()),
+        BinaryOp::Less | BinaryOp::LessEqual | BinaryOp::Greater | BinaryOp::GreaterEqual => {
+            (numeric_type, CoreType::bool())
+        }
+        BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
+            (numeric_type.clone(), numeric_type)
+        }
+        BinaryOp::PipeGreater => unreachable!("pipeline handled before binary lowering"),
+    }
 }

@@ -2,6 +2,8 @@ use veln_source::{SourceFile, TextRange};
 
 use crate::{Lexed, Token, TokenKind};
 
+type CharIter<'a> = std::iter::Peekable<std::str::CharIndices<'a>>;
+
 pub fn lex(source: &SourceFile) -> Lexed {
     let text = source.text();
     let mut tokens = Vec::new();
@@ -20,73 +22,15 @@ pub fn lex(source: &SourceFile) -> Lexed {
                 tokens.push(read_ident_or_keyword(text, start, ch, &mut chars))
             }
             '_' => tokens.push(read_underscore_or_ident(text, start, &mut chars)),
-            '(' => tokens.push(token(TokenKind::LParen, "(", start, start + 1)),
-            ')' => tokens.push(token(TokenKind::RParen, ")", start, start + 1)),
-            '[' => tokens.push(token(TokenKind::LBracket, "[", start, start + 1)),
-            ']' => tokens.push(token(TokenKind::RBracket, "]", start, start + 1)),
-            '{' => tokens.push(token(TokenKind::LBrace, "{", start, start + 1)),
-            '}' => tokens.push(token(TokenKind::RBrace, "}", start, start + 1)),
-            ',' => tokens.push(token(TokenKind::Comma, ",", start, start + 1)),
-            '.' => tokens.push(token(TokenKind::Dot, ".", start, start + 1)),
-            ':' if chars.peek().is_some_and(|(_, next)| *next == ':') => {
-                chars.next();
-                tokens.push(token(TokenKind::DoubleColon, "::", start, start + 2));
-            }
-            ':' => tokens.push(token(TokenKind::Colon, ":", start, start + 1)),
-            '-' if chars.peek().is_some_and(|(_, next)| *next == '>') => {
-                chars.next();
-                tokens.push(token(TokenKind::Arrow, "->", start, start + 2));
-            }
-            '-' => tokens.push(token(TokenKind::Minus, "-", start, start + 1)),
-            '=' if chars.peek().is_some_and(|(_, next)| *next == '>') => {
-                chars.next();
-                tokens.push(token(TokenKind::FatArrow, "=>", start, start + 2));
-            }
-            '=' if chars.peek().is_some_and(|(_, next)| *next == '=') => {
-                chars.next();
-                tokens.push(token(TokenKind::EqualEqual, "==", start, start + 2));
-            }
-            '=' => tokens.push(token(TokenKind::Equal, "=", start, start + 1)),
-            '!' if chars.peek().is_some_and(|(_, next)| *next == '=') => {
-                chars.next();
-                tokens.push(token(TokenKind::BangEqual, "!=", start, start + 2));
-            }
-            '<' if chars.peek().is_some_and(|(_, next)| *next == '=') => {
-                chars.next();
-                tokens.push(token(TokenKind::LessEqual, "<=", start, start + 2));
-            }
-            '<' => tokens.push(token(TokenKind::Less, "<", start, start + 1)),
-            '>' if chars.peek().is_some_and(|(_, next)| *next == '=') => {
-                chars.next();
-                tokens.push(token(TokenKind::GreaterEqual, ">=", start, start + 2));
-            }
-            '>' => tokens.push(token(TokenKind::Greater, ">", start, start + 1)),
-            '|' if chars.peek().is_some_and(|(_, next)| *next == '>') => {
-                chars.next();
-                tokens.push(token(TokenKind::PipeGreater, "|>", start, start + 2));
-            }
-            '?' => tokens.push(token(TokenKind::Question, "?", start, start + 1)),
-            '+' => tokens.push(token(TokenKind::Plus, "+", start, start + 1)),
-            '*' => tokens.push(token(TokenKind::Star, "*", start, start + 1)),
-            '/' => tokens.push(token(TokenKind::Slash, "/", start, start + 1)),
-            _ => tokens.push(token(
-                TokenKind::Invalid,
-                ch.to_string(),
-                start,
-                start + ch.len_utf8(),
-            )),
+            _ => tokens.push(read_symbol_token(start, ch, &mut chars)),
         }
     }
 
     tokens.push(Token::eof(source.len()));
     Lexed { tokens }
 }
-fn read_whitespace(
-    text: &str,
-    start: usize,
-    first: char,
-    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-) -> Token {
+
+fn read_whitespace(text: &str, start: usize, first: char, chars: &mut CharIter<'_>) -> Token {
     let mut end = start + first.len_utf8();
     while let Some((index, next)) = chars.peek().copied() {
         if matches!(next, ' ' | '\t' | '\r') {
@@ -103,11 +47,7 @@ fn read_whitespace(
     }
 }
 
-fn read_comment(
-    text: &str,
-    start: usize,
-    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-) -> Token {
+fn read_comment(text: &str, start: usize, chars: &mut CharIter<'_>) -> Token {
     let mut end = start;
     while let Some((index, next)) = chars.peek().copied() {
         if next == '\n' {
@@ -123,11 +63,7 @@ fn read_comment(
     }
 }
 
-fn read_string(
-    text: &str,
-    start: usize,
-    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-) -> Token {
+fn read_string(text: &str, start: usize, chars: &mut CharIter<'_>) -> Token {
     let mut end = start + 1;
     let mut escaped = false;
     for (index, ch) in chars.by_ref() {
@@ -149,12 +85,7 @@ fn read_string(
     }
 }
 
-fn read_number(
-    text: &str,
-    start: usize,
-    first: char,
-    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-) -> Token {
+fn read_number(text: &str, start: usize, first: char, chars: &mut CharIter<'_>) -> Token {
     let mut end = start + first.len_utf8();
     let mut is_float = false;
     while let Some((index, next)) = chars.peek().copied() {
@@ -196,12 +127,7 @@ fn read_number(
     }
 }
 
-fn read_ident_or_keyword(
-    text: &str,
-    start: usize,
-    first: char,
-    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-) -> Token {
+fn read_ident_or_keyword(text: &str, start: usize, first: char, chars: &mut CharIter<'_>) -> Token {
     let mut end = start + first.len_utf8();
     while let Some((index, next)) = chars.peek().copied() {
         if is_ident_continue(next) {
@@ -212,7 +138,16 @@ fn read_ident_or_keyword(
         }
     }
     let token_text = &text[start..end];
-    let kind = match token_text {
+    let kind = keyword_kind(token_text).unwrap_or(TokenKind::Ident);
+    Token {
+        kind,
+        text: token_text.to_string(),
+        range: TextRange::new(start, end),
+    }
+}
+
+fn keyword_kind(text: &str) -> Option<TokenKind> {
+    let kind = match text {
         "pub" => TokenKind::Pub,
         "fn" => TokenKind::Fn,
         "test" => TokenKind::Test,
@@ -228,20 +163,12 @@ fn read_ident_or_keyword(
         "or" => TokenKind::Or,
         "and" => TokenKind::And,
         "not" => TokenKind::Not,
-        _ => TokenKind::Ident,
+        _ => return None,
     };
-    Token {
-        kind,
-        text: token_text.to_string(),
-        range: TextRange::new(start, end),
-    }
+    Some(kind)
 }
 
-fn read_underscore_or_ident(
-    text: &str,
-    start: usize,
-    chars: &mut std::iter::Peekable<std::str::CharIndices<'_>>,
-) -> Token {
+fn read_underscore_or_ident(text: &str, start: usize, chars: &mut CharIter<'_>) -> Token {
     let mut end = start + 1;
     let mut has_suffix = false;
     while let Some((index, next)) = chars.peek().copied() {
@@ -262,6 +189,56 @@ fn read_underscore_or_ident(
         text: text[start..end].to_string(),
         range: TextRange::new(start, end),
     }
+}
+
+fn read_symbol_token(start: usize, ch: char, chars: &mut CharIter<'_>) -> Token {
+    if let Some((next, kind)) = two_char_symbol_kind(ch, chars.peek().map(|(_, next)| *next)) {
+        chars.next();
+        return token(
+            kind,
+            format!("{ch}{next}"),
+            start,
+            start + ch.len_utf8() + next.len_utf8(),
+        );
+    }
+
+    let kind = match ch {
+        '(' => TokenKind::LParen,
+        ')' => TokenKind::RParen,
+        '[' => TokenKind::LBracket,
+        ']' => TokenKind::RBracket,
+        '{' => TokenKind::LBrace,
+        '}' => TokenKind::RBrace,
+        ',' => TokenKind::Comma,
+        '.' => TokenKind::Dot,
+        ':' => TokenKind::Colon,
+        '-' => TokenKind::Minus,
+        '=' => TokenKind::Equal,
+        '<' => TokenKind::Less,
+        '>' => TokenKind::Greater,
+        '?' => TokenKind::Question,
+        '+' => TokenKind::Plus,
+        '*' => TokenKind::Star,
+        '/' => TokenKind::Slash,
+        _ => TokenKind::Invalid,
+    };
+    token(kind, ch.to_string(), start, start + ch.len_utf8())
+}
+
+fn two_char_symbol_kind(ch: char, next: Option<char>) -> Option<(char, TokenKind)> {
+    let next = next?;
+    let kind = match (ch, next) {
+        (':', ':') => TokenKind::DoubleColon,
+        ('-', '>') => TokenKind::Arrow,
+        ('=', '>') => TokenKind::FatArrow,
+        ('=', '=') => TokenKind::EqualEqual,
+        ('!', '=') => TokenKind::BangEqual,
+        ('<', '=') => TokenKind::LessEqual,
+        ('>', '=') => TokenKind::GreaterEqual,
+        ('|', '>') => TokenKind::PipeGreater,
+        _ => return None,
+    };
+    Some((next, kind))
 }
 
 fn token(kind: TokenKind, text: impl Into<String>, start: usize, end: usize) -> Token {

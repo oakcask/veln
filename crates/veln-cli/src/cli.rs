@@ -41,75 +41,10 @@ pub(crate) enum Command {
 
 impl Command {
     pub(crate) fn parse(args: Vec<String>) -> Result<Self, String> {
-        if args.is_empty() {
-            return Ok(Self::Help {
-                text: render_help(&[]),
-            });
+        if let Some(command) = parse_help_or_version(&args)? {
+            return Ok(command);
         }
-
-        let Some(first) = args.first() else {
-            unreachable!("empty arguments are handled before reading the first argument");
-        };
-        match first.as_str() {
-            "check" if has_help_flag(args.iter().skip(1)) => {
-                return Ok(Self::Help {
-                    text: render_help(&args[..1]),
-                });
-            }
-            "fmt" if has_help_flag(args.iter().skip(1)) => {
-                return Ok(Self::Help {
-                    text: render_help(&args[..1]),
-                });
-            }
-            "run" if has_help_flag_before_separator(args.iter().skip(1)) => {
-                return Ok(Self::Help {
-                    text: render_help(&args[..1]),
-                });
-            }
-            "test" if has_help_flag(args.iter().skip(1)) => {
-                return Ok(Self::Help {
-                    text: render_help(&args[..1]),
-                });
-            }
-            "repair" if has_help_flag(args.iter().skip(1)) => {
-                return Ok(Self::Help {
-                    text: render_help(&args[..1]),
-                });
-            }
-            "explain" if has_help_flag(args.iter().skip(1)) => {
-                return Ok(Self::Help {
-                    text: render_help(&args[..1]),
-                });
-            }
-            "lsp" if has_help_flag(args.iter().skip(1)) => {
-                return Ok(Self::Help {
-                    text: render_help(&args[..1]),
-                });
-            }
-            "check" => reject_unknown_check_flags(args.iter().skip(1))?,
-            "fmt" => reject_unknown_fmt_flags(args.iter().skip(1))?,
-            "run" => {
-                reject_unknown_run_flags(args.iter().skip(1))?;
-                reject_missing_run_entry(args.iter().skip(1))?;
-            }
-            "test" => reject_unknown_test_flags(args.iter().skip(1))?,
-            "repair" => reject_unknown_repair_flags(args.iter().skip(1))?,
-            "explain" => reject_unknown_explain_flags(args.iter().skip(1))?,
-            "lsp" => reject_lsp_arguments(args.iter().skip(1))?,
-            "--help" | "-h" => {
-                return Ok(Self::Help {
-                    text: render_help(&[]),
-                });
-            }
-            "help" => {
-                reject_unknown_help_topic(&args[1..])?;
-                return Ok(Self::Help {
-                    text: render_help(&args[1..]),
-                });
-            }
-            "--version" | "-V" | "version" => return Ok(Self::Version),
-            command => return Err(format!("unknown command `{command}`")),
-        }
+        validate_command_args(&args)?;
 
         let mut argv = Vec::with_capacity(args.len() + 1);
         argv.push("veln".to_string());
@@ -119,47 +54,7 @@ impl Command {
             .try_get_matches_from(argv)
             .map_err(|error| error.to_string())?;
 
-        match matches.subcommand() {
-            Some(("check", matches)) => Ok(Self::Check {
-                json: matches.get_flag("json"),
-                inputs: path_values(matches, "inputs"),
-            }),
-            Some(("fmt", matches)) => Ok(Self::Fmt {
-                inputs: path_values(matches, "inputs"),
-            }),
-            Some(("run", matches)) => {
-                let entry = matches
-                    .get_one::<String>("entry")
-                    .expect("clap requires an entry argument")
-                    .to_string();
-                Ok(Self::Run {
-                    json: matches.get_flag("json"),
-                    entry,
-                    inputs: path_values(matches, "inputs"),
-                    entry_args: string_values(matches, "entry_args"),
-                })
-            }
-            Some(("test", matches)) => Ok(Self::Test {
-                json: matches.get_flag("json"),
-                targets: path_values(matches, "targets"),
-            }),
-            Some(("repair", matches)) => Ok(Self::Repair {
-                json: matches.get_flag("json"),
-                apply: matches.get_flag("apply"),
-                candidate_id: matches.get_one::<String>("candidate").cloned(),
-                confirm_id: matches.get_one::<String>("confirm").cloned(),
-                override_requested: matches.get_flag("override"),
-                inputs: path_values(matches, "inputs"),
-            }),
-            Some(("explain", matches)) => Ok(Self::Explain {
-                list: matches.get_flag("list"),
-                diagnostic_id: matches.get_one::<String>("diagnostic_id").cloned(),
-            }),
-            Some(("lsp", _)) => Ok(Self::Lsp),
-            _ => Ok(Self::Help {
-                text: render_help(&[]),
-            }),
-        }
+        Ok(command_from_matches(&matches))
     }
 }
 
@@ -169,130 +64,156 @@ fn app() -> ClapCommand {
         .disable_help_subcommand(false)
         .subcommand_required(false)
         .arg_required_else_help(false)
-        .subcommand(
-            ClapCommand::new("check")
-                .about("Check source files")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("inputs")
-                        .help("Source files or directories to check")
-                        .value_name("INPUTS")
-                        .num_args(0..)
-                        .value_parser(clap::value_parser!(PathBuf)),
-                ),
+        .subcommand(check_command())
+        .subcommand(fmt_command())
+        .subcommand(run_command())
+        .subcommand(test_command())
+        .subcommand(repair_command())
+        .subcommand(explain_command())
+        .subcommand(lsp_command())
+}
+
+fn check_command() -> ClapCommand {
+    ClapCommand::new("check")
+        .about("Check source files")
+        .arg(json_arg())
+        .arg(path_args(
+            "inputs",
+            "Source files or directories to check",
+            "INPUTS",
+        ))
+}
+
+fn fmt_command() -> ClapCommand {
+    ClapCommand::new("fmt")
+        .about("Format source files")
+        .arg(path_args(
+            "inputs",
+            "Source files or directories to format",
+            "INPUTS",
+        ))
+}
+
+fn run_command() -> ClapCommand {
+    ClapCommand::new("run")
+        .about("Run an entry function")
+        .arg(json_arg())
+        .arg(
+            Arg::new("entry")
+                .help("Entry function name")
+                .value_name("ENTRY")
+                .required(true),
         )
-        .subcommand(
-            ClapCommand::new("fmt").about("Format source files").arg(
-                Arg::new("inputs")
-                    .help("Source files or directories to format")
-                    .value_name("INPUTS")
-                    .num_args(0..)
-                    .value_parser(clap::value_parser!(PathBuf)),
-            ),
+        .arg(path_args(
+            "inputs",
+            "Source files or directories to run",
+            "INPUTS",
+        ))
+        .arg(
+            Arg::new("entry_args")
+                .help("Arguments passed to the entry function after `--`")
+                .value_name("ENTRY_ARGS")
+                .num_args(0..)
+                .last(true)
+                .allow_hyphen_values(true),
         )
-        .subcommand(
-            ClapCommand::new("run")
-                .about("Run an entry function")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("entry")
-                        .help("Entry function name")
-                        .value_name("ENTRY")
-                        .required(true),
-                )
-                .arg(
-                    Arg::new("inputs")
-                        .help("Source files or directories to run")
-                        .value_name("INPUTS")
-                        .num_args(0..)
-                        .value_parser(clap::value_parser!(PathBuf)),
-                )
-                .arg(
-                    Arg::new("entry_args")
-                        .help("Arguments passed to the entry function after `--`")
-                        .value_name("ENTRY_ARGS")
-                        .num_args(0..)
-                        .last(true)
-                        .allow_hyphen_values(true),
-                ),
+}
+
+fn test_command() -> ClapCommand {
+    ClapCommand::new("test")
+        .about("Run tests")
+        .arg(json_arg())
+        .arg(path_args(
+            "targets",
+            "Source files, directories, or test targets",
+            "TARGETS",
+        ))
+}
+
+fn repair_command() -> ClapCommand {
+    ClapCommand::new("repair")
+        .about("Preview or apply repair candidates")
+        .arg(json_arg())
+        .arg(repair_apply_arg())
+        .arg(repair_dry_run_arg())
+        .arg(repair_candidate_arg())
+        .arg(repair_confirm_arg())
+        .arg(repair_override_arg())
+        .arg(path_args(
+            "inputs",
+            "Source files, directories, or saved repair JSON files",
+            "INPUTS",
+        ))
+}
+
+fn repair_apply_arg() -> Arg {
+    Arg::new("apply")
+        .long("apply")
+        .help("Apply one safe repair candidate")
+        .conflicts_with("dry_run")
+        .action(ArgAction::SetTrue)
+}
+
+fn repair_dry_run_arg() -> Arg {
+    Arg::new("dry_run")
+        .long("dry-run")
+        .help("Preview repair candidates without writing files")
+        .action(ArgAction::SetTrue)
+}
+
+fn repair_candidate_arg() -> Arg {
+    Arg::new("candidate")
+        .long("candidate")
+        .help("Repair candidate id to apply or select")
+        .value_name("CANDIDATE_ID")
+        .num_args(1)
+}
+
+fn repair_confirm_arg() -> Arg {
+    Arg::new("confirm")
+        .long("confirm")
+        .help("Confirm a repair candidate id before applying")
+        .value_name("CANDIDATE_ID")
+        .requires("apply")
+        .num_args(1)
+}
+
+fn repair_override_arg() -> Arg {
+    Arg::new("override")
+        .long("override")
+        .help("Apply a confirmed manual-review repair candidate")
+        .requires("apply")
+        .requires("confirm")
+        .action(ArgAction::SetTrue)
+}
+
+fn explain_command() -> ClapCommand {
+    ClapCommand::new("explain")
+        .about("Explain diagnostics")
+        .arg(
+            Arg::new("list")
+                .long("list")
+                .help("List known diagnostics")
+                .action(ArgAction::SetTrue),
         )
-        .subcommand(
-            ClapCommand::new("test")
-                .about("Run tests")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("targets")
-                        .help("Source files, directories, or test targets")
-                        .value_name("TARGETS")
-                        .num_args(0..)
-                        .value_parser(clap::value_parser!(PathBuf)),
-                ),
+        .arg(
+            Arg::new("diagnostic_id")
+                .help("Diagnostic id to explain")
+                .value_name("DIAGNOSTIC_ID")
+                .num_args(0..=1),
         )
-        .subcommand(
-            ClapCommand::new("repair")
-                .about("Preview or apply repair candidates")
-                .arg(json_arg())
-                .arg(
-                    Arg::new("apply")
-                        .long("apply")
-                        .help("Apply one safe repair candidate")
-                        .conflicts_with("dry_run")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("dry_run")
-                        .long("dry-run")
-                        .help("Preview repair candidates without writing files")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("candidate")
-                        .long("candidate")
-                        .help("Repair candidate id to apply or select")
-                        .value_name("CANDIDATE_ID")
-                        .num_args(1),
-                )
-                .arg(
-                    Arg::new("confirm")
-                        .long("confirm")
-                        .help("Confirm a repair candidate id before applying")
-                        .value_name("CANDIDATE_ID")
-                        .requires("apply")
-                        .num_args(1),
-                )
-                .arg(
-                    Arg::new("override")
-                        .long("override")
-                        .help("Apply a confirmed manual-review repair candidate")
-                        .requires("apply")
-                        .requires("confirm")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("inputs")
-                        .help("Source files, directories, or saved repair JSON files")
-                        .value_name("INPUTS")
-                        .num_args(0..)
-                        .value_parser(clap::value_parser!(PathBuf)),
-                ),
-        )
-        .subcommand(
-            ClapCommand::new("explain")
-                .about("Explain diagnostics")
-                .arg(
-                    Arg::new("list")
-                        .long("list")
-                        .help("List known diagnostics")
-                        .action(ArgAction::SetTrue),
-                )
-                .arg(
-                    Arg::new("diagnostic_id")
-                        .help("Diagnostic id to explain")
-                        .value_name("DIAGNOSTIC_ID")
-                        .num_args(0..=1),
-                ),
-        )
-        .subcommand(ClapCommand::new("lsp").about("Run the language server on stdio"))
+}
+
+fn lsp_command() -> ClapCommand {
+    ClapCommand::new("lsp").about("Run the language server on stdio")
+}
+
+fn path_args(name: &'static str, help: &'static str, value_name: &'static str) -> Arg {
+    Arg::new(name)
+        .help(help)
+        .value_name(value_name)
+        .num_args(0..)
+        .value_parser(clap::value_parser!(PathBuf))
 }
 
 fn json_arg() -> Arg {
@@ -300,6 +221,106 @@ fn json_arg() -> Arg {
         .long("json")
         .help("Emit machine-readable JSON")
         .action(ArgAction::SetTrue)
+}
+
+fn parse_help_or_version(args: &[String]) -> Result<Option<Command>, String> {
+    if args.is_empty() {
+        return Ok(Some(Command::Help {
+            text: render_help(&[]),
+        }));
+    }
+
+    let first = args
+        .first()
+        .expect("empty arguments are handled before reading the first argument");
+    match first.as_str() {
+        "check" | "fmt" | "test" | "repair" | "explain" | "lsp"
+            if has_help_flag(args.iter().skip(1)) =>
+        {
+            Ok(Some(Command::Help {
+                text: render_help(&args[..1]),
+            }))
+        }
+        "run" if has_help_flag_before_separator(args.iter().skip(1)) => Ok(Some(Command::Help {
+            text: render_help(&args[..1]),
+        })),
+        "--help" | "-h" => Ok(Some(Command::Help {
+            text: render_help(&[]),
+        })),
+        "help" => {
+            reject_unknown_help_topic(&args[1..])?;
+            Ok(Some(Command::Help {
+                text: render_help(&args[1..]),
+            }))
+        }
+        "--version" | "-V" | "version" => Ok(Some(Command::Version)),
+        _ => Ok(None),
+    }
+}
+
+fn validate_command_args(args: &[String]) -> Result<(), String> {
+    let first = args
+        .first()
+        .expect("help and version handling rejects empty arguments");
+    match first.as_str() {
+        "check" => reject_unknown_check_flags(args.iter().skip(1)),
+        "fmt" => reject_unknown_fmt_flags(args.iter().skip(1)),
+        "run" => {
+            reject_unknown_run_flags(args.iter().skip(1))?;
+            reject_missing_run_entry(args.iter().skip(1))
+        }
+        "test" => reject_unknown_test_flags(args.iter().skip(1)),
+        "repair" => reject_unknown_repair_flags(args.iter().skip(1)),
+        "explain" => reject_unknown_explain_flags(args.iter().skip(1)),
+        "lsp" => reject_lsp_arguments(args.iter().skip(1)),
+        command => Err(format!("unknown command `{command}`")),
+    }
+}
+
+fn command_from_matches(matches: &clap::ArgMatches) -> Command {
+    match matches.subcommand() {
+        Some(("check", matches)) => Command::Check {
+            json: matches.get_flag("json"),
+            inputs: path_values(matches, "inputs"),
+        },
+        Some(("fmt", matches)) => Command::Fmt {
+            inputs: path_values(matches, "inputs"),
+        },
+        Some(("run", matches)) => run_from_matches(matches),
+        Some(("test", matches)) => Command::Test {
+            json: matches.get_flag("json"),
+            targets: path_values(matches, "targets"),
+        },
+        Some(("repair", matches)) => Command::Repair {
+            json: matches.get_flag("json"),
+            apply: matches.get_flag("apply"),
+            candidate_id: matches.get_one::<String>("candidate").cloned(),
+            confirm_id: matches.get_one::<String>("confirm").cloned(),
+            override_requested: matches.get_flag("override"),
+            inputs: path_values(matches, "inputs"),
+        },
+        Some(("explain", matches)) => Command::Explain {
+            list: matches.get_flag("list"),
+            diagnostic_id: matches.get_one::<String>("diagnostic_id").cloned(),
+        },
+        Some(("lsp", _)) => Command::Lsp,
+        _ => Command::Help {
+            text: render_help(&[]),
+        },
+    }
+}
+
+fn run_from_matches(matches: &clap::ArgMatches) -> Command {
+    let entry = matches
+        .get_one::<String>("entry")
+        .expect("clap requires an entry argument")
+        .to_string();
+    Command::Run {
+        json: matches.get_flag("json"),
+        entry,
+        inputs: path_values(matches, "inputs"),
+        entry_args: string_values(matches, "entry_args"),
+    }
 }
 
 fn render_help(path: &[String]) -> String {
