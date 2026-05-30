@@ -85,7 +85,8 @@ against the built `veln` binary.
 - `check/named-type-annotations/`: non-built-in named type paths with type
   arguments inside value and function type annotations.
 - `check/manifest-metadata/`: source `mod` ownership wins over manifest module
-  metadata.
+  metadata, manifest module names require selected source owners, and manifest
+  entries do not add unselected source files.
 - `check/implicit-unit-return/`: omitted tail expressions returning `()` and
   the implicit-unit diagnostic detail.
 - `check/types-operators/`: primitive annotations, returned function types,

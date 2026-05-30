@@ -20,8 +20,10 @@ language behavior unless `../specification/` also states it.
 Source `mod` declarations own compiler-visible module identity. `use`
 declarations import source modules that are part of the analyzed program. The
 implemented manifest subset validates selected `[modules]` entries against
-source module declarations but does not define package metadata, full discovery
-semantics, or additional manifest fields.
+source module declarations, requires source ownership for selected manifest
+module names, and does not add unselected manifest paths to command source
+selection. It does not define package metadata, full discovery semantics, or
+additional manifest fields.
 
 Documentation line comments support executable doctests and ADR-lite metadata.
 The current toolchain does not expose a `doc` command or generated
@@ -34,12 +36,12 @@ not implemented.
 
 - Define package and tool metadata that belongs in a manifest rather than in
   source.
-- Define manifest-backed discovery without letting manifest entries rename
-  source modules.
+- Define any future manifest-backed discovery beyond selected-entry validation
+  without letting manifest entries rename source modules.
 - Add generated documentation behavior that derives from source comments,
   contracts, examples, doctests, and ADR-lite metadata.
 - Decide whether dedicated export lists are needed beyond `pub fn`.
-- Keep duplicated source and manifest facts checked for drift.
+- Keep any newly duplicated source and manifest facts checked for drift.
 
 ## Non-Targets
 

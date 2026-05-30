@@ -61,7 +61,11 @@ file list is sorted and deduplicated.
 If the current project root contains `veln.toml`, the command reads the
 implemented `[modules]` manifest table after source discovery. Manifest module
 entries are validated only for selected source files; they do not add files to
-the selected set and do not override source `mod` declarations.
+the selected set and do not override source `mod` declarations. A selected
+manifest module entry with a module name must match the selected file's source
+`mod` declaration. If the selected source has no `mod` declaration, the
+manifest name is reported as metadata drift because source owns
+compiler-visible module identity.
 
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic
