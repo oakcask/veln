@@ -29,7 +29,7 @@ pub(super) struct RepairApplyOptions {
 }
 
 struct CandidateSelectionError {
-    selected: Option<RepairCandidate>,
+    selected: Option<Box<RepairCandidate>>,
     reason: String,
 }
 
@@ -45,7 +45,7 @@ pub(super) fn apply_candidate(
         Err(error) => {
             return Ok(RepairOutcome::refused(
                 candidates,
-                error.selected,
+                error.selected.map(|selected| *selected),
                 error.reason,
             ));
         }
@@ -127,7 +127,7 @@ fn select_candidate_for_apply(
 
     if options.override_requested && options.confirmed_candidate_id.is_none() {
         return Err(CandidateSelectionError {
-            selected: Some(selected),
+            selected: Some(Box::new(selected)),
             reason: REFUSAL_OVERRIDE_REQUIRES_CONFIRMATION.to_string(),
         });
     }
@@ -137,20 +137,20 @@ fn select_candidate_for_apply(
             CandidateIdMatch::Unique(candidate) => candidate,
             CandidateIdMatch::Missing => {
                 return Err(CandidateSelectionError {
-                    selected: Some(selected),
+                    selected: Some(Box::new(selected)),
                     reason: format!("confirmed candidate `{confirmed_candidate_id}` was not found"),
                 });
             }
             CandidateIdMatch::Ambiguous => {
                 return Err(CandidateSelectionError {
-                    selected: Some(selected),
+                    selected: Some(Box::new(selected)),
                     reason: format!("confirmed candidate `{confirmed_candidate_id}` is ambiguous"),
                 });
             }
         };
         if confirmed.repair_id != selected.repair_id {
             return Err(CandidateSelectionError {
-                selected: Some(selected),
+                selected: Some(Box::new(selected)),
                 reason: "confirmed candidate does not match selected candidate".to_string(),
             });
         }
