@@ -1,4 +1,4 @@
 // Public functions must declare every effect reached from their body.
-pub fn main() -> () effects []
+pub fn main() -> ()
   stdio::println("visible effect")
 end

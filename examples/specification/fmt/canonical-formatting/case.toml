@@ -14,4 +14,4 @@ equals = "// Canonical formatting normalizes headers, contracts, expressions, an
 
 [[file_assert]]
 path = "helpers.veln"
-equals = "// Helper declarations participate in multi-file canonical formatting.\nfn parse(raw: String) -> Result(Int, AppError) effects []\n\tOk(1)\nend\n\nfn choose(value: String, fallback: String) -> String effects []\n\tif_missing({ primary: value, nested: { fallback: fallback } })\nend\n"
+equals = "// Helper declarations participate in multi-file canonical formatting.\nfn parse(raw: String) -> Result(Int, AppError)\n\tOk(1)\nend\n\nfn choose(value: String, fallback: String) -> String\n\tif_missing({ primary: value, nested: { fallback: fallback } })\nend\n"

@@ -1,5 +1,5 @@
 // Doctest runtime result expectations match returned Err values.
-fn reject() -> () effects []
+fn reject() -> ()
 require false
   ()
 end
@@ -23,6 +23,6 @@ end
 /// ```veln runtime=result value=bad
 /// reject()
 /// ```
-pub fn main() -> () effects []
+pub fn main() -> ()
   ()
 end

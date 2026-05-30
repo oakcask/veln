@@ -5,7 +5,7 @@ fn contract_predicate_negated_disjunction_covered_by_complement_conjuncts_is_sta
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool}\n",
             "require not ((value.ready or extra) and not value.ready and not extra)\n",
             "require not ((limit < 10 or value.ready or false) and limit >= 10 and not value.ready)\n",
             "ensure not ((output.ready or extra) and not output.ready and not extra)\n",
@@ -33,7 +33,7 @@ fn contract_predicate_negated_disjunction_with_repeated_branch_is_statically_pro
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool}\n",
             "require not (value.ready and not (value.ready or extra))\n",
             "ensure not (output.ready and extra and not (output.ready or value.ready))\n",
             "  value\n",
@@ -60,7 +60,7 @@ fn contract_predicate_resolved_complementary_disjunctions_are_statically_proven(
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool}\n",
             "require not (value.ready and (not value.ready or extra) and (not value.ready or not extra))\n",
             "ensure not (not output.ready and (output.ready or extra) and (output.ready or not extra))\n",
             "  value\n",
@@ -87,7 +87,7 @@ fn contract_predicate_partial_negated_disjunction_requires_runtime_check() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool}\n",
             "require not ((value.ready or extra) and not value.ready)\n",
             "  value\n",
             "end\n",
@@ -114,7 +114,7 @@ fn contract_predicate_factored_case_split_covered_by_complements_is_statically_p
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool}\n",
             "require (value.ready and extra) or (not value.ready and extra) or not extra\n",
             "require (limit < 10 and value.ready) or (limit >= 10 and value.ready) or not value.ready\n",
             "ensure (output.ready and extra and true) or (not output.ready and extra) or not extra\n",
@@ -142,7 +142,7 @@ fn contract_predicate_partial_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool}\n",
             "require value.ready or (not value.ready and extra) or (not value.ready and not extra)\n",
             "require limit < 10 or (limit >= 10 and value.ready) or (limit >= 10 and not value.ready)\n",
             "ensure output.ready or (not output.ready and extra) or (not output.ready and not extra)\n",
@@ -170,7 +170,7 @@ fn contract_predicate_wide_partial_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {a: Bool, b: Bool, c: Bool, d: Bool}) -> output: {a: Bool, b: Bool, c: Bool, d: Bool} effects []\n",
+            "pub fn identity(value: {a: Bool, b: Bool, c: Bool, d: Bool}) -> output: {a: Bool, b: Bool, c: Bool, d: Bool}\n",
             "require value.a or ",
             "(not value.a and value.b) or ",
             "(not value.a and not value.b and value.c) or ",
@@ -208,7 +208,7 @@ fn contract_predicate_max_width_partial_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         format!(
-            "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}} effects []\nrequire {predicate}\n  value\nend\n"
+            "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}}\nrequire {predicate}\n  value\nend\n"
         ),
     );
     let parsed = parse(&source);
@@ -237,7 +237,7 @@ fn contract_predicate_too_wide_partial_case_split_or_requires_runtime_check() {
     let source = SourceFile::new(
         "main.veln",
         format!(
-            "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}} effects []\nrequire {predicate}\n  value\nend\n"
+            "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}}\nrequire {predicate}\n  value\nend\n"
         ),
     );
     let parsed = parse(&source);
@@ -261,7 +261,7 @@ fn contract_predicate_negated_partial_case_split_and_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool}\n",
             "require not ((value.ready or extra) and (value.ready or not extra) and (not value.ready or extra) and (not value.ready or not extra))\n",
             "require not ((value.ready or extra) and (value.ready or not extra) and not value.ready)\n",
             "ensure not ((output.ready or extra) and (output.ready or not extra) and (not output.ready or extra) and (not output.ready or not extra))\n",
@@ -289,7 +289,7 @@ fn contract_predicate_partial_case_split_and_without_full_rejection_requires_run
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool}\n",
             "require not ((value.ready or extra) and (value.ready or not extra) and (not value.ready or extra))\n",
             "  value\n",
             "end\n",
@@ -316,7 +316,7 @@ fn contract_predicate_exhaustive_pair_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}, limit: Int, extra: Bool) -> output: {ready: Bool}\n",
             "require (value.ready and extra) or (value.ready and not extra) or (not value.ready and extra) or (not value.ready and not extra)\n",
             "require (limit < 10 and value.ready) or (limit < 10 and not value.ready) or (limit >= 10 and value.ready) or (limit >= 10 and not value.ready)\n",
             "ensure (output.ready and extra) or (not extra and output.ready) or (not output.ready and extra) or (not output.ready and not extra)\n",
@@ -344,7 +344,7 @@ fn contract_predicate_exhaustive_triple_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool, paid: Bool, shipped: Bool}) -> output: {ready: Bool, paid: Bool, shipped: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool, paid: Bool, shipped: Bool}) -> output: {ready: Bool, paid: Bool, shipped: Bool}\n",
             "require (value.ready and value.paid and value.shipped) or ",
             "(value.ready and value.paid and not value.shipped) or ",
             "(value.ready and not value.paid and value.shipped) or ",
@@ -385,7 +385,7 @@ fn contract_predicate_exhaustive_quad_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {a: Bool, b: Bool, c: Bool, d: Bool}) -> output: {a: Bool, b: Bool, c: Bool, d: Bool} effects []\n",
+            "pub fn identity(value: {a: Bool, b: Bool, c: Bool, d: Bool}) -> output: {a: Bool, b: Bool, c: Bool, d: Bool}\n",
             "require (value.a and value.b and value.c and value.d) or ",
             "(value.a and value.b and value.c and not value.d) or ",
             "(value.a and value.b and not value.c and value.d) or ",
@@ -427,7 +427,7 @@ fn contract_predicate_exhaustive_quint_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         format!(
-            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}} effects []\nrequire {predicate}\n  value\nend\n"
+            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool}}\nrequire {predicate}\n  value\nend\n"
         ),
     );
     let parsed = parse(&source);
@@ -451,7 +451,7 @@ fn contract_predicate_exhaustive_sext_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         format!(
-            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool}} effects []\nrequire {predicate}\n  value\nend\n"
+            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool}}\nrequire {predicate}\n  value\nend\n"
         ),
     );
     let parsed = parse(&source);
@@ -475,7 +475,7 @@ fn contract_predicate_exhaustive_sept_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         format!(
-            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool}} effects []\nrequire {predicate}\n  value\nend\n"
+            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool}}\nrequire {predicate}\n  value\nend\n"
         ),
     );
     let parsed = parse(&source);
@@ -500,7 +500,7 @@ fn contract_predicate_exhaustive_oct_case_split_or_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         format!(
-            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool, h: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool, h: Bool}} effects []\nrequire {predicate}\n  value\nend\n"
+            "pub fn identity(value: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool, h: Bool}}) -> output: {{a: Bool, b: Bool, c: Bool, d: Bool, e: Bool, f: Bool, g: Bool, h: Bool}}\nrequire {predicate}\n  value\nend\n"
         ),
     );
     let parsed = parse(&source);
@@ -523,7 +523,7 @@ fn contract_predicate_negated_conjunction_prefix_requires_runtime_check() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool, paid: Bool}) -> output: {ready: Bool, paid: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool, paid: Bool}) -> output: {ready: Bool, paid: Bool}\n",
             "require (not value.ready and value.paid) or (value.ready and value.paid)\n",
             "  value\n",
             "end\n",
@@ -550,7 +550,7 @@ fn contract_predicate_small_boolean_formula_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}, extra: Bool) -> output: {ready: Bool}\n",
             "require not (value.ready and not extra) or not (not value.ready and not extra)\n",
             "ensure not (output.ready and not extra) or not (not output.ready and not extra)\n",
             "  value\n",
@@ -592,7 +592,7 @@ fn contract_predicate_ten_atom_boolean_formula_is_statically_proven() {
     let source = SourceFile::new(
         "main.veln",
         format!(
-            "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}} effects []\n\
+            "pub fn identity(value: {{{record_type}}}) -> output: {{{record_type}}}\n\
              require not ({conjunction}) or ({conjunction})\n\
              ensure not ({output_conjunction}) or ({output_conjunction})\n\
                value\n\

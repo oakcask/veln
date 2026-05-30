@@ -3,6 +3,6 @@
 /// let value: Int = "no"
 /// Err("bad")?
 /// ```
-pub fn main() -> () effects []
+pub fn main() -> ()
   ()
 end

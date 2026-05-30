@@ -1,4 +1,4 @@
 // Static diagnostics block discovered test cases before runtime execution.
-test blocked() -> Result((), AppError) effects []
+test blocked() -> Result((), AppError)
   _
 end

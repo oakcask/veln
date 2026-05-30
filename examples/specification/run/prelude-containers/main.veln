@@ -1,35 +1,35 @@
 // Prelude container helpers preserve concrete Vec, Dict, Option, and Result behavior.
-fn odd(value: Int) -> Bool effects []
+fn odd(value: Int) -> Bool
   value != 2
 end
 
-fn double(value: Int) -> Int effects []
+fn double(value: Int) -> Int
   value * 2
 end
 
-fn positive(value: Int) -> Option(Int) effects []
+fn positive(value: Int) -> Option(Int)
   match value > 0
     true => Some(value)
     false => None
   end
 end
 
-fn add_one(value: Int) -> Result(Int, String) effects []
+fn add_one(value: Int) -> Result(Int, String)
   Ok(value + 1)
 end
 
-fn fallible_double(value: Int) -> Result(Int, String) effects []
+fn fallible_double(value: Int) -> Result(Int, String)
   match value == 2
     true => Err("stop")
     false => Ok(value * 2)
   end
 end
 
-fn label_error(error: String) -> String effects []
+fn label_error(error: String) -> String
   error
 end
 
-fn add(left: Int, right: Int) -> Int effects []
+fn add(left: Int, right: Int) -> Int
   left + right
 end
 

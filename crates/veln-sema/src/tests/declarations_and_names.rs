@@ -1,14 +1,14 @@
 use super::*;
 
 #[test]
-fn public_function_requires_explicit_boundary() {
+fn public_function_requires_explicit_type_boundary() {
     let source = SourceFile::new("main.veln", "pub fn main(value)\n  value\nend\n");
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 3);
+    assert_eq!(diagnostics.len(), 2);
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "type.public_signature_missing"
             && diagnostic.message == "public parameter `value` has no type annotation"
@@ -17,12 +17,17 @@ fn public_function_requires_explicit_boundary() {
         diagnostic.id == "type.public_signature_missing"
             && diagnostic.message == "public function has no return type annotation"
     }));
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "effect.missing_public"
-            && diagnostic.kind == DiagnosticKind::Effect
-            && diagnostic.message == "public function has no effects annotation"
-            && diagnostic.related.len() == 1
-    }));
+}
+
+#[test]
+fn public_function_accepts_omitted_empty_effect_boundary() {
+    let source = SourceFile::new("main.veln", "pub fn main() -> Int\n  1\nend\n");
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
 #[test]
@@ -76,7 +81,7 @@ fn test_declaration_requires_explicit_test_shape() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 3);
+    assert_eq!(diagnostics.len(), 2);
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "test.parameters"
             && diagnostic.message == "test declaration has parameters"
@@ -87,23 +92,14 @@ fn test_declaration_requires_explicit_test_shape() {
             && diagnostic.message == "test declaration returns `Int`"
             && diagnostic.related.len() == 1
     }));
-    assert!(diagnostics.iter().any(|diagnostic| {
-        diagnostic.id == "effect.missing_test"
-            && diagnostic.kind == DiagnosticKind::Effect
-            && diagnostic.message == "test declaration has no effects annotation"
-            && diagnostic
-                .details
-                .to_json()
-                .contains("\"boundary\":\"test_declaration\"")
-    }));
 }
 
 #[test]
-fn test_declaration_checks_declared_effect_boundary() {
+fn test_declaration_checks_omitted_effect_boundary() {
     let source = SourceFile::new(
         "main_test.veln",
         concat!(
-            "test prints() -> () effects []\n",
+            "test prints() -> ()\n",
             "  stdio::println(\"hello\")\n",
             "  ()\n",
             "end\n",
@@ -129,11 +125,75 @@ fn test_declaration_checks_declared_effect_boundary() {
 }
 
 #[test]
+fn function_declaration_rejects_empty_effects_list() {
+    let source = SourceFile::new("main.veln", "fn helper() -> Int effects []\n  1\nend\n");
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.empty_declaration");
+    assert_eq!(
+        diagnostics[0].message,
+        "empty effects list is not allowed on a function declaration"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"boundary\":\"private_function\""));
+    assert!(details.contains("\"declared_effects\":[]"));
+    assert_eq!(diagnostics[0].related.len(), 2);
+}
+
+#[test]
+fn public_function_declaration_rejects_empty_effects_list() {
+    let source = SourceFile::new("main.veln", "pub fn helper() -> Int effects []\n  1\nend\n");
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.empty_declaration");
+    assert_eq!(
+        diagnostics[0].message,
+        "empty effects list is not allowed on a function declaration"
+    );
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"boundary\":\"public_function\"")
+    );
+}
+
+#[test]
+fn test_declaration_rejects_empty_effects_list() {
+    let source = SourceFile::new("main_test.veln", "test helper() -> () effects []\n  ()\nend\n");
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.empty_declaration");
+    assert_eq!(
+        diagnostics[0].message,
+        "empty effects list is not allowed on a test declaration"
+    );
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"boundary\":\"test_declaration\"")
+    );
+}
+
+#[test]
 fn test_declaration_accepts_result_unit_return() {
     let source = SourceFile::new(
         "main_test.veln",
         concat!(
-            "test returns_result() -> Result((), String) effects []\n",
+            "test returns_result() -> Result((), String)\n",
             "  Ok(())\n",
             "end\n",
         ),
@@ -150,7 +210,7 @@ fn test_declaration_accepts_result_unit_return() {
 fn test_declaration_accepts_unit_return() {
     let source = SourceFile::new(
         "main_test.veln",
-        concat!("test returns_unit() -> () effects []\n", "  ()\n", "end\n",),
+        concat!("test returns_unit() -> ()\n", "  ()\n", "end\n",),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -164,7 +224,7 @@ fn test_declaration_accepts_unit_return() {
 fn test_declaration_requires_return_annotation() {
     let source = SourceFile::new(
         "main_test.veln",
-        concat!("test missing_return() effects []\n", "  ()\n", "end\n",),
+        concat!("test missing_return()\n", "  ()\n", "end\n",),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -232,7 +292,7 @@ fn test_declarations_are_not_callable_functions() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "test helper() -> () effects []\n",
+            "test helper() -> ()\n",
             "  ()\n",
             "end\n",
             "fn main() -> ()\n",
@@ -255,10 +315,10 @@ fn duplicate_function_like_declaration_names_are_static_errors() {
     let source = SourceFile::new(
         "main_test.veln",
         concat!(
-            "test same() -> () effects []\n",
+            "test same() -> ()\n",
             "  ()\n",
             "end\n",
-            "fn same() -> () effects []\n",
+            "fn same() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -291,7 +351,7 @@ fn duplicate_use_aliases_are_static_errors() {
             "mod app\n",
             "use platform.io\n",
             "use local.io\n",
-            "fn main() -> () effects []\n",
+            "fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -319,7 +379,7 @@ fn use_declarations_require_module_identity() {
         "main.veln",
         concat!(
             "use platform.io\n",
-            "fn main() -> () effects []\n",
+            "fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -349,7 +409,7 @@ fn use_declarations_require_module_identity() {
 fn duplicate_parameter_names_are_static_errors() {
     let source = SourceFile::new(
         "main.veln",
-        "fn bad(value: Int, value: Int) -> Int effects []\n  value\nend\n",
+        "fn bad(value: Int, value: Int) -> Int\n  value\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -372,7 +432,7 @@ fn duplicate_parameter_names_are_static_errors() {
 fn let_names_cannot_duplicate_the_function_value_scope() {
     let source = SourceFile::new(
         "main.veln",
-        "fn bad(value: Int) -> Int effects []\n  let value = 1\n  value\nend\n",
+        "fn bad(value: Int) -> Int\n  let value = 1\n  value\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -399,7 +459,7 @@ fn wildcard_let_pattern_does_not_bind_or_shadow_names() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Int) -> Int effects []\n",
+            "fn main(value: Int) -> Int\n",
             "  let _: Int = value\n",
             "  value\n",
             "end\n",

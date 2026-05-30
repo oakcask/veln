@@ -1,5 +1,5 @@
 // Expected-output comparison remains independent from runtime failure matching.
-fn reject() -> () effects []
+fn reject() -> ()
 require false
   ()
 end
@@ -19,6 +19,6 @@ end
 /// ```veln-output stream=stdout
 /// result expected
 /// ```
-pub fn main() -> () effects []
+pub fn main() -> ()
   ()
 end

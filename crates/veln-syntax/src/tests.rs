@@ -600,7 +600,7 @@ fn parses_function_return_type_effects_before_declaration_effects() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn callback_factory() -> fn(String) -> () effects [stdio] effects []\n",
+            "pub fn callback_factory() -> fn(String) -> () effects [stdio]\n",
             "end\n",
         ),
     );
@@ -613,11 +613,11 @@ fn parses_function_return_type_effects_before_declaration_effects() {
         function.return_type.as_deref(),
         Some("fn(String) -> () effects [stdio]")
     );
-    assert_eq!(function.effects.as_ref().unwrap(), &Vec::<String>::new());
+    assert_eq!(function.effects, None);
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "pub fn callback_factory() -> fn(String) -> () effects [stdio] effects []\n",
+            "pub fn callback_factory() -> fn(String) -> () effects [stdio]\n",
             "end\n",
         )
     );

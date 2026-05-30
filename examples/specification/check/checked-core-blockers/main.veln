@@ -11,6 +11,6 @@ fn make_option() -> Option(Int)
   Some(1, 2)
 end
 
-pub fn main() -> Int effects []
+pub fn main() -> Int
   add(1)
 end

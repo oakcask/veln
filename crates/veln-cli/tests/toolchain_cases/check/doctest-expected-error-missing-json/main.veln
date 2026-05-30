@@ -1,6 +1,6 @@
 /// ```veln fail
 /// let value: Int = 1
 /// ```
-pub fn main() -> () effects []
+pub fn main() -> ()
   ()
 end

@@ -1,4 +1,4 @@
-pub fn main() -> () effects []
+pub fn main() -> ()
 require false
   ()
 end

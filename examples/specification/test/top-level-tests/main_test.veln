@@ -3,6 +3,6 @@ test visible_behavior() -> () effects [stdio]
   stdio::println("tested")
 end
 
-test fallible_behavior() -> Result((), String) effects []
+test fallible_behavior() -> Result((), String)
   Ok(())
 end

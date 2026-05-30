@@ -1,6 +1,6 @@
 // Imported public declarations can be used as function-typed values.
 mod spec.math
 
-pub fn double(value: Int) -> Int effects []
+pub fn double(value: Int) -> Int
   value * 2
 end

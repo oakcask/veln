@@ -1,4 +1,4 @@
 // Test discovery selects conventional test files without explicit targets.
-test alpha() -> () effects []
+test alpha() -> ()
   ()
 end

@@ -1,14 +1,14 @@
 // This case exercises the implemented surface syntax for modules and expressions.
 mod spec.source
 
-fn choose(value: Option(Int)) -> Int effects []
+fn choose(value: Option(Int)) -> Int
   match value
     Some(count) => count
     None => 0
   end
 end
 
-fn summarize(input: {count: Int, label: String,}) -> {count: Int, label: String,} effects []
+fn summarize(input: {count: Int, label: String,}) -> {count: Int, label: String,}
   let {count: count, label: label} = input
   let _: Int = count + 1
   {count: count, label: label}
@@ -18,18 +18,18 @@ fn inferred_value()
   1
 end
 
-fn qualified_option(value: Option(Int)) -> Int effects []
+fn qualified_option(value: Option(Int)) -> Int
   match value
     Option::Some(count) => count
     Option::None => 0
   end
 end
 
-fn render(value: Int) -> String effects []
+fn render(value: Int) -> String
   int_to_string(value)
 end
 
-fn nested_match(input: Bool) -> {label: String, values: Vec(Int), chosen: Int} effects []
+fn nested_match(input: Bool) -> {label: String, values: Vec(Int), chosen: Int}
   {
     label: render(match input
       true => 1
@@ -46,18 +46,18 @@ fn nested_match(input: Bool) -> {label: String, values: Vec(Int), chosen: Int} e
   }
 end
 
-fn dictionary(seed: Int) -> Dict(Int, String) effects []
+fn dictionary(seed: Int) -> Dict(Int, String)
   {seed + 1: "next", 0: "zero"}
 end
 
-fn classify(result: Result({count: Int, label: String}, String)) -> String effects []
+fn classify(result: Result({count: Int, label: String}, String)) -> String
   match result
     Result::Ok({count: count, label: label}) => label
     Result::Err(error) => error
   end
 end
 
-pub fn main() -> Int effects []
+pub fn main() -> Int
   let value: Int = Some(2) |> choose()
   let summary = summarize({count: value, label: "ok"})
   let qualified: Int = qualified_option(Option::Some(inferred_value()))

@@ -85,7 +85,7 @@ public final class RuntimePathHarness {
 
 #[test]
 fn bytecode_backend_emits_classfiles_without_java_sources() {
-    let ir = lower_to_ir("pub fn main() -> () effects []\n  ()\nend\n");
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
 
     let program = generate_classfiles_with_entry(&ir, "main");
 
@@ -102,7 +102,7 @@ fn bytecode_backend_emits_classfiles_without_java_sources() {
 
 #[test]
 fn bytecode_backend_sanitizes_custom_program_class_name() {
-    let ir = lower_to_ir("pub fn main() -> String effects []\n  \"ok\"\nend\n");
+    let ir = lower_to_ir("pub fn main() -> String\n  \"ok\"\nend\n");
     let program = generate_classfiles_with_entry_arg_types_options(
         &ir,
         "main",
@@ -137,10 +137,10 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
 #[test]
 fn bytecode_backend_runs_result_try_collections_and_function_values_when_java_is_available() {
     let ir = lower_to_ir(concat!(
-        "fn parse(raw: String) -> Result(Int, {message: String}) effects []\n",
+        "fn parse(raw: String) -> Result(Int, {message: String})\n",
         "  Ok(1)\n",
         "end\n",
-        "fn stringify(value: Int) -> String effects []\n",
+        "fn stringify(value: Int) -> String\n",
         "  \"ok\"\n",
         "end\n",
         "pub fn main(raw: String) -> Result((), {message: String}) effects [stdio]\n",
@@ -180,7 +180,7 @@ fn bytecode_backend_runs_minimal_list_adt_when_java_is_available() {
         "  Nil\n",
         "  Cons(head: A, tail: List(A))\n",
         "end\n",
-        "fn sum(values: List(Int)) -> Int effects []\n",
+        "fn sum(values: List(Int)) -> Int\n",
         "  match values\n",
         "    Nil => 0\n",
         "    Cons(head, tail) => head + sum(tail)\n",
@@ -208,10 +208,10 @@ fn bytecode_backend_runs_minimal_list_adt_when_java_is_available() {
 #[test]
 fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_available() {
     let ir = lower_to_ir(concat!(
-        "fn attach(context: String, value: Int) -> Result({prefix: String, value: Int}, String) effects []\n",
+        "fn attach(context: String, value: Int) -> Result({prefix: String, value: Int}, String)\n",
         "  Ok({prefix: context, value: value})\n",
         "end\n",
-        "fn stop_at_two(context: String, value: Int) -> Result({prefix: String, value: Int}, String) effects []\n",
+        "fn stop_at_two(context: String, value: Int) -> Result({prefix: String, value: Int}, String)\n",
         "  match value == 2\n",
         "    true => Err(context)\n",
         "    false => match value == 3\n",
@@ -220,7 +220,7 @@ fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_availab
         "    end\n",
         "  end\n",
         "end\n",
-        "fn add_value(total: Int, item: {prefix: String, value: Int}) -> Int effects []\n",
+        "fn add_value(total: Int, item: {prefix: String, value: Int}) -> Int\n",
         "  total + item.value\n",
         "end\n",
         "pub fn main() -> () effects [stdio]\n",
@@ -259,16 +259,16 @@ fn bytecode_backend_runs_list_helpers_when_java_is_available() {
         "  Nil\n",
         "  Cons(head: A, tail: List(A))\n",
         "end\n",
-        "fn add(total: Int, value: Int) -> Int effects []\n",
+        "fn add(total: Int, value: Int) -> Int\n",
         "  total + value\n",
         "end\n",
-        "fn stringify(value: Int) -> String effects []\n",
+        "fn stringify(value: Int) -> String\n",
         "  int_to_string(value)\n",
         "end\n",
-        "fn keep_large(value: Int) -> Bool effects []\n",
+        "fn keep_large(value: Int) -> Bool\n",
         "  value > 1\n",
         "end\n",
-        "fn stop_at_two(value: Int) -> Result(String, String) effects []\n",
+        "fn stop_at_two(value: Int) -> Result(String, String)\n",
         "  match value == 2\n",
         "    true => Err(\"stop\")\n",
         "    false => match value == 3\n",
@@ -365,7 +365,7 @@ fn jvm_runtime_list_helpers_traverse_large_lists_iteratively_when_java_is_availa
         return;
     }
 
-    let ir = lower_to_ir("pub fn main() -> () effects []\n  ()\nend\n");
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
     let root = temp_dir("runtime-list-helpers");
     write_jvm_program(&root, &program);
@@ -406,7 +406,7 @@ fn jvm_runtime_list_helpers_traverse_large_lists_iteratively_when_java_is_availa
 #[test]
 fn bytecode_backend_runs_task_function_values_when_java_is_available() {
     let ir = lower_to_ir(concat!(
-        "fn produce() -> String effects []\n",
+        "fn produce() -> String\n",
         "  \"hello\"\n",
         "end\n",
         "pub fn main() -> Result((), JoinError) effects [stdio, concurrency]\n",
@@ -434,7 +434,7 @@ fn bytecode_backend_runs_task_function_values_when_java_is_available() {
 #[test]
 fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
     let ir = lower_to_ir(concat!(
-        "pub fn main(value: Int) -> output: Int effects []\n",
+        "pub fn main(value: Int) -> output: Int\n",
         "  ensure output > 0\n",
         "  value\n",
         "end\n",
@@ -456,7 +456,7 @@ fn bytecode_backend_entry_reports_contract_failures_when_java_is_available() {
 #[test]
 fn bytecode_backend_entry_invariant_failure_blames_caller_when_java_is_available() {
     let ir = lower_to_ir(concat!(
-        "pub fn main(value: Bool) -> Bool effects []\n",
+        "pub fn main(value: Bool) -> Bool\n",
         "invariant value\n",
         "  value\n",
         "end\n",
@@ -480,7 +480,7 @@ fn bytecode_backend_entry_invariant_failure_blames_caller_when_java_is_available
 #[test]
 fn bytecode_backend_return_invariant_failure_blames_implementation_when_java_is_available() {
     let mut ir = lower_to_ir(concat!(
-        "pub fn main(value: Bool) -> Bool effects []\n",
+        "pub fn main(value: Bool) -> Bool\n",
         "invariant value\n",
         "  false\n",
         "end\n",
@@ -510,7 +510,7 @@ fn bytecode_backend_javap_reports_target_version_and_entry_descriptor_when_avail
         return;
     }
 
-    let ir = lower_to_ir("pub fn main(value: String) -> String effects []\n  value\nend\n");
+    let ir = lower_to_ir("pub fn main(value: String) -> String\n  value\nend\n");
     let program = generate_classfiles_with_entry_arg_types(&ir, "main", &[EntryArgType::String]);
     let root = temp_dir("bytecode-javap");
     write_jvm_program(&root, &program);

@@ -15,6 +15,6 @@ mod spec.metadata
 /// context: Public functions define the static API boundary.
 /// decision: Keep annotations explicit at the public boundary.
 /// consequences: Callers observe the declared effect list.
-pub fn main() -> Int effects []
+pub fn main() -> Int
   1
 end

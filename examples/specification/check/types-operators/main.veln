@@ -3,15 +3,15 @@ fn emit(text: String) -> () effects [stdio]
   stdio::println(text)
 end
 
-fn make_emitter() -> fn(String) -> () effects [stdio] effects []
+fn make_emitter() -> fn(String) -> () effects [stdio]
   emit
 end
 
-fn is_large(value: Float) -> Bool effects []
+fn is_large(value: Float) -> Bool
   value >= 2.5 and not false
 end
 
-pub fn main(count: Int, ratio: Float, enabled: Bool) -> Result({count: Int, ratio: Float, enabled: Bool}, String) effects []
+pub fn main(count: Int, ratio: Float, enabled: Bool) -> Result({count: Int, ratio: Float, enabled: Bool}, String)
   let shifted: Float = ratio + 0.5
   let negated: Float = -shifted
   let accepted: Bool = match enabled

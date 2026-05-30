@@ -5,6 +5,6 @@ fn helper() -> Int
   1
 end
 
-pub fn main() -> Int effects []
+pub fn main() -> Int
   missing::helper()
 end

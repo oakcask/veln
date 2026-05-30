@@ -1728,7 +1728,7 @@ mod tests {
     #[test]
     fn discovers_test_declarations_in_selected_files() {
         let module = module(concat!(
-            "test first() -> () effects []\n",
+            "test first() -> ()\n",
             "  ()\n",
             "end\n",
             "fn helper()\n",
@@ -1749,10 +1749,10 @@ mod tests {
     #[test]
     fn attach_doctest_expectations_marks_matching_cases_as_doctests() {
         let module = module(concat!(
-            "test doctest_1() -> () effects []\n",
+            "test doctest_1() -> ()\n",
             "  ()\n",
             "end\n",
-            "test ordinary() -> () effects []\n",
+            "test ordinary() -> ()\n",
             "  ()\n",
             "end\n",
         ));
@@ -1803,7 +1803,7 @@ mod tests {
 
     #[test]
     fn report_json_contains_summary_suite_errors_and_cases() {
-        let module = module("test first() -> () effects []\n  ()\nend\n");
+        let module = module("test first() -> ()\n  ()\nend\n");
         let test_files = BTreeSet::from(["main_test.veln".to_string()]);
         let cases = discover_test_cases(&module, &test_files);
         let report = TestReport::new(
@@ -1832,7 +1832,7 @@ mod tests {
                 "\"name\":\"first\",\"kind\":\"test\",\"status\":\"passed\",",
                 "\"source\":{\"file\":\"main_test.veln\",\"node_id\":\"test-1\",",
                 "\"span\":{\"start\":{\"line\":1,\"column\":1,\"offset\":0},",
-                "\"end\":{\"line\":4,\"column\":1,\"offset\":39}}},",
+                "\"end\":{\"line\":4,\"column\":1,\"offset\":28}}},",
                 "\"reason\":null,\"failure\":null,\"events\":[],",
                 "\"diagnostics\":[]}]}"
             )
@@ -1841,7 +1841,7 @@ mod tests {
 
     #[test]
     fn report_json_counts_suite_errors_and_runtime_failures() {
-        let source_file = SourceFile::new("main_test.veln", "test first() -> () effects []\nend\n");
+        let source_file = SourceFile::new("main_test.veln", "test first() -> ()\nend\n");
         let span = source_file.span(TextRange::new(0, source_file.len()));
         let report = TestReport::new(
             TestSelection {
@@ -1888,7 +1888,7 @@ mod tests {
     fn stdio_events_preserve_stream_sequence_and_source() {
         let source_file = SourceFile::new(
             "main_test.veln",
-            "test first() -> () effects []\n  ()\nend\n",
+            "test first() -> ()\n  ()\nend\n",
         );
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
@@ -1911,7 +1911,7 @@ mod tests {
                 "\"text\":\"hello\\n\",\"terminator\":\"none\",\"sequence\":1,",
                 "\"node_id\":\"test-1\",\"span\":{\"file\":\"main_test.veln\",",
                 "\"start\":{\"line\":1,\"column\":1,\"offset\":0},",
-                "\"end\":{\"line\":4,\"column\":1,\"offset\":39}}}"
+                "\"end\":{\"line\":4,\"column\":1,\"offset\":28}}}"
             )
         );
         assert!(events[1].to_json().contains("\"sequence\":2"));
@@ -1929,7 +1929,7 @@ mod tests {
                 "/// ```veln-output stream=stdout\n",
                 "/// ready\n",
                 "/// ```\n",
-                "pub fn main() -> () effects []\n",
+                "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
             ),
@@ -2680,7 +2680,7 @@ mod tests {
                 "/// let value = parse(\"1\")?\n",
                 "/// stdio::println(\"ready\")\n",
                 "/// ```\n",
-                "pub fn main() -> () effects []\n",
+                "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
             ),
@@ -2709,7 +2709,7 @@ mod tests {
                 "/// ```veln\n",
                 "/// let value: Int = Ok(1)?\n",
                 "/// ```\n",
-                "pub fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+                "pub fn parse(raw: String) -> Result(Int, AppError)\n",
                 "  Ok(1)\n",
                 "end\n",
             ),
@@ -2734,13 +2734,13 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+                "fn parse(raw: String) -> Result(Int, AppError)\n",
                 "  Ok(1)\n",
                 "end\n",
                 "/// ```veln\n",
                 "/// let value = parse(\"1\")?\n",
                 "/// ```\n",
-                "pub fn main() -> () effects []\n",
+                "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
             ),
@@ -2765,13 +2765,13 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> result: Result(Int, AppError) effects []\n",
+                "fn parse(raw: String) -> result: Result(Int, AppError)\n",
                 "  Ok(1)\n",
                 "end\n",
                 "/// ```veln\n",
                 "/// let value = parse(\"1\")?\n",
                 "/// ```\n",
-                "pub fn main() -> () effects []\n",
+                "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
             ),
@@ -2796,13 +2796,13 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Vec(Result(Int, ParseError)), AppError) effects []\n",
+                "fn parse(raw: String) -> Result(Vec(Result(Int, ParseError)), AppError)\n",
                 "  Ok([])\n",
                 "end\n",
                 "/// ```veln\n",
                 "/// let value = parse(\"1\")?\n",
                 "/// ```\n",
-                "pub fn main() -> () effects []\n",
+                "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
             ),
@@ -2827,17 +2827,17 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+                "fn parse(raw: String) -> Result(Int, AppError)\n",
                 "  Ok(1)\n",
                 "end\n",
-                "fn read(raw: String) -> Result(String, IoError) effects []\n",
+                "fn read(raw: String) -> Result(String, IoError)\n",
                 "  Ok(raw)\n",
                 "end\n",
                 "/// ```veln\n",
                 "/// let value = parse(\"1\")?\n",
                 "/// let text = read(\"x\")?\n",
                 "/// ```\n",
-                "pub fn main() -> () effects []\n",
+                "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
             ),
@@ -2863,17 +2863,17 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+                "fn parse(raw: String) -> Result(Int, AppError)\n",
                 "  Ok(1)\n",
                 "end\n",
-                "fn read(raw: String) -> Result(String, IoError) effects []\n",
+                "fn read(raw: String) -> Result(String, IoError)\n",
                 "  Ok(raw)\n",
                 "end\n",
                 "/// ```veln error=ExampleError\n",
                 "/// let value = parse(\"1\")?\n",
                 "/// let text = read(\"x\")?\n",
                 "/// ```\n",
-                "pub fn main() -> () effects []\n",
+                "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
             ),
@@ -2904,13 +2904,13 @@ mod tests {
         let primary = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+                "fn parse(raw: String) -> Result(Int, AppError)\n",
                 "  Ok(1)\n",
                 "end\n",
                 "/// ```veln\n",
                 "/// let value = parse(\"1\")?\n",
                 "/// ```\n",
-                "pub fn main() -> () effects []\n",
+                "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
             ),
@@ -2918,7 +2918,7 @@ mod tests {
         let imported = SourceFile::new(
             "other.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Int, ParseError) effects []\n",
+                "fn parse(raw: String) -> Result(Int, ParseError)\n",
                 "  Ok(1)\n",
                 "end\n",
             ),
@@ -3237,7 +3237,7 @@ mod tests {
     fn stdio_trace_skips_malformed_lines() {
         let source_file = SourceFile::new(
             "main_test.veln",
-            "test first() -> () effects []\n  ()\nend\n",
+            "test first() -> ()\n  ()\nend\n",
         );
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
@@ -3264,7 +3264,7 @@ mod tests {
     fn stdio_trace_decodes_uppercase_hex_text() {
         let source_file = SourceFile::new(
             "main_test.veln",
-            "test first() -> () effects []\n  ()\nend\n",
+            "test first() -> ()\n  ()\nend\n",
         );
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
@@ -3645,7 +3645,7 @@ mod tests {
     fn stdio_trace_falls_back_to_test_source_for_missing_call_identity() {
         let source_file = SourceFile::new(
             "main_test.veln",
-            "test first() -> () effects []\n  ()\nend\n",
+            "test first() -> ()\n  ()\nend\n",
         );
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
@@ -3667,7 +3667,7 @@ mod tests {
                 "\"text\":\"ready\",\"terminator\":\"none\",\"sequence\":1,",
                 "\"node_id\":\"test-1\",\"span\":{\"file\":\"main_test.veln\",",
                 "\"start\":{\"line\":1,\"column\":1,\"offset\":0},",
-                "\"end\":{\"line\":4,\"column\":1,\"offset\":39}}}"
+                "\"end\":{\"line\":4,\"column\":1,\"offset\":28}}}"
             )
         );
     }
@@ -3782,7 +3782,7 @@ mod tests {
 
     #[test]
     fn test_run_status_precedence_handles_errors_blockers_and_failures() {
-        let source_file = SourceFile::new("main_test.veln", "test first() -> () effects []\nend\n");
+        let source_file = SourceFile::new("main_test.veln", "test first() -> ()\nend\n");
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
             node_id: "test-1".to_string(),

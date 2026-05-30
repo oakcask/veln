@@ -57,7 +57,7 @@ fn marks_distinct_literal_equality_contradiction_satisfy_predicate_as_tautology_
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(primary: String, fallback: String) -> String effects []\n",
+            "fn main(primary: String, fallback: String) -> String\n",
             "  _value satisfy candidate => not (candidate == \"ready\" and candidate == \"done\")\n",
             "end\n",
         ),
@@ -142,7 +142,7 @@ fn reports_return_type_mismatch() {
 
 #[test]
 fn omitted_tail_expression_returns_unit() {
-    let source = SourceFile::new("main.veln", "fn main() -> () effects []\nend\n");
+    let source = SourceFile::new("main.veln", "fn main() -> ()\nend\n");
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 
@@ -155,7 +155,7 @@ fn omitted_tail_expression_returns_unit() {
 fn omitted_tail_expression_checks_declared_return_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Int effects []\n  let value = 1\nend\n",
+        "fn main() -> Int\n  let value = 1\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -181,7 +181,7 @@ fn omitted_tail_expression_checks_declared_return_type() {
 fn omitted_tail_expression_lowers_to_unit_return() {
     let source = SourceFile::new(
         "main.veln",
-        concat!("fn main() -> () effects []\n", "  let value = 1\n", "end\n",),
+        concat!("fn main() -> ()\n", "  let value = 1\n", "end\n",),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -472,10 +472,10 @@ fn descriptor_routed_try_checks_result_error_type_at_operand() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn parse(raw: String) -> Result(Int, String) effects []\n",
+            "fn parse(raw: String) -> Result(Int, String)\n",
             "  Ok(1)\n",
             "end\n",
-            "fn main(raw: String) -> Result((), AppError) effects []\n",
+            "fn main(raw: String) -> Result((), AppError)\n",
             "  let value: Int = parse(raw)?\n",
             "  Ok(())\n",
             "end\n",
@@ -634,7 +634,7 @@ fn record_patterns_bind_field_types_through_core_and_ir() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: {count: Int, label: String}) -> String effects []\n",
+            "fn main(value: {count: Int, label: String}) -> String\n",
             "  match value\n",
             "    {count: 0, label: name} => name\n",
             "    {count: count, label: _} => \"many\"\n",
@@ -691,10 +691,10 @@ fn match_expression_type_checks_inside_call_argument() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn wrap(value: String) -> String effects []\n",
+            "fn wrap(value: String) -> String\n",
             "  value\n",
             "end\n",
-            "fn describe(value: Option(Int)) -> String effects []\n",
+            "fn describe(value: Option(Int)) -> String\n",
             "  wrap(match value\n",
             "    Some(count) => \"some\"\n",
             "    None => \"none\"\n",
@@ -728,7 +728,7 @@ fn descriptor_routed_constructor_patterns_bind_payload_types() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> Int effects []\n",
+            "fn main(value: Option(Int)) -> Int\n",
             "  match value\n",
             "    Option::Some(count) => count + 1\n",
             "    Option::None => 0\n",
@@ -763,7 +763,7 @@ fn descriptor_routed_result_pattern_reports_payload_type_mismatch_at_branch_expr
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> Int effects []\n",
+            "fn main(value: Result(Int, String)) -> Int\n",
             "  match value\n",
             "    Result::Ok(count) => count\n",
             "    Result::Err(error) => error\n",
@@ -793,19 +793,19 @@ fn match_exhaustiveness_accepts_finite_builtin_domains() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn bool_label(value: Bool) -> String effects []\n",
+            "fn bool_label(value: Bool) -> String\n",
             "  match value\n",
             "    true => \"true\"\n",
             "    false => \"false\"\n",
             "  end\n",
             "end\n",
-            "fn option_label(value: Option(Int)) -> String effects []\n",
+            "fn option_label(value: Option(Int)) -> String\n",
             "  match value\n",
             "    Some(_) => \"some\"\n",
             "    None => \"none\"\n",
             "  end\n",
             "end\n",
-            "fn result_label(value: Result(Int, String)) -> String effects []\n",
+            "fn result_label(value: Result(Int, String)) -> String\n",
             "  match value\n",
             "    Ok(_) => \"ok\"\n",
             "    Err(_) => \"err\"\n",
@@ -828,13 +828,13 @@ fn match_exhaustiveness_accepts_catch_all_patterns() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn wildcard(value: Option(Int)) -> String effects []\n",
+            "fn wildcard(value: Option(Int)) -> String\n",
             "  match value\n",
             "    Some(_) => \"some\"\n",
             "    _ => \"fallback\"\n",
             "  end\n",
             "end\n",
-            "fn binding(value: Result(Int, String)) -> String effects []\n",
+            "fn binding(value: Result(Int, String)) -> String\n",
             "  match value\n",
             "    Ok(_) => \"ok\"\n",
             "    other => \"fallback\"\n",
@@ -855,7 +855,7 @@ fn match_exhaustiveness_reports_missing_bool_case() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Bool) -> String effects []\n",
+            "fn main(value: Bool) -> String\n",
             "  match value\n",
             "    true => \"yes\"\n",
             "  end\n",
@@ -883,7 +883,7 @@ fn match_exhaustiveness_reports_empty_finite_builtin_match() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Bool) -> String effects []\n",
+            "fn main(value: Bool) -> String\n",
             "  match value\n",
             "  end\n",
             "end\n",
@@ -910,7 +910,7 @@ fn match_exhaustiveness_reports_missing_option_case() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> String effects []\n",
+            "fn main(value: Option(Int)) -> String\n",
             "  match value\n",
             "    Some(count) => \"some\"\n",
             "  end\n",
@@ -947,7 +947,7 @@ fn match_exhaustiveness_reports_qualified_option_case_with_source_anchors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> String effects []\n",
+            "fn main(value: Option(Int)) -> String\n",
             "  match value\n",
             "    Option::Some(count) => \"some\"\n",
             "  end\n",
@@ -985,7 +985,7 @@ fn match_exhaustiveness_reports_qualified_option_none_case_with_source_anchors()
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> String effects []\n",
+            "fn main(value: Option(Int)) -> String\n",
             "  match value\n",
             "    Option::None => \"none\"\n",
             "  end\n",
@@ -1023,7 +1023,7 @@ fn match_exhaustiveness_reports_missing_result_case_with_source_anchors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> String effects []\n",
+            "fn main(value: Result(Int, String)) -> String\n",
             "  match value\n",
             "    Err(error) => error\n",
             "  end\n",
@@ -1061,7 +1061,7 @@ fn match_exhaustiveness_reports_qualified_result_case_with_source_anchors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> String effects []\n",
+            "fn main(value: Result(Int, String)) -> String\n",
             "  match value\n",
             "    Result::Err(error) => error\n",
             "  end\n",
@@ -1099,7 +1099,7 @@ fn match_exhaustiveness_reports_qualified_result_ok_case_with_source_anchors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> String effects []\n",
+            "fn main(value: Result(Int, String)) -> String\n",
             "  match value\n",
             "    Result::Ok(count) => \"ok\"\n",
             "  end\n",
@@ -1141,7 +1141,7 @@ fn minimal_list_adt_declaration_type_checks_constructor_patterns() {
             "  Nil\n",
             "  Cons(head: A, tail: List(A))\n",
             "end\n",
-            "fn main(value: List(Int)) -> Int effects []\n",
+            "fn main(value: List(Int)) -> Int\n",
             "  match value\n",
             "    Nil => 0\n",
             "    Cons(head, _) => head\n",
@@ -1166,13 +1166,13 @@ fn minimal_list_adt_qualified_constructors_type_check_and_bind_payloads() {
             "  Nil\n",
             "  Cons(head: A, tail: List(A))\n",
             "end\n",
-            "fn main(value: List(Int)) -> Int effects []\n",
+            "fn main(value: List(Int)) -> Int\n",
             "  match value\n",
             "    List::Nil => 0\n",
             "    List::Cons(head, tail) => head + length(tail)\n",
             "  end\n",
             "end\n",
-            "fn length(value: List(Int)) -> Int effects []\n",
+            "fn length(value: List(Int)) -> Int\n",
             "  match value\n",
             "    List::Nil => 0\n",
             "    List::Cons(_, tail) => 1 + length(tail)\n",
@@ -1197,7 +1197,7 @@ fn minimal_list_adt_match_reports_missing_cons_case() {
             "  Nil\n",
             "  Cons(head: A, tail: List(A))\n",
             "end\n",
-            "fn main(value: List(Int)) -> Int effects []\n",
+            "fn main(value: List(Int)) -> Int\n",
             "  match value\n",
             "    Nil => 0\n",
             "  end\n",
@@ -1228,7 +1228,7 @@ fn minimal_list_adt_match_reports_missing_qualified_nil_case_with_source_anchors
             "  Nil\n",
             "  Cons(head: A, tail: List(A))\n",
             "end\n",
-            "fn main(value: List(Int)) -> Int effects []\n",
+            "fn main(value: List(Int)) -> Int\n",
             "  match value\n",
             "    List::Cons(head, _) => head\n",
             "  end\n",

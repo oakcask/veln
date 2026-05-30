@@ -6,7 +6,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "vec_is_empty",
             concat!(
-                "pub fn main(value: Int) -> Bool effects []\n",
+                "pub fn main(value: Int) -> Bool\n",
                 "  vec_is_empty(value)\n",
                 "end\n",
             ),
@@ -15,7 +15,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "vec_push",
             concat!(
-                "pub fn main(value: Int) -> Vec(Int) effects []\n",
+                "pub fn main(value: Int) -> Vec(Int)\n",
                 "  vec_push(value, 1)\n",
                 "end\n",
             ),
@@ -24,7 +24,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "vec_concat",
             concat!(
-                "pub fn main(value: Int, other: Vec(Int)) -> Vec(Int) effects []\n",
+                "pub fn main(value: Int, other: Vec(Int)) -> Vec(Int)\n",
                 "  vec_concat(value, other)\n",
                 "end\n",
             ),
@@ -33,10 +33,10 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "vec_map",
             concat!(
-                "fn stringify(value: Int) -> String effects []\n",
+                "fn stringify(value: Int) -> String\n",
                 "  \"ok\"\n",
                 "end\n",
-                "pub fn main(value: Int) -> Vec(String) effects []\n",
+                "pub fn main(value: Int) -> Vec(String)\n",
                 "  vec_map(value, stringify)\n",
                 "end\n",
             ),
@@ -45,10 +45,10 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "vec_try_map",
             concat!(
-                "fn stringify(value: Int) -> Result(String, String) effects []\n",
+                "fn stringify(value: Int) -> Result(String, String)\n",
                 "  Ok(\"ok\")\n",
                 "end\n",
-                "pub fn main(value: Int) -> Result(Vec(String), String) effects []\n",
+                "pub fn main(value: Int) -> Result(Vec(String), String)\n",
                 "  vec_try_map(value, stringify)\n",
                 "end\n",
             ),
@@ -57,10 +57,10 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "vec_try_map_with",
             concat!(
-                "fn stringify(context: String, value: Int) -> Result(String, String) effects []\n",
+                "fn stringify(context: String, value: Int) -> Result(String, String)\n",
                 "  Ok(context)\n",
                 "end\n",
-                "pub fn main(value: Int) -> Result(Vec(String), String) effects []\n",
+                "pub fn main(value: Int) -> Result(Vec(String), String)\n",
                 "  vec_try_map_with(\"prefix\", value, stringify)\n",
                 "end\n",
             ),
@@ -73,7 +73,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
                 "  Nil\n",
                 "  Cons(head: A, tail: List(A))\n",
                 "end\n",
-                "pub fn main(value: Int) -> Bool effects []\n",
+                "pub fn main(value: Int) -> Bool\n",
                 "  list_is_empty(value)\n",
                 "end\n",
             ),
@@ -86,10 +86,10 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
                 "  Nil\n",
                 "  Cons(head: A, tail: List(A))\n",
                 "end\n",
-                "fn stringify(value: Int) -> String effects []\n",
+                "fn stringify(value: Int) -> String\n",
                 "  \"ok\"\n",
                 "end\n",
-                "pub fn main(value: Int) -> List(String) effects []\n",
+                "pub fn main(value: Int) -> List(String)\n",
                 "  list_map(value, stringify)\n",
                 "end\n",
             ),
@@ -102,10 +102,10 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
                 "  Nil\n",
                 "  Cons(head: A, tail: List(A))\n",
                 "end\n",
-                "fn stringify(value: Int) -> Result(String, String) effects []\n",
+                "fn stringify(value: Int) -> Result(String, String)\n",
                 "  Ok(\"ok\")\n",
                 "end\n",
-                "pub fn main(value: Int) -> Result(List(String), String) effects []\n",
+                "pub fn main(value: Int) -> Result(List(String), String)\n",
                 "  list_try_map(value, stringify)\n",
                 "end\n",
             ),
@@ -114,7 +114,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "dict_get",
             concat!(
-                "pub fn main(value: Int) -> Option(String) effects []\n",
+                "pub fn main(value: Int) -> Option(String)\n",
                 "  dict_get(value, \"key\")\n",
                 "end\n",
             ),
@@ -123,7 +123,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "dict_contains",
             concat!(
-                "pub fn main(value: Int) -> Bool effects []\n",
+                "pub fn main(value: Int) -> Bool\n",
                 "  dict_contains(value, \"key\")\n",
                 "end\n",
             ),
@@ -132,7 +132,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "dict_insert",
             concat!(
-                "pub fn main(value: Int) -> Dict(String, Int) effects []\n",
+                "pub fn main(value: Int) -> Dict(String, Int)\n",
                 "  dict_insert(value, \"key\", 1)\n",
                 "end\n",
             ),
@@ -141,7 +141,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "dict_remove",
             concat!(
-                "pub fn main(value: Int) -> Dict(String, Int) effects []\n",
+                "pub fn main(value: Int) -> Dict(String, Int)\n",
                 "  dict_remove(value, \"key\")\n",
                 "end\n",
             ),
@@ -150,7 +150,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "int_to_string",
             concat!(
-                "pub fn main(value: String) -> String effects []\n",
+                "pub fn main(value: String) -> String\n",
                 "  int_to_string(value)\n",
                 "end\n",
             ),
@@ -159,7 +159,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "string_parse_int",
             concat!(
-                "pub fn main(value: Int) -> Result(Int, String) effects []\n",
+                "pub fn main(value: Int) -> Result(Int, String)\n",
                 "  string_parse_int(value)\n",
                 "end\n",
             ),
@@ -168,7 +168,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "string_split_once",
             concat!(
-                "pub fn main(value: Int) -> Option({left: String, right: String}) effects []\n",
+                "pub fn main(value: Int) -> Option({left: String, right: String})\n",
                 "  string_split_once(value, \",\")\n",
                 "end\n",
             ),
@@ -208,7 +208,7 @@ fn flows_call_argument_expected_type_into_holes() {
             "fn consume(value: Float) -> ()\n",
             "  ()\n",
             "end\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  consume(_)\n",
             "end\n",
         ),
@@ -234,7 +234,7 @@ fn reports_missing_public_effect_with_call_provenance() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  stdio::println(\"hello\")\n",
             "end\n",
         ),
@@ -268,7 +268,7 @@ fn channel_calls_require_concurrency_effect() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(tx: Sender(String)) -> Result((), SendError) effects []\n",
+            "pub fn main(tx: Sender(String)) -> Result((), SendError)\n",
             "  channel::send(tx, \"hello\")\n",
             "end\n",
         ),
@@ -295,10 +295,10 @@ fn task_calls_require_concurrency_effect() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn produce() -> String effects []\n",
+            "fn produce() -> String\n",
             "  \"hello\"\n",
             "end\n",
-            "pub fn main() -> Task(String) effects []\n",
+            "pub fn main() -> Task(String)\n",
             "  task::spawn(produce)\n",
             "end\n",
         ),
@@ -324,7 +324,7 @@ fn fs_calls_require_fs_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(path: Path) -> Result(String, FsError) effects []\n",
+            "pub fn main(path: Path) -> Result(String, FsError)\n",
             "  fs::read_to_string(path)\n",
             "end\n",
         ),
@@ -452,7 +452,7 @@ fn process_calls_require_process_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> Vec(String) effects []\n",
+            "pub fn main() -> Vec(String)\n",
             "  process::args()\n",
             "end\n",
         ),
@@ -524,7 +524,7 @@ fn task_spawn_and_join_preserve_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn produce() -> String effects []\n",
+            "fn produce() -> String\n",
             "  \"hello\"\n",
             "end\n",
             "pub fn main() -> Result(String, JoinError) effects [concurrency]\n",
