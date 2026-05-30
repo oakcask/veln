@@ -32,6 +32,7 @@ override recording around repair application.
 
 ## Boundary
 
-This target did not add partial application, broader ranking models, external
-verification commands, or general automatic repair behavior. Those remain
-proposal work until a short proposal page selects one concrete target.
+This target did not add the remaining repair-loop axes: verification
+orchestration, candidate evidence, edit granularity, or broader application
+authority. Those remain proposal work until a short proposal page selects one
+concrete target.

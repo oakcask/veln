@@ -23,8 +23,8 @@ compare it with `../specification/` before changing behavior.
   internal trampoline follow-up for source-authored immutable collection
   helpers after the ADT and `List` route.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
-  repair verification, ranking, partial application, and automatic repair
-  follow-ups.
+  remaining repair-loop axes for verification orchestration, candidate
+  evidence, edit granularity, and application authority.
 - [agent-module-package-docs.md](agent-module-package-docs.md):
   package metadata, generated documentation, and export-model follow-ups.
 - [agent-language-surface-expansion.md](agent-language-surface-expansion.md):

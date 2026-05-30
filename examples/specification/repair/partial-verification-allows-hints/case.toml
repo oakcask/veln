@@ -1,0 +1,28 @@
+command = ["repair", "--json", "--apply", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "applied"
+
+[[json_assert]]
+path = "verification.status"
+equals = "passed"
+
+[[json_assert]]
+path = "verification.diagnostics.0.id"
+equals = "hole.unfilled"
+
+[[json_assert]]
+path = "summary.applied_count"
+equals = 1
+
+[[file_assert]]
+path = "main.veln"
+equals = "// Repair verification accepts hint-only diagnostics after applying the target.\nfn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n  order\nend\n\nfn followup(order: {ready: Bool}) -> {ready: Bool}\n  _remaining\nend\n"

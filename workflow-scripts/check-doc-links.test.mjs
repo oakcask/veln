@@ -176,7 +176,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   );
   assertIncludes(
     prompt,
-    "repair verification,\n  ranking, partial application, and automatic repair follow-ups beyond the\n  current command boundary",
+    "routes remaining\n  repair-loop axes for verification orchestration, candidate evidence, edit\n  granularity, and application authority",
   );
 
   assertProposalIndexRoutes(proposalsIndex);
@@ -216,7 +216,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   );
   assertIncludes(
     repairLoop,
-    "repair-loop work that remains beyond the implemented",
+    "repair-loop axes that remain beyond the implemented",
   );
   assertIncludes(
     modulePackageDocs,
@@ -378,9 +378,9 @@ test("repair proposal route points completed targets to reference records", () =
     proposal,
     "../reference/implemented-proposals/repair-command-confirmation-override.md",
   );
-  assertIncludes(proposal, "## Proposed Targets");
-  assertIncludes(proposal, "Verification commands beyond built-in");
-  assertIncludes(proposal, "Partial application of a candidate's replacement set.");
+  assertIncludes(proposal, "## Proposal Axes");
+  assertIncludes(proposal, "Verification orchestration: external verification commands");
+  assertIncludes(proposal, "Edit granularity: partial application");
 
   assertIncludes(implemented, "`--confirm CANDIDATE_ID`");
   assertIncludes(implemented, "`--override` requires `--confirm`");
@@ -397,8 +397,8 @@ test("repair proposal route points completed targets to reference records", () =
     "../proposals/agent-repair-loop-followups.md",
   );
   assertIncludes(
-    repairCandidates,
-    "Do not promote partial application or broader automatic",
+    proposal,
+    "Do not promote any remaining proposal axis",
   );
 });
 
@@ -738,9 +738,9 @@ function readNoTargetPrompt() {
     "  list helper execution follow-ups.",
     "- `docs/proposals/immutable-collection-trampoline.md` tracks the internal",
     "  trampoline follow-up after the ADT and `List` route.",
-    "- `docs/proposals/agent-repair-loop-followups.md` routes repair verification,",
-    "  ranking, partial application, and automatic repair follow-ups beyond the",
-    "  current command boundary.",
+    "- `docs/proposals/agent-repair-loop-followups.md` routes remaining",
+    "  repair-loop axes for verification orchestration, candidate evidence, edit",
+    "  granularity, and application authority.",
     "- `docs/proposals/agent-module-package-docs.md` collects package metadata,",
     "  generated documentation, and export-model follow-ups that need narrower",
     "  proposals before implementation.",

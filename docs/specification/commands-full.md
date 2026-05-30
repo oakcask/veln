@@ -271,46 +271,12 @@ candidate id from diagnostic details is also preserved as
 command-level id from a saved repair candidate, but application refuses
 ambiguous ids.
 
-Application is deliberately narrow. `--apply` applies exactly one candidate
-only when the selected advisory candidate has
-`application_policy: "safe_repair_candidate"` and
-`application_status: "unapplied"`. If no candidate is selected and exactly one
-safe unapplied candidate exists, that candidate is selected. If multiple safe
-candidates exist, application refuses until `--candidate` selects one. Saved
-candidate input is not a write authorization: each non-empty replacement edit
-in the selected saved candidate must match current safe evidence with the same
-advisory id before the command writes a file.
-
-`--confirm CANDIDATE_ID` records explicit user confirmation for the selected
-candidate before writing. When `--candidate` and `--confirm` are both present,
-both ids must resolve to the same command-level candidate. If `--candidate` is
-omitted, `--confirm` may select the candidate to apply.
-
-`--override` is a separate write authority for manual-review candidates and
-requires `--confirm`. With override, the selected candidate may have
-`application_policy: "manual_review_required"`, but it must still have
-`application_status: "unapplied"`, a confirmed id, valid replacement targets,
-non-overlapping edits, and passing post-edit check analysis. Override does not
-partially apply candidates and does not skip span, hole-target, rollback, or
-verification gates. Saved candidate input remains advisory unless either the
-current safe-evidence gate passes or the user supplies the explicit override
-and confirmation flags.
-
-The implemented edit representation is one or more source-relative
-replacements. A selected candidate may write multiple spans in one source file
-or spans across multiple source files. Replacement targets must still be within
-their current files and must be on character boundaries. Non-empty replacement
-targets must still name holes. Explicit empty replacements are accepted only
-for current `satisfy` suffix removal. Edits in the same file must not overlap.
-For a single hole replacement with no explicit suffix-removal edit, applying
-the repair also replaces the hole's `satisfy` suffix with the candidate
-replacement. Partial application is not implemented.
-
-After writing, `repair --apply` reruns the same check analysis over the selected
-inputs. If verification reports any error diagnostic, the command restores the
-original contents of every written file and exits unsuccessfully. Hint-only
-partial status, including remaining holes elsewhere, does not by itself roll
-back an applied edit.
+Application is deliberately narrow. `--apply` applies exactly one selected
+candidate; saved candidate input remains advisory rather than write
+authorization. Selection, safe application, confirmation, override, target
+validation, partial-application non-support, post-edit verification, and
+rollback are specified in
+[repair-application.md](repair-application.md).
 
 Human preview output lists candidate ids, summaries, a representative target
 span, replacement, and application policy. Human apply output reports the

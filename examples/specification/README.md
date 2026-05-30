@@ -210,6 +210,8 @@ against the built `veln` binary.
   candidates.
 - `repair/apply-safe-candidate/`: `repair --apply` writes one safe candidate
   and verifies the result.
+- `repair/apply-confirmed-override/`: confirmed override applies and records a
+  manual-review candidate.
 - `repair/verification-checked-core-rollback/`: repair verification rolls back
   when shared check analysis reports a checked-core blocker.
 - `repair/refuse-multiple-candidates/`: automatic apply refuses ambiguous safe
@@ -218,6 +220,8 @@ against the built `veln` binary.
   explicit confirmation.
 - `repair/saved-preview-normalization/`: saved repair JSON input is normalized
   to command-level preview candidates.
+- `repair/saved-apply-requires-current-match/`: saved repair JSON does not
+  authorize writes without a current safe candidate match.
 
 ## Boundaries
 

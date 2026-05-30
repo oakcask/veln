@@ -25,6 +25,8 @@ smallest specification page to read. Start with the short page; open the matchin
 - Advisory repair candidate records, concrete edits, application policy, the
   `repair` command gate, and future-work boundary:
   [repair-candidates.md](repair-candidates.md).
+- Applying repair candidates, confirmation, override, verification, and
+  rollback: [repair-application.md](repair-application.md).
 
 ## Commands And Output
 
@@ -43,7 +45,8 @@ smallest specification page to read. Start with the short page; open the matchin
 - Test JSON selection, case records, failures, errors, and summaries:
   [test-json.md](test-json.md).
 - Repair JSON preview, apply, refusal, edit, verification, and summary records:
-  [repair-json.md](repair-json.md).
+  [repair-json.md](repair-json.md), after
+  [repair-application.md](repair-application.md) for write gates.
 
 ## Runtime, Examples, And Rationale
 

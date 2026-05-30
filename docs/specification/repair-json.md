@@ -2,7 +2,8 @@
 
 This page specifies the implemented `veln repair --json` output. Use
 [repair-candidates.md](repair-candidates.md) first for the advisory candidate
-boundary and [commands.md](commands.md) for command gates.
+boundary, [repair-application.md](repair-application.md) for apply gates, and
+[commands.md](commands.md) for command availability.
 
 ## Envelope
 
@@ -41,14 +42,9 @@ Each command-level candidate contains:
 - `verification_command`: the advisory verification command when present.
 - `source`: the original advisory candidate object from diagnostic details.
 
-`repair --apply` applies only candidates whose `application_policy` is
-`"safe_repair_candidate"` and whose `application_status` is `"unapplied"`.
-When `--candidate` is present, the requested id may match either `repair_id` or
-`source_candidate_id`.
-
-`repair --apply --override --confirm CANDIDATE_ID` may apply a
-`manual_review_required` candidate when the candidate is still `unapplied` and
-all target, rollback, and post-edit verification gates pass.
+Apply eligibility, selection ids, confirmation, override, target validation,
+rollback, and post-edit verification are specified in
+[repair-application.md](repair-application.md).
 
 Saved command-level candidates are renumbered with current command-local
 `repair_id` values. The saved command-level id remains accepted for

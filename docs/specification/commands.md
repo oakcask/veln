@@ -39,9 +39,9 @@ requiring the full command reference on the first read.
   command rules.
 - `repair`: preview, apply one safe advisory hole repair candidate, or apply
   one explicitly confirmed manual-review candidate with override recording. Use
-  [repair-candidates.md](repair-candidates.md) for candidate input, selection,
-  confirmation, override, and apply gates, and [repair-json.md](repair-json.md)
-  for machine-readable output.
+  [repair-candidates.md](repair-candidates.md) for candidate input and
+  selection concepts, [repair-application.md](repair-application.md) for write
+  gates, and [repair-json.md](repair-json.md) for machine-readable output.
 - `explain`: diagnostic catalog lookup. Use
   [commands-full.md](commands-full.md) when diagnostic catalog behavior is the
   task.

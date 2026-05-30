@@ -1,0 +1,32 @@
+command = ["repair", "--json", "--apply", "main.veln", "saved-candidates.json"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "refused"
+
+[[json_assert]]
+path = "summary.refusal_reason"
+equals = "saved candidate is not current"
+
+[[json_assert]]
+path = "verification.status"
+equals = "not_run"
+
+[[json_assert]]
+path = "confirmation"
+equals = null
+
+[[json_assert]]
+path = "override"
+equals = null
+
+[[file_assert]]
+path = "main.veln"
+equals = "// Saved repair JSON is not write authorization without a current safe match.\nfn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n  _value satisfy candidate => candidate.ready == order.ready\nend\n"
