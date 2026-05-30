@@ -6,8 +6,12 @@ use std::path::{Path, PathBuf};
 
 use syn::visit::{self, Visit};
 
+mod dependency_graph;
+
 const DEFAULT_THRESHOLD: f64 = 30.0;
 const DEFAULT_FILE_LINE_THRESHOLD: usize = 700;
+const DEFAULT_DEPENDENCY_HOTSPOTS: usize = 10;
+const DEFAULT_DEPENDENCY_CYCLE_LIMIT: usize = 5;
 const DEFAULT_MAX_WARNINGS: usize = 50;
 
 fn main() {
@@ -50,10 +54,38 @@ fn main() {
             findings.len()
         );
     }
+
+    if config.dependency_summary {
+        let files = match collect_configured_rust_files(&config) {
+            Ok(files) => files,
+            Err(message) => {
+                eprintln!("{message}");
+                std::process::exit(1);
+            }
+        };
+        let summary = match dependency_graph::collect_summary(
+            files,
+            config.dependency_hotspots,
+            config.dependency_cycle_limit,
+        ) {
+            Ok(summary) => summary,
+            Err(message) => {
+                eprintln!("{message}");
+                std::process::exit(1);
+            }
+        };
+        if let Err(message) = dependency_graph::emit_summary(&summary) {
+            eprintln!("{message}");
+            std::process::exit(1);
+        }
+    }
 }
 
 #[derive(Debug)]
 struct Config {
+    dependency_cycle_limit: usize,
+    dependency_hotspots: usize,
+    dependency_summary: bool,
     github_annotations: bool,
     file_line_threshold: usize,
     max_warnings: usize,
@@ -63,6 +95,9 @@ struct Config {
 
 impl Config {
     fn parse(args: impl IntoIterator<Item = String>) -> Result<Self, String> {
+        let mut dependency_cycle_limit = DEFAULT_DEPENDENCY_CYCLE_LIMIT;
+        let mut dependency_hotspots = DEFAULT_DEPENDENCY_HOTSPOTS;
+        let mut dependency_summary = false;
         let mut github_annotations = false;
         let mut file_line_threshold = DEFAULT_FILE_LINE_THRESHOLD;
         let mut max_warnings = DEFAULT_MAX_WARNINGS;
@@ -72,28 +107,32 @@ impl Config {
 
         while let Some(arg) = args.next() {
             match arg.as_str() {
+                "--dependency-summary" => dependency_summary = true,
+                "--dependency-cycle-limit" => {
+                    let value = args
+                        .next()
+                        .ok_or_else(|| "--dependency-cycle-limit requires a value".to_string())?;
+                    dependency_cycle_limit =
+                        parse_positive_usize("--dependency-cycle-limit", &value)?;
+                }
+                "--dependency-hotspots" => {
+                    let value = args
+                        .next()
+                        .ok_or_else(|| "--dependency-hotspots requires a value".to_string())?;
+                    dependency_hotspots = parse_positive_usize("--dependency-hotspots", &value)?;
+                }
                 "--github-annotations" => github_annotations = true,
                 "--file-line-threshold" => {
                     let value = args
                         .next()
                         .ok_or_else(|| "--file-line-threshold requires a value".to_string())?;
-                    file_line_threshold = value.parse().map_err(|_| {
-                        format!("--file-line-threshold must be a positive integer, got {value:?}")
-                    })?;
-                    if file_line_threshold == 0 {
-                        return Err("--file-line-threshold must be greater than zero".to_string());
-                    }
+                    file_line_threshold = parse_positive_usize("--file-line-threshold", &value)?;
                 }
                 "--max-warnings" => {
                     let value = args
                         .next()
                         .ok_or_else(|| "--max-warnings requires a value".to_string())?;
-                    max_warnings = value.parse().map_err(|_| {
-                        format!("--max-warnings must be a positive integer, got {value:?}")
-                    })?;
-                    if max_warnings == 0 {
-                        return Err("--max-warnings must be greater than zero".to_string());
-                    }
+                    max_warnings = parse_positive_usize("--max-warnings", &value)?;
                 }
                 "--threshold" => {
                     let value = args
@@ -116,6 +155,9 @@ impl Config {
         }
 
         Ok(Self {
+            dependency_cycle_limit,
+            dependency_hotspots,
+            dependency_summary,
             github_annotations,
             file_line_threshold,
             max_warnings,
@@ -126,8 +168,18 @@ impl Config {
 }
 
 fn usage() -> String {
-    "usage: veln-code-metrics [--github-annotations] [--file-line-threshold N] [--max-warnings N] [--threshold N] [PATH ...]"
+    "usage: veln-code-metrics [--github-annotations] [--dependency-summary] [--dependency-hotspots N] [--dependency-cycle-limit N] [--file-line-threshold N] [--max-warnings N] [--threshold N] [PATH ...]"
         .to_string()
+}
+
+fn parse_positive_usize(option: &str, value: &str) -> Result<usize, String> {
+    let parsed = value
+        .parse()
+        .map_err(|_| format!("{option} must be a positive integer, got {value:?}"))?;
+    if parsed == 0 {
+        return Err(format!("{option} must be greater than zero"));
+    }
+    Ok(parsed)
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -306,17 +358,22 @@ fn annotation_message_escape(value: &str) -> String {
 }
 
 fn collect_findings(config: &Config) -> Result<Vec<Finding>, String> {
-    let mut files = Vec::new();
-    for root in &config.roots {
-        collect_rust_files(root, &mut files)?;
-    }
-    files.sort();
+    let files = collect_configured_rust_files(config)?;
 
     let mut findings = Vec::new();
     for file in files {
         findings.extend(analyze_file(&file, config)?);
     }
     Ok(findings)
+}
+
+fn collect_configured_rust_files(config: &Config) -> Result<Vec<PathBuf>, String> {
+    let mut files = Vec::new();
+    for root in &config.roots {
+        collect_rust_files(root, &mut files)?;
+    }
+    files.sort();
+    Ok(files)
 }
 
 fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
@@ -569,6 +626,9 @@ fn fallback() -> i32 {
     #[test]
     fn reports_file_over_line_threshold() {
         let config = Config {
+            dependency_cycle_limit: DEFAULT_DEPENDENCY_CYCLE_LIMIT,
+            dependency_hotspots: DEFAULT_DEPENDENCY_HOTSPOTS,
+            dependency_summary: false,
             github_annotations: false,
             file_line_threshold: 3,
             max_warnings: 10,
@@ -589,5 +649,23 @@ fn fallback() -> i32 {
         }
 
         assert!(matches!(findings.last(), Some(Finding::File(finding)) if finding.lines == 3));
+    }
+
+    #[test]
+    fn parses_dependency_summary_options() {
+        let config = Config::parse([
+            "--dependency-summary".to_string(),
+            "--dependency-hotspots".to_string(),
+            "3".to_string(),
+            "--dependency-cycle-limit".to_string(),
+            "2".to_string(),
+            "crates".to_string(),
+        ])
+        .unwrap();
+
+        assert!(config.dependency_summary);
+        assert_eq!(config.dependency_hotspots, 3);
+        assert_eq!(config.dependency_cycle_limit, 2);
+        assert_eq!(config.roots, vec![PathBuf::from("crates")]);
     }
 }
