@@ -2,19 +2,22 @@
 
 Status: proposed follow-ups
 
-This page records remaining runtime-failure follow-up work outside the
-implemented contract and result doctest routes. Current behavior is specified in
-`../specification/`.
+This page records remaining runtime-failure expectation work outside the
+implemented contract and result doctest routes. Current behavior is specified
+in `../specification/`; this page is only for adding another structured
+runtime failure kind.
 
 ## Read First
 
 - Current doctest command behavior:
   [../specification/commands.md](../specification/commands.md).
-- Current doctest metadata syntax:
+- Current doctest metadata syntax, including implemented runtime expectation
+  kinds:
   [../specification/source-surface.md](../specification/source-surface.md).
-- Current doctest JSON case shape:
+- Current doctest JSON case shape, including runtime expectation mismatch
+  records:
   [../specification/test-json.md](../specification/test-json.md).
-- Current runtime contract failure shape:
+- Current runtime failure details:
   [../specification/contracts.md](../specification/contracts.md).
 - Current readable CLI coverage:
   `../../examples/specification/test/doctest-runtime-contract-json/`,
@@ -30,10 +33,10 @@ implemented contract and result doctest routes. Current behavior is specified in
 when generated source produces an error diagnostic before execution. They do
 not describe expected runtime failures.
 
-Positive doctests may use `runtime=contract` metadata to expect a runtime
-contract failure or `runtime=result` metadata to expect a returned `Err` value.
-Broader panic matching, arbitrary stderr matching, and command-status
-assertions remain outside the implemented surface.
+Positive doctests may use the implemented `runtime=contract` metadata to expect
+a runtime contract failure or `runtime=result` metadata to expect a returned
+`Err` value. Broader panic matching, arbitrary stderr matching, and
+command-status assertions remain outside the implemented surface.
 
 Runtime failure expectations and expected-output fences are separate doctest
 expectation routes. Runtime matching decides only failure kind and details;
@@ -41,20 +44,25 @@ output comparison decides only captured stdout or stderr text.
 
 ## Target
 
-Expand runtime failure expectations beyond the initial contract-failure route
-only when a concrete failure class has structured test JSON details and CLI
-coverage.
+Add another runtime failure expectation kind only when that failure class has
+structured test JSON details, metadata diagnostics, and readable CLI coverage.
 
 ## Work Route
 
 - Start from the implemented `test` and doctest rules in
   [../specification/commands.md](../specification/commands.md) and
   [../specification/test-json.md](../specification/test-json.md).
+- Use [../specification/source-surface.md](../specification/source-surface.md)
+  for metadata syntax and static doctest metadata diagnostics.
 - Reuse existing structured runtime failure records where possible rather than
   inventing a second failure shape.
 - Keep expected-output comparison independent from expected runtime failure
   matching; one route decides output text, the other decides runtime failure
   kind and details.
+- Keep runtime expectation parsing and diagnostics as one attribute model:
+  the same runtime kind should define its allowed metadata, required metadata,
+  expected JSON shape, pass condition, mismatch condition, and blocked
+  condition.
 - Promote additional behavior into `../specification/` only after code and CLI
   coverage prove the new metadata, pass condition, mismatch condition, and
   blocked condition.
@@ -69,7 +77,7 @@ coverage.
 
 ## Acceptance Checks
 
-- A positive static doctest with the additional runtime-failure metadata is
+- A positive executable doctest with the additional runtime-failure metadata is
   selected and executed.
 - The doctest passes only when the selected runtime failure kind and key details
   match.

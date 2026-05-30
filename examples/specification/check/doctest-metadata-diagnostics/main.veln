@@ -5,6 +5,24 @@
 /// ```veln error=
 /// let value = Ok(1)?
 /// ```
+/// ```veln runtime=
+/// ()
+/// ```
+/// ```veln runtime=panic
+/// ()
+/// ```
+/// ```veln runtime=result
+/// ()
+/// ```
+/// ```veln runtime=result value=
+/// ()
+/// ```
+/// ```veln runtime=result clause=require
+/// ()
+/// ```
+/// ```veln runtime=contract value=bad
+/// ()
+/// ```
 /// ```veln-output
 /// ready
 /// ```

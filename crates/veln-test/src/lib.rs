@@ -830,6 +830,13 @@ struct ExtractedDoctests {
     diagnostics: Vec<Diagnostic>,
 }
 
+const RUNTIME_ATTRIBUTE: &str = "runtime";
+const RUNTIME_CONTRACT_KIND: &str = "contract";
+const RUNTIME_RESULT_KIND: &str = "result";
+const RUNTIME_CONTRACT_ATTRIBUTES: &[&str] = &["clause", "predicate", "function", "blame"];
+const RUNTIME_CONTRACT_REQUIRED_ATTRIBUTES: &[&str] = &["clause", "predicate"];
+const RUNTIME_RESULT_VALUE_ATTRIBUTE: &str = "value";
+
 fn extract_doctests(
     source: &SourceFile,
     signatures: &BTreeMap<String, Option<String>>,
@@ -1027,27 +1034,31 @@ fn doctest_should_fail(info: &str) -> bool {
 }
 
 fn doctest_runtime_failure(info: &str, span: SourceSpan) -> Option<ExpectedRuntimeFailure> {
-    let runtime = metadata_value(info, "runtime")?;
+    let runtime = metadata_value(info, RUNTIME_ATTRIBUTE)?;
     match runtime {
-        "contract" => Some(ExpectedRuntimeFailure::Contract(ExpectedContractFailure {
+        RUNTIME_CONTRACT_KIND => Some(ExpectedRuntimeFailure::Contract(ExpectedContractFailure {
             clause: metadata_value(info, "clause")?.to_string(),
             predicate: metadata_value(info, "predicate")?.to_string(),
             function: metadata_value(info, "function").map(ToString::to_string),
             blame: metadata_value(info, "blame").map(ToString::to_string),
             span,
         })),
-        "result" => Some(ExpectedRuntimeFailure::Result(ExpectedResultFailure {
-            value: metadata_value(info, "value")?.to_string(),
+        RUNTIME_RESULT_KIND => Some(ExpectedRuntimeFailure::Result(ExpectedResultFailure {
+            value: metadata_value(info, RUNTIME_RESULT_VALUE_ATTRIBUTE)?.to_string(),
             span,
         })),
         _ => None,
     }
 }
 
+fn metadata_field_value<'a>(field: &'a str, name: &str) -> Option<&'a str> {
+    field.strip_prefix(name)?.strip_prefix('=')
+}
+
 fn metadata_value<'a>(info: &'a str, name: &str) -> Option<&'a str> {
     info.split_whitespace()
         .skip(1)
-        .find_map(|field| field.strip_prefix(name)?.strip_prefix('='))
+        .find_map(|field| metadata_field_value(field, name))
         .filter(|value| !value.is_empty())
 }
 
@@ -1060,182 +1071,126 @@ fn output_fence_stream(info: &str) -> Option<&str> {
     if fields.next()? != "veln-output" {
         return None;
     }
-    let stream = fields.find_map(|field| field.strip_prefix("stream="))?;
+    let stream = fields.find_map(|field| metadata_field_value(field, "stream"))?;
     matches!(stream, "stdout" | "stderr").then_some(stream)
 }
 
 fn veln_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
-    let runtime = metadata_value(info, "runtime");
-    let has_runtime_contract = runtime == Some("contract");
-    let has_runtime_result = runtime == Some("result");
+    let runtime = metadata_value(info, RUNTIME_ATTRIBUTE);
+    let has_runtime_contract = runtime == Some(RUNTIME_CONTRACT_KIND);
+    let has_runtime_result = runtime == Some(RUNTIME_RESULT_KIND);
     let mut diagnostics: Vec<Diagnostic> = info
         .split_whitespace()
         .skip(1)
         .filter_map(|field| {
-            if field.starts_with("error=") {
-                field
-                    .strip_prefix("error=")
-                    .is_some_and(|value| value.is_empty())
-                    .then(|| {
-                        doctest_metadata_diagnostic(
-                            "doctest.invalid_metadata",
-                            "empty doctest error type",
-                            span.clone(),
-                            JsonValue::object([
-                                ("kind", JsonValue::string("doctest_metadata")),
-                                ("attribute", JsonValue::string("error")),
-                            ]),
-                        )
-                    })
-            } else if let Some(value) = field.strip_prefix("runtime=") {
+            if let Some(value) = metadata_field_value(field, "error") {
+                value.is_empty().then(|| {
+                    invalid_doctest_metadata_diagnostic(
+                        "empty doctest error type",
+                        "error",
+                        span.clone(),
+                        Vec::new(),
+                    )
+                })
+            } else if let Some(value) = metadata_field_value(field, RUNTIME_ATTRIBUTE) {
                 if value.is_empty() {
-                    Some(doctest_metadata_diagnostic(
-                        "doctest.invalid_metadata",
+                    Some(invalid_doctest_metadata_diagnostic(
                         "empty doctest runtime failure kind",
+                        RUNTIME_ATTRIBUTE,
                         span.clone(),
-                        JsonValue::object([
-                            ("kind", JsonValue::string("doctest_metadata")),
-                            ("attribute", JsonValue::string("runtime")),
-                        ]),
+                        Vec::new(),
                     ))
-                } else if !matches!(value, "contract" | "result") {
-                    Some(doctest_metadata_diagnostic(
-                        "doctest.invalid_metadata",
+                } else if !matches!(value, RUNTIME_CONTRACT_KIND | RUNTIME_RESULT_KIND) {
+                    Some(invalid_doctest_metadata_diagnostic(
                         format!("unknown doctest runtime failure kind `{value}`"),
+                        RUNTIME_ATTRIBUTE,
                         span.clone(),
-                        JsonValue::object([
-                            ("kind", JsonValue::string("doctest_metadata")),
-                            ("attribute", JsonValue::string("runtime")),
-                            ("runtime", JsonValue::string(value)),
-                        ]),
+                        vec![("runtime", JsonValue::string(value))],
                     ))
                 } else {
                     None
                 }
-            } else if let Some((attribute, value)) = runtime_failure_detail_field(field) {
+            } else if let Some((attribute, value)) = runtime_contract_metadata_field(field) {
                 if !has_runtime_contract {
-                    Some(doctest_metadata_diagnostic(
-                        "doctest.unknown_metadata",
+                    Some(unknown_doctest_metadata_diagnostic(
                         format!("unknown doctest attribute `{attribute}`"),
+                        attribute,
+                        "veln",
                         span.clone(),
-                        JsonValue::object([
-                            ("kind", JsonValue::string("doctest_metadata")),
-                            ("attribute", JsonValue::string(attribute)),
-                            ("fence", JsonValue::string("veln")),
-                        ]),
                     ))
                 } else {
                     value.is_empty().then(|| {
-                        doctest_metadata_diagnostic(
-                            "doctest.invalid_metadata",
+                        invalid_doctest_metadata_diagnostic(
                             format!("empty doctest runtime contract {attribute}"),
+                            attribute,
                             span.clone(),
-                            JsonValue::object([
-                                ("kind", JsonValue::string("doctest_metadata")),
-                                ("attribute", JsonValue::string(attribute)),
-                            ]),
+                            Vec::new(),
                         )
                     })
                 }
-            } else if let Some(value) = field
-                .strip_prefix("value")
-                .and_then(|rest| rest.strip_prefix('='))
+            } else if let Some(value) = metadata_field_value(field, RUNTIME_RESULT_VALUE_ATTRIBUTE)
             {
                 if !has_runtime_result {
-                    Some(doctest_metadata_diagnostic(
-                        "doctest.unknown_metadata",
+                    Some(unknown_doctest_metadata_diagnostic(
                         "unknown doctest attribute `value`",
+                        RUNTIME_RESULT_VALUE_ATTRIBUTE,
+                        "veln",
                         span.clone(),
-                        JsonValue::object([
-                            ("kind", JsonValue::string("doctest_metadata")),
-                            ("attribute", JsonValue::string("value")),
-                            ("fence", JsonValue::string("veln")),
-                        ]),
                     ))
                 } else {
                     value.is_empty().then(|| {
-                        doctest_metadata_diagnostic(
-                            "doctest.invalid_metadata",
+                        invalid_doctest_metadata_diagnostic(
                             "empty doctest runtime result value",
+                            RUNTIME_RESULT_VALUE_ATTRIBUTE,
                             span.clone(),
-                            JsonValue::object([
-                                ("kind", JsonValue::string("doctest_metadata")),
-                                ("attribute", JsonValue::string("value")),
-                            ]),
+                            Vec::new(),
                         )
                     })
                 }
             } else if matches!(field, "ignore" | "fail") {
                 None
             } else {
-                Some(doctest_metadata_diagnostic(
-                    "doctest.unknown_metadata",
+                Some(unknown_doctest_metadata_diagnostic(
                     format!(
                         "unknown doctest attribute `{}`",
                         metadata_attribute_name(field)
                     ),
+                    metadata_attribute_name(field),
+                    "veln",
                     span.clone(),
-                    JsonValue::object([
-                        ("kind", JsonValue::string("doctest_metadata")),
-                        (
-                            "attribute",
-                            JsonValue::string(metadata_attribute_name(field)),
-                        ),
-                        ("fence", JsonValue::string("veln")),
-                    ]),
                 ))
             }
         })
         .collect();
 
     if has_runtime_contract {
-        if metadata_value(info, "clause").is_none() {
-            diagnostics.push(doctest_metadata_diagnostic(
-                "doctest.invalid_metadata",
-                "missing doctest runtime contract clause",
-                span.clone(),
-                JsonValue::object([
-                    ("kind", JsonValue::string("doctest_metadata")),
-                    ("attribute", JsonValue::string("clause")),
-                ]),
-            ));
-        }
-        if metadata_value(info, "predicate").is_none() {
-            diagnostics.push(doctest_metadata_diagnostic(
-                "doctest.invalid_metadata",
-                "missing doctest runtime contract predicate",
-                span.clone(),
-                JsonValue::object([
-                    ("kind", JsonValue::string("doctest_metadata")),
-                    ("attribute", JsonValue::string("predicate")),
-                ]),
-            ));
+        for attribute in RUNTIME_CONTRACT_REQUIRED_ATTRIBUTES {
+            if metadata_value(info, attribute).is_none() {
+                diagnostics.push(invalid_doctest_metadata_diagnostic(
+                    format!("missing doctest runtime contract {attribute}"),
+                    attribute,
+                    span.clone(),
+                    Vec::new(),
+                ));
+            }
         }
     }
-    if has_runtime_result && metadata_value(info, "value").is_none() {
-        diagnostics.push(doctest_metadata_diagnostic(
-            "doctest.invalid_metadata",
+    if has_runtime_result && metadata_value(info, RUNTIME_RESULT_VALUE_ATTRIBUTE).is_none() {
+        diagnostics.push(invalid_doctest_metadata_diagnostic(
             "missing doctest runtime result value",
+            RUNTIME_RESULT_VALUE_ATTRIBUTE,
             span,
-            JsonValue::object([
-                ("kind", JsonValue::string("doctest_metadata")),
-                ("attribute", JsonValue::string("value")),
-            ]),
+            Vec::new(),
         ));
     }
 
     diagnostics
 }
 
-fn runtime_failure_detail_field(field: &str) -> Option<(&str, &str)> {
-    ["clause", "predicate", "function", "blame"]
-        .into_iter()
-        .find_map(|attribute| {
-            field
-                .strip_prefix(attribute)
-                .and_then(|rest| rest.strip_prefix('='))
-                .map(|value| (attribute, value))
-        })
+fn runtime_contract_metadata_field(field: &str) -> Option<(&str, &str)> {
+    RUNTIME_CONTRACT_ATTRIBUTES.iter().find_map(|attribute| {
+        metadata_field_value(field, attribute).map(|value| (*attribute, value))
+    })
 }
 
 fn output_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
@@ -1245,48 +1200,71 @@ fn output_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> 
         if let Some(stream) = field.strip_prefix("stream=") {
             has_stream = true;
             if !matches!(stream, "stdout" | "stderr") {
-                diagnostics.push(doctest_metadata_diagnostic(
-                    "doctest.invalid_metadata",
+                diagnostics.push(invalid_doctest_metadata_diagnostic(
                     format!("unknown doctest output stream `{stream}`"),
+                    "stream",
                     span.clone(),
-                    JsonValue::object([
-                        ("kind", JsonValue::string("doctest_metadata")),
-                        ("attribute", JsonValue::string("stream")),
-                        ("stream", JsonValue::string(stream)),
-                    ]),
+                    vec![("stream", JsonValue::string(stream))],
                 ));
             }
         } else {
-            diagnostics.push(doctest_metadata_diagnostic(
-                "doctest.unknown_metadata",
+            diagnostics.push(unknown_doctest_metadata_diagnostic(
                 format!(
                     "unknown doctest output attribute `{}`",
                     metadata_attribute_name(field)
                 ),
+                metadata_attribute_name(field),
+                "veln-output",
                 span.clone(),
-                JsonValue::object([
-                    ("kind", JsonValue::string("doctest_metadata")),
-                    (
-                        "attribute",
-                        JsonValue::string(metadata_attribute_name(field)),
-                    ),
-                    ("fence", JsonValue::string("veln-output")),
-                ]),
             ));
         }
     }
     if !has_stream {
-        diagnostics.push(doctest_metadata_diagnostic(
-            "doctest.invalid_metadata",
+        diagnostics.push(invalid_doctest_metadata_diagnostic(
             "missing doctest output stream",
+            "stream",
             span,
-            JsonValue::object([
-                ("kind", JsonValue::string("doctest_metadata")),
-                ("attribute", JsonValue::string("stream")),
-            ]),
+            Vec::new(),
         ));
     }
     diagnostics
+}
+
+fn invalid_doctest_metadata_diagnostic(
+    message: impl Into<String>,
+    attribute: &str,
+    span: SourceSpan,
+    extra_details: Vec<(&'static str, JsonValue)>,
+) -> Diagnostic {
+    let mut details = vec![
+        ("kind", JsonValue::string("doctest_metadata")),
+        ("attribute", JsonValue::string(attribute)),
+    ];
+    details.extend(extra_details);
+    doctest_metadata_diagnostic(
+        "doctest.invalid_metadata",
+        message,
+        span,
+        JsonValue::object(details),
+    )
+}
+
+fn unknown_doctest_metadata_diagnostic(
+    message: impl Into<String>,
+    attribute: &str,
+    fence: &str,
+    span: SourceSpan,
+) -> Diagnostic {
+    doctest_metadata_diagnostic(
+        "doctest.unknown_metadata",
+        message,
+        span,
+        JsonValue::object([
+            ("kind", JsonValue::string("doctest_metadata")),
+            ("attribute", JsonValue::string(attribute)),
+            ("fence", JsonValue::string(fence)),
+        ]),
+    )
 }
 
 fn doctest_metadata_diagnostic(
