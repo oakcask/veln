@@ -4131,7 +4131,7 @@ fn test_json_maps_explicit_source_file_to_paired_test_file() {
     assert_contains_all(
         stdout,
         &[
-            "\"selection\":{\"mode\":\"explicit\",\"targets\":[\"app.veln\",\"app_test.veln\"],\"confidence\":\"partial\",\"reason\":\"source_to_test_convention\",\"notes\":[\"added 1 test file by source-to-test convention\"]}",
+            "\"selection\":{\"mode\":\"explicit\",\"targets\":[\"app.veln\",\"app_test.veln\"],\"confidence\":\"unknown\",\"reason\":\"widened_dependency_graph\",\"notes\":[\"added 1 test file by source-to-test convention\",\"dependency graph is missing module identity for selected source `app.veln`\",\"selected all discovered tests because dependency graph evidence is incomplete\"]}",
             "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":1,\"errors\":0}",
             "\"name\":\"paired\"",
             "\"reason\":\"static_gate\"",

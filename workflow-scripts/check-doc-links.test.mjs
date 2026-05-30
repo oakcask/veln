@@ -28,10 +28,6 @@ const NO_TARGET_ROUTES = [
     role: "Candidate route",
   },
   {
-    route: "docs/proposals/agent-test-selection-graph.md",
-    role: "Candidate route",
-  },
-  {
     route: "docs/proposals/agent-module-package-docs.md",
     role: "Candidate route",
   },
@@ -155,7 +151,6 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   const proposalsIndex = readDocsFile("proposals/README.md");
   const referenceFollowups = readDocsFile("proposals/reference-followups.md");
   const repairLoop = readDocsFile("proposals/agent-repair-loop-followups.md");
-  const testSelection = readDocsFile("proposals/agent-test-selection-graph.md");
   const modulePackageDocs = readDocsFile(
     "proposals/agent-module-package-docs.md",
   );
@@ -223,10 +218,6 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   assertIncludes(
     repairLoop,
     "repair-loop work that remains beyond the implemented",
-  );
-  assertIncludes(
-    testSelection,
-    "dependency-aware test selection",
   );
   assertIncludes(
     modulePackageDocs,
@@ -663,10 +654,6 @@ function assertProposalIndexRoutes(proposalsIndex) {
   );
   assertIncludes(
     proposalsIndex,
-    "[agent-test-selection-graph.md](agent-test-selection-graph.md):",
-  );
-  assertIncludes(
-    proposalsIndex,
     "[agent-module-package-docs.md](agent-module-package-docs.md):",
   );
   assertIncludes(
@@ -755,8 +742,6 @@ function readNoTargetPrompt() {
     "- `docs/proposals/agent-repair-loop-followups.md` routes repair verification,",
     "  ranking, partial application, and automatic repair follow-ups beyond the",
     "  current command boundary.",
-    "- `docs/proposals/agent-test-selection-graph.md` needs graph evidence before",
-    "  dependency-aware test selection can be an implementation target.",
     "- `docs/proposals/agent-module-package-docs.md` collects package metadata,",
     "  generated documentation, and export-model follow-ups that need narrower",
     "  proposals before implementation.",

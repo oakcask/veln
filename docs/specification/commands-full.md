@@ -204,12 +204,17 @@ closing-fence newline as a raw byte assertion.
 
 When an explicit target names a non-test `.veln` source file, `test` also
 selects a same-directory `*_test.veln` file with the same base name when that
-paired file exists. The command reports this as `source_to_test_convention` in
-JSON output and prints a human selection note. The selection confidence is
-`partial` because the convention is narrower than a complete dependency graph.
-This pairing is part of test discovery before semantic analysis, so selected
-cases, static diagnostics, and JSON selection metadata all observe the expanded
-target set.
+paired file exists. The command records this in JSON output and prints a human
+selection note.
+
+For explicit non-test source targets with module identities, `test` builds a
+source-level dependency graph from `mod` and `use` declarations. Tests whose
+transitive imports include the selected source are included in the selected
+test roots before semantic analysis. If the graph is incomplete, for example
+because a selected source has no module identity or an import has no discovered
+source module, `test` reports the missing evidence and widens to all discovered
+tests instead of silently under-selecting. Selected cases, static diagnostics,
+and JSON selection metadata all observe the final selected target set.
 
 Static diagnostics block the suite before Java execution. In JSON output,
 already discovered cases are marked `blocked` with reason `static_gate`.

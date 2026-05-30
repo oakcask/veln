@@ -16,6 +16,10 @@ path = "selection.mode"
 equals = "explicit"
 
 [[json_assert]]
+path = "selection.confidence"
+equals = "unknown"
+
+[[json_assert]]
 path = "selection.targets.0"
 equals = "app.veln"
 
@@ -25,7 +29,19 @@ equals = "app_test.veln"
 
 [[json_assert]]
 path = "selection.reason"
-equals = "source_to_test_convention"
+equals = "widened_dependency_graph"
+
+[[json_assert]]
+path = "selection.notes.0"
+equals = "added 1 test file by source-to-test convention"
+
+[[json_assert]]
+path = "selection.notes.1"
+equals = "dependency graph is missing module identity for selected source `app.veln`"
+
+[[json_assert]]
+path = "selection.notes.2"
+equals = "selected all discovered tests because dependency graph evidence is incomplete"
 
 [[json_assert]]
 path = "summary.total"

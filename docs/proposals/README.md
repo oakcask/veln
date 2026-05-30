@@ -20,8 +20,6 @@ compare it with `../specification/` before changing behavior.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
   repair verification, ranking, partial application, and automatic repair
   follow-ups.
-- [agent-test-selection-graph.md](agent-test-selection-graph.md):
-  dependency-aware test selection and graph confidence follow-ups.
 - [agent-module-package-docs.md](agent-module-package-docs.md):
   package metadata, generated documentation, and export-model follow-ups.
 - [agent-language-surface-expansion.md](agent-language-surface-expansion.md):

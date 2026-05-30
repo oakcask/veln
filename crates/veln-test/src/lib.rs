@@ -5,125 +5,19 @@
 //! ```
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
 use std::process::Output;
 
 use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, SurfaceModule};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
-use veln_project::Project;
 use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 
-pub struct TestTargetExpansion {
-    pub targets: Vec<PathBuf>,
-    pub source_to_test_added_count: usize,
-}
+mod selection;
 
-pub fn expand_test_targets(root: &Path, targets: &[PathBuf]) -> TestTargetExpansion {
-    if targets.is_empty() {
-        return TestTargetExpansion {
-            targets: Vec::new(),
-            source_to_test_added_count: 0,
-        };
-    }
-
-    let mut original_targets = targets.to_vec();
-    original_targets.sort();
-    original_targets.dedup();
-    let original_count = original_targets.len();
-    let mut expanded = targets.to_vec();
-    for target in targets {
-        if let Some(test_target) = paired_test_target(root, target) {
-            expanded.push(test_target);
-        }
-    }
-    expanded.sort();
-    expanded.dedup();
-    let source_to_test_added_count = expanded.len().saturating_sub(original_count);
-    TestTargetExpansion {
-        targets: expanded,
-        source_to_test_added_count,
-    }
-}
-
-fn paired_test_target(root: &Path, target: &Path) -> Option<PathBuf> {
-    let absolute = if target.is_absolute() {
-        target.to_path_buf()
-    } else {
-        root.join(target)
-    };
-    if absolute.is_dir()
-        || absolute
-            .extension()
-            .is_none_or(|extension| extension != "veln")
-    {
-        return None;
-    }
-    let file_name = absolute.file_name()?.to_str()?;
-    if file_name.ends_with("_test.veln") {
-        return None;
-    }
-    let stem = absolute.file_stem()?.to_str()?;
-    let candidate = absolute.with_file_name(format!("{stem}_test.veln"));
-    if !candidate.is_file() {
-        return None;
-    }
-    if target.is_absolute() {
-        Some(candidate)
-    } else {
-        candidate.strip_prefix(root).map_or_else(
-            |_| Some(candidate.clone()),
-            |relative| Some(relative.to_path_buf()),
-        )
-    }
-}
-
-pub fn selected_test_files(
-    project: &Project,
-    module: &SurfaceModule,
-    explicit: bool,
-) -> BTreeSet<String> {
-    project
-        .files
-        .iter()
-        .filter(|source| explicit || source.path().as_str().ends_with("_test.veln"))
-        .map(|source| source.path().as_str().to_string())
-        .chain(
-            (!explicit)
-                .then(|| same_file_test_files(module))
-                .into_iter()
-                .flatten(),
-        )
-        .collect()
-}
-
-fn same_file_test_files(module: &SurfaceModule) -> BTreeSet<String> {
-    module
-        .functions
-        .iter()
-        .filter(|function| function.kind == FunctionKind::Test)
-        .map(|function| function.span.file.as_str().to_string())
-        .collect()
-}
-
-pub fn selection_targets(project: &Project, test_files: &BTreeSet<String>) -> Vec<String> {
-    let mut targets = BTreeSet::new();
-    project
-        .files
-        .iter()
-        .filter(|source| {
-            let path = source.path().as_str();
-            test_files.contains(path)
-        })
-        .for_each(|source| {
-            targets.insert(selection_target_path(source.path().as_str()).to_string());
-        });
-    targets.into_iter().collect()
-}
-
-fn selection_target_path(path: &str) -> &str {
-    path.split_once("#doctest-")
-        .map_or(path, |(origin, _)| origin)
-}
+pub use selection::{
+    TestSelection, TestSelectionConfidence, TestSelectionMetadata, TestSelectionMode,
+    TestSelectionPlan, TestSelectionReason, TestTargetExpansion, dependency_aware_selection_plan,
+    expand_test_targets, selected_test_files, selection_targets,
+};
 
 pub fn discover_test_cases(module: &SurfaceModule, test_files: &BTreeSet<String>) -> Vec<TestCase> {
     module
@@ -633,61 +527,6 @@ impl TestCaseStatus {
             Self::Blocked => "blocked",
             Self::Error => "error",
         }
-    }
-}
-
-pub struct TestSelection {
-    pub mode_name: String,
-    pub targets: Vec<String>,
-    pub confidence: String,
-    pub reason: String,
-    pub notes: Vec<String>,
-}
-
-impl TestSelection {
-    pub fn new(project: &Project, test_files: &BTreeSet<String>, explicit: bool) -> Self {
-        Self {
-            mode_name: if explicit { "explicit" } else { "discovered" }.to_string(),
-            targets: selection_targets(project, test_files),
-            confidence: "complete".to_string(),
-            reason: if explicit {
-                "user_selected".to_string()
-            } else {
-                "pattern_discovery".to_string()
-            },
-            notes: Vec::new(),
-        }
-    }
-
-    pub fn source_to_test_convention(mut self, added_count: usize) -> Self {
-        if added_count > 0 {
-            self.confidence = "partial".to_string();
-            self.reason = "source_to_test_convention".to_string();
-            let noun = if added_count == 1 { "file" } else { "files" };
-            self.notes.push(format!(
-                "added {added_count} test {noun} by source-to-test convention"
-            ));
-        }
-        self
-    }
-
-    fn to_json(&self) -> JsonValue {
-        let mut fields = vec![
-            ("mode", JsonValue::string(self.mode_name.clone())),
-            (
-                "targets",
-                JsonValue::array(self.targets.iter().map(JsonValue::string)),
-            ),
-            ("confidence", JsonValue::string(self.confidence.clone())),
-            ("reason", JsonValue::string(self.reason.clone())),
-        ];
-        if !self.notes.is_empty() {
-            fields.push((
-                "notes",
-                JsonValue::array(self.notes.iter().map(JsonValue::string)),
-            ));
-        }
-        JsonValue::object(fields)
     }
 }
 
@@ -1805,7 +1644,6 @@ mod tests {
     use std::process::{ExitStatus, Output};
 
     use veln_ast::lower_surface_ast;
-    use veln_project::Project;
     use veln_source::{SourceFile, TextRange};
     use veln_syntax::parse;
 
@@ -1820,183 +1658,6 @@ mod tests {
             parsed.diagnostics
         );
         lower_surface_ast(&parsed.tree)
-    }
-
-    #[test]
-    fn discovered_selection_uses_test_file_pattern() {
-        let module = SurfaceModule {
-            module: None,
-            uses: Vec::new(),
-            functions: Vec::new(),
-        };
-        let project = Project {
-            root: PathBuf::new(),
-            manifest: None,
-            files: vec![
-                SourceFile::new("main.veln", ""),
-                SourceFile::new("main_test.veln", ""),
-            ],
-        };
-
-        let test_files = selected_test_files(&project, &module, false);
-        let selection = TestSelection::new(&project, &test_files, false);
-
-        assert_eq!(selection.mode_name, "discovered");
-        assert_eq!(selection.targets, vec!["main_test.veln"]);
-        assert_eq!(selection.reason, "pattern_discovery");
-    }
-
-    #[test]
-    fn discovered_selection_includes_same_file_test_declarations() {
-        let source = SourceFile::new(
-            "main.veln",
-            "test same_file() -> () effects []\n  ()\nend\n",
-        );
-        let parsed = parse(&source);
-        assert!(
-            parsed.diagnostics.is_empty(),
-            "unexpected parse diagnostics: {:?}",
-            parsed.diagnostics
-        );
-        let module = lower_surface_ast(&parsed.tree);
-        let project = Project {
-            root: PathBuf::new(),
-            manifest: None,
-            files: vec![source],
-        };
-
-        let test_files = selected_test_files(&project, &module, false);
-        let selection = TestSelection::new(&project, &test_files, false);
-
-        assert_eq!(selection.targets, vec!["main.veln"]);
-        assert_eq!(selection.reason, "pattern_discovery");
-    }
-
-    #[test]
-    fn explicit_selection_includes_non_test_files() {
-        let module = SurfaceModule {
-            module: None,
-            uses: Vec::new(),
-            functions: Vec::new(),
-        };
-        let project = Project {
-            root: PathBuf::new(),
-            manifest: None,
-            files: vec![
-                SourceFile::new("main.veln", ""),
-                SourceFile::new("main_test.veln", ""),
-            ],
-        };
-
-        let test_files = selected_test_files(&project, &module, true);
-        let selection = TestSelection::new(&project, &test_files, true);
-
-        assert_eq!(
-            test_files,
-            BTreeSet::from(["main.veln".to_string(), "main_test.veln".to_string()])
-        );
-        assert_eq!(selection.mode_name, "explicit");
-        assert_eq!(selection.targets, vec!["main.veln", "main_test.veln"]);
-        assert_eq!(selection.reason, "user_selected");
-    }
-
-    #[test]
-    fn empty_explicit_targets_do_not_expand() {
-        let expansion = expand_test_targets(&PathBuf::new(), &[]);
-
-        assert!(expansion.targets.is_empty());
-        assert_eq!(expansion.source_to_test_added_count, 0);
-    }
-
-    #[test]
-    fn expands_explicit_source_target_to_paired_test_file() {
-        let root = test_root("paired-source");
-        fs::create_dir_all(&root).expect("create test root");
-        fs::write(root.join("app.veln"), "").expect("write source file");
-        fs::write(root.join("app_test.veln"), "").expect("write test file");
-
-        let expansion = expand_test_targets(&root, &[PathBuf::from("app.veln")]);
-
-        assert_eq!(
-            expansion.targets,
-            vec![PathBuf::from("app.veln"), PathBuf::from("app_test.veln")]
-        );
-        assert_eq!(expansion.source_to_test_added_count, 1);
-        fs::remove_dir_all(root).expect("remove test root");
-    }
-
-    #[test]
-    fn expands_nested_relative_source_target_to_paired_test_file() {
-        let root = test_root("paired-nested-source");
-        fs::create_dir_all(root.join("src/cases")).expect("create test root");
-        fs::write(root.join("src/cases/app.veln"), "").expect("write source file");
-        fs::write(root.join("src/cases/app_test.veln"), "").expect("write test file");
-
-        let expansion = expand_test_targets(&root, &[PathBuf::from("src/cases/app.veln")]);
-
-        assert_eq!(
-            expansion.targets,
-            vec![
-                PathBuf::from("src/cases/app.veln"),
-                PathBuf::from("src/cases/app_test.veln"),
-            ]
-        );
-        assert_eq!(expansion.source_to_test_added_count, 1);
-        fs::remove_dir_all(root).expect("remove test root");
-    }
-
-    #[test]
-    fn source_to_test_expansion_deduplicates_explicit_paired_target() {
-        let root = test_root("paired-source-dedupe");
-        fs::create_dir_all(&root).expect("create test root");
-        fs::write(root.join("app.veln"), "").expect("write source file");
-        fs::write(root.join("app_test.veln"), "").expect("write test file");
-
-        let expansion = expand_test_targets(
-            &root,
-            &[PathBuf::from("app.veln"), PathBuf::from("app_test.veln")],
-        );
-
-        assert_eq!(
-            expansion.targets,
-            vec![PathBuf::from("app.veln"), PathBuf::from("app_test.veln")]
-        );
-        assert_eq!(expansion.source_to_test_added_count, 0);
-        fs::remove_dir_all(root).expect("remove test root");
-    }
-
-    #[test]
-    fn does_not_expand_directory_or_test_file_targets() {
-        let root = test_root("direct-target");
-        fs::create_dir_all(root.join("cases")).expect("create test root");
-        fs::write(root.join("app_test.veln"), "").expect("write test file");
-
-        let expansion = expand_test_targets(
-            &root,
-            &[PathBuf::from("cases"), PathBuf::from("app_test.veln")],
-        );
-
-        assert_eq!(
-            expansion.targets,
-            vec![PathBuf::from("app_test.veln"), PathBuf::from("cases")]
-        );
-        assert_eq!(expansion.source_to_test_added_count, 0);
-        fs::remove_dir_all(root).expect("remove test root");
-    }
-
-    #[test]
-    fn selection_targets_report_doctest_origin_source() {
-        let project = Project {
-            root: PathBuf::new(),
-            manifest: None,
-            files: vec![
-                SourceFile::new("main.veln", ""),
-                SourceFile::new("main.veln#doctest-1_test.veln", ""),
-            ],
-        };
-        let test_files = BTreeSet::from(["main.veln#doctest-1_test.veln".to_string()]);
-
-        assert_eq!(selection_targets(&project, &test_files), vec!["main.veln"]);
     }
 
     #[test]
@@ -2082,10 +1743,10 @@ mod tests {
         let cases = discover_test_cases(&module, &test_files);
         let report = TestReport::new(
             TestSelection {
-                mode_name: "explicit".to_string(),
+                mode: TestSelectionMode::Explicit,
                 targets: vec!["main_test.veln".to_string()],
-                confidence: "complete".to_string(),
-                reason: "user_selected".to_string(),
+                confidence: TestSelectionConfidence::Complete,
+                reason: TestSelectionReason::UserSelected,
                 notes: Vec::new(),
             },
             Vec::new(),
@@ -2119,10 +1780,10 @@ mod tests {
         let span = source_file.span(TextRange::new(0, source_file.len()));
         let report = TestReport::new(
             TestSelection {
-                mode_name: "discovered".to_string(),
+                mode: TestSelectionMode::Discovered,
                 targets: vec!["main_test.veln".to_string()],
-                confidence: "complete".to_string(),
-                reason: "pattern_discovery".to_string(),
+                confidence: TestSelectionConfidence::Complete,
+                reason: TestSelectionReason::PatternDiscovery,
                 notes: Vec::new(),
             },
             Vec::new(),
@@ -3738,48 +3399,6 @@ mod tests {
         let failure_json = failure.to_json().to_json();
         assert!(failure_json.contains("\"sequence\":4"));
         assert!(!failure_json.contains("\"sequence\":5"));
-    }
-
-    #[test]
-    fn source_to_test_convention_records_plural_note() {
-        let selection = TestSelection {
-            mode_name: "explicit".to_string(),
-            targets: vec!["app.veln".to_string(), "app_test.veln".to_string()],
-            confidence: "complete".to_string(),
-            reason: "user_selected".to_string(),
-            notes: Vec::new(),
-        }
-        .source_to_test_convention(2);
-
-        assert_eq!(selection.confidence, "partial");
-        assert_eq!(selection.reason, "source_to_test_convention");
-        assert_eq!(
-            selection.notes,
-            vec!["added 2 test files by source-to-test convention"]
-        );
-        assert!(
-            selection
-                .to_json()
-                .to_json()
-                .contains("\"notes\":[\"added 2 test files by source-to-test convention\"]")
-        );
-    }
-
-    #[test]
-    fn source_to_test_convention_zero_count_keeps_original_selection() {
-        let selection = TestSelection {
-            mode_name: "explicit".to_string(),
-            targets: vec!["app.veln".to_string()],
-            confidence: "complete".to_string(),
-            reason: "user_selected".to_string(),
-            notes: Vec::new(),
-        }
-        .source_to_test_convention(0);
-
-        assert_eq!(selection.confidence, "complete");
-        assert_eq!(selection.reason, "user_selected");
-        assert!(selection.notes.is_empty());
-        assert!(!selection.to_json().to_json().contains("\"notes\""));
     }
 
     #[test]
