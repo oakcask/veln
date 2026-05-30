@@ -356,19 +356,8 @@ mod tests {
     }
 
     #[test]
-    fn remaining_self_hosting_candidates_stay_descriptor_only() {
-        for name in SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS
-            .iter()
-            .map(|symbol| symbol.name)
-        {
-            let symbol = prelude_symbol(name).expect("candidate helper descriptor");
-
-            assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
-            assert_eq!(symbol.effects, PURE_EFFECTS);
-            assert_eq!(symbol.lowering, None);
-            assert_eq!(symbol.source, None);
-            assert_eq!(symbol.stability, StandardSymbolStability::CompatibilityOnly);
-        }
+    fn no_descriptor_only_pure_helpers_remain_after_source_backed_migration() {
+        assert_eq!(SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS.iter().next(), None);
     }
 
     #[test]

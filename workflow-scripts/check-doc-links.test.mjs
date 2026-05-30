@@ -12,10 +12,6 @@ const NO_TARGET_ROUTES = [
     role: "Candidate gate",
   },
   {
-    route: "docs/proposals/self-hosting-standard-library.md",
-    role: "Helper candidate route",
-  },
-  {
     route: "docs/proposals/doctest-runtime-failure-expectations.md",
     role: "Candidate gate",
     status: "Status: implemented target, no open follow-up selected",
@@ -158,16 +154,14 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   const languageSurface = readDocsFile(
     "proposals/agent-language-surface-expansion.md",
   );
-  const selfHosting = readDocsFile("proposals/self-hosting-standard-library.md");
+  const selfHosting = readDocsFile(
+    "reference/implemented-proposals/self-hosting-standard-library.md",
+  );
 
   for (const route of noTargetPromptRoutes()) {
     assertIncludes(prompt, route);
   }
 
-  assertIncludes(
-    prompt,
-    "need a\n  clearer source-backed candidate choice",
-  );
   assertIncludes(
     prompt,
     "does not yet name\n  that behavior",
@@ -193,10 +187,6 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   assertIncludes(
     proposalsIndex,
     "[agent-repair-loop-followups.md](agent-repair-loop-followups.md)",
-  );
-  assertIncludes(
-    proposalsIndex,
-    "[self-hosting-standard-library.md](self-hosting-standard-library.md)",
   );
   assertIncludes(
     proposalsIndex,
@@ -228,10 +218,10 @@ test("no-target prompt routes stay classified as non-active targets", () => {
     languageSurface,
     "# Agent Language Surface Expansion",
   );
-  assertIncludes(selfHosting, "Status: proposed");
+  assertIncludes(selfHosting, "Status: implemented");
   assertIncludes(
     selfHosting,
-    "Choose exactly one helper from that pool.",
+    "The implemented standard symbol table has no remaining descriptor-only pure",
   );
 });
 
@@ -404,44 +394,35 @@ test("repair proposal route points completed targets to reference records", () =
   );
 });
 
-test("self-hosting proposal route starts from the implemented helper split", () => {
-  const proposal = readDocsFile("proposals/self-hosting-standard-library.md");
-  const fullProposal = readDocsFile(
-    "proposals/self-hosting-standard-library-full.md",
+test("self-hosting implemented route starts from the implemented helper split", () => {
+  const implemented = readDocsFile(
+    "reference/implemented-proposals/self-hosting-standard-library.md",
   );
   const namesEffects = readDocsFile("specification/names-effects.md");
   const namesEffectsFull = readDocsFile("specification/names-effects-full.md");
 
   assertIncludes(
-    proposal,
-    "routes future source-backed prelude helper migrations",
+    implemented,
+    "This page records the completed source-backed prelude helper migration.",
   );
-  assertIncludes(proposal, "## Read First");
-  assertIncludes(proposal, "Status: proposed");
+  assertIncludes(implemented, "## Read First");
+  assertIncludes(implemented, "Status: implemented");
   assertIncludes(
-    proposal,
-    "Choose exactly one helper from that pool.",
+    implemented,
+    "Use this page for completion evidence and cleanup routing only.",
   );
-  assertIncludes(proposal, "## Target Route");
-  assertIncludes(proposal, "## Scope Checks");
+  assertIncludes(implemented, "## Completion Evidence");
   assertIncludes(
-    proposal,
-    "Open the specification's source-backed boundary to find the live",
+    implemented,
+    "../../specification/names-effects.md",
   );
-  assertIncludes(proposal, "../specification/names-effects.md");
-  assertIncludes(proposal, "../specification/source-surface.md");
   assertIncludes(
-    proposal,
-    "self-hosting-standard-library-full.md#candidate-and-migration-rule",
-  );
-
-  assertIncludes(
-    fullProposal,
-    "Remaining source-backed prelude work chooses from the descriptor-only pure",
+    implemented,
+    "New source-backed standard\nlibrary work should use a new proposal page",
   );
   assertIncludes(
     namesEffects,
-    "Choosing the next self-hosting proposal target",
+    "Checking self-hosting migration completion",
   );
   assertIncludes(namesEffectsFull, "### Source-Backed Boundary");
   assertIncludes(
@@ -738,9 +719,6 @@ function readNoTargetPrompt() {
     "",
     "- `docs/proposals/toolchain-test-harness-extensions.md` says no smaller target",
     "  is currently selected and the command help assertion slice is complete.",
-    "- `docs/proposals/self-hosting-standard-library.md` requires choosing one",
-    "  descriptor-only pure helper, but the remaining descriptor-only helpers need a",
-    "  clearer source-backed candidate choice before this can be a concrete target.",
     "- `docs/proposals/doctest-runtime-failure-expectations.md` requires a concrete",
     "  runtime failure class with structured test JSON details and CLI coverage; the",
     "  page does not yet name that class beyond the implemented doctest routes.",
