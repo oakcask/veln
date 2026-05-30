@@ -19,6 +19,9 @@ compare it with `../specification/` before changing behavior.
   `runtime=contract`, `runtime=ensure`, and `runtime=result` routes.
 - [path-runtime-representation.md](path-runtime-representation.md):
   runtime `Path` representation work.
+- [forbid-empty-effects-declarations.md](forbid-empty-effects-declarations.md):
+  require pure function and test declarations to omit empty `effects []`
+  clauses.
 - [adt-generalization-route.md](adt-generalization-route.md):
   staged route from descriptor-backed `Option` and `Result` to ADTs, `List`,
   immutable collection helpers, and trampoline execution.
