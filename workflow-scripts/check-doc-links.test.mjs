@@ -231,8 +231,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   assertIncludes(selfHosting, "Status: proposed");
   assertIncludes(
     selfHosting,
-    "Choose exactly one descriptor-only pure helper before promoting future helper\n" +
-      "work into a concrete target.",
+    "Choose exactly one helper from the descriptor-only pure-helper list.",
   );
 });
 
@@ -415,28 +414,25 @@ test("self-hosting proposal route starts from the implemented helper split", () 
 
   assertIncludes(
     proposal,
-    "routes future source-backed prelude helper migrations through the\n" +
-      "implemented standard symbol split",
+    "routes future source-backed prelude helper migrations",
   );
   assertIncludes(proposal, "## Read First");
   assertIncludes(proposal, "Status: proposed");
   assertIncludes(
     proposal,
-    "Choose exactly one descriptor-only pure helper before promoting future helper\n" +
-      "work into a concrete target.",
+    "Choose exactly one helper from the descriptor-only pure-helper list.",
   );
-  assertIncludes(proposal, "## Current Boundary");
-  assertIncludes(proposal, "## Work Route");
+  assertIncludes(proposal, "## Decision Route");
+  assertIncludes(proposal, "## Scope Checks");
   assertIncludes(
     proposal,
-    "Choose exactly one helper from the specification's descriptor-only\n" +
-      "   pure-helper list",
+    "Open the specification's source-backed boundary.",
   );
   assertIncludes(proposal, "../specification/names-effects.md");
   assertIncludes(proposal, "../specification/source-surface.md");
   assertIncludes(
     proposal,
-    "self-hosting-standard-library-full.md#remaining-pure-helper-candidates",
+    "self-hosting-standard-library-full.md#candidate-and-migration-rule",
   );
 
   assertIncludes(
@@ -467,8 +463,7 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   );
   assertIncludes(
     namesEffectsFull,
-    "descriptor-only pure helpers: `string_split_once`, `string_parse_int`, and\n" +
-      "  `int_to_string`",
+    "descriptor-only pure helpers: `string_split_once`",
   );
 });
 

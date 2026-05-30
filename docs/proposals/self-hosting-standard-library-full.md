@@ -2,10 +2,11 @@
 
 Status: proposed
 
-This file keeps reusable source-backed standard library candidate rules after
-implemented helper behavior moved to the language specification. Read
-[self-hosting-standard-library.md](self-hosting-standard-library.md) first for
-completed helper routes and the candidate boundary.
+This file keeps the reusable candidate and migration rule for source-backed
+standard library work. Read
+[self-hosting-standard-library.md](self-hosting-standard-library.md) first; open
+this file only after the specification identifies one descriptor-only helper as
+the target.
 
 ## Goal
 
@@ -13,12 +14,25 @@ Move ordinary reusable behavior into Veln libraries while keeping the compiler
 responsible only for primitive runtime boundaries and compatibility metadata
 that cannot yet be expressed in source.
 
-## Migration Pattern
+## Candidate And Migration Rule
 
-Use this pattern only after the short page routes the work to exactly one
-descriptor-only helper from the implemented specification route. Keep helper
-semantics in the specification and apply only the source-backed placement
-pattern here:
+Use this rule only after the short page routes the work to exactly one
+descriptor-only pure helper from the implemented specification. Prefer a
+candidate when the specification already provides its signature, value
+semantics, and descriptor-only status, and when:
+
+- its behavior is expressible in existing Veln source
+- it needs no new effect label, runtime boundary, parser feature, or public
+  container representation guarantee
+- it can continue using the descriptor-backed signature adapter and backend
+  lowering during migration
+
+Avoid a candidate when it depends on host I/O, process state, broad module
+loading, source-level effect handlers, streaming, subprocesses, or a container
+representation guarantee.
+
+Keep helper semantics in the specification and apply only this source-backed
+placement pattern:
 
 - choose a helper whose signature and value semantics are already implemented
 - add ordinary Veln source beside other core prelude source
@@ -32,19 +46,7 @@ pattern here:
 
 Remaining source-backed prelude work chooses from the descriptor-only pure
 helpers listed in
-[../specification/names-effects.md](../specification/names-effects.md). Prefer
-a candidate only when the specification already provides its signature, value
-semantics, and descriptor-only status, and when:
-
-- its behavior is expressible in existing Veln source
-- it needs no new effect label, runtime boundary, parser feature, or public
-  container representation guarantee
-- it can continue using the descriptor-backed signature adapter and backend
-  lowering during migration
-
-Avoid a candidate when it depends on host I/O, process state, broad module
-loading, source-level effect handlers, streaming, subprocesses, or a container
-representation guarantee.
+[../specification/names-effects.md](../specification/names-effects.md).
 
 For signatures, value behavior, and the source-backed versus descriptor-only
 split, return to the specification. This proposal only keeps the candidate

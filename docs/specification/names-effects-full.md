@@ -328,9 +328,9 @@ The implemented standard symbol table has this current pure-helper split:
   `vec_concat`, `vec_map`, `vec_filter`, `vec_fold`, `vec_try_map`,
   `vec_try_map_with`, `dict_get`, `dict_contains`, `dict_insert`,
   `dict_remove`, `option_map`, `option_and_then`, `option_unwrap_or`,
-  `result_map`, `result_map_err`, and `result_and_then`
-- descriptor-only pure helpers: `string_split_once`, `string_parse_int`, and
-  `int_to_string`
+  `result_map`, `result_map_err`, `result_and_then`, `string_parse_int`,
+  and `int_to_string`
+- descriptor-only pure helpers: `string_split_once`
 
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
 each helper and [Value Semantics](#value-semantics) for behavior. The

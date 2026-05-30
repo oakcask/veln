@@ -7329,10 +7329,8 @@ fn infers_prelude_helper_calls_from_expected_types() {
         } if name == "vec_len"
     ));
     assert!(matches!(first.expr.ty, CoreType::Named { ref name, .. } if name == "Int"));
-    let source_backed_prelude_names = crate::standard_symbols::source_backed_symbols()
-        .filter(|symbol| symbol.module.is_none())
-        .map(|symbol| symbol.name)
-        .collect::<Vec<_>>();
+    let source_backed_prelude_names =
+        crate::standard_symbols::source_backed_prelude_names().collect::<Vec<_>>();
     let core_prelude_calls = fields
         .iter()
         .filter_map(|field| match &field.expr.kind {
@@ -7423,31 +7421,11 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
         );
     }
 
+    let mut expected_entries =
+        crate::standard_symbols::source_backed_prelude_names().collect::<Vec<_>>();
     entries.sort_unstable();
-    assert_eq!(
-        entries,
-        [
-            "dict_contains",
-            "dict_get",
-            "dict_insert",
-            "dict_remove",
-            "option_and_then",
-            "option_map",
-            "option_unwrap_or",
-            "result_and_then",
-            "result_map",
-            "result_map_err",
-            "vec_concat",
-            "vec_filter",
-            "vec_fold",
-            "vec_is_empty",
-            "vec_len",
-            "vec_map",
-            "vec_push",
-            "vec_try_map",
-            "vec_try_map_with"
-        ]
-    );
+    expected_entries.sort_unstable();
+    assert_eq!(entries, expected_entries);
 }
 
 #[test]
@@ -7989,6 +7967,24 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
                 "end\n",
             ),
             "expected `Dict(String, Int)`, but found `Int`",
+        ),
+        (
+            "int_to_string",
+            concat!(
+                "pub fn main(value: String) -> String effects []\n",
+                "  int_to_string(value)\n",
+                "end\n",
+            ),
+            "expected `Int`, but found `String`",
+        ),
+        (
+            "string_parse_int",
+            concat!(
+                "pub fn main(value: Int) -> Result(Int, String) effects []\n",
+                "  string_parse_int(value)\n",
+                "end\n",
+            ),
+            "expected `String`, but found `Int`",
         ),
     ] {
         assert_source_backed_helper_user_call_site_type_mismatch(
