@@ -16,6 +16,12 @@ compare it with `../specification/` before changing behavior.
   `runtime=contract`, `runtime=ensure`, and `runtime=result` routes.
 - [path-runtime-representation.md](path-runtime-representation.md):
   runtime `Path` representation work.
+- [adt-generalization-route.md](adt-generalization-route.md):
+  staged route from descriptor-backed `Option` and `Result` to ADTs, `List`,
+  immutable collection helpers, and trampoline execution.
+- [immutable-collection-trampoline.md](immutable-collection-trampoline.md):
+  internal trampoline follow-up for source-authored immutable collection
+  helpers after the ADT and `List` route.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
   repair verification, ranking, partial application, and automatic repair
   follow-ups.
