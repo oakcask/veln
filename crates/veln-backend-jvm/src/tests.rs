@@ -319,7 +319,7 @@ fn jvm_runtime_preserves_path_values_across_standard_calls_when_java_is_availabl
         return;
     }
 
-    let ir = lower_to_ir("pub fn main() -> () effects []\n  ()\nend\n");
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
     let program = generate_classfiles_with_entry(&ir, "main");
     let root = temp_dir("runtime-path-values");
     write_jvm_program(&root, &program);
