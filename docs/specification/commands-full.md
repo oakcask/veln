@@ -99,14 +99,14 @@ and binary precedence, postfix `?`, nested records, lists, calls, and
 idempotent formatting across multiple input files.
 
 Standalone line comments attach to the next parsed source line during
-formatting. The formatter emits comments with canonical hash spelling,
-rewriting legacy `//` ordinary comments to `#` and legacy `///` documentation
-comments to `##`, with the same indentation as the formatted module header,
-import, function signature, contract clause, body line, or closing `end` line
-it documents. Comment-only lines between module headers, imports, function
-signatures, contract clauses, body lines, and closing `end` lines do not
-prevent parsing or deterministic formatting of those declarations. Trailing
-line comments after source code stay on the same formatted source line.
+formatting. The formatter emits hash comments with the same indentation as the
+formatted module header, import, function signature, contract clause, body
+line, or closing `end` line it documents. Comment-only lines between module
+headers, imports, function signatures, contract clauses, body lines, and
+closing `end` lines do not prevent parsing or deterministic formatting of
+those declarations. Trailing line comments after source code stay on the same
+formatted source line. `veln fmt` formats parse-clean source only; it does not
+migrate slash-prefixed comment-like text.
 
 <a id="veln-run"></a>
 
@@ -193,16 +193,15 @@ failure after static checking succeeds, with optional `function=<Name>` and
 metadata values, missing runtime contract `clause` or `predicate`, missing
 runtime ensure `predicate`, missing runtime result `value`, and unsupported
 runtime expectation kinds are static doc diagnostics. A line inside an
-executable doctest fence that starts with
-`> ` is hidden setup: the generated test includes the line after the marker,
-so the example can bind helpers without exposing harness code in the
-documented sample. Legacy `///` doctest fences also accept `# ` as hidden
-setup, while `##` doctest fences keep `# comment` as visible source. The
-hidden marker is exact after the doc-comment prefix and one optional separator
-space; an example that intentionally starts source with `>` can write one
-extra leading space before `>`. In `check`, generated doctests participate in
-parse and semantic diagnostics. In `test`, generated positive doctests are
-selected as doctest cases.
+executable doctest fence that starts with `> ` is hidden setup: the generated
+test includes the line after the marker, so the example can bind helpers
+without exposing harness code in the documented sample. `# comment` lines stay
+visible source comments inside generated doctests. The hidden marker is exact
+after the doc-comment prefix and one optional separator space; an example that
+intentionally starts source with `>` can write one extra leading space before
+`>`. In `check`, generated doctests participate in parse and semantic
+diagnostics. In `test`, generated positive doctests are selected as doctest
+cases.
 
 An adjacent doc comment fence whose info string is
 `veln-output stream=stdout` or `veln-output stream=stderr` records expected

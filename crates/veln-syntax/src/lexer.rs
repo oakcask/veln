@@ -13,9 +13,6 @@ pub fn lex(source: &SourceFile) -> Lexed {
         match ch {
             ' ' | '\t' | '\r' => tokens.push(read_whitespace(text, start, ch, &mut chars)),
             '\n' => tokens.push(token(TokenKind::Newline, "\n", start, start + 1)),
-            '/' if chars.peek().is_some_and(|(_, next)| *next == '/') => {
-                tokens.push(read_comment(text, start, &mut chars));
-            }
             '#' => tokens.push(read_comment(text, start, &mut chars)),
             '"' => tokens.push(read_string(text, start, &mut chars)),
             '0'..='9' => tokens.push(read_number(text, start, ch, &mut chars)),

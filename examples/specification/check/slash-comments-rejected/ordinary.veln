@@ -1,0 +1,4 @@
+// ordinary slash comment text is source, not trivia
+fn ordinary() -> ()
+  ()
+end

@@ -17,18 +17,12 @@ compare it with `../specification/` before changing behavior.
 - [forbid-empty-effects-declarations.md](forbid-empty-effects-declarations.md):
   require pure function and test declarations to omit empty `effects []`
   clauses.
-- [drop-legacy-slash-comments.md](drop-legacy-slash-comments.md):
-  remove compatibility support for `//` ordinary comments, `///`
-  documentation comments, and legacy doctest hidden setup.
 - [adt-generalization-route.md](adt-generalization-route.md):
   staged route from descriptor-backed `Option` and `Result` to ADTs, `List`,
   immutable collection helpers, and trampoline execution.
 - [user-defined-adts.md](user-defined-adts.md):
   proposed source syntax, inference, constructor namespace rules, visibility,
   and generation-function pattern for general user-defined ADTs.
-- [immutable-collection-trampoline.md](immutable-collection-trampoline.md):
-  internal trampoline follow-up for source-authored immutable collection
-  helpers after the ADT and `List` route.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
   remaining repair-loop axes for verification orchestration, candidate
   evidence, edit granularity, and application authority.

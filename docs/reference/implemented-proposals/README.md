@@ -25,6 +25,8 @@ behavior.
   [formatter-stabilization.md](formatter-stabilization.md).
 - Hash line comments:
   [hash-line-comments.md](hash-line-comments.md).
+- Drop legacy slash comments:
+  [drop-legacy-slash-comments.md](drop-legacy-slash-comments.md).
 - First repair command boundary:
   [repair-command-first-boundary.md](repair-command-first-boundary.md).
 - Repair command saved input freshness:
@@ -37,6 +39,8 @@ behavior.
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Path runtime representation:
   [path-runtime-representation.md](path-runtime-representation.md).
+- Immutable collection trampoline replacement:
+  [immutable-collection-trampoline.md](immutable-collection-trampoline.md).
 
 ## Skip Unless Needed
 

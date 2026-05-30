@@ -6,8 +6,8 @@ smallest section to read before opening the full grammar notes.
 ## Read First
 
 - Module headers, imports, functions, tests, minimal `List(A)` type
-  declarations, canonical `#` comments, legacy `//` compatibility,
-  documentation comments, doctests, and ADR-lite metadata:
+  declarations, canonical `#` comments, `##` documentation comments,
+  doctests, and ADR-lite metadata:
   [source-surface-full.md](source-surface-full.md).
   Use [commands.md](commands.md) for formatter layout and canonical comment
   spelling behavior.

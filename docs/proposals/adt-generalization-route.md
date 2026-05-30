@@ -16,8 +16,8 @@ states it.
   [../specification/types.md](../specification/types.md).
 - Current immutable helper behavior:
   [../specification/names-effects.md](../specification/names-effects.md).
-- Tail-recursive helper execution follow-up:
-  [immutable-collection-trampoline.md](immutable-collection-trampoline.md).
+- Completed tail-recursive helper execution follow-up:
+  [../reference/implemented-proposals/immutable-collection-trampoline.md](../reference/implemented-proposals/immutable-collection-trampoline.md).
 - General user-defined ADT surface:
   [user-defined-adts.md](user-defined-adts.md).
 

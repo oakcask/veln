@@ -49,6 +49,9 @@ against the built `veln` binary.
   record let and match patterns, private inference, parenthesized expressions,
   nested match expressions in call and aggregate positions, and trailing
   record type fields.
+- `check/slash-comments-rejected/`: slash-prefixed comment-like text is
+  rejected as source instead of being treated as ordinary or documentation
+  comments.
 - `check/discovery-parse-gate/`: default recursive source discovery, skipped
   build output, per-file parse gates, and semantic diagnostics from other
   parse-clean files.
@@ -137,9 +140,9 @@ against the built `veln` binary.
   and `stdio::eprintln` stream behavior.
 - `run/prelude-helpers/`: result-bearing prelude traversal helpers and
   runtime stdio.
-- `run/prelude-containers/`: vec, dictionary, option, result, and string
+- `run/prelude-containers/`: vec, dictionary, list, option, result, and string
   prelude helper value semantics, including non-mutating container updates,
-  source-order vec traversal, and empty-vec checks.
+  source-order vec and list traversal, and empty-container checks.
 - `run/result-propagation/`: `Result` propagation, dictionary lookup, function
   values, and runtime JSON success.
 - `run/match-source-order/`: match arms are evaluated in source order.

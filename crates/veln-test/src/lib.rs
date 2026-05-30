@@ -810,7 +810,6 @@ struct ExtractedDoctest {
 enum Fence {
     Veln {
         lines: Vec<String>,
-        doc_comment_style: DocCommentStyle,
         error_type: Option<String>,
         expected_runtime_failure: Option<Box<ExpectedRuntimeFailure>>,
         ignored: bool,
@@ -823,12 +822,6 @@ enum Fence {
         span: SourceSpan,
     },
     Ignored,
-}
-
-#[derive(Clone, Copy)]
-enum DocCommentStyle {
-    Hash,
-    Slash,
 }
 
 #[derive(Default)]
@@ -875,18 +868,14 @@ impl<'a> DoctestExtractor<'a> {
         let line_range = TextRange::new(self.offset, self.offset + line.len());
         self.offset += raw_line.len();
 
-        let Some((content, style)) = doc_comment_content(line) else {
+        let Some(content) = doc_comment_content(line) else {
             self.finalize_pending_with_error_context(line);
             return;
         };
-        self.handle_doc_line(
-            content.strip_prefix(' ').unwrap_or(content),
-            style,
-            line_range,
-        );
+        self.handle_doc_line(content.strip_prefix(' ').unwrap_or(content), line_range);
     }
 
-    fn handle_doc_line(&mut self, content: &str, style: DocCommentStyle, line_range: TextRange) {
+    fn handle_doc_line(&mut self, content: &str, line_range: TextRange) {
         if self.fence.is_some() {
             if content.trim_start().starts_with("```") {
                 self.close_fence();
@@ -898,13 +887,13 @@ impl<'a> DoctestExtractor<'a> {
 
         let trimmed = content.trim_start();
         if let Some(info) = trimmed.strip_prefix("```") {
-            self.open_fence(info.trim(), style, line_range);
+            self.open_fence(info.trim(), line_range);
         } else if !trimmed.is_empty() {
             self.finalize_pending();
         }
     }
 
-    fn open_fence(&mut self, info: &str, style: DocCommentStyle, line_range: TextRange) {
+    fn open_fence(&mut self, info: &str, line_range: TextRange) {
         if veln_fence_info(info) {
             let span = self.source.span(line_range);
             self.extracted
@@ -912,7 +901,6 @@ impl<'a> DoctestExtractor<'a> {
                 .extend(veln_metadata_diagnostics(info, span.clone()));
             self.fence = Some(Fence::Veln {
                 lines: Vec::new(),
-                doc_comment_style: style,
                 error_type: doctest_error_type(info).map(ToString::to_string),
                 expected_runtime_failure: doctest_runtime_failure(info, span).map(Box::new),
                 ignored: doctest_ignored(info),
@@ -940,7 +928,6 @@ impl<'a> DoctestExtractor<'a> {
         match self.fence.take().expect("active fence should exist") {
             Fence::Veln {
                 lines,
-                doc_comment_style: _,
                 error_type,
                 expected_runtime_failure,
                 ignored,
@@ -970,11 +957,7 @@ impl<'a> DoctestExtractor<'a> {
 
     fn append_fence_line(&mut self, content: &str) {
         match self.fence.as_mut().expect("active fence should exist") {
-            Fence::Veln {
-                lines,
-                doc_comment_style,
-                ..
-            } => lines.push(doctest_code_line(content, *doc_comment_style)),
+            Fence::Veln { lines, .. } => lines.push(doctest_code_line(content)),
             Fence::Output { lines, .. } => lines.push(content.to_string()),
             Fence::Ignored => {}
         }
@@ -1147,23 +1130,13 @@ fn duplicate_output_diagnostic(
     diagnostic
 }
 
-fn doc_comment_content(line: &str) -> Option<(&str, DocCommentStyle)> {
+fn doc_comment_content(line: &str) -> Option<&str> {
     let line = line.trim_start();
     line.strip_prefix("##")
-        .map(|content| (content, DocCommentStyle::Hash))
-        .or_else(|| {
-            line.strip_prefix("///")
-                .map(|content| (content, DocCommentStyle::Slash))
-        })
 }
 
-fn doctest_code_line(content: &str, style: DocCommentStyle) -> String {
+fn doctest_code_line(content: &str) -> String {
     if let Some(hidden) = content.strip_prefix("> ") {
-        return hidden.to_string();
-    }
-    if matches!(style, DocCommentStyle::Slash)
-        && let Some(hidden) = content.strip_prefix("# ")
-    {
         return hidden.to_string();
     }
     content.to_string()
@@ -1947,7 +1920,7 @@ mod tests {
     }
 
     #[test]
-    fn extracts_doc_comment_veln_fences_with_expected_output() {
+    fn ignores_slash_doc_comment_veln_fences() {
         let source = SourceFile::new(
             "main.veln",
             concat!(
@@ -1965,26 +1938,9 @@ mod tests {
 
         let doctests = doctest_sources(&[source]);
 
-        assert_eq!(doctests.sources.len(), 1);
-        assert_eq!(
-            doctests.sources[0].text(),
-            concat!(
-                "test doctest_1() -> () effects [stdio]\n",
-                "  stdio::println(\"ready\")\n",
-                "  ()\n",
-                "end\n",
-            )
-        );
-        let expected = doctests
-            .expectations
-            .get("doctest_1")
-            .expect("expected output should be recorded");
-        let output = expected
-            .expected_output
-            .as_ref()
-            .expect("expected output should be recorded");
-        assert_eq!(output.stdout.as_deref(), Some("ready"));
-        assert_eq!(output.stderr, None);
+        assert!(doctests.sources.is_empty());
+        assert!(doctests.expectations.is_empty());
+        assert!(doctests.diagnostics.is_empty());
     }
 
     #[test]
@@ -2022,13 +1978,51 @@ mod tests {
     }
 
     #[test]
+    fn extracts_hash_doc_comment_veln_fences_with_expected_output() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "## ```veln\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
+                "## ```veln-output stream=stdout\n",
+                "## ready\n",
+                "## ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  stdio::println(\"ready\")\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        let expected = doctests
+            .expectations
+            .get("doctest_1")
+            .expect("expected output should be recorded");
+        let output = expected
+            .expected_output
+            .as_ref()
+            .expect("expected output should be recorded");
+        assert_eq!(output.stdout.as_deref(), Some("ready"));
+        assert_eq!(output.stderr, None);
+    }
+
+    #[test]
     fn extracts_doctest_runtime_contract_failure_expectation() {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln runtime=contract clause=require predicate=false function=reject blame=caller\n",
-                "/// reject()\n",
-                "/// ```\n",
+                "## ```veln runtime=contract clause=require predicate=false function=reject blame=caller\n",
+                "## reject()\n",
+                "## ```\n",
             ),
         );
 
@@ -2071,9 +2065,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln error=String runtime=result value=bad\n",
-                "/// Err(\"bad\")?\n",
-                "/// ```\n",
+                "## ```veln error=String runtime=result value=bad\n",
+                "## Err(\"bad\")?\n",
+                "## ```\n",
             ),
         );
 
@@ -2104,9 +2098,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln runtime=ensure predicate=false function=reject blame=implementation\n",
-                "/// reject()\n",
-                "/// ```\n",
+                "## ```veln runtime=ensure predicate=false function=reject blame=implementation\n",
+                "## reject()\n",
+                "## ```\n",
             ),
         );
 
@@ -2140,9 +2134,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln runtime=contract clause=require\n",
-                "/// reject()\n",
-                "/// ```\n",
+                "## ```veln runtime=contract clause=require\n",
+                "## reject()\n",
+                "## ```\n",
             ),
         );
 
@@ -2166,9 +2160,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln error=String runtime=result\n",
-                "/// Err(\"bad\")?\n",
-                "/// ```\n",
+                "## ```veln error=String runtime=result\n",
+                "## Err(\"bad\")?\n",
+                "## ```\n",
             ),
         );
 
@@ -2191,11 +2185,7 @@ mod tests {
     fn runtime_ensure_expectation_requires_predicate_metadata() {
         let source = SourceFile::new(
             "main.veln",
-            concat!(
-                "/// ```veln runtime=ensure\n",
-                "/// reject()\n",
-                "/// ```\n",
-            ),
+            concat!("## ```veln runtime=ensure\n", "## reject()\n", "## ```\n",),
         );
 
         let doctests = doctest_sources(&[source]);
@@ -2218,9 +2208,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln runtime=contract clause=require predicate=false value=bad\n",
-                "/// reject()\n",
-                "/// ```\n",
+                "## ```veln runtime=contract clause=require predicate=false value=bad\n",
+                "## reject()\n",
+                "## ```\n",
             ),
         );
 
@@ -2244,15 +2234,15 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// stdio::println(\"ready\")\n",
-                "/// ```\n",
-                "/// ```veln-output stream=stdout\n",
-                "/// ready\n",
-                "/// ```\n",
-                "/// ```veln-output stream=stdout\n",
-                "/// duplicate\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
+                "## ```veln-output stream=stdout\n",
+                "## ready\n",
+                "## ```\n",
+                "## ```veln-output stream=stdout\n",
+                "## duplicate\n",
+                "## ```\n",
             ),
         );
 
@@ -2282,15 +2272,15 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// stdio::eprintln(\"warn\")\n",
-                "/// ```\n",
-                "/// ```veln-output stream=stderr\n",
-                "/// warn\n",
-                "/// ```\n",
-                "/// ```veln-output stream=stderr\n",
-                "/// duplicate\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## stdio::eprintln(\"warn\")\n",
+                "## ```\n",
+                "## ```veln-output stream=stderr\n",
+                "## warn\n",
+                "## ```\n",
+                "## ```veln-output stream=stderr\n",
+                "## duplicate\n",
+                "## ```\n",
             ),
         );
 
@@ -2324,12 +2314,12 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// stdio::println(\"first\")\n",
-                "/// ```\n",
-                "/// ```veln\n",
-                "/// stdio::println(\"second\")\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## stdio::println(\"first\")\n",
+                "## ```\n",
+                "## ```veln\n",
+                "## stdio::println(\"second\")\n",
+                "## ```\n",
             ),
         );
 
@@ -2366,12 +2356,12 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln-output stream=stdout\n",
-                "/// orphaned\n",
-                "/// ```\n",
-                "/// ```veln\n",
-                "/// stdio::println(\"ready\")\n",
-                "/// ```\n",
+                "## ```veln-output stream=stdout\n",
+                "## orphaned\n",
+                "## ```\n",
+                "## ```veln\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
             ),
         );
 
@@ -2404,13 +2394,13 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// stdio::println(\"ready\")\n",
-                "/// ```\n",
-                "/// This prose separates the runnable example from later output.\n",
-                "/// ```veln-output stream=stdout\n",
-                "/// ready\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
+                "## This prose separates the runnable example from later output.\n",
+                "## ```veln-output stream=stdout\n",
+                "## ready\n",
+                "## ```\n",
             ),
         );
 
@@ -2434,12 +2424,12 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// stdio::println(\"ready\")\n",
-                "/// ```\n",
-                "/// ```veln-output stream=stdout trim=true\n",
-                "/// ready\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
+                "## ```veln-output stream=stdout trim=true\n",
+                "## ready\n",
+                "## ```\n",
             ),
         );
 
@@ -2463,12 +2453,12 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// stdio::println(\"ready\")\n",
-                "/// ```\n",
-                "/// ```veln-output stream=combined\n",
-                "/// ready\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
+                "## ```veln-output stream=combined\n",
+                "## ready\n",
+                "## ```\n",
             ),
         );
 
@@ -2497,12 +2487,12 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// stdio::println(\"ready\")\n",
-                "/// ```\n",
-                "/// ```veln-output\n",
-                "/// ready\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
+                "## ```veln-output\n",
+                "## ready\n",
+                "## ```\n",
             ),
         );
 
@@ -2531,9 +2521,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln ignore\n",
-                "/// stdio::println(\"ready\")\n",
-                "/// ```\n",
+                "## ```veln ignore\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
             ),
         );
 
@@ -2553,9 +2543,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln fail\n",
-                "/// let value: Int = \"no\"\n",
-                "/// ```\n",
+                "## ```veln fail\n",
+                "## let value: Int = \"no\"\n",
+                "## ```\n",
             ),
         );
 
@@ -2582,7 +2572,7 @@ mod tests {
 
     #[test]
     fn negative_doctest_failure_reconciliation_consumes_matching_diagnostics() {
-        let source = SourceFile::new("main.veln", "/// ```veln fail\n");
+        let source = SourceFile::new("main.veln", "## ```veln fail\n");
         let generated = SourceFile::new("main.veln#doctest-1_test.veln", "fn doctest_1()\nend\n");
         let fail_span = source.span(TextRange::new(0, 16));
         let generated_span = generated.span(TextRange::new(0, generated.len()));
@@ -2604,7 +2594,7 @@ mod tests {
 
     #[test]
     fn negative_doctest_failure_reconciliation_reports_missing_diagnostic() {
-        let source = SourceFile::new("main.veln", "/// ```veln fail\n");
+        let source = SourceFile::new("main.veln", "## ```veln fail\n");
         let fail_span = source.span(TextRange::new(0, 16));
         let expected_failures =
             BTreeMap::from([("main.veln#doctest-1_test.veln".to_string(), fail_span)]);
@@ -2621,7 +2611,7 @@ mod tests {
 
     #[test]
     fn negative_doctest_failure_reconciliation_requires_error_diagnostic() {
-        let source = SourceFile::new("main.veln", "/// ```veln fail\n");
+        let source = SourceFile::new("main.veln", "## ```veln fail\n");
         let generated = SourceFile::new("main.veln#doctest-1_test.veln", "fn doctest_1()\nend\n");
         let fail_span = source.span(TextRange::new(0, 16));
         let generated_span = generated.span(TextRange::new(0, generated.len()));
@@ -2648,10 +2638,10 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// # let greeting = \"ready\"\n",
-                "/// stdio::println(greeting)\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## > let greeting = \"ready\"\n",
+                "## stdio::println(greeting)\n",
+                "## ```\n",
             ),
         );
 
@@ -2728,9 +2718,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln skip=true\n",
-                "/// stdio::println(\"ready\")\n",
-                "/// ```\n",
+                "## ```veln skip=true\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
             ),
         );
 
@@ -2754,9 +2744,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln error=\n",
-                "/// let value = parse(\"1\")?\n",
-                "/// ```\n",
+                "## ```veln error=\n",
+                "## let value = parse(\"1\")?\n",
+                "## ```\n",
             ),
         );
 
@@ -2786,10 +2776,10 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln error=AppError\n",
-                "/// let value = parse(\"1\")?\n",
-                "/// stdio::println(\"ready\")\n",
-                "/// ```\n",
+                "## ```veln error=AppError\n",
+                "## let value = parse(\"1\")?\n",
+                "## stdio::println(\"ready\")\n",
+                "## ```\n",
                 "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
@@ -2816,9 +2806,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "/// ```veln\n",
-                "/// let value: Int = Ok(1)?\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## let value: Int = Ok(1)?\n",
+                "## ```\n",
                 "pub fn parse(raw: String) -> Result(Int, AppError)\n",
                 "  Ok(1)\n",
                 "end\n",
@@ -2847,9 +2837,9 @@ mod tests {
                 "fn parse(raw: String) -> Result(Int, AppError)\n",
                 "  Ok(1)\n",
                 "end\n",
-                "/// ```veln\n",
-                "/// let value = parse(\"1\")?\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## let value = parse(\"1\")?\n",
+                "## ```\n",
                 "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
@@ -2878,9 +2868,9 @@ mod tests {
                 "fn parse(raw: String) -> result: Result(Int, AppError)\n",
                 "  Ok(1)\n",
                 "end\n",
-                "/// ```veln\n",
-                "/// let value = parse(\"1\")?\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## let value = parse(\"1\")?\n",
+                "## ```\n",
                 "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
@@ -2909,9 +2899,9 @@ mod tests {
                 "fn parse(raw: String) -> Result(Vec(Result(Int, ParseError)), AppError)\n",
                 "  Ok([])\n",
                 "end\n",
-                "/// ```veln\n",
-                "/// let value = parse(\"1\")?\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## let value = parse(\"1\")?\n",
+                "## ```\n",
                 "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
@@ -2943,10 +2933,10 @@ mod tests {
                 "fn read(raw: String) -> Result(String, IoError)\n",
                 "  Ok(raw)\n",
                 "end\n",
-                "/// ```veln\n",
-                "/// let value = parse(\"1\")?\n",
-                "/// let text = read(\"x\")?\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## let value = parse(\"1\")?\n",
+                "## let text = read(\"x\")?\n",
+                "## ```\n",
                 "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
@@ -2979,10 +2969,10 @@ mod tests {
                 "fn read(raw: String) -> Result(String, IoError)\n",
                 "  Ok(raw)\n",
                 "end\n",
-                "/// ```veln error=ExampleError\n",
-                "/// let value = parse(\"1\")?\n",
-                "/// let text = read(\"x\")?\n",
-                "/// ```\n",
+                "## ```veln error=ExampleError\n",
+                "## let value = parse(\"1\")?\n",
+                "## let text = read(\"x\")?\n",
+                "## ```\n",
                 "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
@@ -3017,9 +3007,9 @@ mod tests {
                 "fn parse(raw: String) -> Result(Int, AppError)\n",
                 "  Ok(1)\n",
                 "end\n",
-                "/// ```veln\n",
-                "/// let value = parse(\"1\")?\n",
-                "/// ```\n",
+                "## ```veln\n",
+                "## let value = parse(\"1\")?\n",
+                "## ```\n",
                 "pub fn main() -> ()\n",
                 "  ()\n",
                 "end\n",
@@ -3712,7 +3702,7 @@ mod tests {
 
     #[test]
     fn negative_doctest_failure_reconciliation_keeps_unrelated_diagnostics() {
-        let source = SourceFile::new("main.veln", "/// ```veln fail\n");
+        let source = SourceFile::new("main.veln", "## ```veln fail\n");
         let generated = SourceFile::new("main.veln#doctest-1_test.veln", "fn doctest_1()\nend\n");
         let other = SourceFile::new("other.veln", "fn helper()\nend\n");
         let fail_span = source.span(TextRange::new(0, 16));

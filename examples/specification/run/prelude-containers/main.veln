@@ -1,4 +1,9 @@
-# Prelude container helpers preserve concrete Vec, Dict, Option, and Result behavior.
+# Prelude container helpers preserve concrete Vec, Dict, List, Option, and Result behavior.
+type List(A)
+  Nil
+  Cons(head: A, tail: List(A))
+end
+
 fn odd(value: Int) -> Bool
   value != 2
 end
@@ -93,6 +98,19 @@ pub fn main() -> () effects [stdio]
     true => "empty"
     false => "nonempty"
   end
+  let list: List(Int) = list_cons(1, list_cons(2, list_cons(3, list_nil())))
+  let ninth: String = int_to_string(list_fold(list, 0, add))
+  let tenth: String = int_to_string(list_fold(list_reverse(list), 0, add))
+  let eleventh: String = int_to_string(list_fold(list_filter(list, odd), 0, add))
+  let twelfth: String = int_to_string(list_fold(list_map(list, double), 0, add))
+  let thirteenth: String = match list_try_map(list, fallible_double)
+    Ok(items) => int_to_string(list_fold(items, 0, add))
+    Err(error) => error
+  end
+  let fourteenth: String = match list_is_empty(list_nil())
+    true => "list-empty"
+    false => "list-nonempty"
+  end
   stdio::println(second)
   stdio::println(third)
   stdio::println(fourth)
@@ -100,4 +118,10 @@ pub fn main() -> () effects [stdio]
   stdio::println(sixth)
   stdio::println(seventh)
   stdio::println(eighth)
+  stdio::println(ninth)
+  stdio::println(tenth)
+  stdio::println(eleventh)
+  stdio::println(twelfth)
+  stdio::println(thirteenth)
+  stdio::println(fourteenth)
 end

@@ -1022,11 +1022,11 @@ fn fmt_preserves_files_when_any_input_has_parse_errors() {
 fn fmt_formats_comment_bearing_files() {
     let project = TestProject::new("fmt-comments");
     let text = concat!(
-        "// keep leading comment\n",
+        "# keep leading comment\n",
         "fn   main ( ) -> ()\n",
-        "  () // keep trailing comment\n",
-        "// keep closing comment\n",
-        "end // keep end comment\n",
+        "  () # keep trailing comment\n",
+        "# keep closing comment\n",
+        "end # keep end comment\n",
     );
     project.write("main.veln", text);
 
@@ -1046,16 +1046,49 @@ fn fmt_formats_comment_bearing_files() {
 }
 
 #[test]
+fn fmt_rejects_legacy_slash_comment_source() {
+    let project = TestProject::new("fmt-slash-comments");
+    project.write(
+        "main.veln",
+        concat!(
+            "// keep leading comment\n",
+            "fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.fmt(&["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "// keep leading comment\n",
+            "fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+        )
+    );
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "main.veln:1:1: error[parse.expected_item]: expected a function, test, or type declaration",
+        ],
+    );
+}
+
+#[test]
 fn fmt_formats_files_with_attached_standalone_comments() {
     let project = TestProject::new("fmt-attached-comments");
     project.write(
         "main.veln",
         concat!(
-            "// module docs\n",
+            "# module docs\n",
             "mod   app\n",
-            "/// public docs\n",
+            "## public docs\n",
             "pub  fn   main ( value : Unit ) -> Unit effects [stdio]\n",
-            "// return docs\n",
+            "# return docs\n",
             "()\n",
             "end\n",
         ),
@@ -1081,15 +1114,15 @@ fn fmt_attaches_comments_to_imports_contracts_and_end_lines() {
         "main.veln",
         concat!(
             "mod   app\n",
-            "// import docs\n",
+            "# import docs\n",
             "use   platform.io\n",
-            "// function docs\n",
+            "# function docs\n",
             "fn   main ( ready : Bool ) -> Unit\n",
-            "// require docs\n",
+            "# require docs\n",
             "require ready\n",
-            "// body docs\n",
+            "# body docs\n",
             "()\n",
-            "// end docs\n",
+            "# end docs\n",
             "end\n",
         ),
     );
@@ -3753,9 +3786,9 @@ fn check_json_typechecks_executable_doctest_fences() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln\n",
-            "/// let value: Int = \"no\"\n",
-            "/// ```\n",
+            "## ```veln\n",
+            "## let value: Int = \"no\"\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -3783,9 +3816,9 @@ fn check_json_uses_doctest_error_type_fence_attribute() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln error=AppError\n",
-            "/// let value: Int = Ok(1)?\n",
-            "/// ```\n",
+            "## ```veln error=AppError\n",
+            "## let value: Int = Ok(1)?\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -3812,9 +3845,9 @@ fn check_json_infers_doctest_error_type_from_public_result() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln\n",
-            "/// let value: Int = Ok(1)?\n",
-            "/// ```\n",
+            "## ```veln\n",
+            "## let value: Int = Ok(1)?\n",
+            "## ```\n",
             "pub fn parse(raw: String) -> Result(Int, AppError)\n",
             "  Ok(1)\n",
             "end\n",
@@ -3841,15 +3874,15 @@ fn check_reports_duplicate_doctest_output_stream() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln\n",
-            "/// stdio::println(\"ready\")\n",
-            "/// ```\n",
-            "/// ```veln-output stream=stdout\n",
-            "/// ready\n",
-            "/// ```\n",
-            "/// ```veln-output stream=stdout\n",
-            "/// duplicate\n",
-            "/// ```\n",
+            "## ```veln\n",
+            "## stdio::println(\"ready\")\n",
+            "## ```\n",
+            "## ```veln-output stream=stdout\n",
+            "## ready\n",
+            "## ```\n",
+            "## ```veln-output stream=stdout\n",
+            "## duplicate\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -3902,12 +3935,12 @@ fn check_reports_unknown_doctest_metadata() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln skip=true\n",
-            "/// stdio::println(\"ready\")\n",
-            "/// ```\n",
-            "/// ```veln-output stream=stdout trim=true\n",
-            "/// ready\n",
-            "/// ```\n",
+            "## ```veln skip=true\n",
+            "## stdio::println(\"ready\")\n",
+            "## ```\n",
+            "## ```veln-output stream=stdout trim=true\n",
+            "## ready\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -3960,15 +3993,15 @@ fn check_reports_invalid_doctest_metadata() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln error=\n",
-            "/// let value = Ok(1)?\n",
-            "/// ```\n",
-            "/// ```veln-output\n",
-            "/// ready\n",
-            "/// ```\n",
-            "/// ```veln-output stream=combined\n",
-            "/// mixed\n",
-            "/// ```\n",
+            "## ```veln error=\n",
+            "## let value = Ok(1)?\n",
+            "## ```\n",
+            "## ```veln-output\n",
+            "## ready\n",
+            "## ```\n",
+            "## ```veln-output stream=combined\n",
+            "## mixed\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -4024,9 +4057,9 @@ fn check_ignores_non_runnable_doctest_fences() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln ignore\n",
-            "/// missing_function()\n",
-            "/// ```\n",
+            "## ```veln ignore\n",
+            "## missing_function()\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -4046,9 +4079,9 @@ fn check_accepts_negative_doctest_with_static_diagnostic() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln fail\n",
-            "/// let value: Int = \"no\"\n",
-            "/// ```\n",
+            "## ```veln fail\n",
+            "## let value: Int = \"no\"\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -4068,9 +4101,9 @@ fn check_reports_negative_doctest_that_does_not_fail() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln fail\n",
-            "/// let value: Int = 1\n",
-            "/// ```\n",
+            "## ```veln fail\n",
+            "## let value: Int = 1\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -4098,9 +4131,9 @@ fn check_reports_negative_doctest_with_only_hole_hint() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln fail\n",
-            "/// let value: Int = _\n",
-            "/// ```\n",
+            "## ```veln fail\n",
+            "## let value: Int = _\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -4131,10 +4164,10 @@ fn check_json_typechecks_hidden_doctest_setup_lines() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln\n",
-            "/// # let greeting = \"ready\"\n",
-            "/// stdio::println(greeting)\n",
-            "/// ```\n",
+            "## ```veln\n",
+            "## > let greeting = \"ready\"\n",
+            "## stdio::println(greeting)\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -4212,12 +4245,12 @@ fn test_json_runs_doctest_and_compares_expected_output_when_jdk_is_available() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln\n",
-            "/// stdio::println(\"ready\")\n",
-            "/// ```\n",
-            "/// ```veln-output stream=stdout\n",
-            "/// ready\n",
-            "/// ```\n",
+            "## ```veln\n",
+            "## stdio::println(\"ready\")\n",
+            "## ```\n",
+            "## ```veln-output stream=stdout\n",
+            "## ready\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
@@ -4249,12 +4282,12 @@ fn test_json_reports_doctest_expected_output_mismatch_when_jdk_is_available() {
     project.write(
         "main.veln",
         concat!(
-            "/// ```veln\n",
-            "/// stdio::println(\"waiting\")\n",
-            "/// ```\n",
-            "/// ```veln-output stream=stdout\n",
-            "/// ready\n",
-            "/// ```\n",
+            "## ```veln\n",
+            "## stdio::println(\"waiting\")\n",
+            "## ```\n",
+            "## ```veln-output stream=stdout\n",
+            "## ready\n",
+            "## ```\n",
             "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
