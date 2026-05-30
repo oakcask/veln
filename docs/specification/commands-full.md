@@ -233,6 +233,11 @@ the discovered doctest case is blocked with `reason: "static_gate"`. JDK setup
 failures become case errors with reason `runner_error`, including a missing
 `java` before class loading.
 
+Runtime failure expectation matching is independent from expected-output
+comparison. Satisfying `runtime=contract` or `runtime=result` does not satisfy
+any attached output fence, and matching output does not satisfy the runtime
+failure expectation.
+
 Doctest output mismatches become failed cases with `failure.kind: "output"` and
 `reason: "expected_output"`. JSON details include the mismatched stream,
 expected text, actual text, first differing logical line, bounded captured
