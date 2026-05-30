@@ -45,7 +45,7 @@ compatibility context, or record-placement audits.
 
 If a decision record includes open details or future extensions, the
 implemented reference still wins. Planned or incomplete decisions live under
-`../../proposals/agent-language-spec-wall/`.
+`../../proposals/`.
 
 ## Skip Unless Needed
 

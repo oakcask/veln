@@ -21,8 +21,6 @@ semantics, or descriptor metadata.
   [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates).
 - Completed helper migrations: `vec_map`, `vec_try_map`,
   `vec_try_map_with`.
-- Current proposal-level target status:
-  [target-selection.md](target-selection.md).
 
 Choose one descriptor-only pure helper before promoting future helper work
 into one concrete target.

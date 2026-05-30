@@ -28,11 +28,11 @@ platform gates, and command help assertions. Keep field-level details in the
 Do not restate implemented field contracts here. This page keeps only
 incomplete or unsplit harness-extension work.
 
-## Current Target
+## Target Status
 
 No smaller target is selected on this page. The command help assertion slice is
-complete; use [target-selection.md](target-selection.md) for the current
-proposal-level target status.
+complete. Split a narrow follow-up into its own proposal page before
+implementation when the scope no longer fits this page.
 
 ## Open Follow-Ups
 

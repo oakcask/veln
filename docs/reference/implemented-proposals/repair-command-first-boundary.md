@@ -44,7 +44,7 @@ input behavior is specified outside this historical record. Use
 current behavior.
 
 Use
-[../../proposals/agent-language-spec-wall/repair-command.md](../../proposals/agent-language-spec-wall/repair-command.md)
+[../../proposals/agent-repair-loop-followups.md](../../proposals/agent-repair-loop-followups.md)
 for adjacent command-level proposal work. Do not promote broader repair-loop
 behavior into `../../specification/` before implementation and tests support
 it.

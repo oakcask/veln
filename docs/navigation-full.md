@@ -20,8 +20,8 @@ question.
 
 - Choosing, implementing, or promoting proposal work:
   [proposals/implementation-route.md](proposals/implementation-route.md).
-- Reading incomplete design-wall rationale:
-  [proposals/agent-language-spec-wall/README.md](proposals/agent-language-spec-wall/README.md).
+- Reading incomplete proposal targets:
+  [proposals/README.md](proposals/README.md).
 - Stop proposal reading when `specification/` already covers the
   behavior; update the specification route instead of reading older design-wall
   notes.

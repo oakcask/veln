@@ -1,72 +1,39 @@
 # Proposals
 
-This directory keeps planned work and candidate gates. Completed proposal
-records move to `../reference/implemented-proposals/` after their observable
-behavior is documented under `../specification/` or checked examples. Proposal
-text is not current language behavior unless `../specification/` also states
-it.
+This directory catalogs planned or accepted work that is not fully documented
+as current behavior under `../specification/`. Proposal text is not current
+language behavior unless the matching specification page also states it.
 
-## Start Here
+Use this page as a catalog only. Pick the proposal that matches the task, then
+compare it with `../specification/` before changing behavior.
 
-- No concrete target named, or checking whether a target exists:
-  [target-selection.md](target-selection.md).
-- Concrete proposal page already named: read that page first, then compare it
-  with `../specification/` before changing code.
-- Implementation, promotion, or cleanup mechanics after a target is chosen:
-  [implementation-route.md](implementation-route.md).
-- Status labels and placement rules: [../document-status.md](../document-status.md).
+## Catalog
 
-## Stop Rule
-
-- Stop when the matching specification page already states the behavior.
-- Do not begin implementation from this index or from
-  [reference-followups.md](reference-followups.md) alone.
-- Treat this index, target selection, and implementation routing as separate
-  steps: this page chooses an area, [target-selection.md](target-selection.md)
-  chooses or rejects a concrete target, and
-  [implementation-route.md](implementation-route.md) applies only after that
-  target exists.
-- Keep candidate-gate wording in [target-selection.md](target-selection.md);
-  this page only routes to proposal areas.
-- Read [implementation-route.md](implementation-route.md) only after one short
-  proposal page owns the target.
-
-## Choose A Route
-
-- Tests, doctests, command analysis, and harness work:
-  [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md),
-  [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md).
-- Runtime, backend, and path representation work:
-  [path-runtime-representation.md](path-runtime-representation.md).
-- Repair workflow and design-wall follow-ups:
-  [agent-language-spec-wall/README.md](agent-language-spec-wall/README.md) and
-  [agent-language-spec-wall/repair-command.md](agent-language-spec-wall/repair-command.md).
-- Library and formatter follow-ups:
-  [self-hosting-standard-library.md](self-hosting-standard-library.md).
-- Implemented proposal history:
-  [../reference/implemented-proposals/README.md](../reference/implemented-proposals/README.md).
-- Mixed follow-up inventory:
-  [reference-followups.md](reference-followups.md).
-
-## Read When
-
-- Choosing a proposal area after current behavior does not answer the task.
-- Checking whether a proposal page still describes absent behavior.
-- Checking residual scope before changing target status.
+- [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md):
+  declarative test harness and command analysis follow-ups.
+- [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md):
+  runtime-failure doctest expectation follow-ups.
+- [path-runtime-representation.md](path-runtime-representation.md):
+  runtime `Path` representation work.
+- [self-hosting-standard-library.md](self-hosting-standard-library.md):
+  self-hosted standard-library helper migration.
+- [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
+  repair verification, ranking, partial application, and automatic repair
+  follow-ups.
+- [agent-test-selection-graph.md](agent-test-selection-graph.md):
+  dependency-aware test selection and graph confidence follow-ups.
+- [agent-module-package-docs.md](agent-module-package-docs.md):
+  package metadata, generated documentation, and export-model follow-ups.
+- [agent-language-surface-expansion.md](agent-language-surface-expansion.md):
+  future language surface features outside the implemented subset.
+- [reference-followups.md](reference-followups.md):
+  broad follow-up inventory that should be split into narrower proposal pages
+  before implementation.
 
 ## Update When
 
+- New proposal work is added, split, superseded, completed, or removed.
 - Proposal work becomes implemented and the resulting behavior is documented
   under `../specification/`.
 - A completed proposal record moves to
   `../reference/implemented-proposals/`.
-- A candidate gate changes, moves to its own page, completes, or is rejected.
-- New proposal work is added, split, superseded, or removed.
-- Historical evidence discovered elsewhere belongs in the matching reference
-  page unless it describes absent behavior.
-
-## Skip Unless Needed
-
-- Use `../specification/` when you need current implemented behavior.
-- Do not read implemented proposal records before the matching specification
-  page and `../reference/implemented-proposals/` route.
