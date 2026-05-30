@@ -11,7 +11,8 @@ first route is not obvious.
   [specification/README.md](specification/README.md).
 - Planned or accepted proposal work:
   [proposals/README.md](proposals/README.md).
-- Rationale and source-support map: [reference/README.md](reference/README.md).
+- Rationale, source support, and implemented proposal records:
+  [reference/README.md](reference/README.md).
 - Documentation placement and promotion rules:
   [document-status.md](document-status.md).
 
@@ -41,7 +42,8 @@ first route is not obvious.
 
 - `specification/`: current implemented language behavior, kept as the latest
   specification only.
-- `reference/`: durable rationale and source support.
+- `reference/`: durable rationale, source support, and completed proposal
+  records.
 - `proposals/`: planned or accepted targets not fully implemented.
 
 ## Skip Unless Needed
@@ -49,4 +51,5 @@ first route is not obvious.
 - Use [document-status.md](document-status.md) for status and placement rules
   instead of repeating those rules here.
 - Do not read implemented proposal records before the current specification page
-  or the proposal route answers the task.
+  and [reference/implemented-proposals/README.md](reference/implemented-proposals/README.md)
+  route.

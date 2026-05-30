@@ -1,7 +1,6 @@
 # Doctest Runtime Failure Expectations
 
-Status: initial route implemented; broader runtime failure matching remains
-proposed
+Status: proposed follow-ups
 
 This page records remaining runtime-failure follow-up work outside the
 implemented contract-failure doctest route. Current behavior is specified in

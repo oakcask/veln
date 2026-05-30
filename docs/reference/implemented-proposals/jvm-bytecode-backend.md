@@ -9,11 +9,11 @@ the specification pages for current command and execution behavior.
 ## Read First
 
 - Current `run` and `test` behavior:
-  [../specification/execution.md](../specification/execution.md) and
-  [../specification/commands.md](../specification/commands.md).
+  [../../specification/execution.md](../../specification/execution.md) and
+  [../../specification/commands.md](../../specification/commands.md).
 - Java source backend cleanup result is summarized on this page.
 - CLI fixture organization:
-  [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
+  [../toolchain-test-harness.md](../toolchain-test-harness.md).
 
 ## Outcome
 
@@ -54,7 +54,7 @@ the expected classfile target and entry descriptor through `javap -verbose`.
   [implementation notes](jvm-bytecode-backend-full.md#implementation-notes),
   and [promotion route](jvm-bytecode-backend-full.md#promotion-route).
 - Proposal promotion mechanics:
-  [implementation-route.md](implementation-route.md).
+  [../../proposals/implementation-route.md](../../proposals/implementation-route.md).
 
 ## Boundary
 

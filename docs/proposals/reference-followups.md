@@ -28,9 +28,8 @@ follow-up map.
 - Proposal area routing: [README.md](README.md#choose-a-route).
 - Implementation and promotion checks:
   [implementation-route.md](implementation-route.md).
-- Implemented backend and formatter records:
-  [jvm-bytecode-backend.md](jvm-bytecode-backend.md) and
-  [formatter-stabilization.md](formatter-stabilization.md).
+- Implemented proposal records:
+  [../reference/implemented-proposals/README.md](../reference/implemented-proposals/README.md).
 
 Keep concrete candidate wording on the linked short proposal pages. This page
 only routes broad follow-up areas after a task has already ruled out current
@@ -42,7 +41,8 @@ specification behavior.
   tests support the behavior.
 - Remove a target from this page when the matching specification page fully states
   the implemented behavior.
-- Keep implemented records only when they route useful history or completion
-  evidence without restating current behavior.
+- Keep implemented records under `../reference/implemented-proposals/` only
+  when they route useful history or completion evidence without restating
+  current behavior.
 - Keep remaining proposed implementation work in this page or the matching
   short proposal page.

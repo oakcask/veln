@@ -31,7 +31,8 @@ comparison, promotion, or cleanup.
 
 - Shared command analysis, source discovery, checked-core readiness, typed-IR
   readiness, and command parity:
-  [project-analysis-pipeline.md](project-analysis-pipeline.md), then
+  [../reference/implemented-proposals/project-analysis-pipeline.md](../reference/implemented-proposals/project-analysis-pipeline.md),
+  then
   [../specification/commands.md](../specification/commands.md),
   [../specification/execution.md](../specification/execution.md), and
   [../specification/json-output.md](../specification/json-output.md) only for

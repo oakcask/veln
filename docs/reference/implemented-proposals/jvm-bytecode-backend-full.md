@@ -13,19 +13,19 @@ execution behavior belongs in the specification pages.
 - Completion evidence and source-backend cleanup result:
   [jvm-bytecode-backend.md](jvm-bytecode-backend.md#outcome).
 - Current implemented behavior, not repeated here:
-  [../specification/execution.md](../specification/execution.md) and
-  [../specification/commands.md](../specification/commands.md).
+  [../../specification/execution.md](../../specification/execution.md) and
+  [../../specification/commands.md](../../specification/commands.md).
 - Harness organization:
-  [../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
+  [../toolchain-test-harness.md](../toolchain-test-harness.md).
 - Promotion mechanics:
-  [implementation-route.md](implementation-route.md).
+  [../../proposals/implementation-route.md](../../proposals/implementation-route.md).
 
 ## Implementation Status
 
 This proposal is implemented for the ordinary `run` and `test` backend path.
 The command-visible behavior has been promoted to
-[../specification/execution.md](../specification/execution.md) and
-[../specification/commands.md](../specification/commands.md).
+[../../specification/execution.md](../../specification/execution.md) and
+[../../specification/commands.md](../../specification/commands.md).
 
 The ordinary path lowers typed IR to JVM classfile artifacts, writes those
 artifacts into the persistent JVM class cache, and invokes `java` on the cached
@@ -287,9 +287,9 @@ The backend does not add a new third-party classfile dependency.
 ## Promotion Route
 
 When implementing this proposal, compare it against current behavior in
-[../specification/execution.md](../specification/execution.md),
-[../specification/commands.md](../specification/commands.md), and
-[../reference/toolchain-test-harness.md](../reference/toolchain-test-harness.md).
+[../../specification/execution.md](../../specification/execution.md),
+[../../specification/commands.md](../../specification/commands.md), and
+[../toolchain-test-harness.md](../toolchain-test-harness.md).
 After implementation, promote only observable command and runtime behavior into
 the specification pages. Keep generated artifacts, bytecode layout, helper
 layout, backend selectors, and structural test details out of the language

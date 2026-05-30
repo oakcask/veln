@@ -29,7 +29,7 @@ full question inventory is kept in [open-questions-full.md](open-questions-full.
 - Implementation readiness, parser, checker, runtime, and diagnostics:
   [open-questions-full.md#implementation-readiness](open-questions-full.md#implementation-readiness).
 - Implemented repair-loop confirmation and explicit override protocol:
-  [repair-command.md](repair-command.md).
+  [../../reference/implemented-proposals/repair-command-confirmation-override.md](../../reference/implemented-proposals/repair-command-confirmation-override.md).
 - Broader repair-loop ranking, verification, partial application, and automatic
   application questions stay deferred until a short proposal page selects one
   concrete target.
