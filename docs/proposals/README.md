@@ -12,7 +12,8 @@ compare it with `../specification/` before changing behavior.
 - [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md):
   declarative test harness and command analysis follow-ups.
 - [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md):
-  runtime-failure doctest expectation follow-ups.
+  future runtime-failure doctest expectation kinds beyond the implemented
+  `runtime=contract` and `runtime=result` routes.
 - [path-runtime-representation.md](path-runtime-representation.md):
   runtime `Path` representation work.
 - [self-hosting-standard-library.md](self-hosting-standard-library.md):

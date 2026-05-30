@@ -167,8 +167,9 @@ and diagnostics for that generated source use the normal doctest source path.
 
 Unknown doctest metadata and invalid doctest metadata are also reported as
 static doc diagnostics before execution. Unknown `veln` and `veln-output`
-attributes use `doctest.unknown_metadata`; empty `error=`, missing `stream`,
-and unsupported output streams use `doctest.invalid_metadata`.
+attributes use `doctest.unknown_metadata`; empty `error=`, empty or unsupported
+runtime expectation metadata, missing runtime expectation details, missing
+`stream`, and unsupported output streams use `doctest.invalid_metadata`.
 
 Captured stdio events use:
 
