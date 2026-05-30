@@ -1,0 +1,33 @@
+name: signal / code metrics
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/signal--code-metrics.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/**/Cargo.toml
+      - crates/**/*.rs
+  pull_request:
+    paths:
+      - .github/workflows/signal--code-metrics.yaml
+      - Cargo.lock
+      - Cargo.toml
+      - crates/**/Cargo.toml
+      - crates/**/*.rs
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  abc-complexity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - name: Check ABC complexity
+        run: cargo run -p veln-code-metrics -- --github-annotations --threshold 30 --file-line-threshold 700 --max-warnings 50 crates

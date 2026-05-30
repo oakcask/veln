@@ -3,6 +3,7 @@ members = [
     "crates/veln-ast",
     "crates/veln-backend-jvm",
     "crates/veln-cli",
+    "crates/veln-code-metrics",
     "crates/veln-core",
     "crates/veln-diagnostics",
     "crates/veln-editor",
@@ -23,6 +24,8 @@ version = "0.1.0"
 
 [workspace.dependencies]
 clap = "4.6.1"
+proc-macro2 = "1.0.103"
+syn = "2.0.117"
 veln-ast = { path = "crates/veln-ast" }
 veln-backend-jvm = { path = "crates/veln-backend-jvm" }
 veln-core = { path = "crates/veln-core" }
