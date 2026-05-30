@@ -231,7 +231,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   assertIncludes(selfHosting, "Status: proposed");
   assertIncludes(
     selfHosting,
-    "Choose exactly one helper from the descriptor-only pure-helper list.",
+    "Choose exactly one helper from that pool.",
   );
 });
 
@@ -420,13 +420,13 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   assertIncludes(proposal, "Status: proposed");
   assertIncludes(
     proposal,
-    "Choose exactly one helper from the descriptor-only pure-helper list.",
+    "Choose exactly one helper from that pool.",
   );
-  assertIncludes(proposal, "## Decision Route");
+  assertIncludes(proposal, "## Target Route");
   assertIncludes(proposal, "## Scope Checks");
   assertIncludes(
     proposal,
-    "Open the specification's source-backed boundary.",
+    "Open the specification's source-backed boundary to find the live",
   );
   assertIncludes(proposal, "../specification/names-effects.md");
   assertIncludes(proposal, "../specification/source-surface.md");
@@ -463,7 +463,7 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   );
   assertIncludes(
     namesEffectsFull,
-    "descriptor-only pure helpers: `string_split_once`",
+    "descriptor-only pure helpers: none",
   );
 });
 

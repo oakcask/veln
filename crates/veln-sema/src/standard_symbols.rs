@@ -130,7 +130,7 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("process", "exit", PROCESS_EFFECTS, "runtime.process.exit"),
 ];
 
-const FLOAT_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
+const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("float_negate"),
     prelude_symbol_descriptor("float_add"),
     prelude_symbol_descriptor("float_subtract"),
@@ -142,8 +142,7 @@ const FLOAT_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("float_greater_equal"),
 ];
 
-const SELF_HOSTING_CANDIDATE_SYMBOLS: &[StandardSymbolDescriptor] =
-    &[prelude_symbol_descriptor("string_split_once")];
+const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 source_prelude_symbol_set! {
     "vec_fold" => veln_stdlib::core_prelude_vec_fold_source(),
@@ -165,6 +164,7 @@ source_prelude_symbol_set! {
     "result_map" => veln_stdlib::core_prelude_source("result_map"),
     "result_map_err" => veln_stdlib::core_prelude_source("result_map_err"),
     "result_and_then" => veln_stdlib::core_prelude_source("result_and_then"),
+    "string_split_once" => veln_stdlib::core_prelude_source("string_split_once"),
     "string_parse_int" => veln_stdlib::core_prelude_source("string_parse_int"),
     "int_to_string" => veln_stdlib::core_prelude_source("int_to_string"),
 }
@@ -231,9 +231,9 @@ fn prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> 
 }
 
 fn descriptor_only_prelude_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
-    FLOAT_PRELUDE_SYMBOLS
+    FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS
         .iter()
-        .chain(SELF_HOSTING_CANDIDATE_SYMBOLS.iter())
+        .chain(SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS.iter())
 }
 
 #[cfg(test)]
@@ -296,7 +296,7 @@ mod tests {
 
     #[test]
     fn descriptor_table_carries_prelude_purity_metadata() {
-        let symbol = prelude_symbol("string_split_once").expect("prelude descriptor");
+        let symbol = prelude_symbol("float_add").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(symbol.effects.is_empty());
@@ -329,12 +329,12 @@ mod tests {
 
     #[test]
     fn descriptor_only_prelude_helpers_do_not_carry_source_metadata() {
-        let symbol = prelude_symbol("string_split_once").expect("prelude descriptor");
-
-        assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
-        assert_eq!(symbol.lowering, None);
-        assert!(symbol.effects.is_empty());
-        assert_eq!(symbol.source, None);
+        for symbol in descriptor_only_prelude_symbols() {
+            assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
+            assert_eq!(symbol.lowering, None);
+            assert!(symbol.effects.is_empty());
+            assert_eq!(symbol.source, None);
+        }
     }
 
     #[test]
@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn remaining_self_hosting_candidates_stay_descriptor_only() {
-        for name in SELF_HOSTING_CANDIDATE_SYMBOLS
+        for name in SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS
             .iter()
             .map(|symbol| symbol.name)
         {
@@ -394,7 +394,6 @@ mod tests {
                 "float_less_equal",
                 "float_greater",
                 "float_greater_equal",
-                "string_split_once",
             ]
         );
     }

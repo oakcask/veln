@@ -8,19 +8,22 @@ semantics, or descriptor metadata.
 
 ## Read First
 
-- Current implemented helper split, signatures, value semantics, and
+- Current helper split, candidate pool, signatures, value semantics, and
   descriptor metadata:
   [../specification/names-effects.md](../specification/names-effects.md).
+- Direct candidate boundary:
+  [../specification/names-effects-full.md#source-backed-boundary](../specification/names-effects-full.md#source-backed-boundary).
 - Source syntax available for candidate bodies:
   [../specification/source-surface.md](../specification/source-surface.md).
 - Candidate and migration rule after one descriptor-only helper is chosen:
   [self-hosting-standard-library-full.md#candidate-and-migration-rule](self-hosting-standard-library-full.md#candidate-and-migration-rule).
 
-## Decision Route
+## Target Route
 
-1. Open the specification's source-backed boundary.
+1. Open the specification's source-backed boundary to find the live
+   descriptor-only pure-helper candidate pool.
 2. Stop there when the helper is already source-backed.
-3. Choose exactly one helper from the descriptor-only pure-helper list.
+3. Choose exactly one helper from that pool.
 4. Check the full proposal's candidate and migration rule.
 5. Add only the source placement and descriptor metadata needed by the current
    source-backed helper model.

@@ -43,6 +43,10 @@ pub fn main() -> () effects [stdio]
     Some(parts) => stdio::println(parts.left)
     None => stdio::println("missing")
   end
+  match string_split_once("a:b:c", ":")
+    Some(parts) => stdio::println(parts.right)
+    None => stdio::println("missing")
+  end
   match string_split_once("plain", ":")
     Some(parts) => stdio::println(parts.left)
     None => stdio::println("no-separator")
