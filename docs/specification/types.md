@@ -16,8 +16,8 @@ full type reference.
 - `match` expressions over `Bool`, `Option(T)`, `Result(T, E)`, and `List(T)`
   must be exhaustive unless a catch-all arm is present.
 - Assignment compatibility treats `unknown` as compatible with any type and
-  checks records by required fields. `Path` is distinct from `String` even
-  while the current runtime stores paths with host strings.
+  checks records by required fields. `Path` is distinct from `String`; the
+  runtime path representation is not source-visible.
 - Operators use the implemented `Bool`, `Int`, and `Float` rules.
 
 ## Read When

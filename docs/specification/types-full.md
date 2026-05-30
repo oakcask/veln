@@ -99,7 +99,7 @@ assignment is width-compatible: every expected field must exist in the actual
 record and be assignable. Named types with the same constructor are compatible
 when their arguments are pairwise assignable, so `Vec(unknown)` accepts
 `Vec(Int)`. `Path` and `String` are distinct named types at assignment
-boundaries even while the current runtime stores paths with host strings.
+boundaries; the runtime path representation is not source-visible.
 Function assignment checks parameter count, parameter types, return type, and
 effects. The actual callable's effects must all be present in the expected
 function type's effect list, so a pure callable can satisfy an effectful
