@@ -19,6 +19,9 @@ This page routes implemented JSON output for `veln test --json`.
   expected-output mismatches, and captured stdio events:
   [test-json-full.md](test-json-full.md#cases).
 - Static gate behavior: [test-json-full.md](test-json-full.md#static-gate).
+- Readable doctest runtime contract JSON coverage:
+  `../../examples/specification/test/doctest-runtime-contract-json/` and
+  `../../examples/specification/test/doctest-runtime-contract-blocked-json/`.
 
 ## Skip Unless Needed
 

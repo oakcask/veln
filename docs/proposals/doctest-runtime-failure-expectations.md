@@ -10,10 +10,15 @@ implemented contract-failure doctest route. Current behavior is specified in
 
 - Current doctest command behavior:
   [../specification/commands.md](../specification/commands.md).
+- Current doctest metadata syntax:
+  [../specification/source-surface.md](../specification/source-surface.md).
 - Current doctest JSON case shape:
   [../specification/test-json.md](../specification/test-json.md).
 - Current runtime contract failure shape:
   [../specification/contracts.md](../specification/contracts.md).
+- Current readable CLI coverage:
+  `../../examples/specification/test/doctest-runtime-contract-json/` and
+  `../../examples/specification/test/doctest-runtime-contract-blocked-json/`.
 - Proposal promotion checks:
   [implementation-route.md](implementation-route.md).
 
@@ -26,6 +31,10 @@ not describe expected runtime failures.
 Positive doctests may use `runtime=contract` metadata to expect a runtime
 contract failure. Broader panic matching, arbitrary stderr matching, and
 command-status assertions remain outside the implemented surface.
+
+Runtime contract expectations and expected-output fences are separate doctest
+expectation routes. Runtime matching decides only failure kind and details;
+output comparison decides only captured stdout or stderr text.
 
 ## Target
 
