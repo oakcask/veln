@@ -25,6 +25,8 @@ behavior.
   [formatter-stabilization.md](formatter-stabilization.md).
 - First repair command boundary:
   [repair-command-first-boundary.md](repair-command-first-boundary.md).
+- Repair command saved input freshness:
+  [repair-command-saved-input-freshness.md](repair-command-saved-input-freshness.md).
 - Repair command confirmation and override:
   [repair-command-confirmation-override.md](repair-command-confirmation-override.md).
 - Agent test selection graph:

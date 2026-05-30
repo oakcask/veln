@@ -16,8 +16,11 @@ not current repair behavior unless `../specification/` also states it.
   [../specification/repair-application.md](../specification/repair-application.md).
 - Current repair JSON:
   [../specification/repair-json.md](../specification/repair-json.md).
+- Current executable repair cases:
+  `examples/specification/repair/README.md`.
 - Completed command records:
-  [../reference/implemented-proposals/repair-command-first-boundary.md](../reference/implemented-proposals/repair-command-first-boundary.md)
+  [../reference/implemented-proposals/repair-command-first-boundary.md](../reference/implemented-proposals/repair-command-first-boundary.md),
+  [../reference/implemented-proposals/repair-command-saved-input-freshness.md](../reference/implemented-proposals/repair-command-saved-input-freshness.md),
   and
   [../reference/implemented-proposals/repair-command-confirmation-override.md](../reference/implemented-proposals/repair-command-confirmation-override.md).
 
