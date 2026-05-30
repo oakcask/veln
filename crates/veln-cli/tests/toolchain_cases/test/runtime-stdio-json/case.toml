@@ -76,4 +76,4 @@ equals = "failed"
 
 [[json_assert]]
 path = "cases.1.failure.kind"
-equals = "runtime"
+equals = "result"

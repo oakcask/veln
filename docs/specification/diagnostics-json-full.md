@@ -291,7 +291,8 @@ Doc diagnostic `details` are stable for doctest metadata diagnostics:
 `doctest.unknown_metadata` reports an unsupported `veln` or `veln-output`
 fence attribute at the fence line. `doctest.invalid_metadata` reports an empty
 `error=`, empty runtime expectation metadata, unsupported runtime expectation
-kind, missing runtime contract `clause` or `predicate`, missing `stream`, or
-output stream value other than `stdout` or `stderr`.
+kind, missing runtime contract `clause` or `predicate`, missing runtime result
+`value`, missing `stream`, or output stream value other than `stdout` or
+`stderr`.
 `doctest.expected_failure_missing` reports a `veln fail` fence whose generated
 negative example produced no error diagnostic.

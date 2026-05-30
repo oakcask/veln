@@ -1,0 +1,24 @@
+// Doctest runtime contract expectations match independently from output text.
+fn reject() -> () effects []
+require false
+  ()
+end
+
+/// ```veln runtime=contract clause=require predicate=false function=reject blame=caller
+/// stdio::println("before failure")
+/// reject()
+/// ```
+/// ```veln-output stream=stdout
+/// before failure
+/// ```
+///
+/// ```veln runtime=contract clause=require predicate=true function=reject blame=caller
+/// reject()
+/// ```
+///
+/// ```veln runtime=contract clause=require predicate=false
+/// ()
+/// ```
+pub fn main() -> () effects []
+  ()
+end

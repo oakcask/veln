@@ -139,8 +139,10 @@ Runtime contract failures stop the selected `run` entry or fail the selected
 test case. Human output names the failed clause text, function boundary, source
 identity, and blame route. `veln run --json` reports one top-level structured
 runtime error record. `veln test --json` embeds runtime contract failures in
-the failed case with structured runtime contract details. `require` uses caller
-blame; `ensure` uses implementation blame. When `?` propagates an error result
+the failed case with structured runtime contract details. Tests that return
+`Err(value)` are reported with structured runtime result details in
+`veln test --json`. `require` uses caller blame; `ensure` uses implementation
+blame. When `?` propagates an error result
 out of a function, the function's `ensure` clauses run before that early
 return.
 

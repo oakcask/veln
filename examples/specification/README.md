@@ -197,6 +197,11 @@ against the built `veln` binary.
   JSON output.
 - `test/doctest-output-mismatch-json/`: expected-output mismatch failure
   details, including first-difference and captured-event records.
+- `test/doctest-runtime-contract-json/`: runtime contract expectation matching
+  for positive doctests, including matching failures, mismatched failure
+  details, missing failures, and adjacent expected output.
+- `test/doctest-runtime-contract-blocked-json/`: the matching static-gate case
+  that blocks a doctest runtime contract expectation before execution.
 - `test/runtime-contract-failure-json/`: runtime contract failure details
   inside a selected test case.
 - `test/source-to-test-convention/`: explicit source targets selecting a paired

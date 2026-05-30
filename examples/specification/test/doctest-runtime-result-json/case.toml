@@ -1,0 +1,123 @@
+command = ["test", "--json", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-test-json/v0"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "summary.total"
+equals = 3
+
+[[json_assert]]
+path = "summary.passed"
+equals = 1
+
+[[json_assert]]
+path = "summary.failed"
+equals = 2
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "doctest_1"
+
+[[json_assert]]
+path = "cases.0.kind"
+equals = "doctest"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "passed"
+
+[[json_assert]]
+path = "cases.0.reason"
+equals = null
+
+[[json_assert]]
+path = "cases.0.failure"
+equals = null
+
+[[json_assert]]
+path = "cases.0.events.0.stream"
+equals = "stdout"
+
+[[json_assert]]
+path = "cases.0.events.0.text"
+equals = "before failure"
+
+[[json_assert]]
+path = "cases.1.name"
+equals = "doctest_2"
+
+[[json_assert]]
+path = "cases.1.status"
+equals = "failed"
+
+[[json_assert]]
+path = "cases.1.reason"
+equals = "expected_runtime_failure"
+
+[[json_assert]]
+path = "cases.1.failure.kind"
+equals = "runtime_expectation"
+
+[[json_assert]]
+path = "cases.1.failure.details.expected.kind"
+equals = "result"
+
+[[json_assert]]
+path = "cases.1.failure.details.expected.value"
+equals = "expected"
+
+[[json_assert]]
+path = "cases.1.failure.details.actual.kind"
+equals = "result"
+
+[[json_assert]]
+path = "cases.1.failure.details.actual.details.kind"
+equals = "result"
+
+[[json_assert]]
+path = "cases.1.failure.details.actual.details.value"
+equals = "actual"
+
+[[json_assert]]
+path = "cases.2.name"
+equals = "doctest_3"
+
+[[json_assert]]
+path = "cases.2.status"
+equals = "failed"
+
+[[json_assert]]
+path = "cases.2.reason"
+equals = "expected_runtime_failure"
+
+[[json_assert]]
+path = "cases.2.failure.kind"
+equals = "runtime_expectation"
+
+[[json_assert]]
+path = "cases.2.failure.details.expected.kind"
+equals = "result"
+
+[[json_assert]]
+path = "cases.2.failure.details.expected.value"
+equals = "bad"
+
+[[json_assert]]
+path = "cases.2.failure.details.actual"
+equals = null

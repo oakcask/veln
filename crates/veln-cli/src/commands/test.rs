@@ -11,8 +11,8 @@ use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
     TestSelectionPlan, apply_runtime_result, attach_doctest_expectations, compare_expected_output,
     contract_failure_from_trace, dependency_aware_selection_plan, discover_test_cases,
-    expand_test_targets, selected_test_files, stdio_call_spans, stdio_events_from_output,
-    stdio_events_from_trace,
+    expand_test_targets, result_failure_from_trace, selected_test_files, stdio_call_spans,
+    stdio_events_from_output, stdio_events_from_trace,
 };
 
 use crate::analysis::{DoctestMode, ProjectAnalysis, analyze_project};
@@ -164,14 +164,17 @@ fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), 
     let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
     let event_file = build_dir.join("stdio-events.tsv");
     let contract_error_file = build_dir.join("contract-errors.tsv");
+    let result_error_file = build_dir.join("result-errors.tsv");
     let event_env = [
         ("VELN_STDIO_EVENTS", event_file.as_os_str()),
         ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
+        ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
     ];
     let result =
         prepare_and_run_jvm_capture_with_env(&build_dir, &jvm, "veln test", &event_env, &[]);
     let event_trace = fs::read_to_string(&event_file).unwrap_or_default();
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
+    let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
     let cleanup_result = fs::remove_dir_all(&build_dir);
     if let Err(error) = cleanup_result {
         eprintln!(
@@ -201,6 +204,7 @@ fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), 
     } else {
         let message = format!("test process exited with status {}", output.status);
         let actual_failure = contract_failure_from_trace(&contract_error_trace)
+            .or_else(|| result_failure_from_trace(&result_error_trace))
             .or_else(|| Some(TestFailure::runtime(message)));
         apply_runtime_result(case, actual_failure);
     }

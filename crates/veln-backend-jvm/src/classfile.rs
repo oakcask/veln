@@ -175,6 +175,12 @@ impl<'a> ClassfileEmitter<'a> {
             "(Ljava/lang/Object;)Z",
         );
         let ok = code.branch(0x99);
+        code.aload(1);
+        code.invokestatic(
+            &self.options.runtime_class,
+            "recordResultFailure",
+            "(Ljava/lang/Object;)V",
+        );
         code.getstatic("java/lang/System", "err", "Ljava/io/PrintStream;");
         code.aload(1);
         code.invokestatic(
