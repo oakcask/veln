@@ -61,24 +61,24 @@ fn partial_case_split_chain_predicate(subject: &str, fields: &[&str]) -> String 
     disjuncts.join(" or ")
 }
 
-mod part01;
-mod part02;
-mod part03;
-mod part04;
-mod part05;
-mod part06;
-mod part07;
-mod part08;
-mod part09;
-mod part10;
-mod part11;
-mod part12;
-mod part13;
-mod part14;
-mod part15;
-mod part16;
-mod part17;
-mod part18;
-mod part19;
-mod part20;
-mod part21;
+mod calls_pipeline_and_float_types;
+mod channel_effects_and_contract_predicates;
+mod contract_case_split_proofs;
+mod contract_order_path_proofs;
+mod contract_order_split_proofs;
+mod contract_rejections_and_result_scope;
+mod contract_static_boolean_proofs;
+mod declarations_and_names;
+mod lowering_and_pattern_semantics;
+mod prelude_and_callable_values;
+mod satisfy_alias_and_order_repairs;
+mod satisfy_boolean_and_bound_repairs;
+mod satisfy_case_split_repairs;
+mod satisfy_direct_repairs;
+mod satisfy_disjunctive_repairs;
+mod satisfy_literal_bound_repairs;
+mod satisfy_negated_require_repairs;
+mod satisfy_require_implication_repairs;
+mod satisfy_tautology_repairs;
+mod standard_library_effects;
+mod typechecking_and_match_exhaustiveness;

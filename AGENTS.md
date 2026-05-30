@@ -13,3 +13,7 @@
   output coverage when related context is expected.
 * When adding or changing CI-visible messages, make the required action and why
   it matters clear; use `$ci-message-policy`.
+* Do not split Rust source into numbered bucket file series such as
+  `parser01.rs` / `parser02.rs` or `part01.rs` / `part02.rs`. Module and file
+  names must describe the responsibility or concept they own, especially when
+  responding to code-metrics or complexity logs.
