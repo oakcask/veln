@@ -18,6 +18,8 @@ states it.
   [../specification/names-effects.md](../specification/names-effects.md).
 - Tail-recursive helper execution follow-up:
   [immutable-collection-trampoline.md](immutable-collection-trampoline.md).
+- General user-defined ADT surface:
+  [user-defined-adts.md](user-defined-adts.md).
 
 ## Current Boundary
 
@@ -26,6 +28,12 @@ Their constructors, patterns, branch typing, `?` behavior, and exhaustiveness
 rules now route through compiler-owned ADT descriptors. The minimal
 source-declared `List(A)` ADT shape is implemented with `Nil` and `Cons`.
 Broader user-defined ADT declarations and constructors are not implemented.
+
+The next planned ADT proposal is the general source surface in
+[user-defined-adts.md](user-defined-adts.md). It covers generic declarations,
+record-shaped variants, inference for nullary constructors, constructor
+namespace rules, public type and constructor visibility, and generation
+functions for invariants.
 
 `Vec(A)` and `Dict(K, V)` remain built-in immutable container types from the
 source user's point of view. Their helper contracts are current behavior, but
@@ -117,6 +125,8 @@ compiler/runtime strategy rather than a user-facing `tailrec` feature.
   `List(A)` need.
 - Do not promise persistent vector, dictionary, or list complexity classes.
 - Do not expose ADT runtime layout as a source compatibility contract.
+- Keep the detailed general ADT source syntax in
+  [user-defined-adts.md](user-defined-adts.md) instead of expanding this route.
 
 ## Acceptance Checks
 
@@ -135,16 +145,12 @@ compiler/runtime strategy rather than a user-facing `tailrec` feature.
 
 ## Open Questions
 
-- Should `Option` and `Result` remain built-in descriptor entries forever, or
-  eventually become declarations in a standard prelude source unit?
-- Should `List(A)` live in the same prelude namespace as `Vec(A)` helpers, or
-  behind an explicit module once module exports are richer?
-- Should constructor names such as `Nil` and `Cons` be globally reserved,
-  module-qualified, or imported like ordinary values?
-- Should `List(A)` expose conversion helpers to and from `Vec(A)` in the first
-  list stage, or wait until real examples require them?
+- Should `List(A)` expose conversion helpers to and from `Vec(A)`, or wait
+  until real examples require them?
 - Should ADT exhaustiveness diagnostics report missing constructors by
   qualified name, unqualified name, or both?
+- See [user-defined-adts.md](user-defined-adts.md#open-questions) for the
+  remaining general ADT syntax and visibility questions.
 
 ## Update When
 
