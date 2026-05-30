@@ -83,6 +83,10 @@ pub enum IrExprKind {
         head: Box<IrExpr>,
         tail: Box<IrExpr>,
     },
+    AdtVariant {
+        name: Vec<String>,
+        payloads: Vec<IrExpr>,
+    },
     Call {
         target: IrCallTarget,
         args: Vec<IrExpr>,

@@ -6,15 +6,15 @@ full type reference.
 ## Read First
 
 - Type annotations include primitives, descriptor-backed `Option`, `Result`,
-  and minimal `List`, built-in containers, records, function types, named type
-  paths, and optional result bindings.
+  `List`, source-declared ADTs, built-in containers, records, function types,
+  named type paths, and optional result bindings.
 - Local inference is monomorphic and flow-sensitive within one function body.
 - `Option(T)` and `Result(T, E)` are compiler-owned built-in ADTs. `List(T)`
-  uses the implemented minimal source-declared ADT shape. Their constructors,
-  payload bindings, result propagation where applicable, and finite-domain
-  exhaustiveness are descriptor-backed.
-- `match` expressions over `Bool`, `Option(T)`, `Result(T, E)`, and `List(T)`
-  must be exhaustive unless a catch-all arm is present.
+  and source-declared ADTs are descriptor-backed. Their constructors, payload
+  bindings, result propagation where applicable, and finite-domain
+  exhaustiveness use descriptor facts.
+- `match` expressions over `Bool`, `Option(T)`, `Result(T, E)`, `List(T)`, and
+  source-declared ADTs must be exhaustive unless a catch-all arm is present.
 - Assignment compatibility treats `unknown` as compatible with any type and
   checks records by required fields. `Path` is distinct from `String`; the
   runtime path representation is not source-visible.

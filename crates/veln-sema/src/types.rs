@@ -7,11 +7,13 @@ use veln_ast::{
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
+use crate::adt::AdtRegistry;
 use crate::effects::{is_concurrency_call, is_stdio_call, standard_library_effects};
 
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
-    uses: Vec<UseDecl>,
+    pub(crate) uses: Vec<UseDecl>,
+    pub(crate) adts: AdtRegistry,
 }
 
 #[derive(Clone)]
@@ -259,6 +261,7 @@ impl TypeEnvironment {
         Self {
             functions,
             uses: module.uses.clone(),
+            adts: AdtRegistry::from_module(module),
         }
     }
 

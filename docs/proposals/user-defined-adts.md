@@ -1,10 +1,10 @@
 # User-Defined ADTs
 
-Status: proposed
+Status: implemented
 
-This page proposes the source surface and type-checking model for general
-user-defined algebraic data types. It is proposal work, not current language
-behavior unless `../specification/` also states it.
+This page records the source surface and type-checking model for general
+user-defined algebraic data types. Current behavior is specified under
+`../specification/`.
 
 ## Read First
 

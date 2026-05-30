@@ -446,6 +446,17 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
                 );
             }
+            IrExprKind::AdtVariant { name, payloads } => {
+                code.ldc_string(&name.join("::"));
+                self.emit_object_array(code, payloads.len(), |this, code, index| {
+                    this.emit_expr(code, &payloads[index]);
+                });
+                code.invokestatic(
+                    &self.program.options.runtime_class,
+                    "adt",
+                    "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;",
+                );
+            }
             IrExprKind::Call { target, args } => self.emit_call(code, expr, target, args),
             IrExprKind::FieldAccess { base, field } => {
                 self.emit_expr(code, base);
@@ -843,8 +854,41 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     ("listTail", &args[1]),
                 );
             }
-            _ => code.push_i32(0),
+            _ => self.emit_generic_constructor_condition(code, value, name, args),
         }
+    }
+
+    fn emit_generic_constructor_condition(
+        &mut self,
+        code: &mut MethodCode,
+        value: ValueRef,
+        name: &[String],
+        args: &[IrPattern],
+    ) {
+        let fail = code.new_label();
+        let done = code.new_label();
+        value.emit_load(code);
+        code.ldc_string(&name.join("::"));
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "isAdt",
+            "(Ljava/lang/Object;Ljava/lang/String;)Z",
+        );
+        code.branch_to(0x99, fail);
+        for (index, pattern) in args.iter().enumerate() {
+            let inner_value = ValueRef::AdtPayload {
+                base: Box::new(value.clone()),
+                index,
+                runtime: self.program.options.runtime_class.clone(),
+            };
+            self.emit_pattern_condition(code, pattern, inner_value);
+            code.branch_to(0x99, fail);
+        }
+        code.push_i32(1);
+        code.branch_to(0xa7, done);
+        code.bind(fail);
+        code.push_i32(0);
+        code.bind(done);
     }
 
     fn emit_constructor_inner_condition(
@@ -970,11 +1014,24 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                         code,
                         tail,
                         ValueRef::RuntimeUnary {
-                            base: Box::new(value),
+                            base: Box::new(value.clone()),
                             method: "listTail".to_string(),
                             runtime: self.program.options.runtime_class.clone(),
                         },
                     );
+                }
+                if !matches!(constructor, "Some" | "Ok" | "Err" | "Cons") {
+                    for (index, pattern) in args.iter().enumerate() {
+                        self.emit_pattern_bindings(
+                            code,
+                            pattern,
+                            ValueRef::AdtPayload {
+                                base: Box::new(value.clone()),
+                                index,
+                                runtime: self.program.options.runtime_class.clone(),
+                            },
+                        );
+                    }
                 }
             }
             _ => {}
@@ -1166,6 +1223,11 @@ enum ValueRef {
         method: String,
         runtime: String,
     },
+    AdtPayload {
+        base: Box<ValueRef>,
+        index: usize,
+        runtime: String,
+    },
 }
 
 impl ValueRef {
@@ -1192,6 +1254,19 @@ impl ValueRef {
             } => {
                 base.emit_load(code);
                 code.invokestatic(runtime, method, "(Ljava/lang/Object;)Ljava/lang/Object;");
+            }
+            Self::AdtPayload {
+                base,
+                index,
+                runtime,
+            } => {
+                base.emit_load(code);
+                code.push_i32(*index as i32);
+                code.invokestatic(
+                    runtime,
+                    "adtPayload",
+                    "(Ljava/lang/Object;I)Ljava/lang/Object;",
+                );
             }
         }
     }
@@ -1311,6 +1386,10 @@ fn runtime_classes() -> Vec<JvmClassFile> {
         (
             "VelnRuntime$1.class",
             include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$1.class")),
+        ),
+        (
+            "VelnRuntime$Adt.class",
+            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$Adt.class")),
         ),
         (
             "VelnRuntime$Channel.class",

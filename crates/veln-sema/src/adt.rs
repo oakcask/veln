@@ -1,6 +1,7 @@
+use veln_ast::{SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
 
-use crate::types::Type;
+use crate::types::{Type, parse_type_or_unknown};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum AdtVariantKind {
@@ -10,35 +11,40 @@ pub(crate) enum AdtVariantKind {
     ResultErr,
     ListNil,
     ListCons,
+    Source,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdtDescriptor {
-    pub(crate) type_name: &'static str,
-    pub(crate) type_parameters: &'static [&'static str],
-    pub(crate) variants: &'static [AdtVariantDescriptor],
-    pub(crate) diagnostic_name: &'static str,
+    pub(crate) type_name: String,
+    pub(crate) module_name: Option<String>,
+    pub(crate) type_parameters: Vec<String>,
+    pub(crate) variants: Vec<AdtVariantDescriptor>,
+    pub(crate) diagnostic_name: String,
     pub(crate) propagation: Option<ResultPropagationDescriptor>,
+    pub(crate) visibility: Visibility,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdtVariantDescriptor {
-    pub(crate) name: &'static str,
+    pub(crate) name: String,
     pub(crate) kind: AdtVariantKind,
-    pub(crate) payload_fields: &'static [AdtPayloadField],
-    pub(crate) coverage_case: &'static str,
+    pub(crate) payload_fields: Vec<AdtPayloadField>,
+    pub(crate) coverage_case: String,
+    pub(crate) visibility: Visibility,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdtPayloadField {
-    pub(crate) name: &'static str,
+    pub(crate) name: String,
     pub(crate) ty: AdtPayloadType,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AdtPayloadType {
     TypeParameter(usize),
     SelfType,
+    Concrete(Type),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,166 +54,118 @@ pub(crate) struct ResultPropagationDescriptor {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct AdtConstructor {
-    pub(crate) descriptor: &'static AdtDescriptor,
-    pub(crate) variant: &'static AdtVariantDescriptor,
+pub(crate) struct AdtConstructor<'a> {
+    pub(crate) descriptor: &'a AdtDescriptor,
+    pub(crate) variant: &'a AdtVariantDescriptor,
 }
 
-const OPTION_VALUE_FIELD: &[AdtPayloadField] = &[AdtPayloadField {
-    name: "value",
-    ty: AdtPayloadType::TypeParameter(0),
-}];
-
-const RESULT_OK_FIELD: &[AdtPayloadField] = &[AdtPayloadField {
-    name: "value",
-    ty: AdtPayloadType::TypeParameter(0),
-}];
-
-const RESULT_ERR_FIELD: &[AdtPayloadField] = &[AdtPayloadField {
-    name: "error",
-    ty: AdtPayloadType::TypeParameter(1),
-}];
-
-const LIST_CONS_FIELDS: &[AdtPayloadField] = &[
-    AdtPayloadField {
-        name: "head",
-        ty: AdtPayloadType::TypeParameter(0),
-    },
-    AdtPayloadField {
-        name: "tail",
-        ty: AdtPayloadType::SelfType,
-    },
-];
-
-const OPTION_VARIANTS: &[AdtVariantDescriptor] = &[
-    AdtVariantDescriptor {
-        name: "Some",
-        kind: AdtVariantKind::OptionSome,
-        payload_fields: OPTION_VALUE_FIELD,
-        coverage_case: "Some(_)",
-    },
-    AdtVariantDescriptor {
-        name: "None",
-        kind: AdtVariantKind::OptionNone,
-        payload_fields: &[],
-        coverage_case: "None",
-    },
-];
-
-const RESULT_VARIANTS: &[AdtVariantDescriptor] = &[
-    AdtVariantDescriptor {
-        name: "Ok",
-        kind: AdtVariantKind::ResultOk,
-        payload_fields: RESULT_OK_FIELD,
-        coverage_case: "Ok(_)",
-    },
-    AdtVariantDescriptor {
-        name: "Err",
-        kind: AdtVariantKind::ResultErr,
-        payload_fields: RESULT_ERR_FIELD,
-        coverage_case: "Err(_)",
-    },
-];
-
-const LIST_VARIANTS: &[AdtVariantDescriptor] = &[
-    AdtVariantDescriptor {
-        name: "Nil",
-        kind: AdtVariantKind::ListNil,
-        payload_fields: &[],
-        coverage_case: "Nil",
-    },
-    AdtVariantDescriptor {
-        name: "Cons",
-        kind: AdtVariantKind::ListCons,
-        payload_fields: LIST_CONS_FIELDS,
-        coverage_case: "Cons(_)",
-    },
-];
-
-const OPTION_DESCRIPTOR: AdtDescriptor = AdtDescriptor {
-    type_name: "Option",
-    type_parameters: &["T"],
-    variants: OPTION_VARIANTS,
-    diagnostic_name: "option",
-    propagation: None,
-};
-
-const RESULT_DESCRIPTOR: AdtDescriptor = AdtDescriptor {
-    type_name: "Result",
-    type_parameters: &["T", "E"],
-    variants: RESULT_VARIANTS,
-    diagnostic_name: "result",
-    propagation: Some(ResultPropagationDescriptor {
-        value_parameter_index: 0,
-        error_parameter_index: 1,
-    }),
-};
-
-const LIST_DESCRIPTOR: AdtDescriptor = AdtDescriptor {
-    type_name: "List",
-    type_parameters: &["A"],
-    variants: LIST_VARIANTS,
-    diagnostic_name: "list",
-    propagation: None,
-};
-
-const DESCRIPTORS: &[AdtDescriptor] = &[OPTION_DESCRIPTOR, RESULT_DESCRIPTOR, LIST_DESCRIPTOR];
-
-pub(crate) fn descriptor_for_type_name(name: &str) -> Option<&'static AdtDescriptor> {
-    DESCRIPTORS
-        .iter()
-        .find(|descriptor| descriptor.type_name == name)
+#[derive(Clone, Debug)]
+pub(crate) struct AdtRegistry {
+    descriptors: Vec<AdtDescriptor>,
 }
 
-fn option_descriptor() -> &'static AdtDescriptor {
-    descriptor_for_type_name("Option").expect("built-in Option descriptor should exist")
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ConstructorLookup<'a> {
+    Found(AdtConstructor<'a>),
+    Ambiguous,
+    Missing,
 }
 
-fn result_descriptor() -> &'static AdtDescriptor {
-    descriptor_for_type_name("Result").expect("built-in Result descriptor should exist")
-}
+impl AdtRegistry {
+    pub(crate) fn from_module(module: &SurfaceModule) -> Self {
+        let mut descriptors = builtin_descriptors();
+        descriptors.extend(module.types.iter().filter_map(source_descriptor));
+        Self { descriptors }
+    }
 
-fn list_descriptor() -> &'static AdtDescriptor {
-    descriptor_for_type_name("List").expect("built-in List descriptor should exist")
-}
-
-pub(crate) fn descriptor_for_type(ty: &Type) -> Option<&'static AdtDescriptor> {
-    let Type::Named { name, args } = ty else {
-        return None;
-    };
-    descriptor_for_type_name(name)
-        .filter(|descriptor| descriptor.type_parameters.len() == args.len())
-}
-
-pub(crate) fn constructor(segments: &[String]) -> Option<AdtConstructor> {
-    DESCRIPTORS.iter().find_map(|descriptor| {
-        descriptor.variants.iter().find_map(|variant| {
-            constructor_matches(descriptor, variant, segments).then_some(AdtConstructor {
-                descriptor,
-                variant,
-            })
+    pub(crate) fn descriptor_for_type(&self, ty: &Type) -> Option<&AdtDescriptor> {
+        let Type::Named { name, args } = ty else {
+            return None;
+        };
+        self.descriptors.iter().find(|descriptor| {
+            descriptor.type_name == *name && descriptor.type_parameters.len() == args.len()
         })
-    })
-}
+    }
 
-pub(crate) fn nullary_constructor(segments: &[String]) -> Option<AdtConstructor> {
-    constructor(segments).filter(|constructor| constructor.variant.payload_fields.is_empty())
-}
+    pub(crate) fn constructor(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> ConstructorLookup<'_> {
+        self.lookup_constructor(segments, current_module, uses, true)
+    }
 
-pub(crate) fn constructor_for_descriptor(
-    segments: &[String],
-    descriptor: &'static AdtDescriptor,
-) -> Option<AdtConstructor> {
-    constructor(segments).filter(|constructor| {
-        constructor.descriptor.type_name == descriptor.type_name
-            && constructor.descriptor.type_parameters.len() == descriptor.type_parameters.len()
-    })
+    pub(crate) fn nullary_constructor(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+    ) -> ConstructorLookup<'_> {
+        match self.constructor(segments, current_module, uses) {
+            ConstructorLookup::Found(constructor)
+                if constructor.variant.payload_fields.is_empty() =>
+            {
+                ConstructorLookup::Found(constructor)
+            }
+            ConstructorLookup::Found(_) => ConstructorLookup::Missing,
+            other => other,
+        }
+    }
+
+    pub(crate) fn constructor_for_descriptor(
+        &self,
+        segments: &[String],
+        descriptor: &AdtDescriptor,
+    ) -> Option<AdtConstructor<'_>> {
+        self.descriptors
+            .iter()
+            .find(|candidate| same_descriptor(candidate, descriptor))
+            .and_then(|descriptor| {
+                descriptor.variants.iter().find_map(|variant| {
+                    constructor_matches(descriptor, variant, segments).then_some(AdtConstructor {
+                        descriptor,
+                        variant,
+                    })
+                })
+            })
+    }
+
+    fn lookup_constructor(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+        uses: &[UseDecl],
+        include_imports: bool,
+    ) -> ConstructorLookup<'_> {
+        let mut matches = Vec::new();
+        for descriptor in &self.descriptors {
+            if !descriptor_visible(descriptor, segments, current_module, uses, include_imports) {
+                continue;
+            }
+            for variant in &descriptor.variants {
+                if constructor_matches(descriptor, variant, segments)
+                    && variant_visible(descriptor, variant, current_module, segments)
+                {
+                    matches.push(AdtConstructor {
+                        descriptor,
+                        variant,
+                    });
+                }
+            }
+        }
+        match matches.as_slice() {
+            [] => ConstructorLookup::Missing,
+            [constructor] => ConstructorLookup::Found(*constructor),
+            _ => ConstructorLookup::Ambiguous,
+        }
+    }
 }
 
 pub(crate) fn adt_args<'a>(ty: &'a Type, descriptor: &AdtDescriptor) -> Option<&'a [Type]> {
     match ty {
         Type::Named { name, args }
-            if name == descriptor.type_name && args.len() == descriptor.type_parameters.len() =>
+            if name == &descriptor.type_name && args.len() == descriptor.type_parameters.len() =>
         {
             Some(args)
         }
@@ -221,7 +179,7 @@ pub(crate) fn core_adt_args<'a>(
 ) -> Option<&'a [CoreType]> {
     match ty {
         CoreType::Named { name, args }
-            if name == descriptor.type_name && args.len() == descriptor.type_parameters.len() =>
+            if name == &descriptor.type_name && args.len() == descriptor.type_parameters.len() =>
         {
             Some(args)
         }
@@ -229,115 +187,350 @@ pub(crate) fn core_adt_args<'a>(
     }
 }
 
-pub(crate) fn constructed_type(constructor: AdtConstructor, payload_type: Type) -> Type {
+pub(crate) fn constructed_type(constructor: AdtConstructor<'_>, payloads: &[Type]) -> Type {
     let mut args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
-    if let Some(field) = constructor.variant.payload_fields.first()
-        && let AdtPayloadType::TypeParameter(index) = field.ty
-    {
-        args[index] = payload_type;
+    for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
+        if let Some(payload) = payloads.get(index) {
+            fill_type_parameters(&mut args, &field.ty, payload);
+        }
     }
-    Type::named(constructor.descriptor.type_name, args)
+    Type::named(&constructor.descriptor.type_name, args)
 }
 
 pub(crate) fn core_constructed_type(
-    constructor: AdtConstructor,
-    payload_type: CoreType,
+    constructor: AdtConstructor<'_>,
+    payloads: &[CoreType],
 ) -> CoreType {
     let mut args = vec![CoreType::Unknown; constructor.descriptor.type_parameters.len()];
-    if let Some(field) = constructor.variant.payload_fields.first()
-        && let AdtPayloadType::TypeParameter(index) = field.ty
-    {
-        args[index] = payload_type;
+    for (index, field) in constructor.variant.payload_fields.iter().enumerate() {
+        if let Some(payload) = payloads.get(index) {
+            fill_core_type_parameters(&mut args, &field.ty, payload);
+        }
     }
-    CoreType::named(constructor.descriptor.type_name, args)
+    CoreType::named(&constructor.descriptor.type_name, args)
 }
 
 pub(crate) fn payload_type(
     ty: &Type,
-    constructor: AdtConstructor,
+    constructor: AdtConstructor<'_>,
     payload_index: usize,
 ) -> Option<Type> {
     let field = constructor.variant.payload_fields.get(payload_index)?;
-    match field.ty {
-        AdtPayloadType::TypeParameter(index) => {
-            adt_args(ty, constructor.descriptor)?.get(index).cloned()
-        }
-        AdtPayloadType::SelfType => Some(ty.clone()),
-    }
+    payload_type_from_args(ty, constructor.descriptor, &field.ty)
 }
 
 pub(crate) fn core_payload_type(
     ty: &CoreType,
-    constructor: AdtConstructor,
+    constructor: AdtConstructor<'_>,
     payload_index: usize,
 ) -> Option<CoreType> {
     let field = constructor.variant.payload_fields.get(payload_index)?;
-    match field.ty {
-        AdtPayloadType::TypeParameter(index) => core_adt_args(ty, constructor.descriptor)?
-            .get(index)
-            .cloned(),
-        AdtPayloadType::SelfType => Some(ty.clone()),
-    }
+    core_payload_type_from_args(ty, constructor.descriptor, &field.ty)
 }
 
 pub(crate) fn option_type(value: Type) -> Type {
-    Type::named(option_descriptor().type_name, vec![value])
+    Type::named("Option", vec![value])
 }
 
 pub(crate) fn core_option_type(value: CoreType) -> CoreType {
-    CoreType::named(option_descriptor().type_name, vec![value])
+    CoreType::named("Option", vec![value])
 }
 
 pub(crate) fn result_type(value: Type, error: Type) -> Type {
-    Type::named(result_descriptor().type_name, vec![value, error])
+    Type::named("Result", vec![value, error])
 }
 
 pub(crate) fn core_result_type(value: CoreType, error: CoreType) -> CoreType {
-    CoreType::named(result_descriptor().type_name, vec![value, error])
+    CoreType::named("Result", vec![value, error])
 }
 
 pub(crate) fn list_type(item: Type) -> Type {
-    Type::named(list_descriptor().type_name, vec![item])
+    Type::named("List", vec![item])
 }
 
 pub(crate) fn core_list_type(item: CoreType) -> CoreType {
-    CoreType::named(list_descriptor().type_name, vec![item])
+    CoreType::named("List", vec![item])
 }
 
 pub(crate) fn option_part(ty: &Type) -> Option<&Type> {
-    adt_args(ty, option_descriptor())?.first()
+    named_part(ty, "Option", 1)
 }
 
 pub(crate) fn core_option_part(ty: &CoreType) -> Option<&CoreType> {
-    core_adt_args(ty, option_descriptor())?.first()
+    core_named_part(ty, "Option", 1)
 }
 
 pub(crate) fn result_parts(ty: &Type) -> Option<(&Type, &Type)> {
-    let descriptor = result_descriptor();
-    let propagation = descriptor.propagation?;
-    let args = adt_args(ty, descriptor)?;
-    Some((
-        args.get(propagation.value_parameter_index)?,
-        args.get(propagation.error_parameter_index)?,
-    ))
+    named_parts2(ty, "Result")
 }
 
 pub(crate) fn core_result_parts(ty: &CoreType) -> Option<(&CoreType, &CoreType)> {
-    let descriptor = result_descriptor();
-    let propagation = descriptor.propagation?;
-    let args = core_adt_args(ty, descriptor)?;
-    Some((
-        args.get(propagation.value_parameter_index)?,
-        args.get(propagation.error_parameter_index)?,
-    ))
+    core_named_parts2(ty, "Result")
 }
 
 pub(crate) fn list_part(ty: &Type) -> Option<&Type> {
-    adt_args(ty, list_descriptor())?.first()
+    named_part(ty, "List", 1)
 }
 
 pub(crate) fn core_list_part(ty: &CoreType) -> Option<&CoreType> {
-    core_adt_args(ty, list_descriptor())?.first()
+    core_named_part(ty, "List", 1)
+}
+
+fn builtin_descriptors() -> Vec<AdtDescriptor> {
+    vec![
+        AdtDescriptor {
+            type_name: "Option".to_string(),
+            module_name: None,
+            type_parameters: vec!["T".to_string()],
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "Some".to_string(),
+                    kind: AdtVariantKind::OptionSome,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "value".to_string(),
+                        ty: AdtPayloadType::TypeParameter(0),
+                    }],
+                    coverage_case: "Some(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "None".to_string(),
+                    kind: AdtVariantKind::OptionNone,
+                    payload_fields: Vec::new(),
+                    coverage_case: "None".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "option".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
+            type_name: "Result".to_string(),
+            module_name: None,
+            type_parameters: vec!["T".to_string(), "E".to_string()],
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "Ok".to_string(),
+                    kind: AdtVariantKind::ResultOk,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "value".to_string(),
+                        ty: AdtPayloadType::TypeParameter(0),
+                    }],
+                    coverage_case: "Ok(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "Err".to_string(),
+                    kind: AdtVariantKind::ResultErr,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "error".to_string(),
+                        ty: AdtPayloadType::TypeParameter(1),
+                    }],
+                    coverage_case: "Err(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "result".to_string(),
+            propagation: Some(ResultPropagationDescriptor {
+                value_parameter_index: 0,
+                error_parameter_index: 1,
+            }),
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
+            type_name: "List".to_string(),
+            module_name: None,
+            type_parameters: vec!["A".to_string()],
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "Nil".to_string(),
+                    kind: AdtVariantKind::ListNil,
+                    payload_fields: Vec::new(),
+                    coverage_case: "Nil".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "Cons".to_string(),
+                    kind: AdtVariantKind::ListCons,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "head".to_string(),
+                            ty: AdtPayloadType::TypeParameter(0),
+                        },
+                        AdtPayloadField {
+                            name: "tail".to_string(),
+                            ty: AdtPayloadType::SelfType,
+                        },
+                    ],
+                    coverage_case: "Cons(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "list".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+    ]
+}
+
+fn source_descriptor(decl: &TypeDecl) -> Option<AdtDescriptor> {
+    let name = decl.name.clone()?;
+    if matches!(name.as_str(), "Option" | "Result" | "List") {
+        return None;
+    }
+    let variants = decl
+        .variants
+        .iter()
+        .filter_map(|variant| {
+            let name = variant.name.clone()?;
+            let payload_fields = variant
+                .fields
+                .iter()
+                .map(|field| AdtPayloadField {
+                    name: field.name.clone(),
+                    ty: payload_descriptor_type(&field.ty, decl),
+                })
+                .collect::<Vec<_>>();
+            let coverage_case = if payload_fields.is_empty() {
+                name.clone()
+            } else {
+                format!("{name}(_)")
+            };
+            Some(AdtVariantDescriptor {
+                name,
+                kind: AdtVariantKind::Source,
+                payload_fields,
+                coverage_case,
+                visibility: variant.visibility,
+            })
+        })
+        .collect::<Vec<_>>();
+    Some(AdtDescriptor {
+        type_name: name.clone(),
+        module_name: decl.module_name.clone(),
+        type_parameters: decl.params.clone(),
+        variants,
+        diagnostic_name: name.to_lowercase(),
+        propagation: None,
+        visibility: decl.visibility,
+    })
+}
+
+fn payload_descriptor_type(text: &str, decl: &TypeDecl) -> AdtPayloadType {
+    if let Some(index) = decl.params.iter().position(|param| param == text) {
+        return AdtPayloadType::TypeParameter(index);
+    }
+    let ty = parse_type_or_unknown(Some(text));
+    if is_self_type(&ty, decl) {
+        AdtPayloadType::SelfType
+    } else {
+        AdtPayloadType::Concrete(type_parameters_to_placeholders(ty, &decl.params))
+    }
+}
+
+fn is_self_type(ty: &Type, decl: &TypeDecl) -> bool {
+    let Some(name) = &decl.name else {
+        return false;
+    };
+    let Type::Named {
+        name: ty_name,
+        args,
+    } = ty
+    else {
+        return false;
+    };
+    ty_name == name
+        && args.len() == decl.params.len()
+        && args.iter().zip(&decl.params).all(|(arg, param)| {
+            matches!(arg, Type::Named { name, args } if name == param && args.is_empty())
+        })
+}
+
+fn type_parameters_to_placeholders(ty: Type, params: &[String]) -> Type {
+    match ty {
+        Type::Named { name, args } if args.is_empty() => params
+            .iter()
+            .position(|param| param == &name)
+            .map_or(Type::Named { name, args }, |index| {
+                Type::named(format!("$param{index}"), Vec::new())
+            }),
+        Type::Named { name, args } => Type::Named {
+            name,
+            args: args
+                .into_iter()
+                .map(|arg| type_parameters_to_placeholders(arg, params))
+                .collect(),
+        },
+        Type::Record(fields) => Type::Record(
+            fields
+                .into_iter()
+                .map(|(name, ty)| (name, type_parameters_to_placeholders(ty, params)))
+                .collect(),
+        ),
+        Type::Function {
+            params: fn_params,
+            return_type,
+            effects,
+        } => Type::Function {
+            params: fn_params
+                .into_iter()
+                .map(|ty| type_parameters_to_placeholders(ty, params))
+                .collect(),
+            return_type: Box::new(type_parameters_to_placeholders(*return_type, params)),
+            effects,
+        },
+        Type::Unknown => Type::Unknown,
+    }
+}
+
+fn descriptor_visible(
+    descriptor: &AdtDescriptor,
+    segments: &[String],
+    current_module: Option<&str>,
+    uses: &[UseDecl],
+    include_imports: bool,
+) -> bool {
+    if descriptor.module_name.is_none() {
+        return true;
+    }
+    let same_module = descriptor.module_name.as_deref() == current_module;
+    if same_module {
+        return true;
+    }
+    if descriptor.visibility != Visibility::Public || !include_imports {
+        return false;
+    }
+    let Some(first) = segments.first() else {
+        return false;
+    };
+    if let Some(module_name) = uses
+        .iter()
+        .find(|use_decl| use_decl.alias == *first)
+        .map(|use_decl| use_decl.name.as_str())
+    {
+        return descriptor.module_name.as_deref() == Some(module_name);
+    }
+    segments.len() <= 2
+        && uses
+            .iter()
+            .any(|use_decl| descriptor.module_name.as_deref() == Some(use_decl.name.as_str()))
+}
+
+fn variant_visible(
+    descriptor: &AdtDescriptor,
+    variant: &AdtVariantDescriptor,
+    current_module: Option<&str>,
+    segments: &[String],
+) -> bool {
+    if descriptor.module_name.is_none() || descriptor.module_name.as_deref() == current_module {
+        return true;
+    }
+    if segments.len() > 2 {
+        return variant.visibility == Visibility::Public
+            && descriptor.visibility == Visibility::Public;
+    }
+    variant.visibility == Visibility::Public
 }
 
 fn constructor_matches(
@@ -345,130 +538,334 @@ fn constructor_matches(
     variant: &AdtVariantDescriptor,
     segments: &[String],
 ) -> bool {
-    matches!(segments, [name] if name == variant.name)
-        || matches!(segments, [type_name, name] if type_name == descriptor.type_name && name == variant.name)
+    matches!(segments, [name] if name == &variant.name)
+        || matches!(segments, [type_name, name] if type_name == &descriptor.type_name && name == &variant.name)
+        || matches!(segments, [_alias, name] if name == &variant.name)
+        || matches!(segments, [_alias, type_name, name] if type_name == &descriptor.type_name && name == &variant.name)
+}
+
+fn same_descriptor(left: &AdtDescriptor, right: &AdtDescriptor) -> bool {
+    left.type_name == right.type_name
+        && left.module_name == right.module_name
+        && left.type_parameters.len() == right.type_parameters.len()
+}
+
+fn payload_type_from_args(
+    ty: &Type,
+    descriptor: &AdtDescriptor,
+    payload: &AdtPayloadType,
+) -> Option<Type> {
+    match payload {
+        AdtPayloadType::TypeParameter(index) => adt_args(ty, descriptor)?.get(*index).cloned(),
+        AdtPayloadType::SelfType => Some(ty.clone()),
+        AdtPayloadType::Concrete(template) => {
+            let args = adt_args(ty, descriptor)?;
+            Some(substitute_type_parameters(template, args))
+        }
+    }
+}
+
+fn core_payload_type_from_args(
+    ty: &CoreType,
+    descriptor: &AdtDescriptor,
+    payload: &AdtPayloadType,
+) -> Option<CoreType> {
+    match payload {
+        AdtPayloadType::TypeParameter(index) => core_adt_args(ty, descriptor)?.get(*index).cloned(),
+        AdtPayloadType::SelfType => Some(ty.clone()),
+        AdtPayloadType::Concrete(template) => {
+            let args = core_adt_args(ty, descriptor)?;
+            Some(substitute_core_type_parameters(
+                &core_type_template(template),
+                args,
+            ))
+        }
+    }
+}
+
+fn fill_type_parameters(args: &mut [Type], payload: &AdtPayloadType, actual: &Type) {
+    match payload {
+        AdtPayloadType::TypeParameter(index) => args[*index] = actual.clone(),
+        AdtPayloadType::Concrete(template) => unify_template(args, template, actual),
+        AdtPayloadType::SelfType => {}
+    }
+}
+
+fn fill_core_type_parameters(args: &mut [CoreType], payload: &AdtPayloadType, actual: &CoreType) {
+    match payload {
+        AdtPayloadType::TypeParameter(index) => args[*index] = actual.clone(),
+        AdtPayloadType::Concrete(template) => {
+            unify_core_template(args, &core_type_template(template), actual);
+        }
+        AdtPayloadType::SelfType => {}
+    }
+}
+
+fn unify_template(args: &mut [Type], template: &Type, actual: &Type) {
+    match (template, actual) {
+        (
+            Type::Named { name, args: nested },
+            Type::Named {
+                name: _actual_name,
+                args: _actual_args,
+            },
+        ) if name.starts_with("$param") && nested.is_empty() => {
+            if let Ok(index) = name.trim_start_matches("$param").parse::<usize>()
+                && let Some(slot) = args.get_mut(index)
+            {
+                *slot = actual.clone();
+            }
+        }
+        (
+            Type::Named { name, args: nested },
+            Type::Named {
+                name: actual_name,
+                args: actual_args,
+            },
+        ) if name == actual_name && nested.len() == actual_args.len() => {
+            for (nested, actual) in nested.iter().zip(actual_args) {
+                unify_template(args, nested, actual);
+            }
+        }
+        (Type::Record(fields), Type::Record(actual_fields)) => {
+            for (name, field) in fields {
+                if let Some((_, actual_field)) = actual_fields
+                    .iter()
+                    .find(|(actual_name, _)| actual_name == name)
+                {
+                    unify_template(args, field, actual_field);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn unify_core_template(args: &mut [CoreType], template: &CoreType, actual: &CoreType) {
+    match (template, actual) {
+        (
+            CoreType::Named { name, args: nested },
+            CoreType::Named {
+                name: _actual_name,
+                args: _actual_args,
+            },
+        ) if name.starts_with("$param") && nested.is_empty() => {
+            if let Ok(index) = name.trim_start_matches("$param").parse::<usize>()
+                && let Some(slot) = args.get_mut(index)
+            {
+                *slot = actual.clone();
+            }
+        }
+        (
+            CoreType::Named { name, args: nested },
+            CoreType::Named {
+                name: actual_name,
+                args: actual_args,
+            },
+        ) if name == actual_name && nested.len() == actual_args.len() => {
+            for (nested, actual) in nested.iter().zip(actual_args) {
+                unify_core_template(args, nested, actual);
+            }
+        }
+        (CoreType::Record(fields), CoreType::Record(actual_fields)) => {
+            for (name, field) in fields {
+                if let Some((_, actual_field)) = actual_fields
+                    .iter()
+                    .find(|(actual_name, _)| actual_name == name)
+                {
+                    unify_core_template(args, field, actual_field);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn substitute_type_parameters(template: &Type, args: &[Type]) -> Type {
+    match template {
+        Type::Named { name, args: nested } if name.starts_with("$param") && nested.is_empty() => {
+            name.trim_start_matches("$param")
+                .parse::<usize>()
+                .ok()
+                .and_then(|index| args.get(index).cloned())
+                .unwrap_or(Type::Unknown)
+        }
+        Type::Named { name, args: nested } => Type::Named {
+            name: name.clone(),
+            args: nested
+                .iter()
+                .map(|arg| substitute_type_parameters(arg, args))
+                .collect(),
+        },
+        Type::Record(fields) => Type::Record(
+            fields
+                .iter()
+                .map(|(name, ty)| (name.clone(), substitute_type_parameters(ty, args)))
+                .collect(),
+        ),
+        Type::Function {
+            params,
+            return_type,
+            effects,
+        } => Type::Function {
+            params: params
+                .iter()
+                .map(|ty| substitute_type_parameters(ty, args))
+                .collect(),
+            return_type: Box::new(substitute_type_parameters(return_type, args)),
+            effects: effects.clone(),
+        },
+        Type::Unknown => Type::Unknown,
+    }
+}
+
+fn substitute_core_type_parameters(template: &CoreType, args: &[CoreType]) -> CoreType {
+    match template {
+        CoreType::Named { name, args: nested }
+            if name.starts_with("$param") && nested.is_empty() =>
+        {
+            name.trim_start_matches("$param")
+                .parse::<usize>()
+                .ok()
+                .and_then(|index| args.get(index).cloned())
+                .unwrap_or(CoreType::Unknown)
+        }
+        CoreType::Named { name, args: nested } => CoreType::Named {
+            name: name.clone(),
+            args: nested
+                .iter()
+                .map(|arg| substitute_core_type_parameters(arg, args))
+                .collect(),
+        },
+        CoreType::Record(fields) => CoreType::Record(
+            fields
+                .iter()
+                .map(|(name, ty)| (name.clone(), substitute_core_type_parameters(ty, args)))
+                .collect(),
+        ),
+        CoreType::Function {
+            params,
+            return_type,
+            effects,
+        } => CoreType::Function {
+            params: params
+                .iter()
+                .map(|ty| substitute_core_type_parameters(ty, args))
+                .collect(),
+            return_type: Box::new(substitute_core_type_parameters(return_type, args)),
+            effects: effects.clone(),
+        },
+        CoreType::Unknown => CoreType::Unknown,
+    }
+}
+
+fn core_type_template(ty: &Type) -> CoreType {
+    match ty {
+        Type::Unknown => CoreType::Unknown,
+        Type::Named { name, args } => CoreType::Named {
+            name: name.clone(),
+            args: args.iter().map(core_type_template).collect(),
+        },
+        Type::Record(fields) => CoreType::Record(
+            fields
+                .iter()
+                .map(|(name, ty)| (name.clone(), core_type_template(ty)))
+                .collect(),
+        ),
+        Type::Function {
+            params,
+            return_type,
+            effects,
+        } => CoreType::Function {
+            params: params.iter().map(core_type_template).collect(),
+            return_type: Box::new(core_type_template(return_type)),
+            effects: effects.clone(),
+        },
+    }
+}
+
+fn named_part<'a>(ty: &'a Type, name: &str, arity: usize) -> Option<&'a Type> {
+    let Type::Named {
+        name: ty_name,
+        args,
+    } = ty
+    else {
+        return None;
+    };
+    (ty_name == name && args.len() == arity)
+        .then(|| args.first())
+        .flatten()
+}
+
+fn core_named_part<'a>(ty: &'a CoreType, name: &str, arity: usize) -> Option<&'a CoreType> {
+    let CoreType::Named {
+        name: ty_name,
+        args,
+    } = ty
+    else {
+        return None;
+    };
+    (ty_name == name && args.len() == arity)
+        .then(|| args.first())
+        .flatten()
+}
+
+fn named_parts2<'a>(ty: &'a Type, name: &str) -> Option<(&'a Type, &'a Type)> {
+    let Type::Named {
+        name: ty_name,
+        args,
+    } = ty
+    else {
+        return None;
+    };
+    (ty_name == name && args.len() == 2).then(|| (&args[0], &args[1]))
+}
+
+fn core_named_parts2<'a>(ty: &'a CoreType, name: &str) -> Option<(&'a CoreType, &'a CoreType)> {
+    let CoreType::Named {
+        name: ty_name,
+        args,
+    } = ty
+    else {
+        return None;
+    };
+    (ty_name == name && args.len() == 2).then(|| (&args[0], &args[1]))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn registry() -> AdtRegistry {
+        AdtRegistry {
+            descriptors: builtin_descriptors(),
+        }
+    }
+
     fn path(parts: &[&str]) -> Vec<String> {
         parts.iter().map(|part| (*part).to_string()).collect()
     }
 
     #[test]
-    fn descriptors_match_builtin_type_arities() {
-        assert_eq!(
-            descriptor_for_type(&Type::named("Option", vec![Type::int()]))
-                .expect("Option(T) should have a descriptor")
-                .type_name,
-            "Option"
-        );
-        assert_eq!(
-            descriptor_for_type(&Type::result(Type::int(), Type::string()))
-                .expect("Result(T, E) should have a descriptor")
-                .type_name,
-            "Result"
-        );
-        assert!(descriptor_for_type(&Type::named("Option", Vec::new())).is_none());
-        assert!(descriptor_for_type(&Type::named("Result", vec![Type::int()])).is_none());
-    }
-
-    #[test]
     fn constructors_match_qualified_and_unqualified_builtin_names() {
-        let some = constructor(&path(&["Some"])).expect("Some should resolve");
+        let registry = registry();
+        let ConstructorLookup::Found(some) = registry.constructor(&path(&["Some"]), None, &[])
+        else {
+            panic!("Some should resolve");
+        };
         assert_eq!(some.descriptor.type_name, "Option");
         assert_eq!(some.variant.name, "Some");
         assert_eq!(some.variant.coverage_case, "Some(_)");
         assert_eq!(some.variant.payload_fields[0].name, "value");
 
-        let none = nullary_constructor(&path(&["Option", "None"]))
-            .expect("Option::None should resolve as nullary");
-        assert_eq!(none.descriptor.type_name, "Option");
-        assert_eq!(none.variant.name, "None");
-        assert_eq!(none.variant.coverage_case, "None");
-        assert!(none.variant.payload_fields.is_empty());
-
-        let err = constructor(&path(&["Result", "Err"])).expect("Result::Err should resolve");
-        assert_eq!(err.descriptor.type_name, "Result");
-        assert_eq!(err.variant.name, "Err");
-        assert_eq!(err.variant.payload_fields[0].name, "error");
-        assert_eq!(
-            err.variant.payload_fields[0].ty,
-            AdtPayloadType::TypeParameter(1)
-        );
-
-        let nil = nullary_constructor(&path(&["List", "Nil"])).expect("List::Nil should resolve");
+        let ConstructorLookup::Found(nil) =
+            registry.nullary_constructor(&path(&["List", "Nil"]), None, &[])
+        else {
+            panic!("List::Nil should resolve");
+        };
         assert_eq!(nil.descriptor.type_name, "List");
         assert_eq!(nil.variant.name, "Nil");
         assert_eq!(nil.variant.coverage_case, "Nil");
         assert!(nil.variant.payload_fields.is_empty());
-
-        let cons = constructor(&path(&["List", "Cons"])).expect("List::Cons should resolve");
-        assert_eq!(cons.descriptor.type_name, "List");
-        assert_eq!(cons.variant.name, "Cons");
-        assert_eq!(cons.variant.coverage_case, "Cons(_)");
-        assert_eq!(cons.variant.payload_fields[0].name, "head");
-        assert_eq!(
-            cons.variant.payload_fields[0].ty,
-            AdtPayloadType::TypeParameter(0)
-        );
-        assert_eq!(cons.variant.payload_fields[1].name, "tail");
-        assert_eq!(cons.variant.payload_fields[1].ty, AdtPayloadType::SelfType);
-    }
-
-    #[test]
-    fn result_payload_and_propagation_use_descriptor_parameter_indices() {
-        let result = Type::result(Type::int(), Type::string());
-        let ok = constructor(&path(&["Ok"])).expect("Ok should resolve");
-        let err = constructor(&path(&["Err"])).expect("Err should resolve");
-
-        assert_eq!(payload_type(&result, ok, 0), Some(Type::int()));
-        assert_eq!(payload_type(&result, err, 0), Some(Type::string()));
-        assert_eq!(result_parts(&result), Some((&Type::int(), &Type::string())));
-        assert_eq!(
-            constructed_type(err, Type::string()),
-            result_type(Type::Unknown, Type::string())
-        );
-
-        let core_result = CoreType::result(CoreType::int(), CoreType::string());
-        assert_eq!(
-            core_payload_type(&core_result, ok, 0),
-            Some(CoreType::int())
-        );
-        assert_eq!(
-            core_payload_type(&core_result, err, 0),
-            Some(CoreType::string())
-        );
-        assert_eq!(
-            core_result_parts(&core_result),
-            Some((&CoreType::int(), &CoreType::string()))
-        );
-        assert_eq!(
-            core_constructed_type(err, CoreType::string()),
-            core_result_type(CoreType::Unknown, CoreType::string())
-        );
-    }
-
-    #[test]
-    fn list_payloads_use_head_parameter_and_self_tail() {
-        let list = Type::named("List", vec![Type::int()]);
-        let cons = constructor(&path(&["Cons"])).expect("Cons should resolve");
-
-        assert_eq!(payload_type(&list, cons, 0), Some(Type::int()));
-        assert_eq!(payload_type(&list, cons, 1), Some(list.clone()));
-        assert_eq!(constructed_type(cons, Type::int()), list);
-
-        let core_list = CoreType::named("List", vec![CoreType::int()]);
-        assert_eq!(
-            core_payload_type(&core_list, cons, 0),
-            Some(CoreType::int())
-        );
-        assert_eq!(
-            core_payload_type(&core_list, cons, 1),
-            Some(core_list.clone())
-        );
-        assert_eq!(core_constructed_type(cons, CoreType::int()), core_list);
     }
 }

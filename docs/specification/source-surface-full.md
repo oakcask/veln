@@ -19,11 +19,12 @@ Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
-TypeDecl      ::= "type" Name TypeParamList? NL TypeVariant+ "end" NL?
+TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
 TypeParamList ::= "(" Name ("," Name)* ","? ")"
-TypeVariant   ::= UpperName TypeVariantFields? NL
+TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
-TypeVariantField ::= Name ":" TypeText
+                  | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
+TypeVariantField ::= Name ":" TypeText | TypeText
 ParamList     ::= Param ("," Param)* ","?
 Param         ::= Name (":" TypeText)?
 Return        ::= "->" ResultBinding? TypeText
@@ -144,21 +145,22 @@ checker reports module metadata drift.
 segment of the imported module path, so `use platform.io` declares the alias
 `io`. Calls may use that alias as a qualified function path, such as
 `io::read_line()`, when the imported module's source is part of the analyzed
-program.
+program. Public source ADT constructors may also use the import alias, either
+as `alias::Constructor` or `alias::Type::Constructor`.
 
-Public `fn` declarations are the implemented public API boundary. Dedicated
-export lists are not implemented. Function declarations can be referenced by
-bare name or by a `use` alias-qualified path as callable values where a
-function-typed expression is expected. When a selected `run` or `test` entry
-uses a function declaration as a value, that referenced function is part of the
-selected executable slice. In a named source module, selected-entry
-reachability treats a bare function reference as a reference to the same source
-module. `use` alias-qualified references keep the imported module identity.
-Bare local bindings, parameters, and match-pattern bindings shadow same-named
-function declarations for this reachability rule. Calls through a
-function-typed local binding or parameter conservatively include visible
-function declarations with the same argument count when surface reachability
-cannot prove one concrete declaration target.
+Public `fn` declarations and public source `type` declarations are the
+implemented public API boundary. Dedicated export lists are not implemented.
+Function declarations can be referenced by bare name or by a `use`
+alias-qualified path as callable values where a function-typed expression is
+expected. When a selected `run` or `test` entry uses a function declaration as a
+value, that referenced function is part of the selected executable slice. In a
+named source module, selected-entry reachability treats a bare function
+reference as a reference to the same source module. `use` alias-qualified
+references keep the imported module identity. Bare local bindings, parameters,
+and match-pattern bindings shadow same-named function declarations for this
+reachability rule. Calls through a function-typed local binding or parameter
+conservatively include visible function declarations with the same argument
+count when surface reachability cannot prove one concrete declaration target.
 
 `test` is a top-level declaration keyword, not a visibility modifier. Test
 declarations are selected by `veln test` from `*_test.veln` files, explicit
@@ -295,19 +297,27 @@ Implemented expressions:
 they are not ordinary value names.
 
 `Option` and `Result` constructors are built-in compiler-owned ADT
-constructors. The implemented source-declared ADT slice accepts the minimal
-recursive `List(A)` shape:
+constructors. Source `type` declarations define additional ADT descriptors
+with generic parameters, nullary variants, tuple-like variants, and
+record-shaped variant declarations:
 
 ```text
-type List(A)
-  Nil
-  Cons(head: A, tail: List(A))
+pub type Maybe(A)
+  pub Missing
+  pub Just(A)
 end
 ```
 
-The checker and runtime recognize `Nil`, `Cons(head, tail)`, `List::Nil`, and
-`List::Cons(head, tail)` for that `List(A)` descriptor. Broader user-defined
-ADT declarations and arbitrary user-defined constructors are not implemented.
+Constructors are value-level expressions. Nullary variants can be used as bare
+names, and payload variants use call syntax such as `Just(1)` or
+`Maybe::Just(1)`. In the declaring module, constructors resolve as bare names
+or type-qualified names. From an importing module, public constructors also
+resolve through the import alias as `alias::Constructor` or
+`alias::Type::Constructor`. A public type does not automatically export its
+constructors; each exported constructor line uses its own `pub` prefix.
+Private constructors remain usable in their declaring module. The built-in
+`List(A)` descriptor recognizes `Nil`, `Cons(head, tail)`, `List::Nil`, and
+`List::Cons(head, tail)` and keeps the existing runtime list representation.
 
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
@@ -335,22 +345,22 @@ parser can identify an adjacent argument without a separator, it reports
 `match` is a primary expression and may appear anywhere an expression is
 accepted, including call arguments and aggregate literals. Match arms are tried
 in source order. The implemented match-pattern subset covers wildcard `_`,
-binding names, literals, record patterns, and the built-in constructors `Some`,
-`None`, `Ok`, `Err`, `Nil`, `Cons`, `Option::Some`, `Option::None`,
-`Result::Ok`, `Result::Err`, `List::Nil`, and `List::Cons`. Record patterns
-match when the scrutinee is a record containing every named pattern field and
-every nested field pattern matches. Pattern
+binding names, literals, record patterns, built-in constructors, and
+source-declared constructors in bare, type-qualified, alias-qualified, or
+alias-and-type-qualified forms. Record patterns match when the scrutinee is a
+record containing every named pattern field and every nested field pattern
+matches. Pattern
 bindings in one arm or `let` statement must not duplicate another binding in
 that pattern or a value binding already visible at the pattern. Record pattern
 field names must be unique.
 
 The checker rejects non-exhaustive `match` expressions for scrutinee types it
-can classify as finite domains: `Bool`, `Option(T)`, `Result(T, E)`, and
-`List(A)`. `_` and binding patterns are catch-all arms. Bool matches must cover
-`true` and `false`; option matches must cover `Some(_)` and `None`; result
-matches must cover `Ok(_)` and `Err(_)`; list matches must cover `Nil` and
-`Cons(_)`. Other scrutinee types do not currently receive enumerated
-exhaustiveness checking.
+can classify as finite domains: `Bool`, `Option(T)`, `Result(T, E)`, `List(A)`,
+and source-declared ADTs. `_` and binding patterns are catch-all arms. Bool
+matches must cover `true` and `false`; option matches must cover `Some(_)` and
+`None`; result matches must cover `Ok(_)` and `Err(_)`; list matches must cover
+`Nil` and `Cons(_)`; source-declared ADT matches must cover every declared
+variant unless a catch-all arm is present.
 
 ## Contract Predicates
 

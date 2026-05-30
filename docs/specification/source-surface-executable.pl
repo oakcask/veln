@@ -88,11 +88,12 @@ grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" 
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
-grammar_line(100, "TypeDecl      ::= \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
+grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
 grammar_line(110, "TypeParamList ::= \"(\" Name (\",\" Name)* \",\"? \")\"").
-grammar_line(120, "TypeVariant   ::= UpperName TypeVariantFields? NL").
+grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
-grammar_line(140, "TypeVariantField ::= Name \":\" TypeText").
+grammar_line(140, "                  | \"{\" TypeVariantField (\",\" TypeVariantField)* \",\"? \"}\"").
+grammar_line(145, "TypeVariantField ::= Name \":\" TypeText | TypeText").
 grammar_line(150, "ParamList     ::= Param (\",\" Param)* \",\"?").
 grammar_line(160, "Param         ::= Name (\":\" TypeText)?").
 grammar_line(170, "Return        ::= \"->\" ResultBinding? TypeText").
@@ -297,6 +298,7 @@ test_decl -->
     newline_opt.
 
 type_decl -->
+    visibility,
     tok(type),
     ident,
     type_params_opt,
@@ -315,13 +317,19 @@ ident_tail --> [].
 type_variants --> type_variant, !, type_variants_tail.
 type_variants_tail --> type_variant, !, type_variants_tail.
 type_variants_tail --> [].
-type_variant --> upper_name, type_variant_fields_opt, nl.
+type_variant --> visibility, upper_name, type_variant_fields_opt, nl.
 type_variant_fields_opt --> tok(lparen), type_variant_field_list, tok(rparen), !.
+type_variant_fields_opt --> tok(lbrace), type_variant_record_field_list, tok(rbrace), !.
 type_variant_fields_opt --> [].
 type_variant_field_list --> type_variant_field, type_variant_field_tail, trailing_comma_opt, !.
 type_variant_field_tail --> tok(comma), type_variant_field, !, type_variant_field_tail.
 type_variant_field_tail --> [].
 type_variant_field --> ident, tok(colon), type_text_until([comma, rparen]).
+type_variant_field --> type_text_until([comma, rparen]).
+type_variant_record_field_list --> type_variant_record_field, type_variant_record_field_tail, trailing_comma_opt, !.
+type_variant_record_field_tail --> tok(comma), type_variant_record_field, !, type_variant_record_field_tail.
+type_variant_record_field_tail --> [].
+type_variant_record_field --> ident, tok(colon), type_text_until([comma, rbrace]).
 
 visibility --> tok(pub), !.
 visibility --> [].

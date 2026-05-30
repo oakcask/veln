@@ -43,6 +43,8 @@ pub struct UseDecl {
 #[derive(Clone, Debug)]
 pub struct TypeDecl {
     pub node_id: NodeId,
+    pub module_name: Option<String>,
+    pub visibility: Visibility,
     pub name: Option<String>,
     pub params: Vec<String>,
     pub variants: Vec<TypeVariantDecl>,
@@ -52,6 +54,7 @@ pub struct TypeDecl {
 #[derive(Clone, Debug)]
 pub struct TypeVariantDecl {
     pub node_id: NodeId,
+    pub visibility: Visibility,
     pub name: Option<String>,
     pub fields: Vec<TypeVariantField>,
     pub span: SourceSpan,

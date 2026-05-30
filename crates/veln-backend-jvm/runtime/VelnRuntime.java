@@ -121,6 +121,41 @@ public final class VelnRuntime {
         }
     }
 
+    public static final class Adt {
+        private final String name;
+        private final Object[] payloads;
+
+        private Adt(String name, Object[] payloads) {
+            this.name = name;
+            this.payloads = new Object[payloads.length];
+            for (int index = 0; index < payloads.length; index += 1) {
+                this.payloads[index] = freezeValue(payloads[index]);
+            }
+        }
+
+        @Override
+        public String toString() {
+            String leaf = name;
+            int separator = leaf.lastIndexOf("::");
+            if (separator >= 0) {
+                leaf = leaf.substring(separator + 2);
+            }
+            if (payloads.length == 0) {
+                return leaf;
+            }
+            StringBuilder out = new StringBuilder();
+            out.append(leaf).append("(");
+            for (int index = 0; index < payloads.length; index += 1) {
+                if (index > 0) {
+                    out.append(", ");
+                }
+                out.append(format(payloads[index]));
+            }
+            out.append(")");
+            return out.toString();
+        }
+    }
+
     public static final class ContractFailure extends RuntimeException {
         public final String clause;
         public final String predicate;
@@ -251,6 +286,10 @@ public final class VelnRuntime {
 
     public static Object listCons(Object head, Object tail) {
         return ListValue.cons(head, tail);
+    }
+
+    public static Object adt(String name, Object[] payloads) {
+        return new Adt(name, payloads);
     }
 
     public static Object channelBounded(Object capacity) {
@@ -675,6 +714,15 @@ public final class VelnRuntime {
 
     public static Object listTail(Object value) {
         return asListValue(value).tail;
+    }
+
+    public static boolean isAdt(Object value, String name) {
+        return value instanceof Adt
+            && (((Adt) value).name.equals(name) || ((Adt) value).name.endsWith("::" + name));
+    }
+
+    public static Object adtPayload(Object value, int index) {
+        return ((Adt) value).payloads[index];
     }
 
     public static Object unwrapOk(Object value) {

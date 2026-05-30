@@ -52,6 +52,64 @@ fn parses_explicit_test_declaration() {
 }
 
 #[test]
+fn parses_minimal_list_type_declaration() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type List(A)\n",
+            "\tNil\n",
+            "\tCons(head: A, tail: List(A))\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.items.len(), 1);
+    let SyntaxItem::Type(list) = &output.tree.items[0] else {
+        panic!("expected type declaration");
+    };
+    assert_eq!(list.name.as_deref(), Some("List"));
+    assert_eq!(list.params, vec!["A"]);
+    assert_eq!(list.variants.len(), 2);
+    assert_eq!(list.variants[0].name.as_deref(), Some("Nil"));
+    assert!(list.variants[0].fields.is_empty());
+    assert_eq!(list.variants[1].name.as_deref(), Some("Cons"));
+    assert_eq!(list.variants[1].fields[0].name, "head");
+    assert_eq!(list.variants[1].fields[0].ty, "A");
+    assert_eq!(list.variants[1].fields[1].name, "tail");
+    assert_eq!(list.variants[1].fields[1].ty, "List(A)");
+    assert_eq!(format_tree(&output.tree), source.text());
+}
+
+#[test]
+fn parses_public_type_declaration_with_public_record_variant() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub type Shape\n",
+            "\tpub Circle { radius: Int }\n",
+            "\tRectangle { width: Int, height: Int }\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Type(shape) = &output.tree.items[0] else {
+        panic!("expected type declaration");
+    };
+    assert_eq!(shape.visibility, Visibility::Public);
+    assert_eq!(shape.variants[0].visibility, Visibility::Public);
+    assert_eq!(shape.variants[0].fields[0].name, "radius");
+    assert_eq!(shape.variants[0].fields[0].ty, "Int");
+    assert_eq!(shape.variants[1].visibility, Visibility::Private);
+    assert_eq!(shape.variants[1].fields[1].name, "height");
+}
+
+#[test]
 fn parses_omitted_signature_annotations_as_recoverable_ast_facts() {
     let source = SourceFile::new("main.veln", "fn helper(value)\n  value\nend\n");
 

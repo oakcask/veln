@@ -10,7 +10,7 @@ use veln_core::{
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
-use crate::adt::{self, AdtVariantKind};
+use crate::adt::{self, AdtVariantKind, ConstructorLookup};
 use crate::contracts::contract_predicate_is_statically_true;
 use crate::effects::{
     core_concurrency_signature, core_standard_library_signature, is_concurrency_call,
@@ -662,50 +662,64 @@ impl<'a> CoreLowerer<'a> {
         expected: Option<&CoreType>,
     ) -> CoreExpr {
         match segments {
-            segments if adt::nullary_constructor(segments).is_some() => {
-                let constructor =
-                    adt::nullary_constructor(segments).expect("guard should provide constructor");
-                let ty = expected
-                    .filter(|expected| {
-                        adt::core_adt_args(expected, constructor.descriptor).is_some()
-                    })
-                    .cloned()
-                    .unwrap_or_else(|| adt::core_constructed_type(constructor, CoreType::Unknown));
-                self.core_expr(expr, ty, core_nullary_constructor_kind(constructor))
-            }
-            [name] => {
-                if let Some(binding) = self
-                    .bindings
-                    .iter()
-                    .rev()
-                    .find(|binding| binding.name == *name)
-                {
-                    self.core_expr(expr, binding.ty.clone(), CoreExprKind::Local(name.clone()))
-                } else if let Some(function) = self.environment.function(name) {
-                    self.core_expr(
-                        expr,
-                        core_type(&function.ty()),
-                        CoreExprKind::FunctionValue(name.clone()),
-                    )
-                } else {
-                    self.core_expr(expr, CoreType::Unknown, CoreExprKind::Local(name.clone()))
+            segments => match self.environment.adts.nullary_constructor(
+                segments,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            ) {
+                ConstructorLookup::Found(constructor) => {
+                    let ty = expected
+                        .filter(|expected| {
+                            adt::core_adt_args(expected, constructor.descriptor).is_some()
+                        })
+                        .cloned()
+                        .unwrap_or_else(|| adt::core_constructed_type(constructor, &[]));
+                    self.core_expr(expr, ty, core_nullary_constructor_kind(constructor))
                 }
-            }
-            _ => {
-                if let Some(function) = self.environment.function_path(segments) {
-                    self.core_expr(
-                        expr,
-                        core_type(&function.ty()),
-                        CoreExprKind::FunctionValue(function.name.clone()),
-                    )
-                } else {
-                    self.core_expr(
-                        expr,
-                        CoreType::Unknown,
-                        CoreExprKind::Local(segments.join("::")),
-                    )
-                }
-            }
+                _ => match segments {
+                    [name] => {
+                        if let Some(binding) = self
+                            .bindings
+                            .iter()
+                            .rev()
+                            .find(|binding| binding.name == *name)
+                        {
+                            self.core_expr(
+                                expr,
+                                binding.ty.clone(),
+                                CoreExprKind::Local(name.clone()),
+                            )
+                        } else if let Some(function) = self.environment.function(name) {
+                            self.core_expr(
+                                expr,
+                                core_type(&function.ty()),
+                                CoreExprKind::FunctionValue(name.clone()),
+                            )
+                        } else {
+                            self.core_expr(
+                                expr,
+                                CoreType::Unknown,
+                                CoreExprKind::Local(name.clone()),
+                            )
+                        }
+                    }
+                    _ => {
+                        if let Some(function) = self.environment.function_path(segments) {
+                            self.core_expr(
+                                expr,
+                                core_type(&function.ty()),
+                                CoreExprKind::FunctionValue(function.name.clone()),
+                            )
+                        } else {
+                            self.core_expr(
+                                expr,
+                                CoreType::Unknown,
+                                CoreExprKind::Local(segments.join("::")),
+                            )
+                        }
+                    }
+                },
+            },
         }
     }
 
@@ -735,11 +749,15 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> Option<CoreExpr> {
-        if let ExprKind::NamePath(segments) = &callee.kind
-            && let Some(constructor) = adt::constructor(segments)
-            && !constructor.variant.payload_fields.is_empty()
-        {
-            return Some(self.lower_adt_constructor(expr, args, expected, constructor));
+        if let ExprKind::NamePath(segments) = &callee.kind {
+            if let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+                segments,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            ) && !constructor.variant.payload_fields.is_empty()
+            {
+                return Some(self.lower_adt_constructor(expr, args, expected, constructor));
+            }
         }
         None
     }
@@ -935,10 +953,11 @@ impl<'a> CoreLowerer<'a> {
         {
             expected.cloned().unwrap_or(CoreType::Unknown)
         } else {
-            lowered_args.first().map_or_else(
-                || adt::core_constructed_type(constructor, CoreType::Unknown),
-                |first| adt::core_constructed_type(constructor, first.ty.clone()),
-            )
+            let payload_types = lowered_args
+                .iter()
+                .map(|arg| arg.ty.clone())
+                .collect::<Vec<_>>();
+            adt::core_constructed_type(constructor, &payload_types)
         };
         for arg in args.iter().skip(expected_count) {
             self.lower_expr(arg, None);
@@ -1080,7 +1099,7 @@ impl<'a> CoreLowerer<'a> {
         }
         for arm in arms {
             let saved_bindings = self.bindings.len();
-            for binding in Self::pattern_bindings(&arm.pattern, &scrutinee.ty) {
+            for binding in self.pattern_bindings(&arm.pattern, &scrutinee.ty) {
                 self.bindings.push(binding);
             }
             let arm_expected = if result_type == CoreType::Unknown {
@@ -1110,7 +1129,7 @@ impl<'a> CoreLowerer<'a> {
         )
     }
 
-    fn pattern_bindings(pattern: &Pattern, scrutinee_type: &CoreType) -> Vec<CoreBinding> {
+    fn pattern_bindings(&self, pattern: &Pattern, scrutinee_type: &CoreType) -> Vec<CoreBinding> {
         match &pattern.kind {
             PatternKind::Wildcard
             | PatternKind::StringLiteral(_)
@@ -1128,11 +1147,15 @@ impl<'a> CoreLowerer<'a> {
                     let field_type = scrutinee_type
                         .record_field(&field.name)
                         .unwrap_or(&CoreType::Unknown);
-                    Self::pattern_bindings(&field.pattern, field_type)
+                    self.pattern_bindings(&field.pattern, field_type)
                 })
                 .collect(),
             PatternKind::Constructor { name, args } => {
-                let Some(constructor) = adt::constructor(name) else {
+                let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+                    name,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                ) else {
                     return Vec::new();
                 };
                 args.iter()
@@ -1140,7 +1163,7 @@ impl<'a> CoreLowerer<'a> {
                     .flat_map(|(index, pattern)| {
                         let ty = adt::core_payload_type(scrutinee_type, constructor, index)
                             .unwrap_or(CoreType::Unknown);
-                        Self::pattern_bindings(pattern, &ty)
+                        self.pattern_bindings(pattern, &ty)
                     })
                     .collect()
             }
@@ -1328,7 +1351,7 @@ fn render_core_type(ty: &CoreType) -> String {
 }
 
 fn constructor_arity_reason(constructor: adt::AdtConstructor) -> &'static str {
-    match constructor.descriptor.type_name {
+    match constructor.descriptor.type_name.as_str() {
         "Option" => "option_constructor_arity_mismatch",
         "Result" => "result_constructor_arity_mismatch",
         _ => "constructor_arity_mismatch",
@@ -1339,6 +1362,13 @@ fn core_nullary_constructor_kind(constructor: adt::AdtConstructor) -> CoreExprKi
     match constructor.variant.kind {
         AdtVariantKind::OptionNone => CoreExprKind::OptionNone,
         AdtVariantKind::ListNil => CoreExprKind::ListNil,
+        AdtVariantKind::Source => CoreExprKind::AdtVariant {
+            name: vec![
+                constructor.descriptor.type_name.clone(),
+                constructor.variant.name.clone(),
+            ],
+            payloads: Vec::new(),
+        },
         _ => CoreExprKind::Missing,
     }
 }
@@ -1361,6 +1391,13 @@ fn core_payload_constructor_kind(
                 tail: Box::new(tail),
             }
         }
+        AdtVariantKind::Source => CoreExprKind::AdtVariant {
+            name: vec![
+                constructor.descriptor.type_name.clone(),
+                constructor.variant.name.clone(),
+            ],
+            payloads,
+        },
     }
 }
 
