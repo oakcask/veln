@@ -240,7 +240,10 @@ failures become case errors with reason `runner_error`, including a missing
 Runtime failure expectation matching is independent from expected-output
 comparison. Satisfying `runtime=contract`, `runtime=ensure`, or
 `runtime=result` does not satisfy any attached output fence, and matching
-output does not satisfy the runtime failure expectation.
+output does not satisfy the runtime failure expectation. The implemented
+runtime expectation surface is limited to those structured contract, ensure,
+and result failure kinds. Doctests do not match arbitrary panics, raw stderr
+text, or process exit status as runtime failure expectations.
 
 Doctest output mismatches become failed cases with `failure.kind: "output"` and
 `reason: "expected_output"`. JSON details include the mismatched stream,

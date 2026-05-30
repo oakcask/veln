@@ -125,7 +125,9 @@ the case is reported with `status: "failed"`,
 
 Static diagnostics still block execution before runtime expectation matching;
 the doctest case is then reported with `status: "blocked"` and
-`reason: "static_gate"`.
+`reason: "static_gate"`. The implemented runtime expectation kinds are limited
+to contract, ensure, and result failures; there is no test JSON expectation
+record for arbitrary panics, raw stderr matching, or process exit status.
 
 Doctest expected-output mismatches are reported as failed cases with
 `reason: "expected_output"` and `failure.kind: "output"`. The failure details
