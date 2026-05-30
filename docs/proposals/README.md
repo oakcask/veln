@@ -17,6 +17,9 @@ compare it with `../specification/` before changing behavior.
 - [forbid-empty-effects-declarations.md](forbid-empty-effects-declarations.md):
   require pure function and test declarations to omit empty `effects []`
   clauses.
+- [drop-legacy-slash-comments.md](drop-legacy-slash-comments.md):
+  remove compatibility support for `//` ordinary comments, `///`
+  documentation comments, and legacy doctest hidden setup.
 - [adt-generalization-route.md](adt-generalization-route.md):
   staged route from descriptor-backed `Option` and `Result` to ADTs, `List`,
   immutable collection helpers, and trampoline execution.
