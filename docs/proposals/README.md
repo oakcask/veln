@@ -32,6 +32,9 @@ compare it with `../specification/` before changing behavior.
 - [reference-followups.md](reference-followups.md):
   broad follow-up inventory that should be split into narrower proposal pages
   before implementation.
+- [toolchain-dependency-graph-signal.md](toolchain-dependency-graph-signal.md):
+  crate dependency graph metrics as refactor signals, including CI annotation
+  and summary output.
 
 ## Update When
 
