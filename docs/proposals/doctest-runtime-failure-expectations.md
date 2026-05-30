@@ -1,11 +1,11 @@
 # Doctest Runtime Failure Expectations
 
-Status: proposed follow-ups
+Status: implemented target, no open follow-up selected
 
 This page records remaining runtime-failure expectation work outside the
-implemented contract and result doctest routes. Current behavior is specified
-in `../specification/`; this page is only for adding another structured
-runtime failure kind.
+implemented doctest routes. Current behavior is specified in
+`../specification/`; this page is only for adding another structured runtime
+failure kind after a concrete failure class is selected.
 
 ## Read First
 
@@ -20,12 +20,18 @@ runtime failure kind.
 - Current runtime failure details:
   [../specification/contracts.md](../specification/contracts.md).
 - Current readable CLI coverage:
-  `../../examples/specification/test/doctest-runtime-contract-json/`,
-  `../../examples/specification/test/doctest-runtime-contract-blocked-json/`,
-  `../../examples/specification/test/doctest-runtime-result-json/`, and
-  `../../examples/specification/test/doctest-runtime-result-blocked-json/`.
+  [../specification/test-json.md](../specification/test-json.md).
 - Proposal promotion checks:
   [implementation-route.md](implementation-route.md).
+
+## Read When
+
+- Changing runtime expectation matching:
+  `crates/veln-test/src/runtime_expectation.rs`.
+- Changing doctest runtime metadata parsing or diagnostics:
+  `crates/veln-test/src/lib.rs`.
+- Adding readable CLI coverage:
+  `examples/specification/test/`.
 
 ## Current Boundary
 
@@ -33,9 +39,8 @@ runtime failure kind.
 when generated source produces an error diagnostic before execution. They do
 not describe expected runtime failures.
 
-Positive doctests may use the implemented `runtime=contract` metadata to expect
-a runtime contract failure or `runtime=result` metadata to expect a returned
-`Err` value. Broader panic matching, arbitrary stderr matching, and
+Positive doctests may use implemented runtime expectation metadata described in
+`../specification/`. Broader panic matching, arbitrary stderr matching, and
 command-status assertions remain outside the implemented surface.
 
 Runtime failure expectations and expected-output fences are separate doctest
@@ -44,8 +49,9 @@ output comparison decides only captured stdout or stderr text.
 
 ## Target
 
-Add another runtime failure expectation kind only when that failure class has
-structured test JSON details, metadata diagnostics, and readable CLI coverage.
+No additional runtime failure expectation kind is selected here. Add one only
+when that failure class has structured test JSON details, metadata diagnostics,
+and readable CLI coverage.
 
 ## Work Route
 

@@ -170,6 +170,10 @@ Executable doctest metadata is one concept with separate checks:
   positive executable doctest expect a runtime contract failure. Optional
   `function=<Name>` and `blame=<Side>` attributes further constrain that
   runtime failure match.
+- `runtime=ensure` and `predicate=<Predicate>` on a positive executable
+  doctest expect a runtime `ensure` contract failure. Optional
+  `function=<Name>` and `blame=<Side>` attributes further constrain that
+  runtime failure match.
 - `runtime=result` and `value=<FormattedValue>` on a positive executable
   doctest expect the generated test to return `Err(<FormattedValue>)`.
 - `ignore` treats the fence as a documentation-only code example and does not
@@ -183,7 +187,8 @@ Executable doctest metadata is one concept with separate checks:
 Any other `veln` fence attribute reports `doctest.unknown_metadata`. Empty
 runtime metadata values, unsupported runtime expectation kinds,
 `runtime=contract` without both `clause` and `predicate`, `runtime=result`
-without `value`, and an empty `error=` value report
+without `value`, `runtime=ensure` without `predicate`, and an empty `error=`
+value report
 `doctest.invalid_metadata`.
 
 An adjacent doc comment fence whose info string is
@@ -348,5 +353,6 @@ declarations, method calls, loops, mutation, classes, traits, macros,
 comprehensions, anonymous functions, custom operators, task selection, package
 manifest fields beyond `[modules]`, foreign declarations, or doctest metadata
 other than `error`, `ignore`, `fail`, `runtime=contract`, runtime contract
-detail attributes, `runtime=result`, runtime result value matching, and
-`veln-output` stream selection.
+detail attributes, `runtime=ensure`, runtime ensure detail attributes,
+`runtime=result`, runtime result value matching, and `veln-output` stream
+selection.

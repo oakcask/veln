@@ -44,6 +44,7 @@ pub fn apply_runtime_result(case: &mut TestCase, actual_failure: Option<TestFail
 #[derive(Clone, Debug)]
 pub enum ExpectedRuntimeFailure {
     Contract(ExpectedContractFailure),
+    ContractClause(ExpectedContractFailure),
     Result(ExpectedResultFailure),
 }
 
@@ -66,21 +67,10 @@ impl ExpectedRuntimeFailure {
     fn matches(&self, failure: &TestFailure) -> bool {
         match self {
             ExpectedRuntimeFailure::Contract(expected) => {
-                if failure.kind != "contract" {
-                    return false;
-                }
-                json_object_field(&failure.details, "kind") == Some("contract")
-                    && json_object_field(&failure.details, "phase") == Some("runtime")
-                    && json_object_field(&failure.details, "clause")
-                        == Some(expected.clause.as_str())
-                    && json_object_field(&failure.details, "predicate")
-                        == Some(expected.predicate.as_str())
-                    && expected.function.as_deref().is_none_or(|function| {
-                        json_object_field(&failure.details, "function") == Some(function)
-                    })
-                    && expected.blame.as_deref().is_none_or(|blame| {
-                        json_object_field(&failure.details, "blame") == Some(blame)
-                    })
+                contract_failure_matches(failure, expected)
+            }
+            ExpectedRuntimeFailure::ContractClause(expected) => {
+                contract_failure_matches(failure, expected)
             }
             ExpectedRuntimeFailure::Result(expected) => {
                 failure.kind == "result"
@@ -94,19 +84,10 @@ impl ExpectedRuntimeFailure {
     pub(crate) fn to_json(&self) -> JsonValue {
         match self {
             ExpectedRuntimeFailure::Contract(expected) => {
-                let mut fields = vec![
-                    ("kind", JsonValue::string("contract")),
-                    ("span", source_span_to_json(&expected.span)),
-                    ("clause", JsonValue::string(expected.clause.clone())),
-                    ("predicate", JsonValue::string(expected.predicate.clone())),
-                ];
-                if let Some(function) = &expected.function {
-                    fields.push(("function", JsonValue::string(function.clone())));
-                }
-                if let Some(blame) = &expected.blame {
-                    fields.push(("blame", JsonValue::string(blame.clone())));
-                }
-                JsonValue::object(fields)
+                contract_expectation_to_json("contract", expected, true)
+            }
+            ExpectedRuntimeFailure::ContractClause(expected) => {
+                contract_expectation_to_json(&expected.clause, expected, false)
             }
             ExpectedRuntimeFailure::Result(expected) => JsonValue::object([
                 ("kind", JsonValue::string("result")),
@@ -115,4 +96,43 @@ impl ExpectedRuntimeFailure {
             ]),
         }
     }
+}
+
+fn contract_failure_matches(failure: &TestFailure, expected: &ExpectedContractFailure) -> bool {
+    if failure.kind != "contract" {
+        return false;
+    }
+    json_object_field(&failure.details, "kind") == Some("contract")
+        && json_object_field(&failure.details, "phase") == Some("runtime")
+        && json_object_field(&failure.details, "clause") == Some(expected.clause.as_str())
+        && json_object_field(&failure.details, "predicate") == Some(expected.predicate.as_str())
+        && expected.function.as_deref().is_none_or(|function| {
+            json_object_field(&failure.details, "function") == Some(function)
+        })
+        && expected
+            .blame
+            .as_deref()
+            .is_none_or(|blame| json_object_field(&failure.details, "blame") == Some(blame))
+}
+
+fn contract_expectation_to_json(
+    kind: &str,
+    expected: &ExpectedContractFailure,
+    include_clause: bool,
+) -> JsonValue {
+    let mut fields = vec![
+        ("kind", JsonValue::string(kind)),
+        ("span", source_span_to_json(&expected.span)),
+    ];
+    if include_clause {
+        fields.push(("clause", JsonValue::string(expected.clause.clone())));
+    }
+    fields.push(("predicate", JsonValue::string(expected.predicate.clone())));
+    if let Some(function) = &expected.function {
+        fields.push(("function", JsonValue::string(function.clone())));
+    }
+    if let Some(blame) = &expected.blame {
+        fields.push(("blame", JsonValue::string(blame.clone())));
+    }
+    JsonValue::object(fields)
 }

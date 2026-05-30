@@ -13,7 +13,7 @@ compare it with `../specification/` before changing behavior.
   declarative test harness and command analysis follow-ups.
 - [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md):
   future runtime-failure doctest expectation kinds beyond the implemented
-  `runtime=contract` and `runtime=result` routes.
+  `runtime=contract`, `runtime=ensure`, and `runtime=result` routes.
 - [path-runtime-representation.md](path-runtime-representation.md):
   runtime `Path` representation work.
 - [self-hosting-standard-library.md](self-hosting-standard-library.md):

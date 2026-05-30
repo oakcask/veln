@@ -1,0 +1,48 @@
+command = ["test", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "schema_version"
+equals = "veln-test-json/v0"
+
+[[json_assert]]
+path = "status"
+equals = "blocked"
+
+[[json_assert]]
+path = "summary.total"
+equals = 1
+
+[[json_assert]]
+path = "summary.blocked"
+equals = 1
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "hole.unfilled"
+
+[[json_assert]]
+path = "cases.0.name"
+equals = "doctest_1"
+
+[[json_assert]]
+path = "cases.0.kind"
+equals = "doctest"
+
+[[json_assert]]
+path = "cases.0.status"
+equals = "blocked"
+
+[[json_assert]]
+path = "cases.0.reason"
+equals = "static_gate"
+
+[[json_assert]]
+path = "cases.0.failure"
+equals = null

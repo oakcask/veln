@@ -11,6 +11,12 @@
 /// ```veln runtime=panic
 /// ()
 /// ```
+/// ```veln runtime=ensure
+/// ()
+/// ```
+/// ```veln runtime=ensure predicate=
+/// ()
+/// ```
 /// ```veln runtime=result
 /// ()
 /// ```

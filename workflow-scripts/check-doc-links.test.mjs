@@ -18,6 +18,7 @@ const NO_TARGET_ROUTES = [
   {
     route: "docs/proposals/doctest-runtime-failure-expectations.md",
     role: "Candidate gate",
+    status: "Status: implemented target, no open follow-up selected",
   },
   {
     route: "docs/proposals/path-runtime-representation.md",
@@ -317,7 +318,7 @@ test("proposal catalog stays backed by short proposal routes", () => {
     );
     assertIncludes(
       readDocsFile(route.replace("docs/", "")),
-      "Status: proposed",
+      expectedProposalStatus(route),
     );
   }
   assertIncludes(
@@ -605,6 +606,13 @@ function noTargetRouteClassMap() {
   return new Map(NO_TARGET_ROUTES.map(({ route, role }) => [route, role]));
 }
 
+function expectedProposalStatus(route) {
+  return (
+    NO_TARGET_ROUTES.find((candidate) => candidate.route === route)?.status ??
+    "Status: proposed"
+  );
+}
+
 function promptProposalRoutes(prompt) {
   return Array.from(
     prompt.matchAll(/`(docs\/proposals\/[^`]+\.md)`/g),
@@ -735,7 +743,7 @@ function readNoTargetPrompt() {
     "  clearer source-backed candidate choice before this can be a concrete target.",
     "- `docs/proposals/doctest-runtime-failure-expectations.md` requires a concrete",
     "  runtime failure class with structured test JSON details and CLI coverage; the",
-    "  page does not yet name that class beyond the implemented contract route.",
+    "  page does not yet name that class beyond the implemented doctest routes.",
     "- `docs/proposals/path-runtime-representation.md` requires one observable path",
     "  behavior that host-string storage cannot express; the page does not yet name",
     "  that behavior.",

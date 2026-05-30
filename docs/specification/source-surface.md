@@ -9,8 +9,9 @@ smallest section to read before opening the full grammar notes.
   and ADR-lite metadata: [source-surface-full.md](source-surface-full.md).
   Use [commands.md](commands.md) for formatter layout and comment preservation
   behavior.
-- Doctest fence metadata, `runtime=contract` and `runtime=result` expectations,
-  expected-output fences, hidden setup, and negative examples:
+- Doctest fence metadata, `runtime=contract`, `runtime=ensure`, and
+  `runtime=result` expectations, expected-output fences, hidden setup, and
+  negative examples:
   [source-surface-full.md#documentation-comments-and-doctests](source-surface-full.md#documentation-comments-and-doctests).
 - Expression forms, constructors, records, dictionaries, lists, matches,
   pipelines, and method-call diagnostics:
