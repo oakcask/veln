@@ -909,7 +909,7 @@ enum Fence {
     Veln {
         lines: Vec<String>,
         error_type: Option<String>,
-        expected_runtime_failure: Option<ExpectedRuntimeFailure>,
+        expected_runtime_failure: Option<Box<ExpectedRuntimeFailure>>,
         ignored: bool,
         should_fail: bool,
         fail_span: Option<SourceSpan>,
@@ -972,7 +972,8 @@ fn extract_doctests(
                                 code: lines,
                                 error_type,
                                 expected_output: None,
-                                expected_runtime_failure,
+                                expected_runtime_failure: expected_runtime_failure
+                                    .map(|failure| *failure),
                                 should_fail,
                                 fail_span,
                             });
@@ -1030,7 +1031,8 @@ fn extract_doctests(
                     expected_runtime_failure: doctest_runtime_failure(
                         info,
                         source.span(line_range),
-                    ),
+                    )
+                    .map(Box::new),
                     ignored: doctest_ignored(info),
                     should_fail: doctest_should_fail(info),
                     fail_span: doctest_should_fail(info).then(|| source.span(line_range)),
