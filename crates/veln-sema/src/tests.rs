@@ -4,7 +4,7 @@ use veln_core::{
     ContractObligationStatus, CoreBlocker, CoreCallTarget, CoreExprKind, CorePatternKind,
     CoreReadiness, CoreStmtKind, CoreType,
 };
-use veln_diagnostics::DiagnosticKind;
+use veln_diagnostics::{Diagnostic, DiagnosticKind};
 use veln_ir::{IrCallTarget, IrExprKind, IrPatternKind, IrStmtKind};
 use veln_source::SourceFile;
 use veln_syntax::parse;
@@ -38,6 +38,28 @@ fn bool_record_type(fields: &[&str]) -> String {
         .map(|field| format!("{field}: Bool"))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+fn assert_diagnostic_span(
+    diagnostic: &Diagnostic,
+    start_line: usize,
+    start_column: usize,
+    end_line: usize,
+    end_column: usize,
+) {
+    let span = diagnostic
+        .span
+        .as_ref()
+        .expect("diagnostic should have a span");
+    assert_eq!(
+        (
+            span.start.line,
+            span.start.column,
+            span.end.line,
+            span.end.column
+        ),
+        (start_line, start_column, end_line, end_column)
+    );
 }
 
 fn partial_case_split_chain_predicate(subject: &str, fields: &[&str]) -> String {
