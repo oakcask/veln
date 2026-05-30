@@ -10,7 +10,7 @@ use veln_ast::{
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
-use crate::adt;
+use crate::adt::{self, ConstructorLookup};
 use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text,
     contract_predicate_is_statically_true, is_contract_keyword, missing_contract_field,
@@ -230,6 +230,36 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
     diagnostics
 }
 
+pub(crate) fn check_duplicate_constructor_names(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+
+    for type_decl in &module.types {
+        for variant in &type_decl.variants {
+            let Some(name) = &variant.name else {
+                continue;
+            };
+            let key = (type_decl.module_name.clone(), name.clone());
+            let node_id = variant.node_id.display("variant");
+            if let Some((first_node_id, first_span)) = seen.get(&key) {
+                diagnostics.push(duplicate_name_diagnostic(
+                    name,
+                    "constructor",
+                    "constructor declaration",
+                    node_id,
+                    variant.span.clone(),
+                    first_node_id.clone(),
+                    first_span,
+                ));
+            } else {
+                seen.insert(key, (node_id, variant.span.clone()));
+            }
+        }
+    }
+
+    diagnostics
+}
+
 pub(crate) fn check_module_boundary(module: &SurfaceModule) -> Vec<Diagnostic> {
     if module.module.is_some() || module.uses.is_empty() {
         return Vec::new();
@@ -353,6 +383,19 @@ fn is_allowed_test_return(ty: &Type) -> bool {
     ty == &Type::unit() || adt::result_parts(ty).is_some_and(|(value, _)| value == &Type::unit())
 }
 
+fn type_contains_unknown(ty: &Type) -> bool {
+    match ty {
+        Type::Unknown => true,
+        Type::Named { args, .. } => args.iter().any(type_contains_unknown),
+        Type::Record(fields) => fields.iter().any(|(_, ty)| type_contains_unknown(ty)),
+        Type::Function {
+            params,
+            return_type,
+            ..
+        } => params.iter().any(type_contains_unknown) || type_contains_unknown(return_type),
+    }
+}
+
 fn test_return_diagnostic(
     function: &Function,
     node_id: &str,
@@ -412,24 +455,26 @@ struct PatternBinding {
 #[derive(Clone, Copy)]
 enum MatchDomain {
     Bool,
-    Adt(&'static adt::AdtDescriptor),
+    Adt,
 }
 
 impl MatchDomain {
-    fn from_type(ty: &Type) -> Option<Self> {
+    fn from_type(ty: &Type, environment: &TypeEnvironment) -> Option<Self> {
         match ty {
             Type::Named { name, args } if name == "Bool" && args.is_empty() => Some(Self::Bool),
-            _ => adt::descriptor_for_type(ty).map(Self::Adt),
+            _ => environment.adts.descriptor_for_type(ty).map(|_| Self::Adt),
         }
     }
 
-    fn cases(self) -> Vec<&'static str> {
+    fn cases(self, ty: &Type, environment: &TypeEnvironment) -> Vec<String> {
         match self {
-            Self::Bool => vec!["false", "true"],
-            Self::Adt(descriptor) => descriptor
-                .variants
-                .iter()
-                .map(|variant| variant.coverage_case)
+            Self::Bool => vec!["false".to_string(), "true".to_string()],
+            Self::Adt => environment
+                .adts
+                .descriptor_for_type(ty)
+                .into_iter()
+                .flat_map(|descriptor| descriptor.variants.iter())
+                .map(|variant| variant.coverage_case.clone())
                 .collect(),
         }
     }
@@ -437,10 +482,15 @@ impl MatchDomain {
 
 struct PatternCoverage {
     catches_all: bool,
-    cases: Vec<&'static str>,
+    cases: Vec<String>,
 }
 
-fn match_pattern_coverage(pattern: &Pattern, domain: &MatchDomain) -> PatternCoverage {
+fn match_pattern_coverage(
+    pattern: &Pattern,
+    domain: &MatchDomain,
+    scrutinee_type: &Type,
+    environment: &TypeEnvironment,
+) -> PatternCoverage {
     match &pattern.kind {
         PatternKind::Wildcard | PatternKind::Binding(_) => PatternCoverage {
             catches_all: true,
@@ -448,12 +498,19 @@ fn match_pattern_coverage(pattern: &Pattern, domain: &MatchDomain) -> PatternCov
         },
         PatternKind::BoolLiteral(value) if matches!(domain, MatchDomain::Bool) => PatternCoverage {
             catches_all: false,
-            cases: vec![if *value { "true" } else { "false" }],
+            cases: vec![(if *value { "true" } else { "false" }).to_string()],
         },
         PatternKind::Constructor { name, .. } => {
             let case = match domain {
-                MatchDomain::Adt(descriptor) => adt::constructor_for_descriptor(name, descriptor)
-                    .map(|constructor| constructor.variant.coverage_case),
+                MatchDomain::Adt => environment
+                    .adts
+                    .descriptor_for_type(scrutinee_type)
+                    .and_then(|descriptor| {
+                        environment
+                            .adts
+                            .constructor_for_descriptor(name, descriptor)
+                            .map(|constructor| constructor.variant.coverage_case.clone())
+                    }),
                 MatchDomain::Bool => None,
             };
             PatternCoverage {
@@ -1396,40 +1453,62 @@ impl<'a> FunctionChecker<'a> {
         expr: &Expr,
         expected: Option<&ExpectedType>,
     ) -> Type {
-        match segments {
-            segments if adt::nullary_constructor(segments).is_some() => {
-                let constructor =
-                    adt::nullary_constructor(segments).expect("guard should provide constructor");
-                expected
+        match self.environment.adts.nullary_constructor(
+            segments,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+        ) {
+            ConstructorLookup::Found(constructor) => {
+                let inferred = expected
                     .and_then(|expected| {
                         adt::adt_args(&expected.ty, constructor.descriptor)
                             .map(|_| expected.ty.clone())
                     })
-                    .unwrap_or_else(|| adt::constructed_type(constructor, Type::Unknown))
-            }
-            [name] => {
-                if let Some(binding) = self
-                    .bindings
-                    .iter()
-                    .rev()
-                    .find(|binding| binding.name == *name)
-                {
-                    binding.ty.clone()
-                } else if let Some(function) = self.environment.function(name) {
-                    function.ty()
-                } else {
-                    self.push_unresolved_name(expr.node_id, expr.span.clone(), name, "value");
-                    Type::Unknown
+                    .unwrap_or_else(|| adt::constructed_type(constructor, &[]));
+                if expected.is_none() && type_contains_unknown(&inferred) {
+                    self.push_ambiguous_constructor_type(
+                        expr.node_id,
+                        expr.span.clone(),
+                        &segments.join("::"),
+                        &inferred,
+                    );
                 }
+                inferred
             }
-            _ => {
-                if let Some(function) = self.environment.function_path(segments) {
-                    return function.ty();
-                }
-                let symbol = segments.join("::");
-                self.push_unresolved_name(expr.node_id, expr.span.clone(), &symbol, "value");
+            ConstructorLookup::Ambiguous => {
+                self.push_ambiguous_name(
+                    expr.node_id,
+                    expr.span.clone(),
+                    &segments.join("::"),
+                    "value",
+                );
                 Type::Unknown
             }
+            ConstructorLookup::Missing => match segments {
+                [name] => {
+                    if let Some(binding) = self
+                        .bindings
+                        .iter()
+                        .rev()
+                        .find(|binding| binding.name == *name)
+                    {
+                        binding.ty.clone()
+                    } else if let Some(function) = self.environment.function(name) {
+                        function.ty()
+                    } else {
+                        self.push_unresolved_name(expr.node_id, expr.span.clone(), name, "value");
+                        Type::Unknown
+                    }
+                }
+                _ => {
+                    if let Some(function) = self.environment.function_path(segments) {
+                        return function.ty();
+                    }
+                    let symbol = segments.join("::");
+                    self.push_unresolved_name(expr.node_id, expr.span.clone(), &symbol, "value");
+                    Type::Unknown
+                }
+            },
         }
     }
 
@@ -1462,11 +1541,28 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
-        if let ExprKind::NamePath(segments) = &callee.kind
-            && let Some(constructor) = adt::constructor(segments)
-            && !constructor.variant.payload_fields.is_empty()
-        {
-            return Some(self.infer_adt_constructor(expr, args, expected, constructor));
+        if let ExprKind::NamePath(segments) = &callee.kind {
+            match self.environment.adts.constructor(
+                segments,
+                self.function.module_name.as_deref(),
+                &self.environment.uses,
+            ) {
+                ConstructorLookup::Found(constructor)
+                    if !constructor.variant.payload_fields.is_empty() =>
+                {
+                    return Some(self.infer_adt_constructor(expr, args, expected, constructor));
+                }
+                ConstructorLookup::Ambiguous => {
+                    self.push_ambiguous_name(
+                        callee.node_id,
+                        callee.span.clone(),
+                        &segments.join("::"),
+                        "call_target",
+                    );
+                    return Some(Type::Unknown);
+                }
+                _ => {}
+            }
         }
         None
     }
@@ -1726,7 +1822,7 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         constructor: adt::AdtConstructor,
     ) -> Type {
-        let mut first_actual_arg = Type::Unknown;
+        let mut actual_args = Vec::new();
         for (index, _) in constructor.variant.payload_fields.iter().enumerate() {
             let expected_payload = expected
                 .and_then(|expected| adt::payload_type(&expected.ty, constructor, index))
@@ -1751,9 +1847,7 @@ impl<'a> FunctionChecker<'a> {
                 &arg_expected,
                 "call_argument",
             );
-            if index == 0 {
-                first_actual_arg = actual_arg;
-            }
+            actual_args.push(actual_arg);
         }
         for arg in args.iter().skip(constructor.variant.payload_fields.len()) {
             self.infer_expr(arg, None);
@@ -1767,7 +1861,7 @@ impl<'a> FunctionChecker<'a> {
                 .map(|expected| expected.ty.clone())
                 .unwrap_or(Type::Unknown);
         }
-        adt::constructed_type(constructor, first_actual_arg)
+        adt::constructed_type(constructor, &actual_args)
     }
 
     fn infer_list(&mut self, expr: &Expr, items: &[Expr], expected: Option<&ExpectedType>) -> Type {
@@ -1874,30 +1968,27 @@ impl<'a> FunctionChecker<'a> {
         scrutinee_type: &Type,
         arms: &[MatchArm],
     ) {
-        let Some(domain) = MatchDomain::from_type(scrutinee_type) else {
+        let Some(domain) = MatchDomain::from_type(scrutinee_type, self.environment) else {
             return;
         };
         let mut covered = Vec::new();
         let mut proving_arms = Vec::new();
         for arm in arms {
-            let coverage = match_pattern_coverage(&arm.pattern, &domain);
+            let coverage =
+                match_pattern_coverage(&arm.pattern, &domain, scrutinee_type, self.environment);
             if coverage.catches_all {
                 return;
             }
             for case in coverage.cases {
                 if !covered.contains(&case) {
-                    covered.push(case);
+                    covered.push(case.clone());
                     proving_arms.push((case, arm.pattern.span.clone()));
                 }
             }
         }
 
-        let Some(missing_case) = domain
-            .cases()
-            .iter()
-            .find(|case| !covered.contains(case))
-            .copied()
-        else {
+        let cases = domain.cases(scrutinee_type, self.environment);
+        let Some(missing_case) = cases.iter().find(|case| !covered.contains(case)).cloned() else {
             return;
         };
 
@@ -1982,7 +2073,11 @@ impl<'a> FunctionChecker<'a> {
                 bindings
             }
             PatternKind::Constructor { name, args } => {
-                let Some(constructor) = adt::constructor(name) else {
+                let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+                    name,
+                    self.function.module_name.as_deref(),
+                    &self.environment.uses,
+                ) else {
                     return Vec::new();
                 };
                 args.iter()
@@ -2519,6 +2614,52 @@ impl<'a> FunctionChecker<'a> {
                 ("namespace", JsonValue::string(namespace)),
                 ("resolution_status", JsonValue::string("unresolved")),
                 ("candidates", JsonValue::array([])),
+            ]),
+        ));
+    }
+
+    fn push_ambiguous_name(
+        &mut self,
+        node_id: NodeId,
+        span: SourceSpan,
+        symbol: &str,
+        namespace: &'static str,
+    ) {
+        self.diagnostics.push(Diagnostic::new(
+            "name.ambiguous",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("ambiguous {namespace} `{symbol}`"),
+            Some(span),
+            JsonValue::object([
+                ("phase", JsonValue::string("name")),
+                ("node_id", JsonValue::string(node_id.display("name"))),
+                ("symbol", JsonValue::string(symbol)),
+                ("namespace", JsonValue::string(namespace)),
+                ("resolution_status", JsonValue::string("ambiguous")),
+            ]),
+        ));
+    }
+
+    fn push_ambiguous_constructor_type(
+        &mut self,
+        node_id: NodeId,
+        span: SourceSpan,
+        symbol: &str,
+        ty: &Type,
+    ) {
+        self.diagnostics.push(Diagnostic::new(
+            "type.inference_ambiguous",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("constructor `{symbol}` needs type context"),
+            Some(span),
+            JsonValue::object([
+                ("phase", JsonValue::string("type")),
+                ("node_id", JsonValue::string(node_id.display("expr"))),
+                ("constructor", JsonValue::string(symbol)),
+                ("inferred_type", JsonValue::string(ty.render())),
+                ("constraint", JsonValue::string("constructor_type_context")),
             ]),
         ));
     }

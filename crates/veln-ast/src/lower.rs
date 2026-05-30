@@ -34,7 +34,9 @@ pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
             SyntaxItem::Function(function) => {
                 functions.push(builder.lower_function(function, module_name.clone()));
             }
-            SyntaxItem::Type(type_decl) => types.push(builder.lower_type_decl(type_decl)),
+            SyntaxItem::Type(type_decl) => {
+                types.push(builder.lower_type_decl(type_decl, module_name.clone()));
+            }
         }
     }
 
@@ -104,9 +106,18 @@ impl AstBuilder {
         }
     }
 
-    fn lower_type_decl(&mut self, type_decl: &SyntaxTypeDecl) -> TypeDecl {
+    fn lower_type_decl(
+        &mut self,
+        type_decl: &SyntaxTypeDecl,
+        module_name: Option<String>,
+    ) -> TypeDecl {
         TypeDecl {
             node_id: self.alloc(),
+            module_name,
+            visibility: match type_decl.visibility {
+                SyntaxVisibility::Public => Visibility::Public,
+                SyntaxVisibility::Private => Visibility::Private,
+            },
             name: type_decl.name.clone(),
             params: type_decl.params.clone(),
             variants: type_decl
@@ -114,6 +125,10 @@ impl AstBuilder {
                 .iter()
                 .map(|variant| TypeVariantDecl {
                     node_id: self.alloc(),
+                    visibility: match variant.visibility {
+                        SyntaxVisibility::Public => Visibility::Public,
+                        SyntaxVisibility::Private => Visibility::Private,
+                    },
                     name: variant.name.clone(),
                     fields: variant
                         .fields

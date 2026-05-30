@@ -98,6 +98,10 @@ pub enum CoreExprKind {
         head: Box<CoreExpr>,
         tail: Box<CoreExpr>,
     },
+    AdtVariant {
+        name: Vec<String>,
+        payloads: Vec<CoreExpr>,
+    },
     Call {
         target: CoreCallTarget,
         args: Vec<CoreExpr>,

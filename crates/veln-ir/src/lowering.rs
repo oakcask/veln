@@ -150,6 +150,10 @@ fn lower_wrapped_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerErro
             head: Box::new(lower_expr(head)?),
             tail: Box::new(lower_expr(tail)?),
         })),
+        CoreExprKind::AdtVariant { name, payloads } => Ok(Some(IrExprKind::AdtVariant {
+            name: name.clone(),
+            payloads: lower_exprs(payloads)?,
+        })),
         CoreExprKind::Call { target, args } => {
             lower_call_expr(expr.node_id, target, args).map(Some)
         }

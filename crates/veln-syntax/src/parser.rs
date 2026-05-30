@@ -119,7 +119,9 @@ impl<'a> Parser<'a> {
             if self.at(TokenKind::Eof) {
                 break;
             }
-            if self.at(TokenKind::Pub) || self.at(TokenKind::Fn) {
+            if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Type) {
+                items.push(SyntaxItem::Type(self.parse_type_decl()));
+            } else if self.at(TokenKind::Pub) || self.at(TokenKind::Fn) {
                 items.push(SyntaxItem::Function(
                     self.parse_function_like(FunctionKind::Function),
                 ));
@@ -166,6 +168,11 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_decl(&mut self) -> TypeDecl {
+        let visibility = if self.eat(TokenKind::Pub).is_some() {
+            Visibility::Public
+        } else {
+            Visibility::Private
+        };
         let start = self
             .expect(TokenKind::Type, "type_declaration", vec!["type"])
             .range;
@@ -210,6 +217,7 @@ impl<'a> Parser<'a> {
 
         let end = self.previous().map_or(start, |token| token.range);
         TypeDecl {
+            visibility,
             name,
             params,
             variants,
@@ -233,16 +241,26 @@ impl<'a> Parser<'a> {
 
     fn parse_type_variant(&mut self) -> TypeVariantDecl {
         let start = self.current().range;
+        let visibility = if self.eat(TokenKind::Pub).is_some() {
+            Visibility::Public
+        } else {
+            Visibility::Private
+        };
         let name = self.expect_ident("type_variant", "variant name");
         let fields = if self.eat(TokenKind::LParen).is_some() {
             let fields = self.parse_type_variant_fields();
             self.expect(TokenKind::RParen, "type_variant", vec![")"]);
+            fields
+        } else if self.eat(TokenKind::LBrace).is_some() {
+            let fields = self.parse_type_variant_fields_until(TokenKind::RBrace);
+            self.expect(TokenKind::RBrace, "type_variant", vec!["}"]);
             fields
         } else {
             Vec::new()
         };
         let end = self.expect_newline("type_variant").range;
         TypeVariantDecl {
+            visibility,
             name,
             fields,
             span: self.source.span(start.cover(end)),
@@ -250,15 +268,33 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type_variant_fields(&mut self) -> Vec<TypeVariantField> {
+        self.parse_type_variant_fields_until(TokenKind::RParen)
+    }
+
+    fn parse_type_variant_fields_until(&mut self, close: TokenKind) -> Vec<TypeVariantField> {
         let mut fields = Vec::new();
-        while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
+        let mut positional_index = 0usize;
+        while !self.at(close.clone()) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
-            let name = self
-                .expect_ident("type_variant", "variant field name")
-                .unwrap_or_default();
-            self.expect(TokenKind::Colon, "type_variant", vec![":"]);
-            let ty =
-                self.collect_type_until("type_variant", &[TokenKind::Comma, TokenKind::RParen]);
+            let (name, ty) = if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Colon) {
+                let name = self
+                    .expect_ident("type_variant", "variant field name")
+                    .unwrap_or_default();
+                self.expect(TokenKind::Colon, "type_variant", vec![":"]);
+                let ty =
+                    self.collect_type_until("type_variant", &[TokenKind::Comma, close.clone()]);
+                (name, ty)
+            } else {
+                let name = if positional_index == 0 {
+                    "value".to_string()
+                } else {
+                    format!("_{positional_index}")
+                };
+                let ty =
+                    self.collect_type_until("type_variant", &[TokenKind::Comma, close.clone()]);
+                positional_index += 1;
+                (name, ty)
+            };
             let end = self.previous().map_or(start, |token| token.range);
             fields.push(TypeVariantField {
                 name,

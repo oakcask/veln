@@ -27,13 +27,9 @@ states it.
 Their constructors, patterns, branch typing, `?` behavior, and exhaustiveness
 rules now route through compiler-owned ADT descriptors. The minimal
 source-declared `List(A)` ADT shape is implemented with `Nil` and `Cons`.
-Broader user-defined ADT declarations and constructors are not implemented.
-
-The next planned ADT proposal is the general source surface in
-[user-defined-adts.md](user-defined-adts.md). It covers generic declarations,
-record-shaped variants, inference for nullary constructors, constructor
-namespace rules, public type and constructor visibility, and generation
-functions for invariants.
+General source-declared ADT behavior is routed through
+[user-defined-adts.md](user-defined-adts.md) and specified under
+`../specification/`.
 
 `Vec(A)` and `Dict(K, V)` remain built-in immutable container types from the
 source user's point of view. Their helper contracts are current behavior, but

@@ -19,9 +19,9 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{TypedProgram, lower_checked_core};
 
 use crate::analysis::{
-    check_declared_effect_labels, check_duplicate_function_names, check_duplicate_use_aliases,
-    check_function_body, check_module_boundary, check_public_function_boundary,
-    check_test_declaration_boundary,
+    check_declared_effect_labels, check_duplicate_constructor_names,
+    check_duplicate_function_names, check_duplicate_use_aliases, check_function_body,
+    check_module_boundary, check_public_function_boundary, check_test_declaration_boundary,
 };
 use crate::lowering::lower_surface_module_to_core;
 use crate::types::TypeEnvironment;
@@ -38,6 +38,7 @@ pub fn analyze_surface_module(module: &SurfaceModule) -> Vec<Diagnostic> {
     let environment = TypeEnvironment::from_module(module);
 
     diagnostics.extend(check_duplicate_function_names(module));
+    diagnostics.extend(check_duplicate_constructor_names(module));
     diagnostics.extend(check_module_boundary(module));
     diagnostics.extend(check_duplicate_use_aliases(module));
 
