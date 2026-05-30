@@ -2059,6 +2059,40 @@ fn repair_apply_refuses_missing_candidate_id_without_writing() {
 }
 
 #[test]
+fn repair_apply_refuses_missing_confirm_id_after_selection_without_writing() {
+    let project = TestProject::new("repair-apply-missing-confirm");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+
+    let output = project.repair(&[
+        "--json",
+        "--apply",
+        "--candidate",
+        "symbol-1",
+        "--confirm",
+        "missing-confirm",
+        "main.veln",
+    ]);
+    let stdout = stdout(&output);
+
+    assert!(!output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"refused\"",
+            "\"selected_candidate\":{\"repair_id\":\"repair-1\"",
+            "\"refusal_reason\":\"confirmed candidate `missing-confirm` was not found\"",
+            "\"verification\":{\"status\":\"not_run\"",
+        ],
+    );
+    assert_eq!(project.read("main.veln"), source);
+}
+
+#[test]
 fn repair_apply_consumes_saved_repair_json_candidate_input() {
     let project = TestProject::new("repair-apply-saved-json");
     project.write(

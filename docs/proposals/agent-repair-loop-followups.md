@@ -8,10 +8,12 @@ not current repair behavior unless `../specification/` also states it.
 
 ## Read First
 
-- Current advisory candidates and apply gate:
+- Current advisory candidates:
   [../specification/repair-candidates.md](../specification/repair-candidates.md).
 - Current command behavior:
   [../specification/commands.md](../specification/commands.md).
+- Current applying-command gates:
+  [../specification/repair-application.md](../specification/repair-application.md).
 - Current repair JSON:
   [../specification/repair-json.md](../specification/repair-json.md).
 - Completed command records:
@@ -19,18 +21,12 @@ not current repair behavior unless `../specification/` also states it.
   and
   [../reference/implemented-proposals/repair-command-confirmation-override.md](../reference/implemented-proposals/repair-command-confirmation-override.md).
 
-## Implemented Base
+## Current Base
 
-The implementation supports advisory repair candidates in `check --json` and a
-narrow `veln repair` command gate. `repair --apply` can write exactly one safe
-unapplied advisory candidate after rerunning analysis. The selected candidate
-may contain multiple source-relative replacements in one source file or across
-multiple source files.
-
-Saved repair JSON input is a candidate input route, not write authorization by
-itself. Manual-review candidates require explicit confirmation and override,
-and still pass target-shape, stale-span, overlap, rollback, and post-edit check
-analysis gates.
+The implemented base is advisory repair candidates in `check --json`, plus the
+narrow `veln repair` preview and apply gate documented in
+`../specification/`. Do not restate those gates here when the specification page
+already covers them.
 
 ## Proposal Axes
 

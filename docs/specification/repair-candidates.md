@@ -70,7 +70,9 @@ repair, candidate edits, applying edits, or the repair command.
   `details` payload boundaries: [diagnostics-json.md](diagnostics-json.md).
 - Candidate ranking, `satisfy` repair constraints, safe-repair matching, and
   exact examples: [holes.md](holes.md).
-- Implemented command availability and command gates: [commands.md](commands.md).
+- Applying candidates, saved-input validation, confirmation, override, target
+  gates, verification, and rollback: [repair-application.md](repair-application.md).
+- Implemented command availability: [commands.md](commands.md).
 - `repair --json` output: [repair-json.md](repair-json.md).
 - Rationale for keeping advisory candidates separate from edit application:
   [source-decisions.md](source-decisions.md).
@@ -83,6 +85,8 @@ repair, candidate edits, applying edits, or the repair command.
   blocking obligations, verification hints, or application policy.
 - Deciding whether repair-loop behavior belongs in implemented `check --json`
   diagnostics, implemented `repair`, or proposal work.
+- Routing an applying-command task before opening
+  [repair-application.md](repair-application.md).
 - Auditing that proposal text stays subordinate to current implemented
   behavior.
 
@@ -92,55 +96,9 @@ repair, candidate edits, applying edits, or the repair command.
   matching rules.
 - Use [diagnostics-json-full.md](diagnostics-json-full.md) only for the full
   diagnostic field catalog.
+- Use [repair-application.md](repair-application.md) only after the task
+  touches write authorization, target validation, confirmation, override,
+  verification, or rollback.
 - Open
   [../reference/source-decisions/records/result-safe-repair-candidate-boundary.md](../reference/source-decisions/records/result-safe-repair-candidate-boundary.md)
   only when the advisory-versus-application rationale is needed.
-
-## Apply Rule
-
-`veln repair --apply` is fail-closed. It applies exactly one candidate only when
-the selected advisory candidate has `application_policy: "safe_repair_candidate"`
-and `application_status: "unapplied"`, every replacement target is
-source-relative and still valid in the current file, non-empty replacements
-still name holes, explicit empty replacements are limited to `satisfy` suffix
-removal, edits in the same file do not overlap, and post-edit check analysis
-reports no error diagnostics.
-
-When `--candidate` is present, selection may use either the command-local
-`repair_id` or the preserved advisory `source_candidate_id`. A missing or
-ambiguous id refuses before writing.
-
-For saved candidate input, apply also requires current safe evidence for each
-non-empty replacement edit with the same `source_candidate_id`, application
-policy, and application status. Explicit empty `satisfy` suffix removals are
-validated against the current source text. A saved candidate that is stale,
-unsupported, or no longer current refuses before writing.
-
-If verification fails after writing, every source file written by the candidate
-is restored. Hint-only partial status, including remaining holes elsewhere,
-does not by itself roll back the edit.
-
-## Confirmation And Override
-
-`--confirm CANDIDATE_ID` records explicit user confirmation for the selected
-candidate. When `--candidate` is also present, both ids must resolve to the same
-candidate; otherwise application refuses before writing.
-
-`--override` requires `--confirm` and permits a selected
-`manual_review_required` candidate to pass the application-policy gate. The
-selected candidate must still be `unapplied`, and every replacement target must
-pass the same source-relative, current-span, hole-target, explicit empty
-replacement, non-overlap, rollback, and post-edit verification rules as the
-safe path. Override may accept saved candidate input without matching current
-safe evidence, but only after those target and verification gates pass.
-
-Successful JSON output records `confirmation` and, when override was used,
-`override`. Refusals do not write files and leave those records null.
-
-## Remaining Proposal Boundary
-
-Do not promote any remaining repair-loop proposal axis into this specification
-until the behavior is implemented and tested. The current proposal route for
-verification orchestration, ranking evidence, edit granularity, and broader
-application authority is
-[../proposals/agent-repair-loop-followups.md](../proposals/agent-repair-loop-followups.md).

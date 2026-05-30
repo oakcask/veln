@@ -151,6 +151,11 @@ struct RepairApplyOptions {
     override_requested: bool,
 }
 
+struct CandidateSelectionError {
+    selected: Option<RepairCandidate>,
+    reason: String,
+}
+
 impl RepairOutcome {
     fn preview(candidates: Vec<RepairCandidate>, requested_candidate_id: Option<String>) -> Self {
         let selected = requested_candidate_id
@@ -479,114 +484,19 @@ fn apply_candidate(
     options: RepairApplyOptions,
     current_candidates: &[RepairCandidate],
 ) -> Result<RepairOutcome, String> {
-    let applicable = safe_unapplied_candidates(&candidates);
-
-    let selection_id = options
-        .requested_candidate_id
-        .as_deref()
-        .or(options.confirmed_candidate_id.as_deref());
-    let selected = match selection_id {
-        Some(id) => match find_candidate_by_id(&candidates, id) {
-            CandidateIdMatch::Unique(candidate) => candidate.clone(),
-            CandidateIdMatch::Missing => {
-                return Ok(RepairOutcome::refused(
-                    candidates,
-                    None,
-                    format!("candidate `{id}` was not found"),
-                ));
-            }
-            CandidateIdMatch::Ambiguous => {
-                return Ok(RepairOutcome::refused(
-                    candidates,
-                    None,
-                    format!("candidate `{id}` is ambiguous"),
-                ));
-            }
-        },
-        None if applicable.len() == 1 => applicable[0].clone(),
-        None if applicable.is_empty() => {
+    let selected = match select_candidate_for_apply(&candidates, &options) {
+        Ok(selected) => selected,
+        Err(error) => {
             return Ok(RepairOutcome::refused(
                 candidates,
-                None,
-                REFUSAL_NO_SAFE_CANDIDATES,
-            ));
-        }
-        None => {
-            return Ok(RepairOutcome::refused(
-                candidates,
-                None,
-                REFUSAL_MULTIPLE_SAFE_CANDIDATES,
+                error.selected,
+                error.reason,
             ));
         }
     };
 
-    if options.override_requested && options.confirmed_candidate_id.is_none() {
-        return Ok(RepairOutcome::refused(
-            candidates,
-            Some(selected),
-            REFUSAL_OVERRIDE_REQUIRES_CONFIRMATION,
-        ));
-    }
-    if let Some(confirmed_candidate_id) = options.confirmed_candidate_id.as_deref() {
-        match find_candidate_by_id(&candidates, confirmed_candidate_id) {
-            CandidateIdMatch::Unique(candidate) if candidate.repair_id == selected.repair_id => {}
-            CandidateIdMatch::Unique(_) => {
-                return Ok(RepairOutcome::refused(
-                    candidates,
-                    Some(selected),
-                    "confirmed candidate does not match selected candidate",
-                ));
-            }
-            CandidateIdMatch::Missing => {
-                return Ok(RepairOutcome::refused(
-                    candidates,
-                    Some(selected),
-                    format!("confirmed candidate `{confirmed_candidate_id}` was not found"),
-                ));
-            }
-            CandidateIdMatch::Ambiguous => {
-                return Ok(RepairOutcome::refused(
-                    candidates,
-                    Some(selected),
-                    format!("confirmed candidate `{confirmed_candidate_id}` is ambiguous"),
-                ));
-            }
-        }
-    }
-
-    if !selected.is_safe_unapplied() && !options.override_requested {
-        return Ok(RepairOutcome::refused(
-            candidates,
-            Some(selected),
-            REFUSAL_CANDIDATE_NOT_AUTOMATIC,
-        ));
-    }
-    if options.override_requested
-        && !selected.is_safe_unapplied()
-        && selected.application_policy != APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED
-    {
-        return Ok(RepairOutcome::refused(
-            candidates,
-            Some(selected),
-            REFUSAL_OVERRIDE_UNSUPPORTED_POLICY,
-        ));
-    }
-    if options.override_requested && selected.application_status != APPLICATION_STATUS_UNAPPLIED {
-        return Ok(RepairOutcome::refused(
-            candidates,
-            Some(selected),
-            REFUSAL_OVERRIDE_STATUS_NOT_UNAPPLIED,
-        ));
-    }
-    if selected.requires_current_match
-        && !options.override_requested
-        && !has_current_applicable_match(&selected, current_candidates)
-    {
-        return Ok(RepairOutcome::refused(
-            candidates,
-            Some(selected),
-            REFUSAL_SAVED_CANDIDATE_NOT_CURRENT,
-        ));
+    if let Some(reason) = apply_authority_refusal(&selected, &options, current_candidates) {
+        return Ok(RepairOutcome::refused(candidates, Some(selected), reason));
     }
 
     let edit_plan = match build_edit_plan(&project.root, &selected) {
@@ -645,6 +555,114 @@ fn apply_candidate(
     })
 }
 
+fn select_candidate_for_apply(
+    candidates: &[RepairCandidate],
+    options: &RepairApplyOptions,
+) -> Result<RepairCandidate, CandidateSelectionError> {
+    let selected = match options
+        .requested_candidate_id
+        .as_deref()
+        .or(options.confirmed_candidate_id.as_deref())
+    {
+        Some(id) => find_selected_candidate(candidates, id)?,
+        None => select_only_safe_candidate(candidates)?,
+    }
+    .clone();
+
+    if options.override_requested && options.confirmed_candidate_id.is_none() {
+        return Err(CandidateSelectionError {
+            selected: Some(selected),
+            reason: REFUSAL_OVERRIDE_REQUIRES_CONFIRMATION.to_string(),
+        });
+    }
+
+    if let Some(confirmed_candidate_id) = options.confirmed_candidate_id.as_deref() {
+        let confirmed = match find_candidate_by_id(candidates, confirmed_candidate_id) {
+            CandidateIdMatch::Unique(candidate) => candidate,
+            CandidateIdMatch::Missing => {
+                return Err(CandidateSelectionError {
+                    selected: Some(selected),
+                    reason: format!("confirmed candidate `{confirmed_candidate_id}` was not found"),
+                });
+            }
+            CandidateIdMatch::Ambiguous => {
+                return Err(CandidateSelectionError {
+                    selected: Some(selected),
+                    reason: format!("confirmed candidate `{confirmed_candidate_id}` is ambiguous"),
+                });
+            }
+        };
+        if confirmed.repair_id != selected.repair_id {
+            return Err(CandidateSelectionError {
+                selected: Some(selected),
+                reason: "confirmed candidate does not match selected candidate".to_string(),
+            });
+        }
+    }
+
+    Ok(selected)
+}
+
+fn select_only_safe_candidate(
+    candidates: &[RepairCandidate],
+) -> Result<&RepairCandidate, CandidateSelectionError> {
+    let applicable = safe_unapplied_candidates(candidates);
+    match applicable.as_slice() {
+        [candidate] => Ok(candidate),
+        [] => Err(CandidateSelectionError {
+            selected: None,
+            reason: REFUSAL_NO_SAFE_CANDIDATES.to_string(),
+        }),
+        _ => Err(CandidateSelectionError {
+            selected: None,
+            reason: REFUSAL_MULTIPLE_SAFE_CANDIDATES.to_string(),
+        }),
+    }
+}
+
+fn find_selected_candidate<'a>(
+    candidates: &'a [RepairCandidate],
+    id: &str,
+) -> Result<&'a RepairCandidate, CandidateSelectionError> {
+    match find_candidate_by_id(candidates, id) {
+        CandidateIdMatch::Unique(candidate) => Ok(candidate),
+        CandidateIdMatch::Missing => Err(CandidateSelectionError {
+            selected: None,
+            reason: format!("candidate `{id}` was not found"),
+        }),
+        CandidateIdMatch::Ambiguous => Err(CandidateSelectionError {
+            selected: None,
+            reason: format!("candidate `{id}` is ambiguous"),
+        }),
+    }
+}
+
+fn apply_authority_refusal(
+    selected: &RepairCandidate,
+    options: &RepairApplyOptions,
+    current_candidates: &[RepairCandidate],
+) -> Option<&'static str> {
+    if !selected.is_safe_unapplied() && !options.override_requested {
+        return Some(REFUSAL_CANDIDATE_NOT_AUTOMATIC);
+    }
+    if options.override_requested
+        && !selected.is_safe_unapplied()
+        && selected.application_policy != APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED
+    {
+        return Some(REFUSAL_OVERRIDE_UNSUPPORTED_POLICY);
+    }
+    if options.override_requested && selected.application_status != APPLICATION_STATUS_UNAPPLIED {
+        return Some(REFUSAL_OVERRIDE_STATUS_NOT_UNAPPLIED);
+    }
+    if selected.requires_current_match
+        && !options.override_requested
+        && !has_current_applicable_match(selected, current_candidates)
+    {
+        return Some(REFUSAL_SAVED_CANDIDATE_NOT_CURRENT);
+    }
+    None
+}
+
 fn safe_unapplied_candidates(candidates: &[RepairCandidate]) -> Vec<&RepairCandidate> {
     candidates
         .iter()
@@ -655,26 +673,37 @@ fn safe_unapplied_candidates(candidates: &[RepairCandidate]) -> Vec<&RepairCandi
 fn repair_candidates_from_diagnostics(diagnostics: &[Diagnostic]) -> Vec<RepairCandidate> {
     let mut candidates = Vec::new();
     for diagnostic in diagnostics {
-        let Some(queries) = object_array(&diagnostic.details, "candidate_queries") else {
-            continue;
-        };
-        for query in queries {
-            let Some(query_candidates) = object_array(query, "candidates") else {
-                continue;
-            };
-            for candidate in query_candidates {
-                if let Some(candidate) = RepairCandidate::from_advisory(candidates.len(), candidate)
-                {
-                    candidates.push(candidate);
-                }
-            }
-        }
+        collect_advisory_candidates_from_details(
+            &diagnostic.details,
+            &mut candidates,
+            CandidateFreshness::CurrentAnalysis,
+        );
     }
     candidates
 }
 
+#[derive(Clone, Copy)]
+enum CandidateFreshness {
+    CurrentAnalysis,
+    SavedInput,
+}
+
+impl CandidateFreshness {
+    fn requires_current_match(self) -> bool {
+        matches!(self, Self::SavedInput)
+    }
+}
+
 impl RepairCandidate {
-    fn from_advisory(index: usize, candidate: &JsonValue) -> Option<Self> {
+    fn from_saved_advisory(index: usize, candidate: &JsonValue) -> Option<Self> {
+        Self::from_advisory_with_freshness(index, candidate, CandidateFreshness::SavedInput)
+    }
+
+    fn from_advisory_with_freshness(
+        index: usize,
+        candidate: &JsonValue,
+        freshness: CandidateFreshness,
+    ) -> Option<Self> {
         Self::from_parts(
             index,
             CandidateParts {
@@ -685,15 +714,9 @@ impl RepairCandidate {
                 verification_command: object_value(candidate, "verification_hint")
                     .and_then(|hint| object_string(hint, "command")),
                 source: candidate.clone(),
-                requires_current_match: false,
+                requires_current_match: freshness.requires_current_match(),
             },
         )
-    }
-
-    fn from_saved_advisory(index: usize, candidate: &JsonValue) -> Option<Self> {
-        let mut candidate = Self::from_advisory(index, candidate)?;
-        candidate.requires_current_match = true;
-        Some(candidate)
     }
 
     fn from_saved_command(index: usize, candidate: &JsonValue) -> Option<Self> {
@@ -845,6 +868,14 @@ fn collect_saved_diagnostic_candidates(value: &JsonValue, candidates: &mut Vec<R
     let Some(details) = object_value(value, "details") else {
         return;
     };
+    collect_advisory_candidates_from_details(details, candidates, CandidateFreshness::SavedInput);
+}
+
+fn collect_advisory_candidates_from_details(
+    details: &JsonValue,
+    candidates: &mut Vec<RepairCandidate>,
+    freshness: CandidateFreshness,
+) {
     let Some(queries) = object_array(details, "candidate_queries") else {
         return;
     };
@@ -853,9 +884,11 @@ fn collect_saved_diagnostic_candidates(value: &JsonValue, candidates: &mut Vec<R
             continue;
         };
         for candidate in query_candidates {
-            if let Some(candidate) =
-                RepairCandidate::from_saved_advisory(candidates.len(), candidate)
-            {
+            if let Some(candidate) = RepairCandidate::from_advisory_with_freshness(
+                candidates.len(),
+                candidate,
+                freshness,
+            ) {
                 candidates.push(candidate);
             }
         }
@@ -1292,8 +1325,12 @@ mod tests {
             ),
         ]);
 
-        let candidate =
-            RepairCandidate::from_advisory(0, &candidate).expect("candidate should load");
+        let candidate = RepairCandidate::from_advisory_with_freshness(
+            0,
+            &candidate,
+            CandidateFreshness::CurrentAnalysis,
+        )
+        .expect("candidate should load");
 
         assert_eq!(candidate.edits.len(), 2);
     }
