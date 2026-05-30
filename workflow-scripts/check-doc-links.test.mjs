@@ -21,6 +21,14 @@ const NO_TARGET_ROUTES = [
     role: "Candidate gate",
   },
   {
+    route: "docs/proposals/adt-generalization-route.md",
+    role: "Candidate route",
+  },
+  {
+    route: "docs/proposals/immutable-collection-trampoline.md",
+    role: "Candidate route",
+  },
+  {
     route: "docs/proposals/agent-repair-loop-followups.md",
     role: "Candidate route",
   },
@@ -725,6 +733,11 @@ function readNoTargetPrompt() {
     "- `docs/proposals/path-runtime-representation.md` requires one observable path",
     "  behavior that host-string storage cannot express; the page does not yet name",
     "  that behavior.",
+    "- `docs/proposals/adt-generalization-route.md` stages ADT generalization",
+    "  through descriptor-backed `Option` and `Result`, minimal `List(A)`, and",
+    "  list helper execution follow-ups.",
+    "- `docs/proposals/immutable-collection-trampoline.md` tracks the internal",
+    "  trampoline follow-up after the ADT and `List` route.",
     "- `docs/proposals/agent-repair-loop-followups.md` routes repair verification,",
     "  ranking, partial application, and automatic repair follow-ups beyond the",
     "  current command boundary.",
