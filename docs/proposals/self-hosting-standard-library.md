@@ -2,9 +2,9 @@
 
 Status: proposed
 
-This page routes future source-backed prelude helper migrations. It is a
-proposal entry point, not the source of current helper signatures, value
-semantics, or descriptor metadata.
+This page routes future source-backed prelude helper migrations through the
+implemented standard symbol split. It is a proposal entry point, not the source
+of current helper signatures, value semantics, or descriptor metadata.
 
 ## Read First
 
@@ -20,7 +20,10 @@ Stop in the specification when it answers whether a helper is already
 source-backed. Open the full proposal only after choosing exactly one
 descriptor-only pure helper.
 
-## Decision Route
+Choose exactly one descriptor-only pure helper before promoting future helper
+work into a concrete target.
+
+## Current Boundary
 
 Use the specification's source-backed boundary as the current-behavior list:
 
@@ -33,7 +36,8 @@ Use the specification's source-backed boundary as the current-behavior list:
 
 ## Work Route
 
-1. Choose exactly one helper from the descriptor-only pure-helper list.
+1. Choose exactly one helper from the specification's descriptor-only
+   pure-helper list.
 2. Keep its implemented signature, value behavior, effects, diagnostics
    anchoring, and backend lowering from the specification.
 3. Open the full proposal's

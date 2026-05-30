@@ -459,11 +459,16 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   assertIncludes(
     namesEffectsFull,
     "source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,\n" +
-      "  `vec_concat`, `vec_map`, `vec_filter`, `vec_try_map`, `vec_try_map_with`",
+      "  `vec_concat`, `vec_map`, `vec_filter`, `vec_fold`, `vec_try_map`,",
   );
   assertIncludes(
     namesEffectsFull,
-    "descriptor-only pure helpers: `vec_fold`, `dict_remove`",
+    "`dict_get`, `dict_contains`, `dict_insert`,\n  `dict_remove`, `option_map`",
+  );
+  assertIncludes(
+    namesEffectsFull,
+    "descriptor-only pure helpers: `string_split_once`, `string_parse_int`, and\n" +
+      "  `int_to_string`",
   );
 });
 

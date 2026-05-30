@@ -324,11 +324,11 @@ fails. `int_to_string` renders an integer for display and string composition.
 
 The implemented standard symbol table has this current pure-helper split:
 
-- source-backed pure helpers: `vec_fold`, `vec_len`, `vec_is_empty`, `vec_push`,
-  `vec_concat`, `vec_map`, `vec_filter`, `vec_try_map`, `vec_try_map_with`,
-  `dict_get`, `dict_contains`, `dict_insert`, `dict_remove`, `option_map`,
-  `option_and_then`, `option_unwrap_or`, `result_map`, `result_map_err`, and
-  `result_and_then`
+- source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,
+  `vec_concat`, `vec_map`, `vec_filter`, `vec_fold`, `vec_try_map`,
+  `vec_try_map_with`, `dict_get`, `dict_contains`, `dict_insert`,
+  `dict_remove`, `option_map`, `option_and_then`, `option_unwrap_or`,
+  `result_map`, `result_map_err`, and `result_and_then`
 - descriptor-only pure helpers: `string_split_once`, `string_parse_int`, and
   `int_to_string`
 
