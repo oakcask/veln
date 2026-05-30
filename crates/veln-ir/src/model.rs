@@ -78,6 +78,11 @@ pub enum IrExprKind {
     ResultErr(Box<IrExpr>),
     OptionSome(Box<IrExpr>),
     OptionNone,
+    ListNil,
+    ListCons {
+        head: Box<IrExpr>,
+        tail: Box<IrExpr>,
+    },
     Call {
         target: IrCallTarget,
         args: Vec<IrExpr>,

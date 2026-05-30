@@ -14,11 +14,16 @@ Module        ::= ModDecl? UseDecl* Item*
 ModDecl       ::= "mod" ModuleName NL
 UseDecl       ::= "use" ModuleName NL
 ModuleName    ::= Name ("." Name)*
-Item          ::= Function | TestDecl
+Item          ::= Function | TestDecl | TypeDecl
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects NL
                   Contract* Body "end" NL?
+TypeDecl      ::= "type" Name TypeParamList? NL TypeVariant+ "end" NL?
+TypeParamList ::= "(" Name ("," Name)* ","? ")"
+TypeVariant   ::= UpperName TypeVariantFields? NL
+TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
+TypeVariantField ::= Name ":" TypeText
 ParamList     ::= Param ("," Param)* ","?
 Param         ::= Name (":" TypeText)?
 Return        ::= "->" ResultBinding? TypeText
@@ -237,8 +242,9 @@ Implemented expressions:
 - paths and calls: `name`, `module::name`, `callee(args...)`
 - type-applied call callees: `callee[TypeText](args...)`
 - callable function declaration values by bare name
-- constructors: `Ok(value)`, `Err(error)`, `Some(value)`, `None`, and their
-  `Result::` or `Option::` qualified forms
+- constructors: `Ok(value)`, `Err(error)`, `Some(value)`, `None`, `Nil`,
+  `Cons(head, tail)`, and their `Result::`, `Option::`, or `List::`
+  qualified forms
 - channel effect calls: `channel::bounded(capacity)`,
   `channel::bounded[Item](capacity)`, `channel::clone(tx)`,
   `channel::send(tx, value)`, `channel::recv(rx)`,
@@ -258,9 +264,9 @@ Implemented expressions:
   are dictionary keys
 - record field access: `expr.name`
 - vec literals: `[value, ...]`
-- match expressions over literals, bindings, `_`, record patterns, and built-in
-  constructors `Some`, `None`, `Ok`, `Err`, `Option::Some`, `Option::None`,
-  `Result::Ok`, and `Result::Err`
+- match expressions over literals, bindings, `_`, record patterns, and
+  descriptor-backed constructors `Some`, `None`, `Ok`, `Err`, `Nil`, `Cons`,
+  and their `Option::`, `Result::`, or `List::` qualified forms
 - prefix operators: `not`, `-`
 - pipelines: `expr |> target(args...)`
 - binary operators: `or`, `and`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `+`, `-`,
@@ -272,8 +278,19 @@ Implemented expressions:
 they are not ordinary value names.
 
 `Option` and `Result` constructors are built-in compiler-owned ADT
-constructors. Source-declared ADT types and user-defined constructors are not
-implemented source items.
+constructors. The implemented source-declared ADT slice accepts the minimal
+recursive `List(A)` shape:
+
+```text
+type List(A)
+  Nil
+  Cons(head: A, tail: List(A))
+end
+```
+
+The checker and runtime recognize `Nil`, `Cons(head, tail)`, `List::Nil`, and
+`List::Cons(head, tail)` for that `List(A)` descriptor. Broader user-defined
+ADT declarations and arbitrary user-defined constructors are not implemented.
 
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
@@ -302,19 +319,21 @@ parser can identify an adjacent argument without a separator, it reports
 accepted, including call arguments and aggregate literals. Match arms are tried
 in source order. The implemented match-pattern subset covers wildcard `_`,
 binding names, literals, record patterns, and the built-in constructors `Some`,
-`None`, `Ok`, `Err`, `Option::Some`, `Option::None`, `Result::Ok`, and
-`Result::Err`. Record patterns match when the scrutinee is a record containing
-every named pattern field and every nested field pattern matches. Pattern
+`None`, `Ok`, `Err`, `Nil`, `Cons`, `Option::Some`, `Option::None`,
+`Result::Ok`, `Result::Err`, `List::Nil`, and `List::Cons`. Record patterns
+match when the scrutinee is a record containing every named pattern field and
+every nested field pattern matches. Pattern
 bindings in one arm or `let` statement must not duplicate another binding in
 that pattern or a value binding already visible at the pattern. Record pattern
 field names must be unique.
 
 The checker rejects non-exhaustive `match` expressions for scrutinee types it
-can classify as finite built-in domains: `Bool`, `Option(T)`, and
-`Result(T, E)`. `_` and binding patterns are catch-all arms. Bool matches must
-cover `true` and `false`; option matches must cover `Some(_)` and `None`;
-result matches must cover `Ok(_)` and `Err(_)`. Other scrutinee types do not
-currently receive enumerated exhaustiveness checking.
+can classify as finite domains: `Bool`, `Option(T)`, `Result(T, E)`, and
+`List(A)`. `_` and binding patterns are catch-all arms. Bool matches must cover
+`true` and `false`; option matches must cover `Some(_)` and `None`; result
+matches must cover `Ok(_)` and `Err(_)`; list matches must cover `Nil` and
+`Cons(_)`. Other scrutinee types do not currently receive enumerated
+exhaustiveness checking.
 
 ## Contract Predicates
 

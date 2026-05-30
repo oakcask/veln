@@ -73,6 +73,11 @@ vecs, and dictionary update results. Values returned to Veln user code are
 frozen at that boundary: records and dictionaries are exposed as unmodifiable
 maps, vecs are exposed as unmodifiable host lists, and prelude container updates
 return new frozen containers instead of mutating the input value in place.
+Standard `List` helper traversals, including `list_fold`, `list_reverse`,
+`list_map`, `list_filter`, and `list_try_map`, execute through runtime support
+that iterates over the list representation instead of growing the host call
+stack. This support does not expose source-level tail-call syntax or a general
+tail-call optimization guarantee.
 
 Bounded channel values are backend-owned runtime handles. `channel::bounded`
 and `channel::bounded[T]` return a record with `tx` and `rx` fields.

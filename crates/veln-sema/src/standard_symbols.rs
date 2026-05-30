@@ -28,8 +28,15 @@ const FS_EFFECTS: &[&str] = &["fs"];
 const PROCESS_EFFECTS: &[&str] = &["process"];
 const PURE_EFFECTS: &[&str] = &[];
 #[cfg(test)]
-const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] =
-    &["vec_map_step", "vec_try_map_step", "vec_try_map_with_step"];
+const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] = &[
+    "vec_map_step",
+    "vec_try_map_step",
+    "vec_try_map_with_step",
+    "list_reverse_step",
+    "list_map_step",
+    "list_filter_step",
+    "list_try_map_step",
+];
 
 macro_rules! source_prelude_symbol_set {
     ($($name:literal => $source:expr),+ $(,)?) => {
@@ -154,6 +161,14 @@ source_prelude_symbol_set! {
     "vec_filter" => veln_stdlib::core_prelude_source("vec_filter"),
     "vec_try_map" => veln_stdlib::core_prelude_source("vec_try_map"),
     "vec_try_map_with" => veln_stdlib::core_prelude_source("vec_try_map_with"),
+    "list_nil" => veln_stdlib::core_prelude_source("list_nil"),
+    "list_cons" => veln_stdlib::core_prelude_source("list_cons"),
+    "list_is_empty" => veln_stdlib::core_prelude_source("list_is_empty"),
+    "list_fold" => veln_stdlib::core_prelude_source("list_fold"),
+    "list_reverse" => veln_stdlib::core_prelude_source("list_reverse"),
+    "list_map" => veln_stdlib::core_prelude_source("list_map"),
+    "list_filter" => veln_stdlib::core_prelude_source("list_filter"),
+    "list_try_map" => veln_stdlib::core_prelude_source("list_try_map"),
     "dict_get" => veln_stdlib::core_prelude_source("dict_get"),
     "dict_contains" => veln_stdlib::core_prelude_source("dict_contains"),
     "dict_insert" => veln_stdlib::core_prelude_source("dict_insert"),

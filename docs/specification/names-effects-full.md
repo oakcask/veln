@@ -286,6 +286,14 @@ vec_filter(items: Vec(A), f: fn(A) -> Bool) -> Vec(A)
 vec_fold(items: Vec(A), initial: B, f: fn(B, A) -> B) -> B
 vec_try_map(items: Vec(A), f: fn(A) -> Result(B, E)) -> Result(Vec(B), E)
 vec_try_map_with(context: C, items: Vec(A), f: fn(C, A) -> Result(B, E)) -> Result(Vec(B), E)
+list_nil() -> List(A)
+list_cons(head: A, tail: List(A)) -> List(A)
+list_is_empty(items: List(A)) -> Bool
+list_fold(items: List(A), initial: B, f: fn(B, A) -> B) -> B
+list_reverse(items: List(A)) -> List(A)
+list_map(items: List(A), f: fn(A) -> B) -> List(B)
+list_filter(items: List(A), f: fn(A) -> Bool) -> List(A)
+list_try_map(items: List(A), f: fn(A) -> Result(B, E)) -> Result(List(B), E)
 dict_get(dict: Dict(K, V), key: K) -> Option(V)
 dict_contains(dict: Dict(K, V), key: K) -> Bool
 dict_insert(dict: Dict(K, V), key: K, value: V) -> Dict(K, V)
@@ -314,6 +322,13 @@ otherwise returns `Ok` containing the mapped frozen vec in source order.
 `vec_try_map_with` follows the same traversal and passes the unchanged context
 value as the first callback argument. `vec_map`, `vec_filter`, and `vec_fold`
 also visit vec items in source order.
+`list_nil` and `list_cons` construct `List` values equivalent to `Nil` and
+`Cons`. `list_is_empty` returns true for `Nil` and false for `Cons`.
+`list_reverse` returns a list with the input items in reverse order.
+`list_map`, `list_filter`, `list_fold`, and `list_try_map` visit list items in
+source order. `list_try_map` stops at the first `Err`; otherwise it returns
+`Ok` containing the mapped list in source order. List traversal helpers are
+implemented without relying on source-level tail-recursion syntax.
 
 `string_split_once` splits at the first occurrence of `separator`, returning
 `None` when the separator is absent. `string_parse_int` accepts the backend
@@ -326,10 +341,12 @@ The implemented standard symbol table has this current pure-helper split:
 
 - source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,
   `vec_concat`, `vec_map`, `vec_filter`, `vec_fold`, `vec_try_map`,
-  `vec_try_map_with`, `dict_get`, `dict_contains`, `dict_insert`,
-  `dict_remove`, `option_map`, `option_and_then`, `option_unwrap_or`,
-  `result_map`, `result_map_err`, `result_and_then`, `string_split_once`,
-  `string_parse_int`, and `int_to_string`
+  `vec_try_map_with`, `list_nil`, `list_cons`, `list_is_empty`, `list_fold`,
+  `list_reverse`, `list_map`, `list_filter`, `list_try_map`, `dict_get`,
+  `dict_contains`, `dict_insert`, `dict_remove`, `option_map`,
+  `option_and_then`, `option_unwrap_or`, `result_map`, `result_map_err`,
+  `result_and_then`, `string_split_once`, `string_parse_int`, and
+  `int_to_string`
 - descriptor-only pure helpers: none
 
 This empty descriptor-only pure-helper list is the implemented completion
@@ -358,11 +375,14 @@ their step helpers are implementation details, and this source placement does
 not expose or stabilize a public vec representation. The `vec_fold` entry uses
 an isolated `core_prelude` source unit so other helper bodies keep resolving
 fold calls through the descriptor-backed adapter during this migration. The
+list helpers use the descriptor-backed `List(A)` constructors and pattern
+coverage; their private step helpers are ordinary support source and do not
+expose a public list representation beyond `Nil` and `Cons`. The
 dict helpers keep using the existing prelude runtime operation: `dict_get`,
 `dict_insert`, and `dict_remove` are source-backed descriptor entry points, and
 `dict_contains` derives its result from `dict_get`. Private support functions
-such as `vec_try_map_with_step` are ordinary support source and are not
-separate prelude descriptors.
+such as `vec_try_map_with_step` and `list_try_map_step` are ordinary support
+source and are not separate prelude descriptors.
 
 ### Compiler-Support Source
 

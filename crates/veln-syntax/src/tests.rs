@@ -3,6 +3,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use veln_source::SourceFile;
 
+fn first_function(output: &ParseOutput) -> &FunctionDecl {
+    match &output.tree.items[0] {
+        SyntaxItem::Function(function) => function,
+        SyntaxItem::Type(_) => panic!("expected function item"),
+    }
+}
+
 #[test]
 fn parses_minimal_public_function() {
     let source = SourceFile::new(
@@ -14,7 +21,7 @@ fn parses_minimal_public_function() {
 
     assert!(output.diagnostics.is_empty());
     assert_eq!(output.tree.items.len(), 1);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     assert_eq!(function.name.as_deref(), Some("main"));
     assert_eq!(
         function.effects.as_ref().unwrap(),
@@ -34,7 +41,7 @@ fn parses_explicit_test_declaration() {
 
     assert!(output.diagnostics.is_empty());
     assert_eq!(output.tree.items.len(), 1);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     assert_eq!(function.kind, FunctionKind::Test);
     assert_eq!(function.visibility, Visibility::Private);
     assert_eq!(function.name.as_deref(), Some("returns_ok"));
@@ -51,7 +58,7 @@ fn parses_omitted_signature_annotations_as_recoverable_ast_facts() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     assert_eq!(function.params[0].ty, None);
     assert_eq!(function.return_type, None);
     assert_eq!(function.effects, None);
@@ -68,7 +75,7 @@ fn parses_wildcard_let_without_binding_a_name() {
 
     assert!(output.diagnostics.is_empty());
     assert_eq!(format_tree(&output.tree), source.text());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Let {
         pattern,
         annotation,
@@ -95,7 +102,7 @@ fn parses_record_let_pattern() {
         format_tree(&output.tree),
         "fn unpack(value: { count : Int }) -> Int\n\tlet { count: amount }: { count : Int } = value\n\tamount\nend\n"
     );
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Let {
         pattern,
         annotation,
@@ -265,7 +272,7 @@ fn parses_structured_calls_and_holes() {
     );
 
     let output = parse(&source);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -298,7 +305,7 @@ fn parses_type_argument_call_callees() {
     );
 
     let output = parse(&source);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -334,7 +341,7 @@ fn reports_missing_separator_between_call_arguments() {
     assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
     assert_eq!(diagnostic.recovery.anchor.as_deref(), Some(","));
 
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -362,7 +369,7 @@ fn reports_missing_newline_between_body_expressions() {
     assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
     assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("newline"));
 
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -392,7 +399,7 @@ fn reports_extra_tokens_after_let_pattern() {
     assert_eq!(diagnostic.expected, vec!["pattern end"]);
     assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
 
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Let { pattern, .. } = &function.body[0] else {
         panic!("expected let statement");
     };
@@ -573,7 +580,7 @@ fn parses_module_use_nested_types_and_multiple_effects() {
     assert!(output.diagnostics.is_empty());
     assert_eq!(output.tree.module.as_ref().unwrap().name, "app.core");
     assert_eq!(output.tree.uses[0].name, "platform.io");
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     assert_eq!(
         function.params[0].ty.as_deref(),
         Some("Vec(Result(Int, Error))")
@@ -601,7 +608,7 @@ fn parses_function_return_type_effects_before_declaration_effects() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     assert_eq!(
         function.return_type.as_deref(),
         Some("fn(String) -> () effects [stdio]")
@@ -631,7 +638,7 @@ fn parses_and_formats_result_binding() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     assert_eq!(
         function
             .return_binding
@@ -667,7 +674,7 @@ fn parses_contract_predicate_subset() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     assert_eq!(function.contracts.len(), 2);
     assert_eq!(function.contracts[0].text, "value >= 0 and value <= limit");
     assert_eq!(function.contracts[1].text, "output.total == value + limit");
@@ -740,7 +747,7 @@ fn parses_hole_satisfy_clause() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -820,7 +827,7 @@ fn parses_records_lists_and_formats_precedence() {
 
     assert!(output.diagnostics.is_empty());
     assert_eq!(format_tree(&output.tree), source.text());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Let { expr, .. } = &function.body[0] else {
         panic!("expected let statement");
     };
@@ -871,7 +878,7 @@ fn parses_try_prefix_and_pipeline_precedence() {
 
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
     assert_eq!(format_tree(&output.tree), source.text());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -916,7 +923,7 @@ fn parses_boolean_literals_as_literals() {
 
     assert!(output.diagnostics.is_empty());
     assert_eq!(format_tree(&output.tree), source.text());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -951,7 +958,7 @@ fn parses_boolean_literals_as_patterns() {
 
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
     assert_eq!(format_tree(&output.tree), source.text());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -982,7 +989,7 @@ fn parses_dictionary_literals_with_expression_keys() {
         format_tree(&output.tree),
         "fn main() -> Dict(String, Int)\n\t{ \"one\": 1, \"two\": 2 }\nend\n"
     );
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -1008,7 +1015,7 @@ fn parses_dictionary_literals_with_identifier_led_expression_keys() {
         format_tree(&output.tree),
         "fn main(seed: Int) -> Dict(Int, String)\n\t{ seed + 1: \"next\" }\nend\n"
     );
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -1062,7 +1069,7 @@ fn parses_newlines_inside_grouped_expressions() {
             "end\n",
         )
     );
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Let { expr, .. } = &function.body[0] else {
         panic!("expected let statement");
     };
@@ -1093,7 +1100,7 @@ fn parses_field_access_as_postfix_expression() {
 
     assert!(output.diagnostics.is_empty());
     assert_eq!(format_tree(&output.tree), source.text());
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Let { expr, .. } = &function.body[0] else {
         panic!("expected let statement");
     };
@@ -1121,7 +1128,7 @@ fn parses_method_call_shape_as_call_on_field_access() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected tail expression");
     };
@@ -1254,7 +1261,7 @@ fn reports_invalid_expression_token_and_recovers_to_next_line() {
     assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("newline"));
     assert_eq!(diagnostic.recovery.dropped_token_count, 1);
 
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     assert_eq!(function.body.len(), 2);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
@@ -1284,7 +1291,7 @@ fn synchronizes_top_level_garbage_to_next_function() {
     assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("fn"));
     assert!(diagnostic.recovery.dropped_token_count > 0);
     assert_eq!(output.tree.items.len(), 1);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     assert_eq!(function.name.as_deref(), Some("main"));
 }
 
@@ -1308,7 +1315,7 @@ fn synchronizes_top_level_garbage_to_next_test_declaration() {
     );
     assert_eq!(diagnostic.recovery.anchor.as_deref(), Some("test"));
     assert_eq!(output.tree.items.len(), 1);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     assert_eq!(function.kind, FunctionKind::Test);
     assert_eq!(function.name.as_deref(), Some("main"));
 }
@@ -1330,7 +1337,7 @@ fn parses_and_formats_match_expression() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -1372,7 +1379,7 @@ fn reports_missing_match_arm_arrow_and_keeps_arm_expression() {
     assert_eq!(diagnostic.expected, vec!["=>"]);
     assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
 
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -1403,7 +1410,7 @@ fn parses_match_expression_inside_call_argument() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -1444,7 +1451,7 @@ fn parses_match_expression_inside_aggregate_literals() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -1490,7 +1497,7 @@ fn parses_and_formats_qualified_builtin_constructors() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -1544,7 +1551,7 @@ fn parses_and_formats_record_patterns() {
             "end\n",
         )
     );
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };
@@ -1592,7 +1599,7 @@ fn reports_missing_record_pattern_field_colon_and_keeps_field_pattern() {
     assert_eq!(diagnostic.expected, vec![":"]);
     assert_eq!(diagnostic.recovery.strategy, RecoveryStrategy::InsertToken);
 
-    let SyntaxItem::Function(function) = &output.tree.items[0];
+    let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
         panic!("expected expression line");
     };

@@ -14,6 +14,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
     let mut diagnostics = Vec::new();
     let mut module = None;
     let mut uses = Vec::new();
+    let mut types = Vec::new();
     let mut functions = Vec::new();
 
     for source in &project.files {
@@ -28,6 +29,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
             ));
             module = module.or(lowered.module);
             uses.extend(lowered.uses);
+            types.extend(lowered.types);
             functions.extend(lowered.functions);
         }
     }
@@ -36,6 +38,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
         SurfaceModule {
             module,
             uses,
+            types,
             functions,
         },
         diagnostics,
@@ -229,6 +232,7 @@ pub(crate) fn reachable_entry_module(
     SurfaceModule {
         module: module.module.clone(),
         uses: module.uses.clone(),
+        types: module.types.clone(),
         functions: module
             .functions
             .iter()

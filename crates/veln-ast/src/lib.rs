@@ -8,7 +8,8 @@ pub use lower::lower_surface_ast;
 pub use model::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
-    PrefixOp, RecordField, ResultBinding, SatisfyClause, SurfaceModule, UseDecl, Visibility,
+    PrefixOp, RecordField, ResultBinding, SatisfyClause, SurfaceModule, TypeDecl, TypeVariantDecl,
+    TypeVariantField, UseDecl, Visibility,
 };
 
 #[cfg(test)]

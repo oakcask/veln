@@ -3,13 +3,15 @@ use veln_syntax::{
     DictEntry as SyntaxDictEntry, Expr as SyntaxExpr, ExprKind as SyntaxExprKind,
     FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule, Pattern as SyntaxPattern,
     PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp, RecordField as SyntaxRecordField,
-    SyntaxItem, SyntaxTree, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
+    SyntaxItem, SyntaxTree, TypeDecl as SyntaxTypeDecl, UseDecl as SyntaxUse,
+    Visibility as SyntaxVisibility,
 };
 
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
-    PrefixOp, RecordField, ResultBinding, SurfaceModule, UseDecl, Visibility,
+    PrefixOp, RecordField, ResultBinding, SurfaceModule, TypeDecl, TypeVariantDecl,
+    TypeVariantField, UseDecl, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -23,17 +25,23 @@ pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
         .iter()
         .map(|use_decl| builder.lower_use_decl(use_decl))
         .collect();
+    let mut types = Vec::new();
     let mut functions = Vec::new();
 
     let module_name = module.as_ref().map(|module| module.name.clone());
     for item in &tree.items {
-        let SyntaxItem::Function(function) = item;
-        functions.push(builder.lower_function(function, module_name.clone()));
+        match item {
+            SyntaxItem::Function(function) => {
+                functions.push(builder.lower_function(function, module_name.clone()));
+            }
+            SyntaxItem::Type(type_decl) => types.push(builder.lower_type_decl(type_decl)),
+        }
     }
 
     SurfaceModule {
         module,
         uses,
+        types,
         functions,
     }
 }
@@ -93,6 +101,34 @@ impl AstBuilder {
                 .unwrap_or(use_decl.name.as_str())
                 .to_string(),
             span: use_decl.span.clone(),
+        }
+    }
+
+    fn lower_type_decl(&mut self, type_decl: &SyntaxTypeDecl) -> TypeDecl {
+        TypeDecl {
+            node_id: self.alloc(),
+            name: type_decl.name.clone(),
+            params: type_decl.params.clone(),
+            variants: type_decl
+                .variants
+                .iter()
+                .map(|variant| TypeVariantDecl {
+                    node_id: self.alloc(),
+                    name: variant.name.clone(),
+                    fields: variant
+                        .fields
+                        .iter()
+                        .map(|field| TypeVariantField {
+                            node_id: self.alloc(),
+                            name: field.name.clone(),
+                            ty: field.ty.clone(),
+                            span: field.span.clone(),
+                        })
+                        .collect(),
+                    span: variant.span.clone(),
+                })
+                .collect(),
+            span: type_decl.span.clone(),
         }
     }
 

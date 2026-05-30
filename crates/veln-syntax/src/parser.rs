@@ -7,7 +7,7 @@ use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, RecordField, SatisfyClause, SyntaxItem, SyntaxTree, Token, TokenKind,
-    UseDecl, Visibility, lex,
+    TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -123,6 +123,8 @@ impl<'a> Parser<'a> {
                 items.push(SyntaxItem::Function(
                     self.parse_function_like(FunctionKind::Function),
                 ));
+            } else if self.at(TokenKind::Type) {
+                items.push(SyntaxItem::Type(self.parse_type_decl()));
             } else if self.at(TokenKind::Test) {
                 items.push(SyntaxItem::Function(
                     self.parse_function_like(FunctionKind::Test),
@@ -130,9 +132,9 @@ impl<'a> Parser<'a> {
             } else {
                 self.error_current(
                     "parse.expected_item",
-                    "expected a function or test declaration",
+                    "expected a function, test, or type declaration",
                     "module",
-                    vec!["pub", "fn", "test"],
+                    vec!["pub", "fn", "test", "type"],
                     RecoveryStrategy::SynchronizeToAnchor,
                     Some("fn"),
                 );
@@ -161,6 +163,113 @@ impl<'a> Parser<'a> {
             },
             diagnostics: self.diagnostics,
         }
+    }
+
+    fn parse_type_decl(&mut self) -> TypeDecl {
+        let start = self
+            .expect(TokenKind::Type, "type_declaration", vec!["type"])
+            .range;
+        let name = self.expect_ident("type_declaration", "type name");
+        let params = if self.eat(TokenKind::LParen).is_some() {
+            let params = self.parse_type_params();
+            self.expect(TokenKind::RParen, "type_declaration", vec![")"]);
+            params
+        } else {
+            Vec::new()
+        };
+        self.expect_newline("type_declaration");
+
+        let mut variants = Vec::new();
+        let mut end_present = false;
+        while !self.at(TokenKind::Eof) {
+            self.eat_newlines();
+            if self.at(TokenKind::End) {
+                self.bump();
+                end_present = true;
+                if self.at(TokenKind::Newline) {
+                    self.bump();
+                }
+                break;
+            }
+            if self.at(TokenKind::Eof) {
+                break;
+            }
+            variants.push(self.parse_type_variant());
+        }
+
+        if !end_present {
+            self.error_current(
+                "parse.expected_end",
+                "expected `end` to close type declaration",
+                "type_declaration",
+                vec!["end"],
+                RecoveryStrategy::CloseBlock,
+                Some("end"),
+            );
+        }
+
+        let end = self.previous().map_or(start, |token| token.range);
+        TypeDecl {
+            name,
+            params,
+            variants,
+            span: self.source.span(start.cover(end)),
+            end_present,
+        }
+    }
+
+    fn parse_type_params(&mut self) -> Vec<String> {
+        let mut params = Vec::new();
+        while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
+            if let Some(param) = self.expect_ident("type_declaration", "type parameter") {
+                params.push(param);
+            }
+            if self.eat(TokenKind::Comma).is_none() {
+                break;
+            }
+        }
+        params
+    }
+
+    fn parse_type_variant(&mut self) -> TypeVariantDecl {
+        let start = self.current().range;
+        let name = self.expect_ident("type_variant", "variant name");
+        let fields = if self.eat(TokenKind::LParen).is_some() {
+            let fields = self.parse_type_variant_fields();
+            self.expect(TokenKind::RParen, "type_variant", vec![")"]);
+            fields
+        } else {
+            Vec::new()
+        };
+        let end = self.expect_newline("type_variant").range;
+        TypeVariantDecl {
+            name,
+            fields,
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_type_variant_fields(&mut self) -> Vec<TypeVariantField> {
+        let mut fields = Vec::new();
+        while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
+            let start = self.current().range;
+            let name = self
+                .expect_ident("type_variant", "variant field name")
+                .unwrap_or_default();
+            self.expect(TokenKind::Colon, "type_variant", vec![":"]);
+            let ty =
+                self.collect_type_until("type_variant", &[TokenKind::Comma, TokenKind::RParen]);
+            let end = self.previous().map_or(start, |token| token.range);
+            fields.push(TypeVariantField {
+                name,
+                ty,
+                span: self.source.span(start.cover(end)),
+            });
+            if self.eat(TokenKind::Comma).is_none() {
+                break;
+            }
+        }
+        fields
     }
 
     fn parse_named_header(
@@ -834,6 +943,7 @@ impl<'a> Parser<'a> {
         while !self.at(TokenKind::Eof)
             && !self.at(TokenKind::Pub)
             && !self.at(TokenKind::Fn)
+            && !self.at(TokenKind::Type)
             && !self.at(TokenKind::Test)
             && !self.at(TokenKind::End)
         {
@@ -843,6 +953,7 @@ impl<'a> Parser<'a> {
         let anchor = match self.current().kind {
             TokenKind::Pub => Some("pub".to_string()),
             TokenKind::Fn => Some("fn".to_string()),
+            TokenKind::Type => Some("type".to_string()),
             TokenKind::Test => Some("test".to_string()),
             TokenKind::End => Some("end".to_string()),
             TokenKind::Eof => None,
@@ -997,7 +1108,9 @@ fn adr_lite_anchors(
         ));
     }
     for item in items {
-        let SyntaxItem::Function(function) = item;
+        let SyntaxItem::Function(function) = item else {
+            continue;
+        };
         if function.visibility == Visibility::Public
             && let Some(name) = &function.name
         {

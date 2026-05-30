@@ -430,6 +430,22 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     &format!("()L{}$Option;", self.program.options.runtime_class),
                 );
             }
+            IrExprKind::ListNil => {
+                code.invokestatic(
+                    &self.program.options.runtime_class,
+                    "listNil",
+                    "()Ljava/lang/Object;",
+                );
+            }
+            IrExprKind::ListCons { head, tail } => {
+                self.emit_expr(code, head);
+                self.emit_expr(code, tail);
+                code.invokestatic(
+                    &self.program.options.runtime_class,
+                    "listCons",
+                    "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                );
+            }
             IrExprKind::Call { target, args } => self.emit_call(code, expr, target, args),
             IrExprKind::FieldAccess { base, field } => {
                 self.emit_expr(code, base);
@@ -810,6 +826,23 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     &args[0],
                 );
             }
+            "Nil" if args.is_empty() => {
+                value.emit_load(code);
+                code.invokestatic(
+                    &self.program.options.runtime_class,
+                    "isNil",
+                    "(Ljava/lang/Object;)Z",
+                );
+            }
+            "Cons" if args.len() == 2 => {
+                self.emit_constructor_pair_condition(
+                    code,
+                    value,
+                    "isCons",
+                    ("listHead", &args[0]),
+                    ("listTail", &args[1]),
+                );
+            }
             _ => code.push_i32(0),
         }
     }
@@ -838,6 +871,39 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         };
         self.emit_pattern_condition(code, inner, inner_value);
         code.branch_to(0x99, fail);
+        code.push_i32(1);
+        code.branch_to(0xa7, done);
+        code.bind(fail);
+        code.push_i32(0);
+        code.bind(done);
+    }
+
+    fn emit_constructor_pair_condition(
+        &mut self,
+        code: &mut MethodCode,
+        value: ValueRef,
+        test: &str,
+        left: (&str, &IrPattern),
+        right: (&str, &IrPattern),
+    ) {
+        let fail = code.new_label();
+        let done = code.new_label();
+        value.emit_load(code);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            test,
+            "(Ljava/lang/Object;)Z",
+        );
+        code.branch_to(0x99, fail);
+        for (getter, pattern) in [left, right] {
+            let inner_value = ValueRef::RuntimeUnary {
+                base: Box::new(value.clone()),
+                method: getter.to_string(),
+                runtime: self.program.options.runtime_class.clone(),
+            };
+            self.emit_pattern_condition(code, pattern, inner_value);
+            code.branch_to(0x99, fail);
+        }
         code.push_i32(1);
         code.branch_to(0xa7, done);
         code.bind(fail);
@@ -884,8 +950,28 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                         code,
                         inner,
                         ValueRef::RuntimeUnary {
-                            base: Box::new(value),
+                            base: Box::new(value.clone()),
                             method: getter.to_string(),
+                            runtime: self.program.options.runtime_class.clone(),
+                        },
+                    );
+                }
+                if let ("Cons", [head, tail]) = (constructor, args.as_slice()) {
+                    self.emit_pattern_bindings(
+                        code,
+                        head,
+                        ValueRef::RuntimeUnary {
+                            base: Box::new(value.clone()),
+                            method: "listHead".to_string(),
+                            runtime: self.program.options.runtime_class.clone(),
+                        },
+                    );
+                    self.emit_pattern_bindings(
+                        code,
+                        tail,
+                        ValueRef::RuntimeUnary {
+                            base: Box::new(value),
+                            method: "listTail".to_string(),
                             runtime: self.program.options.runtime_class.clone(),
                         },
                     );
@@ -1243,6 +1329,13 @@ fn runtime_classes() -> Vec<JvmClassFile> {
         (
             "VelnRuntime$Fn.class",
             include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$Fn.class")),
+        ),
+        (
+            "VelnRuntime$ListValue.class",
+            include_bytes!(concat!(
+                env!("OUT_DIR"),
+                "/runtime/VelnRuntime$ListValue.class"
+            )),
         ),
         (
             "VelnRuntime$Option.class",

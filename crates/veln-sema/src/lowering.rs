@@ -908,29 +908,46 @@ impl<'a> CoreLowerer<'a> {
                 ])),
             );
         }
-        let value_type = expected
-            .and_then(|expected| adt::core_payload_type(expected, constructor, 0))
-            .cloned()
-            .unwrap_or(CoreType::Unknown);
-        let first = args
-            .first()
-            .map(|arg| self.lower_expr(arg, Some(&value_type)))
-            .unwrap_or_else(|| {
-                self.missing_expression(expr, Some(&value_type), "missing_constructor_argument");
-                self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
-            });
+        let lowered_args = constructor
+            .variant
+            .payload_fields
+            .iter()
+            .enumerate()
+            .map(|(index, _)| {
+                let payload_type = expected
+                    .and_then(|expected| adt::core_payload_type(expected, constructor, index))
+                    .unwrap_or(CoreType::Unknown);
+                args.get(index)
+                    .map(|arg| self.lower_expr(arg, Some(&payload_type)))
+                    .unwrap_or_else(|| {
+                        self.missing_expression(
+                            expr,
+                            Some(&payload_type),
+                            "missing_constructor_argument",
+                        );
+                        self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
+                    })
+            })
+            .collect::<Vec<_>>();
         let ty = if expected
             .and_then(|expected| adt::core_adt_args(expected, constructor.descriptor))
             .is_some()
         {
             expected.cloned().unwrap_or(CoreType::Unknown)
         } else {
-            adt::core_constructed_type(constructor, first.ty.clone())
+            lowered_args.first().map_or_else(
+                || adt::core_constructed_type(constructor, CoreType::Unknown),
+                |first| adt::core_constructed_type(constructor, first.ty.clone()),
+            )
         };
-        for arg in args.iter().skip(1) {
+        for arg in args.iter().skip(expected_count) {
             self.lower_expr(arg, None);
         }
-        self.core_expr(expr, ty, core_payload_constructor_kind(constructor, first))
+        self.core_expr(
+            expr,
+            ty,
+            core_payload_constructor_kind(constructor, lowered_args),
+        )
     }
 
     fn lower_field_access(&mut self, expr: &Expr, base: &Expr, field: &str) -> CoreExpr {
@@ -1122,8 +1139,8 @@ impl<'a> CoreLowerer<'a> {
                     .enumerate()
                     .flat_map(|(index, pattern)| {
                         let ty = adt::core_payload_type(scrutinee_type, constructor, index)
-                            .unwrap_or(&CoreType::Unknown);
-                        Self::pattern_bindings(pattern, ty)
+                            .unwrap_or(CoreType::Unknown);
+                        Self::pattern_bindings(pattern, &ty)
                     })
                     .collect()
             }
@@ -1321,19 +1338,29 @@ fn constructor_arity_reason(constructor: adt::AdtConstructor) -> &'static str {
 fn core_nullary_constructor_kind(constructor: adt::AdtConstructor) -> CoreExprKind {
     match constructor.variant.kind {
         AdtVariantKind::OptionNone => CoreExprKind::OptionNone,
+        AdtVariantKind::ListNil => CoreExprKind::ListNil,
         _ => CoreExprKind::Missing,
     }
 }
 
 fn core_payload_constructor_kind(
     constructor: adt::AdtConstructor,
-    payload: CoreExpr,
+    mut payloads: Vec<CoreExpr>,
 ) -> CoreExprKind {
     match constructor.variant.kind {
-        AdtVariantKind::OptionSome => CoreExprKind::OptionSome(Box::new(payload)),
-        AdtVariantKind::ResultOk => CoreExprKind::ResultOk(Box::new(payload)),
-        AdtVariantKind::ResultErr => CoreExprKind::ResultErr(Box::new(payload)),
+        AdtVariantKind::OptionSome => CoreExprKind::OptionSome(Box::new(payloads.remove(0))),
+        AdtVariantKind::ResultOk => CoreExprKind::ResultOk(Box::new(payloads.remove(0))),
+        AdtVariantKind::ResultErr => CoreExprKind::ResultErr(Box::new(payloads.remove(0))),
         AdtVariantKind::OptionNone => CoreExprKind::OptionNone,
+        AdtVariantKind::ListNil => CoreExprKind::ListNil,
+        AdtVariantKind::ListCons => {
+            let head = payloads.remove(0);
+            let tail = payloads.remove(0);
+            CoreExprKind::ListCons {
+                head: Box::new(head),
+                tail: Box::new(tail),
+            }
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 # ADT Generalization Route
 
-Status: stage 1 implemented; stages 2 and 3 proposed
+Status: stages 1, 2, and 3 implemented
 
 This page records a staged route from compiler-special `Option` and `Result`
 handling toward user-defined ADTs, standard-library `List`, immutable
@@ -23,8 +23,9 @@ states it.
 
 `Option(T)` and `Result(T, E)` are implemented built-in parametric forms.
 Their constructors, patterns, branch typing, `?` behavior, and exhaustiveness
-rules now route through compiler-owned ADT descriptors. User-defined ADT
-declarations and user-defined constructors are not implemented.
+rules now route through compiler-owned ADT descriptors. The minimal
+source-declared `List(A)` ADT shape is implemented with `Nil` and `Cons`.
+Broader user-defined ADT declarations and constructors are not implemented.
 
 `Vec(A)` and `Dict(K, V)` remain built-in immutable container types from the
 source user's point of view. Their helper contracts are current behavior, but
@@ -58,7 +59,7 @@ separate hard-coded branches wherever practical.
 
 ### Stage 2: Minimal ADTs For List
 
-Status: proposed
+Status: implemented
 
 Extend the descriptor model into a narrow source feature only far enough to
 define `List(A)` and pattern match on it.
@@ -86,12 +87,12 @@ continues to mean the existing vec literal unless a later proposal changes it.
 
 ### Stage 3: List Helpers And Tail-Recursive Execution
 
-Status: proposed
+Status: implemented
 
 After `List(A)` is expressible, add standard-library list helpers and use them
 as the proving target for internal tail-recursive execution.
 
-Candidate helpers:
+Implemented helpers:
 
 - `list_nil`;
 - `list_cons`;
@@ -102,11 +103,9 @@ Candidate helpers:
 - `list_filter`;
 - `list_try_map`.
 
-`List` helpers should preserve immutable value semantics and source-order
-traversal. Tail-recursive helper bodies may use the internal trampoline route
-described in
-[immutable-collection-trampoline.md](immutable-collection-trampoline.md), but
-that remains a compiler/runtime strategy, not a user-facing `tailrec` feature.
+`List` helpers preserve immutable value semantics and source-order traversal.
+Large helper traversals use iterative runtime support, which remains a
+compiler/runtime strategy rather than a user-facing `tailrec` feature.
 
 ## Non-Goals
 

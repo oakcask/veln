@@ -5,7 +5,12 @@ fn infers_prelude_helper_calls_from_expected_types() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
+            "type List(A)\n",
+            "  Nil\n",
+            "  Cons(head: A, tail: List(A))\n",
+            "end\n",
             "pub fn main(items: Vec(Int), other: Vec(Int), table: Dict(String, Int), ",
+            "list: List(Int), ",
             "mapper: fn(Int) -> String, keep: fn(Int) -> Bool, folder: fn(String, Int) -> String, ",
             "fallible: fn(Int) -> Result(String, AppError), opt: Option(Int), ",
             "fallible_with: fn(String, Int) -> Result(String, AppError), ",
@@ -16,6 +21,9 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "filtered: Vec(Int), folded: String, tried: Result(Vec(String), AppError), ",
             "tried_with: Result(Vec(String), AppError), split: Option({left: String, right: String}), ",
             "parsed: Result(Int, String), rendered: String, ",
+            "list_nil: List(Int), list_cons: List(Int), list_empty: Bool, list_folded: String, ",
+            "list_reversed: List(Int), list_mapped: List(String), list_filtered: List(Int), ",
+            "list_tried: Result(List(String), AppError), ",
             "found: Option(Int), has_key: Bool, inserted: Dict(String, Int), removed: Dict(String, Int), ",
             "opt_mapped: Option(String), opt_nexted: Option(String), opt_value: Int, ",
             "res_mapped: Result(String, AppError), res_err: Result(Int, String), ",
@@ -27,6 +35,10 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "tried_with: vec_try_map_with(\"prefix\", items, fallible_with), ",
             "split: string_split_once(\"sku,2\", \",\"), parsed: string_parse_int(\"2\"), ",
             "rendered: int_to_string(2), ",
+            "list_nil: list_nil(), list_cons: list_cons(1, list_nil()), ",
+            "list_empty: list_is_empty(list), list_folded: list_fold(list, \"\", folder), ",
+            "list_reversed: list_reverse(list), list_mapped: list_map(list, mapper), ",
+            "list_filtered: list_filter(list, keep), list_tried: list_try_map(list, fallible), ",
             "found: dict_get(table, \"a\"), has_key: dict_contains(table, \"a\"), ",
             "inserted: dict_insert(table, \"b\", 2), removed: dict_remove(table, \"b\"), ",
             "opt_mapped: option_map(opt, opt_map), opt_nexted: option_and_then(opt, opt_next), ",
@@ -567,11 +579,28 @@ fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
             "Result(Vec(String), String)",
             "fn(unknown) -> Result(String, String)",
         ),
+        (
+            "list_map",
+            "List(Int)",
+            "List(String)",
+            "fn(unknown) -> String",
+        ),
+        ("list_filter", "List(Int)", "List(Int)", "fn(Int) -> Bool"),
+        (
+            "list_try_map",
+            "List(Int)",
+            "Result(List(String), String)",
+            "fn(unknown) -> Result(String, String)",
+        ),
     ] {
         let source = SourceFile::new(
             "main.veln",
             format!(
                 concat!(
+                    "type List(A)\n",
+                    "  Nil\n",
+                    "  Cons(head: A, tail: List(A))\n",
+                    "end\n",
                     "fn to_int(value: Int) -> Int effects []\n",
                     "  value\n",
                     "end\n",

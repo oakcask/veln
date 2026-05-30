@@ -66,6 +66,31 @@ public final class VelnRuntime {
         }
     }
 
+    public static final class ListValue {
+        private final boolean cons;
+        private final Object head;
+        private final Object tail;
+
+        private ListValue(boolean cons, Object head, Object tail) {
+            this.cons = cons;
+            this.head = head;
+            this.tail = tail;
+        }
+
+        public static ListValue nil() {
+            return new ListValue(false, null, null);
+        }
+
+        public static ListValue cons(Object head, Object tail) {
+            return new ListValue(true, freezeValue(head), freezeValue(tail));
+        }
+
+        @Override
+        public String toString() {
+            return cons ? "Cons(" + format(head) + ", " + format(tail) + ")" : "Nil";
+        }
+    }
+
     public static final class ContractFailure extends RuntimeException {
         public final String clause;
         public final String predicate;
@@ -188,6 +213,14 @@ public final class VelnRuntime {
 
     public static Option none() {
         return Option.none();
+    }
+
+    public static Object listNil() {
+        return ListValue.nil();
+    }
+
+    public static Object listCons(Object head, Object tail) {
+        return ListValue.cons(head, tail);
     }
 
     public static Object channelBounded(Object capacity) {
@@ -598,6 +631,22 @@ public final class VelnRuntime {
         return asOption(value).value;
     }
 
+    public static boolean isNil(Object value) {
+        return value instanceof ListValue && !((ListValue) value).cons;
+    }
+
+    public static boolean isCons(Object value) {
+        return value instanceof ListValue && ((ListValue) value).cons;
+    }
+
+    public static Object listHead(Object value) {
+        return asListValue(value).head;
+    }
+
+    public static Object listTail(Object value) {
+        return asListValue(value).tail;
+    }
+
     public static Object unwrapOk(Object value) {
         if (value instanceof Result) {
             Result result = (Result) value;
@@ -730,6 +779,66 @@ public final class VelnRuntime {
             mapped.add(unwrapOk(result));
         }
         return ok(freezeList(mapped));
+    }
+
+    public static Object listIsEmpty(Object items) {
+        return Boolean.valueOf(!asListValue(items).cons);
+    }
+
+    public static Object listFold(Object items, Object initial, Object fn) {
+        Object accumulator = initial;
+        ListValue current = asListValue(items);
+        while (current.cons) {
+            accumulator = call(fn, accumulator, current.head);
+            current = asListValue(current.tail);
+        }
+        return accumulator;
+    }
+
+    public static Object listReverse(Object items) {
+        Object reversed = listNil();
+        ListValue current = asListValue(items);
+        while (current.cons) {
+            reversed = listCons(current.head, reversed);
+            current = asListValue(current.tail);
+        }
+        return reversed;
+    }
+
+    public static Object listMap(Object items, Object fn) {
+        Object reversed = listNil();
+        ListValue current = asListValue(items);
+        while (current.cons) {
+            reversed = listCons(call(fn, current.head), reversed);
+            current = asListValue(current.tail);
+        }
+        return listReverse(reversed);
+    }
+
+    public static Object listFilter(Object items, Object fn) {
+        Object reversed = listNil();
+        ListValue current = asListValue(items);
+        while (current.cons) {
+            if (asBool(call(fn, current.head))) {
+                reversed = listCons(current.head, reversed);
+            }
+            current = asListValue(current.tail);
+        }
+        return listReverse(reversed);
+    }
+
+    public static Object listTryMap(Object items, Object fn) {
+        Object reversed = listNil();
+        ListValue current = asListValue(items);
+        while (current.cons) {
+            Object result = call(fn, current.head);
+            if (isErr(result)) {
+                return result;
+            }
+            reversed = listCons(unwrapOk(result), reversed);
+            current = asListValue(current.tail);
+        }
+        return ok(listReverse(reversed));
     }
 
     public static Object dictGet(Object dict, Object key) {
@@ -1155,6 +1264,10 @@ public final class VelnRuntime {
 
     private static Option asOption(Object value) {
         return (Option) value;
+    }
+
+    private static ListValue asListValue(Object value) {
+        return (ListValue) value;
     }
 
     private static Result asResult(Object value) {

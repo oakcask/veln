@@ -190,6 +190,32 @@ fn lowers_module_header_and_use_aliases() {
 }
 
 #[test]
+fn lowers_type_declarations_with_variant_fields() {
+    let module = lower_source(concat!(
+        "type List(A)\n",
+        "  Nil\n",
+        "  Cons(head: A, tail: List(A))\n",
+        "end\n",
+        "fn main() -> () effects []\n",
+        "  ()\n",
+        "end\n",
+    ));
+
+    assert_eq!(module.types.len(), 1);
+    let list = &module.types[0];
+    assert_eq!(list.name.as_deref(), Some("List"));
+    assert_eq!(list.params, vec!["A"]);
+    assert_eq!(list.variants.len(), 2);
+    assert_eq!(list.variants[0].name.as_deref(), Some("Nil"));
+    assert!(list.variants[0].fields.is_empty());
+    assert_eq!(list.variants[1].name.as_deref(), Some("Cons"));
+    assert_eq!(list.variants[1].fields[0].name, "head");
+    assert_eq!(list.variants[1].fields[0].ty, "A");
+    assert_eq!(list.variants[1].fields[1].name, "tail");
+    assert_eq!(list.variants[1].fields[1].ty, "List(A)");
+}
+
+#[test]
 fn lowers_holes_to_node_id_backed_expression_nodes() {
     let module = lower_source("fn todo() -> ()\n  _answer\nend\n");
 

@@ -11,6 +11,7 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
     prelude_float_signature(descriptor.name)
         .or_else(|| prelude_string_signature(descriptor.name))
         .or_else(|| prelude_vec_signature(descriptor.name, &expected))
+        .or_else(|| prelude_list_signature(descriptor.name, &expected))
         .or_else(|| prelude_dict_signature(descriptor.name, &expected))
         .or_else(|| prelude_option_signature(descriptor.name, &expected))
         .or_else(|| prelude_result_signature(descriptor.name, &expected))
@@ -19,6 +20,7 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
 struct ExpectedPreludeParts {
     direct: Type,
     vec_item: Type,
+    list_item: Type,
     option_item: Type,
     result_value: Type,
     result_error: Type,
@@ -42,6 +44,10 @@ impl ExpectedPreludeParts {
             direct: expected.cloned().unwrap_or(Type::Unknown),
             vec_item: expected
                 .and_then(Type::vec_part)
+                .cloned()
+                .unwrap_or(Type::Unknown),
+            list_item: expected
+                .and_then(adt::list_part)
                 .cloned()
                 .unwrap_or(Type::Unknown),
             option_item: expected
@@ -157,6 +163,78 @@ fn prelude_vec_callback_signature(
             &expected.result_value,
             expected.result_error.clone(),
             true,
+        )),
+        _ => None,
+    }
+}
+
+fn prelude_list_signature(
+    name: &str,
+    expected: &ExpectedPreludeParts,
+) -> Option<(Vec<Type>, Type)> {
+    prelude_list_basic_signature(name, &expected.list_item)
+        .or_else(|| prelude_list_callback_signature(name, expected))
+}
+
+fn prelude_list_basic_signature(name: &str, list_item: &Type) -> Option<(Vec<Type>, Type)> {
+    match name {
+        "list_nil" => Some((Vec::new(), adt::list_type(list_item.clone()))),
+        "list_cons" => Some((
+            vec![list_item.clone(), adt::list_type(list_item.clone())],
+            adt::list_type(list_item.clone()),
+        )),
+        "list_is_empty" => Some((vec![adt::list_type(Type::Unknown)], Type::bool())),
+        "list_reverse" => Some((
+            vec![adt::list_type(list_item.clone())],
+            adt::list_type(list_item.clone()),
+        )),
+        _ => None,
+    }
+}
+
+fn prelude_list_callback_signature(
+    name: &str,
+    expected: &ExpectedPreludeParts,
+) -> Option<(Vec<Type>, Type)> {
+    let list_item = &expected.list_item;
+    match name {
+        "list_map" => Some((
+            vec![
+                adt::list_type(Type::Unknown),
+                Type::Function {
+                    params: vec![Type::Unknown],
+                    return_type: Box::new(list_item.clone()),
+                    effects: Vec::new(),
+                },
+            ],
+            adt::list_type(list_item.clone()),
+        )),
+        "list_filter" => Some((
+            vec![
+                adt::list_type(list_item.clone()),
+                Type::Function {
+                    params: vec![list_item.clone()],
+                    return_type: Box::new(Type::bool()),
+                    effects: Vec::new(),
+                },
+            ],
+            adt::list_type(list_item.clone()),
+        )),
+        "list_fold" => Some((
+            vec![
+                adt::list_type(Type::Unknown),
+                expected.direct.clone(),
+                Type::Function {
+                    params: vec![expected.direct.clone(), Type::Unknown],
+                    return_type: Box::new(expected.direct.clone()),
+                    effects: Vec::new(),
+                },
+            ],
+            expected.direct.clone(),
+        )),
+        "list_try_map" => Some(list_try_map_signature(
+            &expected.result_value,
+            expected.result_error.clone(),
         )),
         _ => None,
     }
@@ -317,6 +395,23 @@ fn vec_try_map_signature(
     )
 }
 
+fn list_try_map_signature(result_value: &Type, result_error: Type) -> (Vec<Type>, Type) {
+    let mapped_item = adt::list_part(result_value)
+        .cloned()
+        .unwrap_or(Type::Unknown);
+    (
+        vec![
+            adt::list_type(Type::Unknown),
+            Type::Function {
+                params: vec![Type::Unknown],
+                return_type: Box::new(adt::result_type(mapped_item.clone(), result_error.clone())),
+                effects: Vec::new(),
+            },
+        ],
+        adt::result_type(adt::list_type(mapped_item), result_error),
+    )
+}
+
 pub(crate) fn float_prefix_prelude_name(op: PrefixOp) -> Option<&'static str> {
     match op {
         PrefixOp::Negate => Some("float_negate"),
@@ -387,6 +482,7 @@ pub(crate) fn core_prelude_signature(
     let signature = core_prelude_float_signature(descriptor.name)
         .or_else(|| core_prelude_string_signature(descriptor.name))
         .or_else(|| core_prelude_vec_signature(descriptor.name, &expected))
+        .or_else(|| core_prelude_list_signature(descriptor.name, &expected))
         .or_else(|| core_prelude_dict_signature(descriptor.name, &expected))
         .or_else(|| core_prelude_option_signature(descriptor.name, &expected))
         .or_else(|| core_prelude_result_signature(descriptor.name, &expected))?;
@@ -400,6 +496,7 @@ pub(crate) fn core_prelude_signature(
 struct ExpectedCorePreludeParts {
     direct: CoreType,
     vec_item: CoreType,
+    list_item: CoreType,
     option_item: CoreType,
     result_value: CoreType,
     result_error: CoreType,
@@ -423,6 +520,10 @@ impl ExpectedCorePreludeParts {
             direct: expected.cloned().unwrap_or(CoreType::Unknown),
             vec_item: expected
                 .and_then(CoreType::vec_part)
+                .cloned()
+                .unwrap_or(CoreType::Unknown),
+            list_item: expected
+                .and_then(adt::core_list_part)
                 .cloned()
                 .unwrap_or(CoreType::Unknown),
             option_item: expected
@@ -553,6 +654,84 @@ fn core_prelude_vec_callback_signature(
     }
 }
 
+fn core_prelude_list_signature(
+    name: &str,
+    expected: &ExpectedCorePreludeParts,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    core_prelude_list_basic_signature(name, &expected.list_item)
+        .or_else(|| core_prelude_list_callback_signature(name, expected))
+}
+
+fn core_prelude_list_basic_signature(
+    name: &str,
+    list_item: &CoreType,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    match name {
+        "list_nil" => Some((Vec::new(), adt::core_list_type(list_item.clone()))),
+        "list_cons" => Some((
+            vec![list_item.clone(), adt::core_list_type(list_item.clone())],
+            adt::core_list_type(list_item.clone()),
+        )),
+        "list_is_empty" => Some((
+            vec![adt::core_list_type(CoreType::Unknown)],
+            CoreType::bool(),
+        )),
+        "list_reverse" => Some((
+            vec![adt::core_list_type(list_item.clone())],
+            adt::core_list_type(list_item.clone()),
+        )),
+        _ => None,
+    }
+}
+
+fn core_prelude_list_callback_signature(
+    name: &str,
+    expected: &ExpectedCorePreludeParts,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let list_item = &expected.list_item;
+    match name {
+        "list_map" => Some((
+            vec![
+                adt::core_list_type(CoreType::Unknown),
+                CoreType::Function {
+                    params: vec![CoreType::Unknown],
+                    return_type: Box::new(list_item.clone()),
+                    effects: Vec::new(),
+                },
+            ],
+            adt::core_list_type(list_item.clone()),
+        )),
+        "list_filter" => Some((
+            vec![
+                adt::core_list_type(list_item.clone()),
+                CoreType::Function {
+                    params: vec![list_item.clone()],
+                    return_type: Box::new(CoreType::bool()),
+                    effects: Vec::new(),
+                },
+            ],
+            adt::core_list_type(list_item.clone()),
+        )),
+        "list_fold" => Some((
+            vec![
+                adt::core_list_type(CoreType::Unknown),
+                expected.direct.clone(),
+                CoreType::Function {
+                    params: vec![expected.direct.clone(), CoreType::Unknown],
+                    return_type: Box::new(expected.direct.clone()),
+                    effects: Vec::new(),
+                },
+            ],
+            expected.direct.clone(),
+        )),
+        "list_try_map" => Some(core_list_try_map_signature(
+            &expected.result_value,
+            expected.result_error.clone(),
+        )),
+        _ => None,
+    }
+}
+
 fn core_prelude_dict_signature(
     name: &str,
     expected: &ExpectedCorePreludeParts,
@@ -678,6 +857,29 @@ fn core_prelude_result_signature(
         )),
         _ => None,
     }
+}
+
+fn core_list_try_map_signature(
+    result_value: &CoreType,
+    result_error: CoreType,
+) -> (Vec<CoreType>, CoreType) {
+    let mapped_item = adt::core_list_part(result_value)
+        .cloned()
+        .unwrap_or(CoreType::Unknown);
+    (
+        vec![
+            adt::core_list_type(CoreType::Unknown),
+            CoreType::Function {
+                params: vec![CoreType::Unknown],
+                return_type: Box::new(adt::core_result_type(
+                    mapped_item.clone(),
+                    result_error.clone(),
+                )),
+                effects: Vec::new(),
+            },
+        ],
+        adt::core_result_type(adt::core_list_type(mapped_item), result_error),
+    )
 }
 
 #[cfg(test)]
