@@ -397,8 +397,8 @@ test("repair proposal route points completed targets to reference records", () =
     "../proposals/agent-repair-loop-followups.md",
   );
   assertIncludes(
-    repairCandidates,
-    "Do not promote any remaining repair-loop proposal axis",
+    proposal,
+    "Do not promote any remaining proposal axis",
   );
 });
 
