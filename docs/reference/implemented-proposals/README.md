@@ -25,6 +25,8 @@ behavior.
   [formatter-stabilization.md](formatter-stabilization.md).
 - Hash line comments:
   [hash-line-comments.md](hash-line-comments.md).
+- Drop legacy slash comments:
+  [drop-legacy-slash-comments.md](drop-legacy-slash-comments.md).
 - First repair command boundary:
   [repair-command-first-boundary.md](repair-command-first-boundary.md).
 - Repair command saved input freshness:

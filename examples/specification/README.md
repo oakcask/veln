@@ -49,6 +49,9 @@ against the built `veln` binary.
   record let and match patterns, private inference, parenthesized expressions,
   nested match expressions in call and aggregate positions, and trailing
   record type fields.
+- `check/slash-comments-rejected/`: slash-prefixed comment-like text is
+  rejected as source instead of being treated as ordinary or documentation
+  comments.
 - `check/discovery-parse-gate/`: default recursive source discovery, skipped
   build output, per-file parse gates, and semantic diagnostics from other
   parse-clean files.

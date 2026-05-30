@@ -189,9 +189,9 @@ impl LineComments {
                         after
                             .entry(line)
                             .or_default()
-                            .push(canonical_comment_text(token.text.trim_start()));
+                            .push(token.text.trim_start().to_string());
                     } else {
-                        pending.push(canonical_comment_text(token.text.trim_start()));
+                        pending.push(token.text.trim_start().to_string());
                     }
                 }
                 TokenKind::Eof => {}
@@ -258,13 +258,6 @@ impl LineComments {
     fn all_emitted(&self) -> bool {
         self.before.borrow().is_empty() && self.after.borrow().is_empty()
     }
-}
-
-fn canonical_comment_text(text: &str) -> String {
-    text.strip_prefix("///")
-        .map(|content| format!("##{content}"))
-        .or_else(|| text.strip_prefix("//").map(|content| format!("#{content}")))
-        .unwrap_or_else(|| text.to_string())
 }
 
 fn function_body_end_line(function: &FunctionDecl) -> usize {

@@ -1,0 +1,29 @@
+command = ["check", "--json", "ordinary.veln", "documentation.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"parse.expected_item\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "parse.expected_item"
+severity = "error"
+kind = "parse"
+
+[diagnostics.span]
+file = "ordinary.veln"
+
+[[diagnostics]]
+id = "parse.expected_item"
+severity = "error"
+kind = "parse"
+
+[diagnostics.span]
+file = "documentation.veln"

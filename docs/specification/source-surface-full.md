@@ -85,8 +85,8 @@ Formatter indentation and canonical comment spelling are command behavior. See
 `veln fmt` layout.
 
 `#` starts an ordinary line comment and runs through the end of the line. `##`
-starts a documentation line comment. The lexer still accepts `//` ordinary
-line comments and `///` documentation line comments as legacy spellings.
+starts a documentation line comment. `//` is not an ordinary line comment
+marker, and `///` is not a documentation line comment marker.
 
 The final expression line is the returned value. If a body has no final
 expression line, the omitted tail expression returns `()`. A non-`()`
@@ -214,14 +214,13 @@ An adjacent doc comment fence whose info string is
 output to the immediately preceding generated doctest.
 
 Inside an executable `veln` fence, a line that starts with `> ` is hidden setup:
-the generated test includes the line after removing the marker. Legacy `///`
-doctest fences also accept `# ` as hidden setup. In `##` doctest fences,
-`# comment` remains visible example source and is included as a normal source
-comment. The `> ` hidden marker is exact after the doc-comment prefix and one
-optional separator space; an example that intentionally starts source with `>`
-can write one extra leading space before `>`. Hidden setup is useful for
-imports, helpers, and bindings that the documented sample should use without
-displaying harness-only setup as example code.
+the generated test includes the line after removing the marker. `# comment`
+remains visible example source and is included as a normal source comment. The
+`> ` hidden marker is exact after the doc-comment prefix and one optional
+separator space; an example that intentionally starts source with `>` can write
+one extra leading space before `>`. Hidden setup is useful for imports,
+helpers, and bindings that the documented sample should use without displaying
+harness-only setup as example code.
 Unknown `veln-output` attributes, missing `stream`, and stream values other
 than `stdout` or `stderr` report doctest metadata diagnostics. A doctest may
 attach at most one expected-output fence for each stream. A second
@@ -230,10 +229,9 @@ attach at most one expected-output fence for each stream. A second
 the selected expectation.
 
 Documentation line comments may also contain ADR-lite records. A complete
-record starts with `## @adr` or `## @adr-lite`, with legacy `/// @adr` and
-`/// @adr-lite` also accepted, and then provides these fields as `key: value`
-doc-comment lines: `id`, `status`, `scope`, `context`, `decision`, and
-`consequences`.
+record starts with `## @adr` or `## @adr-lite` and then provides these fields
+as `key: value` doc-comment lines: `id`, `status`, `scope`, `context`,
+`decision`, and `consequences`.
 
 ```veln
 ## @adr

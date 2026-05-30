@@ -142,7 +142,6 @@ trivia --> [].
 trivia_char --> [Char], { memberchk(Char, [' ', '\t', '\r']) }.
 
 comment --> ['#'], comment_tail.
-comment --> ['/','/'], comment_tail.
 comment_tail --> [Char], { Char \= '\n' }, !, comment_tail.
 comment_tail --> [].
 

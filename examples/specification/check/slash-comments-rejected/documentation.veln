@@ -1,0 +1,4 @@
+/// documentation slash comment text is source, not documentation
+pub fn documented() -> ()
+  ()
+end

@@ -136,31 +136,26 @@ fn reports_missing_end() {
 }
 
 #[test]
-fn lossless_tree_retains_trivia() {
+fn lexer_keeps_slash_slash_as_division_tokens() {
     let source = SourceFile::new(
         "main.veln",
-        "// module comment\nfn id(value: Int) -> Int\n  value // tail comment\nend\n",
+        "// module comment\nfn id(value: Int) -> Int\n  value // tail text\nend\n",
     );
 
-    let output = parse(&source);
-    let tokens = output.tree.lossless_tokens().collect::<Vec<_>>();
+    let lexed = lex(&source);
+    let slash_tokens = lexed
+        .tokens
+        .iter()
+        .filter(|token| token.kind == TokenKind::Slash)
+        .count();
 
+    assert_eq!(slash_tokens, 4);
     assert!(
-        tokens
+        !lexed
+            .tokens
             .iter()
-            .any(|token| token.kind == TokenKind::Comment && token.text == "// module comment")
+            .any(|token| token.kind == TokenKind::Comment)
     );
-    assert!(
-        tokens
-            .iter()
-            .any(|token| token.kind == TokenKind::Whitespace)
-    );
-    assert!(
-        tokens
-            .iter()
-            .any(|token| token.kind == TokenKind::Comment && token.text == "// tail comment")
-    );
-    assert_eq!(output.tree.items.len(), 1);
 }
 
 #[test]
@@ -188,7 +183,7 @@ fn lossless_tree_retains_hash_line_comments() {
 }
 
 #[test]
-fn parses_adr_lite_records_from_doc_comments() {
+fn slash_doc_comments_do_not_create_adr_lite_records() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -207,32 +202,12 @@ fn parses_adr_lite_records_from_doc_comments() {
 
     let output = parse(&source);
 
-    assert!(output.diagnostics.is_empty());
-    assert_eq!(output.tree.adr_lite_records.len(), 1);
-    let record = &output.tree.adr_lite_records[0];
-    assert_eq!(record.id, "order-summary");
-    assert_eq!(record.status, "accepted");
-    assert_eq!(record.scope, "pub fn summarize");
-    assert_eq!(
-        record.anchor,
-        Some(AdrLiteAnchor::Function {
-            name: "summarize".to_string()
-        })
-    );
-    assert_eq!(
-        format_tree(&output.tree),
-        concat!(
-            "## @adr\n",
-            "## id: order-summary\n",
-            "## status: accepted\n",
-            "## scope: pub fn summarize\n",
-            "## context: Summaries need source-adjacent rationale.\n",
-            "## decision: Keep the public API pure.\n",
-            "## consequences: Runtime behavior ignores this record.\n",
-            "pub fn summarize() -> ()\n",
-            "\t()\n",
-            "end\n",
-        )
+    assert!(output.tree.adr_lite_records.is_empty());
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.expected_item")
     );
 }
 
@@ -274,13 +249,13 @@ fn anchors_adr_lite_records_to_modules() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "/// @adr-lite\n",
-            "/// id: module-boundary\n",
-            "/// status: accepted\n",
-            "/// scope: module\n",
-            "/// context: Module identity is compiler-visible.\n",
-            "/// decision: Keep the source header canonical.\n",
-            "/// consequences: Manifest metadata cannot rename the module.\n",
+            "## @adr-lite\n",
+            "## id: module-boundary\n",
+            "## status: accepted\n",
+            "## scope: module\n",
+            "## context: Module identity is compiler-visible.\n",
+            "## decision: Keep the source header canonical.\n",
+            "## consequences: Manifest metadata cannot rename the module.\n",
             "mod app.core\n",
             "fn helper() -> ()\n",
             "  ()\n",
@@ -1218,11 +1193,11 @@ fn format_tree_formats_attached_line_comments() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "// header\n",
+            "# header\n",
             "fn   main ( ) -> ()\n",
-            "  _ // hole\n",
-            "// close docs\n",
-            "end // function end\n",
+            "  _ # hole\n",
+            "# close docs\n",
+            "end # function end\n",
         ),
     );
 
@@ -1274,11 +1249,11 @@ fn format_tree_attaches_standalone_comments_to_formatted_lines() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "// module docs\n",
+            "# module docs\n",
             "mod   app\n",
-            "/// helper docs\n",
+            "## helper docs\n",
             "fn   helper ( value : Unit ) -> Unit\n",
-            "// body docs\n",
+            "# body docs\n",
             "()\n",
             "end\n",
         ),
@@ -1308,15 +1283,15 @@ fn format_tree_attaches_comments_to_imports_contracts_and_end_lines() {
         "main.veln",
         concat!(
             "mod   app\n",
-            "// import docs\n",
+            "# import docs\n",
             "use   platform.io\n",
-            "// function docs\n",
+            "# function docs\n",
             "fn   main ( ready : Bool ) -> Unit\n",
-            "// require docs\n",
+            "# require docs\n",
             "require ready\n",
-            "// body docs\n",
+            "# body docs\n",
             "()\n",
-            "// end docs\n",
+            "# end docs\n",
             "end\n",
         ),
     );
