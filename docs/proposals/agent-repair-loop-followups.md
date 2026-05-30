@@ -43,6 +43,20 @@ Each axis needs a concrete target before implementation. Keep cross-axis
 coordination here, but split large design work into a narrower proposal page
 when the first implementation target is selected.
 
+## Code Route
+
+- Command entry point: `crates/veln-cli/src/commands/repair.rs`.
+- Candidate input normalization and id matching:
+  `crates/veln-cli/src/commands/repair/candidates.rs`.
+- Application authority, confirmation, override, and verification:
+  `crates/veln-cli/src/commands/repair/application.rs`.
+- Edit planning and target validation:
+  `crates/veln-cli/src/commands/repair/editing.rs`.
+- Repair command JSON and human output:
+  `crates/veln-cli/src/commands/repair/outcome.rs`.
+- Advisory candidate evidence construction:
+  `crates/veln-sema/src/repair_candidates.rs`.
+
 ## Non-Targets
 
 - Do not weaken the current advisory boundary for `check --json`.
