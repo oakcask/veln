@@ -7429,6 +7429,7 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
         [
             "dict_contains",
             "dict_get",
+            "dict_insert",
             "option_and_then",
             "option_map",
             "option_unwrap_or",
@@ -7968,6 +7969,15 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
                 "end\n",
             ),
             "expected `Dict(unknown, unknown)`, but found `Int`",
+        ),
+        (
+            "dict_insert",
+            concat!(
+                "pub fn main(value: Int) -> Dict(String, Int) effects []\n",
+                "  dict_insert(value, \"key\", 1)\n",
+                "end\n",
+            ),
+            "expected `Dict(String, Int)`, but found `Int`",
         ),
     ] {
         assert_source_backed_helper_user_call_site_type_mismatch(

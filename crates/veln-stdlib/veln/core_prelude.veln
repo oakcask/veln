@@ -91,6 +91,10 @@ fn dict_contains(dict: Dict(K, V), key: K) -> Bool effects []
 	end
 end
 
+fn dict_insert(dict: Dict(K, V), key: K, value: V) -> Dict(K, V) effects []
+	dict_insert(dict, key, value)
+end
+
 fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
 	match value
 		Some(inner) => Some(f(inner))
