@@ -1,6 +1,6 @@
 # Doctest Runtime Failure Expectations
 
-Status: partially implemented follow-ups
+Status: proposed follow-ups
 
 This page records remaining runtime-failure follow-up work outside the
 implemented contract and result doctest routes. Current behavior is specified in
