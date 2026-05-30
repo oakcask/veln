@@ -3,8 +3,8 @@
 Status: proposed
 
 This page routes future source-backed prelude helper migrations through the
-implemented standard symbol split. Proposal text here is not the source of
-current helper signatures, value semantics, or descriptor metadata.
+implemented standard symbol split. It is a proposal entry point, not the source
+of current helper signatures, value semantics, or descriptor metadata.
 
 ## Read First
 
@@ -13,37 +13,39 @@ current helper signatures, value semantics, or descriptor metadata.
   [../specification/names-effects.md](../specification/names-effects.md).
 - Source syntax available for candidate bodies:
   [../specification/source-surface.md](../specification/source-surface.md).
-- Candidate rule and migration pattern after one descriptor-only helper is
-  chosen:
+- Migration pattern after one descriptor-only helper is chosen:
   [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates).
+
+Stop in the specification when it answers whether a helper is already
+source-backed. Open the full proposal only after choosing exactly one
+descriptor-only pure helper.
 
 Choose exactly one descriptor-only pure helper before promoting future helper
 work into a concrete target.
 
 ## Current Boundary
 
-The specification is the only current-behavior list for source-backed versus
-descriptor-only pure helpers. A helper in the specification's source-backed
-list is already migrated; a helper in its descriptor-only pure-helper list is
-the remaining candidate pool for this proposal.
+Use the specification's source-backed boundary as the current-behavior list:
 
-Future targets must not add helper semantics, effects, runtime boundaries,
-parser features, module loading, source-level effect handlers, streaming,
-subprocess behavior, or public container representation guarantees.
+- Source-backed helper: already migrated; do not use this proposal as current
+  behavior evidence.
+- Descriptor-only pure helper: candidate pool for the next migration.
+- Anything needing new semantics, effects, runtime boundaries, parser features,
+  module loading, source-level effect handlers, streaming, subprocess behavior,
+  or public container representation guarantees: out of scope.
 
 ## Work Route
 
 1. Choose exactly one helper from the specification's descriptor-only
    pure-helper list.
-2. Read its implemented signature and value behavior from the specification.
-3. Open
+2. Keep its implemented signature, value behavior, effects, diagnostics
+   anchoring, and backend lowering from the specification.
+3. Open the full proposal's
    [self-hosting-standard-library-full.md#remaining-pure-helper-candidates](self-hosting-standard-library-full.md#remaining-pure-helper-candidates)
-   only for the candidate rule and migration pattern.
-4. Keep the existing signature, value behavior, effect behavior, diagnostics
-   anchoring, and backend lowering unchanged.
-5. Add only the source placement and descriptor metadata needed by the existing
+   section only for the candidate rule and migration pattern.
+4. Add only the source placement and descriptor metadata needed by the existing
    source-backed helper model.
-6. After code and tests support the move, update the implemented helper split
+5. After code and tests support the move, update the implemented helper split
    in the specification before treating the behavior as current.
 
 ## Read When
@@ -59,5 +61,4 @@ subprocess behavior, or public container representation guarantees.
 
 - Do not use this page for current standard symbol behavior, helper
   classification, or helper semantics.
-- Do not open the full proposal when the target, boundary, and work route above
-  answer the task.
+- Do not open the full proposal when the decision route above answers the task.

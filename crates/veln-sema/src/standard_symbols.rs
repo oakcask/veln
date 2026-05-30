@@ -12,7 +12,7 @@ pub(crate) struct StandardSymbolDescriptor {
     pub(crate) kind: StandardSymbolKind,
     pub(crate) effects: &'static [&'static str],
     pub(crate) lowering: Option<&'static str>,
-    pub(crate) source: Option<&'static veln_stdlib::StdlibSource>,
+    pub(crate) source: Option<veln_stdlib::StdlibSource>,
     pub(crate) stability: StandardSymbolStability,
 }
 
@@ -29,15 +29,27 @@ const PROCESS_EFFECTS: &[&str] = &["process"];
 const PURE_EFFECTS: &[&str] = &[];
 #[cfg(test)]
 const COMPLETED_SELF_HOSTING_HELPERS: &[&str] = &[
+    "vec_fold",
     "vec_map",
     "vec_try_map",
     "vec_try_map_with",
     "dict_get",
     "dict_insert",
+    "dict_remove",
 ];
 #[cfg(test)]
 const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] =
     &["vec_map_step", "vec_try_map_step", "vec_try_map_with_step"];
+
+macro_rules! source_prelude_symbol_set {
+    ($($name:literal => $source:expr),+ $(,)?) => {
+        #[cfg(test)]
+        const SOURCE_PRELUDE_NAMES: &[&str] = &[$($name),+];
+        const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
+            $(source_prelude_symbol_descriptor($name, $source)),+
+        ];
+    };
+}
 
 const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("stdio", "print", STDIO_EFFECTS, "runtime.stdio.print"),
@@ -144,29 +156,29 @@ const SELF_HOSTING_CANDIDATE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("string_split_once"),
     prelude_symbol_descriptor("string_parse_int"),
     prelude_symbol_descriptor("int_to_string"),
-    prelude_symbol_descriptor("vec_fold"),
-    prelude_symbol_descriptor("dict_remove"),
 ];
 
-const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_LEN),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_IS_EMPTY),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_PUSH),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_CONCAT),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_MAP),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_FILTER),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_TRY_MAP),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_TRY_MAP_WITH),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_GET),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_CONTAINS),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_INSERT),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_MAP),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_AND_THEN),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_UNWRAP_OR),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_RESULT_MAP),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_RESULT_MAP_ERR),
-    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_RESULT_AND_THEN),
-];
+source_prelude_symbol_set! {
+    "vec_fold" => veln_stdlib::core_prelude_vec_fold_source(),
+    "vec_len" => veln_stdlib::core_prelude_source("vec_len"),
+    "vec_is_empty" => veln_stdlib::core_prelude_source("vec_is_empty"),
+    "vec_push" => veln_stdlib::core_prelude_source("vec_push"),
+    "vec_concat" => veln_stdlib::core_prelude_source("vec_concat"),
+    "vec_map" => veln_stdlib::core_prelude_source("vec_map"),
+    "vec_filter" => veln_stdlib::core_prelude_source("vec_filter"),
+    "vec_try_map" => veln_stdlib::core_prelude_source("vec_try_map"),
+    "vec_try_map_with" => veln_stdlib::core_prelude_source("vec_try_map_with"),
+    "dict_get" => veln_stdlib::core_prelude_source("dict_get"),
+    "dict_contains" => veln_stdlib::core_prelude_source("dict_contains"),
+    "dict_insert" => veln_stdlib::core_prelude_source("dict_insert"),
+    "dict_remove" => veln_stdlib::core_prelude_source("dict_remove"),
+    "option_map" => veln_stdlib::core_prelude_source("option_map"),
+    "option_and_then" => veln_stdlib::core_prelude_source("option_and_then"),
+    "option_unwrap_or" => veln_stdlib::core_prelude_source("option_unwrap_or"),
+    "result_map" => veln_stdlib::core_prelude_source("result_map"),
+    "result_map_err" => veln_stdlib::core_prelude_source("result_map_err"),
+    "result_and_then" => veln_stdlib::core_prelude_source("result_and_then"),
+}
 
 const fn runtime_symbol(
     module: &'static str,
@@ -198,11 +210,12 @@ const fn prelude_symbol_descriptor(name: &'static str) -> StandardSymbolDescript
 }
 
 const fn source_prelude_symbol_descriptor(
-    source: &'static veln_stdlib::StdlibSource,
+    name: &'static str,
+    source: veln_stdlib::StdlibSource,
 ) -> StandardSymbolDescriptor {
     StandardSymbolDescriptor {
         module: None,
-        name: source.entry,
+        name,
         kind: StandardSymbolKind::Veln,
         effects: PURE_EFFECTS,
         lowering: None,
@@ -243,9 +256,8 @@ pub(crate) fn source_backed_symbols() -> impl Iterator<Item = &'static StandardS
 }
 
 #[allow(dead_code)]
-pub(crate) fn compiler_support_sources() -> impl Iterator<Item = &'static veln_stdlib::StdlibSource>
-{
-    [&veln_stdlib::COMPILER_SUPPORT].into_iter()
+pub(crate) fn compiler_support_sources() -> impl Iterator<Item = veln_stdlib::StdlibSource> {
+    [veln_stdlib::COMPILER_SUPPORT].into_iter()
 }
 
 pub(crate) fn effect_strings(symbol: &StandardSymbolDescriptor) -> Vec<String> {
@@ -283,7 +295,7 @@ mod tests {
 
     #[test]
     fn descriptor_table_carries_prelude_purity_metadata() {
-        let symbol = prelude_symbol("dict_remove").expect("prelude descriptor");
+        let symbol = prelude_symbol("int_to_string").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(symbol.effects.is_empty());
@@ -293,13 +305,9 @@ mod tests {
 
     #[test]
     fn source_backed_prelude_descriptors_carry_metadata() {
-        let expected: Vec<_> = SOURCE_PRELUDE_SYMBOLS
-            .iter()
-            .map(|symbol| symbol.name)
-            .collect();
         let mut entries = Vec::new();
 
-        for name in expected.iter().copied() {
+        for name in SOURCE_PRELUDE_NAMES.iter().copied() {
             let symbol = prelude_symbol(name).expect("source-backed helper descriptor");
             let source = symbol.source.expect("source metadata");
 
@@ -307,17 +315,20 @@ mod tests {
             assert!(symbol.effects.is_empty());
             assert_eq!(symbol.lowering, None);
             assert_eq!(source.entry, symbol.name);
-            assert_eq!(source.path, "stdlib/core_prelude.veln");
+            assert!(
+                !source.path.starts_with('/'),
+                "source path should be repository relative"
+            );
             assert!(source.text.contains(&format!("fn {name}")));
             entries.push(source.entry);
         }
 
-        assert_eq!(entries, expected);
+        assert_eq!(entries, SOURCE_PRELUDE_NAMES);
     }
 
     #[test]
     fn descriptor_only_prelude_helpers_do_not_carry_source_metadata() {
-        let symbol = prelude_symbol("dict_remove").expect("prelude descriptor");
+        let symbol = prelude_symbol("int_to_string").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert_eq!(symbol.lowering, None);
@@ -335,12 +346,26 @@ mod tests {
             assert_eq!(symbol.effects, PURE_EFFECTS);
             assert_eq!(symbol.lowering, None);
             assert_eq!(symbol.name, source.entry);
-            assert_eq!(source.path, "stdlib/core_prelude.veln");
+            assert!(
+                !source.path.starts_with('/'),
+                "source path should be repository relative"
+            );
             assert!(
                 source.text.contains(&format!("fn {name}(")),
                 "completed helper source should define {name}"
             );
         }
+    }
+
+    #[test]
+    fn vec_fold_source_metadata_uses_isolated_core_prelude_source() {
+        let symbol = prelude_symbol("vec_fold").expect("vec_fold descriptor");
+        let source = symbol.source.expect("vec_fold source metadata");
+
+        assert_eq!(symbol.kind, StandardSymbolKind::Veln);
+        assert_eq!(source.path, "stdlib/core_prelude_vec_fold.veln");
+        assert!(source.text.contains("mod core_prelude"));
+        assert!(source.text.contains("fn vec_fold("));
     }
 
     #[test]
@@ -376,28 +401,7 @@ mod tests {
             .map(|symbol| symbol.name)
             .collect::<Vec<_>>();
 
-        assert_eq!(
-            source_backed,
-            [
-                "vec_len",
-                "vec_is_empty",
-                "vec_push",
-                "vec_concat",
-                "vec_map",
-                "vec_filter",
-                "vec_try_map",
-                "vec_try_map_with",
-                "dict_get",
-                "dict_contains",
-                "dict_insert",
-                "option_map",
-                "option_and_then",
-                "option_unwrap_or",
-                "result_map",
-                "result_map_err",
-                "result_and_then"
-            ]
-        );
+        assert_eq!(source_backed, SOURCE_PRELUDE_NAMES);
         assert_eq!(
             descriptor_only,
             [
@@ -413,8 +417,6 @@ mod tests {
                 "string_split_once",
                 "string_parse_int",
                 "int_to_string",
-                "vec_fold",
-                "dict_remove"
             ]
         );
     }

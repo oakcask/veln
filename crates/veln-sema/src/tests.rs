@@ -7430,6 +7430,7 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
             "dict_contains",
             "dict_get",
             "dict_insert",
+            "dict_remove",
             "option_and_then",
             "option_map",
             "option_unwrap_or",
@@ -7438,6 +7439,7 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
             "result_map_err",
             "vec_concat",
             "vec_filter",
+            "vec_fold",
             "vec_is_empty",
             "vec_len",
             "vec_map",
@@ -7975,6 +7977,15 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
             concat!(
                 "pub fn main(value: Int) -> Dict(String, Int) effects []\n",
                 "  dict_insert(value, \"key\", 1)\n",
+                "end\n",
+            ),
+            "expected `Dict(String, Int)`, but found `Int`",
+        ),
+        (
+            "dict_remove",
+            concat!(
+                "pub fn main(value: Int) -> Dict(String, Int) effects []\n",
+                "  dict_remove(value, \"key\")\n",
                 "end\n",
             ),
             "expected `Dict(String, Int)`, but found `Int`",

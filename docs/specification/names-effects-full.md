@@ -325,12 +325,12 @@ fails. `int_to_string` renders an integer for display and string composition.
 The implemented standard symbol table has this current pure-helper split:
 
 - source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,
-  `vec_concat`, `vec_map`, `vec_filter`, `vec_try_map`, `vec_try_map_with`,
-  `dict_get`, `dict_contains`, `dict_insert`, `option_map`,
-  `option_and_then`, `option_unwrap_or`, `result_map`, `result_map_err`, and
-  `result_and_then`
-- descriptor-only pure helpers: `vec_fold`, `dict_remove`,
-  `string_split_once`, `string_parse_int`, and `int_to_string`
+  `vec_concat`, `vec_map`, `vec_filter`, `vec_fold`, `vec_try_map`,
+  `vec_try_map_with`, `dict_get`, `dict_contains`, `dict_insert`,
+  `dict_remove`, `option_map`, `option_and_then`, `option_unwrap_or`,
+  `result_map`, `result_map_err`, and `result_and_then`
+- descriptor-only pure helpers: `string_split_once`, `string_parse_int`, and
+  `int_to_string`
 
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
 each helper and [Value Semantics](#value-semantics) for behavior. The
@@ -351,11 +351,14 @@ anchored on user call sites rather than the embedded standard library source.
 Source-backed helpers are declared in `core_prelude` and may use other
 existing helpers. The vec traversal helpers may call `vec_fold` and `vec_push`;
 their step helpers are implementation details, and this source placement does
-not expose or stabilize a public vec representation. The dict helpers keep
-using the existing prelude runtime operation: `dict_get` and `dict_insert` are
-source-backed descriptor entry points, and `dict_contains` derives its result
-from `dict_get`. Private support functions such as `vec_try_map_with_step` are
-ordinary support source and are not separate prelude descriptors.
+not expose or stabilize a public vec representation. The `vec_fold` entry uses
+an isolated `core_prelude` source unit so other helper bodies keep resolving
+fold calls through the descriptor-backed adapter during this migration. The
+dict helpers keep using the existing prelude runtime operation: `dict_get`,
+`dict_insert`, and `dict_remove` are source-backed descriptor entry points, and
+`dict_contains` derives its result from `dict_get`. Private support functions
+such as `vec_try_map_with_step` are ordinary support source and are not
+separate prelude descriptors.
 
 ### Compiler-Support Source
 
