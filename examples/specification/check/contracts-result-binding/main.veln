@@ -1,4 +1,4 @@
-// Contract result bindings give postconditions an explicit name for the return value.
+# Contract result bindings give postconditions an explicit name for the return value.
 fn has_items(items: Vec(Int)) -> Bool effects []
   not vec_is_empty(items)
 end

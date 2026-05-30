@@ -1,4 +1,4 @@
-// Let statements only accept bindings, wildcards, and record patterns.
+# Let statements only accept bindings, wildcards, and record patterns.
 pub fn main(value: Option(Int)) -> () effects []
   let Some(amount) = value
   ()

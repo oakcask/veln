@@ -1,4 +1,4 @@
-// The question-mark operator propagates Err values from Result-returning calls.
+# The question-mark operator propagates Err values from Result-returning calls.
 fn parse(raw: String) -> Result(Int, {message: String}) effects []
   Ok(1)
 end

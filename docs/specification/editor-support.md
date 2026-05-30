@@ -48,9 +48,10 @@ The implemented semantic token types are standard LSP token types:
 | unnamed or named hole | `variable` | `hole` |
 | prelude function | `function` | `defaultLibrary` |
 
-Lexical fallback also classifies `#` comments, strings, numbers, keywords, and
-operators with the matching standard LSP token types. During the compatibility
-stage, legacy `//` comments are still classified as comments.
+Lexical fallback also classifies hash line comments, strings, numbers,
+keywords, and operators with the matching standard LSP token types. TextMate
+fallback highlighting recognizes `#` comments, and during the compatibility
+stage legacy `//` comments are still classified as comments.
 The contextual `satisfy` marker and boolean literals are highlighted as
 keywords.
 

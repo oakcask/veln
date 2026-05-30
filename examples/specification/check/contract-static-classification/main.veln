@@ -1,4 +1,4 @@
-// Literal and tautological predicates can be accepted without runtime checks.
+# Literal and tautological predicates can be accepted without runtime checks.
 fn bounded(value: Int, flag: Bool) -> result: Int effects []
 require 1 + 1 == 2
 require flag or not flag

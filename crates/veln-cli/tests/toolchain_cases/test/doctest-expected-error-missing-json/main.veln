@@ -1,6 +1,6 @@
-/// ```veln fail
-/// let value: Int = 1
-/// ```
+## ```veln fail
+## let value: Int = 1
+## ```
 pub fn documented() -> () effects []
   ()
 end

@@ -1,4 +1,4 @@
-// Function-typed values must carry every effect that the actual callable may perform.
+# Function-typed values must carry every effect that the actual callable may perform.
 fn printer(text: String) -> () effects [stdio]
   stdio::println(text)
 end

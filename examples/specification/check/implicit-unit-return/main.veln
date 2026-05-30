@@ -1,4 +1,4 @@
-// A body with no tail expression returns the implicit unit value.
+# A body with no tail expression returns the implicit unit value.
 fn ok_unit() -> () effects []
 end
 

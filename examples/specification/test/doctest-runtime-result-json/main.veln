@@ -1,28 +1,28 @@
-// Doctest runtime result expectations match returned Err values.
+# Doctest runtime result expectations match returned Err values.
 fn reject() -> () effects []
 require false
   ()
 end
 
-/// ```veln error=String runtime=result value=bad
-/// stdio::println("before failure")
-/// Err("bad")?
-/// ```
-/// ```veln-output stream=stdout
-/// before failure
-/// ```
-///
-/// ```veln error=String runtime=result value=expected
-/// Err("actual")?
-/// ```
-///
-/// ```veln error=String runtime=result value=bad
-/// ()
-/// ```
-///
-/// ```veln runtime=result value=bad
-/// reject()
-/// ```
+## ```veln error=String runtime=result value=bad
+## stdio::println("before failure")
+## Err("bad")?
+## ```
+## ```veln-output stream=stdout
+## before failure
+## ```
+##
+## ```veln error=String runtime=result value=expected
+## Err("actual")?
+## ```
+##
+## ```veln error=String runtime=result value=bad
+## ()
+## ```
+##
+## ```veln runtime=result value=bad
+## reject()
+## ```
 pub fn main() -> () effects []
   ()
 end

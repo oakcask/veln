@@ -1,4 +1,4 @@
-// Selected run reachability follows pure helpers used only by contract predicates.
+# Selected run reachability follows pure helpers used only by contract predicates.
 fn accepts(job: fn() -> Bool effects []) -> Bool effects []
   job()
 end

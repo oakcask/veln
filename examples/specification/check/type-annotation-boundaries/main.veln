@@ -1,4 +1,4 @@
-// Public APIs, test declarations, and type annotations have explicit boundaries.
+# Public APIs, test declarations, and type annotations have explicit boundaries.
 pub fn missing_parameter(value) -> Int effects []
   1
 end

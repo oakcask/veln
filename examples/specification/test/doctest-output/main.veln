@@ -1,10 +1,10 @@
-// Documentation fences can define runnable doctests with expected stdout.
-/// ```veln
-/// stdio::println("ready")
-/// ```
-/// ```veln-output stream=stdout
-/// ready
-/// ```
+# Documentation fences can define runnable doctests with expected stdout.
+## ```veln
+## stdio::println("ready")
+## ```
+## ```veln-output stream=stdout
+## ready
+## ```
 pub fn main() -> () effects []
   ()
 end

@@ -1,4 +1,4 @@
-// Type checking covers function values, records, Result constructors, and operators.
+# Type checking covers function values, records, Result constructors, and operators.
 fn emit(text: String) -> () effects [stdio]
   stdio::println(text)
 end

@@ -1,4 +1,4 @@
-// Result bindings are visible only to postconditions on the same function.
+# Result bindings are visible only to postconditions on the same function.
 pub fn require_cannot_read_result(value: Int) -> output: Int effects []
 require output >= 0
   value

@@ -1,4 +1,4 @@
-// Doctest runtime ensure expectations reuse structured contract failures.
+# Doctest runtime ensure expectations reuse structured contract failures.
 fn reject() -> () effects []
 ensure false
   ()
@@ -9,25 +9,25 @@ require false
   ()
 end
 
-/// ```veln runtime=ensure predicate=false function=reject blame=implementation
-/// stdio::println("before failure")
-/// reject()
-/// ```
-/// ```veln-output stream=stdout
-/// before failure
-/// ```
-///
-/// ```veln runtime=ensure predicate=true function=reject blame=implementation
-/// reject()
-/// ```
-///
-/// ```veln runtime=ensure predicate=false
-/// ()
-/// ```
-///
-/// ```veln runtime=ensure predicate=false
-/// require_failure()
-/// ```
+## ```veln runtime=ensure predicate=false function=reject blame=implementation
+## stdio::println("before failure")
+## reject()
+## ```
+## ```veln-output stream=stdout
+## before failure
+## ```
+##
+## ```veln runtime=ensure predicate=true function=reject blame=implementation
+## reject()
+## ```
+##
+## ```veln runtime=ensure predicate=false
+## ()
+## ```
+##
+## ```veln runtime=ensure predicate=false
+## require_failure()
+## ```
 pub fn main() -> () effects []
   ()
 end

@@ -1,6 +1,6 @@
 # Hash Line Comments
 
-Status: partially implemented compatibility stage
+Status: implemented compatibility stage
 
 This page proposes changing the source line comment marker from `//` to `#`.
 The compatibility-stage behavior already documented in `../specification/` is
@@ -115,14 +115,14 @@ Completed compatibility-stage coverage:
 4. Executable Prolog grammar, editor fallback grammar, semantic token
    expectations, command/specification docs, and a focused hash-comment source
    fixture.
+5. Examples and fixtures that do not intentionally cover compatibility use
+   canonical `#` and `##` comments.
 
 Remaining route:
 
-1. Migrate examples and fixtures that still use legacy comment spelling without
-   intentionally covering compatibility.
-2. Add a targeted diagnostic or migration note for legacy `//` and `///`
+1. Add a targeted diagnostic or migration note for legacy `//` and `///`
    comments if the project wants a gradual deprecation path.
-3. After examples and tests no longer require legacy comments, remove legacy
+2. After examples and tests no longer require legacy comments, remove legacy
    `//` and `///` acceptance or keep it only behind a clearly documented
    compatibility mode.
 
@@ -147,9 +147,8 @@ generation should remain deliberate rather than accidental.
   ADR-lite field names.
 - Do not add a second documentation-comment form that remains canonical beside
   `##`.
-- Do not remove legacy comment handling until the remaining examples and tests
-  that depend on legacy spelling are intentionally migrated or classified as
-  compatibility coverage.
+- Do not remove legacy comment handling until tests that depend on legacy
+  spelling are intentionally migrated or classified as compatibility coverage.
 
 ## Acceptance Checks
 
@@ -187,7 +186,5 @@ generation should remain deliberate rather than accidental.
 ## Update When
 
 - The project chooses a concrete legacy-comment deprecation policy.
-- The remaining examples and fixtures are migrated to canonical comment
-  spelling.
 - Legacy `//` and `///` acceptance changes from compatibility behavior to a
   warning, error, or documented mode.

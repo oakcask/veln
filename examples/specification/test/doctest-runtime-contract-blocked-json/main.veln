@@ -1,7 +1,7 @@
-// Static gates block doctest runtime expectations before execution.
-/// ```veln runtime=contract clause=require predicate=false
-/// let value: Int = "no"
-/// ```
+# Static gates block doctest runtime expectations before execution.
+## ```veln runtime=contract clause=require predicate=false
+## let value: Int = "no"
+## ```
 pub fn main() -> () effects []
   ()
 end

@@ -1,4 +1,4 @@
-// Stdio calls write complete logical operations to the selected stream.
+# Stdio calls write complete logical operations to the selected stream.
 pub fn main() -> () effects [stdio]
   stdio::print("out-")
   stdio::println("line")

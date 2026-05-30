@@ -1,5 +1,5 @@
-// Channel receive, selection, timeout selection, and task cancellation are part
-// of the declared concurrency boundary.
+# Channel receive, selection, timeout selection, and task cancellation are part
+# of the declared concurrency boundary.
 fn idle() -> String effects [concurrency]
   let pair = channel::bounded[String](0)
   match channel::recv(pair.rx)

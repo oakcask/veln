@@ -1,4 +1,4 @@
-// Only String, Int, Float, and Bool entry parameters accept command-line text.
+# Only String, Int, Float, and Bool entry parameters accept command-line text.
 pub fn main(value: Vec(Int)) -> Vec(Int) effects []
   value
 end

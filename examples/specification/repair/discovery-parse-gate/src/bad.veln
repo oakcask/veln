@@ -1,4 +1,4 @@
-// Parse diagnostics in one selected file do not hide repair candidates elsewhere.
+# Parse diagnostics in one selected file do not hide repair candidates elsewhere.
 fn broken() -> Int effects []
   add(1 2)
 end

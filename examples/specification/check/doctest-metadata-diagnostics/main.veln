@@ -1,52 +1,52 @@
-// Doctest metadata diagnostics report invalid attributes and output fences.
-/// ```veln skip=true
-/// stdio::println("ready")
-/// ```
-/// ```veln error=
-/// let value = Ok(1)?
-/// ```
-/// ```veln runtime=
-/// ()
-/// ```
-/// ```veln runtime=panic
-/// ()
-/// ```
-/// ```veln runtime=ensure
-/// ()
-/// ```
-/// ```veln runtime=ensure predicate=
-/// ()
-/// ```
-/// ```veln runtime=result
-/// ()
-/// ```
-/// ```veln runtime=result value=
-/// ()
-/// ```
-/// ```veln runtime=result clause=require
-/// ()
-/// ```
-/// ```veln runtime=contract value=bad
-/// ()
-/// ```
-/// ```veln-output
-/// ready
-/// ```
-/// ```veln-output stream=combined
-/// mixed
-/// ```
-/// ```veln
-/// stdio::println("ready")
-/// ```
-/// ```veln-output stream=stdout
-/// ready
-/// ```
-/// ```veln-output stream=stdout
-/// duplicate
-/// ```
-/// ```veln fail
-/// let value = 1
-/// ```
+# Doctest metadata diagnostics report invalid attributes and output fences.
+## ```veln skip=true
+## stdio::println("ready")
+## ```
+## ```veln error=
+## let value = Ok(1)?
+## ```
+## ```veln runtime=
+## ()
+## ```
+## ```veln runtime=panic
+## ()
+## ```
+## ```veln runtime=ensure
+## ()
+## ```
+## ```veln runtime=ensure predicate=
+## ()
+## ```
+## ```veln runtime=result
+## ()
+## ```
+## ```veln runtime=result value=
+## ()
+## ```
+## ```veln runtime=result clause=require
+## ()
+## ```
+## ```veln runtime=contract value=bad
+## ()
+## ```
+## ```veln-output
+## ready
+## ```
+## ```veln-output stream=combined
+## mixed
+## ```
+## ```veln
+## stdio::println("ready")
+## ```
+## ```veln-output stream=stdout
+## ready
+## ```
+## ```veln-output stream=stdout
+## duplicate
+## ```
+## ```veln fail
+## let value = 1
+## ```
 pub fn main() -> () effects []
   ()
 end

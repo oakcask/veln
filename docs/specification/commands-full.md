@@ -194,7 +194,7 @@ metadata values, missing runtime contract `clause` or `predicate`, missing
 runtime ensure `predicate`, missing runtime result `value`, and unsupported
 runtime expectation kinds are static doc diagnostics. A line inside an
 executable doctest fence that starts with
-`# ` is hidden setup: the generated test includes the line after the marker,
+`> ` is hidden setup: the generated test includes the line after the marker,
 so the example can bind helpers without exposing harness code in the
 documented sample. In `check`, generated doctests participate in parse and
 semantic diagnostics. In `test`, generated positive doctests are selected as

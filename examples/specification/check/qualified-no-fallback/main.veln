@@ -1,4 +1,4 @@
-// Qualified calls require a matching import alias and do not fall back to bare names.
+# Qualified calls require a matching import alias and do not fall back to bare names.
 mod spec.qualified
 
 fn helper() -> Int

@@ -1,4 +1,4 @@
-// Parse diagnostics suppress semantic diagnostics for this file.
+# Parse diagnostics suppress semantic diagnostics for this file.
 fn broken() -> Int effects []
   add(1 2)
 end

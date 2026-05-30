@@ -1,4 +1,4 @@
-// Fallible channel selection returns selected values through Result wrappers.
+# Fallible channel selection returns selected values through Result wrappers.
 pub fn main() -> () effects [concurrency, stdio]
   let left = channel::bounded[String](1)
   let right = channel::bounded[String](1)

@@ -1,9 +1,9 @@
-/// ```veln
-/// stdio::println("ready")
-/// ```
-/// ```veln-output stream=stdout
-/// ready
-/// ```
+## ```veln
+## stdio::println("ready")
+## ```
+## ```veln-output stream=stdout
+## ready
+## ```
 pub fn main() -> () effects []
   ()
 end

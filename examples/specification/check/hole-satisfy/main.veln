@@ -1,4 +1,4 @@
-// Typed holes can carry a satisfy predicate that constrains repair candidates.
+# Typed holes can carry a satisfy predicate that constrains repair candidates.
 fn select(fallback: Int, spare: Int) -> Int
 require fallback >= 0
   _choice satisfy candidate => candidate >= fallback

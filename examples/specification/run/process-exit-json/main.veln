@@ -1,4 +1,4 @@
-// Non-zero process exits are captured in run JSON.
+# Non-zero process exits are captured in run JSON.
 pub fn main() -> () effects [process]
   process::exit(7)
 end

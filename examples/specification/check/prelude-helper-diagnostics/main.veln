@@ -1,5 +1,5 @@
-// Result-returning callbacks on vec_map report the ordinary type error and
-// attach the fallible traversal repair hint.
+# Result-returning callbacks on vec_map report the ordinary type error and
+# attach the fallible traversal repair hint.
 fn stringify(value: Int) -> Result(String, String) effects []
   Ok(int_to_string(value))
 end
