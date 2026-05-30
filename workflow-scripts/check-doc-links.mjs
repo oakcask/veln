@@ -6,7 +6,9 @@ import { fileURLToPath } from "node:url";
 if (isMainModule()) {
   const result = validateDocsLinks(path.resolve("docs"));
   if (!result.valid) {
-    console.error("Documentation links are broken.");
+    console.error(
+      "Fix the listed documentation links before merging; broken routes block readers and agents from finding the intended source.",
+    );
     for (const error of result.errors) {
       console.error(`- ${error}`);
     }

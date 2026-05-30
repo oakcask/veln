@@ -11,7 +11,7 @@ if (isMainModule()) {
 
   if (!result.valid) {
     const message = [
-      "Pull request description does not match .github/pull_request_template.md.",
+      "Update the pull request description before review; the template keeps intent, consequences, risks, and verification visible.",
       ...result.errors.map((error) => `- ${error}`),
     ].join("\n");
 
