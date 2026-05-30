@@ -2839,6 +2839,17 @@ pub(crate) fn predicate_type_with_calls(
     if predicate.is_empty() {
         return None;
     }
+    predicate_literal_type(predicate)
+        .or_else(|| predicate_unary_type(predicate, bindings, call_type))
+        .or_else(|| predicate_boolean_type(predicate, bindings, call_type))
+        .or_else(|| predicate_comparison_type(predicate, bindings, call_type))
+        .or_else(|| predicate_arithmetic_type(predicate, bindings, call_type))
+        .or_else(|| predicate_field_access_type(predicate, bindings, call_type))
+        .or_else(|| predicate_contract_call_type(predicate, call_type))
+        .or_else(|| predicate_binding_type(predicate, bindings))
+}
+
+fn predicate_literal_type(predicate: &str) -> Option<Type> {
     if matches!(predicate, "true" | "false") {
         return Some(Type::bool());
     }
@@ -2851,14 +2862,39 @@ pub(crate) fn predicate_type_with_calls(
     if predicate.chars().all(|ch| ch.is_ascii_digit()) {
         return Some(Type::int());
     }
-    if is_float_literal(predicate) {
-        return Some(Type::float());
-    }
+    is_float_literal(predicate).then(Type::float)
+}
+
+fn predicate_unary_type(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
     if let Some(rest) = predicate.strip_prefix('-') {
         let ty = predicate_type_with_calls(rest, bindings, call_type)?;
         return matches!(ty, Type::Named { ref name, ref args } if args.is_empty() && (name == "Int" || name == "Float"))
             .then_some(ty);
     }
+    if let Some(rest) = predicate.strip_prefix("not ") {
+        return boolean_unary_type(rest, bindings, call_type);
+    }
+    let inner = predicate.strip_prefix("not(")?.strip_suffix(')')?;
+    boolean_unary_type(inner, bindings, call_type)
+}
+
+fn boolean_unary_type(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
+    (predicate_type_with_calls(predicate, bindings, call_type)? == Type::bool()).then(Type::bool)
+}
+
+fn predicate_boolean_type(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
     for operator in ["or", "and"] {
         if let Some((left, right)) = split_top_level_keyword_operator(predicate, operator) {
             let left = predicate_type_with_calls(left, bindings, call_type)?;
@@ -2866,15 +2902,14 @@ pub(crate) fn predicate_type_with_calls(
             return (left == Type::bool() && right == Type::bool()).then(Type::bool);
         }
     }
-    if let Some(rest) = predicate.strip_prefix("not ") {
-        return (predicate_type_with_calls(rest, bindings, call_type)? == Type::bool())
-            .then(Type::bool);
-    }
-    if let Some(rest) = predicate.strip_prefix("not(") {
-        let inner = rest.strip_suffix(')')?;
-        return (predicate_type_with_calls(inner, bindings, call_type)? == Type::bool())
-            .then(Type::bool);
-    }
+    None
+}
+
+fn predicate_comparison_type(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
     for operator in ["==", "!=", "<=", ">=", "<", ">"] {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {
             let left = predicate_type_with_calls(left, bindings, call_type)?;
@@ -2882,33 +2917,51 @@ pub(crate) fn predicate_type_with_calls(
             return comparable_predicate_operands(&left, &right).then(Type::bool);
         }
     }
-    for operator in ["+", "-"] {
+    None
+}
+
+fn predicate_arithmetic_type(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
+    for operator in ["+", "-", "*", "/"] {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {
             let left = predicate_type_with_calls(left, bindings, call_type)?;
             let right = predicate_type_with_calls(right, bindings, call_type)?;
             return numeric_result_type(&left, &right);
         }
     }
-    for operator in ["*", "/"] {
-        if let Some((left, right)) = split_top_level_operator(predicate, operator) {
-            let left = predicate_type_with_calls(left, bindings, call_type)?;
-            let right = predicate_type_with_calls(right, bindings, call_type)?;
-            return numeric_result_type(&left, &right);
-        }
+    None
+}
+
+fn predicate_field_access_type(
+    predicate: &str,
+    bindings: &[Binding],
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
+    let access = split_field_access(predicate)?;
+    let mut current = predicate_type_with_calls(access.base, bindings, call_type)?;
+    for field in access.fields {
+        current = current.record_field(field)?.clone();
     }
-    if let Some(access) = split_field_access(predicate) {
-        let mut current = predicate_type_with_calls(access.base, bindings, call_type)?;
-        for field in access.fields {
-            current = current.record_field(field)?.clone();
-        }
-        return Some(current);
-    }
-    if let [call] = contract_calls(predicate).as_slice()
-        && call.start == 0
-        && call.end == predicate.len()
-    {
-        return call_type(&call.callee);
-    }
+    Some(current)
+}
+
+fn predicate_contract_call_type(
+    predicate: &str,
+    call_type: &impl Fn(&str) -> Option<Type>,
+) -> Option<Type> {
+    let calls = contract_calls(predicate);
+    let [call] = calls.as_slice() else {
+        return None;
+    };
+    (call.start == 0 && call.end == predicate.len())
+        .then(|| call_type(&call.callee))
+        .flatten()
+}
+
+fn predicate_binding_type(predicate: &str, bindings: &[Binding]) -> Option<Type> {
     if let Some(binding) = bindings.iter().find(|binding| binding.name == predicate) {
         return Some(binding.ty.clone());
     }

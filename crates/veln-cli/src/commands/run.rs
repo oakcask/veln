@@ -3,12 +3,14 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use veln_ast::Function;
 use veln_ast::FunctionKind;
 use veln_backend_jvm::{EntryArgType, generate_classfiles_with_entry_arg_types};
 use veln_diagnostics::{DiagnosticEnvelope, JsonValue};
 use veln_project::Project;
 use veln_test::{TestFailure, contract_failure_from_trace};
 
+use crate::analysis::ProjectAnalysis;
 use crate::analysis::{DoctestMode, analyze_project};
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{
@@ -21,59 +23,15 @@ pub(crate) fn run_entry(
     inputs: Vec<PathBuf>,
     entry_args: Vec<String>,
 ) -> Result<ExitCode, String> {
-    let root = env::current_dir().map_err(|error| error.to_string())?;
-    let project = Project::discover(root, &inputs).map_err(|error| error.to_string())?;
-    let analysis = analyze_project(project, DoctestMode::Exclude);
-    let diagnostics = analysis.source_diagnostics();
-
-    if has_error(&diagnostics) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
+    let analysis = analyze_run_project(&inputs)?;
+    if report_source_errors(&analysis)? {
         return Ok(ExitCode::from(1));
     }
 
-    let Some(entry_function) = analysis.module.functions.iter().find(|function| {
-        function.kind == FunctionKind::Function && function.name.as_deref() == Some(entry.as_str())
-    }) else {
-        eprintln!("veln: run entry `{entry}` was not found");
+    let Some(entry_arg_types) = checked_entry_arg_types(&analysis, &entry, &entry_args)? else {
         return Ok(ExitCode::from(1));
     };
-    if entry_function.params.len() != entry_args.len() {
-        eprintln!(
-            "veln: run entry `{entry}` expects {} argument(s), got {}",
-            entry_function.params.len(),
-            entry_args.len()
-        );
-        eprintln!("veln: note: pass entry arguments after `--`");
-        return Ok(ExitCode::from(1));
-    }
-    let mut entry_arg_types = Vec::new();
-    for (param, raw_arg) in entry_function.params.iter().zip(entry_args.iter()) {
-        let Some(arg_type) = param.ty.as_deref().and_then(entry_arg_type) else {
-            eprintln!(
-                "veln: run entry parameter `{}` cannot be supplied from a command-line argument",
-                param.name
-            );
-            eprintln!(
-                "veln: note: supported entry argument types are String, Int, Float, and Bool"
-            );
-            return Ok(ExitCode::from(1));
-        };
-        if let Err(message) = validate_entry_arg(arg_type, &param.name, raw_arg) {
-            eprintln!("{message}");
-            return Ok(ExitCode::from(1));
-        }
-        entry_arg_types.push(arg_type);
-    }
-
-    let reachable = analysis.lower_reachable_entry(&entry, FunctionKind::Function);
-    let lowered = reachable.lowered;
-    if has_error(&lowered.diagnostics) {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
-        return Ok(ExitCode::from(1));
-    }
-    let Some(ir) = lowered.ir else {
-        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
-        eprintln!("veln: run blocked: checked program is not executable");
+    let Some(ir) = lower_run_entry(&analysis, &entry)? else {
         return Ok(ExitCode::from(1));
     };
 
@@ -92,6 +50,92 @@ pub(crate) fn run_entry(
         );
     }
     result
+}
+
+fn analyze_run_project(inputs: &[PathBuf]) -> Result<ProjectAnalysis, String> {
+    let root = env::current_dir().map_err(|error| error.to_string())?;
+    let project = Project::discover(root, inputs).map_err(|error| error.to_string())?;
+    Ok(analyze_project(project, DoctestMode::Exclude))
+}
+
+fn report_source_errors(analysis: &ProjectAnalysis) -> Result<bool, String> {
+    let diagnostics = analysis.source_diagnostics();
+    if has_error(&diagnostics) {
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), diagnostics))?;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn find_entry_function<'a>(analysis: &'a ProjectAnalysis, entry: &str) -> Option<&'a Function> {
+    analysis.module.functions.iter().find(|function| {
+        function.kind == FunctionKind::Function && function.name.as_deref() == Some(entry)
+    })
+}
+
+fn checked_entry_arg_types(
+    analysis: &ProjectAnalysis,
+    entry: &str,
+    entry_args: &[String],
+) -> Result<Option<Vec<EntryArgType>>, String> {
+    let Some(entry_function) = find_entry_function(analysis, entry) else {
+        eprintln!("veln: run entry `{entry}` was not found");
+        return Ok(None);
+    };
+    validate_entry_args(entry_function, entry, entry_args)
+}
+
+fn validate_entry_args(
+    entry_function: &Function,
+    entry: &str,
+    entry_args: &[String],
+) -> Result<Option<Vec<EntryArgType>>, String> {
+    if entry_function.params.len() != entry_args.len() {
+        eprintln!(
+            "veln: run entry `{entry}` expects {} argument(s), got {}",
+            entry_function.params.len(),
+            entry_args.len()
+        );
+        eprintln!("veln: note: pass entry arguments after `--`");
+        return Ok(None);
+    }
+    let mut entry_arg_types = Vec::new();
+    for (param, raw_arg) in entry_function.params.iter().zip(entry_args.iter()) {
+        let Some(arg_type) = param.ty.as_deref().and_then(entry_arg_type) else {
+            eprintln!(
+                "veln: run entry parameter `{}` cannot be supplied from a command-line argument",
+                param.name
+            );
+            eprintln!(
+                "veln: note: supported entry argument types are String, Int, Float, and Bool"
+            );
+            return Ok(None);
+        };
+        if let Err(message) = validate_entry_arg(arg_type, &param.name, raw_arg) {
+            eprintln!("{message}");
+            return Ok(None);
+        }
+        entry_arg_types.push(arg_type);
+    }
+    Ok(Some(entry_arg_types))
+}
+
+fn lower_run_entry(
+    analysis: &ProjectAnalysis,
+    entry: &str,
+) -> Result<Option<veln_ir::TypedProgram>, String> {
+    let reachable = analysis.lower_reachable_entry(entry, FunctionKind::Function);
+    let lowered = reachable.lowered;
+    if has_error(&lowered.diagnostics) {
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
+        return Ok(None);
+    }
+    let Some(ir) = lowered.ir else {
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), lowered.diagnostics))?;
+        eprintln!("veln: run blocked: checked program is not executable");
+        return Ok(None);
+    };
+    Ok(Some(ir))
 }
 
 fn run_json(
