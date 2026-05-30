@@ -26,10 +26,12 @@ compiler-known calls.
 
 - Confirming source-backed versus descriptor-only status before proposal work:
   [names-effects-full.md](names-effects-full.md#source-backed-boundary).
-- Choosing the next self-hosting proposal target before migration work:
-  [names-effects-full.md](names-effects-full.md#source-backed-boundary),
-  then
-  [../proposals/self-hosting-standard-library.md](../proposals/self-hosting-standard-library.md).
+- Checking self-hosting migration completion before new proposal work:
+  [names-effects-full.md](names-effects-full.md#source-backed-boundary).
+  The migration is complete when the descriptor-only pure-helper list is empty
+  and all compiler-known pure helpers in that split are source-backed.
+  Completion history:
+  [../reference/implemented-proposals/self-hosting-standard-library.md](../reference/implemented-proposals/self-hosting-standard-library.md).
 - Checking helper signatures before changing the prelude adapter:
   [names-effects-full.md](names-effects-full.md#helper-signatures).
 - Checking standard symbol descriptor metadata:

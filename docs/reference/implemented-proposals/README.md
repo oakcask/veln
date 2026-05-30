@@ -29,6 +29,8 @@ behavior.
   [repair-command-confirmation-override.md](repair-command-confirmation-override.md).
 - Agent test selection graph:
   [agent-test-selection-graph.md](agent-test-selection-graph.md).
+- Self-hosting standard library:
+  [self-hosting-standard-library.md](self-hosting-standard-library.md).
 
 ## Skip Unless Needed
 

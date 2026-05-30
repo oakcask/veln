@@ -16,8 +16,6 @@ compare it with `../specification/` before changing behavior.
   `runtime=contract`, `runtime=ensure`, and `runtime=result` routes.
 - [path-runtime-representation.md](path-runtime-representation.md):
   runtime `Path` representation work.
-- [self-hosting-standard-library.md](self-hosting-standard-library.md):
-  self-hosted standard-library helper migration.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
   repair verification, ranking, partial application, and automatic repair
   follow-ups.

@@ -332,6 +332,11 @@ The implemented standard symbol table has this current pure-helper split:
   `string_parse_int`, and `int_to_string`
 - descriptor-only pure helpers: none
 
+This empty descriptor-only pure-helper list is the implemented completion
+condition for the self-hosting prelude helper migration. Every compiler-known
+pure helper in this split is source-backed, while float operator compatibility
+descriptors remain outside the migration candidate pool.
+
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
 each helper and [Value Semantics](#value-semantics) for behavior. The
 descriptor-only list above is the implemented candidate pool for proposal work
