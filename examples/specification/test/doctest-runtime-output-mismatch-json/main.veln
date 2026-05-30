@@ -1,24 +1,24 @@
-// Expected-output comparison remains independent from runtime failure matching.
+# Expected-output comparison remains independent from runtime failure matching.
 fn reject() -> ()
 require false
   ()
 end
 
-/// ```veln runtime=contract clause=require predicate=false function=reject blame=caller
-/// stdio::println("contract actual")
-/// reject()
-/// ```
-/// ```veln-output stream=stdout
-/// contract expected
-/// ```
-///
-/// ```veln error=String runtime=result value=bad
-/// stdio::println("result actual")
-/// Err("bad")?
-/// ```
-/// ```veln-output stream=stdout
-/// result expected
-/// ```
+## ```veln runtime=contract clause=require predicate=false function=reject blame=caller
+## stdio::println("contract actual")
+## reject()
+## ```
+## ```veln-output stream=stdout
+## contract expected
+## ```
+##
+## ```veln error=String runtime=result value=bad
+## stdio::println("result actual")
+## Err("bad")?
+## ```
+## ```veln-output stream=stdout
+## result expected
+## ```
 pub fn main() -> ()
   ()
 end

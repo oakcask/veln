@@ -1,4 +1,4 @@
-// Failed invariants report the invariant clause at the function boundary.
+# Failed invariants report the invariant clause at the function boundary.
 pub fn main() -> ()
 invariant false
   ()

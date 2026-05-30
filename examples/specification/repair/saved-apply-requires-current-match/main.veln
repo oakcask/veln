@@ -1,4 +1,4 @@
-// Saved repair JSON is not write authorization without a current safe match.
+# Saved repair JSON is not write authorization without a current safe match.
 fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}
   _value satisfy candidate => candidate.ready == order.ready
 end

@@ -1,4 +1,4 @@
-// A conventional test file without top-level tests still participates in discovery.
+# A conventional test file without top-level tests still participates in discovery.
 fn takes_arg(value: Int) -> Int
   value
 end

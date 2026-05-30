@@ -48,8 +48,8 @@ The implemented semantic token types are standard LSP token types:
 | unnamed or named hole | `variable` | `hole` |
 | prelude function | `function` | `defaultLibrary` |
 
-Lexical fallback also classifies comments, strings, numbers, keywords, and
-operators with the matching standard LSP token types.
+Lexical fallback also classifies `#` and legacy `//` comments, strings,
+numbers, keywords, and operators with the matching standard LSP token types.
 The contextual `satisfy` marker and boolean literals are highlighted as
 keywords.
 

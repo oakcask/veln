@@ -1,4 +1,4 @@
-// Type boundary diagnostics cover inference, fields, paths, pipelines, and calls.
+# Type boundary diagnostics cover inference, fields, paths, pipelines, and calls.
 fn inferred(value)
   value
 end

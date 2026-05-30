@@ -1,4 +1,4 @@
-// Contract predicates reject unsupported expression forms before validation.
+# Contract predicates reject unsupported expression forms before validation.
 fn bad(value: Int) -> Int
 require _missing
   value

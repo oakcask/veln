@@ -1036,11 +1036,11 @@ fn fmt_formats_comment_bearing_files() {
     assert_eq!(
         project.read("main.veln"),
         concat!(
-            "// keep leading comment\n",
+            "# keep leading comment\n",
             "fn main() -> ()\n",
-            "\t()  // keep trailing comment\n",
-            "\t// keep closing comment\n",
-            "end  // keep end comment\n",
+            "\t()  # keep trailing comment\n",
+            "\t# keep closing comment\n",
+            "end  # keep end comment\n",
         )
     );
 }
@@ -1062,12 +1062,12 @@ fn fmt_formats_files_with_attached_standalone_comments() {
     );
 
     let expected = concat!(
-        "// module docs\n",
+        "# module docs\n",
         "mod app\n",
         "\n",
-        "/// public docs\n",
+        "## public docs\n",
         "pub fn main(value: ()) -> () effects [stdio]\n",
-        "\t// return docs\n",
+        "\t# return docs\n",
         "\t()\n",
         "end\n",
     );
@@ -1096,16 +1096,16 @@ fn fmt_attaches_comments_to_imports_contracts_and_end_lines() {
 
     let expected = concat!(
         "mod app\n",
-        "// import docs\n",
+        "# import docs\n",
         "use platform.io\n",
         "\n",
-        "// function docs\n",
+        "# function docs\n",
         "fn main(ready: Bool) -> ()\n",
-        "\t// require docs\n",
+        "\t# require docs\n",
         "\trequire ready\n",
-        "\t// body docs\n",
+        "\t# body docs\n",
         "\t()\n",
-        "\t// end docs\n",
+        "\t# end docs\n",
         "end\n",
     );
     project.assert_fmt_idempotent(&["main.veln"], &[("main.veln", expected)]);

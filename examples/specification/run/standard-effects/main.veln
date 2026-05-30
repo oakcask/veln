@@ -1,4 +1,4 @@
-// Standard process, file-system, and stdio calls must be declared as effects.
+# Standard process, file-system, and stdio calls must be declared as effects.
 fn cwd_status() -> String effects [process, fs]
   match process::cwd()
     Ok(path) => match fs::exists(path)

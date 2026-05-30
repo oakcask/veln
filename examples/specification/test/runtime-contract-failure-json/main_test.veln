@@ -1,4 +1,4 @@
-// Runtime contract failures inside tests are reported as contract failures.
+# Runtime contract failures inside tests are reported as contract failures.
 test rejects() -> ()
 require false
   ()

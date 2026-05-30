@@ -33,6 +33,10 @@
         {
           "name": "comment.line.double-slash.veln",
           "match": "//.*$"
+        },
+        {
+          "name": "comment.line.number-sign.veln",
+          "match": "#.*$"
         }
       ]
     },

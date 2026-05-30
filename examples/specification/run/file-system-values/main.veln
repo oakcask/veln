@@ -1,4 +1,4 @@
-// File-system operations report value-level Result outcomes at runtime.
+# File-system operations report value-level Result outcomes at runtime.
 fn read_dir_label(path: Path) -> String effects [fs]
   match fs::read_dir(path)
     Ok(entries) => match vec_len(entries) > 0

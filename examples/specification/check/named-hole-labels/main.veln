@@ -1,4 +1,4 @@
-// Named holes are repair labels, not value declarations, so reused labels do not collide.
+# Named holes are repair labels, not value declarations, so reused labels do not collide.
 fn main() -> Int
   let fallback: Int = 1
   let left: Int = _candidate

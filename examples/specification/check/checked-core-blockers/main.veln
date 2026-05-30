@@ -1,4 +1,4 @@
-// Check lowers parse-clean source far enough to report executable blockers.
+# Check lowers parse-clean source far enough to report executable blockers.
 fn add(left: Int, right: Int) -> Int
   left + right
 end

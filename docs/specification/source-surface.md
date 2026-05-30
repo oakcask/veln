@@ -8,8 +8,8 @@ smallest section to read before opening the full grammar notes.
 - Module headers, imports, functions, tests, minimal `List(A)` type
   declarations, comments, doctests, and ADR-lite metadata:
   [source-surface-full.md](source-surface-full.md).
-  Use [commands.md](commands.md) for formatter layout and comment preservation
-  behavior.
+  Use [commands.md](commands.md) for formatter layout and canonical comment
+  spelling behavior.
 - Doctest fence metadata, `runtime=contract`, `runtime=ensure`, and
   `runtime=result` expectations, expected-output fences, hidden setup, and
   negative examples:

@@ -1,4 +1,4 @@
-// Duplicate declarations report the repeated name and original declaration.
+# Duplicate declarations report the repeated name and original declaration.
 mod spec.duplicates
 use platform.io
 use platform.io

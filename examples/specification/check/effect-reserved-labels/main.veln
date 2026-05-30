@@ -1,4 +1,4 @@
-// Reserved public effect labels are accepted even when this slice does not infer them.
+# Reserved public effect labels are accepted even when this slice does not infer them.
 pub fn main() -> () effects [net, db, time, random]
   ()
 end

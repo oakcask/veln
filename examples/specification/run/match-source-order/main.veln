@@ -1,4 +1,4 @@
-// Match arms are evaluated in source order, including catch-all arms.
+# Match arms are evaluated in source order, including catch-all arms.
 pub fn main() -> () effects [stdio]
   let label: String = match Some(1)
     _ => "first"

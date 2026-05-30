@@ -1,4 +1,4 @@
-// This parse-clean file must stay untouched when another selected file fails.
+# This parse-clean file must stay untouched when another selected file fails.
 fn   ok ( ) -> ()
 ()
 end

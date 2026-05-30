@@ -1,4 +1,4 @@
-// Test analysis uses imported qualified calls from selected companion files.
+# Test analysis uses imported qualified calls from selected companion files.
 mod spec.app_test
 use spec.math
 

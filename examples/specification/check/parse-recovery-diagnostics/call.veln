@@ -1,4 +1,4 @@
-// Missing call separators produce parse recovery diagnostics.
+# Missing call separators produce parse recovery diagnostics.
 fn add(left: Int, right: Int) -> Int
   left + right
 end

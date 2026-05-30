@@ -1,4 +1,4 @@
-// Contract predicates parse first, then fail static validation for unsupported facts.
+# Contract predicates parse first, then fail static validation for unsupported facts.
 fn summary(value: Int) -> {total: Int}
   {total: value}
 end

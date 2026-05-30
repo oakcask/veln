@@ -1,4 +1,4 @@
-// Run entries receive command-line arguments as source-typed parameters.
+# Run entries receive command-line arguments as source-typed parameters.
 pub fn main(label: String, count: Int, ratio: Float, enabled: Bool) -> () effects [stdio]
   let adjusted: Float = ratio + 0.5
   let status: String = match enabled

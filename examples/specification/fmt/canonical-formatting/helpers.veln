@@ -1,4 +1,4 @@
-// Helper declarations participate in multi-file canonical formatting.
+# Helper declarations participate in multi-file canonical formatting.
 fn parse ( raw : String ) -> Result ( Int , AppError )
  Ok ( 1 )
 end

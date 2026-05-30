@@ -1,4 +1,4 @@
-// Run checks only the selected reachable slice and follows imported function values.
+# Run checks only the selected reachable slice and follows imported function values.
 mod spec.app
 use spec.math
 
