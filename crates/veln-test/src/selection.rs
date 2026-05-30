@@ -245,14 +245,37 @@ struct SourceDependencyGraph {
 
 impl SourceDependencyGraph {
     fn new(project: &Project, module: &SurfaceModule) -> Self {
-        let paths = project
+        let paths = Self::collect_source_paths(project);
+        let (module_by_path, module_paths) = Self::index_modules(&paths, module);
+        let imports_by_path = Self::index_imports(&paths, module);
+        let test_roots = Self::detect_test_roots(&paths, module);
+        let edges = Self::build_edges(&imports_by_path, &module_paths);
+
+        Self {
+            paths,
+            test_roots,
+            module_by_path,
+            module_paths,
+            imports_by_path,
+            edges,
+        }
+    }
+
+    fn collect_source_paths(project: &Project) -> BTreeSet<String> {
+        project
             .files
             .iter()
             .filter_map(|source| {
                 let path = source.path().as_str();
                 (!path.contains("#doctest-")).then(|| path.to_string())
             })
-            .collect::<BTreeSet<_>>();
+            .collect()
+    }
+
+    fn index_modules(
+        paths: &BTreeSet<String>,
+        module: &SurfaceModule,
+    ) -> (BTreeMap<String, String>, BTreeMap<String, BTreeSet<String>>) {
         let mut module_by_path = BTreeMap::<String, String>::new();
         let mut module_paths = BTreeMap::<String, BTreeSet<String>>::new();
         for function in &module.functions {
@@ -271,7 +294,13 @@ impl SourceDependencyGraph {
                 .or_default()
                 .insert(path);
         }
+        (module_by_path, module_paths)
+    }
 
+    fn index_imports(
+        paths: &BTreeSet<String>,
+        module: &SurfaceModule,
+    ) -> BTreeMap<String, Vec<String>> {
         let mut imports_by_path = BTreeMap::<String, Vec<String>>::new();
         for use_decl in &module.uses {
             let path = selection_target_path(use_decl.span.file.as_str()).to_string();
@@ -282,18 +311,26 @@ impl SourceDependencyGraph {
                     .push(use_decl.name.clone());
             }
         }
+        imports_by_path
+    }
 
+    fn detect_test_roots(paths: &BTreeSet<String>, module: &SurfaceModule) -> BTreeSet<String> {
         let same_file_tests = same_file_test_files(module)
             .into_iter()
             .map(|path| selection_target_path(&path).to_string())
             .collect::<BTreeSet<_>>();
-        let test_roots = paths
+        paths
             .iter()
             .filter(|path| path.ends_with("_test.veln") || same_file_tests.contains(*path))
             .cloned()
-            .collect::<BTreeSet<_>>();
+            .collect()
+    }
 
-        let edges = imports_by_path
+    fn build_edges(
+        imports_by_path: &BTreeMap<String, Vec<String>>,
+        module_paths: &BTreeMap<String, BTreeSet<String>>,
+    ) -> BTreeMap<String, BTreeSet<String>> {
+        imports_by_path
             .iter()
             .map(|(path, imports)| {
                 let dependencies = imports
@@ -305,16 +342,7 @@ impl SourceDependencyGraph {
                     .collect::<BTreeSet<_>>();
                 (path.clone(), dependencies)
             })
-            .collect::<BTreeMap<_, _>>();
-
-        Self {
-            paths,
-            test_roots,
-            module_by_path,
-            module_paths,
-            imports_by_path,
-            edges,
-        }
+            .collect()
     }
 
     fn all_paths(&self) -> Vec<PathBuf> {

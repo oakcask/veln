@@ -830,6 +830,185 @@ struct ExtractedDoctests {
     diagnostics: Vec<Diagnostic>,
 }
 
+struct DoctestExtractor<'a> {
+    source: &'a SourceFile,
+    signatures: &'a BTreeMap<String, Option<String>>,
+    extracted: ExtractedDoctests,
+    pending: Option<ExtractedDoctest>,
+    fence: Option<Fence>,
+    offset: usize,
+}
+
+impl<'a> DoctestExtractor<'a> {
+    fn new(source: &'a SourceFile, signatures: &'a BTreeMap<String, Option<String>>) -> Self {
+        Self {
+            source,
+            signatures,
+            extracted: ExtractedDoctests::default(),
+            pending: None,
+            fence: None,
+            offset: 0,
+        }
+    }
+
+    fn extract(mut self) -> ExtractedDoctests {
+        for raw_line in self.source.text().split_inclusive('\n') {
+            self.handle_raw_line(raw_line);
+        }
+        self.finalize_pending();
+        self.extracted
+    }
+
+    fn handle_raw_line(&mut self, raw_line: &str) {
+        let line = raw_line
+            .strip_suffix('\n')
+            .unwrap_or(raw_line)
+            .strip_suffix('\r')
+            .unwrap_or_else(|| raw_line.strip_suffix('\n').unwrap_or(raw_line));
+        let line_range = TextRange::new(self.offset, self.offset + line.len());
+        self.offset += raw_line.len();
+
+        let Some(content) = doc_comment_content(line) else {
+            self.finalize_pending_with_error_context(line);
+            return;
+        };
+        self.handle_doc_line(content.strip_prefix(' ').unwrap_or(content), line_range);
+    }
+
+    fn handle_doc_line(&mut self, content: &str, line_range: TextRange) {
+        if self.fence.is_some() {
+            if content.trim_start().starts_with("```") {
+                self.close_fence();
+            } else {
+                self.append_fence_line(content);
+            }
+            return;
+        }
+
+        let trimmed = content.trim_start();
+        if let Some(info) = trimmed.strip_prefix("```") {
+            self.open_fence(info.trim(), line_range);
+        } else if !trimmed.is_empty() {
+            self.finalize_pending();
+        }
+    }
+
+    fn open_fence(&mut self, info: &str, line_range: TextRange) {
+        if veln_fence_info(info) {
+            let span = self.source.span(line_range);
+            self.extracted
+                .diagnostics
+                .extend(veln_metadata_diagnostics(info, span.clone()));
+            self.fence = Some(Fence::Veln {
+                lines: Vec::new(),
+                error_type: doctest_error_type(info).map(ToString::to_string),
+                expected_runtime_failure: doctest_runtime_failure(info, span).map(Box::new),
+                ignored: doctest_ignored(info),
+                should_fail: doctest_should_fail(info),
+                fail_span: doctest_should_fail(info).then(|| self.source.span(line_range)),
+            });
+        } else if output_fence_info(info) {
+            let span = self.source.span(line_range);
+            self.extracted
+                .diagnostics
+                .extend(output_metadata_diagnostics(info, span.clone()));
+            self.fence = output_fence_stream(info).map_or(Some(Fence::Ignored), |stream| {
+                Some(Fence::Output {
+                    stream: stream.to_string(),
+                    lines: Vec::new(),
+                    span,
+                })
+            });
+        } else {
+            self.finalize_pending();
+        }
+    }
+
+    fn close_fence(&mut self) {
+        match self.fence.take().expect("active fence should exist") {
+            Fence::Veln {
+                lines,
+                error_type,
+                expected_runtime_failure,
+                ignored,
+                should_fail,
+                fail_span,
+            } => {
+                self.finalize_pending();
+                if !ignored {
+                    self.pending = Some(ExtractedDoctest {
+                        code: lines,
+                        error_type,
+                        expected_output: None,
+                        expected_runtime_failure: expected_runtime_failure.map(|failure| *failure),
+                        should_fail,
+                        fail_span,
+                    });
+                }
+            }
+            Fence::Output {
+                stream,
+                lines,
+                span,
+            } => self.attach_output(stream, lines, span),
+            Fence::Ignored => {}
+        }
+    }
+
+    fn append_fence_line(&mut self, content: &str) {
+        match self.fence.as_mut().expect("active fence should exist") {
+            Fence::Veln { lines, .. } => lines.push(doctest_code_line(content)),
+            Fence::Output { lines, .. } => lines.push(content.to_string()),
+            Fence::Ignored => {}
+        }
+    }
+
+    fn attach_output(&mut self, stream: String, lines: Vec<String>, span: SourceSpan) {
+        let Some(doctest) = &mut self.pending else {
+            return;
+        };
+        let output = lines.join("\n");
+        let expected_output = doctest.expected_output.get_or_insert_default();
+        match stream.as_str() {
+            "stdout" => {
+                if let Some(first_span) = &expected_output.stdout_span {
+                    self.extracted
+                        .diagnostics
+                        .push(duplicate_output_diagnostic(&stream, &span, first_span));
+                } else {
+                    expected_output.stdout = Some(output);
+                    expected_output.stdout_span = Some(span);
+                }
+            }
+            "stderr" => {
+                if let Some(first_span) = &expected_output.stderr_span {
+                    self.extracted
+                        .diagnostics
+                        .push(duplicate_output_diagnostic(&stream, &span, first_span));
+                } else {
+                    expected_output.stderr = Some(output);
+                    expected_output.stderr_span = Some(span);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn finalize_pending_with_error_context(&mut self, line: &str) {
+        if let Some(doctest) = self.pending.take() {
+            self.extracted
+                .doctests
+                .push(with_error_type_context(doctest, line, self.signatures));
+        }
+    }
+
+    fn finalize_pending(&mut self) {
+        if let Some(doctest) = self.pending.take() {
+            self.extracted.doctests.push(doctest);
+        }
+    }
+}
+
 const RUNTIME_ATTRIBUTE: &str = "runtime";
 const RUNTIME_CONTRACT_KIND: &str = "contract";
 const RUNTIME_ENSURE_KIND: &str = "ensure";
@@ -921,140 +1100,7 @@ fn extract_doctests(
     source: &SourceFile,
     signatures: &BTreeMap<String, Option<String>>,
 ) -> ExtractedDoctests {
-    let mut doctests = Vec::new();
-    let mut diagnostics = Vec::new();
-    let mut pending: Option<ExtractedDoctest> = None;
-    let mut fence: Option<Fence> = None;
-    let mut offset = 0;
-
-    for raw_line in source.text().split_inclusive('\n') {
-        let line = raw_line
-            .strip_suffix('\n')
-            .unwrap_or(raw_line)
-            .strip_suffix('\r')
-            .unwrap_or_else(|| raw_line.strip_suffix('\n').unwrap_or(raw_line));
-        let line_range = TextRange::new(offset, offset + line.len());
-        offset += raw_line.len();
-        let Some(content) = doc_comment_content(line) else {
-            if let Some(doctest) = pending.take() {
-                doctests.push(with_error_type_context(doctest, line, signatures));
-            }
-            continue;
-        };
-        let content = content.strip_prefix(' ').unwrap_or(content);
-        if let Some(active) = &mut fence {
-            if content.trim_start().starts_with("```") {
-                match fence.take().expect("active fence should exist") {
-                    Fence::Veln {
-                        lines,
-                        error_type,
-                        expected_runtime_failure,
-                        ignored,
-                        should_fail,
-                        fail_span,
-                    } => {
-                        if let Some(doctest) = pending.take() {
-                            doctests.push(doctest);
-                        }
-                        if !ignored {
-                            pending = Some(ExtractedDoctest {
-                                code: lines,
-                                error_type,
-                                expected_output: None,
-                                expected_runtime_failure: expected_runtime_failure
-                                    .map(|failure| *failure),
-                                should_fail,
-                                fail_span,
-                            });
-                        }
-                    }
-                    Fence::Output {
-                        stream,
-                        lines,
-                        span,
-                    } => {
-                        if let Some(doctest) = &mut pending {
-                            let output = lines.join("\n");
-                            let expected_output = doctest.expected_output.get_or_insert_default();
-                            if stream == "stdout" {
-                                if let Some(first_span) = &expected_output.stdout_span {
-                                    diagnostics.push(duplicate_output_diagnostic(
-                                        &stream, &span, first_span,
-                                    ));
-                                } else {
-                                    expected_output.stdout = Some(output);
-                                    expected_output.stdout_span = Some(span);
-                                }
-                            } else if stream == "stderr" {
-                                if let Some(first_span) = &expected_output.stderr_span {
-                                    diagnostics.push(duplicate_output_diagnostic(
-                                        &stream, &span, first_span,
-                                    ));
-                                } else {
-                                    expected_output.stderr = Some(output);
-                                    expected_output.stderr_span = Some(span);
-                                }
-                            }
-                        }
-                    }
-                    Fence::Ignored => {}
-                }
-                continue;
-            }
-            match active {
-                Fence::Veln { lines, .. } => lines.push(doctest_code_line(content)),
-                Fence::Output { lines, .. } => lines.push(content.to_string()),
-                Fence::Ignored => {}
-            }
-            continue;
-        }
-
-        let trimmed = content.trim_start();
-        if let Some(info) = trimmed.strip_prefix("```") {
-            let info = info.trim();
-            if veln_fence_info(info) {
-                diagnostics.extend(veln_metadata_diagnostics(info, source.span(line_range)));
-                fence = Some(Fence::Veln {
-                    lines: Vec::new(),
-                    error_type: doctest_error_type(info).map(ToString::to_string),
-                    expected_runtime_failure: doctest_runtime_failure(
-                        info,
-                        source.span(line_range),
-                    )
-                    .map(Box::new),
-                    ignored: doctest_ignored(info),
-                    should_fail: doctest_should_fail(info),
-                    fail_span: doctest_should_fail(info).then(|| source.span(line_range)),
-                });
-            } else if output_fence_info(info) {
-                let span = source.span(line_range);
-                diagnostics.extend(output_metadata_diagnostics(info, span.clone()));
-                if let Some(stream) = output_fence_stream(info) {
-                    fence = Some(Fence::Output {
-                        stream: stream.to_string(),
-                        lines: Vec::new(),
-                        span,
-                    });
-                } else {
-                    fence = Some(Fence::Ignored);
-                }
-            } else if let Some(doctest) = pending.take() {
-                doctests.push(doctest);
-            }
-        } else if !trimmed.is_empty()
-            && let Some(doctest) = pending.take()
-        {
-            doctests.push(doctest);
-        }
-    }
-
-    if let Some(doctest) = pending {
-        doctests.push(doctest);
-    }
-    ExtractedDoctests {
-        doctests,
-        diagnostics,
-    }
+    DoctestExtractor::new(source, signatures).extract()
 }
 
 fn duplicate_output_diagnostic(
