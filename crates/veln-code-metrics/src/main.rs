@@ -46,7 +46,7 @@ fn main() {
 
     if config.github_annotations && findings.len() > shown {
         println!(
-            "::notice title=Code metrics truncated::showing {shown} of {} code metric warnings",
+            "::notice title=Code metrics truncated::Inspect the first {shown} code metric warnings; CI showed the highest-ranked findings and truncated {} total warnings to keep annotations usable.",
             findings.len()
         );
     }
@@ -227,7 +227,7 @@ impl FunctionFinding {
             self.line,
             annotation_escape("High ABC complexity"),
             annotation_escape(&format!(
-                "{} has ABC {:.1} (A={}, B={}, C={}); when touching this function, prefer improving cohesion around one concern, clarifying ownership boundaries, and decoupling distinct concepts over mechanically splitting code",
+                "{} has ABC {:.1} (A={}, B={}, C={}); when touching this function, improve cohesion around one concern, clarify ownership boundaries, or decouple distinct concepts so complexity decreases for reviewers instead of moving mechanically",
                 self.name,
                 self.metrics.score(),
                 self.metrics.assignments,
@@ -253,7 +253,7 @@ impl FileFinding {
             self.line,
             annotation_escape("Large Rust file"),
             annotation_escape(&format!(
-                "{} has {} lines; when touching this file, check whether its responsibilities still share one cohesive owner or whether distinct concepts should move behind clearer boundaries",
+                "{} has {} lines; when touching this file, check whether its responsibilities still share one cohesive owner, or move distinct concepts behind clearer boundaries so review scope stays understandable",
                 self.file.display(),
                 self.lines
             ))

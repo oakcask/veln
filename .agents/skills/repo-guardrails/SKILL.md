@@ -13,10 +13,15 @@ Add the smallest guardrail that meaningfully reduces the risk the user cares abo
 
 1. Identify the risk, failure mode, or behavior the user wants to prevent.
 2. Classify the guardrail as advisory, procedural, enforceable, or a combination.
-3. Inspect the relevant repository surfaces before changing them, such as `AGENTS.md`, existing skills, CI workflows, test configuration, lint configuration, and templates.
-4. Choose the narrowest effective location.
-5. Implement the guardrail in the chosen location with concise wording or focused automation.
-6. Verify that the guardrail is discoverable and, when enforceable, that the check can actually fail on violations.
+3. Inspect the relevant repository surfaces before changing them, such as
+   `AGENTS.md`, existing skills, CI workflows, test configuration, lint
+   configuration, templates, and the README or index for any documentation area
+   under consideration.
+4. Identify each candidate location's existing purpose, audience, and scope
+   boundary.
+5. Choose the narrowest effective location that fits those local boundaries.
+6. Implement the guardrail in the chosen location with concise wording or focused automation.
+7. Verify that the guardrail is discoverable and, when enforceable, that the check can actually fail on violations.
 
 If the user is only brainstorming, discuss the placement and tradeoffs without editing files.
 
@@ -51,6 +56,17 @@ Use templates or documentation when:
 
 - The guardrail guides human workflow but does not need to control agent behavior directly.
 - The risk is mostly missing context, inconsistent review input, or unclear ownership.
+- The target documentation area already owns that kind of policy. Do not put a
+  guardrail in a docs area just because it is stable; first confirm the local
+  README or index says that area covers the subject and audience.
+
+Prefer a skill over documentation when:
+
+- The guardrail primarily teaches agents how to do or review a repeatable task.
+- The policy is operational workflow guidance rather than product, language,
+  API, architecture, or other durable project reference material.
+- The only reason to use documentation is that the rule feels stable or
+  important.
 
 ## Combination Patterns
 
@@ -65,6 +81,10 @@ Use templates or documentation when:
 - Keep policy text short and concrete.
 - Before expanding `AGENTS.md`, check whether the content is a task-specific procedure that belongs in a skill.
 - When editing `AGENTS.md`, also audit the touched section for existing task-specific procedures, command recipes, checklists, troubleshooting flows, or long rationale. Move those details into the relevant skill, or create a focused skill when no suitable one exists, and replace the AGENTS entry with a short always-on rule or skill discovery link.
+- Before adding a guardrail to documentation, read that docs area's README or
+  routing page and confirm the new rule belongs to that area's stated scope. If
+  the docs area is scoped to a product or language domain, do not add unrelated
+  repository-operation policy there.
 - Do not duplicate the same long rule across multiple files; put the principle in one place and enforcement in another when needed.
 - Avoid environment-specific or personal information in examples, generated files, comments, tests, logs, and commit messages.
 - Reuse existing CI jobs, scripts, lint tools, and repository naming conventions when practical.

@@ -21,7 +21,9 @@ const write = process.argv.includes("--write");
 
 const check = runSwipl(["--check"]);
 if (check.skipped) {
-  console.log("SWI-Prolog (swipl) not found; skipping executable source surface check.");
+  console.log(
+    "SWI-Prolog (swipl) not found; skipping the local executable source-surface check. Install swipl before changing source-surface grammar so fixtures and generated docs can be verified locally.",
+  );
   process.exit(0);
 }
 if (check.status !== 0) {
@@ -41,7 +43,9 @@ const doc = fs.readFileSync(docPath, "utf8");
 const replacement = replaceGeneratedBlock(doc, generatedBlock);
 
 if (replacement === undefined) {
-  console.error("Generated source-surface grammar markers are missing.");
+  console.error(
+    `Restore the generated grammar markers in ${sourceSurfaceDoc}; they delimit the block that keeps the source-surface documentation aligned with the executable Prolog spec.`,
+  );
   process.exit(1);
 }
 
@@ -51,7 +55,7 @@ if (replacement !== doc) {
     console.log("Updated generated source-surface grammar block.");
   } else {
     console.error(
-      "Generated source-surface grammar block is out of date. Run the check with --write after updating the Prolog spec.",
+      "Update the generated source-surface grammar block by running this check with --write after changing the Prolog spec; CI requires the documented grammar to match the executable source-surface fixtures.",
     );
     process.exit(1);
   }
@@ -71,7 +75,9 @@ function runSwipl(args) {
 
   if (result.error?.code === "ENOENT") {
     if (process.env.CI) {
-      console.error("SWI-Prolog (swipl) is required in CI for source-surface checks.");
+      console.error(
+        "Install SWI-Prolog (swipl) in the workflow before running source-surface checks; CI must execute the Prolog spec so grammar fixture drift cannot merge.",
+      );
       process.exit(1);
     }
     return { skipped: true };
