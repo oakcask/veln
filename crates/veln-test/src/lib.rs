@@ -1988,6 +1988,40 @@ mod tests {
     }
 
     #[test]
+    fn extracts_hash_doc_comments_with_hidden_setup_and_visible_comments() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "## ```veln\n",
+                "## > let greeting = \"ready\"\n",
+                "## # visible example comment\n",
+                "## stdio::println(greeting)\n",
+                "## ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  let greeting = \"ready\"\n",
+                "  # visible example comment\n",
+                "  stdio::println(greeting)\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
     fn extracts_doctest_runtime_contract_failure_expectation() {
         let source = SourceFile::new(
             "main.veln",

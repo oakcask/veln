@@ -4149,6 +4149,30 @@ fn check_json_typechecks_hidden_doctest_setup_lines() {
 }
 
 #[test]
+fn check_json_typechecks_hash_doctest_setup_with_visible_comment() {
+    let project = TestProject::new("check-json-hash-doctest-setup");
+    project.write(
+        "main.veln",
+        concat!(
+            "## ```veln\n",
+            "## > let greeting = \"ready\"\n",
+            "## # visible example comment\n",
+            "## stdio::println(greeting)\n",
+            "## ```\n",
+            "pub fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert_contains_all(stdout, &["\"status\":\"ok\"", "\"diagnostics\":[]"]);
+}
+
+#[test]
 fn test_json_maps_explicit_source_file_to_paired_test_file() {
     let project = TestProject::new("test-source-to-test-convention");
     project.write("app.veln", "fn helper() -> ()\n  ()\nend\n");

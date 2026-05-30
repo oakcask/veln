@@ -81,7 +81,7 @@ tokens before the `=`, the parser reports `parse.pattern` at the first extra
 token.
 
 Formatter indentation and canonical comment spelling are command behavior. See
-[commands-full.md#veln-fmt](commands-full.md#veln-fmt) for the canonical
+[commands-full.md#veln-fmt-path](commands-full.md#veln-fmt-path) for the canonical
 `veln fmt` layout.
 
 `#` starts an ordinary line comment and runs through the end of the line. `##`
