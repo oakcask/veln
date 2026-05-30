@@ -1,6 +1,6 @@
 # ADT Generalization Route
 
-Status: proposed
+Status: stage 1 implemented; stages 2 and 3 proposed
 
 This page records a staged route from compiler-special `Option` and `Result`
 handling toward user-defined ADTs, standard-library `List`, immutable
@@ -23,7 +23,7 @@ states it.
 
 `Option(T)` and `Result(T, E)` are implemented built-in parametric forms.
 Their constructors, patterns, branch typing, `?` behavior, and exhaustiveness
-rules are currently recognized by dedicated compiler logic. User-defined ADT
+rules now route through compiler-owned ADT descriptors. User-defined ADT
 declarations and user-defined constructors are not implemented.
 
 `Vec(A)` and `Dict(K, V)` remain built-in immutable container types from the
@@ -36,6 +36,8 @@ Use three implementation stages instead of introducing `List`, immutable
 collection source helpers, and tail-call recursion in one step.
 
 ### Stage 1: Descriptor-Backed Option And Result
+
+Status: implemented
 
 Replace scattered `Option` and `Result` special cases with a compiler-owned
 ADT descriptor model. This stage should preserve all current source behavior.
@@ -55,6 +57,8 @@ lowering, and diagnostics ask the descriptor table for facts instead of using
 separate hard-coded branches wherever practical.
 
 ### Stage 2: Minimal ADTs For List
+
+Status: proposed
 
 Extend the descriptor model into a narrow source feature only far enough to
 define `List(A)` and pattern match on it.
@@ -81,6 +85,8 @@ This stage should leave `Vec(A)` unchanged. The list literal syntax `[]`
 continues to mean the existing vec literal unless a later proposal changes it.
 
 ### Stage 3: List Helpers And Tail-Recursive Execution
+
+Status: proposed
 
 After `List(A)` is expressible, add standard-library list helpers and use them
 as the proving target for internal tail-recursive execution.

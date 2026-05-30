@@ -10,6 +10,7 @@ use veln_ast::{
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_source::SourceSpan;
 
+use crate::adt;
 use crate::contracts::{
     ContractCall, ContractValidation, contract_calls, contract_kind_text,
     contract_predicate_is_statically_true, is_contract_keyword, missing_contract_field,
@@ -357,10 +358,7 @@ pub(crate) fn check_test_declaration_boundary(function: &Function) -> Vec<Diagno
 }
 
 fn is_allowed_test_return(ty: &Type) -> bool {
-    ty == &Type::unit()
-        || ty
-            .result_parts()
-            .is_some_and(|(value, _)| value == &Type::unit())
+    ty == &Type::unit() || adt::result_parts(ty).is_some_and(|(value, _)| value == &Type::unit())
 }
 
 fn test_return_diagnostic(
@@ -422,25 +420,25 @@ struct PatternBinding {
 #[derive(Clone, Copy)]
 enum MatchDomain {
     Bool,
-    Option,
-    Result,
+    Adt(&'static adt::AdtDescriptor),
 }
 
 impl MatchDomain {
     fn from_type(ty: &Type) -> Option<Self> {
         match ty {
             Type::Named { name, args } if name == "Bool" && args.is_empty() => Some(Self::Bool),
-            Type::Named { name, args } if name == "Option" && args.len() == 1 => Some(Self::Option),
-            Type::Named { name, args } if name == "Result" && args.len() == 2 => Some(Self::Result),
-            _ => None,
+            _ => adt::descriptor_for_type(ty).map(Self::Adt),
         }
     }
 
-    fn cases(self) -> &'static [&'static str] {
+    fn cases(self) -> Vec<&'static str> {
         match self {
-            Self::Bool => &["false", "true"],
-            Self::Option => &["Some(_)", "None"],
-            Self::Result => &["Ok(_)", "Err(_)"],
+            Self::Bool => vec!["false", "true"],
+            Self::Adt(descriptor) => descriptor
+                .variants
+                .iter()
+                .map(|variant| variant.coverage_case)
+                .collect(),
         }
     }
 }
@@ -460,22 +458,12 @@ fn match_pattern_coverage(pattern: &Pattern, domain: &MatchDomain) -> PatternCov
             catches_all: false,
             cases: vec![if *value { "true" } else { "false" }],
         },
-        PatternKind::Constructor { name, .. } if matches!(domain, MatchDomain::Option) => {
-            let case = if is_option_some_constructor(name) {
-                Some("Some(_)")
-            } else if is_option_none_constructor(name) {
-                Some("None")
-            } else {
-                None
+        PatternKind::Constructor { name, .. } => {
+            let case = match domain {
+                MatchDomain::Adt(descriptor) => adt::constructor_for_descriptor(name, descriptor)
+                    .map(|constructor| constructor.variant.coverage_case),
+                MatchDomain::Bool => None,
             };
-            PatternCoverage {
-                catches_all: false,
-                cases: case.into_iter().collect(),
-            }
-        }
-        PatternKind::Constructor { name, .. } if matches!(domain, MatchDomain::Result) => {
-            let case =
-                result_constructor_kind(name).map(|is_ok| if is_ok { "Ok(_)" } else { "Err(_)" });
             PatternCoverage {
                 catches_all: false,
                 cases: case.into_iter().collect(),
@@ -1406,9 +1394,16 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
     ) -> Type {
         match segments {
-            segments if is_option_none_constructor(segments) => expected
-                .and_then(|expected| expected.ty.option_part().map(|_| expected.ty.clone()))
-                .unwrap_or_else(|| Type::named("Option", vec![Type::Unknown])),
+            segments if adt::nullary_constructor(segments).is_some() => {
+                let constructor =
+                    adt::nullary_constructor(segments).expect("guard should provide constructor");
+                expected
+                    .and_then(|expected| {
+                        adt::adt_args(&expected.ty, constructor.descriptor)
+                            .map(|_| expected.ty.clone())
+                    })
+                    .unwrap_or_else(|| adt::constructed_type(constructor, Type::Unknown))
+            }
             [name] => {
                 if let Some(binding) = self
                     .bindings
@@ -1464,13 +1459,11 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
-        if let ExprKind::NamePath(segments) = &callee.kind {
-            if let Some(is_ok) = result_constructor_kind(segments) {
-                return Some(self.infer_result_constructor(expr, args, expected, is_ok));
-            }
-            if is_option_some_constructor(segments) {
-                return Some(self.infer_option_constructor(expr, args, expected));
-            }
+        if let ExprKind::NamePath(segments) = &callee.kind
+            && let Some(constructor) = adt::constructor(segments)
+            && !constructor.variant.payload_fields.is_empty()
+        {
+            return Some(self.infer_adt_constructor(expr, args, expected, constructor));
         }
         None
     }
@@ -1723,25 +1716,19 @@ impl<'a> FunctionChecker<'a> {
         }
     }
 
-    fn infer_result_constructor(
+    fn infer_adt_constructor(
         &mut self,
         expr: &Expr,
         args: &[Expr],
         expected: Option<&ExpectedType>,
-        is_ok: bool,
+        constructor: adt::AdtConstructor,
     ) -> Type {
-        let (expected_value, expected_error) = expected
-            .and_then(|expected| expected.ty.result_parts())
-            .map_or((Type::Unknown, Type::Unknown), |(value, error)| {
-                (value.clone(), error.clone())
-            });
-
+        let expected_payload = expected
+            .and_then(|expected| adt::payload_type(&expected.ty, constructor, 0))
+            .cloned()
+            .unwrap_or(Type::Unknown);
         let arg_expected = ExpectedType {
-            ty: if is_ok {
-                expected_value.clone()
-            } else {
-                expected_error.clone()
-            },
+            ty: expected_payload.clone(),
             source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
             origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
             origin_span: expected.and_then(|expected| expected.origin_span.clone()),
@@ -1768,62 +1755,14 @@ impl<'a> FunctionChecker<'a> {
         }
 
         if expected
-            .and_then(|expected| expected.ty.result_parts())
+            .and_then(|expected| adt::adt_args(&expected.ty, constructor.descriptor))
             .is_some()
         {
-            return Type::result(expected_value, expected_error);
+            return expected
+                .map(|expected| expected.ty.clone())
+                .unwrap_or(Type::Unknown);
         }
-
-        if is_ok {
-            Type::result(actual_arg, Type::Unknown)
-        } else {
-            Type::result(Type::Unknown, actual_arg)
-        }
-    }
-
-    fn infer_option_constructor(
-        &mut self,
-        expr: &Expr,
-        args: &[Expr],
-        expected: Option<&ExpectedType>,
-    ) -> Type {
-        let expected_item = expected
-            .and_then(|expected| expected.ty.option_part())
-            .cloned()
-            .unwrap_or(Type::Unknown);
-        let arg_expected = ExpectedType {
-            ty: expected_item.clone(),
-            source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
-            origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
-            origin_span: expected.and_then(|expected| expected.origin_span.clone()),
-            origin_message: expected.map_or("Expected type inferred here.", |expected| {
-                expected.origin_message
-            }),
-        };
-        let actual_item = if let Some(arg) = args.first() {
-            let actual_item = self.infer_expr(arg, Some(&arg_expected));
-            self.check_assignable(
-                arg,
-                &arg_expected.ty,
-                &actual_item,
-                &arg_expected,
-                "call_argument",
-            );
-            actual_item
-        } else {
-            Type::Unknown
-        };
-        for arg in args.iter().skip(1) {
-            self.infer_expr(arg, None);
-        }
-        Type::named(
-            "Option",
-            vec![if expected_item == Type::Unknown {
-                actual_item
-            } else {
-                expected_item
-            }],
-        )
+        adt::constructed_type(constructor, actual_arg)
     }
 
     fn infer_list(&mut self, expr: &Expr, items: &[Expr], expected: Option<&ExpectedType>) -> Type {
@@ -2037,39 +1976,19 @@ impl<'a> FunctionChecker<'a> {
                 }
                 bindings
             }
-            PatternKind::Constructor { name, args } if is_option_some_constructor(name) => args
-                .iter()
-                .enumerate()
-                .flat_map(|(index, pattern)| {
-                    let ty = if index == 0 {
-                        scrutinee_type.option_part().unwrap_or(&Type::Unknown)
-                    } else {
-                        &Type::Unknown
-                    };
-                    self.pattern_bindings(pattern, ty)
-                })
-                .collect(),
-            PatternKind::Constructor { name, args } => match result_constructor_kind(name) {
-                Some(is_ok) => args
-                    .iter()
+            PatternKind::Constructor { name, args } => {
+                let Some(constructor) = adt::constructor(name) else {
+                    return Vec::new();
+                };
+                args.iter()
                     .enumerate()
                     .flat_map(|(index, pattern)| {
-                        let ty = if index != 0 {
-                            &Type::Unknown
-                        } else if is_ok {
-                            scrutinee_type
-                                .result_parts()
-                                .map_or(&Type::Unknown, |(value, _)| value)
-                        } else {
-                            scrutinee_type
-                                .result_parts()
-                                .map_or(&Type::Unknown, |(_, error)| error)
-                        };
+                        let ty = adt::payload_type(scrutinee_type, constructor, index)
+                            .unwrap_or(&Type::Unknown);
                         self.pattern_bindings(pattern, ty)
                     })
-                    .collect(),
-                None => Vec::new(),
-            },
+                    .collect()
+            }
         }
     }
 
@@ -2197,9 +2116,7 @@ impl<'a> FunctionChecker<'a> {
             .as_deref()
             .and_then(|return_type| parse_type_annotation(return_type).ok())
             .and_then(|return_type| {
-                return_type
-                    .result_parts()
-                    .map(|(value, error)| (value.clone(), error.clone()))
+                adt::result_parts(&return_type).map(|(value, error)| (value.clone(), error.clone()))
             });
         let (value_type, error_type) = match (expected, return_result) {
             (Some(expected), Some((_, error_type))) => (expected.ty.clone(), error_type),
@@ -2208,7 +2125,7 @@ impl<'a> FunctionChecker<'a> {
             (None, None) => (Type::Unknown, Type::Unknown),
         };
         let inner_expected = ExpectedType {
-            ty: Type::result(value_type.clone(), error_type),
+            ty: adt::result_type(value_type.clone(), error_type),
             source: ExpectedTypeSource::Inferred,
             origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
             origin_span: expected.and_then(|expected| expected.origin_span.clone()),
@@ -6112,16 +6029,6 @@ fn is_ident_continue(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
 }
 
-fn result_constructor_kind(segments: &[String]) -> Option<bool> {
-    match segments {
-        [name] if name == "Ok" => Some(true),
-        [type_name, name] if type_name == "Result" && name == "Ok" => Some(true),
-        [name] if name == "Err" => Some(false),
-        [type_name, name] if type_name == "Result" && name == "Err" => Some(false),
-        _ => None,
-    }
-}
-
 fn callee_name_path_and_type_args(callee: &Expr) -> Option<(&[String], Option<&[String]>)> {
     match &callee.kind {
         ExprKind::NamePath(segments) => Some((segments, None)),
@@ -6145,17 +6052,7 @@ fn type_applied_name_path(callee: &Expr) -> Option<(&[String], &[String])> {
 
 fn function_returns_result(ty: &Type) -> Option<(&Type, &Type)> {
     let (_, return_type) = ty.function_parts()?;
-    return_type.result_parts()
-}
-
-fn is_option_some_constructor(segments: &[String]) -> bool {
-    matches!(segments, [name] if name == "Some")
-        || matches!(segments, [type_name, name] if type_name == "Option" && name == "Some")
-}
-
-fn is_option_none_constructor(segments: &[String]) -> bool {
-    matches!(segments, [name] if name == "None")
-        || matches!(segments, [type_name, name] if type_name == "Option" && name == "None")
+    adt::result_parts(return_type)
 }
 
 fn is_ordering_op(op: BinaryOp) -> bool {

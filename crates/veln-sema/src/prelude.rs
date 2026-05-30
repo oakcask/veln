@@ -1,6 +1,7 @@
 use veln_ast::{BinaryOp, PrefixOp};
 use veln_core::{CoreCallTarget, CoreType};
 
+use crate::adt;
 use crate::standard_symbols::prelude_symbol;
 use crate::types::Type;
 
@@ -28,7 +29,7 @@ struct ExpectedPreludeParts {
 impl ExpectedPreludeParts {
     fn from_expected(expected: Option<&Type>) -> Self {
         let (result_value, result_error) = expected
-            .and_then(Type::result_parts)
+            .and_then(adt::result_parts)
             .map_or((Type::Unknown, Type::Unknown), |(value, error)| {
                 (value.clone(), error.clone())
             });
@@ -44,7 +45,7 @@ impl ExpectedPreludeParts {
                 .cloned()
                 .unwrap_or(Type::Unknown),
             option_item: expected
-                .and_then(Type::option_part)
+                .and_then(adt::option_part)
                 .cloned()
                 .unwrap_or(Type::Unknown),
             result_value,
@@ -72,14 +73,14 @@ fn prelude_string_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     match name {
         "string_split_once" => Some((
             vec![Type::string(), Type::string()],
-            option_type(Type::Record(vec![
+            adt::option_type(Type::Record(vec![
                 ("left".to_string(), Type::string()),
                 ("right".to_string(), Type::string()),
             ])),
         )),
         "string_parse_int" => Some((
             vec![Type::string()],
-            Type::result(Type::int(), Type::string()),
+            adt::result_type(Type::int(), Type::string()),
         )),
         "int_to_string" => Some((vec![Type::int()], Type::string())),
         _ => None,
@@ -174,7 +175,7 @@ fn prelude_dict_signature(
                 Type::dict(dict_key.clone(), option_item.clone()),
                 dict_key.clone(),
             ],
-            option_type(option_item.clone()),
+            adt::option_type(option_item.clone()),
         )),
         "dict_contains" => Some((
             vec![
@@ -210,29 +211,29 @@ fn prelude_option_signature(
     match name {
         "option_map" => Some((
             vec![
-                option_type(Type::Unknown),
+                adt::option_type(Type::Unknown),
                 Type::Function {
                     params: vec![Type::Unknown],
                     return_type: Box::new(option_item.clone()),
                     effects: Vec::new(),
                 },
             ],
-            option_type(option_item.clone()),
+            adt::option_type(option_item.clone()),
         )),
         "option_and_then" => Some((
             vec![
-                option_type(Type::Unknown),
+                adt::option_type(Type::Unknown),
                 Type::Function {
                     params: vec![Type::Unknown],
-                    return_type: Box::new(option_type(option_item.clone())),
+                    return_type: Box::new(adt::option_type(option_item.clone())),
                     effects: Vec::new(),
                 },
             ],
-            option_type(option_item.clone()),
+            adt::option_type(option_item.clone()),
         )),
         "option_unwrap_or" => Some((
             vec![
-                option_type(expected.direct.clone()),
+                adt::option_type(expected.direct.clone()),
                 expected.direct.clone(),
             ],
             expected.direct.clone(),
@@ -250,43 +251,42 @@ fn prelude_result_signature(
     match name {
         "result_map" => Some((
             vec![
-                Type::result(Type::Unknown, result_error.clone()),
+                adt::result_type(Type::Unknown, result_error.clone()),
                 Type::Function {
                     params: vec![Type::Unknown],
                     return_type: Box::new(result_value.clone()),
                     effects: Vec::new(),
                 },
             ],
-            Type::result(result_value.clone(), result_error.clone()),
+            adt::result_type(result_value.clone(), result_error.clone()),
         )),
         "result_map_err" => Some((
             vec![
-                Type::result(result_value.clone(), Type::Unknown),
+                adt::result_type(result_value.clone(), Type::Unknown),
                 Type::Function {
                     params: vec![Type::Unknown],
                     return_type: Box::new(result_error.clone()),
                     effects: Vec::new(),
                 },
             ],
-            Type::result(result_value.clone(), result_error.clone()),
+            adt::result_type(result_value.clone(), result_error.clone()),
         )),
         "result_and_then" => Some((
             vec![
-                Type::result(Type::Unknown, result_error.clone()),
+                adt::result_type(Type::Unknown, result_error.clone()),
                 Type::Function {
                     params: vec![Type::Unknown],
-                    return_type: Box::new(Type::result(result_value.clone(), result_error.clone())),
+                    return_type: Box::new(adt::result_type(
+                        result_value.clone(),
+                        result_error.clone(),
+                    )),
                     effects: Vec::new(),
                 },
             ],
-            Type::result(result_value.clone(), result_error.clone()),
+            adt::result_type(result_value.clone(), result_error.clone()),
         )),
         _ => None,
     }
-}
-
-fn option_type(value: Type) -> Type {
-    Type::named("Option", vec![value])
 }
 
 fn vec_try_map_signature(
@@ -307,11 +307,14 @@ fn vec_try_map_signature(
     callback_params.push(Type::Unknown);
     params.push(Type::Function {
         params: callback_params,
-        return_type: Box::new(Type::result(mapped_item.clone(), result_error.clone())),
+        return_type: Box::new(adt::result_type(mapped_item.clone(), result_error.clone())),
         effects: Vec::new(),
     });
 
-    (params, Type::result(Type::vec(mapped_item), result_error))
+    (
+        params,
+        adt::result_type(Type::vec(mapped_item), result_error),
+    )
 }
 
 pub(crate) fn float_prefix_prelude_name(op: PrefixOp) -> Option<&'static str> {
@@ -362,13 +365,16 @@ fn core_vec_try_map_signature(
     callback_params.push(CoreType::Unknown);
     params.push(CoreType::Function {
         params: callback_params,
-        return_type: Box::new(CoreType::result(mapped_item.clone(), result_error.clone())),
+        return_type: Box::new(adt::core_result_type(
+            mapped_item.clone(),
+            result_error.clone(),
+        )),
         effects: Vec::new(),
     });
 
     (
         params,
-        CoreType::result(CoreType::vec(mapped_item), result_error),
+        adt::core_result_type(CoreType::vec(mapped_item), result_error),
     )
 }
 
@@ -404,7 +410,7 @@ struct ExpectedCorePreludeParts {
 impl ExpectedCorePreludeParts {
     fn from_expected(expected: Option<&CoreType>) -> Self {
         let (result_value, result_error) = expected
-            .and_then(CoreType::result_parts)
+            .and_then(adt::core_result_parts)
             .map_or((CoreType::Unknown, CoreType::Unknown), |(value, error)| {
                 (value.clone(), error.clone())
             });
@@ -420,7 +426,7 @@ impl ExpectedCorePreludeParts {
                 .cloned()
                 .unwrap_or(CoreType::Unknown),
             option_item: expected
-                .and_then(CoreType::option_part)
+                .and_then(adt::core_option_part)
                 .cloned()
                 .unwrap_or(CoreType::Unknown),
             result_value,
@@ -449,14 +455,14 @@ fn core_prelude_string_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)
     match name {
         "string_split_once" => Some((
             vec![CoreType::string(), CoreType::string()],
-            CoreType::option(CoreType::Record(vec![
+            adt::core_option_type(CoreType::Record(vec![
                 ("left".to_string(), CoreType::string()),
                 ("right".to_string(), CoreType::string()),
             ])),
         )),
         "string_parse_int" => Some((
             vec![CoreType::string()],
-            CoreType::result(CoreType::int(), CoreType::string()),
+            adt::core_result_type(CoreType::int(), CoreType::string()),
         )),
         "int_to_string" => Some((vec![CoreType::int()], CoreType::string())),
         _ => None,
@@ -560,7 +566,7 @@ fn core_prelude_dict_signature(
                 CoreType::dict(dict_key.clone(), option_item.clone()),
                 dict_key.clone(),
             ],
-            CoreType::option(option_item.clone()),
+            adt::core_option_type(option_item.clone()),
         )),
         "dict_contains" => Some((
             vec![
@@ -596,29 +602,29 @@ fn core_prelude_option_signature(
     match name {
         "option_map" => Some((
             vec![
-                CoreType::option(CoreType::Unknown),
+                adt::core_option_type(CoreType::Unknown),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
                     return_type: Box::new(option_item.clone()),
                     effects: Vec::new(),
                 },
             ],
-            CoreType::option(option_item.clone()),
+            adt::core_option_type(option_item.clone()),
         )),
         "option_and_then" => Some((
             vec![
-                CoreType::option(CoreType::Unknown),
+                adt::core_option_type(CoreType::Unknown),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
-                    return_type: Box::new(CoreType::option(option_item.clone())),
+                    return_type: Box::new(adt::core_option_type(option_item.clone())),
                     effects: Vec::new(),
                 },
             ],
-            CoreType::option(option_item.clone()),
+            adt::core_option_type(option_item.clone()),
         )),
         "option_unwrap_or" => Some((
             vec![
-                CoreType::option(expected.direct.clone()),
+                adt::core_option_type(expected.direct.clone()),
                 expected.direct.clone(),
             ],
             expected.direct.clone(),
@@ -636,39 +642,39 @@ fn core_prelude_result_signature(
     match name {
         "result_map" => Some((
             vec![
-                CoreType::result(CoreType::Unknown, result_error.clone()),
+                adt::core_result_type(CoreType::Unknown, result_error.clone()),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
                     return_type: Box::new(result_value.clone()),
                     effects: Vec::new(),
                 },
             ],
-            CoreType::result(result_value.clone(), result_error.clone()),
+            adt::core_result_type(result_value.clone(), result_error.clone()),
         )),
         "result_map_err" => Some((
             vec![
-                CoreType::result(result_value.clone(), CoreType::Unknown),
+                adt::core_result_type(result_value.clone(), CoreType::Unknown),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
                     return_type: Box::new(result_error.clone()),
                     effects: Vec::new(),
                 },
             ],
-            CoreType::result(result_value.clone(), result_error.clone()),
+            adt::core_result_type(result_value.clone(), result_error.clone()),
         )),
         "result_and_then" => Some((
             vec![
-                CoreType::result(CoreType::Unknown, result_error.clone()),
+                adt::core_result_type(CoreType::Unknown, result_error.clone()),
                 CoreType::Function {
                     params: vec![CoreType::Unknown],
-                    return_type: Box::new(CoreType::result(
+                    return_type: Box::new(adt::core_result_type(
                         result_value.clone(),
                         result_error.clone(),
                     )),
                     effects: Vec::new(),
                 },
             ],
-            CoreType::result(result_value.clone(), result_error.clone()),
+            adt::core_result_type(result_value.clone(), result_error.clone()),
         )),
         _ => None,
     }

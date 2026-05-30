@@ -253,6 +253,128 @@ fn result_constructor_checks_expected_value_type() {
 }
 
 #[test]
+fn descriptor_routed_err_constructor_checks_expected_error_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> Result(Int, AppError)\n  Err(1)\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `AppError`, but found `Int`"
+    );
+    assert_diagnostic_span(&diagnostics[0], 2, 7, 2, 8);
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"expected_type\":\"AppError\""));
+    assert!(details.contains("\"actual_type\":\"Int\""));
+    assert!(details.contains("\"constraint\":\"call_argument\""));
+}
+
+#[test]
+fn descriptor_routed_option_constructor_checks_expected_item_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> Option(Int)\n  Some(\"no\")\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
+    assert_diagnostic_span(&diagnostics[0], 2, 8, 2, 12);
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"expected_type\":\"Int\""));
+    assert!(details.contains("\"actual_type\":\"String\""));
+    assert!(details.contains("\"constraint\":\"call_argument\""));
+}
+
+#[test]
+fn descriptor_routed_result_arity_diagnostic_keeps_call_span() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> Result(Int, AppError)\n  Ok()\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "core.result_constructor_arity_mismatch")
+        .expect("result constructor arity should be diagnosed");
+    assert_eq!(
+        diagnostic.message,
+        "result constructor expects 1 argument, but got 0"
+    );
+    assert_diagnostic_span(diagnostic, 2, 3, 2, 7);
+}
+
+#[test]
+fn descriptor_routed_option_arity_diagnostic_keeps_call_span() {
+    let source = SourceFile::new("main.veln", "fn main() -> Option(Int)\n  Some(1, 2)\nend\n");
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "core.option_constructor_arity_mismatch")
+        .expect("option constructor arity should be diagnosed");
+    assert_eq!(
+        diagnostic.message,
+        "option constructor expects 1 argument, but got 2"
+    );
+    assert_diagnostic_span(diagnostic, 2, 3, 2, 13);
+}
+
+#[test]
+fn descriptor_routed_try_checks_result_error_type_at_operand() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn parse(raw: String) -> Result(Int, String) effects []\n",
+            "  Ok(1)\n",
+            "end\n",
+            "fn main(raw: String) -> Result((), AppError) effects []\n",
+            "  let value: Int = parse(raw)?\n",
+            "  Ok(())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.mismatch")
+        .expect("try operand result error type should be diagnosed");
+    assert_eq!(
+        diagnostic.message,
+        "expected `Result(Int, AppError)`, but found `Result(Int, String)`"
+    );
+    assert_diagnostic_span(diagnostic, 5, 20, 5, 30);
+    let details = diagnostic.details.to_json();
+    assert!(details.contains("\"constraint\":\"return_value\""));
+    assert!(details.contains("\"expected_type\":\"Result(Int, AppError)\""));
+    assert!(details.contains("\"actual_type\":\"Result(Int, String)\""));
+}
+
+#[test]
 fn accepts_supported_type_forms_and_record_expected_fields() {
     let source = SourceFile::new(
         "main.veln",
@@ -475,6 +597,71 @@ fn match_expression_type_checks_inside_call_argument() {
 }
 
 #[test]
+fn descriptor_routed_constructor_patterns_bind_payload_types() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Option(Int)) -> Int effects []\n",
+            "  match value\n",
+            "    Option::Some(count) => count + 1\n",
+            "    Option::None => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("tail expression should lower as match");
+    };
+    assert_eq!(arms[0].expr.ty, CoreType::int());
+    assert_eq!(arms[1].expr.ty, CoreType::int());
+}
+
+#[test]
+fn descriptor_routed_result_pattern_reports_payload_type_mismatch_at_branch_expr() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Result(Int, String)) -> Int effects []\n",
+            "  match value\n",
+            "    Result::Ok(count) => count\n",
+            "    Result::Err(error) => error\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.mismatch")
+        .expect("result error branch payload mismatch should be diagnosed");
+    assert_eq!(diagnostic.message, "expected `Int`, but found `String`");
+    assert_diagnostic_span(diagnostic, 4, 27, 4, 32);
+    let details = diagnostic.details.to_json();
+    assert!(details.contains("\"expected_type\":\"Int\""));
+    assert!(details.contains("\"actual_type\":\"String\""));
+    assert!(details.contains("\"constraint\":\"match_arm\""));
+}
+
+#[test]
 fn match_exhaustiveness_accepts_finite_builtin_domains() {
     let source = SourceFile::new(
         "main.veln",
@@ -636,6 +823,44 @@ fn match_exhaustiveness_reports_missing_result_case_with_source_anchors() {
             "fn main(value: Result(Int, String)) -> String effects []\n",
             "  match value\n",
             "    Err(error) => error\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.match_non_exhaustive")
+        .expect("missing result case should be diagnosed");
+    assert_eq!(diagnostic.kind, DiagnosticKind::Type);
+    assert_eq!(diagnostic.message, "match is missing case Ok(_)");
+    assert_diagnostic_span(diagnostic, 2, 3, 4, 6);
+    assert_eq!(diagnostic.related.len(), 2);
+    let related = diagnostic
+        .related
+        .iter()
+        .map(|note| note.to_json())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(related.contains("Scrutinee has type `Result(Int, String)`."));
+    assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
+    assert!(related.contains("This arm covers Err(_)."));
+    assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
+}
+
+#[test]
+fn match_exhaustiveness_reports_qualified_result_case_with_source_anchors() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Result(Int, String)) -> String effects []\n",
+            "  match value\n",
+            "    Result::Err(error) => error\n",
             "  end\n",
             "end\n",
         ),

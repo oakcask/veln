@@ -15,6 +15,12 @@ Implemented type annotations:
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
 
+`Option(T)` and `Result(T, E)` are compiler-owned built-in ADTs. The checker
+uses their descriptor entries for constructor payload typing, qualified and
+unqualified constructor names, postfix `?` result propagation, and
+finite-domain exhaustiveness. User-defined ADT declarations are not implemented
+type annotations or item declarations.
+
 In a function or test return annotation, a returned function type may carry its
 own effect list before the enclosing declaration's effect list. For example,
 `-> fn(String) -> () effects [stdio] effects []` returns a callback that may
