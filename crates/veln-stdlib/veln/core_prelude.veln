@@ -141,6 +141,10 @@ fn result_and_then(value: Result(A, E), f: fn(A) -> Result(B, E)) -> Result(B, E
 	end
 end
 
+fn string_parse_int(text: String) -> Result(Int, String) effects []
+	string_parse_int(text)
+end
+
 fn int_to_string(value: Int) -> String effects []
 	int_to_string(value)
 end

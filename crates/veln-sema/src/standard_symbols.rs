@@ -142,10 +142,8 @@ const FLOAT_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("float_greater_equal"),
 ];
 
-const SELF_HOSTING_CANDIDATE_SYMBOLS: &[StandardSymbolDescriptor] = &[
-    prelude_symbol_descriptor("string_split_once"),
-    prelude_symbol_descriptor("string_parse_int"),
-];
+const SELF_HOSTING_CANDIDATE_SYMBOLS: &[StandardSymbolDescriptor] =
+    &[prelude_symbol_descriptor("string_split_once")];
 
 source_prelude_symbol_set! {
     "vec_fold" => veln_stdlib::core_prelude_vec_fold_source(),
@@ -167,6 +165,7 @@ source_prelude_symbol_set! {
     "result_map" => veln_stdlib::core_prelude_source("result_map"),
     "result_map_err" => veln_stdlib::core_prelude_source("result_map_err"),
     "result_and_then" => veln_stdlib::core_prelude_source("result_and_then"),
+    "string_parse_int" => veln_stdlib::core_prelude_source("string_parse_int"),
     "int_to_string" => veln_stdlib::core_prelude_source("int_to_string"),
 }
 
@@ -297,7 +296,7 @@ mod tests {
 
     #[test]
     fn descriptor_table_carries_prelude_purity_metadata() {
-        let symbol = prelude_symbol("string_parse_int").expect("prelude descriptor");
+        let symbol = prelude_symbol("string_split_once").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(symbol.effects.is_empty());
@@ -330,7 +329,7 @@ mod tests {
 
     #[test]
     fn descriptor_only_prelude_helpers_do_not_carry_source_metadata() {
-        let symbol = prelude_symbol("string_parse_int").expect("prelude descriptor");
+        let symbol = prelude_symbol("string_split_once").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert_eq!(symbol.lowering, None);
@@ -396,7 +395,6 @@ mod tests {
                 "float_greater",
                 "float_greater_equal",
                 "string_split_once",
-                "string_parse_int",
             ]
         );
     }

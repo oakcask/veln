@@ -7977,6 +7977,15 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
             ),
             "expected `Int`, but found `String`",
         ),
+        (
+            "string_parse_int",
+            concat!(
+                "pub fn main(value: Int) -> Result(Int, String) effects []\n",
+                "  string_parse_int(value)\n",
+                "end\n",
+            ),
+            "expected `String`, but found `Int`",
+        ),
     ] {
         assert_source_backed_helper_user_call_site_type_mismatch(
             helper,
