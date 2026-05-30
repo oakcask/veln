@@ -223,10 +223,10 @@ impl FunctionFinding {
     fn github_warning(&self) -> String {
         format!(
             "::warning file={},line={},title={}::{}",
-            annotation_escape(self.file.to_string_lossy().as_ref()),
+            annotation_property_escape(self.file.to_string_lossy().as_ref()),
             self.line,
-            annotation_escape("High ABC complexity"),
-            annotation_escape(&format!(
+            annotation_property_escape("High ABC complexity"),
+            annotation_message_escape(&format!(
                 "{} has ABC {:.1} (A={}, B={}, C={}); when touching this function, improve cohesion around one concern, clarify ownership boundaries, or decouple distinct concepts so complexity decreases for reviewers instead of moving mechanically",
                 self.name,
                 self.metrics.score(),
@@ -249,10 +249,10 @@ impl FileFinding {
     fn github_warning(&self) -> String {
         format!(
             "::warning file={},line={},title={}::{}",
-            annotation_escape(self.file.to_string_lossy().as_ref()),
+            annotation_property_escape(self.file.to_string_lossy().as_ref()),
             self.line,
-            annotation_escape("Large Rust file"),
-            annotation_escape(&format!(
+            annotation_property_escape("Large Rust file"),
+            annotation_message_escape(&format!(
                 "{} has {} lines; when touching this file, check whether its responsibilities still share one cohesive owner, or move distinct concepts behind clearer boundaries so review scope stays understandable",
                 self.file.display(),
                 self.lines
@@ -289,13 +289,20 @@ impl fmt::Display for FunctionFinding {
     }
 }
 
-fn annotation_escape(value: &str) -> String {
+fn annotation_property_escape(value: &str) -> String {
     value
         .replace('%', "%25")
         .replace('\r', "%0D")
         .replace('\n', "%0A")
         .replace(':', "%3A")
         .replace(',', "%2C")
+}
+
+fn annotation_message_escape(value: &str) -> String {
+    value
+        .replace('%', "%25")
+        .replace('\r', "%0D")
+        .replace('\n', "%0A")
 }
 
 fn collect_findings(config: &Config) -> Result<Vec<Finding>, String> {
@@ -544,8 +551,19 @@ fn fallback() -> i32 {
     }
 
     #[test]
-    fn escapes_github_annotation_control_characters() {
-        assert_eq!(annotation_escape("a:b,c%\r\n"), "a%3Ab%2Cc%25%0D%0A");
+    fn escapes_github_annotation_properties() {
+        assert_eq!(
+            annotation_property_escape("a:b,c%\r\n"),
+            "a%3Ab%2Cc%25%0D%0A"
+        );
+    }
+
+    #[test]
+    fn leaves_github_annotation_message_punctuation_readable() {
+        assert_eq!(
+            annotation_message_escape("A=1, B=2: check 100%\r\n"),
+            "A=1, B=2: check 100%25%0D%0A"
+        );
     }
 
     #[test]
