@@ -28,16 +28,6 @@ const FS_EFFECTS: &[&str] = &["fs"];
 const PROCESS_EFFECTS: &[&str] = &["process"];
 const PURE_EFFECTS: &[&str] = &[];
 #[cfg(test)]
-const COMPLETED_SELF_HOSTING_HELPERS: &[&str] = &[
-    "vec_fold",
-    "vec_map",
-    "vec_try_map",
-    "vec_try_map_with",
-    "dict_get",
-    "dict_insert",
-    "dict_remove",
-];
-#[cfg(test)]
 const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] =
     &["vec_map_step", "vec_try_map_step", "vec_try_map_with_step"];
 
@@ -155,7 +145,6 @@ const FLOAT_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
 const SELF_HOSTING_CANDIDATE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("string_split_once"),
     prelude_symbol_descriptor("string_parse_int"),
-    prelude_symbol_descriptor("int_to_string"),
 ];
 
 source_prelude_symbol_set! {
@@ -178,6 +167,7 @@ source_prelude_symbol_set! {
     "result_map" => veln_stdlib::core_prelude_source("result_map"),
     "result_map_err" => veln_stdlib::core_prelude_source("result_map_err"),
     "result_and_then" => veln_stdlib::core_prelude_source("result_and_then"),
+    "int_to_string" => veln_stdlib::core_prelude_source("int_to_string"),
 }
 
 const fn runtime_symbol(
@@ -248,8 +238,20 @@ fn descriptor_only_prelude_symbols() -> impl Iterator<Item = &'static StandardSy
 }
 
 #[cfg(test)]
-pub(crate) fn source_backed_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
+pub(crate) fn source_backed_prelude_symbols() -> &'static [StandardSymbolDescriptor] {
     SOURCE_PRELUDE_SYMBOLS
+}
+
+#[cfg(test)]
+pub(crate) fn source_backed_prelude_names() -> impl Iterator<Item = &'static str> {
+    source_backed_prelude_symbols()
+        .iter()
+        .map(|symbol| symbol.name)
+}
+
+#[cfg(test)]
+pub(crate) fn source_backed_symbols() -> impl Iterator<Item = &'static StandardSymbolDescriptor> {
+    source_backed_prelude_symbols()
         .iter()
         .chain(QUALIFIED_SYMBOLS)
         .filter(|symbol| symbol.source.is_some())
@@ -295,7 +297,7 @@ mod tests {
 
     #[test]
     fn descriptor_table_carries_prelude_purity_metadata() {
-        let symbol = prelude_symbol("int_to_string").expect("prelude descriptor");
+        let symbol = prelude_symbol("string_parse_int").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(symbol.effects.is_empty());
@@ -328,33 +330,12 @@ mod tests {
 
     #[test]
     fn descriptor_only_prelude_helpers_do_not_carry_source_metadata() {
-        let symbol = prelude_symbol("int_to_string").expect("prelude descriptor");
+        let symbol = prelude_symbol("string_parse_int").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert_eq!(symbol.lowering, None);
         assert!(symbol.effects.is_empty());
         assert_eq!(symbol.source, None);
-    }
-
-    #[test]
-    fn completed_source_backed_helper_migrations_are_descriptor_entries() {
-        for name in COMPLETED_SELF_HOSTING_HELPERS {
-            let symbol = prelude_symbol(name).expect("completed helper descriptor");
-            let source = symbol.source.expect("completed helper source metadata");
-
-            assert_eq!(symbol.kind, StandardSymbolKind::Veln);
-            assert_eq!(symbol.effects, PURE_EFFECTS);
-            assert_eq!(symbol.lowering, None);
-            assert_eq!(symbol.name, source.entry);
-            assert!(
-                !source.path.starts_with('/'),
-                "source path should be repository relative"
-            );
-            assert!(
-                source.text.contains(&format!("fn {name}(")),
-                "completed helper source should define {name}"
-            );
-        }
     }
 
     #[test]
@@ -416,7 +397,6 @@ mod tests {
                 "float_greater_equal",
                 "string_split_once",
                 "string_parse_int",
-                "int_to_string",
             ]
         );
     }
