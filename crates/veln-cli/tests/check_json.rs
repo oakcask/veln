@@ -4314,7 +4314,7 @@ fn test_human_reports_passed_and_failed_cases_when_jdk_is_available() {
     assert_eq!(stdout(&output), "ok passes\nnot ok fails\n");
     assert_contains_all(
         stderr(&output),
-        &["veln: test `fails` failed: test process exited with status exit status: 1"],
+        &["veln: test `fails` failed: runtime result failure: Err(bad)"],
     );
 }
 
@@ -4355,7 +4355,8 @@ fn test_json_discovers_runs_and_captures_stdio_when_jdk_is_available() {
             "\"events\":[{\"kind\":\"stdio\",\"stream\":\"stdout\",\"operation\":\"println\",\"text\":\"out\",\"terminator\":\"newline\"",
             "{\"kind\":\"stdio\",\"stream\":\"stderr\",\"operation\":\"eprintln\",\"text\":\"err\",\"terminator\":\"newline\"",
             "\"name\":\"fails\",\"kind\":\"test\",\"status\":\"failed\"",
-            "\"failure\":{\"kind\":\"runtime\",\"message\":\"test process exited with status exit status: 1\"",
+            "\"failure\":{\"kind\":\"result\",\"message\":\"runtime result failure: Err(bad)\"",
+            "\"details\":{\"kind\":\"result\",\"phase\":\"runtime\",\"value\":\"bad\"}",
         ],
     );
 }

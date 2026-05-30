@@ -1,0 +1,8 @@
+// Static gates block doctest runtime result expectations before execution.
+/// ```veln error=String runtime=result value=bad
+/// let value: Int = "no"
+/// Err("bad")?
+/// ```
+pub fn main() -> () effects []
+  ()
+end

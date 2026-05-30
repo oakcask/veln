@@ -102,17 +102,22 @@ cases with `failure.kind: "contract"`. The failure details use
 - `node_id`: the contract node identifier
 - `span`: the source span for the failed clause
 
-Doctests with runtime contract failure metadata pass when the runtime failure
-details match the expected contract failure. The pass case omits a failure
+Tests or doctests that return `Err(value)` are reported as failed cases with
+`failure.kind: "result"`. The failure details use `kind: "result"` and
+`phase: "runtime"` and include `value`, the formatted returned error value.
+
+Doctests with runtime failure metadata pass when the runtime failure details
+match the expected contract or result failure. The pass case omits a failure
 record. If execution succeeds or produces a different runtime failure, the case
 is reported with `status: "failed"`,
 `reason: "expected_runtime_failure"`, and
 `failure.kind: "runtime_expectation"`. The failure details use
 `kind: "runtime_expectation"` and include:
 
-- `expected`: the expected contract failure metadata, including `kind`,
-  `clause`, `predicate`, the metadata fence `span`, and any supplied
-  `function` or `blame`
+- `expected`: the expected runtime failure metadata. Contract expectations
+  include `kind`, `clause`, `predicate`, the metadata fence `span`, and any
+  supplied `function` or `blame`. Result expectations include `kind`, `value`,
+  and the metadata fence `span`.
 - `actual`: the actual runtime failure record, or `null` when execution
   succeeded
 
