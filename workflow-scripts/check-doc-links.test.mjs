@@ -239,8 +239,8 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   assertIncludes(selfHosting, "Status: proposed");
   assertIncludes(
     selfHosting,
-    "Choose one descriptor-only pure helper before promoting future helper work\n" +
-      "into one concrete target.",
+    "Choose exactly one descriptor-only pure helper before promoting future helper\n" +
+      "work into a concrete target.",
   );
 });
 
@@ -423,23 +423,23 @@ test("self-hosting proposal route starts from the implemented helper split", () 
 
   assertIncludes(
     proposal,
-    "records completed prelude helper migrations and routes future\n" +
-      "source-backed candidates back through the implemented standard symbol split",
+    "routes future source-backed prelude helper migrations through the\n" +
+      "implemented standard symbol split",
   );
   assertIncludes(proposal, "## Read First");
   assertIncludes(proposal, "Status: proposed");
   assertIncludes(
     proposal,
-    "Choose one descriptor-only pure helper before promoting future helper work\n" +
-      "into one concrete target.",
+    "Choose exactly one descriptor-only pure helper before promoting future helper\n" +
+      "work into a concrete target.",
   );
-  assertIncludes(proposal, "## Boundary");
+  assertIncludes(proposal, "## Current Boundary");
   assertIncludes(proposal, "## Work Route");
   assertIncludes(
     proposal,
-    "Choose exactly one helper from the descriptor-only pure-helper list",
+    "Choose exactly one helper from the specification's descriptor-only\n" +
+      "   pure-helper list",
   );
-  assertIncludes(proposal, "## Completed Helpers");
   assertIncludes(proposal, "../specification/names-effects.md");
   assertIncludes(proposal, "../specification/source-surface.md");
   assertIncludes(
@@ -471,7 +471,7 @@ test("self-hosting proposal route starts from the implemented helper split", () 
   );
   assertIncludes(
     namesEffectsFull,
-    "descriptor-only pure helpers: `vec_fold`, `dict_get`",
+    "descriptor-only pure helpers: `vec_fold`, `dict_remove`",
   );
 });
 
