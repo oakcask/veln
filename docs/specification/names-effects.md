@@ -7,7 +7,7 @@ compiler-known calls.
 
 - Namespaces, shadowing, duplicate checks, module ownership, and metadata
   drift: [names-effects-full.md](names-effects-full.md#name-resolution).
-- Effect labels and effect inference:
+- Declaration effect spelling, effect labels, and effect inference:
   [names-effects-full.md](names-effects-full.md#effect-labels) and
   [names-effects-full.md](names-effects-full.md#concurrency-calls).
 - Compiler-known calls:

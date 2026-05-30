@@ -601,7 +601,9 @@ impl<'a> Parser<'a> {
         let mut ty = self.collect_type_until(context, stop);
         if return_type_can_take_effects(&ty)
             && self.at(TokenKind::Effects)
-            && self.after_effect_clause_is(TokenKind::Effects)
+            && (self.after_effect_clause_is(TokenKind::Effects)
+                || self.after_effect_clause_is(TokenKind::Newline)
+                || self.after_effect_clause_is(TokenKind::Eof))
         {
             let effects = self.collect_effect_clause_text();
             if !effects.is_empty() {

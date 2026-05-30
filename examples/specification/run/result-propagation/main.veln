@@ -1,9 +1,9 @@
 // The question-mark operator propagates Err values from Result-returning calls.
-fn parse(raw: String) -> Result(Int, {message: String}) effects []
+fn parse(raw: String) -> Result(Int, {message: String})
   Ok(1)
 end
 
-fn stringify(value: Int) -> String effects []
+fn stringify(value: Int) -> String
   "ok"
 end
 

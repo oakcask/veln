@@ -1,4 +1,4 @@
-test returns_ok() -> Result((), String) effects []
+test returns_ok() -> Result((), String)
 require true
   let value = Ok(())
   value

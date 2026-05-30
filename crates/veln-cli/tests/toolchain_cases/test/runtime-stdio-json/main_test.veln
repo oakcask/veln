@@ -4,6 +4,6 @@ test passes() -> () effects [stdio]
   ()
 end
 
-test fails() -> Result((), String) effects []
+test fails() -> Result((), String)
   Err("bad")
 end

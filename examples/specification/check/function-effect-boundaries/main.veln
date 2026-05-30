@@ -3,14 +3,14 @@ fn printer(text: String) -> () effects [stdio]
   stdio::println(text)
 end
 
-fn pure_sink(text: String) -> () effects []
+fn pure_sink(text: String) -> ()
   ()
 end
 
-fn accepts_stdio() -> fn(String) -> () effects [stdio] effects []
+fn accepts_stdio() -> fn(String) -> () effects [stdio]
   pure_sink
 end
 
-pub fn callback_factory() -> fn(String) -> () effects [] effects []
+pub fn callback_factory() -> fn(String) -> () effects []
   printer
 end

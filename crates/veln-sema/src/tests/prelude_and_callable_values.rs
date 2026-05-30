@@ -27,7 +27,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "found: Option(Int), has_key: Bool, inserted: Dict(String, Int), removed: Dict(String, Int), ",
             "opt_mapped: Option(String), opt_nexted: Option(String), opt_value: Int, ",
             "res_mapped: Result(String, AppError), res_err: Result(Int, String), ",
-            "res_nexted: Result(String, AppError)} effects []\n",
+            "res_nexted: Result(String, AppError)}\n",
             "  {count: vec_len(items), empty: vec_is_empty(items), ",
             "pushed: vec_push(items, 1), joined: vec_concat(items, other), ",
             "mapped: vec_map(items, mapper), filtered: vec_filter(items, keep), ",
@@ -224,10 +224,10 @@ fn suggests_vec_try_map_for_result_returning_map_callback() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn parse(value: Int) -> Result(String, AppError) effects []\n",
+            "fn parse(value: Int) -> Result(String, AppError)\n",
             "  Ok(\"ok\")\n",
             "end\n",
-            "pub fn main(items: Vec(Int)) -> Vec(String) effects []\n",
+            "pub fn main(items: Vec(Int)) -> Vec(String)\n",
             "  vec_map(items, parse)\n",
             "end\n",
         ),
@@ -258,10 +258,10 @@ fn lowers_function_declarations_as_callable_values() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn stringify(value: Int) -> String effects []\n",
+            "fn stringify(value: Int) -> String\n",
             "  \"ok\"\n",
             "end\n",
-            "pub fn main(items: Vec(Int)) -> Vec(String) effects []\n",
+            "pub fn main(items: Vec(Int)) -> Vec(String)\n",
             "  vec_map(items, stringify)\n",
             "end\n",
         ),
@@ -324,7 +324,7 @@ fn lowers_function_return_types_with_effects() {
             "  stdio::println(text)\n",
             "  ()\n",
             "end\n",
-            "pub fn callback_factory() -> fn(String) -> () effects [stdio] effects []\n",
+            "pub fn callback_factory() -> fn(String) -> () effects [stdio]\n",
             "  printer\n",
             "end\n",
         ),
@@ -361,7 +361,7 @@ fn function_return_effects_must_cover_actual_callable_effects() {
             "  stdio::println(text)\n",
             "  ()\n",
             "end\n",
-            "pub fn callback_factory() -> fn(String) -> () effects [] effects []\n",
+            "pub fn callback_factory() -> fn(String) -> ()\n",
             "  printer\n",
             "end\n",
         ),
@@ -384,10 +384,10 @@ fn call_resolution_prefers_local_callable_over_function_declaration() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn stringify(value: Int) -> String effects []\n",
+            "fn stringify(value: Int) -> String\n",
             "  \"function\"\n",
             "end\n",
-            "pub fn main(stringify: fn(Int) -> String effects []) -> String effects []\n",
+            "pub fn main(stringify: fn(Int) -> String effects []) -> String\n",
             "  stringify(1)\n",
             "end\n",
         ),
@@ -419,10 +419,10 @@ fn non_callable_local_shadow_blocks_function_call_resolution() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn stringify(value: Int) -> String effects []\n",
+            "fn stringify(value: Int) -> String\n",
             "  \"function\"\n",
             "end\n",
-            "pub fn main(stringify: Int) -> String effects []\n",
+            "pub fn main(stringify: Int) -> String\n",
             "  stringify(1)\n",
             "end\n",
         ),
@@ -446,7 +446,7 @@ fn lowers_record_field_access_through_core_and_ir() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> String effects []\n",
+            "pub fn main() -> String\n",
             "  let payload: {name: String, count: Int} = {name: \"veln\", count: 1}\n",
             "  payload.name\n",
             "end\n",
@@ -493,7 +493,7 @@ fn reports_missing_record_field_access() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  let payload: {count: Int} = {count: 1}\n",
             "  payload.name\n",
             "end\n",
@@ -518,7 +518,7 @@ fn prelude_helpers_check_direct_expected_return_types() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(value: Option(Int)) -> Int effects []\n",
+            "pub fn main(value: Option(Int)) -> Int\n",
             "  option_unwrap_or(value, \"bad\")\n",
             "end\n",
         ),
@@ -601,10 +601,10 @@ fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
                     "  Nil\n",
                     "  Cons(head: A, tail: List(A))\n",
                     "end\n",
-                    "fn to_int(value: Int) -> Int effects []\n",
+                    "fn to_int(value: Int) -> Int\n",
                     "  value\n",
                     "end\n",
-                    "pub fn main(value: {}) -> {} effects []\n",
+                    "pub fn main(value: {}) -> {}\n",
                     "  {}(value, to_int)\n",
                     "end\n",
                 ),

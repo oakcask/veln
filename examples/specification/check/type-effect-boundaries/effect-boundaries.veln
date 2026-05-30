@@ -7,6 +7,6 @@ fn private_helper() -> () effects [stdio]
   stdio::println("hidden")
 end
 
-pub fn main() -> () effects []
+pub fn main() -> ()
   private_helper()
 end

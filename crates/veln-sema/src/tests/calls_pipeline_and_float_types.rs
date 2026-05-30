@@ -5,7 +5,7 @@ fn match_exhaustiveness_reports_missing_result_case() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> String effects []\n",
+            "fn main(value: Result(Int, String)) -> String\n",
             "  match value\n",
             "    Err(error) => error\n",
             "  end\n",
@@ -30,7 +30,7 @@ fn accepts_float_numeric_operators() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Float, right: Float) -> {sum: Float, negated: Float, ordered: Bool} effects []\n",
+            "pub fn main(left: Float, right: Float) -> {sum: Float, negated: Float, ordered: Bool}\n",
             "  {sum: left + right, negated: -left, ordered: left < right}\n",
             "end\n",
         ),
@@ -189,7 +189,7 @@ fn accepts_int_operands_in_float_operator_contexts() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Float, count: Int) -> {sum: Float, ordered: Bool, expected: Float} effects []\n",
+            "pub fn main(left: Float, count: Int) -> {sum: Float, ordered: Bool, expected: Float}\n",
             "  {sum: left + count, ordered: count < left, expected: 1 + 2}\n",
             "end\n",
         ),
@@ -242,7 +242,7 @@ fn accepts_int_operands_in_float_operator_contexts() {
 fn rejects_int_values_in_float_assignment_contexts() {
     let source = SourceFile::new(
         "main.veln",
-        concat!("pub fn main() -> Float effects []\n", "  1\n", "end\n",),
+        concat!("pub fn main() -> Float\n", "  1\n", "end\n",),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -259,7 +259,7 @@ fn reports_float_operator_operand_mismatch() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Float) -> Float effects []\n",
+            "pub fn main(left: Float) -> Float\n",
             "  left + \"bad\"\n",
             "end\n",
         ),
@@ -282,7 +282,7 @@ fn comparison_does_not_select_float_from_expected_result() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Int, right: Int) -> Float effects []\n",
+            "pub fn main(left: Int, right: Int) -> Float\n",
             "  left < right\n",
             "end\n",
         ),
@@ -324,7 +324,7 @@ fn infers_non_constructor_calls_from_local_function_signatures() {
             "fn parse(raw: String) -> Result(Int, AppError)\n",
             "  Ok(1)\n",
             "end\n",
-            "pub fn main() -> Result(Int, AppError) effects []\n",
+            "pub fn main() -> Result(Int, AppError)\n",
             "  parse(\"1\")\n",
             "end\n",
         ),
@@ -344,7 +344,7 @@ fn resolves_qualified_calls_through_import_aliases() {
         concat!(
             "mod app.main\n",
             "use app.math\n",
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  math::double(2)\n",
             "end\n",
         ),
@@ -392,7 +392,7 @@ fn resolves_qualified_function_values_through_import_aliases() {
         concat!(
             "mod app.main\n",
             "use app.text\n",
-            "pub fn main() -> Vec(String) effects []\n",
+            "pub fn main() -> Vec(String)\n",
             "  vec_map([1], text::stringify)\n",
             "end\n",
         ),
@@ -401,7 +401,7 @@ fn resolves_qualified_function_values_through_import_aliases() {
         "text.veln",
         concat!(
             "mod app.text\n",
-            "fn stringify(value: Int) -> String effects []\n",
+            "fn stringify(value: Int) -> String\n",
             "  \"ok\"\n",
             "end\n",
         ),
@@ -445,7 +445,7 @@ fn unresolved_qualified_calls_do_not_fall_back_to_bare_functions() {
             "fn helper(value: String) -> String\n",
             "  value\n",
             "end\n",
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  math::helper(2)\n",
             "end\n",
         ),
@@ -473,7 +473,7 @@ fn pipeline_inserts_left_value_as_first_call_argument() {
             "fn add(left: Int, right: Int) -> Int\n",
             "  left + right\n",
             "end\n",
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  1 |> add(2)\n",
             "end\n",
         ),
@@ -504,10 +504,7 @@ fn pipeline_inserts_left_value_as_first_call_argument() {
 
 #[test]
 fn pipeline_requires_call_target() {
-    let source = SourceFile::new(
-        "main.veln",
-        "pub fn main() -> Int effects []\n  1 |> 2\nend\n",
-    );
+    let source = SourceFile::new("main.veln", "pub fn main() -> Int\n  1 |> 2\nend\n");
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 
@@ -527,7 +524,7 @@ fn pipeline_requires_named_call_target() {
             "fn make(value: Int, callback: fn(Int) -> Int) -> fn(Int) -> Int\n",
             "  callback\n",
             "end\n",
-            "pub fn main(callback: fn(Int) -> Int) -> Int effects []\n",
+            "pub fn main(callback: fn(Int) -> Int) -> Int\n",
             "  1 |> make(0, callback)(2)\n",
             "end\n",
         ),
@@ -548,7 +545,7 @@ fn method_call_shape_reports_targeted_diagnostic() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(value: String) -> Int effects []\n",
+            "pub fn main(value: String) -> Int\n",
             "  value.len()\n",
             "end\n",
         ),

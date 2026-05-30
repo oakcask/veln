@@ -243,7 +243,7 @@ fn infers_transitive_private_helper_effects_from_body() {
             "fn greet(text: String) -> ()\n",
             "  say(text)\n",
             "end\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  greet(\"hello\")\n",
             "end\n",
         ),
@@ -272,7 +272,7 @@ fn infers_import_alias_call_effects_from_function_body() {
         concat!(
             "mod app.main\n",
             "use app.console\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  console::say(\"hello\")\n",
             "end\n",
         ),
@@ -317,7 +317,7 @@ fn function_typed_value_calls_infer_declared_effects() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(callback: fn(String) -> () effects [stdio]) -> () effects []\n",
+            "pub fn main(callback: fn(String) -> () effects [stdio]) -> ()\n",
             "  callback(\"hello\")\n",
             "end\n",
         ),
@@ -342,7 +342,7 @@ fn effect_provenance_reports_omitted_equivalent_paths() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  stdio::print(\"one\")\n",
             "  stdio::println(\"two\")\n",
             "  stdio::eprint(\"three\")\n",
@@ -366,7 +366,7 @@ fn reports_non_boolean_contract_predicate() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(value: Int) -> () effects []\n",
+            "pub fn main(value: Int) -> ()\n",
             "require value\n",
             "  ()\n",
             "end\n",
@@ -399,7 +399,7 @@ fn ensure_can_reference_explicit_result_binding() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: Int) -> output: Int effects []\n",
+            "pub fn identity(value: Int) -> output: Int\n",
             "ensure output == value\n",
             "  value\n",
             "end\n",
@@ -418,7 +418,7 @@ fn contract_field_access_resolves_record_fields() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {total: Int}) -> output: {total: Int} effects []\n",
+            "pub fn identity(value: {total: Int}) -> output: {total: Int}\n",
             "ensure output.total == value.total\n",
             "  value\n",
             "end\n",
@@ -438,7 +438,7 @@ fn contract_boolean_field_access_is_a_boolean_predicate() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn identity(value: {ready: Bool}) -> output: {ready: Bool} effects []\n",
+            "pub fn identity(value: {ready: Bool}) -> output: {ready: Bool}\n",
             "require value.ready\n",
             "ensure output.ready\n",
             "  value\n",
@@ -459,10 +459,10 @@ fn contract_predicate_accepts_pure_call_result_field_access() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn summary(value: Int) -> {total: Int, ready: Bool} effects []\n",
+            "fn summary(value: Int) -> {total: Int, ready: Bool}\n",
             "  {total: value, ready: true}\n",
             "end\n",
-            "pub fn identity(value: Int) -> output: Int effects []\n",
+            "pub fn identity(value: Int) -> output: Int\n",
             "require summary(value).ready\n",
             "ensure summary(output).total >= value\n",
             "  value\n",
@@ -483,10 +483,10 @@ fn contract_predicate_accepts_pure_boolean_function_calls() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn positive(value: Int) -> Bool effects []\n",
+            "fn positive(value: Int) -> Bool\n",
             "  value > 0\n",
             "end\n",
-            "pub fn identity(value: Int) -> Int effects []\n",
+            "pub fn identity(value: Int) -> Int\n",
             "require positive(value)\n",
             "  value\n",
             "end\n",
@@ -508,7 +508,7 @@ fn contract_predicate_accepts_qualified_pure_function_calls() {
         concat!(
             "mod app.main\n",
             "use app.rules\n",
-            "pub fn identity(value: Int) -> Int effects []\n",
+            "pub fn identity(value: Int) -> Int\n",
             "require rules::positive(value)\n",
             "  value\n",
             "end\n",
@@ -518,7 +518,7 @@ fn contract_predicate_accepts_qualified_pure_function_calls() {
         "rules.veln",
         concat!(
             "mod app.rules\n",
-            "fn positive(value: Int) -> Bool effects []\n",
+            "fn positive(value: Int) -> Bool\n",
             "  value > 0\n",
             "end\n",
         ),
@@ -542,10 +542,10 @@ fn contract_predicate_accepts_pure_function_calls_inside_comparisons() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn same(value: Int) -> Int effects []\n",
+            "fn same(value: Int) -> Int\n",
             "  value\n",
             "end\n",
-            "pub fn identity(value: Int) -> Int effects []\n",
+            "pub fn identity(value: Int) -> Int\n",
             "require same(value) > 0\n",
             "  value\n",
             "end\n",
@@ -565,13 +565,13 @@ fn contract_predicate_accepts_nested_pure_function_call_arguments() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn same(value: Int) -> Int effects []\n",
+            "fn same(value: Int) -> Int\n",
             "  value\n",
             "end\n",
-            "fn positive(value: Int) -> Bool effects []\n",
+            "fn positive(value: Int) -> Bool\n",
             "  value > 0\n",
             "end\n",
-            "pub fn identity(value: Int) -> Int effects []\n",
+            "pub fn identity(value: Int) -> Int\n",
             "require positive(same(value))\n",
             "  value\n",
             "end\n",
@@ -591,13 +591,13 @@ fn contract_predicate_accepts_function_value_arguments() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn ready() -> Bool effects []\n",
+            "fn ready() -> Bool\n",
             "  true\n",
             "end\n",
-            "fn accepts(job: fn() -> Bool) -> Bool effects []\n",
+            "fn accepts(job: fn() -> Bool) -> Bool\n",
             "  job()\n",
             "end\n",
-            "pub fn identity(value: Int) -> Int effects []\n",
+            "pub fn identity(value: Int) -> Int\n",
             "require accepts(ready)\n",
             "  value\n",
             "end\n",

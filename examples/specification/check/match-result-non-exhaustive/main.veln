@@ -1,5 +1,5 @@
 // Result matches must cover both Ok and Err unless a catch-all arm is present.
-fn label(value: Result(Int, String)) -> String effects []
+fn label(value: Result(Int, String)) -> String
   match value
     Ok(_) => "ok"
   end

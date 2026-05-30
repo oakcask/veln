@@ -290,7 +290,7 @@ fn check_json_accepts_valid_input() {
 #[test]
 fn check_human_prints_ok_for_valid_input() {
     let project = TestProject::new("check-human-ok");
-    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
+    project.write("main.veln", "pub fn main() -> ()\n  ()\nend\n");
 
     let output = project.veln(&["check"], &["main.veln"]);
 
@@ -302,10 +302,7 @@ fn check_human_prints_ok_for_valid_input() {
 #[test]
 fn check_human_reports_diagnostics_to_stdout() {
     let project = TestProject::new("check-human-diagnostics");
-    project.write(
-        "main.veln",
-        "pub fn main() -> Int effects []\n  \"no\"\nend\n",
-    );
+    project.write("main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
 
     let output = project.veln(&["check"], &["main.veln"]);
 
@@ -322,7 +319,7 @@ fn check_human_reports_method_call_repair_note() {
     let project = TestProject::new("check-human-method-call");
     project.write(
         "main.veln",
-        "pub fn main(value: String) -> Int effects []\n  value.len()\nend\n",
+        "pub fn main(value: String) -> Int\n  value.len()\nend\n",
     );
 
     let output = project.veln(&["check"], &["main.veln"]);
@@ -344,7 +341,7 @@ fn check_human_reports_match_exhaustiveness_context() {
     project.write(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> String effects []\n",
+            "fn main(value: Option(Int)) -> String\n",
             "  match value\n",
             "    Some(count) => \"some\"\n",
             "  end\n",
@@ -371,12 +368,7 @@ fn check_human_reports_missing_module_identity_for_imports() {
     let project = TestProject::new("check-human-module-identity");
     project.write(
         "main.veln",
-        concat!(
-            "use platform.io\n",
-            "fn main() -> () effects []\n",
-            "  ()\n",
-            "end\n",
-        ),
+        concat!("use platform.io\n", "fn main() -> ()\n", "  ()\n", "end\n",),
     );
 
     let output = project.veln(&["check"], &["main.veln"]);
@@ -397,12 +389,7 @@ fn check_json_reports_missing_module_identity_for_imports() {
     let project = TestProject::new("check-json-module-identity");
     project.write(
         "main.veln",
-        concat!(
-            "use platform.io\n",
-            "fn main() -> () effects []\n",
-            "  ()\n",
-            "end\n",
-        ),
+        concat!("use platform.io\n", "fn main() -> ()\n", "  ()\n", "end\n",),
     );
 
     let output = project.check_json(&["main.veln"]);
@@ -429,7 +416,7 @@ fn check_human_reports_manifest_module_name_drift() {
         "main.veln",
         concat!(
             "mod app.source\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -455,7 +442,7 @@ fn check_human_reports_manifest_module_without_source_owner() {
     project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
     project.write(
         "main.veln",
-        concat!("pub fn main() -> () effects []\n", "  ()\n", "end\n"),
+        concat!("pub fn main() -> ()\n", "  ()\n", "end\n"),
     );
 
     let output = project.veln(&["check"], &["main.veln"]);
@@ -477,12 +464,7 @@ fn check_human_accepts_matching_manifest_module_name() {
     project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.main\"\n");
     project.write(
         "main.veln",
-        concat!(
-            "mod app.main\n",
-            "pub fn main() -> () effects []\n",
-            "  ()\n",
-            "end\n",
-        ),
+        concat!("mod app.main\n", "pub fn main() -> ()\n", "  ()\n", "end\n",),
     );
 
     let output = project.veln(&["check"], &["main.veln"]);
@@ -500,7 +482,7 @@ fn check_json_reports_manifest_module_name_drift() {
         "main.veln",
         concat!(
             "mod app.source\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -532,7 +514,7 @@ fn check_json_reports_manifest_module_without_source_owner() {
     project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
     project.write(
         "main.veln",
-        concat!("pub fn main() -> () effects []\n", "  ()\n", "end\n"),
+        concat!("pub fn main() -> ()\n", "  ()\n", "end\n"),
     );
 
     let output = project.check_json(&["main.veln"]);
@@ -568,7 +550,7 @@ fn check_json_reports_checked_core_call_arity_blockers() {
             "fn make_option() -> Option(Int)\n",
             "  Some(1, 2)\n",
             "end\n",
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  add(1)\n",
             "end\n",
         ),
@@ -612,7 +594,7 @@ fn check_json_reports_checked_core_missing_expression_blocker() {
     let project = TestProject::new("check-json-core-missing-expression");
     project.write(
         "main.veln",
-        concat!("pub fn main() -> Int effects []\n", "  1 +\n", "end\n"),
+        concat!("pub fn main() -> Int\n", "  1 +\n", "end\n"),
     );
 
     let output = project.check_json(&["main.veln"]);
@@ -674,7 +656,7 @@ fn check_human_reports_checked_core_call_arity_blocker() {
             "fn add(left: Int, right: Int) -> Int\n",
             "  left + right\n",
             "end\n",
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  add(1)\n",
             "end\n",
         ),
@@ -695,7 +677,7 @@ fn check_human_reports_checked_core_missing_expression_blocker() {
     let project = TestProject::new("check-human-core-missing-expression");
     project.write(
         "main.veln",
-        concat!("pub fn main() -> Int effects []\n", "  1 +\n", "end\n"),
+        concat!("pub fn main() -> Int\n", "  1 +\n", "end\n"),
     );
 
     let output = project.veln(&["check"], &["main.veln"]);
@@ -857,10 +839,10 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
     project.write(
         "main.veln",
         concat!(
-            "fn parse ( raw : String ) -> Result ( Int , AppError ) effects [ ]\n",
+            "fn parse ( raw : String ) -> Result ( Int , AppError )\n",
             " Ok ( 1 )\n",
             "end\n",
-            "pub fn main ( raw : String ) -> Result ( { value : Int, tags : Vec(String) } , AppError ) effects [ ]\n",
+            "pub fn main ( raw : String ) -> Result ( { value : Int, tags : Vec(String) } , AppError )\n",
             " ensure output.value >= 0 and not ( output.value == - 1 )\n",
             " let parsed : Int = parse ( raw ) ?\n",
             " { value : parsed + 1 * ( 2 + 3 ) , tags : [ choose ( raw , \"fallback\" ) , \"done\" ] }\n",
@@ -870,7 +852,7 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
     project.write(
         "helpers.veln",
         concat!(
-            "fn choose ( value : String , fallback : String ) -> String effects [ ]\n",
+            "fn choose ( value : String , fallback : String ) -> String\n",
             " if_missing ( { primary : value, nested : { fallback : fallback } } )\n",
             "end\n",
         ),
@@ -883,11 +865,11 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
     assert_eq!(
         project.read("main.veln"),
         concat!(
-            "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+            "fn parse(raw: String) -> Result(Int, AppError)\n",
             "\tOk(1)\n",
             "end\n",
             "\n",
-            "pub fn main(raw: String) -> Result({ value : Int, tags : Vec(String) }, AppError) effects []\n",
+            "pub fn main(raw: String) -> Result({ value : Int, tags : Vec(String) }, AppError)\n",
             "\tensure output.value >= 0 and not(output.value == - 1)\n",
             "\tlet parsed: Int = parse(raw)?\n",
             "\t{ value: parsed + 1 * (2 + 3), tags: [choose(raw, \"fallback\"), \"done\"] }\n",
@@ -897,7 +879,7 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
     assert_eq!(
         project.read("helpers.veln"),
         concat!(
-            "fn choose(value: String, fallback: String) -> String effects []\n",
+            "fn choose(value: String, fallback: String) -> String\n",
             "\tif_missing({ primary: value, nested: { fallback: fallback } })\n",
             "end\n",
         )
@@ -909,11 +891,11 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
     assert_eq!(
         project.read("main.veln"),
         concat!(
-            "fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+            "fn parse(raw: String) -> Result(Int, AppError)\n",
             "\tOk(1)\n",
             "end\n",
             "\n",
-            "pub fn main(raw: String) -> Result({ value : Int, tags : Vec(String) }, AppError) effects []\n",
+            "pub fn main(raw: String) -> Result({ value : Int, tags : Vec(String) }, AppError)\n",
             "\tensure output.value >= 0 and not(output.value == - 1)\n",
             "\tlet parsed: Int = parse(raw)?\n",
             "\t{ value: parsed + 1 * (2 + 3), tags: [choose(raw, \"fallback\"), \"done\"] }\n",
@@ -923,7 +905,7 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
     assert_eq!(
         project.read("helpers.veln"),
         concat!(
-            "fn choose(value: String, fallback: String) -> String effects []\n",
+            "fn choose(value: String, fallback: String) -> String\n",
             "\tif_missing({ primary: value, nested: { fallback: fallback } })\n",
             "end\n",
         )
@@ -936,13 +918,13 @@ fn fmt_formats_match_expressions_with_tab_relative_indentation() {
     project.write(
         "main.veln",
         concat!(
-            "fn describe ( value : Option(Int) ) -> String effects [ ]\n",
+            "fn describe ( value : Option(Int) ) -> String\n",
             " match value\n",
             " Some(count) => \"some\"\n",
             " None => \"none\"\n",
             " end\n",
             "end\n",
-            "fn nested ( value : Option(Int) ) -> { labels : Vec(String), primary : String } effects [ ]\n",
+            "fn nested ( value : Option(Int) ) -> { labels : Vec(String), primary : String }\n",
             " { labels : [ wrap ( match value\n",
             " Some(count) => \"some\"\n",
             " None => \"none\"\n",
@@ -960,14 +942,14 @@ fn fmt_formats_match_expressions_with_tab_relative_indentation() {
     assert_eq!(
         project.read("main.veln"),
         concat!(
-            "fn describe(value: Option(Int)) -> String effects []\n",
+            "fn describe(value: Option(Int)) -> String\n",
             "\tmatch value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
             "\tend\n",
             "end\n",
             "\n",
-            "fn nested(value: Option(Int)) -> { labels : Vec(String), primary : String } effects []\n",
+            "fn nested(value: Option(Int)) -> { labels : Vec(String), primary : String }\n",
             "\t{ labels: [wrap(match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -985,14 +967,14 @@ fn fmt_formats_match_expressions_with_tab_relative_indentation() {
     assert_eq!(
         project.read("main.veln"),
         concat!(
-            "fn describe(value: Option(Int)) -> String effects []\n",
+            "fn describe(value: Option(Int)) -> String\n",
             "\tmatch value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
             "\tend\n",
             "end\n",
             "\n",
-            "fn nested(value: Option(Int)) -> { labels : Vec(String), primary : String } effects []\n",
+            "fn nested(value: Option(Int)) -> { labels : Vec(String), primary : String }\n",
             "\t{ labels: [wrap(match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1161,18 +1143,32 @@ fn check_json_reports_public_function_boundary_errors() {
             "\"details\":{\"phase\":\"type\",\"node_id\":\"fn-1\",\"expected_type\":\"explicit\",\"actual_type\":\"missing\",",
             "\"expected_type_source\":\"declared_return\",\"actual_type_source\":\"source\",",
             "\"constraint\":\"return_value\",\"origin_node_ids\":[\"fn-1\"]},",
-            "\"related\":[]},{",
-            "\"id\":\"effect.missing_public\",",
-            "\"severity\":\"error\",",
-            "\"kind\":\"effect\",",
-            "\"message\":\"public function has no effects annotation\",",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":31}},",
-            "\"details\":{\"phase\":\"effect\",\"node_id\":\"fn-1\",\"effect\":\"unknown\",",
-            "\"boundary\":\"public_function\",\"declared_effects\":[],\"inferred_effects\":[],",
-            "\"provenance\":[],\"provenance_truncated\":false},",
-            "\"related\":[{\"kind\":\"repair_hint\",\"message\":\"Use `effects []` for a pure public function.\"}]}],",
-            "\"summary\":{\"diagnostic_count\":3,\"by_severity\":{\"error\":3},\"by_kind\":{\"effect\":1,\"type\":2}}}\n"
+            "\"related\":[]}],",
+            "\"summary\":{\"diagnostic_count\":2,\"by_severity\":{\"error\":2},\"by_kind\":{\"type\":2}}}\n"
         )
+    );
+}
+
+#[test]
+fn check_json_reports_empty_effects_declaration() {
+    let project = TestProject::new("empty-effects-declaration");
+    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"effect.empty_declaration\"",
+            "\"kind\":\"effect\"",
+            "\"message\":\"empty effects list is not allowed on a function declaration\"",
+            "\"boundary\":\"public_function\"",
+            "\"declared_effects\":[]",
+            "\"related\":[{\"kind\":\"repair_hint\",\"message\":\"Remove the clause when the inferred effect set is empty.\"}",
+            "{\"kind\":\"repair_hint\",\"message\":\"Replace the empty list with non-empty effect labels when the body performs effects.\"}]",
+        ],
     );
 }
 
@@ -1181,7 +1177,7 @@ fn check_json_reports_hole_with_return_expected_type() {
     let project = TestProject::new("hole-return");
     project.write(
         "main.veln",
-        "pub fn main() -> Result((), AppError) effects []\n  _\nend\n",
+        "pub fn main() -> Result((), AppError)\n  _\nend\n",
     );
 
     let output = project.check_json(&["main.veln"]);
@@ -1198,7 +1194,7 @@ fn check_json_reports_hole_with_return_expected_type() {
             "\"severity\":\"hint\",",
             "\"kind\":\"hole\",",
             "\"message\":\"hole requires a `Result((), AppError)` value\",",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":2,\"column\":3,\"offset\":51},\"end\":{\"line\":2,\"column\":4,\"offset\":52}},",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":2,\"column\":3,\"offset\":40},\"end\":{\"line\":2,\"column\":4,\"offset\":41}},",
             "\"details\":{\"phase\":\"hole\",\"node_id\":\"hole-3\",\"label\":null,",
             "\"expected_type\":\"Result((), AppError)\",\"expected_type_source\":\"declared\",",
             "\"constraints\":[],\"local_bindings\":[],",
@@ -1207,7 +1203,7 @@ fn check_json_reports_hole_with_return_expected_type() {
             "\"application_policy\":\"manual_review_required\",",
             "\"query\":\"fn() -> Result((), AppError)\"}]},",
             "\"related\":[{\"kind\":\"expected_type_origin\",\"message\":\"Return type declared here.\",",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":57}}}]}],",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":46}}}]}],",
             "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"hint\":1},\"by_kind\":{\"hole\":1}}}\n"
         )
     );
@@ -1217,10 +1213,7 @@ fn check_json_reports_hole_with_return_expected_type() {
 fn check_json_keeps_sema_for_other_files_when_one_file_has_parse_errors() {
     let project = TestProject::new("parse-and-sema");
     project.write("a_parse.veln", "fn broken() -> ()\n  @\nend\n");
-    project.write(
-        "b_type.veln",
-        "pub fn main() -> Int effects []\n  \"no\"\nend\n",
-    );
+    project.write("b_type.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
 
     let output = project.check_json(&[]);
     let stdout = stdout(&output);
@@ -1243,14 +1236,14 @@ fn check_json_resolves_imported_calls_across_selected_files() {
     let project = TestProject::new("check-shared-project-analysis");
     project.write(
         "util.veln",
-        "mod app.util\npub fn value() -> Int effects []\n  1\nend\n",
+        "mod app.util\npub fn value() -> Int\n  1\nend\n",
     );
     project.write(
         "main.veln",
         concat!(
             "mod app.main\n",
             "use app.util\n",
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  util::value()\n",
             "end\n",
         ),
@@ -1271,10 +1264,7 @@ fn check_json_resolves_imported_calls_across_selected_files() {
 #[test]
 fn check_json_reports_return_type_mismatch() {
     let project = TestProject::new("return-mismatch");
-    project.write(
-        "main.veln",
-        "pub fn main() -> Int effects []\n  \"no\"\nend\n",
-    );
+    project.write("main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
 
     let output = project.check_json(&["main.veln"]);
 
@@ -1285,7 +1275,7 @@ fn check_json_reports_return_type_mismatch() {
             "\"id\":\"type.mismatch\"",
             "\"kind\":\"type\"",
             "\"message\":\"expected `Int`, but found `String`\"",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":2,\"column\":3,\"offset\":34},\"end\":{\"line\":2,\"column\":7,\"offset\":38}}",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":2,\"column\":3,\"offset\":23},\"end\":{\"line\":2,\"column\":7,\"offset\":27}}",
             "\"details\":{\"phase\":\"type\",\"node_id\":\"expr-3\",\"expected_type\":\"Int\",\"actual_type\":\"String\",\"expected_type_source\":\"declared_return\",\"actual_type_source\":\"inferred_expression\",\"constraint\":\"return_value\"",
         ],
     );
@@ -1297,7 +1287,7 @@ fn check_json_reports_match_exhaustiveness_details() {
     project.write(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> String effects []\n",
+            "fn main(value: Result(Int, String)) -> String\n",
             "  match value\n",
             "    Err(error) => error\n",
             "  end\n",
@@ -1325,10 +1315,7 @@ fn check_json_reports_match_exhaustiveness_details() {
 #[test]
 fn check_json_deduplicates_repeated_explicit_inputs() {
     let project = TestProject::new("dedupe-explicit-inputs");
-    project.write(
-        "main.veln",
-        "pub fn main() -> Int effects []\n  \"no\"\nend\n",
-    );
+    project.write("main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
 
     let output = project.check_json(&["main.veln", "main.veln"]);
     let stdout = stdout(&output);
@@ -1348,10 +1335,7 @@ fn check_json_deduplicates_repeated_explicit_inputs() {
 #[test]
 fn check_json_deduplicates_overlapping_directory_and_file_inputs() {
     let project = TestProject::new("dedupe-overlapping-directory-file-inputs");
-    project.write(
-        "src/main.veln",
-        "pub fn main() -> Int effects []\n  \"no\"\nend\n",
-    );
+    project.write("src/main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
     project.write("src/target/generated.veln", "fn broken() -> ()\n  @\nend\n");
     project.write("src/.git/hooks/hook.veln", "fn broken() -> ()\n  @\nend\n");
 
@@ -1374,10 +1358,7 @@ fn check_json_deduplicates_overlapping_directory_and_file_inputs() {
 #[test]
 fn check_json_reports_implicit_unit_return_type_mismatch() {
     let project = TestProject::new("implicit-unit-return-mismatch");
-    project.write(
-        "main.veln",
-        "pub fn main() -> Int effects []\n  let value = 1\nend\n",
-    );
+    project.write("main.veln", "pub fn main() -> Int\n  let value = 1\nend\n");
 
     let output = project.check_json(&["main.veln"]);
 
@@ -1388,7 +1369,7 @@ fn check_json_reports_implicit_unit_return_type_mismatch() {
             "\"id\":\"type.mismatch\"",
             "\"kind\":\"type\"",
             "\"message\":\"expected `Int`, but found `()`\"",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":52}}",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":41}}",
             "\"details\":{\"phase\":\"type\",\"node_id\":\"fn-1\",\"expected_type\":\"Int\",\"actual_type\":\"()\",\"expected_type_source\":\"declared_return\",\"actual_type_source\":\"implicit_unit\",\"constraint\":\"return_value\",\"origin_node_ids\":[\"fn-1\",\"fn-1\"]}",
         ],
     );
@@ -1400,7 +1381,7 @@ fn check_human_reports_missing_record_field_with_base_note() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  let payload: {count: Int} = {count: 1}\n",
             "  payload.name\n",
             "end\n",
@@ -1426,7 +1407,7 @@ fn check_json_reports_unresolved_name_and_call_target() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  missing_value\n",
             "  missing_call()\n",
             "end\n",
@@ -1459,7 +1440,7 @@ fn check_json_reports_missing_public_stdio_effect_with_provenance() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  stdio::println(\"hello\")\n",
             "end\n",
         ),
@@ -1516,7 +1497,7 @@ fn check_human_reports_missing_public_effect_cause() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  stdio::println(\"hello\")\n",
             "end\n",
         ),
@@ -1536,9 +1517,9 @@ fn check_human_reports_missing_public_effect_cause() {
 }
 
 #[test]
-fn check_human_reports_public_effect_annotation_hint_as_note() {
-    let project = TestProject::new("effect-human-boundary-hint");
-    project.write("main.veln", "pub fn main() -> ()\n  ()\nend\n");
+fn check_human_reports_empty_effects_repair_hints_as_notes() {
+    let project = TestProject::new("effect-human-empty-declaration");
+    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
 
     let output = project.veln(&["check"], &["main.veln"]);
 
@@ -1547,8 +1528,9 @@ fn check_human_reports_public_effect_annotation_hint_as_note() {
     assert_eq!(
         stdout(&output),
         concat!(
-            "main.veln:1:1: error[effect.missing_public]: public function has no effects annotation\n",
-            "  note: Use `effects []` for a pure public function.\n",
+            "main.veln:1:1: error[effect.empty_declaration]: empty effects list is not allowed on a function declaration\n",
+            "  note: Remove the clause when the inferred effect set is empty.\n",
+            "  note: Replace the empty list with non-empty effect labels when the body performs effects.\n",
         ),
     );
 }
@@ -1580,7 +1562,7 @@ fn check_json_reports_contract_validation_diagnostics() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main(ready: Bool) -> () effects []\n",
+            "pub fn main(ready: Bool) -> ()\n",
             "require stdio::println(\"no\")\n",
             "  ()\n",
             "end\n",
@@ -1613,7 +1595,7 @@ fn check_json_keeps_satisfy_predicate_parse_errors_as_parse_kind() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn choose() -> Int effects []\n",
+            "pub fn choose() -> Int\n",
             "  _value satisfy candidate => candidate |> valid\n",
             "end\n",
         ),
@@ -1644,7 +1626,7 @@ fn check_json_reports_contract_type_mismatch_with_type_context() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main(value: Int) -> () effects []\n",
+            "pub fn main(value: Int) -> ()\n",
             "require value\n",
             "  ()\n",
             "end\n",
@@ -1687,7 +1669,7 @@ fn check_human_reports_contract_missing_record_field() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main(value: {total: Int}) -> output: {total: Int} effects []\n",
+            "pub fn main(value: {total: Int}) -> output: {total: Int}\n",
             "ensure output.missing == value.total\n",
             "  value\n",
             "end\n",
@@ -1710,10 +1692,10 @@ fn check_json_reports_contract_missing_call_result_field_details() {
     project.write(
         "main.veln",
         concat!(
-            "fn summary(value: Int) -> {total: Int} effects []\n",
+            "fn summary(value: Int) -> {total: Int}\n",
             "  {total: value}\n",
             "end\n",
-            "pub fn main(value: Int) -> Int effects []\n",
+            "pub fn main(value: Int) -> Int\n",
             "require summary(value).missing == 1\n",
             "  value\n",
             "end\n",
@@ -1752,10 +1734,10 @@ fn check_human_reports_contract_missing_call_result_field() {
     project.write(
         "main.veln",
         concat!(
-            "fn summary(value: Int) -> {total: Int} effects []\n",
+            "fn summary(value: Int) -> {total: Int}\n",
             "  {total: value}\n",
             "end\n",
-            "pub fn main(value: Int) -> Int effects []\n",
+            "pub fn main(value: Int) -> Int\n",
             "require summary(value).missing == 1\n",
             "  value\n",
             "end\n",
@@ -1778,7 +1760,7 @@ fn check_json_reports_hole_constraints_from_contracts_and_satisfy() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn default_port(max: Int) -> Int effects []\n",
+            "pub fn default_port(max: Int) -> Int\n",
             "require max > 0\n",
             "  _port satisfy candidate => candidate > 0 and candidate <= max\n",
             "end\n",
@@ -2794,7 +2776,7 @@ fn run_treats_flag_like_values_after_separator_as_entry_arguments() {
     let project = TestProject::new("run-flag-like-entry-arg");
     project.write(
         "main.veln",
-        "pub fn main(value: String) -> String effects []\n  value\nend\n",
+        "pub fn main(value: String) -> String\n  value\nend\n",
     );
 
     let output = project.run_with_path(&["main", "main.veln", "--", "--wat"], "");
@@ -2822,7 +2804,7 @@ fn run_converts_primitive_entry_arguments_when_jdk_is_available() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main(count: Int, ratio: Float, enabled: Bool) -> {count: Int, ratio: Float, enabled: Bool} effects []\n",
+            "pub fn main(count: Int, ratio: Float, enabled: Bool) -> {count: Int, ratio: Float, enabled: Bool}\n",
             "  {count: count + 1, ratio: ratio + 0.5, enabled: not enabled}\n",
             "end\n",
         ),
@@ -2845,10 +2827,10 @@ fn run_executes_function_typed_value_calls_when_jdk_is_available() {
     project.write(
         "main.veln",
         concat!(
-            "fn increment(value: Int) -> Int effects []\n",
+            "fn increment(value: Int) -> Int\n",
             "  value + 1\n",
             "end\n",
-            "pub fn main() -> output: Int effects []\n",
+            "pub fn main() -> output: Int\n",
             "  ensure output == 2\n",
             "  let callback: fn(Int) -> Int effects [] = increment\n",
             "  callback(1)\n",
@@ -2996,7 +2978,7 @@ fn run_executes_task_spawn_and_join_when_jdk_is_available() {
     project.write(
         "main.veln",
         concat!(
-            "fn produce() -> String effects []\n",
+            "fn produce() -> String\n",
             "  \"hello\"\n",
             "end\n",
             "pub fn main() -> () effects [concurrency, stdio]\n",
@@ -3023,7 +3005,7 @@ fn run_blocks_reachable_holes_before_jdk_execution() {
     let project = TestProject::new("run-hole");
     project.write(
         "main.veln",
-        "pub fn main() -> Result((), AppError) effects []\n  _\nend\n",
+        "pub fn main() -> Result((), AppError)\n  _\nend\n",
     );
 
     let output = project.run(&["main", "main.veln"]);
@@ -3045,10 +3027,10 @@ fn run_blocks_holes_reachable_through_function_values_before_jdk_execution() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> Vec(String) effects []\n",
+            "pub fn main() -> Vec(String)\n",
             "  vec_map([1], stringify)\n",
             "end\n",
-            "fn stringify(value: Int) -> String effects []\n",
+            "fn stringify(value: Int) -> String\n",
             "  _\n",
             "end\n",
         ),
@@ -3074,7 +3056,7 @@ fn run_blocks_holes_reachable_through_qualified_function_values_before_jdk_execu
         "text.veln",
         concat!(
             "mod app.text\n",
-            "fn stringify(value: Int) -> String effects []\n",
+            "fn stringify(value: Int) -> String\n",
             "  _\n",
             "end\n",
         ),
@@ -3084,7 +3066,7 @@ fn run_blocks_holes_reachable_through_qualified_function_values_before_jdk_execu
         concat!(
             "mod app.main\n",
             "use app.text\n",
-            "pub fn main() -> Vec(String) effects []\n",
+            "pub fn main() -> Vec(String)\n",
             "  vec_map([1], text::stringify)\n",
             "end\n",
         ),
@@ -3109,16 +3091,16 @@ fn run_blocks_holes_reachable_through_opaque_function_value_calls_before_jdk_exe
     project.write(
         "main.veln",
         concat!(
-            "fn invoke(job: fn() -> Bool) -> Bool effects []\n",
+            "fn invoke(job: fn() -> Bool) -> Bool\n",
             "  job()\n",
             "end\n",
-            "fn ready() -> Bool effects []\n",
+            "fn ready() -> Bool\n",
             "  true\n",
             "end\n",
-            "fn risky() -> Bool effects []\n",
+            "fn risky() -> Bool\n",
             "  _\n",
             "end\n",
-            "pub fn main() -> Bool effects []\n",
+            "pub fn main() -> Bool\n",
             "  invoke(ready)\n",
             "end\n",
         ),
@@ -3143,17 +3125,17 @@ fn run_blocks_holes_reachable_through_opaque_local_function_value_calls_before_j
     project.write(
         "main.veln",
         concat!(
-            "fn invoke() -> Bool effects []\n",
+            "fn invoke() -> Bool\n",
             "  let job: fn() -> Bool = ready\n",
             "  job()\n",
             "end\n",
-            "fn ready() -> Bool effects []\n",
+            "fn ready() -> Bool\n",
             "  true\n",
             "end\n",
-            "fn risky() -> Bool effects []\n",
+            "fn risky() -> Bool\n",
             "  _\n",
             "end\n",
-            "pub fn main() -> Bool effects []\n",
+            "pub fn main() -> Bool\n",
             "  invoke()\n",
             "end\n",
         ),
@@ -3178,10 +3160,10 @@ fn run_blocks_holes_reachable_through_contract_helpers_before_jdk_execution() {
     project.write(
         "main.veln",
         concat!(
-            "fn positive(value: Int) -> Bool effects []\n",
+            "fn positive(value: Int) -> Bool\n",
             "  _\n",
             "end\n",
-            "pub fn main() -> output: Int effects []\n",
+            "pub fn main() -> output: Int\n",
             "  ensure positive(output)\n",
             "  1\n",
             "end\n",
@@ -3207,13 +3189,13 @@ fn run_blocks_holes_reachable_through_contract_function_values_before_jdk_execut
     project.write(
         "main.veln",
         concat!(
-            "fn accepts(job: fn() -> Bool) -> Bool effects []\n",
+            "fn accepts(job: fn() -> Bool) -> Bool\n",
             "  job()\n",
             "end\n",
-            "fn ready() -> Bool effects []\n",
+            "fn ready() -> Bool\n",
             "  _\n",
             "end\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  require accepts(ready)\n",
             "  ()\n",
             "end\n",
@@ -3238,19 +3220,14 @@ fn run_blocks_holes_reachable_through_imported_calls_before_jdk_execution() {
     let project = TestProject::new("run-imported-call-hole");
     project.write(
         "util.veln",
-        concat!(
-            "mod app.util\n",
-            "fn value() -> Int effects []\n",
-            "  _\n",
-            "end\n",
-        ),
+        concat!("mod app.util\n", "fn value() -> Int\n", "  _\n", "end\n",),
     );
     project.write(
         "main.veln",
         concat!(
             "mod app.main\n",
             "use app.util\n",
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  util::value()\n",
             "end\n",
         ),
@@ -3287,10 +3264,7 @@ fn run_reports_parse_diagnostics_before_semantic_analysis() {
 #[test]
 fn run_reports_semantic_diagnostics_before_lowering() {
     let project = TestProject::new("run-semantic-diagnostics");
-    project.write(
-        "main.veln",
-        "pub fn main() -> Int effects []\n  \"no\"\nend\n",
-    );
+    project.write("main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
 
     let output = project.run(&["main", "main.veln"]);
 
@@ -3308,10 +3282,10 @@ fn run_ignores_unreachable_semantic_diagnostics() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
-            "fn later() -> Int effects []\n",
+            "fn later() -> Int\n",
             "  \"no\"\n",
             "end\n",
         ),
@@ -3338,10 +3312,10 @@ fn run_ignores_function_shadowed_by_local_binding() {
     project.write(
         "main.veln",
         concat!(
-            "fn helper() -> Int effects []\n",
+            "fn helper() -> Int\n",
             "  _\n",
             "end\n",
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  let helper = 1\n",
             "  helper\n",
             "end\n",
@@ -3393,7 +3367,7 @@ fn run_does_not_block_unreachable_holes_when_jdk_is_available() {
 #[test]
 fn run_reports_missing_entry_before_jdk_execution() {
     let project = TestProject::new("run-missing-entry");
-    project.write("main.veln", "pub fn main() -> () effects []\n  ()\nend\n");
+    project.write("main.veln", "pub fn main() -> ()\n  ()\nend\n");
 
     let output = project.run(&["missing", "main.veln"]);
 
@@ -3410,7 +3384,7 @@ fn run_rejects_wrong_entry_argument_count_before_jdk_execution() {
     let project = TestProject::new("run-entry-params");
     project.write(
         "main.veln",
-        "pub fn main(value: String) -> String effects []\n  value\nend\n",
+        "pub fn main(value: String) -> String\n  value\nend\n",
     );
 
     let output = project.run(&["main", "main.veln"]);
@@ -3431,7 +3405,7 @@ fn run_rejects_unsupported_entry_parameters_before_jdk_execution() {
     let project = TestProject::new("run-entry-unsupported-param");
     project.write(
         "main.veln",
-        "pub fn main(value: Vec(Int)) -> Vec(Int) effects []\n  value\nend\n",
+        "pub fn main(value: Vec(Int)) -> Vec(Int)\n  value\nend\n",
     );
 
     let output = project.run(&["main", "main.veln", "--", "1"]);
@@ -3452,7 +3426,7 @@ fn run_rejects_invalid_typed_entry_argument_before_jdk_execution() {
     let project = TestProject::new("run-entry-invalid-arg");
     project.write(
         "main.veln",
-        "pub fn main(value: Int) -> Int effects []\n  value\nend\n",
+        "pub fn main(value: Int) -> Int\n  value\nend\n",
     );
 
     let output = project.run(&["main", "main.veln", "--", "not-int"]);
@@ -3470,7 +3444,7 @@ fn run_rejects_invalid_float_entry_argument_before_jdk_execution() {
     let project = TestProject::new("run-entry-invalid-float");
     project.write(
         "main.veln",
-        "pub fn main(value: Float) -> Float effects []\n  value\nend\n",
+        "pub fn main(value: Float) -> Float\n  value\nend\n",
     );
 
     let output = project.run(&["main", "main.veln", "--", "not-float"]);
@@ -3488,7 +3462,7 @@ fn run_rejects_invalid_bool_entry_argument_before_jdk_execution() {
     let project = TestProject::new("run-entry-invalid-bool");
     project.write(
         "main.veln",
-        "pub fn main(value: Bool) -> Bool effects []\n  value\nend\n",
+        "pub fn main(value: Bool) -> Bool\n  value\nend\n",
     );
 
     let output = project.run(&["main", "main.veln", "--", "yes"]);
@@ -3511,7 +3485,7 @@ fn run_json_reports_runtime_contract_failures_when_jdk_is_available() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "require false\n",
             "  ()\n",
             "end\n",
@@ -3577,7 +3551,7 @@ fn test_json_reports_no_discovered_test_declarations() {
     let project = TestProject::new("test-no-declarations");
     project.write(
         "main_test.veln",
-        "fn takes_arg(value: Int) -> Int effects []\n  value\nend\n",
+        "fn takes_arg(value: Int) -> Int\n  value\nend\n",
     );
 
     let output = project.test(&["--json"]);
@@ -3602,7 +3576,7 @@ fn test_human_reports_no_discovered_test_declarations() {
     let project = TestProject::new("test-human-no-declarations");
     project.write(
         "main_test.veln",
-        "fn takes_arg(value: Int) -> Int effects []\n  value\nend\n",
+        "fn takes_arg(value: Int) -> Int\n  value\nend\n",
     );
 
     let output = project.test(&[]);
@@ -3618,14 +3592,8 @@ fn test_human_reports_no_discovered_test_declarations() {
 #[test]
 fn test_json_blocks_duplicate_function_like_names_with_origin_note() {
     let project = TestProject::new("test-duplicate-function-like-names-json");
-    project.write(
-        "first_test.veln",
-        "test same() -> () effects []\n  ()\nend\n",
-    );
-    project.write(
-        "second_test.veln",
-        "fn same() -> () effects []\n  ()\nend\n",
-    );
+    project.write("first_test.veln", "test same() -> ()\n  ()\nend\n");
+    project.write("second_test.veln", "fn same() -> ()\n  ()\nend\n");
 
     let output = project.test(&["--json"]);
     let stdout = stdout(&output);
@@ -3649,14 +3617,8 @@ fn test_json_blocks_duplicate_function_like_names_with_origin_note() {
 #[test]
 fn test_human_blocks_duplicate_function_like_names_with_origin_note() {
     let project = TestProject::new("test-duplicate-function-like-names-human");
-    project.write(
-        "first_test.veln",
-        "test same() -> () effects []\n  ()\nend\n",
-    );
-    project.write(
-        "second_test.veln",
-        "fn same() -> () effects []\n  ()\nend\n",
-    );
+    project.write("first_test.veln", "test same() -> ()\n  ()\nend\n");
+    project.write("second_test.veln", "fn same() -> ()\n  ()\nend\n");
 
     let output = project.test(&[]);
 
@@ -3676,7 +3638,7 @@ fn test_json_blocks_static_gate_before_jdk_execution() {
     let project = TestProject::new("test-static-gate");
     project.write(
         "main_test.veln",
-        "test blocked() -> Result((), AppError) effects []\n  _\nend\n",
+        "test blocked() -> Result((), AppError)\n  _\nend\n",
     );
 
     let output = project.test(&["--json"]);
@@ -3702,10 +3664,7 @@ fn test_json_blocks_static_gate_before_jdk_execution() {
 #[test]
 fn test_json_reports_parse_static_gate_without_jdk_execution() {
     let project = TestProject::new("test-parse-static-gate");
-    project.write(
-        "broken_test.veln",
-        "test broken() -> () effects []\n  @\nend\n",
-    );
+    project.write("broken_test.veln", "test broken() -> ()\n  @\nend\n");
 
     let output = project.test(&["--json"]);
     let stdout = stdout(&output);
@@ -3729,14 +3688,8 @@ fn test_json_reports_parse_static_gate_without_jdk_execution() {
 #[test]
 fn test_json_blocks_cases_from_multiple_files_on_semantic_static_gate() {
     let project = TestProject::new("test-multiple-files-static-gate");
-    project.write(
-        "first_test.veln",
-        "test first() -> () effects []\n  ()\nend\n",
-    );
-    project.write(
-        "second_test.veln",
-        "test second() -> Int effects []\n  \"no\"\nend\n",
-    );
+    project.write("first_test.veln", "test first() -> ()\n  ()\nend\n");
+    project.write("second_test.veln", "test second() -> Int\n  \"no\"\nend\n");
 
     let output = project.test(&["--json"]);
     let stdout = stdout(&output);
@@ -3767,10 +3720,10 @@ fn test_json_auto_discovers_same_file_test_declarations() {
     project.write(
         "main.veln",
         concat!(
-            "fn helper() -> () effects []\n",
+            "fn helper() -> ()\n",
             "  ()\n",
             "end\n",
-            "test same_file() -> Result((), AppError) effects []\n",
+            "test same_file() -> Result((), AppError)\n",
             "  _\n",
             "end\n",
         ),
@@ -3803,7 +3756,7 @@ fn check_json_typechecks_executable_doctest_fences() {
             "/// ```veln\n",
             "/// let value: Int = \"no\"\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -3833,7 +3786,7 @@ fn check_json_uses_doctest_error_type_fence_attribute() {
             "/// ```veln error=AppError\n",
             "/// let value: Int = Ok(1)?\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -3862,7 +3815,7 @@ fn check_json_infers_doctest_error_type_from_public_result() {
             "/// ```veln\n",
             "/// let value: Int = Ok(1)?\n",
             "/// ```\n",
-            "pub fn parse(raw: String) -> Result(Int, AppError) effects []\n",
+            "pub fn parse(raw: String) -> Result(Int, AppError)\n",
             "  Ok(1)\n",
             "end\n",
         ),
@@ -3897,7 +3850,7 @@ fn check_reports_duplicate_doctest_output_stream() {
             "/// ```veln-output stream=stdout\n",
             "/// duplicate\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -3955,7 +3908,7 @@ fn check_reports_unknown_doctest_metadata() {
             "/// ```veln-output stream=stdout trim=true\n",
             "/// ready\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -4016,7 +3969,7 @@ fn check_reports_invalid_doctest_metadata() {
             "/// ```veln-output stream=combined\n",
             "/// mixed\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -4074,7 +4027,7 @@ fn check_ignores_non_runnable_doctest_fences() {
             "/// ```veln ignore\n",
             "/// missing_function()\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -4096,7 +4049,7 @@ fn check_accepts_negative_doctest_with_static_diagnostic() {
             "/// ```veln fail\n",
             "/// let value: Int = \"no\"\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -4118,7 +4071,7 @@ fn check_reports_negative_doctest_that_does_not_fail() {
             "/// ```veln fail\n",
             "/// let value: Int = 1\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -4148,7 +4101,7 @@ fn check_reports_negative_doctest_with_only_hole_hint() {
             "/// ```veln fail\n",
             "/// let value: Int = _\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -4182,7 +4135,7 @@ fn check_json_typechecks_hidden_doctest_setup_lines() {
             "/// # let greeting = \"ready\"\n",
             "/// stdio::println(greeting)\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -4198,11 +4151,11 @@ fn check_json_typechecks_hidden_doctest_setup_lines() {
 #[test]
 fn test_json_maps_explicit_source_file_to_paired_test_file() {
     let project = TestProject::new("test-source-to-test-convention");
-    project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");
+    project.write("app.veln", "fn helper() -> ()\n  ()\nend\n");
     project.write(
         "app_test.veln",
         concat!(
-            "test paired() -> Result((), AppError) effects []\n",
+            "test paired() -> Result((), AppError)\n",
             "  helper()\n",
             "  _\n",
             "end\n",
@@ -4241,7 +4194,7 @@ fn test_json_runs_doctest_and_compares_expected_output_when_jdk_is_available() {
             "/// ```veln-output stream=stdout\n",
             "/// ready\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -4278,7 +4231,7 @@ fn test_json_reports_doctest_expected_output_mismatch_when_jdk_is_available() {
             "/// ```veln-output stream=stdout\n",
             "/// ready\n",
             "/// ```\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  ()\n",
             "end\n",
         ),
@@ -4305,11 +4258,11 @@ fn test_json_reports_doctest_expected_output_mismatch_when_jdk_is_available() {
 #[test]
 fn test_human_reports_source_to_test_selection_note() {
     let project = TestProject::new("test-human-source-to-test-convention");
-    project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");
+    project.write("app.veln", "fn helper() -> ()\n  ()\nend\n");
     project.write(
         "app_test.veln",
         concat!(
-            "test paired() -> Result((), AppError) effects []\n",
+            "test paired() -> Result((), AppError)\n",
             "  helper()\n",
             "  _\n",
             "end\n",
@@ -4334,12 +4287,9 @@ fn test_json_treats_explicit_directory_target_as_user_selected() {
     let project = TestProject::new("test-explicit-directory-target");
     project.write(
         "tests/app_test.veln",
-        "test directory_case() -> Result((), AppError) effects []\n  _\nend\n",
+        "test directory_case() -> Result((), AppError)\n  _\nend\n",
     );
-    project.write(
-        "tests/helper.veln",
-        "fn helper() -> () effects []\n  ()\nend\n",
-    );
+    project.write("tests/helper.veln", "fn helper() -> ()\n  ()\nend\n");
 
     let output = project.test(&["--json", "tests"]);
     let stdout = stdout(&output);
@@ -4362,7 +4312,7 @@ fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
     let project = TestProject::new("test-human-static-gate");
     project.write(
         "main_test.veln",
-        "test blocked() -> Result((), AppError) effects []\n  _\nend\n",
+        "test blocked() -> Result((), AppError)\n  _\nend\n",
     );
 
     let output = project.test(&[]);
@@ -4385,10 +4335,10 @@ fn test_human_reports_passed_and_failed_cases_when_jdk_is_available() {
     project.write(
         "main_test.veln",
         concat!(
-            "test passes() -> () effects []\n",
+            "test passes() -> ()\n",
             "  ()\n",
             "end\n",
-            "test fails() -> Result((), String) effects []\n",
+            "test fails() -> Result((), String)\n",
             "  Err(\"bad\")\n",
             "end\n",
         ),
@@ -4411,7 +4361,7 @@ fn test_json_discovers_runs_and_captures_stdio_when_jdk_is_available() {
     }
 
     let project = TestProject::new("test-json-cases");
-    project.write("app.veln", "fn helper() -> () effects []\n  ()\nend\n");
+    project.write("app.veln", "fn helper() -> ()\n  ()\nend\n");
     project.write(
         "main_test.veln",
         concat!(
@@ -4420,7 +4370,7 @@ fn test_json_discovers_runs_and_captures_stdio_when_jdk_is_available() {
             "  stdio::eprintln(\"err\")\n",
             "  ()\n",
             "end\n",
-            "test fails() -> Result((), String) effects []\n",
+            "test fails() -> Result((), String)\n",
             "  Err(\"bad\")\n",
             "end\n",
         ),
@@ -4457,7 +4407,7 @@ fn test_json_embeds_runtime_contract_failures_when_jdk_is_available() {
     project.write(
         "main_test.veln",
         concat!(
-            "test rejects() -> () effects []\n",
+            "test rejects() -> ()\n",
             "require false\n",
             "  ()\n",
             "end\n",
@@ -4488,10 +4438,7 @@ fn test_explicit_target_runs_same_file_test_declaration_when_jdk_is_available() 
     }
 
     let project = TestProject::new("test-explicit-same-file");
-    project.write(
-        "example.veln",
-        "test example() -> () effects []\n  ()\nend\n",
-    );
+    project.write("example.veln", "test example() -> ()\n  ()\nend\n");
 
     let output = project.test(&["--json", "example.veln"]);
     let stdout = stdout(&output);

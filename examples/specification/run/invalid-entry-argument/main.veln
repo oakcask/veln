@@ -1,4 +1,4 @@
 // Entry argument conversion reports invalid command-line text by parameter.
-pub fn main(value: Int) -> Int effects []
+pub fn main(value: Int) -> Int
   value
 end

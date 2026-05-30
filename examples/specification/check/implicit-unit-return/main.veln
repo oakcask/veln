@@ -1,10 +1,10 @@
 // A body with no tail expression returns the implicit unit value.
-fn ok_unit() -> () effects []
+fn ok_unit() -> ()
 end
 
-fn missing_value() -> Int effects []
+fn missing_value() -> Int
 end
 
-pub fn main() -> () effects []
+pub fn main() -> ()
   ok_unit()
 end

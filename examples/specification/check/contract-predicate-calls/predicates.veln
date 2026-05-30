@@ -1,17 +1,17 @@
 mod spec.predicates
 
-pub fn positive(value: Int) -> Bool effects []
+pub fn positive(value: Int) -> Bool
   value > 0
 end
 
-pub fn next_value(value: Int) -> Int effects []
+pub fn next_value(value: Int) -> Int
   value + 1
 end
 
-pub fn apply(value: Int, predicate: fn(Int) -> Bool effects []) -> Bool effects []
+pub fn apply(value: Int, predicate: fn(Int) -> Bool effects []) -> Bool
   predicate(value)
 end
 
-pub fn summary(value: Int) -> {ready: Bool, next: Int} effects []
+pub fn summary(value: Int) -> {ready: Bool, next: Int}
   {ready: positive(value), next: next_value(value)}
 end

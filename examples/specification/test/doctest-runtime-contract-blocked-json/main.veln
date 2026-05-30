@@ -2,6 +2,6 @@
 /// ```veln runtime=contract clause=require predicate=false
 /// let value: Int = "no"
 /// ```
-pub fn main() -> () effects []
+pub fn main() -> ()
   ()
 end

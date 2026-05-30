@@ -187,6 +187,17 @@ Each path entry contains:
 - `symbol`
 - `span`
 
+Effect diagnostic `details` are stable for `effect.empty_declaration`:
+
+- `phase`
+- `node_id`
+- `effect`
+- `boundary`
+- `declared_effects`
+- `inferred_effects`
+- `provenance`
+- `provenance_truncated`
+
 Effect diagnostic `details` are stable for `effect.unknown`:
 
 - `phase`

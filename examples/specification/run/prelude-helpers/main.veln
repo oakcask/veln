@@ -1,16 +1,16 @@
 // Fallible traversal helpers stop at the first Err and keep successful values ordered.
-fn attach(context: String, value: Int) -> Result({prefix: String, value: Int}, String) effects []
+fn attach(context: String, value: Int) -> Result({prefix: String, value: Int}, String)
   Ok({prefix: context, value: value})
 end
 
-fn stop_at_two(context: String, value: Int) -> Result({prefix: String, value: Int}, String) effects []
+fn stop_at_two(context: String, value: Int) -> Result({prefix: String, value: Int}, String)
   match value == 2
     true => Err(context)
     false => Ok({prefix: context, value: value})
   end
 end
 
-fn add_value(total: Int, item: {prefix: String, value: Int}) -> Int effects []
+fn add_value(total: Int, item: {prefix: String, value: Int}) -> Int
   total + item.value
 end
 

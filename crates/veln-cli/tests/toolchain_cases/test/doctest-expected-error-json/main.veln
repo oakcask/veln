@@ -1,10 +1,10 @@
 /// ```veln fail
 /// let value: Int = "no"
 /// ```
-pub fn documented() -> () effects []
+pub fn documented() -> ()
   ()
 end
 
-test passes() -> () effects []
+test passes() -> ()
   ()
 end

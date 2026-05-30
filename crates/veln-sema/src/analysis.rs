@@ -84,25 +84,6 @@ pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnos
         ));
     }
 
-    if function.effects.is_none() {
-        let mut diagnostic = Diagnostic::new(
-            "effect.missing_public",
-            Severity::Error,
-            DiagnosticKind::Effect,
-            "public function has no effects annotation",
-            Some(function.span.clone()),
-            effect_details(function.node_id.display("fn"), "public_function"),
-        );
-        diagnostic.related.push(JsonValue::object([
-            ("kind", JsonValue::string("repair_hint")),
-            (
-                "message",
-                JsonValue::string("Use `effects []` for a pure public function."),
-            ),
-        ]));
-        diagnostics.push(diagnostic);
-    }
-
     diagnostics
 }
 
@@ -127,6 +108,36 @@ pub(crate) fn check_declared_effect_labels(function: &Function) -> Vec<Diagnosti
         FunctionKind::Function => "private_function",
     };
     let node_prefix = function.kind.node_prefix();
+
+    if declared_effects.is_empty() {
+        let subject = match function.kind {
+            FunctionKind::Test => "test declaration",
+            FunctionKind::Function => "function declaration",
+        };
+        let mut diagnostic = Diagnostic::new(
+            "effect.empty_declaration",
+            Severity::Error,
+            DiagnosticKind::Effect,
+            format!("empty effects list is not allowed on a {subject}"),
+            Some(function.span.clone()),
+            effect_details(function.node_id.display(node_prefix), boundary),
+        );
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("repair_hint")),
+            (
+                "message",
+                JsonValue::string("Remove the clause when the inferred effect set is empty."),
+            ),
+        ]));
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("repair_hint")),
+            (
+                "message",
+                JsonValue::string("Replace the empty list with non-empty effect labels when the body performs effects."),
+            ),
+        ]));
+        return vec![diagnostic];
+    }
 
     declared_effects
         .iter()
@@ -333,25 +344,6 @@ pub(crate) fn check_test_declaration_boundary(function: &Function) -> Vec<Diagno
             "test declaration has no return type annotation".to_string(),
             "missing".to_string(),
         )),
-    }
-
-    if function.effects.is_none() {
-        let mut diagnostic = Diagnostic::new(
-            "effect.missing_test",
-            Severity::Error,
-            DiagnosticKind::Effect,
-            "test declaration has no effects annotation",
-            Some(function.span.clone()),
-            effect_details(node_id, "test_declaration"),
-        );
-        diagnostic.related.push(JsonValue::object([
-            ("kind", JsonValue::string("repair_hint")),
-            (
-                "message",
-                JsonValue::string("Use `effects []` for a pure test declaration."),
-            ),
-        ]));
-        diagnostics.push(diagnostic);
     }
 
     diagnostics
@@ -925,9 +917,20 @@ impl<'a> FunctionChecker<'a> {
         let Some((boundary, diagnostic_id, subject)) = boundary else {
             return;
         };
-        let Some(declared_effects) = &self.function.effects else {
+        if self
+            .function
+            .effects
+            .as_ref()
+            .is_some_and(|declared_effects| declared_effects.is_empty())
+        {
             return;
-        };
+        }
+        let empty_declared_effects = Vec::new();
+        let declared_effects = self
+            .function
+            .effects
+            .as_ref()
+            .unwrap_or(&empty_declared_effects);
 
         let mut inferred_effects = Vec::<String>::new();
         for effect_use in &self.inferred_effects {

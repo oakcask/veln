@@ -541,7 +541,7 @@ mod tests {
         let mut server = Server::default();
 
         let responses = server.handle_message(
-            r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://main.veln","text":"pub fn main() -> Int\n  1\nend\n"}}}"#,
+            r#"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file://main.veln","text":"pub fn main() -> ()\n  stdio::println(\"hello\")\nend\n"}}}"#,
         );
 
         assert_eq!(responses.len(), 1);

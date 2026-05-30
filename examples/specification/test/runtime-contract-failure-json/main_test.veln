@@ -1,5 +1,5 @@
 // Runtime contract failures inside tests are reported as contract failures.
-test rejects() -> () effects []
+test rejects() -> ()
 require false
   ()
 end

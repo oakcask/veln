@@ -34,7 +34,7 @@ fn parses_minimal_public_function() {
 fn parses_explicit_test_declaration() {
     let source = SourceFile::new(
         "main_test.veln",
-        "test returns_ok() -> Result((), String) effects []\n\tOk(())\nend\n",
+        "test returns_ok() -> Result((), String)\n\tOk(())\nend\n",
     );
 
     let output = parse(&source);
@@ -47,7 +47,7 @@ fn parses_explicit_test_declaration() {
     assert_eq!(function.name.as_deref(), Some("returns_ok"));
     assert_eq!(
         format_tree(&output.tree),
-        "test returns_ok() -> Result((), String) effects []\n\tOk(())\nend\n"
+        "test returns_ok() -> Result((), String)\n\tOk(())\nend\n"
     );
 }
 
@@ -175,7 +175,7 @@ fn parses_adr_lite_records_from_doc_comments() {
             "/// context: Summaries need source-adjacent rationale.\n",
             "/// decision: Keep the public API pure.\n",
             "/// consequences: Runtime behavior ignores this record.\n",
-            "pub fn summarize() -> () effects []\n",
+            "pub fn summarize() -> ()\n",
             "\t()\n",
             "end\n",
         ),
@@ -600,7 +600,7 @@ fn parses_function_return_type_effects_before_declaration_effects() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn callback_factory() -> fn(String) -> () effects [stdio] effects []\n",
+            "pub fn callback_factory() -> fn(String) -> () effects [stdio]\n",
             "end\n",
         ),
     );
@@ -613,11 +613,11 @@ fn parses_function_return_type_effects_before_declaration_effects() {
         function.return_type.as_deref(),
         Some("fn(String) -> () effects [stdio]")
     );
-    assert_eq!(function.effects.as_ref().unwrap(), &Vec::<String>::new());
+    assert_eq!(function.effects, None);
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "pub fn callback_factory() -> fn(String) -> () effects [stdio] effects []\n",
+            "pub fn callback_factory() -> fn(String) -> () effects [stdio]\n",
             "end\n",
         )
     );
@@ -1297,10 +1297,7 @@ fn synchronizes_top_level_garbage_to_next_function() {
 
 #[test]
 fn synchronizes_top_level_garbage_to_next_test_declaration() {
-    let source = SourceFile::new(
-        "main.veln",
-        "let stray = 1\ntest main() -> () effects []\nend\n",
-    );
+    let source = SourceFile::new("main.veln", "let stray = 1\ntest main() -> ()\nend\n");
 
     let output = parse(&source);
 
@@ -1325,7 +1322,7 @@ fn parses_and_formats_match_expression() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: Option(Int)) -> String effects []\n",
+            "fn describe(value: Option(Int)) -> String\n",
             "\tmatch value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1357,7 +1354,7 @@ fn reports_missing_match_arm_arrow_and_keeps_arm_expression() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: Option(Int)) -> String effects []\n",
+            "fn describe(value: Option(Int)) -> String\n",
             "  match value\n",
             "    Some(count) \"some\"\n",
             "    None => \"none\"\n",
@@ -1398,7 +1395,7 @@ fn parses_match_expression_inside_call_argument() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: Option(Int)) -> String effects []\n",
+            "fn describe(value: Option(Int)) -> String\n",
             "\twrap(match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1421,7 +1418,7 @@ fn parses_match_expression_inside_call_argument() {
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "fn describe(value: Option(Int)) -> String effects []\n",
+            "fn describe(value: Option(Int)) -> String\n",
             "\twrap(match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1436,7 +1433,7 @@ fn parses_match_expression_inside_aggregate_literals() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: Option(Int)) -> {labels: [String], primary: String} effects []\n",
+            "fn describe(value: Option(Int)) -> {labels: [String], primary: String}\n",
             "\t{labels: [match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1466,7 +1463,7 @@ fn parses_match_expression_inside_aggregate_literals() {
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "fn describe(value: Option(Int)) -> { labels : [String], primary : String } effects []\n",
+            "fn describe(value: Option(Int)) -> { labels : [String], primary : String }\n",
             "\t{ labels: [match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1484,7 +1481,7 @@ fn parses_and_formats_qualified_builtin_constructors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: Result(Option(Int), String)) -> Result(String, String) effects []\n",
+            "fn describe(value: Result(Option(Int), String)) -> Result(String, String)\n",
             "\tmatch value\n",
             "\t\tResult::Ok(Option::Some(count)) => Result::Ok(\"some\")\n",
             "\t\tResult::Ok(Option::None) => Result::Ok(\"none\")\n",
@@ -1528,7 +1525,7 @@ fn parses_and_formats_record_patterns() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: {count: Int, label: String}) -> String effects []\n",
+            "fn describe(value: {count: Int, label: String}) -> String\n",
             "\tmatch value\n",
             "\t\t{count: 0, label: name} => name\n",
             "\t\t{count: count, label: _} => \"many\"\n",
@@ -1543,7 +1540,7 @@ fn parses_and_formats_record_patterns() {
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "fn describe(value: { count : Int, label : String }) -> String effects []\n",
+            "fn describe(value: { count : Int, label : String }) -> String\n",
             "\tmatch value\n",
             "\t\t{ count: 0, label: name } => name\n",
             "\t\t{ count: count, label: _ } => \"many\"\n",
@@ -1578,7 +1575,7 @@ fn reports_missing_record_pattern_field_colon_and_keeps_field_pattern() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: {count: Int}) -> String effects []\n",
+            "fn describe(value: {count: Int}) -> String\n",
             "  match value\n",
             "    {count 0} => \"zero\"\n",
             "  end\n",

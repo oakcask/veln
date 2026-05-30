@@ -837,10 +837,10 @@ mod tests {
     #[test]
     fn test_entry_can_reach_function_callee() {
         let module = lower(concat!(
-            "test foo() -> () effects []\n",
+            "test foo() -> ()\n",
             "  helper()\n",
             "end\n",
-            "fn helper() -> () effects []\n",
+            "fn helper() -> ()\n",
             "  ()\n",
             "end\n",
         ));
@@ -864,11 +864,11 @@ mod tests {
     #[test]
     fn test_entry_can_reach_function_value_reference() {
         let module = lower(concat!(
-            "test foo() -> () effects []\n",
+            "test foo() -> ()\n",
             "  vec_map([1], stringify)\n",
             "  ()\n",
             "end\n",
-            "fn stringify(value: Int) -> String effects []\n",
+            "fn stringify(value: Int) -> String\n",
             "  \"ok\"\n",
             "end\n",
         ));
@@ -892,16 +892,16 @@ mod tests {
     #[test]
     fn test_entry_conservatively_reaches_opaque_function_value_call_targets() {
         let module = lower(concat!(
-            "test foo() -> Bool effects []\n",
+            "test foo() -> Bool\n",
             "  invoke(ready)\n",
             "end\n",
-            "fn invoke(job: fn() -> Bool) -> Bool effects []\n",
+            "fn invoke(job: fn() -> Bool) -> Bool\n",
             "  job()\n",
             "end\n",
-            "fn ready() -> Bool effects []\n",
+            "fn ready() -> Bool\n",
             "  true\n",
             "end\n",
-            "fn risky() -> Bool effects []\n",
+            "fn risky() -> Bool\n",
             "  _\n",
             "end\n",
         ));
@@ -927,16 +927,16 @@ mod tests {
     #[test]
     fn test_entry_reaches_opaque_function_value_call_targets_with_spaced_type() {
         let module = lower(concat!(
-            "test foo() -> Bool effects []\n",
+            "test foo() -> Bool\n",
             "  invoke(ready)\n",
             "end\n",
-            "fn invoke(job: fn () -> Bool) -> Bool effects []\n",
+            "fn invoke(job: fn () -> Bool) -> Bool\n",
             "  job()\n",
             "end\n",
-            "fn ready() -> Bool effects []\n",
+            "fn ready() -> Bool\n",
             "  true\n",
             "end\n",
-            "fn risky() -> Bool effects []\n",
+            "fn risky() -> Bool\n",
             "  _\n",
             "end\n",
         ));
@@ -962,17 +962,17 @@ mod tests {
     #[test]
     fn test_entry_conservatively_reaches_opaque_local_function_value_call_targets() {
         let module = lower(concat!(
-            "test foo() -> Bool effects []\n",
+            "test foo() -> Bool\n",
             "  invoke()\n",
             "end\n",
-            "fn invoke() -> Bool effects []\n",
+            "fn invoke() -> Bool\n",
             "  let job: fn() -> Bool = ready\n",
             "  job()\n",
             "end\n",
-            "fn ready() -> Bool effects []\n",
+            "fn ready() -> Bool\n",
             "  true\n",
             "end\n",
-            "fn risky() -> Bool effects []\n",
+            "fn risky() -> Bool\n",
             "  _\n",
             "end\n",
         ));
@@ -1005,7 +1005,7 @@ mod tests {
                     concat!(
                         "mod app.main\n",
                         "use app.text\n",
-                        "test foo() -> () effects []\n",
+                        "test foo() -> ()\n",
                         "  vec_map([1], text::stringify)\n",
                         "  ()\n",
                         "end\n",
@@ -1015,7 +1015,7 @@ mod tests {
                     "text.veln",
                     concat!(
                         "mod app.text\n",
-                        "fn stringify(value: Int) -> String effects []\n",
+                        "fn stringify(value: Int) -> String\n",
                         "  \"ok\"\n",
                         "end\n",
                     ),
@@ -1051,10 +1051,10 @@ mod tests {
     #[test]
     fn run_entry_can_reach_contract_helper() {
         let module = lower(concat!(
-            "fn positive(value: Int) -> Bool effects []\n",
+            "fn positive(value: Int) -> Bool\n",
             "  value > 0\n",
             "end\n",
-            "pub fn main(value: Int) -> output: Int effects []\n",
+            "pub fn main(value: Int) -> output: Int\n",
             "  ensure positive(output)\n",
             "  value\n",
             "end\n",
@@ -1079,13 +1079,13 @@ mod tests {
     #[test]
     fn run_entry_can_reach_contract_function_value() {
         let module = lower(concat!(
-            "fn accepts(job: fn() -> Bool) -> Bool effects []\n",
+            "fn accepts(job: fn() -> Bool) -> Bool\n",
             "  job()\n",
             "end\n",
-            "fn ready() -> Bool effects []\n",
+            "fn ready() -> Bool\n",
             "  true\n",
             "end\n",
-            "pub fn main() -> () effects []\n",
+            "pub fn main() -> ()\n",
             "  require accepts(ready)\n",
             "  ()\n",
             "end\n",
@@ -1118,7 +1118,7 @@ mod tests {
                     concat!(
                         "mod app.main\n",
                         "use app.rules\n",
-                        "pub fn main(value: Int) -> output: Int effects []\n",
+                        "pub fn main(value: Int) -> output: Int\n",
                         "  ensure rules::positive(output)\n",
                         "  value\n",
                         "end\n",
@@ -1128,7 +1128,7 @@ mod tests {
                     "rules.veln",
                     concat!(
                         "mod app.rules\n",
-                        "fn positive(value: Int) -> Bool effects []\n",
+                        "fn positive(value: Int) -> Bool\n",
                         "  value > 0\n",
                         "end\n",
                     ),
@@ -1171,19 +1171,14 @@ mod tests {
                     concat!(
                         "mod app.main\n",
                         "use app.util\n",
-                        "pub fn main() -> Int effects []\n",
+                        "pub fn main() -> Int\n",
                         "  util::value()\n",
                         "end\n",
                     ),
                 ),
                 SourceFile::new(
                     "util.veln",
-                    concat!(
-                        "mod app.util\n",
-                        "fn value() -> Int effects []\n",
-                        "  1\n",
-                        "end\n",
-                    ),
+                    concat!("mod app.util\n", "fn value() -> Int\n", "  1\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -1223,10 +1218,10 @@ mod tests {
                     concat!(
                         "mod app.main\n",
                         "use app.rules\n",
-                        "fn accepts(job: fn() -> Bool) -> Bool effects []\n",
+                        "fn accepts(job: fn() -> Bool) -> Bool\n",
                         "  job()\n",
                         "end\n",
-                        "pub fn main() -> () effects []\n",
+                        "pub fn main() -> ()\n",
                         "  require accepts(rules::ready)\n",
                         "  ()\n",
                         "end\n",
@@ -1236,7 +1231,7 @@ mod tests {
                     "rules.veln",
                     concat!(
                         "mod app.rules\n",
-                        "fn ready() -> Bool effects []\n",
+                        "fn ready() -> Bool\n",
                         "  true\n",
                         "end\n",
                     ),
@@ -1280,22 +1275,17 @@ mod tests {
                     concat!(
                         "mod app.main\n",
                         "use app.util\n",
-                        "fn value() -> Int effects []\n",
+                        "fn value() -> Int\n",
                         "  _\n",
                         "end\n",
-                        "pub fn main() -> Int effects []\n",
+                        "pub fn main() -> Int\n",
                         "  util::value()\n",
                         "end\n",
                     ),
                 ),
                 SourceFile::new(
                     "util.veln",
-                    concat!(
-                        "mod app.util\n",
-                        "fn value() -> Int effects []\n",
-                        "  1\n",
-                        "end\n",
-                    ),
+                    concat!("mod app.util\n", "fn value() -> Int\n", "  1\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -1334,22 +1324,17 @@ mod tests {
                     "main.veln",
                     concat!(
                         "mod app.main\n",
-                        "fn value() -> Int effects []\n",
+                        "fn value() -> Int\n",
                         "  1\n",
                         "end\n",
-                        "pub fn main() -> Int effects []\n",
+                        "pub fn main() -> Int\n",
                         "  value()\n",
                         "end\n",
                     ),
                 ),
                 SourceFile::new(
                     "other.veln",
-                    concat!(
-                        "mod app.other\n",
-                        "fn value() -> Int effects []\n",
-                        "  _\n",
-                        "end\n",
-                    ),
+                    concat!("mod app.other\n", "fn value() -> Int\n", "  _\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -1382,10 +1367,10 @@ mod tests {
     #[test]
     fn local_binding_shadowing_function_name_does_not_reach_function() {
         let module = lower(concat!(
-            "fn helper() -> Int effects []\n",
+            "fn helper() -> Int\n",
             "  _\n",
             "end\n",
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  let helper = 1\n",
             "  helper\n",
             "end\n",
@@ -1404,10 +1389,10 @@ mod tests {
     #[test]
     fn match_binding_shadowing_function_name_does_not_reach_function() {
         let module = lower(concat!(
-            "fn helper() -> Int effects []\n",
+            "fn helper() -> Int\n",
             "  _\n",
             "end\n",
-            "pub fn main(value: Option(Int)) -> Int effects []\n",
+            "pub fn main(value: Option(Int)) -> Int\n",
             "  match value\n",
             "    Some(helper) => helper\n",
             "    None => 0\n",
@@ -1429,10 +1414,10 @@ mod tests {
     fn run_entry_does_not_reach_qualified_call_without_import_alias() {
         let module = lower(concat!(
             "mod app.main\n",
-            "pub fn main() -> Int effects []\n",
+            "pub fn main() -> Int\n",
             "  util::value()\n",
             "end\n",
-            "fn value() -> Int effects []\n",
+            "fn value() -> Int\n",
             "  _\n",
             "end\n",
         ));
@@ -1450,10 +1435,10 @@ mod tests {
     #[test]
     fn contract_reachability_ignores_function_names_inside_strings() {
         let module = lower(concat!(
-            "fn positive(value: Int) -> Bool effects []\n",
+            "fn positive(value: Int) -> Bool\n",
             "  value > 0\n",
             "end\n",
-            "pub fn main() -> output: String effects []\n",
+            "pub fn main() -> output: String\n",
             "  ensure \"positive(\" == output\n",
             "  \"positive(\"\n",
             "end\n",
@@ -1472,10 +1457,10 @@ mod tests {
     #[test]
     fn run_entry_does_not_include_tests() {
         let module = lower(concat!(
-            "test helper() -> () effects []\n",
+            "test helper() -> ()\n",
             "  ()\n",
             "end\n",
-            "fn foo() -> () effects []\n",
+            "fn foo() -> ()\n",
             "  ()\n",
             "end\n",
         ));
@@ -1494,7 +1479,7 @@ mod tests {
     fn manifest_module_name_cannot_override_source_mod() {
         let source = SourceFile::new(
             "src/main.veln",
-            "mod app.main\nfn main() -> () effects []\n  ()\nend\n",
+            "mod app.main\nfn main() -> ()\n  ()\nend\n",
         );
         let project = Project {
             root: ".".into(),
@@ -1525,7 +1510,7 @@ mod tests {
     fn matching_manifest_module_name_does_not_report_drift() {
         let source = SourceFile::new(
             "src/main.veln",
-            "mod app.main\nfn main() -> () effects []\n  ()\nend\n",
+            "mod app.main\nfn main() -> ()\n  ()\nend\n",
         );
         let project = Project {
             root: ".".into(),

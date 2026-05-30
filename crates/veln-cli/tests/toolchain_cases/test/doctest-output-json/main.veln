@@ -4,6 +4,6 @@
 /// ```veln-output stream=stdout
 /// ready
 /// ```
-pub fn main() -> () effects []
+pub fn main() -> ()
   ()
 end

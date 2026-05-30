@@ -19,7 +19,7 @@ fn parse_line(catalog: Dict(String, Int), line: String) -> Result({sku: String, 
   end
 end
 
-pub fn summarize_order(lines: Vec(String), catalog: Dict(String, Int)) -> result: Result({item_count: Int, subtotal_cents: Int}, {kind: String, input: String}) effects []
+pub fn summarize_order(lines: Vec(String), catalog: Dict(String, Int)) -> result: Result({item_count: Int, subtotal_cents: Int}, {kind: String, input: String})
   let items: Vec({sku: String, quantity: Int, unit_cents: Int}) = vec_try_map_with(catalog, lines, parse_line)?
   Ok(vec_fold(items, {item_count: 0, subtotal_cents: 0}, add_summary))
 end
@@ -34,7 +34,7 @@ fn sample_catalog() -> Dict(String, Int)
   {"tea": 250, "cake": 400}
 end
 
-test summarizes_success() -> Result((), {kind: String, input: String}) effects []
+test summarizes_success() -> Result((), {kind: String, input: String})
   let summary: {item_count: Int, subtotal_cents: Int} = summarize_order(["tea,2", "cake,1"], sample_catalog())?
   match summary.item_count == 3 and summary.subtotal_cents == 900
   true => Ok(())
@@ -42,7 +42,7 @@ test summarizes_success() -> Result((), {kind: String, input: String}) effects [
   end
 end
 
-test rejects_malformed_input() -> Result((), {kind: String, input: String}) effects []
+test rejects_malformed_input() -> Result((), {kind: String, input: String})
   match summarize_order(["tea"], sample_catalog())
   Ok(summary) => Err({kind: "unexpected_success", input: int_to_string(summary.subtotal_cents)})
   Err(error) => match error.kind == "malformed" and error.input == "tea"
@@ -52,7 +52,7 @@ test rejects_malformed_input() -> Result((), {kind: String, input: String}) effe
   end
 end
 
-test rejects_bad_quantity() -> Result((), {kind: String, input: String}) effects []
+test rejects_bad_quantity() -> Result((), {kind: String, input: String})
   match summarize_order(["tea,0"], sample_catalog())
   Ok(summary) => Err({kind: "unexpected_success", input: int_to_string(summary.subtotal_cents)})
   Err(error) => match error.kind == "bad_quantity" and error.input == "0"
@@ -62,7 +62,7 @@ test rejects_bad_quantity() -> Result((), {kind: String, input: String}) effects
   end
 end
 
-test rejects_unknown_sku() -> Result((), {kind: String, input: String}) effects []
+test rejects_unknown_sku() -> Result((), {kind: String, input: String})
   match summarize_order(["mug,1"], sample_catalog())
   Ok(summary) => Err({kind: "unexpected_success", input: int_to_string(summary.subtotal_cents)})
   Err(error) => match error.kind == "unknown_sku" and error.input == "mug"

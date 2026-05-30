@@ -1,5 +1,5 @@
 // Concurrency operations require the concurrency effect and report fallible joins.
-fn produce() -> String effects []
+fn produce() -> String
   "task"
 end
 

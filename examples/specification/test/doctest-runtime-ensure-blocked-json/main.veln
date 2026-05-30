@@ -2,6 +2,6 @@
 /// ```veln runtime=ensure predicate=false
 /// _
 /// ```
-pub fn main() -> () effects []
+pub fn main() -> ()
   ()
 end

@@ -17,7 +17,7 @@ ModuleName    ::= Name ("." Name)*
 Item          ::= Function | TestDecl | TypeDecl
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
-TestDecl      ::= "test" Name "(" ")" Return Effects NL
+TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "type" Name TypeParamList? NL TypeVariant+ "end" NL?
 TypeParamList ::= "(" Name ("," Name)* ","? ")"
@@ -89,11 +89,19 @@ expression line, the omitted tail expression returns `()`. A non-`()`
 declared return type reports `type.mismatch` with
 `actual_type_source: "implicit_unit"`.
 
-When a declaration returns a function type that itself carries effects, write
-the function-type effect list before the declaration effect list:
-`-> fn(String) -> () effects [stdio] effects []`. The first `effects [...]`
-belongs to the returned function type; the second belongs to the enclosing
-declaration.
+When a declaration returns a function type that itself carries effects, the
+function-type effect list belongs to the returned value:
+`-> fn(String) -> () effects [stdio]`. An additional declaration-level
+`effects [...]` clause after that return type belongs to the enclosing
+declaration and must be non-empty when written.
+
+Omitting a declaration-level `effects [...]` clause means the declared effect
+set is empty. A function or test declaration may write a declaration-level
+effect clause only when the list contains at least one effect label. The parser
+keeps `effects []` in the AST so semantic checking can report
+`effect.empty_declaration` with repair notes, but the spelling is not accepted
+as valid source behavior. Function type annotations may still use
+`effects []` to describe a pure callable value.
 
 `let _ = expr` evaluates the expression and discards the resulting value. It
 does not introduce a local binding, and later expressions cannot reference the

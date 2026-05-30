@@ -1,7 +1,7 @@
 // Helper declarations participate in multi-file canonical formatting.
-fn parse ( raw : String ) -> Result ( Int , AppError ) effects [ ]
+fn parse ( raw : String ) -> Result ( Int , AppError )
  Ok ( 1 )
 end
-fn choose ( value : String , fallback : String ) -> String effects [ ]
+fn choose ( value : String , fallback : String ) -> String
  if_missing ( { primary : value, nested : { fallback : fallback } } )
 end

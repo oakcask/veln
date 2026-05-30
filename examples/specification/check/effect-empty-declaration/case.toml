@@ -1,0 +1,28 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["Remove the clause when the inferred effect set is empty.", "Replace the empty list with non-empty effect labels when the body performs effects."]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 1
+
+[[diagnostics]]
+id = "effect.empty_declaration"
+severity = "error"
+kind = "effect"
+message = "empty effects list is not allowed on a function declaration"
+
+[diagnostics.span]
+file = "main.veln"
+line = 2
+column = 1

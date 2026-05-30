@@ -1,5 +1,5 @@
 // Doctest runtime contract expectations match independently from output text.
-fn reject() -> () effects []
+fn reject() -> ()
 require false
   ()
 end
@@ -23,6 +23,6 @@ end
 /// ```veln error=String runtime=contract clause=require predicate=false
 /// Err("actual")?
 /// ```
-pub fn main() -> () effects []
+pub fn main() -> ()
   ()
 end

@@ -564,10 +564,7 @@ mod tests {
 
     #[test]
     fn discovered_selection_includes_same_file_test_declarations() {
-        let source = SourceFile::new(
-            "main.veln",
-            "test same_file() -> () effects []\n  ()\nend\n",
-        );
+        let source = SourceFile::new("main.veln", "test same_file() -> ()\n  ()\nend\n");
         let parsed = parse(&source);
         assert!(
             parsed.diagnostics.is_empty(),
@@ -627,7 +624,7 @@ mod tests {
                 concat!(
                     "mod spec.math\n",
                     "\n",
-                    "pub fn double(value: Int) -> Int effects []\n",
+                    "pub fn double(value: Int) -> Int\n",
                     "  value * 2\n",
                     "end\n",
                 ),
@@ -638,7 +635,7 @@ mod tests {
                     "mod spec.app_test\n",
                     "use spec.math\n",
                     "\n",
-                    "test doubles() -> Int effects []\n",
+                    "test doubles() -> Int\n",
                     "  math::double(2)\n",
                     "end\n",
                 ),
@@ -678,15 +675,9 @@ mod tests {
     #[test]
     fn dependency_graph_widens_when_selected_source_has_no_module_identity() {
         let (project, module) = project_module(vec![
-            SourceFile::new("math.veln", "fn value() -> Int effects []\n  1\nend\n"),
-            SourceFile::new(
-                "alpha_test.veln",
-                "test alpha() -> () effects []\n  ()\nend\n",
-            ),
-            SourceFile::new(
-                "beta_test.veln",
-                "test beta() -> () effects []\n  ()\nend\n",
-            ),
+            SourceFile::new("math.veln", "fn value() -> Int\n  1\nend\n"),
+            SourceFile::new("alpha_test.veln", "test alpha() -> ()\n  ()\nend\n"),
+            SourceFile::new("beta_test.veln", "test beta() -> ()\n  ()\nend\n"),
         ]);
         let explicit_roots = BTreeSet::from(["math.veln".to_string()]);
         let source_roots = BTreeSet::from(["math.veln".to_string()]);
@@ -734,7 +725,7 @@ mod tests {
                 concat!(
                     "mod spec.math\n",
                     "\n",
-                    "pub fn double(value: Int) -> Int effects []\n",
+                    "pub fn double(value: Int) -> Int\n",
                     "  value * 2\n",
                     "end\n",
                 ),
@@ -745,7 +736,7 @@ mod tests {
                     "mod spec.math_test\n",
                     "use spec.math\n",
                     "\n",
-                    "test doubles() -> Int effects []\n",
+                    "test doubles() -> Int\n",
                     "  math::double(2)\n",
                     "end\n",
                 ),
