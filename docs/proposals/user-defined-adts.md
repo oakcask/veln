@@ -21,7 +21,7 @@ behavior unless `../specification/` also states it.
 
 - Let source modules define ordinary ADTs instead of relying on compiler-owned
   `Option`, `Result`, and the narrow `List` shape.
-- Use a compact syntax close to existing type alias and call syntax.
+- Use a compact block syntax close to existing item declarations.
 - Support generic ADTs, recursive ADTs, tuple-like variants, and record-shaped
   variants.
 - Keep type parameter scope local to the ADT declaration and require functions
@@ -33,30 +33,50 @@ behavior unless `../specification/` also states it.
 
 ## Source Syntax
 
-ADT declarations use an equals sign and pipe-separated variants:
+ADT declarations use a `type` item with variant constructor lines terminated by
+`end`. A public type uses `pub type`; each exported constructor uses its own
+`pub` prefix:
 
 ```veln
-type Option<T> = Some(T) | None
+type Option<T>
+   Some(T)
+   None
+end
 
-type Result<T, E> = Ok(T) | Err(E)
+type Result<T, E>
+   Ok(T)
+   Err(E)
+end
 ```
 
 Record-shaped variants are allowed:
 
 ```veln
-type Result<T, E> = Ok { value: T } | Err { error: E }
+type Result<T, E>
+   Ok { value: T }
+   Err { error: E }
+end
 ```
 
 Recursive generic ADTs are allowed when recursion passes through a variant
 payload:
 
 ```veln
-type List<T> = Nil | Cons(T, List<T>)
+# List is exported
+pub type List<A>
+   # default constructor Nil is exported
+   pub Nil
+   # default constructor Cons is exported
+   pub Cons { head: A, tail: List<A> }
+end
 ```
 
 The declaration introduces the type name and each variant constructor in the
 declaring module. A variant constructor is a value-level function from its
 payload to the ADT type. Nullary variants are zero-argument constructors.
+Tuple-like constructors use call syntax such as `Cons(head, tail)`.
+Record-shaped constructors use record payload syntax such as
+`Cons { head: value, tail: rest }`.
 
 Conceptually:
 
@@ -125,7 +145,10 @@ type-qualified constructor paths:
 ```veln
 mod core
 
-type Option<T> = Some(T) | None
+type Option<T>
+   Some(T)
+   None
+end
 ```
 
 Visible paths include:
@@ -181,7 +204,9 @@ Type visibility and constructor visibility are separate.
 Public type plus public default constructor:
 
 ```veln
-pub type Rect = pub { x: Int, y: Int, w: Int, h: Int }
+pub type Rect
+   pub Rect { x: Int, y: Int, w: Int, h: Int }
+end
 ```
 
 The module exports both the `Rect` type and the `Rect { ... }` constructor.
@@ -189,7 +214,9 @@ The module exports both the `Rect` type and the `Rect { ... }` constructor.
 Public type plus private default constructor:
 
 ```veln
-pub type Rect = { x: Int, y: Int, w: Int, h: Int }
+pub type Rect
+   Rect { x: Int, y: Int, w: Int, h: Int }
+end
 ```
 
 The module exports the `Rect` type but does not export the `Rect { ... }`
@@ -198,9 +225,10 @@ constructor. Code in the declaring module can still construct the value.
 For ADT variants, `pub` on a variant exports that variant constructor:
 
 ```veln
-pub type Shape =
+pub type Shape
    pub Circle { center: Point, radius: Int }
- | Rectangle(Rect)
+   Rectangle(Rect)
+end
 ```
 
 `Circle` is exported; `Rectangle` is available only inside the declaring
@@ -221,7 +249,9 @@ Use the existing `require` contract for partial generation functions where
 invalid arguments are caller contract violations:
 
 ```veln
-pub type Rect = { x: Int, y: Int, w: Int, h: Int }
+pub type Rect
+   Rect { x: Int, y: Int, w: Int, h: Int }
+end
 
 pub fn rect(x: Int, y: Int, w: Int, h: Int) -> Rect
 require w >= 0 and h >= 0
@@ -251,8 +281,8 @@ come from the scrutinee type and the matched variant descriptor.
 Finite-domain exhaustiveness extends from compiler-owned descriptors to every
 source-declared ADT whose variant set is known. A match over `Option<T>` must
 cover `Some(_)` and `None`, a match over `Result<T, E>` must cover `Ok(_)` and
-`Err(_)`, and a match over `List<T>` must cover `Nil` and `Cons(_)`, unless a
-catch-all arm is present.
+`Err(_)`, and a match over `List<A>` must cover `Nil` and the `Cons` record
+constructor, unless a catch-all arm is present.
 
 Private constructors still count for exhaustiveness inside the declaring
 module. Outside the declaring module, matching a type with hidden constructors
@@ -281,7 +311,7 @@ preserving current behavior:
 
 ## Acceptance Checks
 
-- Source can declare `Option<T>`, `Result<T, E>`, and `List<T>` with the
+- Source can declare `Option<T>`, `Result<T, E>`, and `List<A>` with the
   proposed syntax.
 - Constructor calls infer generic result types from payloads.
 - Nullary generic constructors require surrounding type context.
