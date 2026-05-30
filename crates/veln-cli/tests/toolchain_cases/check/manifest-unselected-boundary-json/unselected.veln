@@ -1,0 +1,5 @@
+mod app.unselected_source
+
+pub fn broken() -> Int
+  "manifest entries do not select this file"
+end

@@ -202,6 +202,7 @@ fn cli_reports_parser_errors_before_project_discovery() {
     let project = TestProject::new("cli-parser-errors");
 
     let unknown_command = project.veln(&[], &["wat"]);
+    let unknown_doc_command = project.veln(&[], &["doc"]);
     let unknown_repair_flag = project.veln(&["repair"], &["--wat"]);
     let unknown_check_flag = project.veln(&["check"], &["--wat"]);
     let unknown_run_flag = project.veln(&["run"], &["--wat"]);
@@ -213,6 +214,13 @@ fn cli_reports_parser_errors_before_project_discovery() {
     assert_eq!(unknown_command.status.code(), Some(2));
     assert_eq!(stdout(&unknown_command), "");
     assert_eq!(stderr(&unknown_command), "veln: unknown command `wat`\n");
+
+    assert_eq!(unknown_doc_command.status.code(), Some(2));
+    assert_eq!(stdout(&unknown_doc_command), "");
+    assert_eq!(
+        stderr(&unknown_doc_command),
+        "veln: unknown command `doc`\n"
+    );
 
     assert_eq!(unknown_repair_flag.status.code(), Some(2));
     assert_eq!(stdout(&unknown_repair_flag), "");
