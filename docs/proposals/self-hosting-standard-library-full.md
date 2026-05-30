@@ -15,9 +15,10 @@ that cannot yet be expressed in source.
 
 ## Migration Pattern
 
-Use this pattern only after the short page selects a descriptor-only helper
-from the implemented specification route. Keep helper semantics in the
-specification and apply only the source-backed placement pattern here:
+Use this pattern only after the short page routes the work to exactly one
+descriptor-only helper from the implemented specification route. Keep helper
+semantics in the specification and apply only the source-backed placement
+pattern here:
 
 - choose a helper whose signature and value semantics are already implemented
 - add ordinary Veln source beside other core prelude source
@@ -31,10 +32,9 @@ specification and apply only the source-backed placement pattern here:
 
 Remaining source-backed prelude work chooses from the descriptor-only pure
 helpers listed in
-[../specification/names-effects.md](../specification/names-effects.md). The
-short proposal page names the selected helper. Prefer a candidate only when the
-specification already provides its signature, value semantics, and
-descriptor-only status, and when:
+[../specification/names-effects.md](../specification/names-effects.md). Prefer
+a candidate only when the specification already provides its signature, value
+semantics, and descriptor-only status, and when:
 
 - its behavior is expressible in existing Veln source
 - it needs no new effect label, runtime boundary, parser feature, or public
