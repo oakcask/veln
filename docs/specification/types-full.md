@@ -8,18 +8,20 @@ compatibility, and operator typing.
 Implemented type annotations:
 
 - primitives: `Bool`, `Int`, `Float`, `String`, and `()`
-- built-in type constructors: `Option(T)`, `Result(T, E)`, `Vec(T)`, and
-  `Dict(K, V)`
+- built-in and descriptor-backed type constructors: `Option(T)`,
+  `Result(T, E)`, `List(T)`, `Vec(T)`, and `Dict(K, V)`
 - records: `{name: Type, ...}`
 - function types: `fn(T, ...) -> U` with optional `effects [name, ...]`
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
 
-`Option(T)` and `Result(T, E)` are compiler-owned built-in ADTs. The checker
-uses their descriptor entries for constructor payload typing, qualified and
-unqualified constructor names, postfix `?` result propagation, and
-finite-domain exhaustiveness. User-defined ADT declarations are not implemented
-type annotations or item declarations.
+`Option(T)` and `Result(T, E)` are compiler-owned built-in ADTs. `List(T)` is
+the implemented minimal source-declared ADT shape when a source item declares
+`type List(A)` with `Nil` and `Cons(head: A, tail: List(A))`. The checker uses
+descriptor entries for constructor payload typing, qualified and unqualified
+constructor names, postfix `?` result propagation for `Result`, and
+finite-domain exhaustiveness. Broader user-defined ADT declarations are not
+implemented type annotations or item declarations.
 
 In a function or test return annotation, a returned function type may carry its
 own effect list before the enclosing declaration's effect list. For example,
@@ -59,8 +61,8 @@ Expected types flow into holes and subexpressions from:
 - vec elements
 - dictionary keys and values
 - callable function declarations used as values
-- `Ok`, `Err`, `Some`, `None`, their `Result::` or `Option::` qualified
-  forms, and postfix `?`
+- `Ok`, `Err`, `Some`, `None`, `Nil`, `Cons`, their `Result::`, `Option::`,
+  or `List::` qualified forms, and postfix `?`
 - `match` arm results and constructor payload bindings
 - record pattern field bindings in `match` arms and `let` statements
 
@@ -72,19 +74,21 @@ has a known record type.
 
 `match` infers the scrutinee first. A binding pattern has the scrutinee type.
 `Some(value)`, `Option::Some(value)`, `Ok(value)`, `Result::Ok(value)`,
-`Err(error)`, and `Result::Err(error)` bind their payload patterns to the
-corresponding `Option` or `Result` argument when the scrutinee type is known. A
-record pattern field binds nested patterns to the corresponding record field
-type when the scrutinee type is known. Unknown or non-record scrutinee types
-leave nested pattern bindings unknown. Arm expressions share the expected result
-type when one is available; otherwise the first arm supplies the initial result
-type for later arms.
+`Err(error)`, `Result::Err(error)`, `Cons(head, tail)`, and
+`List::Cons(head, tail)` bind their payload patterns to the corresponding
+descriptor argument when the scrutinee type is known. For `List(A)`, `head`
+binds as `A` and `tail` binds as `List(A)`. A record pattern field binds nested
+patterns to the corresponding record field type when the scrutinee type is
+known. Unknown or non-record scrutinee types leave nested pattern bindings
+unknown. Arm expressions share the expected result type when one is available;
+otherwise the first arm supplies the initial result type for later arms.
 
 After scrutinee type inference and arm expression checking, `match` expressions
-over finite built-in domains must be exhaustive. `Bool` scrutinees require
-coverage for `true` and `false`; `Option(T)` scrutinees require `Some(_)` and
-`None`; `Result(T, E)` scrutinees require `Ok(_)` and `Err(_)`. `_` and binding
-patterns are catch-all arms. A non-exhaustive finite-domain match reports
+over finite domains must be exhaustive. `Bool` scrutinees require coverage for
+`true` and `false`; `Option(T)` scrutinees require `Some(_)` and `None`;
+`Result(T, E)` scrutinees require `Ok(_)` and `Err(_)`; `List(A)` scrutinees
+require `Nil` and `Cons(_)`. `_` and binding patterns are catch-all arms. A
+non-exhaustive finite-domain match reports
 `type.match_non_exhaustive` at the `match` expression. Related notes identify
 the scrutinee type and the arms that prove partial coverage.
 

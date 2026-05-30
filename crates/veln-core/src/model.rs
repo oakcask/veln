@@ -93,6 +93,11 @@ pub enum CoreExprKind {
     ResultErr(Box<CoreExpr>),
     OptionSome(Box<CoreExpr>),
     OptionNone,
+    ListNil,
+    ListCons {
+        head: Box<CoreExpr>,
+        tail: Box<CoreExpr>,
+    },
     Call {
         target: CoreCallTarget,
         args: Vec<CoreExpr>,

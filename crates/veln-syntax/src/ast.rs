@@ -33,6 +33,30 @@ pub struct UseDecl {
 #[derive(Clone, Debug)]
 pub enum SyntaxItem {
     Function(FunctionDecl),
+    Type(TypeDecl),
+}
+
+#[derive(Clone, Debug)]
+pub struct TypeDecl {
+    pub name: Option<String>,
+    pub params: Vec<String>,
+    pub variants: Vec<TypeVariantDecl>,
+    pub span: SourceSpan,
+    pub end_present: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct TypeVariantDecl {
+    pub name: Option<String>,
+    pub fields: Vec<TypeVariantField>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct TypeVariantField {
+    pub name: String,
+    pub ty: String,
+    pub span: SourceSpan,
 }
 
 #[derive(Clone, Debug)]

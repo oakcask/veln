@@ -319,6 +319,51 @@ fn descriptor_routed_qualified_option_constructor_checks_expected_item_type() {
 }
 
 #[test]
+fn descriptor_routed_qualified_result_constructor_checks_expected_error_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> Result(Int, AppError)\n  Result::Err(1)\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `AppError`, but found `Int`"
+    );
+    assert_diagnostic_span(&diagnostics[0], 2, 15, 2, 16);
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"expected_type\":\"AppError\""));
+    assert!(details.contains("\"actual_type\":\"Int\""));
+    assert!(details.contains("\"constraint\":\"call_argument\""));
+}
+
+#[test]
+fn descriptor_routed_qualified_result_constructor_checks_expected_value_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> Result(Int, AppError)\n  Result::Ok(\"no\")\nend\n",
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(diagnostics[0].message, "expected `Int`, but found `String`");
+    assert_diagnostic_span(&diagnostics[0], 2, 14, 2, 18);
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"expected_type\":\"Int\""));
+    assert!(details.contains("\"actual_type\":\"String\""));
+    assert!(details.contains("\"constraint\":\"call_argument\""));
+}
+
+#[test]
 fn descriptor_routed_result_arity_diagnostic_keeps_call_span() {
     let source = SourceFile::new(
         "main.veln",
@@ -875,6 +920,44 @@ fn match_exhaustiveness_reports_qualified_option_case_with_source_anchors() {
 }
 
 #[test]
+fn match_exhaustiveness_reports_qualified_option_none_case_with_source_anchors() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Option(Int)) -> String effects []\n",
+            "  match value\n",
+            "    Option::None => \"none\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.match_non_exhaustive")
+        .expect("missing option case should be diagnosed");
+    assert_eq!(diagnostic.kind, DiagnosticKind::Type);
+    assert_eq!(diagnostic.message, "match is missing case Some(_)");
+    assert_diagnostic_span(diagnostic, 2, 3, 4, 6);
+    assert_eq!(diagnostic.related.len(), 2);
+    let related = diagnostic
+        .related
+        .iter()
+        .map(|note| note.to_json())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(related.contains("Scrutinee has type `Option(Int)`."));
+    assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
+    assert!(related.contains("This arm covers None."));
+    assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
+}
+
+#[test]
 fn match_exhaustiveness_reports_missing_result_case_with_source_anchors() {
     let source = SourceFile::new(
         "main.veln",
@@ -948,4 +1031,98 @@ fn match_exhaustiveness_reports_qualified_result_case_with_source_anchors() {
     assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
     assert!(related.contains("This arm covers Err(_)."));
     assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
+}
+
+#[test]
+fn match_exhaustiveness_reports_qualified_result_ok_case_with_source_anchors() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn main(value: Result(Int, String)) -> String effects []\n",
+            "  match value\n",
+            "    Result::Ok(count) => \"ok\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.match_non_exhaustive")
+        .expect("missing result case should be diagnosed");
+    assert_eq!(diagnostic.kind, DiagnosticKind::Type);
+    assert_eq!(diagnostic.message, "match is missing case Err(_)");
+    assert_diagnostic_span(diagnostic, 2, 3, 4, 6);
+    assert_eq!(diagnostic.related.len(), 2);
+    let related = diagnostic
+        .related
+        .iter()
+        .map(|note| note.to_json())
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(related.contains("Scrutinee has type `Result(Int, String)`."));
+    assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
+    assert!(related.contains("This arm covers Ok(_)."));
+    assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
+}
+
+#[test]
+fn minimal_list_adt_declaration_type_checks_constructor_patterns() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type List(A)\n",
+            "  Nil\n",
+            "  Cons(head: A, tail: List(A))\n",
+            "end\n",
+            "fn main(value: List(Int)) -> Int effects []\n",
+            "  match value\n",
+            "    Nil => 0\n",
+            "    Cons(head, _) => head\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+}
+
+#[test]
+fn minimal_list_adt_match_reports_missing_cons_case() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type List(A)\n",
+            "  Nil\n",
+            "  Cons(head: A, tail: List(A))\n",
+            "end\n",
+            "fn main(value: List(Int)) -> Int effects []\n",
+            "  match value\n",
+            "    Nil => 0\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let diagnostic = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "type.match_non_exhaustive")
+        .expect("missing list case should be diagnosed");
+    assert_eq!(diagnostic.kind, DiagnosticKind::Type);
+    assert_eq!(diagnostic.message, "match is missing case Cons(_)");
+    assert_diagnostic_span(diagnostic, 6, 3, 8, 6);
 }

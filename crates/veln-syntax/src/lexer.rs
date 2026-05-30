@@ -150,6 +150,7 @@ fn keyword_kind(text: &str) -> Option<TokenKind> {
     let kind = match text {
         "pub" => TokenKind::Pub,
         "fn" => TokenKind::Fn,
+        "type" => TokenKind::Type,
         "test" => TokenKind::Test,
         "effects" => TokenKind::Effects,
         "let" => TokenKind::Let,

@@ -83,43 +83,48 @@ grammar_line(10, "Module        ::= ModDecl? UseDecl* Item*").
 grammar_line(20, "ModDecl       ::= \"mod\" ModuleName NL").
 grammar_line(30, "UseDecl       ::= \"use\" ModuleName NL").
 grammar_line(40, "ModuleName    ::= Name (\".\" Name)*").
-grammar_line(50, "Item          ::= Function | TestDecl").
+grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
-grammar_line(100, "ParamList     ::= Param (\",\" Param)* \",\"?").
-grammar_line(110, "Param         ::= Name (\":\" TypeText)?").
-grammar_line(120, "Return        ::= \"->\" ResultBinding? TypeText").
-grammar_line(130, "ResultBinding ::= Name \":\"").
-grammar_line(140, "Effects       ::= \"effects\" \"[\" EffectList? \"]\"").
-grammar_line(150, "EffectList    ::= Name (\",\" Name)* \",\"?").
-grammar_line(160, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") ContractPredicate NL").
-grammar_line(170, "Body          ::= (LetLine | ExprLine)*").
-grammar_line(180, "LetLine       ::= \"let\" LetPattern (\":\" TypeText)? \"=\" Expr NL").
-grammar_line(190, "LetPattern    ::= \"_\" | BindingName | RecordPattern").
-grammar_line(200, "ExprLine      ::= Expr NL").
-grammar_line(210, "Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*").
-grammar_line(220, "PrefixExpr    ::= (\"not\" | \"-\") PrefixExpr | PostfixExpr").
-grammar_line(230, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
-grammar_line(240, "PrimaryExpr   ::= Hole | Literal | NamePath | \"(\" Expr \")\" | \"()\"").
-grammar_line(250, "                  | Record | Dict | List | Match").
-grammar_line(260, "Call          ::= \"(\" ArgList? \")\"").
-grammar_line(270, "ArgList       ::= Expr (\",\" Expr)* \",\"?").
-grammar_line(280, "TypeArgs      ::= \"[\" TypeText (\",\" TypeText)* \",\"? \"]\"").
-grammar_line(290, "FieldAccess   ::= \".\" Name").
-grammar_line(300, "Record        ::= \"{\" (Name \":\" Expr) (\",\" Name \":\" Expr)* \",\"? \"}\"").
-grammar_line(310, "Dict          ::= \"{\" Expr \":\" Expr (\",\" Expr \":\" Expr)* \",\"? \"}\"").
-grammar_line(320, "List          ::= \"[\" ArgList? \"]\"").
-grammar_line(330, "Match         ::= \"match\" Expr NL MatchArm+ \"end\"").
-grammar_line(340, "MatchArm      ::= Pattern \"=>\" Expr NL").
-grammar_line(350, "Pattern       ::= \"_\" | BindingName | Literal | ConstructorPattern | RecordPattern").
-grammar_line(360, "ConstructorPattern ::= ConstructorName \"(\" PatternList? \")\" | ConstructorName").
-grammar_line(370, "ConstructorName ::= UpperName | Name \"::\" Name (\"::\" Name)*").
-grammar_line(380, "RecordPattern ::= \"{\" PatternFieldList? \"}\"").
-grammar_line(390, "PatternList   ::= Pattern (\",\" Pattern)* \",\"?").
-grammar_line(400, "PatternFieldList ::= PatternField (\",\" PatternField)* \",\"?").
-grammar_line(410, "PatternField  ::= Name \":\" Pattern").
+grammar_line(100, "TypeDecl      ::= \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
+grammar_line(110, "TypeParamList ::= \"(\" Name (\",\" Name)* \",\"? \")\"").
+grammar_line(120, "TypeVariant   ::= UpperName TypeVariantFields? NL").
+grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
+grammar_line(140, "TypeVariantField ::= Name \":\" TypeText").
+grammar_line(150, "ParamList     ::= Param (\",\" Param)* \",\"?").
+grammar_line(160, "Param         ::= Name (\":\" TypeText)?").
+grammar_line(170, "Return        ::= \"->\" ResultBinding? TypeText").
+grammar_line(180, "ResultBinding ::= Name \":\"").
+grammar_line(190, "Effects       ::= \"effects\" \"[\" EffectList? \"]\"").
+grammar_line(200, "EffectList    ::= Name (\",\" Name)* \",\"?").
+grammar_line(210, "Contract      ::= (\"require\" | \"ensure\" | \"invariant\") ContractPredicate NL").
+grammar_line(220, "Body          ::= (LetLine | ExprLine)*").
+grammar_line(230, "LetLine       ::= \"let\" LetPattern (\":\" TypeText)? \"=\" Expr NL").
+grammar_line(240, "LetPattern    ::= \"_\" | BindingName | RecordPattern").
+grammar_line(250, "ExprLine      ::= Expr NL").
+grammar_line(260, "Expr          ::= PrefixExpr (BinaryOp PrefixExpr)*").
+grammar_line(270, "PrefixExpr    ::= (\"not\" | \"-\") PrefixExpr | PostfixExpr").
+grammar_line(280, "PostfixExpr   ::= PrimaryExpr (Call | TypeArgs | FieldAccess | \"?\")*").
+grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | \"(\" Expr \")\" | \"()\"").
+grammar_line(300, "                  | Record | Dict | List | Match").
+grammar_line(310, "Call          ::= \"(\" ArgList? \")\"").
+grammar_line(320, "ArgList       ::= Expr (\",\" Expr)* \",\"?").
+grammar_line(330, "TypeArgs      ::= \"[\" TypeText (\",\" TypeText)* \",\"? \"]\"").
+grammar_line(340, "FieldAccess   ::= \".\" Name").
+grammar_line(350, "Record        ::= \"{\" (Name \":\" Expr) (\",\" Name \":\" Expr)* \",\"? \"}\"").
+grammar_line(360, "Dict          ::= \"{\" Expr \":\" Expr (\",\" Expr \":\" Expr)* \",\"? \"}\"").
+grammar_line(370, "List          ::= \"[\" ArgList? \"]\"").
+grammar_line(380, "Match         ::= \"match\" Expr NL MatchArm+ \"end\"").
+grammar_line(390, "MatchArm      ::= Pattern \"=>\" Expr NL").
+grammar_line(400, "Pattern       ::= \"_\" | BindingName | Literal | ConstructorPattern | RecordPattern").
+grammar_line(410, "ConstructorPattern ::= ConstructorName \"(\" PatternList? \")\" | ConstructorName").
+grammar_line(420, "ConstructorName ::= UpperName | Name \"::\" Name (\"::\" Name)*").
+grammar_line(430, "RecordPattern ::= \"{\" PatternFieldList? \"}\"").
+grammar_line(440, "PatternList   ::= Pattern (\",\" Pattern)* \",\"?").
+grammar_line(450, "PatternFieldList ::= PatternField (\",\" PatternField)* \",\"?").
+grammar_line(460, "PatternField  ::= Name \":\" Pattern").
 
 tokens(Tokens) -->
     trivia,
@@ -222,6 +227,7 @@ ident_continue_char(Char) :-
 
 keyword_kind("pub", pub).
 keyword_kind("fn", fn).
+keyword_kind("type", type).
 keyword_kind("test", test).
 keyword_kind("effects", effects).
 keyword_kind("let", let).
@@ -260,6 +266,7 @@ items --> item, !, items.
 items --> [].
 item --> nls, function_decl.
 item --> nls, test_decl.
+item --> nls, type_decl.
 
 function_decl -->
     visibility,
@@ -288,6 +295,33 @@ test_decl -->
     body,
     tok(end),
     newline_opt.
+
+type_decl -->
+    tok(type),
+    ident,
+    type_params_opt,
+    nl,
+    type_variants,
+    tok(end),
+    newline_opt.
+
+type_params_opt --> tok(lparen), ident_list_opt, tok(rparen), !.
+type_params_opt --> [].
+ident_list_opt --> ident, ident_tail, trailing_comma_opt, !.
+ident_list_opt --> [].
+ident_tail --> tok(comma), ident, !, ident_tail.
+ident_tail --> [].
+
+type_variants --> type_variant, !, type_variants_tail.
+type_variants_tail --> type_variant, !, type_variants_tail.
+type_variants_tail --> [].
+type_variant --> upper_name, type_variant_fields_opt, nl.
+type_variant_fields_opt --> tok(lparen), type_variant_field_list, tok(rparen), !.
+type_variant_fields_opt --> [].
+type_variant_field_list --> type_variant_field, type_variant_field_tail, trailing_comma_opt, !.
+type_variant_field_tail --> tok(comma), type_variant_field, !, type_variant_field_tail.
+type_variant_field_tail --> [].
+type_variant_field --> ident, tok(colon), type_text_until([comma, rparen]).
 
 visibility --> tok(pub), !.
 visibility --> [].

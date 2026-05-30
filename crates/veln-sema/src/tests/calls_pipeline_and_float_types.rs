@@ -363,6 +363,7 @@ fn resolves_qualified_calls_through_import_aliases() {
     let module = SurfaceModule {
         module: main.module,
         uses: main.uses,
+        types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
     };
 
@@ -410,6 +411,7 @@ fn resolves_qualified_function_values_through_import_aliases() {
     let module = SurfaceModule {
         module: main.module,
         uses: main.uses,
+        types: main.types.into_iter().chain(text.types).collect(),
         functions: main.functions.into_iter().chain(text.functions).collect(),
     };
 

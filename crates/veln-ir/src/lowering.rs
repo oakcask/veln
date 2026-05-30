@@ -134,6 +134,7 @@ fn lower_scalar_expr(expr: &CoreExpr) -> Option<IrExprKind> {
         CoreExprKind::Unit => Some(IrExprKind::Unit),
         CoreExprKind::FunctionValue(name) => Some(IrExprKind::FunctionValue(name.clone())),
         CoreExprKind::OptionNone => Some(IrExprKind::OptionNone),
+        CoreExprKind::ListNil => Some(IrExprKind::ListNil),
         _ => None,
     }
 }
@@ -145,6 +146,10 @@ fn lower_wrapped_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerErro
         CoreExprKind::OptionSome(value) => {
             lower_unary_expr(value, IrExprKind::OptionSome).map(Some)
         }
+        CoreExprKind::ListCons { head, tail } => Ok(Some(IrExprKind::ListCons {
+            head: Box::new(lower_expr(head)?),
+            tail: Box::new(lower_expr(tail)?),
+        })),
         CoreExprKind::Call { target, args } => {
             lower_call_expr(expr.node_id, target, args).map(Some)
         }

@@ -1723,21 +1723,23 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&ExpectedType>,
         constructor: adt::AdtConstructor,
     ) -> Type {
-        let expected_payload = expected
-            .and_then(|expected| adt::payload_type(&expected.ty, constructor, 0))
-            .cloned()
-            .unwrap_or(Type::Unknown);
-        let arg_expected = ExpectedType {
-            ty: expected_payload.clone(),
-            source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
-            origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
-            origin_span: expected.and_then(|expected| expected.origin_span.clone()),
-            origin_message: expected.map_or("Expected type inferred here.", |expected| {
-                expected.origin_message
-            }),
-        };
-
-        let actual_arg = if let Some(arg) = args.first() {
+        let mut first_actual_arg = Type::Unknown;
+        for (index, _) in constructor.variant.payload_fields.iter().enumerate() {
+            let expected_payload = expected
+                .and_then(|expected| adt::payload_type(&expected.ty, constructor, index))
+                .unwrap_or(Type::Unknown);
+            let arg_expected = ExpectedType {
+                ty: expected_payload,
+                source: expected.map_or(ExpectedTypeSource::Unknown, |expected| expected.source),
+                origin_node_id: expected.map_or(expr.node_id, |expected| expected.origin_node_id),
+                origin_span: expected.and_then(|expected| expected.origin_span.clone()),
+                origin_message: expected.map_or("Expected type inferred here.", |expected| {
+                    expected.origin_message
+                }),
+            };
+            let Some(arg) = args.get(index) else {
+                continue;
+            };
             let actual_arg = self.infer_expr(arg, Some(&arg_expected));
             self.check_assignable(
                 arg,
@@ -1746,11 +1748,11 @@ impl<'a> FunctionChecker<'a> {
                 &arg_expected,
                 "call_argument",
             );
-            actual_arg
-        } else {
-            Type::Unknown
-        };
-        for arg in args.iter().skip(1) {
+            if index == 0 {
+                first_actual_arg = actual_arg;
+            }
+        }
+        for arg in args.iter().skip(constructor.variant.payload_fields.len()) {
             self.infer_expr(arg, None);
         }
 
@@ -1762,7 +1764,7 @@ impl<'a> FunctionChecker<'a> {
                 .map(|expected| expected.ty.clone())
                 .unwrap_or(Type::Unknown);
         }
-        adt::constructed_type(constructor, actual_arg)
+        adt::constructed_type(constructor, first_actual_arg)
     }
 
     fn infer_list(&mut self, expr: &Expr, items: &[Expr], expected: Option<&ExpectedType>) -> Type {
@@ -1984,8 +1986,8 @@ impl<'a> FunctionChecker<'a> {
                     .enumerate()
                     .flat_map(|(index, pattern)| {
                         let ty = adt::payload_type(scrutinee_type, constructor, index)
-                            .unwrap_or(&Type::Unknown);
-                        self.pattern_bindings(pattern, ty)
+                            .unwrap_or(Type::Unknown);
+                        self.pattern_bindings(pattern, &ty)
                     })
                     .collect()
             }

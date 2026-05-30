@@ -5,15 +5,16 @@ smallest section to read before opening the full grammar notes.
 
 ## Read First
 
-- Module headers, imports, functions, tests, declarations, comments, doctests,
-  and ADR-lite metadata: [source-surface-full.md](source-surface-full.md).
+- Module headers, imports, functions, tests, minimal `List(A)` type
+  declarations, comments, doctests, and ADR-lite metadata:
+  [source-surface-full.md](source-surface-full.md).
   Use [commands.md](commands.md) for formatter layout and comment preservation
   behavior.
 - Doctest fence metadata, `runtime=contract`, `runtime=ensure`, and
   `runtime=result` expectations, expected-output fences, hidden setup, and
   negative examples:
   [source-surface-full.md#documentation-comments-and-doctests](source-surface-full.md#documentation-comments-and-doctests).
-- Expression forms, constructors, records, dictionaries, lists, matches,
+- Expression forms, constructors, records, dictionaries, vecs, matches,
   pipelines, and method-call diagnostics:
   [source-surface-full.md](source-surface-full.md#expressions).
 - Contract predicate grammar:

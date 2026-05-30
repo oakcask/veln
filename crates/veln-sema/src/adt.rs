@@ -8,6 +8,8 @@ pub(crate) enum AdtVariantKind {
     OptionNone,
     ResultOk,
     ResultErr,
+    ListNil,
+    ListCons,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,7 +32,13 @@ pub(crate) struct AdtVariantDescriptor {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct AdtPayloadField {
     pub(crate) name: &'static str,
-    pub(crate) type_parameter_index: usize,
+    pub(crate) ty: AdtPayloadType,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum AdtPayloadType {
+    TypeParameter(usize),
+    SelfType,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -47,18 +55,29 @@ pub(crate) struct AdtConstructor {
 
 const OPTION_VALUE_FIELD: &[AdtPayloadField] = &[AdtPayloadField {
     name: "value",
-    type_parameter_index: 0,
+    ty: AdtPayloadType::TypeParameter(0),
 }];
 
 const RESULT_OK_FIELD: &[AdtPayloadField] = &[AdtPayloadField {
     name: "value",
-    type_parameter_index: 0,
+    ty: AdtPayloadType::TypeParameter(0),
 }];
 
 const RESULT_ERR_FIELD: &[AdtPayloadField] = &[AdtPayloadField {
     name: "error",
-    type_parameter_index: 1,
+    ty: AdtPayloadType::TypeParameter(1),
 }];
+
+const LIST_CONS_FIELDS: &[AdtPayloadField] = &[
+    AdtPayloadField {
+        name: "head",
+        ty: AdtPayloadType::TypeParameter(0),
+    },
+    AdtPayloadField {
+        name: "tail",
+        ty: AdtPayloadType::SelfType,
+    },
+];
 
 const OPTION_VARIANTS: &[AdtVariantDescriptor] = &[
     AdtVariantDescriptor {
@@ -90,6 +109,21 @@ const RESULT_VARIANTS: &[AdtVariantDescriptor] = &[
     },
 ];
 
+const LIST_VARIANTS: &[AdtVariantDescriptor] = &[
+    AdtVariantDescriptor {
+        name: "Nil",
+        kind: AdtVariantKind::ListNil,
+        payload_fields: &[],
+        coverage_case: "Nil",
+    },
+    AdtVariantDescriptor {
+        name: "Cons",
+        kind: AdtVariantKind::ListCons,
+        payload_fields: LIST_CONS_FIELDS,
+        coverage_case: "Cons(_)",
+    },
+];
+
 const OPTION_DESCRIPTOR: AdtDescriptor = AdtDescriptor {
     type_name: "Option",
     type_parameters: &["T"],
@@ -109,7 +143,15 @@ const RESULT_DESCRIPTOR: AdtDescriptor = AdtDescriptor {
     }),
 };
 
-const DESCRIPTORS: &[AdtDescriptor] = &[OPTION_DESCRIPTOR, RESULT_DESCRIPTOR];
+const LIST_DESCRIPTOR: AdtDescriptor = AdtDescriptor {
+    type_name: "List",
+    type_parameters: &["A"],
+    variants: LIST_VARIANTS,
+    diagnostic_name: "list",
+    propagation: None,
+};
+
+const DESCRIPTORS: &[AdtDescriptor] = &[OPTION_DESCRIPTOR, RESULT_DESCRIPTOR, LIST_DESCRIPTOR];
 
 pub(crate) fn descriptor_for_type_name(name: &str) -> Option<&'static AdtDescriptor> {
     DESCRIPTORS
@@ -186,7 +228,9 @@ pub(crate) fn core_adt_args<'a>(
 pub(crate) fn constructed_type(constructor: AdtConstructor, payload_type: Type) -> Type {
     let mut args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
     if let Some(field) = constructor.variant.payload_fields.first() {
-        args[field.type_parameter_index] = payload_type;
+        if let AdtPayloadType::TypeParameter(index) = field.ty {
+            args[index] = payload_type;
+        }
     }
     Type::named(constructor.descriptor.type_name, args)
 }
@@ -197,7 +241,9 @@ pub(crate) fn core_constructed_type(
 ) -> CoreType {
     let mut args = vec![CoreType::Unknown; constructor.descriptor.type_parameters.len()];
     if let Some(field) = constructor.variant.payload_fields.first() {
-        args[field.type_parameter_index] = payload_type;
+        if let AdtPayloadType::TypeParameter(index) = field.ty {
+            args[index] = payload_type;
+        }
     }
     CoreType::named(constructor.descriptor.type_name, args)
 }
@@ -206,18 +252,28 @@ pub(crate) fn payload_type(
     ty: &Type,
     constructor: AdtConstructor,
     payload_index: usize,
-) -> Option<&Type> {
+) -> Option<Type> {
     let field = constructor.variant.payload_fields.get(payload_index)?;
-    adt_args(ty, constructor.descriptor)?.get(field.type_parameter_index)
+    match field.ty {
+        AdtPayloadType::TypeParameter(index) => {
+            adt_args(ty, constructor.descriptor)?.get(index).cloned()
+        }
+        AdtPayloadType::SelfType => Some(ty.clone()),
+    }
 }
 
 pub(crate) fn core_payload_type(
     ty: &CoreType,
     constructor: AdtConstructor,
     payload_index: usize,
-) -> Option<&CoreType> {
+) -> Option<CoreType> {
     let field = constructor.variant.payload_fields.get(payload_index)?;
-    core_adt_args(ty, constructor.descriptor)?.get(field.type_parameter_index)
+    match field.ty {
+        AdtPayloadType::TypeParameter(index) => core_adt_args(ty, constructor.descriptor)?
+            .get(index)
+            .cloned(),
+        AdtPayloadType::SelfType => Some(ty.clone()),
+    }
 }
 
 pub(crate) fn option_type(value: Type) -> Type {
@@ -318,7 +374,10 @@ mod tests {
         assert_eq!(err.descriptor.type_name, "Result");
         assert_eq!(err.variant.name, "Err");
         assert_eq!(err.variant.payload_fields[0].name, "error");
-        assert_eq!(err.variant.payload_fields[0].type_parameter_index, 1);
+        assert_eq!(
+            err.variant.payload_fields[0].ty,
+            AdtPayloadType::TypeParameter(1)
+        );
     }
 
     #[test]
@@ -327,8 +386,8 @@ mod tests {
         let ok = constructor(&path(&["Ok"])).expect("Ok should resolve");
         let err = constructor(&path(&["Err"])).expect("Err should resolve");
 
-        assert_eq!(payload_type(&result, ok, 0), Some(&Type::int()));
-        assert_eq!(payload_type(&result, err, 0), Some(&Type::string()));
+        assert_eq!(payload_type(&result, ok, 0), Some(Type::int()));
+        assert_eq!(payload_type(&result, err, 0), Some(Type::string()));
         assert_eq!(result_parts(&result), Some((&Type::int(), &Type::string())));
         assert_eq!(
             constructed_type(err, Type::string()),
@@ -338,11 +397,11 @@ mod tests {
         let core_result = CoreType::result(CoreType::int(), CoreType::string());
         assert_eq!(
             core_payload_type(&core_result, ok, 0),
-            Some(&CoreType::int())
+            Some(CoreType::int())
         );
         assert_eq!(
             core_payload_type(&core_result, err, 0),
-            Some(&CoreType::string())
+            Some(CoreType::string())
         );
         assert_eq!(
             core_result_parts(&core_result),

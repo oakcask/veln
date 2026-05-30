@@ -1,6 +1,6 @@
 # ADT Generalization Route
 
-Status: stage 1 implemented; stages 2 and 3 proposed
+Status: stages 1 and 2 implemented; stage 3 proposed
 
 This page records a staged route from compiler-special `Option` and `Result`
 handling toward user-defined ADTs, standard-library `List`, immutable
@@ -23,8 +23,9 @@ states it.
 
 `Option(T)` and `Result(T, E)` are implemented built-in parametric forms.
 Their constructors, patterns, branch typing, `?` behavior, and exhaustiveness
-rules now route through compiler-owned ADT descriptors. User-defined ADT
-declarations and user-defined constructors are not implemented.
+rules now route through compiler-owned ADT descriptors. The minimal
+source-declared `List(A)` ADT shape is implemented with `Nil` and `Cons`.
+Broader user-defined ADT declarations and constructors are not implemented.
 
 `Vec(A)` and `Dict(K, V)` remain built-in immutable container types from the
 source user's point of view. Their helper contracts are current behavior, but
@@ -58,7 +59,7 @@ separate hard-coded branches wherever practical.
 
 ### Stage 2: Minimal ADTs For List
 
-Status: proposed
+Status: implemented
 
 Extend the descriptor model into a narrow source feature only far enough to
 define `List(A)` and pattern match on it.

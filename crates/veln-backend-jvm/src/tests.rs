@@ -107,6 +107,38 @@ fn bytecode_backend_runs_result_try_collections_and_function_values_when_java_is
 }
 
 #[test]
+fn bytecode_backend_runs_minimal_list_adt_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "type List(A)\n",
+        "  Nil\n",
+        "  Cons(head: A, tail: List(A))\n",
+        "end\n",
+        "fn sum(values: List(Int)) -> Int effects []\n",
+        "  match values\n",
+        "    Nil => 0\n",
+        "    Cons(head, tail) => head + sum(tail)\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(sum(Cons(1, Cons(2, Nil)))))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available("bytecode-list-adt", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "3\n");
+}
+
+#[test]
 fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn attach(context: String, value: Int) -> Result({prefix: String, value: Int}, String) effects []\n",

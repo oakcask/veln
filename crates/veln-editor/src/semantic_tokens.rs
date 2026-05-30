@@ -209,6 +209,20 @@ impl<'a> Classifier<'a> {
                     self.cursor += 1;
                     self.collect_use_name(&mut semantic_tokens);
                 }
+                TokenKind::Type => {
+                    semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
+                    self.cursor += 1;
+                    self.skip_trivia();
+                    if self.at(TokenKind::Ident) {
+                        let token = &self.tokens[self.cursor];
+                        semantic_tokens.push(self.modified(
+                            token,
+                            SemanticTokenType::Type,
+                            &[SemanticTokenModifier::Declaration],
+                        ));
+                        self.cursor += 1;
+                    }
+                }
                 TokenKind::Fn | TokenKind::Test | TokenKind::Pub => {
                     self.collect_function_header(&mut semantic_tokens);
                 }
@@ -439,6 +453,7 @@ impl<'a> Classifier<'a> {
             )),
             TokenKind::Pub
             | TokenKind::Fn
+            | TokenKind::Type
             | TokenKind::Test
             | TokenKind::Effects
             | TokenKind::Let

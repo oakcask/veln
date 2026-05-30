@@ -62,6 +62,7 @@ pub fn diagnostics(source: &SourceFile) -> Vec<Diagnostic> {
     let module = SurfaceModule {
         module: lowered.module,
         uses: lowered.uses,
+        types: lowered.types,
         functions: lowered.functions,
     };
     veln_sema::lower_checked_surface_module(&module).diagnostics

@@ -542,6 +542,7 @@ mod tests {
         let module = SurfaceModule {
             module: None,
             uses: Vec::new(),
+            types: Vec::new(),
             functions: Vec::new(),
         };
         let project = Project {
@@ -592,6 +593,7 @@ mod tests {
         let module = SurfaceModule {
             module: None,
             uses: Vec::new(),
+            types: Vec::new(),
             functions: Vec::new(),
         };
         let project = Project {
@@ -950,6 +952,7 @@ mod tests {
     fn project_module(sources: Vec<SourceFile>) -> (Project, SurfaceModule) {
         let mut module = None;
         let mut uses = Vec::new();
+        let mut types = Vec::new();
         let mut functions = Vec::new();
         for source in &sources {
             let parsed = parse(source);
@@ -961,6 +964,7 @@ mod tests {
             let lowered = lower_surface_ast(&parsed.tree);
             module = module.or(lowered.module);
             uses.extend(lowered.uses);
+            types.extend(lowered.types);
             functions.extend(lowered.functions);
         }
         (
@@ -972,6 +976,7 @@ mod tests {
             SurfaceModule {
                 module,
                 uses,
+                types,
                 functions,
             },
         )

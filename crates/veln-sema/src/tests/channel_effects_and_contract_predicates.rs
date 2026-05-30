@@ -291,6 +291,7 @@ fn infers_import_alias_call_effects_from_function_body() {
     let module = SurfaceModule {
         module: main.module,
         uses: main.uses,
+        types: main.types.into_iter().chain(console.types).collect(),
         functions: main
             .functions
             .into_iter()
@@ -527,6 +528,7 @@ fn contract_predicate_accepts_qualified_pure_function_calls() {
     let module = SurfaceModule {
         module: main.module,
         uses: main.uses,
+        types: main.types.into_iter().chain(rules.types).collect(),
         functions: main.functions.into_iter().chain(rules.functions).collect(),
     };
 

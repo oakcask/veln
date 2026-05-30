@@ -36,8 +36,10 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         if index > 0 {
             out.push('\n');
         }
-        let SyntaxItem::Function(function) = item;
-        format_function(&mut out, &comments, function);
+        match item {
+            SyntaxItem::Function(function) => format_function(&mut out, &comments, function),
+            SyntaxItem::Type(_) => return lossless_text(tree),
+        }
     }
 
     if !comments.all_emitted() {
