@@ -330,7 +330,10 @@ also visit vec items in source order.
 `list_map`, `list_filter`, `list_fold`, and `list_try_map` visit list items in
 source order. `list_try_map` stops at the first `Err`; otherwise it returns
 `Ok` containing the mapped list in source order. List traversal helpers are
-implemented without relying on source-level tail-recursion syntax.
+implemented without relying on source-level tail-recursion syntax. Public JVM
+helper calls for large list traversals do not consume one host stack frame per
+list element, and this remains runtime support rather than a general
+tail-call optimization guarantee.
 
 `string_split_once` splits at the first occurrence of `separator`, returning
 `None` when the separator is absent. `string_parse_int` accepts the backend
