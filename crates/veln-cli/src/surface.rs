@@ -1178,12 +1178,7 @@ mod tests {
                 ),
                 SourceFile::new(
                     "util.veln",
-                    concat!(
-                        "mod app.util\n",
-                        "fn value() -> Int\n",
-                        "  1\n",
-                        "end\n",
-                    ),
+                    concat!("mod app.util\n", "fn value() -> Int\n", "  1\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -1290,12 +1285,7 @@ mod tests {
                 ),
                 SourceFile::new(
                     "util.veln",
-                    concat!(
-                        "mod app.util\n",
-                        "fn value() -> Int\n",
-                        "  1\n",
-                        "end\n",
-                    ),
+                    concat!("mod app.util\n", "fn value() -> Int\n", "  1\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -1344,12 +1334,7 @@ mod tests {
                 ),
                 SourceFile::new(
                     "other.veln",
-                    concat!(
-                        "mod app.other\n",
-                        "fn value() -> Int\n",
-                        "  _\n",
-                        "end\n",
-                    ),
+                    concat!("mod app.other\n", "fn value() -> Int\n", "  _\n", "end\n",),
                 ),
             ],
             manifest: None,

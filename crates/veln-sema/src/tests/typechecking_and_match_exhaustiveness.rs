@@ -153,10 +153,7 @@ fn omitted_tail_expression_returns_unit() {
 
 #[test]
 fn omitted_tail_expression_checks_declared_return_type() {
-    let source = SourceFile::new(
-        "main.veln",
-        "fn main() -> Int\n  let value = 1\nend\n",
-    );
+    let source = SourceFile::new("main.veln", "fn main() -> Int\n  let value = 1\nend\n");
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 

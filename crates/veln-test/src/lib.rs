@@ -1886,10 +1886,7 @@ mod tests {
 
     #[test]
     fn stdio_events_preserve_stream_sequence_and_source() {
-        let source_file = SourceFile::new(
-            "main_test.veln",
-            "test first() -> ()\n  ()\nend\n",
-        );
+        let source_file = SourceFile::new("main_test.veln", "test first() -> ()\n  ()\nend\n");
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
             node_id: "test-1".to_string(),
@@ -3235,10 +3232,7 @@ mod tests {
 
     #[test]
     fn stdio_trace_skips_malformed_lines() {
-        let source_file = SourceFile::new(
-            "main_test.veln",
-            "test first() -> ()\n  ()\nend\n",
-        );
+        let source_file = SourceFile::new("main_test.veln", "test first() -> ()\n  ()\nend\n");
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
             node_id: "test-1".to_string(),
@@ -3262,10 +3256,7 @@ mod tests {
 
     #[test]
     fn stdio_trace_decodes_uppercase_hex_text() {
-        let source_file = SourceFile::new(
-            "main_test.veln",
-            "test first() -> ()\n  ()\nend\n",
-        );
+        let source_file = SourceFile::new("main_test.veln", "test first() -> ()\n  ()\nend\n");
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
             node_id: "test-1".to_string(),
@@ -3643,10 +3634,7 @@ mod tests {
 
     #[test]
     fn stdio_trace_falls_back_to_test_source_for_missing_call_identity() {
-        let source_file = SourceFile::new(
-            "main_test.veln",
-            "test first() -> ()\n  ()\nend\n",
-        );
+        let source_file = SourceFile::new("main_test.veln", "test first() -> ()\n  ()\nend\n");
         let source = TestCaseSource {
             file: "main_test.veln".to_string(),
             node_id: "test-1".to_string(),

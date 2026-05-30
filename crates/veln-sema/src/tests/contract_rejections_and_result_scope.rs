@@ -519,11 +519,7 @@ fn bare_result_has_no_ensure_special_case() {
 fn result_binding_is_not_in_function_body_scope() {
     let source = SourceFile::new(
         "main.veln",
-        concat!(
-            "pub fn main() -> output: Int\n",
-            "  output\n",
-            "end\n",
-        ),
+        concat!("pub fn main() -> output: Int\n", "  output\n", "end\n",),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);

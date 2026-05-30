@@ -168,7 +168,10 @@ fn public_function_declaration_rejects_empty_effects_list() {
 
 #[test]
 fn test_declaration_rejects_empty_effects_list() {
-    let source = SourceFile::new("main_test.veln", "test helper() -> () effects []\n  ()\nend\n");
+    let source = SourceFile::new(
+        "main_test.veln",
+        "test helper() -> () effects []\n  ()\nend\n",
+    );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 
@@ -377,12 +380,7 @@ fn duplicate_use_aliases_are_static_errors() {
 fn use_declarations_require_module_identity() {
     let source = SourceFile::new(
         "main.veln",
-        concat!(
-            "use platform.io\n",
-            "fn main() -> ()\n",
-            "  ()\n",
-            "end\n",
-        ),
+        concat!("use platform.io\n", "fn main() -> ()\n", "  ()\n", "end\n",),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);

@@ -564,10 +564,7 @@ mod tests {
 
     #[test]
     fn discovered_selection_includes_same_file_test_declarations() {
-        let source = SourceFile::new(
-            "main.veln",
-            "test same_file() -> ()\n  ()\nend\n",
-        );
+        let source = SourceFile::new("main.veln", "test same_file() -> ()\n  ()\nend\n");
         let parsed = parse(&source);
         assert!(
             parsed.diagnostics.is_empty(),
@@ -679,14 +676,8 @@ mod tests {
     fn dependency_graph_widens_when_selected_source_has_no_module_identity() {
         let (project, module) = project_module(vec![
             SourceFile::new("math.veln", "fn value() -> Int\n  1\nend\n"),
-            SourceFile::new(
-                "alpha_test.veln",
-                "test alpha() -> ()\n  ()\nend\n",
-            ),
-            SourceFile::new(
-                "beta_test.veln",
-                "test beta() -> ()\n  ()\nend\n",
-            ),
+            SourceFile::new("alpha_test.veln", "test alpha() -> ()\n  ()\nend\n"),
+            SourceFile::new("beta_test.veln", "test beta() -> ()\n  ()\nend\n"),
         ]);
         let explicit_roots = BTreeSet::from(["math.veln".to_string()]);
         let source_roots = BTreeSet::from(["math.veln".to_string()]);

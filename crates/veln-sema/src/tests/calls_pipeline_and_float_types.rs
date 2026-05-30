@@ -504,10 +504,7 @@ fn pipeline_inserts_left_value_as_first_call_argument() {
 
 #[test]
 fn pipeline_requires_call_target() {
-    let source = SourceFile::new(
-        "main.veln",
-        "pub fn main() -> Int\n  1 |> 2\nend\n",
-    );
+    let source = SourceFile::new("main.veln", "pub fn main() -> Int\n  1 |> 2\nend\n");
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 

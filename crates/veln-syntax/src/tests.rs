@@ -1297,10 +1297,7 @@ fn synchronizes_top_level_garbage_to_next_function() {
 
 #[test]
 fn synchronizes_top_level_garbage_to_next_test_declaration() {
-    let source = SourceFile::new(
-        "main.veln",
-        "let stray = 1\ntest main() -> ()\nend\n",
-    );
+    let source = SourceFile::new("main.veln", "let stray = 1\ntest main() -> ()\nend\n");
 
     let output = parse(&source);
 

@@ -302,10 +302,7 @@ fn check_human_prints_ok_for_valid_input() {
 #[test]
 fn check_human_reports_diagnostics_to_stdout() {
     let project = TestProject::new("check-human-diagnostics");
-    project.write(
-        "main.veln",
-        "pub fn main() -> Int\n  \"no\"\nend\n",
-    );
+    project.write("main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
 
     let output = project.veln(&["check"], &["main.veln"]);
 
@@ -371,12 +368,7 @@ fn check_human_reports_missing_module_identity_for_imports() {
     let project = TestProject::new("check-human-module-identity");
     project.write(
         "main.veln",
-        concat!(
-            "use platform.io\n",
-            "fn main() -> ()\n",
-            "  ()\n",
-            "end\n",
-        ),
+        concat!("use platform.io\n", "fn main() -> ()\n", "  ()\n", "end\n",),
     );
 
     let output = project.veln(&["check"], &["main.veln"]);
@@ -397,12 +389,7 @@ fn check_json_reports_missing_module_identity_for_imports() {
     let project = TestProject::new("check-json-module-identity");
     project.write(
         "main.veln",
-        concat!(
-            "use platform.io\n",
-            "fn main() -> ()\n",
-            "  ()\n",
-            "end\n",
-        ),
+        concat!("use platform.io\n", "fn main() -> ()\n", "  ()\n", "end\n",),
     );
 
     let output = project.check_json(&["main.veln"]);
@@ -477,12 +464,7 @@ fn check_human_accepts_matching_manifest_module_name() {
     project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.main\"\n");
     project.write(
         "main.veln",
-        concat!(
-            "mod app.main\n",
-            "pub fn main() -> ()\n",
-            "  ()\n",
-            "end\n",
-        ),
+        concat!("mod app.main\n", "pub fn main() -> ()\n", "  ()\n", "end\n",),
     );
 
     let output = project.veln(&["check"], &["main.veln"]);
@@ -1231,10 +1213,7 @@ fn check_json_reports_hole_with_return_expected_type() {
 fn check_json_keeps_sema_for_other_files_when_one_file_has_parse_errors() {
     let project = TestProject::new("parse-and-sema");
     project.write("a_parse.veln", "fn broken() -> ()\n  @\nend\n");
-    project.write(
-        "b_type.veln",
-        "pub fn main() -> Int\n  \"no\"\nend\n",
-    );
+    project.write("b_type.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
 
     let output = project.check_json(&[]);
     let stdout = stdout(&output);
@@ -1285,10 +1264,7 @@ fn check_json_resolves_imported_calls_across_selected_files() {
 #[test]
 fn check_json_reports_return_type_mismatch() {
     let project = TestProject::new("return-mismatch");
-    project.write(
-        "main.veln",
-        "pub fn main() -> Int\n  \"no\"\nend\n",
-    );
+    project.write("main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
 
     let output = project.check_json(&["main.veln"]);
 
@@ -1339,10 +1315,7 @@ fn check_json_reports_match_exhaustiveness_details() {
 #[test]
 fn check_json_deduplicates_repeated_explicit_inputs() {
     let project = TestProject::new("dedupe-explicit-inputs");
-    project.write(
-        "main.veln",
-        "pub fn main() -> Int\n  \"no\"\nend\n",
-    );
+    project.write("main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
 
     let output = project.check_json(&["main.veln", "main.veln"]);
     let stdout = stdout(&output);
@@ -1362,10 +1335,7 @@ fn check_json_deduplicates_repeated_explicit_inputs() {
 #[test]
 fn check_json_deduplicates_overlapping_directory_and_file_inputs() {
     let project = TestProject::new("dedupe-overlapping-directory-file-inputs");
-    project.write(
-        "src/main.veln",
-        "pub fn main() -> Int\n  \"no\"\nend\n",
-    );
+    project.write("src/main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
     project.write("src/target/generated.veln", "fn broken() -> ()\n  @\nend\n");
     project.write("src/.git/hooks/hook.veln", "fn broken() -> ()\n  @\nend\n");
 
@@ -1388,10 +1358,7 @@ fn check_json_deduplicates_overlapping_directory_and_file_inputs() {
 #[test]
 fn check_json_reports_implicit_unit_return_type_mismatch() {
     let project = TestProject::new("implicit-unit-return-mismatch");
-    project.write(
-        "main.veln",
-        "pub fn main() -> Int\n  let value = 1\nend\n",
-    );
+    project.write("main.veln", "pub fn main() -> Int\n  let value = 1\nend\n");
 
     let output = project.check_json(&["main.veln"]);
 
@@ -3253,12 +3220,7 @@ fn run_blocks_holes_reachable_through_imported_calls_before_jdk_execution() {
     let project = TestProject::new("run-imported-call-hole");
     project.write(
         "util.veln",
-        concat!(
-            "mod app.util\n",
-            "fn value() -> Int\n",
-            "  _\n",
-            "end\n",
-        ),
+        concat!("mod app.util\n", "fn value() -> Int\n", "  _\n", "end\n",),
     );
     project.write(
         "main.veln",
@@ -3302,10 +3264,7 @@ fn run_reports_parse_diagnostics_before_semantic_analysis() {
 #[test]
 fn run_reports_semantic_diagnostics_before_lowering() {
     let project = TestProject::new("run-semantic-diagnostics");
-    project.write(
-        "main.veln",
-        "pub fn main() -> Int\n  \"no\"\nend\n",
-    );
+    project.write("main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
 
     let output = project.run(&["main", "main.veln"]);
 
@@ -3633,14 +3592,8 @@ fn test_human_reports_no_discovered_test_declarations() {
 #[test]
 fn test_json_blocks_duplicate_function_like_names_with_origin_note() {
     let project = TestProject::new("test-duplicate-function-like-names-json");
-    project.write(
-        "first_test.veln",
-        "test same() -> ()\n  ()\nend\n",
-    );
-    project.write(
-        "second_test.veln",
-        "fn same() -> ()\n  ()\nend\n",
-    );
+    project.write("first_test.veln", "test same() -> ()\n  ()\nend\n");
+    project.write("second_test.veln", "fn same() -> ()\n  ()\nend\n");
 
     let output = project.test(&["--json"]);
     let stdout = stdout(&output);
@@ -3664,14 +3617,8 @@ fn test_json_blocks_duplicate_function_like_names_with_origin_note() {
 #[test]
 fn test_human_blocks_duplicate_function_like_names_with_origin_note() {
     let project = TestProject::new("test-duplicate-function-like-names-human");
-    project.write(
-        "first_test.veln",
-        "test same() -> ()\n  ()\nend\n",
-    );
-    project.write(
-        "second_test.veln",
-        "fn same() -> ()\n  ()\nend\n",
-    );
+    project.write("first_test.veln", "test same() -> ()\n  ()\nend\n");
+    project.write("second_test.veln", "fn same() -> ()\n  ()\nend\n");
 
     let output = project.test(&[]);
 
@@ -3717,10 +3664,7 @@ fn test_json_blocks_static_gate_before_jdk_execution() {
 #[test]
 fn test_json_reports_parse_static_gate_without_jdk_execution() {
     let project = TestProject::new("test-parse-static-gate");
-    project.write(
-        "broken_test.veln",
-        "test broken() -> ()\n  @\nend\n",
-    );
+    project.write("broken_test.veln", "test broken() -> ()\n  @\nend\n");
 
     let output = project.test(&["--json"]);
     let stdout = stdout(&output);
@@ -3744,14 +3688,8 @@ fn test_json_reports_parse_static_gate_without_jdk_execution() {
 #[test]
 fn test_json_blocks_cases_from_multiple_files_on_semantic_static_gate() {
     let project = TestProject::new("test-multiple-files-static-gate");
-    project.write(
-        "first_test.veln",
-        "test first() -> ()\n  ()\nend\n",
-    );
-    project.write(
-        "second_test.veln",
-        "test second() -> Int\n  \"no\"\nend\n",
-    );
+    project.write("first_test.veln", "test first() -> ()\n  ()\nend\n");
+    project.write("second_test.veln", "test second() -> Int\n  \"no\"\nend\n");
 
     let output = project.test(&["--json"]);
     let stdout = stdout(&output);
@@ -4351,10 +4289,7 @@ fn test_json_treats_explicit_directory_target_as_user_selected() {
         "tests/app_test.veln",
         "test directory_case() -> Result((), AppError)\n  _\nend\n",
     );
-    project.write(
-        "tests/helper.veln",
-        "fn helper() -> ()\n  ()\nend\n",
-    );
+    project.write("tests/helper.veln", "fn helper() -> ()\n  ()\nend\n");
 
     let output = project.test(&["--json", "tests"]);
     let stdout = stdout(&output);
@@ -4503,10 +4438,7 @@ fn test_explicit_target_runs_same_file_test_declaration_when_jdk_is_available() 
     }
 
     let project = TestProject::new("test-explicit-same-file");
-    project.write(
-        "example.veln",
-        "test example() -> ()\n  ()\nend\n",
-    );
+    project.write("example.veln", "test example() -> ()\n  ()\nend\n");
 
     let output = project.test(&["--json", "example.veln"]);
     let stdout = stdout(&output);

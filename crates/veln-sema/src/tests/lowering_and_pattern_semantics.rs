@@ -159,11 +159,7 @@ fn lowers_option_constructor_with_expected_return_type() {
 fn lowers_none_constructor_with_expected_return_type() {
     let source = SourceFile::new(
         "main.veln",
-        concat!(
-            "pub fn main() -> Option(String)\n",
-            "  None\n",
-            "end\n",
-        ),
+        concat!("pub fn main() -> Option(String)\n", "  None\n", "end\n",),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -584,10 +580,7 @@ fn holes_build_blocked_core_but_not_executable_ir() {
 
 #[test]
 fn semantic_errors_block_core_and_ir() {
-    let source = SourceFile::new(
-        "main.veln",
-        "pub fn main() -> Int\n  \"no\"\nend\n",
-    );
+    let source = SourceFile::new("main.veln", "pub fn main() -> Int\n  \"no\"\nend\n");
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 
