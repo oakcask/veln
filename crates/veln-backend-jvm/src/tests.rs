@@ -70,6 +70,18 @@ public final class RuntimeListHarness {
 }
 "#;
 
+const PUBLIC_LIST_HELPER_HARNESS: &str = r#"
+public final class PublicListHelperHarness {
+    public static void main(String[] args) {
+        Object values = VelnRuntime.listNil();
+        for (int index = 0; index < 20000; index += 1) {
+            values = VelnRuntime.listCons(Long.valueOf(1), values);
+        }
+        VelnProgram.fn_consume(values);
+    }
+}
+"#;
+
 const RUNTIME_PATH_HARNESS: &str = r#"
 public final class RuntimePathHarness {
     public static void main(String[] args) {
@@ -400,6 +412,93 @@ fn jvm_runtime_list_helpers_traverse_large_lists_iteratively_when_java_is_availa
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "20000:20000:true:false:2:Err(stop)\n"
+    );
+}
+
+#[test]
+fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+
+    let ir = lower_to_ir(concat!(
+        "type List(A)\n",
+        "  Nil\n",
+        "  Cons(head: A, tail: List(A))\n",
+        "end\n",
+        "fn add(total: Int, value: Int) -> Int\n",
+        "  total + value\n",
+        "end\n",
+        "fn double(value: Int) -> Int\n",
+        "  value * 2\n",
+        "end\n",
+        "fn keep_one(value: Int) -> Bool\n",
+        "  value == 1\n",
+        "end\n",
+        "fn ok_next(value: Int) -> Result(Int, String)\n",
+        "  Ok(value + 1)\n",
+        "end\n",
+        "fn stop_at_two(value: Int) -> Result(Int, String)\n",
+        "  match value == 2\n",
+        "    true => Err(\"stop\")\n",
+        "    false => Ok(value)\n",
+        "  end\n",
+        "end\n",
+        "pub fn consume(values: List(Int)) -> () effects [stdio]\n",
+        "  let mapped: List(Int) = list_map(values, double)\n",
+        "  let tried: Result(List(Int), String) = list_try_map(values, ok_next)\n",
+        "  stdio::println(int_to_string(list_fold(values, 0, add)))\n",
+        "  stdio::println(int_to_string(list_fold(mapped, 0, add)))\n",
+        "  stdio::println(int_to_string(list_fold(list_filter(values, keep_one), 0, add)))\n",
+        "  match tried\n",
+        "    Ok(items) => stdio::println(int_to_string(list_fold(items, 0, add)))\n",
+        "    Err(error) => stdio::println(error)\n",
+        "  end\n",
+        "  stdio::println(match list_try_map(list_cons(1, list_cons(2, values)), stop_at_two)\n",
+        "    Ok(_) => \"unexpected\"\n",
+        "    Err(error) => error\n",
+        "  end)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "consume");
+    let root = temp_dir("public-list-helpers");
+    write_jvm_program(&root, &program);
+    fs::write(
+        root.join("PublicListHelperHarness.java"),
+        PUBLIC_LIST_HELPER_HARNESS,
+    )
+    .expect("Java harness should be written");
+
+    let javac = Command::new("javac")
+        .arg("PublicListHelperHarness.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "{}",
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("PublicListHelperHarness")
+        .current_dir(&root)
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "20000\n40000\n20000\n40000\nstop\n"
     );
 }
 
