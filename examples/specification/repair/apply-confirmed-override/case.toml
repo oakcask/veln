@@ -1,0 +1,36 @@
+command = ["repair", "--json", "--apply", "--override", "--confirm", "repair-1", "main.veln"]
+exit = 0
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "applied"
+
+[[json_assert]]
+path = "confirmation.confirmed_candidate_id"
+equals = "repair-1"
+
+[[json_assert]]
+path = "confirmation.override"
+equals = true
+
+[[json_assert]]
+path = "override.application_policy"
+equals = "manual_review_required"
+
+[[json_assert]]
+path = "override.accepted_obligations.0"
+equals = "manual_review_required"
+
+[[json_assert]]
+path = "verification.status"
+equals = "passed"
+
+[[file_assert]]
+path = "main.veln"
+equals = "// Confirmed override can apply and record a manual-review candidate.\nfn main(value: Int) -> Int\n  value\nend\n"

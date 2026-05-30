@@ -71,6 +71,21 @@ itself roll back the edit.
 Successful JSON output records `confirmation` and, when override was used,
 `override`. Refusals do not write files and leave those records null.
 
+## Executable Evidence
+
+The applying-command boundary is covered by executable specification cases:
+
+- `../../examples/specification/repair/apply-safe-candidate/`: one safe
+  candidate is applied and verified.
+- `../../examples/specification/repair/apply-confirmed-override/`: one
+  confirmed manual-review candidate is applied through override and recorded.
+- `../../examples/specification/repair/refuse-override-without-confirm/`:
+  override refuses without explicit confirmation.
+- `../../examples/specification/repair/saved-apply-requires-current-match/`:
+  saved repair JSON does not authorize writes without a current safe match.
+- `../../examples/specification/repair/verification-checked-core-rollback/`:
+  verification failure restores written files.
+
 ## Remaining Proposal Boundary
 
 Do not promote any remaining repair-loop proposal axis into this specification

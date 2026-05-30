@@ -1,0 +1,1 @@
+{"candidates":[{"repair_id":"saved-repair","source_candidate_id":"symbol-1","name":"order","application_policy":"safe_repair_candidate","application_status":"unapplied","edit_summary":"Replace hole with other","edits":[{"kind":"replace","span":{"file":"main.veln","start":{"line":3,"column":3,"offset":131},"end":{"line":3,"column":9,"offset":137}},"replacement":"other"}]}]}
