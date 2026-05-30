@@ -164,6 +164,30 @@ fn lossless_tree_retains_trivia() {
 }
 
 #[test]
+fn lossless_tree_retains_hash_line_comments() {
+    let source = SourceFile::new(
+        "main.veln",
+        "# module comment\nfn id(value: Int) -> Int\n  value # tail comment\nend\n",
+    );
+
+    let output = parse(&source);
+    let tokens = output.tree.lossless_tokens().collect::<Vec<_>>();
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert!(
+        tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::Comment && token.text == "# module comment")
+    );
+    assert!(
+        tokens
+            .iter()
+            .any(|token| token.kind == TokenKind::Comment && token.text == "# tail comment")
+    );
+    assert_eq!(output.tree.items.len(), 1);
+}
+
+#[test]
 fn parses_adr_lite_records_from_doc_comments() {
     let source = SourceFile::new(
         "main.veln",
@@ -189,6 +213,53 @@ fn parses_adr_lite_records_from_doc_comments() {
     assert_eq!(record.id, "order-summary");
     assert_eq!(record.status, "accepted");
     assert_eq!(record.scope, "pub fn summarize");
+    assert_eq!(
+        record.anchor,
+        Some(AdrLiteAnchor::Function {
+            name: "summarize".to_string()
+        })
+    );
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "## @adr\n",
+            "## id: order-summary\n",
+            "## status: accepted\n",
+            "## scope: pub fn summarize\n",
+            "## context: Summaries need source-adjacent rationale.\n",
+            "## decision: Keep the public API pure.\n",
+            "## consequences: Runtime behavior ignores this record.\n",
+            "pub fn summarize() -> ()\n",
+            "\t()\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn parses_adr_lite_records_from_hash_doc_comments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "## @adr\n",
+            "## id: order-summary\n",
+            "## status: accepted\n",
+            "## scope: pub fn summarize\n",
+            "## context: Summaries need source-adjacent rationale.\n",
+            "## decision: Keep the public API pure.\n",
+            "## consequences: Runtime behavior ignores this record.\n",
+            "pub fn summarize() -> ()\n",
+            "\t()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.adr_lite_records.len(), 1);
+    let record = &output.tree.adr_lite_records[0];
+    assert_eq!(record.id, "order-summary");
     assert_eq!(
         record.anchor,
         Some(AdrLiteAnchor::Function {
@@ -1161,11 +1232,39 @@ fn format_tree_formats_attached_line_comments() {
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "// header\n",
+            "# header\n",
             "fn main() -> ()\n",
-            "\t_  // hole\n",
-            "\t// close docs\n",
-            "end  // function end\n",
+            "\t_  # hole\n",
+            "\t# close docs\n",
+            "end  # function end\n",
+        )
+    );
+}
+
+#[test]
+fn format_tree_formats_attached_hash_line_comments() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "# header\n",
+            "fn   main ( ) -> ()\n",
+            "  _ # hole\n",
+            "## close docs\n",
+            "end # function end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "# header\n",
+            "fn main() -> ()\n",
+            "\t_  # hole\n",
+            "\t## close docs\n",
+            "end  # function end\n",
         )
     );
 }
@@ -1191,12 +1290,12 @@ fn format_tree_attaches_standalone_comments_to_formatted_lines() {
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "// module docs\n",
+            "# module docs\n",
             "mod app\n",
             "\n",
-            "/// helper docs\n",
+            "## helper docs\n",
             "fn helper(value: ()) -> ()\n",
-            "\t// body docs\n",
+            "\t# body docs\n",
             "\t()\n",
             "end\n",
         )
@@ -1229,16 +1328,16 @@ fn format_tree_attaches_comments_to_imports_contracts_and_end_lines() {
         format_tree(&output.tree),
         concat!(
             "mod app\n",
-            "// import docs\n",
+            "# import docs\n",
             "use platform.io\n",
             "\n",
-            "// function docs\n",
+            "# function docs\n",
             "fn main(ready: Bool) -> ()\n",
-            "\t// require docs\n",
+            "\t# require docs\n",
             "\trequire ready\n",
-            "\t// body docs\n",
+            "\t# body docs\n",
             "\t()\n",
-            "\t// end docs\n",
+            "\t# end docs\n",
             "end\n",
         )
     );

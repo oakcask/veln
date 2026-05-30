@@ -1,4 +1,4 @@
-// Repair preview still receives diagnostics from parse-clean selected files.
+# Repair preview still receives diagnostics from parse-clean selected files.
 fn choose(fallback: Int) -> Int
 require fallback >= 0
   _value satisfy candidate => candidate >= fallback

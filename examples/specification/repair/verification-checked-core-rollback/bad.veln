@@ -1,4 +1,4 @@
-// Checked-core blockers in other files still fail repair verification.
+# Checked-core blockers in other files still fail repair verification.
 fn add(left: Int, right: Int) -> Int
   left + right
 end

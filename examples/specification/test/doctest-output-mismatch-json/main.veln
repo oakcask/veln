@@ -1,10 +1,10 @@
-// Doctest output mismatches are reported as structured JSON failures.
-/// ```veln
-/// stdio::println("waiting")
-/// ```
-/// ```veln-output stream=stdout
-/// ready
-/// ```
+# Doctest output mismatches are reported as structured JSON failures.
+## ```veln
+## stdio::println("waiting")
+## ```
+## ```veln-output stream=stdout
+## ready
+## ```
 pub fn main() -> ()
   ()
 end

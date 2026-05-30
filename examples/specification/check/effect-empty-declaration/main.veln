@@ -1,4 +1,4 @@
-// Empty declaration-level effects clauses are rejected.
+# Empty declaration-level effects clauses are rejected.
 pub fn helper() -> Int effects []
   1
 end

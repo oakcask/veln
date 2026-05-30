@@ -1,7 +1,7 @@
-// Doctest runtime ensure expectations still block before execution.
-/// ```veln runtime=ensure predicate=false
-/// _
-/// ```
+# Doctest runtime ensure expectations still block before execution.
+## ```veln runtime=ensure predicate=false
+## _
+## ```
 pub fn main() -> ()
   ()
 end

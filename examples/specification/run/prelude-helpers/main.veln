@@ -1,4 +1,4 @@
-// Fallible traversal helpers stop at the first Err and keep successful values ordered.
+# Fallible traversal helpers stop at the first Err and keep successful values ordered.
 fn attach(context: String, value: Int) -> Result({prefix: String, value: Int}, String)
   Ok({prefix: context, value: value})
 end

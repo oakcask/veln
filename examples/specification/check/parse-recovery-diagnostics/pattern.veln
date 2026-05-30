@@ -1,4 +1,4 @@
-// Malformed let patterns produce pattern recovery diagnostics.
+# Malformed let patterns produce pattern recovery diagnostics.
 fn main() -> Int
   let left right = 1
   left

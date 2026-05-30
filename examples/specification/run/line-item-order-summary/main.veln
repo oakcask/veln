@@ -1,4 +1,4 @@
-// This executable specification summarizes line-item input into an order total.
+# This executable specification summarizes line-item input into an order total.
 fn add_summary(summary: {item_count: Int, subtotal_cents: Int}, item: {sku: String, quantity: Int, unit_cents: Int}) -> {item_count: Int, subtotal_cents: Int}
   {item_count: summary.item_count + item.quantity, subtotal_cents: summary.subtotal_cents + item.quantity * item.unit_cents}
 end

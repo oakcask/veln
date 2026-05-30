@@ -80,9 +80,13 @@ followed by another token before the line ends, the parser reports
 tokens before the `=`, the parser reports `parse.pattern` at the first extra
 token.
 
-Formatter indentation and comment preservation are command behavior. See
-[commands-full.md#veln-fmt-path](commands-full.md#veln-fmt-path) for the
-canonical `veln fmt` layout.
+Formatter indentation and canonical comment spelling are command behavior. See
+[commands-full.md#veln-fmt-path](commands-full.md#veln-fmt-path) for the canonical
+`veln fmt` layout.
+
+`#` starts an ordinary line comment and runs through the end of the line. `##`
+starts a documentation line comment. The lexer still accepts `//` ordinary
+line comments and `///` documentation line comments as legacy spellings.
 
 The final expression line is the returned value. If a body has no final
 expression line, the omitted tail expression returns `()`. A non-`()`
@@ -159,9 +163,10 @@ cannot prove one concrete declaration target.
 `test` is a top-level declaration keyword, not a visibility modifier. Test
 declarations are selected by `veln test` from `*_test.veln` files, explicit
 targets, and any automatically discovered source file that contains a top-level
-`test` declaration. They require an empty parameter list, require an explicit
-return type and `effects [...]` clause, and are not ordinary callable
-functions.
+`test` declaration. They require an empty parameter list and an explicit return
+type. They may omit the declaration-level `effects [...]` clause for an empty
+declared effect set, and the clause must be non-empty when written. They are
+not ordinary callable functions.
 
 ## Documentation Comments And Doctests
 
@@ -208,10 +213,15 @@ An adjacent doc comment fence whose info string is
 `veln-output stream=stdout` or `veln-output stream=stderr` attaches expected
 output to the immediately preceding generated doctest.
 
-Inside an executable `veln` fence, a line that starts with `# ` is hidden setup:
-the generated test includes the line after removing the marker. Hidden setup is
-useful for imports, helpers, and bindings that the documented sample should use
-without displaying harness-only setup as example code.
+Inside an executable `veln` fence, a line that starts with `> ` is hidden setup:
+the generated test includes the line after removing the marker. Legacy `///`
+doctest fences also accept `# ` as hidden setup. In `##` doctest fences,
+`# comment` remains visible example source and is included as a normal source
+comment. The `> ` hidden marker is exact after the doc-comment prefix and one
+optional separator space; an example that intentionally starts source with `>`
+can write one extra leading space before `>`. Hidden setup is useful for
+imports, helpers, and bindings that the documented sample should use without
+displaying harness-only setup as example code.
 Unknown `veln-output` attributes, missing `stream`, and stream values other
 than `stdout` or `stderr` report doctest metadata diagnostics. A doctest may
 attach at most one expected-output fence for each stream. A second
@@ -220,18 +230,19 @@ attach at most one expected-output fence for each stream. A second
 the selected expectation.
 
 Documentation line comments may also contain ADR-lite records. A complete
-record starts with `/// @adr` or `/// @adr-lite` and then provides these fields
-as `key: value` doc-comment lines: `id`, `status`, `scope`, `context`,
-`decision`, and `consequences`.
+record starts with `## @adr` or `## @adr-lite`, with legacy `/// @adr` and
+`/// @adr-lite` also accepted, and then provides these fields as `key: value`
+doc-comment lines: `id`, `status`, `scope`, `context`, `decision`, and
+`consequences`.
 
 ```veln
-/// @adr
-/// id: module-boundary
-/// status: accepted
-/// scope: module
-/// context: Module identity is compiler-visible.
-/// decision: Keep the source header canonical.
-/// consequences: Manifest metadata cannot rename the module.
+## @adr
+## id: module-boundary
+## status: accepted
+## scope: module
+## context: Module identity is compiler-visible.
+## decision: Keep the source header canonical.
+## consequences: Manifest metadata cannot rename the module.
 mod app.core
 ```
 

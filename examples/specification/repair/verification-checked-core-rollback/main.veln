@@ -1,4 +1,4 @@
-// Repair verification rolls back when shared check analysis reports checked-core errors.
+# Repair verification rolls back when shared check analysis reports checked-core errors.
 fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}
   _value satisfy candidate => candidate.ready == order.ready
 end

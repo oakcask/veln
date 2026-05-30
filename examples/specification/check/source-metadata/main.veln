@@ -1,20 +1,20 @@
-// ADR-lite doc records are source metadata and do not affect static semantics.
-/// @adr
-/// id: module-boundary
-/// status: accepted
-/// scope: module
-/// context: Module identity is compiler-visible.
-/// decision: Keep the source header canonical.
-/// consequences: Manifest metadata cannot rename the module.
+# ADR-lite doc records are source metadata and do not affect static semantics.
+## @adr
+## id: module-boundary
+## status: accepted
+## scope: module
+## context: Module identity is compiler-visible.
+## decision: Keep the source header canonical.
+## consequences: Manifest metadata cannot rename the module.
 mod spec.metadata
 
-/// @adr-lite
-/// id: function-boundary
-/// status: accepted
-/// scope: function
-/// context: Public functions define the static API boundary.
-/// decision: Keep annotations explicit at the public boundary.
-/// consequences: Callers observe the declared effect list.
+## @adr-lite
+## id: function-boundary
+## status: accepted
+## scope: function
+## context: Public functions define the static API boundary.
+## decision: Keep annotations explicit at the public boundary.
+## consequences: Callers observe the declared effect list.
 pub fn main() -> Int
   1
 end

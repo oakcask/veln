@@ -1,4 +1,4 @@
-// Ensure clauses are checked before question-mark early returns.
+# Ensure clauses are checked before question-mark early returns.
 fn fail() -> Result(Int, String)
   Err("boom")
 end

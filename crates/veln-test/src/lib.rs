@@ -810,6 +810,7 @@ struct ExtractedDoctest {
 enum Fence {
     Veln {
         lines: Vec<String>,
+        doc_comment_style: DocCommentStyle,
         error_type: Option<String>,
         expected_runtime_failure: Option<Box<ExpectedRuntimeFailure>>,
         ignored: bool,
@@ -822,6 +823,12 @@ enum Fence {
         span: SourceSpan,
     },
     Ignored,
+}
+
+#[derive(Clone, Copy)]
+enum DocCommentStyle {
+    Hash,
+    Slash,
 }
 
 #[derive(Default)]
@@ -868,14 +875,18 @@ impl<'a> DoctestExtractor<'a> {
         let line_range = TextRange::new(self.offset, self.offset + line.len());
         self.offset += raw_line.len();
 
-        let Some(content) = doc_comment_content(line) else {
+        let Some((content, style)) = doc_comment_content(line) else {
             self.finalize_pending_with_error_context(line);
             return;
         };
-        self.handle_doc_line(content.strip_prefix(' ').unwrap_or(content), line_range);
+        self.handle_doc_line(
+            content.strip_prefix(' ').unwrap_or(content),
+            style,
+            line_range,
+        );
     }
 
-    fn handle_doc_line(&mut self, content: &str, line_range: TextRange) {
+    fn handle_doc_line(&mut self, content: &str, style: DocCommentStyle, line_range: TextRange) {
         if self.fence.is_some() {
             if content.trim_start().starts_with("```") {
                 self.close_fence();
@@ -887,13 +898,13 @@ impl<'a> DoctestExtractor<'a> {
 
         let trimmed = content.trim_start();
         if let Some(info) = trimmed.strip_prefix("```") {
-            self.open_fence(info.trim(), line_range);
+            self.open_fence(info.trim(), style, line_range);
         } else if !trimmed.is_empty() {
             self.finalize_pending();
         }
     }
 
-    fn open_fence(&mut self, info: &str, line_range: TextRange) {
+    fn open_fence(&mut self, info: &str, style: DocCommentStyle, line_range: TextRange) {
         if veln_fence_info(info) {
             let span = self.source.span(line_range);
             self.extracted
@@ -901,6 +912,7 @@ impl<'a> DoctestExtractor<'a> {
                 .extend(veln_metadata_diagnostics(info, span.clone()));
             self.fence = Some(Fence::Veln {
                 lines: Vec::new(),
+                doc_comment_style: style,
                 error_type: doctest_error_type(info).map(ToString::to_string),
                 expected_runtime_failure: doctest_runtime_failure(info, span).map(Box::new),
                 ignored: doctest_ignored(info),
@@ -928,6 +940,7 @@ impl<'a> DoctestExtractor<'a> {
         match self.fence.take().expect("active fence should exist") {
             Fence::Veln {
                 lines,
+                doc_comment_style: _,
                 error_type,
                 expected_runtime_failure,
                 ignored,
@@ -957,7 +970,11 @@ impl<'a> DoctestExtractor<'a> {
 
     fn append_fence_line(&mut self, content: &str) {
         match self.fence.as_mut().expect("active fence should exist") {
-            Fence::Veln { lines, .. } => lines.push(doctest_code_line(content)),
+            Fence::Veln {
+                lines,
+                doc_comment_style,
+                ..
+            } => lines.push(doctest_code_line(content, *doc_comment_style)),
             Fence::Output { lines, .. } => lines.push(content.to_string()),
             Fence::Ignored => {}
         }
@@ -1130,12 +1147,26 @@ fn duplicate_output_diagnostic(
     diagnostic
 }
 
-fn doc_comment_content(line: &str) -> Option<&str> {
-    line.trim_start().strip_prefix("///")
+fn doc_comment_content(line: &str) -> Option<(&str, DocCommentStyle)> {
+    let line = line.trim_start();
+    line.strip_prefix("##")
+        .map(|content| (content, DocCommentStyle::Hash))
+        .or_else(|| {
+            line.strip_prefix("///")
+                .map(|content| (content, DocCommentStyle::Slash))
+        })
 }
 
-fn doctest_code_line(content: &str) -> String {
-    content.strip_prefix("# ").unwrap_or(content).to_string()
+fn doctest_code_line(content: &str, style: DocCommentStyle) -> String {
+    if let Some(hidden) = content.strip_prefix("> ") {
+        return hidden.to_string();
+    }
+    if matches!(style, DocCommentStyle::Slash)
+        && let Some(hidden) = content.strip_prefix("# ")
+    {
+        return hidden.to_string();
+    }
+    content.to_string()
 }
 
 fn veln_fence_info(info: &str) -> bool {
@@ -1957,6 +1988,40 @@ mod tests {
     }
 
     #[test]
+    fn extracts_hash_doc_comments_with_hidden_setup_and_visible_comments() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "## ```veln\n",
+                "## > let greeting = \"ready\"\n",
+                "## # visible example comment\n",
+                "## stdio::println(greeting)\n",
+                "## ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  let greeting = \"ready\"\n",
+                "  # visible example comment\n",
+                "  stdio::println(greeting)\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
     fn extracts_doctest_runtime_contract_failure_expectation() {
         let source = SourceFile::new(
             "main.veln",
@@ -2602,6 +2667,54 @@ mod tests {
                 "  ()\n",
                 "end\n",
             )
+        );
+        assert!(
+            doctests.diagnostics.is_empty(),
+            "{:#?}",
+            doctests.diagnostics
+        );
+    }
+
+    #[test]
+    fn extracts_hash_doc_comment_doctests_with_visible_hash_comments() {
+        let source = SourceFile::new(
+            "main.veln",
+            concat!(
+                "## ```veln\n",
+                "## > let greeting = \"ready\"\n",
+                "## # visible example comment\n",
+                "## stdio::println(greeting)\n",
+                "## ```\n",
+                "## ```veln-output stream=stdout\n",
+                "## ready\n",
+                "## ```\n",
+            ),
+        );
+
+        let doctests = doctest_sources(&[source]);
+
+        assert_eq!(doctests.sources.len(), 1);
+        assert_eq!(
+            doctests.sources[0].text(),
+            concat!(
+                "test doctest_1() -> () effects [stdio]\n",
+                "  let greeting = \"ready\"\n",
+                "  # visible example comment\n",
+                "  stdio::println(greeting)\n",
+                "  ()\n",
+                "end\n",
+            )
+        );
+        let expected = doctests
+            .expectations
+            .get("doctest_1")
+            .expect("expected output should be recorded");
+        assert_eq!(
+            expected
+                .expected_output
+                .as_ref()
+                .and_then(|output| output.stdout.as_deref()),
+            Some("ready")
         );
         assert!(
             doctests.diagnostics.is_empty(),

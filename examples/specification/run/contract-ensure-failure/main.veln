@@ -1,4 +1,4 @@
-// Failed postconditions blame the implementation boundary.
+# Failed postconditions blame the implementation boundary.
 pub fn main() -> result: Int
 ensure result > 0
   0

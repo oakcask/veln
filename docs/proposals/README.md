@@ -11,9 +11,6 @@ compare it with `../specification/` before changing behavior.
 
 - [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md):
   declarative test harness and command analysis follow-ups.
-- [hash-line-comments.md](hash-line-comments.md):
-  route for changing line comments from `//` to `#`, including documentation
-  comments and doctest hidden setup migration.
 - [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md):
   future runtime-failure doctest expectation kinds beyond the implemented
   `runtime=contract`, `runtime=ensure`, and `runtime=result` routes.

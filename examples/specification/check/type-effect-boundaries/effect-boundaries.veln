@@ -1,4 +1,4 @@
-// Unknown effects and hidden helper effects are reported at effect boundaries.
+# Unknown effects and hidden helper effects are reported at effect boundaries.
 fn unknown() -> () effects [network]
   ()
 end

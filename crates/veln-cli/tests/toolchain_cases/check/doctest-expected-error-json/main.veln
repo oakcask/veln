@@ -1,6 +1,6 @@
-/// ```veln fail
-/// let value: Int = "no"
-/// ```
+## ```veln fail
+## let value: Int = "no"
+## ```
 pub fn main() -> ()
   ()
 end

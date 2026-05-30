@@ -1,4 +1,4 @@
-// Confirmed override can apply and record a manual-review candidate.
+# Confirmed override can apply and record a manual-review candidate.
 fn main(value: Int) -> Int
   _
 end

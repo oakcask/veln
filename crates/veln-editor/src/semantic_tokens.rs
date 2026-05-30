@@ -832,8 +832,9 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
+                "# boolean path\n",
                 "fn main(flag: Bool) -> Bool\n",
-                "  _ satisfy candidate => true\n",
+                "  _ satisfy candidate => true # always true\n",
                 "end\n"
             ),
         );
@@ -852,6 +853,16 @@ mod tests {
         assert!(tokens.contains(&(
             "true".to_string(),
             SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "# boolean path".to_string(),
+            SemanticTokenType::Comment,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "# always true".to_string(),
+            SemanticTokenType::Comment,
             SemanticTokenModifiers::empty().bits()
         )));
     }

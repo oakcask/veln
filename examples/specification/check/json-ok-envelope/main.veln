@@ -1,4 +1,4 @@
-// Successful check JSON reports the stable envelope without diagnostics.
+# Successful check JSON reports the stable envelope without diagnostics.
 pub fn main() -> Int
   1
 end

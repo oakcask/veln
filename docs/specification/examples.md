@@ -31,3 +31,4 @@ The example uses these implemented language features together:
 - record-shaped success and error values
 - `stdio::println` for the wrapper
 - a separate partial-program variant with a constrained typed hole
+- canonical `#` source comments on example-authored notes

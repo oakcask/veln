@@ -1,4 +1,4 @@
-// Satisfy suffixes require a candidate binding and arrow.
+# Satisfy suffixes require a candidate binding and arrow.
 fn main() -> ()
   _first satisfy => candidate > 0
   _second satisfy candidate candidate > 0

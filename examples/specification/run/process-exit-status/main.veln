@@ -1,4 +1,4 @@
-// process::exit terminates the selected entry with the requested status.
+# process::exit terminates the selected entry with the requested status.
 pub fn main() -> () effects [process]
   process::exit(7)
 end

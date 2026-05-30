@@ -1129,7 +1129,8 @@ fn adr_lite_anchors(
 fn doc_comment_text(token: &Token) -> String {
     token
         .text
-        .strip_prefix("///")
+        .strip_prefix("##")
+        .or_else(|| token.text.strip_prefix("///"))
         .map(str::trim)
         .unwrap_or_default()
         .to_string()
