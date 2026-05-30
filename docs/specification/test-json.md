@@ -11,6 +11,8 @@ This page routes implemented JSON output for `veln test --json`.
 - Doctest `runtime=contract` and `runtime=result` expectations pass only when
   the selected runtime failure details match; mismatches use
   `reason: "expected_runtime_failure"`.
+- Doctest expected-output comparison is a separate route; mismatches use
+  `reason: "expected_output"` even when a runtime expectation matches.
 
 ## Read When
 
@@ -25,8 +27,10 @@ This page routes implemented JSON output for `veln test --json`.
 - Readable doctest runtime JSON coverage:
   `../../examples/specification/test/doctest-runtime-contract-json/`,
   `../../examples/specification/test/doctest-runtime-contract-blocked-json/`,
-  `../../examples/specification/test/doctest-runtime-result-json/`, and
+  `../../examples/specification/test/doctest-runtime-result-json/`,
   `../../examples/specification/test/doctest-runtime-result-blocked-json/`.
+- Readable coverage for runtime expectation plus output mismatch:
+  `../../examples/specification/test/doctest-runtime-output-mismatch-json/`.
 
 ## Skip Unless Needed
 

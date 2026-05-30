@@ -20,12 +20,18 @@ runtime failure kind.
 - Current runtime failure details:
   [../specification/contracts.md](../specification/contracts.md).
 - Current readable CLI coverage:
-  `../../examples/specification/test/doctest-runtime-contract-json/`,
-  `../../examples/specification/test/doctest-runtime-contract-blocked-json/`,
-  `../../examples/specification/test/doctest-runtime-result-json/`, and
-  `../../examples/specification/test/doctest-runtime-result-blocked-json/`.
+  [../specification/test-json.md](../specification/test-json.md).
 - Proposal promotion checks:
   [implementation-route.md](implementation-route.md).
+
+## Read When
+
+- Changing runtime expectation matching:
+  `crates/veln-test/src/runtime_expectation.rs`.
+- Changing doctest runtime metadata parsing or diagnostics:
+  `crates/veln-test/src/lib.rs`.
+- Adding readable CLI coverage:
+  `examples/specification/test/`.
 
 ## Current Boundary
 
