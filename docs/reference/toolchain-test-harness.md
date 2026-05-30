@@ -82,6 +82,10 @@ exits successfully without running arbitrary manifest code. `"real"` exposes
 the host Java launcher under the isolated tool path; cases that use it should
 also declare `[requires] jdk = true`.
 
+Test harness-owned tool setup with harness or runner unit tests. Do not add CLI
+cases solely to prove Java launcher setup, because JVM availability and wrapper
+mechanics are not Veln command behavior.
+
 JSON output should be parsed and checked semantically by default. Full JSON
 equality is reserved for schema smoke tests where exact envelope shape is the
 behavior under test.
