@@ -80,6 +80,17 @@ fn vec_try_map_with_step(state: {values: Result(Vec(A), E), map: fn(C, Item) -> 
 	end
 end
 
+fn dict_get(dict: Dict(K, V), key: K) -> Option(V) effects []
+	dict_get(dict, key)
+end
+
+fn dict_contains(dict: Dict(K, V), key: K) -> Bool effects []
+	match dict_get(dict, key)
+		Some(_) => true
+		None => false
+	end
+end
+
 fn option_map(value: Option(A), f: fn(A) -> B) -> Option(B) effects []
 	match value
 		Some(inner) => Some(f(inner))
@@ -119,12 +130,5 @@ fn result_and_then(value: Result(A, E), f: fn(A) -> Result(B, E)) -> Result(B, E
 	match value
 		Ok(inner) => f(inner)
 		Err(error) => Err(error)
-	end
-end
-
-fn dict_contains(dict: Dict(K, V), key: K) -> Bool effects []
-	match dict_get(dict, key)
-		Some(_) => true
-		None => false
 	end
 end

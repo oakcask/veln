@@ -28,7 +28,8 @@ const FS_EFFECTS: &[&str] = &["fs"];
 const PROCESS_EFFECTS: &[&str] = &["process"];
 const PURE_EFFECTS: &[&str] = &[];
 #[cfg(test)]
-const COMPLETED_SELF_HOSTING_HELPERS: &[&str] = &["vec_map", "vec_try_map", "vec_try_map_with"];
+const COMPLETED_SELF_HOSTING_HELPERS: &[&str] =
+    &["vec_map", "vec_try_map", "vec_try_map_with", "dict_get"];
 #[cfg(test)]
 const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] =
     &["vec_map_step", "vec_try_map_step", "vec_try_map_with_step"];
@@ -139,7 +140,6 @@ const SELF_HOSTING_CANDIDATE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     prelude_symbol_descriptor("string_parse_int"),
     prelude_symbol_descriptor("int_to_string"),
     prelude_symbol_descriptor("vec_fold"),
-    prelude_symbol_descriptor("dict_get"),
     prelude_symbol_descriptor("dict_insert"),
     prelude_symbol_descriptor("dict_remove"),
 ];
@@ -153,6 +153,7 @@ const SOURCE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_FILTER),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_TRY_MAP),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_VEC_TRY_MAP_WITH),
+    source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_GET),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_DICT_CONTAINS),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_MAP),
     source_prelude_symbol_descriptor(&veln_stdlib::CORE_PRELUDE_OPTION_AND_THEN),
@@ -277,7 +278,7 @@ mod tests {
 
     #[test]
     fn descriptor_table_carries_prelude_purity_metadata() {
-        let symbol = prelude_symbol("dict_get").expect("prelude descriptor");
+        let symbol = prelude_symbol("dict_insert").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert!(symbol.effects.is_empty());
@@ -311,7 +312,7 @@ mod tests {
 
     #[test]
     fn descriptor_only_prelude_helpers_do_not_carry_source_metadata() {
-        let symbol = prelude_symbol("dict_get").expect("prelude descriptor");
+        let symbol = prelude_symbol("dict_insert").expect("prelude descriptor");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Prelude);
         assert_eq!(symbol.lowering, None);
@@ -381,6 +382,7 @@ mod tests {
                 "vec_filter",
                 "vec_try_map",
                 "vec_try_map_with",
+                "dict_get",
                 "dict_contains",
                 "option_map",
                 "option_and_then",
@@ -406,7 +408,6 @@ mod tests {
                 "string_parse_int",
                 "int_to_string",
                 "vec_fold",
-                "dict_get",
                 "dict_insert",
                 "dict_remove"
             ]

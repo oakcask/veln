@@ -7428,6 +7428,7 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
         entries,
         [
             "dict_contains",
+            "dict_get",
             "option_and_then",
             "option_map",
             "option_unwrap_or",
@@ -7885,99 +7886,100 @@ fn source_backed_prelude_helpers_report_user_call_site_diagnostics() {
 }
 
 #[test]
-fn source_backed_vec_is_empty_reports_user_call_site_diagnostics() {
-    assert_source_backed_helper_user_call_site_type_mismatch(
-        concat!(
-            "pub fn main(value: Int) -> Bool effects []\n",
-            "  vec_is_empty(value)\n",
-            "end\n",
+fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
+    for (helper, source_text, expected_message) in [
+        (
+            "vec_is_empty",
+            concat!(
+                "pub fn main(value: Int) -> Bool effects []\n",
+                "  vec_is_empty(value)\n",
+                "end\n",
+            ),
+            "expected `Vec(unknown)`, but found `Int`",
         ),
-        "expected `Vec(unknown)`, but found `Int`",
-    );
-}
-
-#[test]
-fn source_backed_vec_push_reports_user_call_site_diagnostics() {
-    assert_source_backed_helper_user_call_site_type_mismatch(
-        concat!(
-            "pub fn main(value: Int) -> Vec(Int) effects []\n",
-            "  vec_push(value, 1)\n",
-            "end\n",
+        (
+            "vec_push",
+            concat!(
+                "pub fn main(value: Int) -> Vec(Int) effects []\n",
+                "  vec_push(value, 1)\n",
+                "end\n",
+            ),
+            "expected `Vec(Int)`, but found `Int`",
         ),
-        "expected `Vec(Int)`, but found `Int`",
-    );
-}
-
-#[test]
-fn source_backed_vec_concat_reports_user_call_site_diagnostics() {
-    assert_source_backed_helper_user_call_site_type_mismatch(
-        concat!(
-            "pub fn main(value: Int, other: Vec(Int)) -> Vec(Int) effects []\n",
-            "  vec_concat(value, other)\n",
-            "end\n",
+        (
+            "vec_concat",
+            concat!(
+                "pub fn main(value: Int, other: Vec(Int)) -> Vec(Int) effects []\n",
+                "  vec_concat(value, other)\n",
+                "end\n",
+            ),
+            "expected `Vec(Int)`, but found `Int`",
         ),
-        "expected `Vec(Int)`, but found `Int`",
-    );
-}
-
-#[test]
-fn source_backed_vec_map_reports_user_call_site_diagnostics() {
-    assert_source_backed_helper_user_call_site_type_mismatch(
-        concat!(
-            "fn stringify(value: Int) -> String effects []\n",
-            "  \"ok\"\n",
-            "end\n",
-            "pub fn main(value: Int) -> Vec(String) effects []\n",
-            "  vec_map(value, stringify)\n",
-            "end\n",
+        (
+            "vec_map",
+            concat!(
+                "fn stringify(value: Int) -> String effects []\n",
+                "  \"ok\"\n",
+                "end\n",
+                "pub fn main(value: Int) -> Vec(String) effects []\n",
+                "  vec_map(value, stringify)\n",
+                "end\n",
+            ),
+            "expected `Vec(unknown)`, but found `Int`",
         ),
-        "expected `Vec(unknown)`, but found `Int`",
-    );
-}
-
-#[test]
-fn source_backed_vec_try_map_reports_user_call_site_diagnostics() {
-    assert_source_backed_helper_user_call_site_type_mismatch(
-        concat!(
-            "fn stringify(value: Int) -> Result(String, String) effects []\n",
-            "  Ok(\"ok\")\n",
-            "end\n",
-            "pub fn main(value: Int) -> Result(Vec(String), String) effects []\n",
-            "  vec_try_map(value, stringify)\n",
-            "end\n",
+        (
+            "vec_try_map",
+            concat!(
+                "fn stringify(value: Int) -> Result(String, String) effects []\n",
+                "  Ok(\"ok\")\n",
+                "end\n",
+                "pub fn main(value: Int) -> Result(Vec(String), String) effects []\n",
+                "  vec_try_map(value, stringify)\n",
+                "end\n",
+            ),
+            "expected `Vec(unknown)`, but found `Int`",
         ),
-        "expected `Vec(unknown)`, but found `Int`",
-    );
-}
-
-#[test]
-fn source_backed_vec_try_map_with_reports_user_call_site_diagnostics() {
-    assert_source_backed_helper_user_call_site_type_mismatch(
-        concat!(
-            "fn stringify(context: String, value: Int) -> Result(String, String) effects []\n",
-            "  Ok(context)\n",
-            "end\n",
-            "pub fn main(value: Int) -> Result(Vec(String), String) effects []\n",
-            "  vec_try_map_with(\"prefix\", value, stringify)\n",
-            "end\n",
+        (
+            "vec_try_map_with",
+            concat!(
+                "fn stringify(context: String, value: Int) -> Result(String, String) effects []\n",
+                "  Ok(context)\n",
+                "end\n",
+                "pub fn main(value: Int) -> Result(Vec(String), String) effects []\n",
+                "  vec_try_map_with(\"prefix\", value, stringify)\n",
+                "end\n",
+            ),
+            "expected `Vec(unknown)`, but found `Int`",
         ),
-        "expected `Vec(unknown)`, but found `Int`",
-    );
-}
-
-#[test]
-fn source_backed_dict_contains_reports_user_call_site_diagnostics() {
-    assert_source_backed_helper_user_call_site_type_mismatch(
-        concat!(
-            "pub fn main(value: Int) -> Bool effects []\n",
-            "  dict_contains(value, \"key\")\n",
-            "end\n",
+        (
+            "dict_get",
+            concat!(
+                "pub fn main(value: Int) -> Option(String) effects []\n",
+                "  dict_get(value, \"key\")\n",
+                "end\n",
+            ),
+            "expected `Dict(unknown, String)`, but found `Int`",
         ),
-        "expected `Dict(unknown, unknown)`, but found `Int`",
-    );
+        (
+            "dict_contains",
+            concat!(
+                "pub fn main(value: Int) -> Bool effects []\n",
+                "  dict_contains(value, \"key\")\n",
+                "end\n",
+            ),
+            "expected `Dict(unknown, unknown)`, but found `Int`",
+        ),
+    ] {
+        assert_source_backed_helper_user_call_site_type_mismatch(
+            helper,
+            source_text,
+            expected_message,
+        );
+    }
 }
 
 fn assert_source_backed_helper_user_call_site_type_mismatch(
+    helper: &str,
     source_text: &'static str,
     expected_message: &'static str,
 ) {
@@ -7987,9 +7989,9 @@ fn assert_source_backed_helper_user_call_site_type_mismatch(
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 1);
-    assert_eq!(diagnostics[0].id, "type.mismatch");
-    assert_eq!(diagnostics[0].message, expected_message);
+    assert_eq!(diagnostics.len(), 1, "{helper}");
+    assert_eq!(diagnostics[0].id, "type.mismatch", "{helper}");
+    assert_eq!(diagnostics[0].message, expected_message, "{helper}");
     let span = diagnostics[0]
         .span
         .as_ref()

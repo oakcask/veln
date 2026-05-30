@@ -34,6 +34,10 @@ pub static CORE_PRELUDE_VEC_TRY_MAP: StdlibSource = core_prelude_source("vec_try
 
 pub static CORE_PRELUDE_VEC_TRY_MAP_WITH: StdlibSource = core_prelude_source("vec_try_map_with");
 
+pub static CORE_PRELUDE_DICT_GET: StdlibSource = core_prelude_source("dict_get");
+
+pub static CORE_PRELUDE_DICT_CONTAINS: StdlibSource = core_prelude_source("dict_contains");
+
 pub static CORE_PRELUDE_OPTION_MAP: StdlibSource = core_prelude_source("option_map");
 
 pub static CORE_PRELUDE_OPTION_AND_THEN: StdlibSource = core_prelude_source("option_and_then");
@@ -45,8 +49,6 @@ pub static CORE_PRELUDE_RESULT_MAP: StdlibSource = core_prelude_source("result_m
 pub static CORE_PRELUDE_RESULT_MAP_ERR: StdlibSource = core_prelude_source("result_map_err");
 
 pub static CORE_PRELUDE_RESULT_AND_THEN: StdlibSource = core_prelude_source("result_and_then");
-
-pub static CORE_PRELUDE_DICT_CONTAINS: StdlibSource = core_prelude_source("dict_contains");
 
 pub static CORE_PRELUDE: StdlibSource = core_prelude_source("option_unwrap_or");
 

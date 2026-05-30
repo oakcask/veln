@@ -326,10 +326,10 @@ The implemented standard symbol table has this current pure-helper split:
 
 - source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,
   `vec_concat`, `vec_map`, `vec_filter`, `vec_try_map`, `vec_try_map_with`,
-  `dict_contains`, `option_map`, `option_and_then`, `option_unwrap_or`,
-  `result_map`, `result_map_err`, and `result_and_then`
-- descriptor-only pure helpers: `vec_fold`, `dict_get`, `dict_insert`,
-  `dict_remove`, `string_split_once`, `string_parse_int`, and `int_to_string`
+  `dict_get`, `dict_contains`, `option_map`, `option_and_then`,
+  `option_unwrap_or`, `result_map`, `result_map_err`, and `result_and_then`
+- descriptor-only pure helpers: `vec_fold`, `dict_insert`, `dict_remove`,
+  `string_split_once`, `string_parse_int`, and `int_to_string`
 
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
 each helper and [Value Semantics](#value-semantics) for behavior. The
@@ -347,13 +347,14 @@ checking the embedded helper source. The current checker still uses the
 descriptor-backed signature adapter, and the JVM backend still lowers each
 helper through the existing prelude runtime operation, so diagnostics stay
 anchored on user call sites rather than the embedded standard library source.
-The source-backed `vec_map`, `vec_try_map`, and `vec_try_map_with` entries are
-declared in `core_prelude` and may use other existing helpers such as
-`vec_fold` and `vec_push`; their step helpers are implementation details, and
-this source placement does not expose or stabilize a public vec
-representation. For `vec_try_map_with`, the exported source entry is the
-descriptor entry point `vec_try_map_with`; the `vec_try_map_with_step` helper is
-ordinary private support source and is not a separate prelude descriptor.
+Source-backed helpers are declared in `core_prelude` and may use other
+existing helpers. The vec traversal helpers may call `vec_fold` and `vec_push`;
+their step helpers are implementation details, and this source placement does
+not expose or stabilize a public vec representation. The dict helpers keep
+using the existing prelude runtime operation: `dict_get` is the source-backed
+descriptor entry point, and `dict_contains` derives its result from
+`dict_get`. Private support functions such as `vec_try_map_with_step` are
+ordinary support source and are not separate prelude descriptors.
 
 ### Compiler-Support Source
 
