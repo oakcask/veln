@@ -25,7 +25,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  abc-complexity:
+  rust-refactor-signals:
+    name: Check Rust refactor signals
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
