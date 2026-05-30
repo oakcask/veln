@@ -17,6 +17,10 @@ const NO_TARGET_ROUTES = [
     status: "Status: implemented target, no open follow-up selected",
   },
   {
+    route: "docs/proposals/hash-line-comments.md",
+    role: "Candidate route",
+  },
+  {
     route: "docs/proposals/path-runtime-representation.md",
     role: "Candidate gate",
   },
@@ -730,6 +734,8 @@ function readNoTargetPrompt() {
     "- `docs/proposals/doctest-runtime-failure-expectations.md` requires a concrete",
     "  runtime failure class with structured test JSON details and CLI coverage; the",
     "  page does not yet name that class beyond the implemented doctest routes.",
+    "- `docs/proposals/hash-line-comments.md` records the proposed source comment",
+    "  marker migration, including documentation comments and doctest hidden setup.",
     "- `docs/proposals/path-runtime-representation.md` requires one observable path",
     "  behavior that host-string storage cannot express; the page does not yet name",
     "  that behavior.",
