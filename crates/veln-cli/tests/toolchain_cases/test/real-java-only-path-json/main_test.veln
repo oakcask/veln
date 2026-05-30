@@ -1,4 +1,0 @@
-test passes() -> () effects [stdio]
-  stdio::println("ok")
-  ()
-end

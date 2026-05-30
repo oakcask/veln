@@ -56,8 +56,24 @@ pub(crate) fn prepare_and_run_jvm_capture_with_env(
         CachedJvmClasses::ToolError(message) => return Ok(JvmRunResult::ToolError(message)),
     };
 
-    let mut command = ProcessCommand::new("java");
-    command.arg("-cp").arg(&class_dir).arg("VelnEntry");
+    run_jvm_class_dir(
+        OsStr::new("java"),
+        &class_dir,
+        command_name,
+        java_env,
+        java_args,
+    )
+}
+
+fn run_jvm_class_dir(
+    java_launcher: &OsStr,
+    class_dir: &Path,
+    command_name: &str,
+    java_env: &[(&str, &OsStr)],
+    java_args: &[String],
+) -> Result<JvmRunResult, String> {
+    let mut command = ProcessCommand::new(java_launcher);
+    command.arg("-cp").arg(class_dir).arg("VelnEntry");
     command.args(java_args);
     for (name, value) in java_env {
         command.env(name, value);
@@ -590,6 +606,32 @@ mod tests {
         entries
     }
 
+    #[cfg(unix)]
+    fn write_fake_java(root: &Path) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+
+        let tool = root.join("java");
+        fs::write(&tool, "#!/bin/sh\nexit 0\n").expect("fake java should be written");
+        let mut permissions = fs::metadata(&tool)
+            .expect("fake java metadata should be available")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&tool, permissions).expect("fake java should be executable");
+        tool
+    }
+
+    #[cfg(windows)]
+    fn write_fake_java(root: &Path) -> PathBuf {
+        let tool = root.join("java.cmd");
+        fs::write(&tool, "@echo off\r\nexit /b 0\r\n").expect("fake java should be written");
+        tool
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    fn write_fake_java(_root: &Path) -> PathBuf {
+        panic!("fake java is not supported on this platform");
+    }
+
     #[test]
     fn jvm_class_cache_key_tracks_class_path_contents_and_order() {
         let base = jvm_program(&[
@@ -616,6 +658,56 @@ mod tests {
         assert_ne!(base_key, jvm_class_cache_key(&changed_contents));
         assert_ne!(base_key, jvm_class_cache_key(&changed_path));
         assert_ne!(base_key, jvm_class_cache_key(&changed_order));
+    }
+
+    #[test]
+    fn jvm_runner_reports_missing_java_launcher() {
+        let root = temp_root("missing-java");
+        let result = run_jvm_class_dir(
+            root.join("missing-java").as_os_str(),
+            &root,
+            "veln run",
+            &[],
+            &[],
+        )
+        .expect("runner should handle missing launcher");
+
+        match result {
+            JvmRunResult::ToolError(message) => {
+                assert_eq!(
+                    message,
+                    "veln: `java` was not found; install a JDK to use `veln run`"
+                );
+            }
+            JvmRunResult::Ran(_) => panic!("missing launcher should not run"),
+        }
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn jvm_runner_accepts_harness_owned_success_launcher() {
+        let root = temp_root("fake-java");
+        let fake_java = write_fake_java(&root);
+        let result = run_jvm_class_dir(
+            fake_java.as_os_str(),
+            &root,
+            "veln test",
+            &[],
+            &["arg".to_string()],
+        )
+        .expect("fake launcher should run");
+
+        match result {
+            JvmRunResult::Ran(output) => {
+                assert!(output.status.success());
+                assert_eq!(output.stdout, b"");
+                assert_eq!(output.stderr, b"");
+            }
+            JvmRunResult::ToolError(message) => panic!("unexpected tool error: {message}"),
+        }
+
+        fs::remove_dir_all(root).expect("test root should be removed");
     }
 
     #[test]

@@ -1,3 +1,0 @@
-pub fn main() -> () effects [stdio]
-  stdio::println("ok")
-end

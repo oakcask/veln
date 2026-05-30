@@ -1210,6 +1210,92 @@ fn jdk_is_available() -> bool {
             .is_ok_and(|output| String::from_utf8_lossy(&output.stdout).contains("jdk.compiler"))
 }
 
+#[test]
+fn manifest_tools_parse_controlled_java_availability() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[tools]
+java = "fake-success"
+"#,
+    );
+
+    assert!(manifest.tools.needs_path());
+    assert!(!manifest.tools.requires_jdk());
+    assert_eq!(manifest.tools.java, Some(ToolAvailability::FakeSuccess));
+
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[tools]
+java = "real"
+"#,
+    );
+
+    assert!(manifest.tools.needs_path());
+    assert!(manifest.tools.requires_jdk());
+    assert_eq!(manifest.tools.java, Some(ToolAvailability::Real));
+}
+
+#[test]
+fn missing_tool_setup_leaves_isolated_tool_path_empty() {
+    let root = test_temp_root("missing-tool");
+    setup_tool(&root, "java", ToolAvailability::Missing);
+
+    let entries = fs::read_dir(&root)
+        .expect("tool root should be readable")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("tool entries should be readable");
+    assert!(entries.is_empty());
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+#[test]
+fn fake_success_tool_setup_installs_success_launcher() {
+    let root = test_temp_root("fake-tool");
+    setup_tool(&root, "java", ToolAvailability::FakeSuccess);
+
+    let output = Command::new(fake_tool_path(&root, "java"))
+        .output()
+        .expect("fake tool should run");
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"");
+    assert_eq!(output.stderr, b"");
+
+    fs::remove_dir_all(root).expect("test root should be removed");
+}
+
+fn test_temp_root(name: &str) -> PathBuf {
+    let id = NEXT_TEST_DIR.fetch_add(1, Ordering::Relaxed);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock should be after epoch")
+        .as_nanos();
+    let root = std::env::temp_dir().join(format!(
+        "veln-toolchain-harness-test-{name}-{}-{nanos}-{id}",
+        std::process::id()
+    ));
+    fs::create_dir_all(&root).expect("test root should be created");
+    root
+}
+
+#[cfg(windows)]
+fn fake_tool_path(root: &Path, name: &str) -> PathBuf {
+    root.join(format!("{name}.cmd"))
+}
+
+#[cfg(not(windows))]
+fn fake_tool_path(root: &Path, name: &str) -> PathBuf {
+    root.join(name)
+}
+
 fn assert_json_path(context: &CaseRunContext<'_>, json: &JsonValue, assertion: &JsonAssertion) {
     let actual = json_path(json, &assertion.path).unwrap_or_else(|| {
         panic!(
