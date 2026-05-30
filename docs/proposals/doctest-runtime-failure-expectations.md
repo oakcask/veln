@@ -1,11 +1,11 @@
 # Doctest Runtime Failure Expectations
 
-Status: proposed follow-ups
+Status: implemented target, no open follow-up selected
 
 This page records remaining runtime-failure expectation work outside the
-implemented contract and result doctest routes. Current behavior is specified
-in `../specification/`; this page is only for adding another structured
-runtime failure kind.
+implemented doctest routes. Current behavior is specified in
+`../specification/`; this page is only for adding another structured runtime
+failure kind after a concrete failure class is selected.
 
 ## Read First
 
@@ -39,9 +39,8 @@ runtime failure kind.
 when generated source produces an error diagnostic before execution. They do
 not describe expected runtime failures.
 
-Positive doctests may use the implemented `runtime=contract` metadata to expect
-a runtime contract failure or `runtime=result` metadata to expect a returned
-`Err` value. Broader panic matching, arbitrary stderr matching, and
+Positive doctests may use implemented runtime expectation metadata described in
+`../specification/`. Broader panic matching, arbitrary stderr matching, and
 command-status assertions remain outside the implemented surface.
 
 Runtime failure expectations and expected-output fences are separate doctest
@@ -50,8 +49,9 @@ output comparison decides only captured stdout or stderr text.
 
 ## Target
 
-Add another runtime failure expectation kind only when that failure class has
-structured test JSON details, metadata diagnostics, and readable CLI coverage.
+No additional runtime failure expectation kind is selected here. Add one only
+when that failure class has structured test JSON details, metadata diagnostics,
+and readable CLI coverage.
 
 ## Work Route
 

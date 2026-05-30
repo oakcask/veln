@@ -107,17 +107,19 @@ Tests or doctests that return `Err(value)` are reported as failed cases with
 `phase: "runtime"` and include `value`, the formatted returned error value.
 
 Doctests with runtime failure metadata pass when the runtime failure details
-match the expected contract or result failure. The pass case omits a failure
-record. If execution succeeds or produces a different runtime failure, the case
-is reported with `status: "failed"`,
+match the expected contract, ensure, or result failure. The pass case omits a
+failure record. If execution succeeds or produces a different runtime failure,
+the case is reported with `status: "failed"`,
 `reason: "expected_runtime_failure"`, and
 `failure.kind: "runtime_expectation"`. The failure details use
 `kind: "runtime_expectation"` and include:
 
 - `expected`: the expected runtime failure metadata. Contract expectations
   include `kind`, `clause`, `predicate`, the metadata fence `span`, and any
-  supplied `function` or `blame`. Result expectations include `kind`, `value`,
-  and the metadata fence `span`.
+  supplied `function` or `blame`. Ensure expectations include `kind`,
+  `predicate`, the metadata fence `span`, and any supplied `function` or
+  `blame`. Result expectations include `kind`, `value`, and the metadata fence
+  `span`.
 - `actual`: the actual runtime failure record, or `null` when execution
   succeeded
 
