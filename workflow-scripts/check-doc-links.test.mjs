@@ -24,7 +24,19 @@ const NO_TARGET_ROUTES = [
     role: "Candidate gate",
   },
   {
-    route: "docs/proposals/agent-language-spec-wall/repair-command.md",
+    route: "docs/proposals/agent-repair-loop-followups.md",
+    role: "Candidate route",
+  },
+  {
+    route: "docs/proposals/agent-test-selection-graph.md",
+    role: "Candidate route",
+  },
+  {
+    route: "docs/proposals/agent-module-package-docs.md",
+    role: "Candidate route",
+  },
+  {
+    route: "docs/proposals/agent-language-surface-expansion.md",
     role: "Candidate gate",
   },
   {
@@ -54,7 +66,6 @@ test("repository documentation links resolve", () => {
 test("proposal routing preserves the no-target prompt route", () => {
   const prompt = readNoTargetPrompt();
   const proposalsIndex = readDocsFile("proposals/README.md");
-  const targetSelection = readDocsFile("proposals/target-selection.md");
   const implementationRoute = readDocsFile("proposals/implementation-route.md");
   const implementationRouteFull = readDocsFile(
     "proposals/implementation-route-full.md",
@@ -65,7 +76,7 @@ test("proposal routing preserves the no-target prompt route", () => {
   assert.equal(fs.existsSync(TARGET_PROMPT), false);
   assert.equal(
     fs.existsSync(path.join("docs", "proposals", "target-selection.md")),
-    true,
+    false,
   );
   assert.equal(fs.existsSync(path.join("docs", "reviews")), false);
   assertIncludes(prompt, "No suitable proposal target is selected");
@@ -75,14 +86,9 @@ test("proposal routing preserves the no-target prompt route", () => {
   assertIncludes(prompt, "does not yet name that class");
   assertIncludes(prompt, "needs a new short proposal page first");
   assertIncludes(
-    targetSelection,
-    "No concrete proposal target is selected when no concrete target prompt is\n" +
-      "present or the prompt state says no target is selected.",
-  );
-  assertIncludes(
-    targetSelection,
-    "That state has no\n" +
-      "proposal completion conditions to implement",
+    proposalsIndex,
+    "Use this page as a catalog only. Pick the proposal that matches the task, then\n" +
+      "compare it with `../specification/` before changing behavior.",
   );
 
   assertProposalIndexRoutes(proposalsIndex);
@@ -131,8 +137,7 @@ test("proposal routing preserves the no-target prompt route", () => {
   );
   assertIncludes(
     navigation,
-    "[proposals/target-selection.md](proposals/target-selection.md) when no\n" +
-      "  concrete target is named, then",
+    "Proposal catalog: [proposals/README.md](proposals/README.md).",
   );
 });
 
@@ -149,8 +154,13 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   const prompt = readNoTargetPrompt();
   const proposalsIndex = readDocsFile("proposals/README.md");
   const referenceFollowups = readDocsFile("proposals/reference-followups.md");
-  const agentLanguageWall = readDocsFile(
-    "proposals/agent-language-spec-wall/README.md",
+  const repairLoop = readDocsFile("proposals/agent-repair-loop-followups.md");
+  const testSelection = readDocsFile("proposals/agent-test-selection-graph.md");
+  const modulePackageDocs = readDocsFile(
+    "proposals/agent-module-package-docs.md",
+  );
+  const languageSurface = readDocsFile(
+    "proposals/agent-language-surface-expansion.md",
   );
   const selfHosting = readDocsFile("proposals/self-hosting-standard-library.md");
 
@@ -168,25 +178,25 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   );
   assertIncludes(
     prompt,
-    "repair-loop behavior beyond the current command boundary",
+    "repair verification,\n  ranking, partial application, and automatic repair follow-ups beyond the\n  current command boundary",
   );
 
   assertProposalIndexRoutes(proposalsIndex);
   assertIncludes(
     proposalsIndex,
-    "this page only routes to proposal areas.",
+    "This directory catalogs planned or accepted work that is not fully documented",
   );
   assertIncludes(
     proposalsIndex,
-    "## Choose A Route",
+    "## Catalog",
   );
   assertIncludes(
     proposalsIndex,
-    "Tests, doctests, command analysis, and harness work:",
+    "declarative test harness and command analysis follow-ups.",
   );
   assertIncludes(
     proposalsIndex,
-    "[agent-language-spec-wall/README.md](agent-language-spec-wall/README.md)",
+    "[agent-repair-loop-followups.md](agent-repair-loop-followups.md)",
   );
   assertIncludes(
     proposalsIndex,
@@ -194,8 +204,7 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   );
   assertIncludes(
     proposalsIndex,
-    "Do not read implemented proposal records before the matching specification\n" +
-      "  page and `../reference/implemented-proposals/` route.",
+    "broad follow-up inventory that should be split into narrower proposal pages",
   );
 
   assertIncludes(referenceFollowups, "This page is an index");
@@ -205,16 +214,27 @@ test("no-target prompt routes stay classified as non-active targets", () => {
   );
   assertIncludes(
     referenceFollowups,
-    "Current candidate gates: [target-selection.md](target-selection.md).",
+    "Proposal catalog: [README.md](README.md#catalog).",
   );
   assertIncludes(
     referenceFollowups,
-    "Keep concrete candidate wording on the linked short proposal pages.",
+    "Keep\nconcrete candidate wording on the linked short proposal pages",
   );
   assertIncludes(
-    agentLanguageWall,
-    "This directory as a whole is broad context; use or create one short proposal\n" +
-      "  page for implementation work.",
+    repairLoop,
+    "repair-loop work that remains beyond the implemented",
+  );
+  assertIncludes(
+    testSelection,
+    "dependency-aware test selection",
+  );
+  assertIncludes(
+    modulePackageDocs,
+    "# Agent Module, Package, And Documentation Model",
+  );
+  assertIncludes(
+    languageSurface,
+    "# Agent Language Surface Expansion",
   );
   assertIncludes(selfHosting, "Status: proposed");
   assertIncludes(
@@ -227,35 +247,36 @@ test("no-target prompt routes stay classified as non-active targets", () => {
 test("no-target prompt keeps candidate routes out of implementation flow", () => {
   const prompt = readNoTargetPrompt();
   const proposalsIndex = readDocsFile("proposals/README.md");
-  const targetSelection = readDocsFile("proposals/target-selection.md");
   const implementationRoute = readDocsFile("proposals/implementation-route.md");
 
   const promptRoutes = [...new Set(promptProposalRoutes(prompt))];
-  const candidateGateRoutes = targetSelectionCandidateGateRoutes(targetSelection);
+  const catalogRoutes = proposalCatalogRoutes(proposalsIndex);
 
   assert.deepEqual(promptRoutes, noTargetPromptRoutes());
   assert.deepEqual(
     promptRoutes
       .filter((route) => !noTargetRoutingRoutes().includes(route))
       .toSorted(),
-    candidateGateRoutes.toSorted(),
+    catalogRoutes
+      .filter((route) => route !== "docs/proposals/reference-followups.md")
+      .toSorted(),
   );
   assert.ok(
     promptRoutes.every((route) => !route.endsWith("-full.md")),
     "no-target prompt must route through short proposal pages",
   );
   assert.ok(
-    candidateGateRoutes.every((route) => !route.endsWith("-full.md")),
-    "target selection must gate short proposal pages",
+    catalogRoutes.every((route) => !route.endsWith("-full.md")),
+    "proposal catalog must route short proposal pages",
   );
   assert.ok(
     promptRoutes.every((route) => !route.startsWith("docs/specification/")),
     "no-target prompt must not select implemented specification pages",
   );
   assertIncludes(
-    targetSelection,
-    "Before changing code, choose an existing short proposal page or split one\n" +
-      "narrow target out of the follow-up inventory.",
+    proposalsIndex,
+    "Pick the proposal that matches the task, then\n" +
+      "compare it with `../specification/` before changing behavior.",
   );
   assert.equal(
     promptRoutes.includes("docs/proposals/implementation-route.md"),
@@ -264,8 +285,7 @@ test("no-target prompt keeps candidate routes out of implementation flow", () =>
   );
   assertIncludes(
     proposalsIndex,
-    "Concrete proposal page already named: read that page first, then compare it\n" +
-      "  with `../specification/` before changing code.",
+    "broad follow-up inventory that should be split into narrower proposal pages",
   );
   assertIncludes(
     implementationRoute,
@@ -279,39 +299,39 @@ test("no-target prompt keeps candidate routes out of implementation flow", () =>
   );
 });
 
-test("target selection gates stay backed by short proposal routes", () => {
-  const targetSelection = readDocsFile("proposals/target-selection.md");
+test("proposal catalog stays backed by short proposal routes", () => {
+  const proposalsIndex = readDocsFile("proposals/README.md");
 
-  const candidateGateRoutes = targetSelectionCandidateGateRoutes(targetSelection);
-
+  const catalogRoutes = proposalCatalogRoutes(proposalsIndex);
   assert.deepEqual(
-    candidateGateRoutes.toSorted(),
-    noTargetCandidateRoutes().toSorted(),
+    catalogRoutes.toSorted(),
+    [
+      ...noTargetCandidateRoutes(),
+      "docs/proposals/reference-followups.md",
+    ].toSorted(),
   );
   assert.equal(
-    candidateGateRoutes.includes("docs/proposals/reference-followups.md"),
-    false,
+    catalogRoutes.includes("docs/proposals/reference-followups.md"),
+    true,
   );
   assert.equal(
-    candidateGateRoutes.includes("docs/proposals/implementation-route.md"),
+    catalogRoutes.includes("docs/proposals/implementation-route.md"),
     false,
   );
-  for (const route of candidateGateRoutes) {
+  for (const route of catalogRoutes) {
     assert.equal(
       route.endsWith("-full.md"),
       false,
-      `candidate gate must use a short proposal route: ${route}`,
+      `catalog must use a short proposal route: ${route}`,
     );
     assertIncludes(
       readDocsFile(route.replace("docs/", "")),
-      "target-selection.md",
+      "Status: proposed",
     );
   }
-  assertIncludes(targetSelection, "## Selection Checklist");
   assertIncludes(
-    targetSelection,
-    "Keep `../specification/` unchanged until code and tests support the selected\n" +
-      "   behavior.",
+    proposalsIndex,
+    "New proposal work is added, split, superseded, completed, or removed.",
   );
 });
 
@@ -338,9 +358,7 @@ test("target prompt absence is covered by proposal routing", () => {
   assertIncludes(prompt, "No suitable proposal target is selected");
   assertIncludes(
     proposalsIndex,
-    "Proposal\n" +
-      "text is not current language behavior unless `../specification/` also states\n" +
-      "it.",
+    "Proposal text is not current\nlanguage behavior unless the matching specification page also states it.",
   );
   assertIncludes(
     implementationRoute,
@@ -354,36 +372,26 @@ test("target prompt absence is covered by proposal routing", () => {
 });
 
 test("repair proposal route points completed targets to reference records", () => {
-  const proposal = readDocsFile(
-    "proposals/agent-language-spec-wall/repair-command.md",
-  );
+  const proposal = readDocsFile("proposals/agent-repair-loop-followups.md");
   const implemented = readDocsFile(
     "reference/implemented-proposals/repair-command-confirmation-override.md",
   );
   const repairCandidates = readDocsFile("specification/repair-candidates.md");
-  const openQuestions = readDocsFile(
-    "proposals/agent-language-spec-wall/open-questions.md",
-  );
 
   assertIncludes(
     proposal,
-    "Status: proposed follow-ups",
+    "Status: proposed",
   );
+  assertIncludes(proposal, "../specification/repair-candidates.md");
+  assertIncludes(proposal, "../specification/repair-json.md");
+  assertIncludes(proposal, "../specification/commands.md");
   assertIncludes(
     proposal,
-    "Implemented repair command records live under\n" +
-      "`../../reference/implemented-proposals/`.",
+    "../reference/implemented-proposals/repair-command-confirmation-override.md",
   );
-  assertIncludes(proposal, "../../specification/repair-candidates.md");
-  assertIncludes(proposal, "../../specification/repair-json.md");
-  assertIncludes(proposal, "../../specification/commands.md");
-  assertIncludes(
-    proposal,
-    "../../reference/implemented-proposals/repair-command-confirmation-override.md",
-  );
-  assertIncludes(proposal, "## Deferred Adjacent Work");
-  assertIncludes(proposal, "Verification commands beyond the built-in");
-  assertIncludes(proposal, "Partial application and general automatic repair");
+  assertIncludes(proposal, "## Proposed Targets");
+  assertIncludes(proposal, "Verification commands beyond built-in");
+  assertIncludes(proposal, "Partial application of a candidate's replacement set.");
 
   assertIncludes(implemented, "`--confirm CANDIDATE_ID`");
   assertIncludes(implemented, "`--override` requires `--confirm`");
@@ -397,20 +405,11 @@ test("repair proposal route points completed targets to reference records", () =
   );
   assertIncludes(
     repairCandidates,
-    "../proposals/agent-language-spec-wall/repair-command.md",
+    "../proposals/agent-repair-loop-followups.md",
   );
   assertIncludes(
     repairCandidates,
     "Do not promote partial application or broader automatic",
-  );
-
-  assertIncludes(
-    openQuestions,
-    "../../reference/implemented-proposals/repair-command-confirmation-override.md",
-  );
-  assertIncludes(
-    openQuestions,
-    "Broader repair-loop ranking, verification, partial application",
   );
 });
 
@@ -622,16 +621,16 @@ function promptProposalRoutes(prompt) {
   );
 }
 
-function targetSelectionCandidateGateRoutes(targetSelection) {
-  const candidateGates = sectionText(targetSelection, "Candidate Gates");
+function proposalCatalogRoutes(proposalsIndex) {
+  const catalog = sectionText(proposalsIndex, "Catalog");
   return Array.from(
-    candidateGates.matchAll(/\[([^\]]+)\]\(([^)#]+\.md)(?:#[^)]+)?\)/g),
+    catalog.matchAll(/\[([^\]]+)\]\(([^)#]+\.md)(?:#[^)]+)?\)/g),
     (match) => {
       const route = match[2];
       assert.equal(
-        route.startsWith("../"),
+        route.startsWith("../") || route.includes("/"),
         false,
-        `candidate gate must stay under proposals: ${route}`,
+        `catalog route must stay in the proposal directory: ${route}`,
       );
       return `docs/proposals/${route}`;
     },
@@ -652,35 +651,32 @@ function sectionText(markdown, heading) {
 function assertProposalIndexRoutes(proposalsIndex) {
   assertIncludes(
     proposalsIndex,
-    "Implementation, promotion, or cleanup mechanics after a target is chosen:\n" +
-      "  [implementation-route.md](implementation-route.md).",
+    "Use this page as a catalog only.",
   );
   assertIncludes(
     proposalsIndex,
-    "## Start Here",
+    "## Catalog",
   );
   assertIncludes(
     proposalsIndex,
-    "No concrete target named, or checking whether a target exists:\n" +
-      "  [target-selection.md](target-selection.md).",
+    "[agent-repair-loop-followups.md](agent-repair-loop-followups.md):",
   );
   assertIncludes(
     proposalsIndex,
-    "Stop when the matching specification page already states the behavior.",
+    "[agent-test-selection-graph.md](agent-test-selection-graph.md):",
   );
   assertIncludes(
     proposalsIndex,
-    "Do not begin implementation from this index or from\n" +
-      "  [reference-followups.md](reference-followups.md) alone.",
+    "[agent-module-package-docs.md](agent-module-package-docs.md):",
   );
   assertIncludes(
     proposalsIndex,
-    "Keep candidate-gate wording in [target-selection.md](target-selection.md);",
+    "[agent-language-surface-expansion.md](agent-language-surface-expansion.md):",
   );
   assertIncludes(
     proposalsIndex,
-    "Read [implementation-route.md](implementation-route.md) only after one short\n" +
-      "  proposal page owns the target.",
+    "Proposal work becomes implemented and the resulting behavior is documented\n" +
+      "  under `../specification/`.",
   );
 }
 
@@ -756,9 +752,16 @@ function readNoTargetPrompt() {
     "- `docs/proposals/path-runtime-representation.md` requires one observable path",
     "  behavior that host-string storage cannot express; the page does not yet name",
     "  that behavior.",
-    "- `docs/proposals/agent-language-spec-wall/repair-command.md` routes only",
-    "  repair-loop behavior beyond the current command boundary; deferred adjacent",
-    "  work needs a new short proposal page first.",
+    "- `docs/proposals/agent-repair-loop-followups.md` routes repair verification,",
+    "  ranking, partial application, and automatic repair follow-ups beyond the",
+    "  current command boundary.",
+    "- `docs/proposals/agent-test-selection-graph.md` needs graph evidence before",
+    "  dependency-aware test selection can be an implementation target.",
+    "- `docs/proposals/agent-module-package-docs.md` collects package metadata,",
+    "  generated documentation, and export-model follow-ups that need narrower",
+    "  proposals before implementation.",
+    "- `docs/proposals/agent-language-surface-expansion.md` catalogs future surface",
+    "  features; each feature needs a new short proposal page first.",
     "- `docs/proposals/README.md` routes proposal areas.",
     "- `docs/proposals/implementation-route.md` applies only after a concrete",
     "  proposal target is selected.",

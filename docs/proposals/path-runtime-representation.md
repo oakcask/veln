@@ -14,8 +14,6 @@ not current language behavior.
   plus [process calls](../specification/names-effects-full.md#process-calls).
 - Current value and runtime semantics:
   [../specification/names-effects-full.md#value-semantics](../specification/names-effects-full.md#value-semantics).
-- Current proposal-level target status:
-  [target-selection.md](target-selection.md).
 - Source-visible boundary completion notes are summarized below.
 
 ## Current Boundary

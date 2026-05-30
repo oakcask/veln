@@ -9,31 +9,26 @@ also states it.
 ## Read First
 
 - Current behavior: [../specification/README.md](../specification/README.md).
-- Proposal routing and promotion mechanics:
-  [README.md](README.md), [target-selection.md](target-selection.md), and
-  [implementation-route.md](implementation-route.md).
+- Proposal catalog and promotion mechanics:
+  [README.md](README.md) and [implementation-route.md](implementation-route.md).
 - Use the follow-up routing list below only after current behavior does not
   already cover the task.
 
 ## Follow-Up Routing
 
 This page is an index, not one implementation target. A listed area should
-route to one short proposal page before implementation work starts. No listed
-area is the current selected target; use
-[target-selection.md](target-selection.md) for current candidate gates.
-Keep candidate-gate detail on that page so this inventory stays a broad
-follow-up map.
+route to one short proposal page before implementation work starts. Keep
+concrete candidate wording on the linked short proposal pages so this inventory
+stays a broad follow-up map.
 
-- Current candidate gates: [target-selection.md](target-selection.md).
-- Proposal area routing: [README.md](README.md#choose-a-route).
+- Proposal catalog: [README.md](README.md#catalog).
 - Implementation and promotion checks:
   [implementation-route.md](implementation-route.md).
 - Implemented proposal records:
   [../reference/implemented-proposals/README.md](../reference/implemented-proposals/README.md).
 
-Keep concrete candidate wording on the linked short proposal pages. This page
-only routes broad follow-up areas after a task has already ruled out current
-specification behavior.
+This page only routes broad follow-up areas after a task has already ruled out
+current specification behavior.
 
 ## Update When
 

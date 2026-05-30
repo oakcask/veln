@@ -9,8 +9,8 @@ comparison, promotion, or cleanup.
 ## Entry Check
 
 - Start from the proposal page named by the task.
-- If no concrete target is selected, stop here and use
-  [target-selection.md](target-selection.md).
+- If no concrete target is selected, use the proposal catalog in
+  [README.md](README.md) before applying implementation mechanics.
 - Treat proposal indexes, routing pages, and broad follow-up inventories as
   navigation, not as implementation targets.
 - Stop when the target is implemented, closed, superseded, rejected, or already

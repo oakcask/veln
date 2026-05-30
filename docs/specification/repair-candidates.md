@@ -75,7 +75,7 @@ repair, candidate edits, applying edits, or the repair command.
 - Rationale for keeping advisory candidates separate from edit application:
   [source-decisions.md](source-decisions.md).
 - Proposal route for broader applying workflows:
-  [../proposals/agent-language-spec-wall/repair-command.md](../proposals/agent-language-spec-wall/repair-command.md).
+  [../proposals/agent-repair-loop-followups.md](../proposals/agent-repair-loop-followups.md).
 
 ## Read When
 
@@ -142,4 +142,4 @@ Successful JSON output records `confirmation` and, when override was used,
 Do not promote partial application or broader automatic repair behavior into
 this specification until the behavior is implemented and tested. The current
 proposal route for that work is
-[../proposals/agent-language-spec-wall/repair-command.md](../proposals/agent-language-spec-wall/repair-command.md).
+[../proposals/agent-repair-loop-followups.md](../proposals/agent-repair-loop-followups.md).

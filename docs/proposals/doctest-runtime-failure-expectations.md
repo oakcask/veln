@@ -14,8 +14,7 @@ implemented contract-failure doctest route. Current behavior is specified in
   [../specification/test-json.md](../specification/test-json.md).
 - Current runtime contract failure shape:
   [../specification/contracts.md](../specification/contracts.md).
-- Proposal mechanics and promotion checks:
-  [target-selection.md](target-selection.md) and
+- Proposal promotion checks:
   [implementation-route.md](implementation-route.md).
 
 ## Current Boundary
