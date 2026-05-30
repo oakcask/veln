@@ -1345,6 +1345,13 @@ fn runtime_classes() -> Vec<JvmClassFile> {
             )),
         ),
         (
+            "VelnRuntime$PathValue.class",
+            include_bytes!(concat!(
+                env!("OUT_DIR"),
+                "/runtime/VelnRuntime$PathValue.class"
+            )),
+        ),
+        (
             "VelnRuntime$Receiver.class",
             include_bytes!(concat!(
                 env!("OUT_DIR"),

@@ -17,8 +17,6 @@ compare it with `../specification/` before changing behavior.
 - [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md):
   future runtime-failure doctest expectation kinds beyond the implemented
   `runtime=contract`, `runtime=ensure`, and `runtime=result` routes.
-- [path-runtime-representation.md](path-runtime-representation.md):
-  runtime `Path` representation work.
 - [forbid-empty-effects-declarations.md](forbid-empty-effects-declarations.md):
   require pure function and test declarations to omit empty `effects []`
   clauses.

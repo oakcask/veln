@@ -70,6 +70,19 @@ public final class RuntimeListHarness {
 }
 "#;
 
+const RUNTIME_PATH_HARNESS: &str = r#"
+public final class RuntimePathHarness {
+    public static void main(String[] args) {
+        Object cwd = ((VelnRuntime.Result) VelnRuntime.processCwd()).value();
+        System.out.println(VelnRuntime.fsExists(cwd));
+
+        Object entries = ((VelnRuntime.Result) VelnRuntime.fsReadDir(cwd)).value();
+        Object first = ((java.util.List<?>) entries).get(0);
+        System.out.println(VelnRuntime.fsExists(first));
+    }
+}
+"#;
+
 #[test]
 fn bytecode_backend_emits_classfiles_without_java_sources() {
     let ir = lower_to_ir("pub fn main() -> () effects []\n  ()\nend\n");
@@ -295,6 +308,52 @@ fn bytecode_backend_runs_list_helpers_when_java_is_available() {
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "6\n6\n5\nstop\n1\n"
+    );
+}
+
+#[test]
+fn jvm_runtime_preserves_path_values_across_standard_calls_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+
+    let ir = lower_to_ir("pub fn main() -> () effects []\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let root = temp_dir("runtime-path-values");
+    write_jvm_program(&root, &program);
+    fs::write(root.join("RuntimePathHarness.java"), RUNTIME_PATH_HARNESS)
+        .expect("Java harness should be written");
+
+    let javac = Command::new("javac")
+        .arg("RuntimePathHarness.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "{}",
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("RuntimePathHarness")
+        .current_dir(&root)
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "Ok(true)\nOk(true)\n"
     );
 }
 

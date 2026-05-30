@@ -33,6 +33,8 @@ behavior.
   [agent-test-selection-graph.md](agent-test-selection-graph.md).
 - Self-hosting standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
+- Path runtime representation:
+  [path-runtime-representation.md](path-runtime-representation.md).
 
 ## Skip Unless Needed
 

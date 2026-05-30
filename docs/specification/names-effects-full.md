@@ -143,9 +143,11 @@ Direct calls to these functions infer the `fs` effect. A public function or
 test that calls one of them directly or through a private helper must declare
 `fs` in its `effects [...]` list.
 
-`Path` is a source-visible named type at this boundary. The current runtime
-represents path values with host strings, but assignment compatibility does not
-allow `String` and `Path` to cross this boundary.
+`Path` is a source-visible named type at this boundary. Runtime path values are
+backend-owned values that can be passed between implemented `fs` and `process`
+calls, but assignment compatibility does not allow `String` and `Path` to cross
+this boundary. The language does not expose a public path layout, encoding, or
+normalization guarantee.
 
 File-system calls return `Result` values instead of throwing host I/O
 exceptions into Veln execution. `Ok` carries the successful value. `Err`

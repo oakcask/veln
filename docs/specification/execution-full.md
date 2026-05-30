@@ -124,17 +124,18 @@ reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.
 `fs::write_string` writes UTF-encoded text and returns `Ok(())` or
 `Err(FsError)`. `fs::exists` returns `Ok(Bool)` for the host existence check or
 `Err(FsError)` if the path cannot be interpreted. `fs::read_dir` returns
-`Ok(Vec(Path))` containing host-rendered directory entries or `Err(FsError)`.
-These operations use `Result` at the Veln boundary instead of exposing host
-exceptions.
+`Ok(Vec(Path))` containing backend-owned path values for directory entries or
+`Err(FsError)`. These operations use `Result` at the Veln boundary instead of
+exposing host exceptions.
 
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of
 strings. `process::env` returns `Some(value)` for a present environment key and
-`None` for an unavailable key. `process::cwd` returns `Ok(Path)` for the host
-current working directory or `Err(ProcessError)` when the runtime cannot
-produce one. `process::exit` terminates the selected host process after
-clamping the integer status into the implemented backend status range.
+`None` for an unavailable key. `process::cwd` returns `Ok(Path)` as a
+backend-owned path value for the host current working directory or
+`Err(ProcessError)` when the runtime cannot produce one. `process::exit`
+terminates the selected host process after clamping the integer status into the
+implemented backend status range.
 
 This freeze rule is an observable language boundary only through value
 immutability and update semantics. The exact JVM representation, copying

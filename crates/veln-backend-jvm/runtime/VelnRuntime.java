@@ -12,6 +12,36 @@ public final class VelnRuntime {
         }
     }
 
+    public static final class PathValue {
+        private final java.nio.file.Path value;
+
+        private PathValue(java.nio.file.Path value) {
+            this.value = value;
+        }
+
+        private java.nio.file.Path asNioPath() {
+            return value;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof PathValue)) {
+                return false;
+            }
+            return value.equals(((PathValue) other).value);
+        }
+
+        @Override
+        public int hashCode() {
+            return value.hashCode();
+        }
+
+        @Override
+        public String toString() {
+            return value.toString();
+        }
+    }
+
     public static final class Result {
         private final boolean ok;
         private final Object value;
@@ -511,7 +541,7 @@ public final class VelnRuntime {
 
     public static Object fsReadToString(Object path) {
         try {
-            byte[] bytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(asString(path)));
+            byte[] bytes = java.nio.file.Files.readAllBytes(asPath(path));
             return ok(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
         } catch (java.io.IOException | RuntimeException error) {
             return err(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
@@ -521,7 +551,7 @@ public final class VelnRuntime {
     public static Object fsWriteString(Object path, Object text) {
         try {
             java.nio.file.Files.write(
-                java.nio.file.Paths.get(asString(path)),
+                asPath(path),
                 asString(text).getBytes(java.nio.charset.StandardCharsets.UTF_8)
             );
             return ok(UNIT);
@@ -532,7 +562,7 @@ public final class VelnRuntime {
 
     public static Object fsExists(Object path) {
         try {
-            return ok(Boolean.valueOf(java.nio.file.Files.exists(java.nio.file.Paths.get(asString(path)))));
+            return ok(Boolean.valueOf(java.nio.file.Files.exists(asPath(path))));
         } catch (RuntimeException error) {
             return err(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
         }
@@ -540,9 +570,9 @@ public final class VelnRuntime {
 
     public static Object fsReadDir(Object path) {
         try (java.util.stream.Stream<java.nio.file.Path> stream =
-            java.nio.file.Files.list(java.nio.file.Paths.get(asString(path)))) {
+            java.nio.file.Files.list(asPath(path))) {
             java.util.ArrayList<Object> paths = new java.util.ArrayList<Object>();
-            stream.forEach(entry -> paths.add(entry.toString()));
+            stream.forEach(entry -> paths.add(pathValue(entry)));
             return ok(freezeList(paths));
         } catch (java.io.IOException | RuntimeException error) {
             return err(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
@@ -560,7 +590,7 @@ public final class VelnRuntime {
 
     public static Object processCwd() {
         try {
-            return ok(java.nio.file.Paths.get("").toAbsolutePath().normalize().toString());
+            return ok(pathValue(java.nio.file.Paths.get("").toAbsolutePath().normalize()));
         } catch (RuntimeException error) {
             return err(error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
         }
@@ -1242,6 +1272,14 @@ public final class VelnRuntime {
 
     private static double asDouble(Object value) {
         return ((Number) value).doubleValue();
+    }
+
+    private static PathValue pathValue(java.nio.file.Path value) {
+        return new PathValue(value);
+    }
+
+    private static java.nio.file.Path asPath(Object value) {
+        return ((PathValue) value).asNioPath();
     }
 
     private static String asString(Object value) {

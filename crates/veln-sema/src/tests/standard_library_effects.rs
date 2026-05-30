@@ -347,26 +347,54 @@ fn fs_calls_require_fs_effect_with_descriptor_provenance() {
 }
 
 #[test]
-fn fs_calls_require_path_arguments() {
-    let source = SourceFile::new(
-        "main.veln",
-        concat!(
-            "pub fn main(path: String) -> Result(String, FsError) effects [fs]\n",
-            "  fs::read_to_string(path)\n",
-            "end\n",
+fn fs_calls_reject_string_for_every_path_parameter() {
+    for (name, source_text) in [
+        (
+            "read_to_string",
+            concat!(
+                "pub fn main(path: String) -> Result(String, FsError) effects [fs]\n",
+                "  fs::read_to_string(path)\n",
+                "end\n",
+            ),
         ),
-    );
-    let parsed = parse(&source);
-    let module = lower_surface_ast(&parsed.tree);
+        (
+            "write_string",
+            concat!(
+                "pub fn main(path: String) -> Result((), FsError) effects [fs]\n",
+                "  fs::write_string(path, \"text\")\n",
+                "end\n",
+            ),
+        ),
+        (
+            "exists",
+            concat!(
+                "pub fn main(path: String) -> Result(Bool, FsError) effects [fs]\n",
+                "  fs::exists(path)\n",
+                "end\n",
+            ),
+        ),
+        (
+            "read_dir",
+            concat!(
+                "pub fn main(path: String) -> Result(Vec(Path), FsError) effects [fs]\n",
+                "  fs::read_dir(path)\n",
+                "end\n",
+            ),
+        ),
+    ] {
+        let source = SourceFile::new("main.veln", source_text);
+        let parsed = parse(&source);
+        let module = lower_surface_ast(&parsed.tree);
 
-    let diagnostics = analyze_surface_module(&module);
+        let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 1);
-    assert_eq!(diagnostics[0].id, "type.mismatch");
-    assert_eq!(
-        diagnostics[0].message,
-        "expected `Path`, but found `String`"
-    );
+        assert_eq!(diagnostics.len(), 1, "{name}");
+        assert_eq!(diagnostics[0].id, "type.mismatch", "{name}");
+        assert_eq!(
+            diagnostics[0].message, "expected `Path`, but found `String`",
+            "{name}"
+        );
+    }
 }
 
 #[test]
@@ -390,6 +418,32 @@ fn process_cwd_path_return_is_not_assignable_to_string() {
     assert_eq!(
         diagnostics[0].message,
         "expected `Result(String, ProcessError)`, but found `Result(Path, ProcessError)`"
+    );
+}
+
+#[test]
+fn process_cwd_path_value_is_not_usable_as_string_argument() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main() -> Option(String) effects [process]\n",
+            "  match process::cwd()\n",
+            "    Ok(cwd) => process::env(cwd)\n",
+            "    Err(_) => None\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "type.mismatch");
+    assert_eq!(
+        diagnostics[0].message,
+        "expected `String`, but found `Path`"
     );
 }
 
