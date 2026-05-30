@@ -16,6 +16,60 @@ use veln_syntax::parse;
 
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
 
+const RUNTIME_LIST_HARNESS: &str = r#"
+public final class RuntimeListHarness {
+    private static int foldCalls = 0;
+    private static int tryCalls = 0;
+
+    public static void main(String[] args) {
+        Object values = VelnRuntime.listNil();
+        for (int index = 0; index < 20000; index += 1) {
+            values = VelnRuntime.listCons(Long.valueOf(1), values);
+        }
+        Object reversed = VelnRuntime.listReverse(values);
+        Object total = VelnRuntime.listFold(reversed, Long.valueOf(0), new VelnRuntime.Fn() {
+            public Object call(Object... args) {
+                foldCalls += 1;
+                return Long.valueOf(((Long) args[0]).longValue() + ((Long) args[1]).longValue());
+            }
+        });
+        Object kept = VelnRuntime.listFilter(reversed, new VelnRuntime.Fn() {
+            public Object call(Object... args) {
+                return Boolean.TRUE;
+            }
+        });
+        Object tried = VelnRuntime.listTryMap(
+            VelnRuntime.listCons(
+                Long.valueOf(1),
+                VelnRuntime.listCons(Long.valueOf(2), VelnRuntime.listCons(Long.valueOf(3), VelnRuntime.listNil()))
+            ),
+            new VelnRuntime.Fn() {
+                public Object call(Object... args) {
+                    tryCalls += 1;
+                    if (((Long) args[0]).longValue() == 2L) {
+                        return VelnRuntime.err("stop");
+                    }
+                    return VelnRuntime.ok(args[0]);
+                }
+            }
+        );
+        System.out.println(
+            total
+                + ":"
+                + foldCalls
+                + ":"
+                + VelnRuntime.listIsEmpty(VelnRuntime.listNil())
+                + ":"
+                + VelnRuntime.listIsEmpty(kept)
+                + ":"
+                + tryCalls
+                + ":"
+                + tried
+        );
+    }
+}
+"#;
+
 #[test]
 fn bytecode_backend_emits_classfiles_without_java_sources() {
     let ir = lower_to_ir("pub fn main() -> () effects []\n  ()\nend\n");
@@ -183,6 +237,111 @@ fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_availab
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "3\nctx\n");
+}
+
+#[test]
+fn bytecode_backend_runs_list_helpers_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "type List(A)\n",
+        "  Nil\n",
+        "  Cons(head: A, tail: List(A))\n",
+        "end\n",
+        "fn add(total: Int, value: Int) -> Int effects []\n",
+        "  total + value\n",
+        "end\n",
+        "fn stringify(value: Int) -> String effects []\n",
+        "  int_to_string(value)\n",
+        "end\n",
+        "fn keep_large(value: Int) -> Bool effects []\n",
+        "  value > 1\n",
+        "end\n",
+        "fn stop_at_two(value: Int) -> Result(String, String) effects []\n",
+        "  match value == 2\n",
+        "    true => Err(\"stop\")\n",
+        "    false => match value == 3\n",
+        "      true => Err(\"later\")\n",
+        "      false => Ok(int_to_string(value))\n",
+        "    end\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  let values: List(Int) = list_cons(1, list_cons(2, list_cons(3, list_nil())))\n",
+        "  stdio::println(int_to_string(list_fold(values, 0, add)))\n",
+        "  stdio::println(int_to_string(list_fold(list_reverse(values), 0, add)))\n",
+        "  stdio::println(int_to_string(list_fold(list_filter(values, keep_large), 0, add)))\n",
+        "  stdio::println(match list_try_map(values, stop_at_two)\n",
+        "    Ok(_) => \"unexpected\"\n",
+        "    Err(error) => error\n",
+        "  end)\n",
+        "  stdio::println(match list_map(values, stringify)\n",
+        "    Nil => \"empty\"\n",
+        "    Cons(head, _) => head\n",
+        "  end)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-list-helpers", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "6\n6\n5\nstop\n1\n"
+    );
+}
+
+#[test]
+fn jvm_runtime_list_helpers_traverse_large_lists_iteratively_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+
+    let ir = lower_to_ir("pub fn main() -> () effects []\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let root = temp_dir("runtime-list-helpers");
+    write_jvm_program(&root, &program);
+    fs::write(root.join("RuntimeListHarness.java"), RUNTIME_LIST_HARNESS)
+        .expect("Java harness should be written");
+
+    let javac = Command::new("javac")
+        .arg("RuntimeListHarness.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "{}",
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("RuntimeListHarness")
+        .current_dir(&root)
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "20000:20000:true:false:2:Err(stop)\n"
+    );
 }
 
 #[test]
@@ -363,6 +522,14 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("vec_fold", "vecFold"),
         ("vec_try_map", "vecTryMap"),
         ("vec_try_map_with", "vecTryMapWith"),
+        ("list_nil", "listNil"),
+        ("list_cons", "listCons"),
+        ("list_is_empty", "listIsEmpty"),
+        ("list_fold", "listFold"),
+        ("list_reverse", "listReverse"),
+        ("list_map", "listMap"),
+        ("list_filter", "listFilter"),
+        ("list_try_map", "listTryMap"),
         ("dict_get", "dictGet"),
         ("dict_contains", "dictContains"),
         ("dict_insert", "dictInsert"),

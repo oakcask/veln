@@ -16,6 +16,8 @@ execution reference.
   command boundary.
 - The generated JVM class cache validates manifests and classfile contents;
   invalid or incomplete entries are regenerated before execution.
+- Standard `List` traversal helpers execute through runtime support that avoids
+  growing the host call stack for large helper traversals.
 - Other JVM details are backend details unless this reference marks a behavior
   as an observable language boundary.
 

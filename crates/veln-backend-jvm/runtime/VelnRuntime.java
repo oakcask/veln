@@ -781,6 +781,66 @@ public final class VelnRuntime {
         return ok(freezeList(mapped));
     }
 
+    public static Object listIsEmpty(Object items) {
+        return Boolean.valueOf(!asListValue(items).cons);
+    }
+
+    public static Object listFold(Object items, Object initial, Object fn) {
+        Object accumulator = initial;
+        ListValue current = asListValue(items);
+        while (current.cons) {
+            accumulator = call(fn, accumulator, current.head);
+            current = asListValue(current.tail);
+        }
+        return accumulator;
+    }
+
+    public static Object listReverse(Object items) {
+        Object reversed = listNil();
+        ListValue current = asListValue(items);
+        while (current.cons) {
+            reversed = listCons(current.head, reversed);
+            current = asListValue(current.tail);
+        }
+        return reversed;
+    }
+
+    public static Object listMap(Object items, Object fn) {
+        Object reversed = listNil();
+        ListValue current = asListValue(items);
+        while (current.cons) {
+            reversed = listCons(call(fn, current.head), reversed);
+            current = asListValue(current.tail);
+        }
+        return listReverse(reversed);
+    }
+
+    public static Object listFilter(Object items, Object fn) {
+        Object reversed = listNil();
+        ListValue current = asListValue(items);
+        while (current.cons) {
+            if (asBool(call(fn, current.head))) {
+                reversed = listCons(current.head, reversed);
+            }
+            current = asListValue(current.tail);
+        }
+        return listReverse(reversed);
+    }
+
+    public static Object listTryMap(Object items, Object fn) {
+        Object reversed = listNil();
+        ListValue current = asListValue(items);
+        while (current.cons) {
+            Object result = call(fn, current.head);
+            if (isErr(result)) {
+                return result;
+            }
+            reversed = listCons(unwrapOk(result), reversed);
+            current = asListValue(current.tail);
+        }
+        return ok(listReverse(reversed));
+    }
+
     public static Object dictGet(Object dict, Object key) {
         java.util.Map<Object, Object> map = asMap(dict);
         if (map.containsKey(key)) {

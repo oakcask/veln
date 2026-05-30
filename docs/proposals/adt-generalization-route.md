@@ -1,6 +1,6 @@
 # ADT Generalization Route
 
-Status: stages 1 and 2 implemented; stage 3 proposed
+Status: stages 1, 2, and 3 implemented
 
 This page records a staged route from compiler-special `Option` and `Result`
 handling toward user-defined ADTs, standard-library `List`, immutable
@@ -87,12 +87,12 @@ continues to mean the existing vec literal unless a later proposal changes it.
 
 ### Stage 3: List Helpers And Tail-Recursive Execution
 
-Status: proposed
+Status: implemented
 
 After `List(A)` is expressible, add standard-library list helpers and use them
 as the proving target for internal tail-recursive execution.
 
-Candidate helpers:
+Implemented helpers:
 
 - `list_nil`;
 - `list_cons`;
@@ -103,11 +103,9 @@ Candidate helpers:
 - `list_filter`;
 - `list_try_map`.
 
-`List` helpers should preserve immutable value semantics and source-order
-traversal. Tail-recursive helper bodies may use the internal trampoline route
-described in
-[immutable-collection-trampoline.md](immutable-collection-trampoline.md), but
-that remains a compiler/runtime strategy, not a user-facing `tailrec` feature.
+`List` helpers preserve immutable value semantics and source-order traversal.
+Large helper traversals use iterative runtime support, which remains a
+compiler/runtime strategy rather than a user-facing `tailrec` feature.
 
 ## Non-Goals
 

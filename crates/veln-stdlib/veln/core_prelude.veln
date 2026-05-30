@@ -80,6 +80,81 @@ fn vec_try_map_with_step(state: {values: Result(Vec(A), E), map: fn(C, Item) -> 
 	end
 end
 
+fn list_nil() -> List(A) effects []
+	Nil
+end
+
+fn list_cons(head: A, tail: List(A)) -> List(A) effects []
+	Cons(head, tail)
+end
+
+fn list_is_empty(items: List(A)) -> Bool effects []
+	match items
+		Nil => true
+		Cons(_, _) => false
+	end
+end
+
+fn list_fold(items: List(Item), initial: B, f: fn(B, Item) -> B) -> B effects []
+	match items
+		Nil => initial
+		Cons(head, tail) => list_fold(tail, f(initial, head), f)
+	end
+end
+
+fn list_reverse(items: List(A)) -> List(A) effects []
+	list_reverse_step(items, Nil)
+end
+
+fn list_reverse_step(items: List(A), acc: List(A)) -> List(A) effects []
+	match items
+		Nil => acc
+		Cons(head, tail) => list_reverse_step(tail, Cons(head, acc))
+	end
+end
+
+fn list_map(items: List(Item), f: fn(Item) -> A) -> List(A) effects []
+	list_reverse(list_map_step(items, f, Nil))
+end
+
+fn list_map_step(items: List(Item), f: fn(Item) -> A, acc: List(A)) -> List(A) effects []
+	match items
+		Nil => acc
+		Cons(head, tail) => list_map_step(tail, f, Cons(f(head), acc))
+	end
+end
+
+fn list_filter(items: List(A), f: fn(A) -> Bool) -> List(A) effects []
+	list_reverse(list_filter_step(items, f, Nil))
+end
+
+fn list_filter_step(items: List(A), f: fn(A) -> Bool, acc: List(A)) -> List(A) effects []
+	match items
+		Nil => acc
+		Cons(head, tail) => match f(head)
+			true => list_filter_step(tail, f, Cons(head, acc))
+			false => list_filter_step(tail, f, acc)
+		end
+	end
+end
+
+fn list_try_map(items: List(Item), f: fn(Item) -> Result(A, E)) -> Result(List(A), E) effects []
+	match list_try_map_step(items, f, Nil)
+		Ok(mapped) => Ok(list_reverse(mapped))
+		Err(error) => Err(error)
+	end
+end
+
+fn list_try_map_step(items: List(Item), f: fn(Item) -> Result(A, E), acc: List(A)) -> Result(List(A), E) effects []
+	match items
+		Nil => Ok(acc)
+		Cons(head, tail) => match f(head)
+			Ok(mapped) => list_try_map_step(tail, f, Cons(mapped, acc))
+			Err(error) => Err(error)
+		end
+	end
+end
+
 fn dict_get(dict: Dict(K, V), key: K) -> Option(V) effects []
 	dict_get(dict, key)
 end

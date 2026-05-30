@@ -167,6 +167,10 @@ fn result_descriptor() -> &'static AdtDescriptor {
     descriptor_for_type_name("Result").expect("built-in Result descriptor should exist")
 }
 
+fn list_descriptor() -> &'static AdtDescriptor {
+    descriptor_for_type_name("List").expect("built-in List descriptor should exist")
+}
+
 pub(crate) fn descriptor_for_type(ty: &Type) -> Option<&'static AdtDescriptor> {
     let Type::Named { name, args } = ty else {
         return None;
@@ -227,10 +231,10 @@ pub(crate) fn core_adt_args<'a>(
 
 pub(crate) fn constructed_type(constructor: AdtConstructor, payload_type: Type) -> Type {
     let mut args = vec![Type::Unknown; constructor.descriptor.type_parameters.len()];
-    if let Some(field) = constructor.variant.payload_fields.first() {
-        if let AdtPayloadType::TypeParameter(index) = field.ty {
-            args[index] = payload_type;
-        }
+    if let Some(field) = constructor.variant.payload_fields.first()
+        && let AdtPayloadType::TypeParameter(index) = field.ty
+    {
+        args[index] = payload_type;
     }
     Type::named(constructor.descriptor.type_name, args)
 }
@@ -240,10 +244,10 @@ pub(crate) fn core_constructed_type(
     payload_type: CoreType,
 ) -> CoreType {
     let mut args = vec![CoreType::Unknown; constructor.descriptor.type_parameters.len()];
-    if let Some(field) = constructor.variant.payload_fields.first() {
-        if let AdtPayloadType::TypeParameter(index) = field.ty {
-            args[index] = payload_type;
-        }
+    if let Some(field) = constructor.variant.payload_fields.first()
+        && let AdtPayloadType::TypeParameter(index) = field.ty
+    {
+        args[index] = payload_type;
     }
     CoreType::named(constructor.descriptor.type_name, args)
 }
@@ -292,6 +296,14 @@ pub(crate) fn core_result_type(value: CoreType, error: CoreType) -> CoreType {
     CoreType::named(result_descriptor().type_name, vec![value, error])
 }
 
+pub(crate) fn list_type(item: Type) -> Type {
+    Type::named(list_descriptor().type_name, vec![item])
+}
+
+pub(crate) fn core_list_type(item: CoreType) -> CoreType {
+    CoreType::named(list_descriptor().type_name, vec![item])
+}
+
 pub(crate) fn option_part(ty: &Type) -> Option<&Type> {
     adt_args(ty, option_descriptor())?.first()
 }
@@ -318,6 +330,14 @@ pub(crate) fn core_result_parts(ty: &CoreType) -> Option<(&CoreType, &CoreType)>
         args.get(propagation.value_parameter_index)?,
         args.get(propagation.error_parameter_index)?,
     ))
+}
+
+pub(crate) fn list_part(ty: &Type) -> Option<&Type> {
+    adt_args(ty, list_descriptor())?.first()
+}
+
+pub(crate) fn core_list_part(ty: &CoreType) -> Option<&CoreType> {
+    core_adt_args(ty, list_descriptor())?.first()
 }
 
 fn constructor_matches(
@@ -378,6 +398,24 @@ mod tests {
             err.variant.payload_fields[0].ty,
             AdtPayloadType::TypeParameter(1)
         );
+
+        let nil = nullary_constructor(&path(&["List", "Nil"])).expect("List::Nil should resolve");
+        assert_eq!(nil.descriptor.type_name, "List");
+        assert_eq!(nil.variant.name, "Nil");
+        assert_eq!(nil.variant.coverage_case, "Nil");
+        assert!(nil.variant.payload_fields.is_empty());
+
+        let cons = constructor(&path(&["List", "Cons"])).expect("List::Cons should resolve");
+        assert_eq!(cons.descriptor.type_name, "List");
+        assert_eq!(cons.variant.name, "Cons");
+        assert_eq!(cons.variant.coverage_case, "Cons(_)");
+        assert_eq!(cons.variant.payload_fields[0].name, "head");
+        assert_eq!(
+            cons.variant.payload_fields[0].ty,
+            AdtPayloadType::TypeParameter(0)
+        );
+        assert_eq!(cons.variant.payload_fields[1].name, "tail");
+        assert_eq!(cons.variant.payload_fields[1].ty, AdtPayloadType::SelfType);
     }
 
     #[test]
@@ -411,5 +449,26 @@ mod tests {
             core_constructed_type(err, CoreType::string()),
             core_result_type(CoreType::Unknown, CoreType::string())
         );
+    }
+
+    #[test]
+    fn list_payloads_use_head_parameter_and_self_tail() {
+        let list = Type::named("List", vec![Type::int()]);
+        let cons = constructor(&path(&["Cons"])).expect("Cons should resolve");
+
+        assert_eq!(payload_type(&list, cons, 0), Some(Type::int()));
+        assert_eq!(payload_type(&list, cons, 1), Some(list.clone()));
+        assert_eq!(constructed_type(cons, Type::int()), list);
+
+        let core_list = CoreType::named("List", vec![CoreType::int()]);
+        assert_eq!(
+            core_payload_type(&core_list, cons, 0),
+            Some(CoreType::int())
+        );
+        assert_eq!(
+            core_payload_type(&core_list, cons, 1),
+            Some(core_list.clone())
+        );
+        assert_eq!(core_constructed_type(cons, CoreType::int()), core_list);
     }
 }
