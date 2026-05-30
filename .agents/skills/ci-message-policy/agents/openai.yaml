@@ -1,0 +1,4 @@
+interface:
+  display_name: "CI Message Policy"
+  short_description: "Write CI-visible messages with clear action and rationale."
+  default_prompt: "Use $ci-message-policy when adding or changing CI-visible messages so each message makes the required action and its rationale clear."
