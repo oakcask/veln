@@ -37,6 +37,6 @@ jobs:
           distribution: temurin
           java-version: "21"
       - name: Run JVM backend tests
-        run: cargo test -p veln-backend-jvm bytecode_backend
+        run: cargo test --locked -p veln-backend-jvm bytecode_backend
       - name: Run JVM CLI fixtures
-        run: cargo test -p veln-cli --test check_json
+        run: cargo test --locked -p veln-cli --test check_json
