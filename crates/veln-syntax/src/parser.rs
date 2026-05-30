@@ -72,6 +72,18 @@ struct Parser<'a> {
     diagnostics: Vec<ParseDiagnostic>,
 }
 
+struct FunctionHeader {
+    visibility: Visibility,
+    name: Option<String>,
+    params: Vec<Param>,
+}
+
+struct FunctionReturn {
+    binding: Option<crate::ResultBinding>,
+    ty: Option<String>,
+    effects: Option<Vec<String>>,
+}
+
 impl<'a> Parser<'a> {
     fn new(source: &'a SourceFile, tokens: Vec<Token>) -> Self {
         let parse_tokens = tokens
@@ -182,6 +194,34 @@ impl<'a> Parser<'a> {
 
     fn parse_function_like(&mut self, kind: FunctionKind) -> FunctionDecl {
         let start = self.current().range;
+        let header = self.parse_function_header(kind);
+        let return_decl = self.parse_function_return_and_effects(kind);
+        self.expect_newline(Self::function_context(kind));
+
+        let contracts = self.parse_contracts();
+        let (body, end_present) = self.parse_function_body();
+
+        if !end_present {
+            self.report_missing_function_end(kind);
+        }
+
+        let end = self.previous().map_or(start, |token| token.range);
+        FunctionDecl {
+            kind,
+            visibility: header.visibility,
+            name: header.name,
+            params: header.params,
+            return_binding: return_decl.binding,
+            return_type: return_decl.ty,
+            effects: return_decl.effects,
+            contracts,
+            body,
+            span: self.source.span(start.cover(end)),
+            end_present,
+        }
+    }
+
+    fn parse_function_header(&mut self, kind: FunctionKind) -> FunctionHeader {
         let visibility = match kind {
             FunctionKind::Function => {
                 if self.eat(TokenKind::Pub).is_some() {
@@ -192,35 +232,31 @@ impl<'a> Parser<'a> {
             }
             FunctionKind::Test => Visibility::Private,
         };
-        let context = match kind {
-            FunctionKind::Function => "function_declaration",
-            FunctionKind::Test => "test_declaration",
-        };
-        let parameter_context = match kind {
-            FunctionKind::Function => "function_parameters",
-            FunctionKind::Test => "test_parameters",
-        };
-        let return_context = match kind {
-            FunctionKind::Function => "function_return",
-            FunctionKind::Test => "test_return",
-        };
         self.expect(
             match kind {
                 FunctionKind::Function => TokenKind::Fn,
                 FunctionKind::Test => TokenKind::Test,
             },
-            context,
+            Self::function_context(kind),
             vec![match kind {
                 FunctionKind::Function => "fn",
                 FunctionKind::Test => "test",
             }],
         );
-        let name = self.expect_ident(context, "declaration name");
-        self.expect(TokenKind::LParen, parameter_context, vec!["("]);
+        let name = self.expect_ident(Self::function_context(kind), "declaration name");
+        self.expect(TokenKind::LParen, Self::parameter_context(kind), vec!["("]);
         let params = self.parse_params();
-        self.expect(TokenKind::RParen, parameter_context, vec![")"]);
+        self.expect(TokenKind::RParen, Self::parameter_context(kind), vec![")"]);
+        FunctionHeader {
+            visibility,
+            name,
+            params,
+        }
+    }
 
-        let (return_binding, return_type) = if self.eat(TokenKind::Arrow).is_some() {
+    fn parse_function_return_and_effects(&mut self, kind: FunctionKind) -> FunctionReturn {
+        let return_context = Self::return_context(kind);
+        let (binding, ty) = if self.eat(TokenKind::Arrow).is_some() {
             let return_binding = if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Colon) {
                 let name = self.bump();
                 let colon = self.expect(TokenKind::Colon, return_context, vec![":"]);
@@ -239,16 +275,19 @@ impl<'a> Parser<'a> {
         } else {
             (None, None)
         };
-
         let effects = if self.eat(TokenKind::Effects).is_some() {
             Some(self.parse_effect_list())
         } else {
             None
         };
-        self.expect_newline(context);
+        FunctionReturn {
+            binding,
+            ty,
+            effects,
+        }
+    }
 
-        let contracts = self.parse_contracts();
-
+    fn parse_function_body(&mut self) -> (Vec<BodyLine>, bool) {
         let mut body = Vec::new();
         let mut end_present = false;
         while !self.at(TokenKind::Eof) {
@@ -266,36 +305,43 @@ impl<'a> Parser<'a> {
             }
             body.push(self.parse_body_line());
         }
+        (body, end_present)
+    }
 
-        if !end_present {
-            self.error_current(
-                "parse.expected_end",
-                match kind {
-                    FunctionKind::Function => {
-                        "expected `end` to close function declaration".to_string()
-                    }
-                    FunctionKind::Test => "expected `end` to close test declaration".to_string(),
-                },
-                "function_body",
-                vec!["end"],
-                RecoveryStrategy::CloseBlock,
-                Some("end"),
-            );
+    fn report_missing_function_end(&mut self, kind: FunctionKind) {
+        self.error_current(
+            "parse.expected_end",
+            match kind {
+                FunctionKind::Function => {
+                    "expected `end` to close function declaration".to_string()
+                }
+                FunctionKind::Test => "expected `end` to close test declaration".to_string(),
+            },
+            "function_body",
+            vec!["end"],
+            RecoveryStrategy::CloseBlock,
+            Some("end"),
+        );
+    }
+
+    fn function_context(kind: FunctionKind) -> &'static str {
+        match kind {
+            FunctionKind::Function => "function_declaration",
+            FunctionKind::Test => "test_declaration",
         }
+    }
 
-        let end = self.previous().map_or(start, |token| token.range);
-        FunctionDecl {
-            kind,
-            visibility,
-            name,
-            params,
-            return_binding,
-            return_type,
-            effects,
-            contracts,
-            body,
-            span: self.source.span(start.cover(end)),
-            end_present,
+    fn parameter_context(kind: FunctionKind) -> &'static str {
+        match kind {
+            FunctionKind::Function => "function_parameters",
+            FunctionKind::Test => "test_parameters",
+        }
+    }
+
+    fn return_context(kind: FunctionKind) -> &'static str {
+        match kind {
+            FunctionKind::Function => "function_return",
+            FunctionKind::Test => "test_return",
         }
     }
 

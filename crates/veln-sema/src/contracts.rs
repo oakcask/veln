@@ -48,6 +48,12 @@ enum StaticBooleanValue {
     Unknown,
 }
 
+#[derive(Clone, Copy)]
+struct StaticBooleanOptions {
+    classify_contract_contradictions: bool,
+    classify_covering_numeric_bounds: bool,
+}
+
 const MAX_STATIC_BOOLEAN_ATOMS: usize = 13;
 const MAX_PARTIAL_CASE_SPLIT_ATOMS: usize = 10;
 
@@ -68,152 +74,166 @@ fn static_boolean_value_inner(
     classify_contract_contradictions: bool,
     classify_covering_numeric_bounds: bool,
 ) -> StaticBooleanValue {
+    let options = StaticBooleanOptions {
+        classify_contract_contradictions,
+        classify_covering_numeric_bounds,
+    };
     let predicate = strip_balanced_outer_parens(predicate.trim());
-    if predicate.is_empty() {
-        return StaticBooleanValue::Unknown;
+    if let Some(value) = static_boolean_literal_value(predicate) {
+        return value;
     }
-    if predicate == "true" {
-        return StaticBooleanValue::True;
+    if let Some(value) = static_boolean_top_level_shortcut(predicate) {
+        return value;
     }
-    if predicate == "false" {
-        return StaticBooleanValue::False;
+    if let Some(value) = static_boolean_negation_value(predicate, options) {
+        return value;
     }
+    if let Some(value) = static_boolean_top_level_tautology_value(predicate, options) {
+        return value;
+    }
+    if let Some(value) = static_boolean_or_value(predicate, options) {
+        return value;
+    }
+    if let Some(value) = static_boolean_top_level_contradiction_value(predicate, options) {
+        return value;
+    }
+    if let Some(value) = static_boolean_and_value(predicate, options) {
+        return value;
+    }
+    static_boolean_comparison_value(predicate).unwrap_or(StaticBooleanValue::Unknown)
+}
+
+fn static_boolean_literal_value(predicate: &str) -> Option<StaticBooleanValue> {
+    match predicate {
+        "" => Some(StaticBooleanValue::Unknown),
+        "true" => Some(StaticBooleanValue::True),
+        "false" => Some(StaticBooleanValue::False),
+        _ => None,
+    }
+}
+
+fn static_boolean_top_level_shortcut(predicate: &str) -> Option<StaticBooleanValue> {
     let top_level_or_count = split_top_level_keyword(predicate, "or").len();
     if top_level_or_count >= 512 && has_exhaustive_case_split_top_level_or_between(predicate, 2, 11)
     {
-        return StaticBooleanValue::True;
+        return Some(StaticBooleanValue::True);
     }
     if top_level_or_count < 512
         && let Some(value @ (StaticBooleanValue::True | StaticBooleanValue::False)) =
             static_boolean_truth_table_value(predicate)
     {
-        return value;
+        return Some(value);
     }
-    if let Some(inner) = negated_predicate_inner(predicate) {
-        return static_boolean_value_inner(
-            inner,
-            classify_contract_contradictions,
-            classify_covering_numeric_bounds,
-        )
-        .negate();
-    }
-    if has_complementary_top_level_clauses(predicate, "or") {
-        return StaticBooleanValue::True;
-    }
-    if has_negated_conjunction_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_negated_disjunction_covered_by_disjuncts(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_order_bound_transitive_implication_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if classify_covering_numeric_bounds
-        && has_covering_numeric_literal_bounds_top_level_or(predicate)
+    None
+}
+
+fn static_boolean_negation_value(
+    predicate: &str,
+    options: StaticBooleanOptions,
+) -> Option<StaticBooleanValue> {
+    negated_predicate_inner(predicate)
+        .map(|inner| static_boolean_value_with_options(inner, options).negate())
+}
+
+fn static_boolean_top_level_tautology_value(
+    predicate: &str,
+    options: StaticBooleanOptions,
+) -> Option<StaticBooleanValue> {
+    if has_complementary_top_level_clauses(predicate, "or")
+        || has_negated_conjunction_top_level_or(predicate)
+        || has_negated_disjunction_covered_by_disjuncts(predicate)
+        || has_order_bound_transitive_implication_top_level_or(predicate)
+        || (options.classify_covering_numeric_bounds
+            && has_covering_numeric_literal_bounds_top_level_or(predicate))
+        || has_conjunction_covered_by_complement_disjuncts(predicate)
+        || has_factored_case_split_covered_by_complements(predicate)
+        || has_partial_case_split_top_level_or(predicate)
+        || has_case_split_top_level_or(predicate)
+        || has_inclusive_total_order_top_level_or(predicate)
+        || has_disequality_inclusive_order_split_top_level_or(predicate)
+        || has_total_order_top_level_or(predicate)
+        || has_disequality_strict_order_split_top_level_or(predicate)
     {
-        return StaticBooleanValue::True;
+        Some(StaticBooleanValue::True)
+    } else {
+        None
     }
-    if has_conjunction_covered_by_complement_disjuncts(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_factored_case_split_covered_by_complements(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_partial_case_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_case_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_inclusive_total_order_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_disequality_inclusive_order_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_total_order_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if has_disequality_strict_order_split_top_level_or(predicate) {
-        return StaticBooleanValue::True;
-    }
-    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "or") {
+}
+
+fn static_boolean_or_value(
+    predicate: &str,
+    options: StaticBooleanOptions,
+) -> Option<StaticBooleanValue> {
+    split_top_level_keyword_operator(predicate, "or").map(|(left, right)| {
         if complementary_predicates(left, right) {
-            return StaticBooleanValue::True;
+            StaticBooleanValue::True
+        } else {
+            static_boolean_value_with_options(left, options)
+                .or(static_boolean_value_with_options(right, options))
         }
-        return static_boolean_value_inner(
-            left,
-            classify_contract_contradictions,
-            classify_covering_numeric_bounds,
-        )
-        .or(static_boolean_value_inner(
-            right,
-            classify_contract_contradictions,
-            classify_covering_numeric_bounds,
-        ));
-    }
-    if has_complementary_top_level_clauses(predicate, "and") {
-        return StaticBooleanValue::False;
-    }
-    if has_negated_disjunction_top_level_and(predicate) {
-        return StaticBooleanValue::False;
-    }
-    if has_disjunction_covered_by_complement_conjuncts(predicate) {
-        return StaticBooleanValue::False;
-    }
-    if has_partial_case_split_top_level_and(predicate) {
-        return StaticBooleanValue::False;
-    }
-    if has_resolved_complementary_disjunctions_top_level_and(predicate) {
-        return StaticBooleanValue::False;
-    }
-    if has_transitive_strict_order_cycle_top_level_and(predicate) {
-        return StaticBooleanValue::False;
-    }
-    if has_transitive_order_contradiction_top_level_and(predicate) {
-        return StaticBooleanValue::False;
-    }
-    if classify_contract_contradictions
-        && has_exclusive_numeric_literal_bounds_top_level_and(predicate)
+    })
+}
+
+fn static_boolean_top_level_contradiction_value(
+    predicate: &str,
+    options: StaticBooleanOptions,
+) -> Option<StaticBooleanValue> {
+    if has_complementary_top_level_clauses(predicate, "and")
+        || has_negated_disjunction_top_level_and(predicate)
+        || has_disjunction_covered_by_complement_conjuncts(predicate)
+        || has_partial_case_split_top_level_and(predicate)
+        || has_resolved_complementary_disjunctions_top_level_and(predicate)
+        || has_transitive_strict_order_cycle_top_level_and(predicate)
+        || has_transitive_order_contradiction_top_level_and(predicate)
+        || (options.classify_contract_contradictions
+            && has_exclusive_numeric_literal_bounds_top_level_and(predicate))
+        || (options.classify_contract_contradictions
+            && has_exclusive_literal_equalities_top_level_and(predicate))
+        || has_exclusive_inclusive_order_top_level_and(predicate)
+        || has_exclusive_order_top_level_and(predicate)
     {
-        return StaticBooleanValue::False;
+        Some(StaticBooleanValue::False)
+    } else {
+        None
     }
-    if classify_contract_contradictions && has_exclusive_literal_equalities_top_level_and(predicate)
-    {
-        return StaticBooleanValue::False;
-    }
-    if has_exclusive_inclusive_order_top_level_and(predicate) {
-        return StaticBooleanValue::False;
-    }
-    if has_exclusive_order_top_level_and(predicate) {
-        return StaticBooleanValue::False;
-    }
-    if let Some((left, right)) = split_top_level_keyword_operator(predicate, "and") {
+}
+
+fn static_boolean_and_value(
+    predicate: &str,
+    options: StaticBooleanOptions,
+) -> Option<StaticBooleanValue> {
+    split_top_level_keyword_operator(predicate, "and").map(|(left, right)| {
         if complementary_predicates(left, right) {
-            return StaticBooleanValue::False;
+            StaticBooleanValue::False
+        } else {
+            static_boolean_value_with_options(left, options)
+                .and(static_boolean_value_with_options(right, options))
         }
-        return static_boolean_value_inner(
-            left,
-            classify_contract_contradictions,
-            classify_covering_numeric_bounds,
-        )
-        .and(static_boolean_value_inner(
-            right,
-            classify_contract_contradictions,
-            classify_covering_numeric_bounds,
-        ));
-    }
+    })
+}
+
+fn static_boolean_comparison_value(predicate: &str) -> Option<StaticBooleanValue> {
     for operator in ["==", "!=", "<=", ">=", "<", ">"] {
         if let Some((left, right)) = split_top_level_operator(predicate, operator) {
             return static_literal_comparison(left, operator, right)
                 .or_else(|| static_complementary_predicate_comparison(left, operator, right))
                 .or_else(|| static_boolean_formula_comparison(left, operator, right))
                 .or_else(|| static_same_shape_comparison(left, operator, right))
-                .map_or(StaticBooleanValue::Unknown, StaticBooleanValue::from);
+                .map(StaticBooleanValue::from);
         }
     }
-    StaticBooleanValue::Unknown
+    None
+}
+
+fn static_boolean_value_with_options(
+    predicate: &str,
+    options: StaticBooleanOptions,
+) -> StaticBooleanValue {
+    static_boolean_value_inner(
+        predicate,
+        options.classify_contract_contradictions,
+        options.classify_covering_numeric_bounds,
+    )
 }
 
 fn static_boolean_truth_table_value(predicate: &str) -> Option<StaticBooleanValue> {

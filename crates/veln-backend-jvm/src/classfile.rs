@@ -139,29 +139,56 @@ impl<'a> ClassfileEmitter<'a> {
             "setProcessArgs",
             "([Ljava/lang/String;)V",
         );
+        self.emit_entry_argument_conversions(&mut code, entry_arg_types);
+        self.emit_entry_invocation_and_result(&mut code, entry_function, entry_arg_types);
+        let try_end = code.mark();
+        code.op(0xb1);
+
+        self.emit_entry_contract_failure_handler(&mut code, try_start, try_end);
+        self.add_entry_main_method(&mut class, code);
+        class.finish()
+    }
+
+    fn emit_entry_argument_conversions(
+        &self,
+        code: &mut MethodCode,
+        entry_arg_types: &[EntryArgType],
+    ) {
         for (index, ty) in entry_arg_types.iter().enumerate() {
             code.aload(0);
             code.push_i32(index as i32);
             code.op(0x32);
-            match ty {
-                EntryArgType::String => {}
-                EntryArgType::Int => {
-                    code.invokestatic("java/lang/Long", "parseLong", "(Ljava/lang/String;)J");
-                    code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
-                }
-                EntryArgType::Float => {
-                    code.invokestatic("java/lang/Double", "parseDouble", "(Ljava/lang/String;)D");
-                    code.invokestatic("java/lang/Double", "valueOf", "(D)Ljava/lang/Double;");
-                }
-                EntryArgType::Bool => {
-                    code.invokestatic(
-                        "java/lang/Boolean",
-                        "valueOf",
-                        "(Ljava/lang/String;)Ljava/lang/Boolean;",
-                    );
-                }
+            self.emit_entry_argument_conversion(code, ty);
+        }
+    }
+
+    fn emit_entry_argument_conversion(&self, code: &mut MethodCode, ty: &EntryArgType) {
+        match ty {
+            EntryArgType::String => {}
+            EntryArgType::Int => {
+                code.invokestatic("java/lang/Long", "parseLong", "(Ljava/lang/String;)J");
+                code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
+            }
+            EntryArgType::Float => {
+                code.invokestatic("java/lang/Double", "parseDouble", "(Ljava/lang/String;)D");
+                code.invokestatic("java/lang/Double", "valueOf", "(D)Ljava/lang/Double;");
+            }
+            EntryArgType::Bool => {
+                code.invokestatic(
+                    "java/lang/Boolean",
+                    "valueOf",
+                    "(Ljava/lang/String;)Ljava/lang/Boolean;",
+                );
             }
         }
+    }
+
+    fn emit_entry_invocation_and_result(
+        &self,
+        code: &mut MethodCode,
+        entry_function: &str,
+        entry_arg_types: &[EntryArgType],
+    ) {
         code.invokestatic(
             &self.options.program_class,
             &self.function_name(entry_function),
@@ -192,9 +219,14 @@ impl<'a> ClassfileEmitter<'a> {
         code.push_i32(1);
         code.invokestatic("java/lang/System", "exit", "(I)V");
         code.bind(ok);
-        let try_end = code.mark();
-        code.op(0xb1);
+    }
 
+    fn emit_entry_contract_failure_handler(
+        &self,
+        code: &mut MethodCode,
+        try_start: usize,
+        try_end: usize,
+    ) {
         let handler = code.mark();
         code.astore(2);
         code.aload(2);
@@ -216,7 +248,9 @@ impl<'a> ClassfileEmitter<'a> {
             handler_pc: handler,
             catch_type: self.runtime_nested("ContractFailure"),
         });
+    }
 
+    fn add_entry_main_method(&self, class: &mut ClassBuilder, code: MethodCode) {
         class.add_method(MethodInfo {
             access_flags: 0x0009,
             name: "main".to_string(),
@@ -226,7 +260,6 @@ impl<'a> ClassfileEmitter<'a> {
             code: code.code,
             exceptions: code.exceptions,
         });
-        class.finish()
     }
 
     fn function_name(&self, name: &str) -> String {

@@ -1031,103 +1031,174 @@ impl<'a> FunctionChecker<'a> {
             .into_iter()
             .filter(|call| !is_contract_keyword(&call.callee))
             .collect::<Vec<_>>();
-        for (call_index, call) in calls.iter().enumerate() {
-            let Some((params, return_type, effects)) = self.contract_call_signature(&call.callee)
-            else {
-                return ContractValidation::UnresolvedName {
-                    name: call.callee.clone(),
-                };
-            };
-            if !effects.is_empty() {
-                return ContractValidation::UnsupportedConstruct {
-                    reason: "effectful_operation",
-                };
-            }
-            if return_type != Type::bool()
-                && !contract_call_result_is_compared(trimmed, call.start, call.end)
-                && !contract_call_result_feeds_boolean_predicate(trimmed, call.start, call.end)
-                && !contract_call_result_has_field_access(trimmed, call.end)
-                && !contract_call_is_argument(&calls, call_index)
-            {
-                return ContractValidation::NonBoolean {
-                    actual_type: return_type.render(),
-                };
-            }
-            if call.args.len() != params.len() {
-                return ContractValidation::UnsupportedConstruct {
-                    reason: "call_arity",
-                };
-            }
-            for (arg, expected) in call.args.iter().zip(&params) {
-                let arg_calls = contract_calls(arg);
-                for name in referenced_names(arg) {
-                    if is_contract_keyword(&name) || name == "true" || name == "false" {
-                        continue;
-                    }
-                    if arg_calls.iter().any(|call| call.callee == name) {
-                        continue;
-                    }
-                    if bindings.iter().any(|binding| binding.name == name) {
-                        continue;
-                    }
-                    if self.environment.function(&name).is_some() {
-                        continue;
-                    }
-                    return ContractValidation::UnresolvedName { name };
-                }
-                let actual_type = self.predicate_arg_type(arg, bindings);
-                if !is_assignable(expected, &actual_type) {
-                    return ContractValidation::UnsupportedConstruct {
-                        reason: "call_argument_type",
-                    };
-                }
-            }
+        if let Some(validation) = self.validate_contract_calls(trimmed, bindings, &calls) {
+            return validation;
         }
-        for name in referenced_names(trimmed) {
-            if is_contract_keyword(&name) || name == "true" || name == "false" {
-                continue;
-            }
-            if calls.iter().any(|call| call.callee == name) {
-                continue;
-            }
-            if bindings.iter().any(|binding| binding.name == name) {
-                continue;
-            }
-            if self.environment.function(&name).is_some() {
-                continue;
-            }
-            return ContractValidation::UnresolvedName { name };
-        }
-        if let Some(call) = calls
-            .iter()
-            .find(|call| call.start == 0 && call.end == trimmed.len())
+        if let Some(validation) = self.validate_contract_referenced_names(trimmed, bindings, &calls)
         {
-            let return_type = self
-                .contract_call_signature(&call.callee)
-                .map(|(_, return_type, _)| return_type)
-                .unwrap_or(Type::Unknown);
-            return if return_type == Type::bool() {
-                ContractValidation::Valid
-            } else {
-                ContractValidation::NonBoolean {
-                    actual_type: return_type.render(),
-                }
-            };
+            return validation;
         }
-        if let Some((base_type, field)) = missing_contract_field(trimmed, bindings, &|callee| {
+        if let Some(validation) = self.validate_whole_contract_call(trimmed, &calls) {
+            return validation;
+        }
+        if let Some(validation) = self.validate_missing_contract_field(trimmed, bindings) {
+            return validation;
+        }
+        self.validate_boolean_contract_predicate(trimmed, bindings)
+    }
+
+    fn validate_contract_calls(
+        &self,
+        predicate: &str,
+        bindings: &[Binding],
+        calls: &[ContractCall],
+    ) -> Option<ContractValidation> {
+        for (call_index, call) in calls.iter().enumerate() {
+            if let Some(validation) =
+                self.validate_contract_call(predicate, bindings, calls, call_index, call)
+            {
+                return Some(validation);
+            }
+        }
+        None
+    }
+
+    fn validate_contract_call(
+        &self,
+        predicate: &str,
+        bindings: &[Binding],
+        calls: &[ContractCall],
+        call_index: usize,
+        call: &ContractCall,
+    ) -> Option<ContractValidation> {
+        let Some((params, return_type, effects)) = self.contract_call_signature(&call.callee)
+        else {
+            return Some(ContractValidation::UnresolvedName {
+                name: call.callee.clone(),
+            });
+        };
+        if !effects.is_empty() {
+            return Some(ContractValidation::UnsupportedConstruct {
+                reason: "effectful_operation",
+            });
+        }
+        if return_type != Type::bool()
+            && !contract_call_result_is_compared(predicate, call.start, call.end)
+            && !contract_call_result_feeds_boolean_predicate(predicate, call.start, call.end)
+            && !contract_call_result_has_field_access(predicate, call.end)
+            && !contract_call_is_argument(calls, call_index)
+        {
+            return Some(ContractValidation::NonBoolean {
+                actual_type: return_type.render(),
+            });
+        }
+        if call.args.len() != params.len() {
+            return Some(ContractValidation::UnsupportedConstruct {
+                reason: "call_arity",
+            });
+        }
+        for (arg, expected) in call.args.iter().zip(&params) {
+            if let Some(validation) = self.validate_contract_call_argument(arg, expected, bindings)
+            {
+                return Some(validation);
+            }
+        }
+        None
+    }
+
+    fn validate_contract_call_argument(
+        &self,
+        arg: &str,
+        expected: &Type,
+        bindings: &[Binding],
+    ) -> Option<ContractValidation> {
+        let arg_calls = contract_calls(arg);
+        if let Some(name) = referenced_names(arg)
+            .into_iter()
+            .find(|name| !self.contract_reference_is_resolved(name, bindings, &arg_calls))
+        {
+            return Some(ContractValidation::UnresolvedName { name });
+        }
+        let actual_type = self.predicate_arg_type(arg, bindings);
+        (!is_assignable(expected, &actual_type)).then_some(
+            ContractValidation::UnsupportedConstruct {
+                reason: "call_argument_type",
+            },
+        )
+    }
+
+    fn validate_contract_referenced_names(
+        &self,
+        predicate: &str,
+        bindings: &[Binding],
+        calls: &[ContractCall],
+    ) -> Option<ContractValidation> {
+        referenced_names(predicate)
+            .into_iter()
+            .find(|name| !self.contract_reference_is_resolved(name, bindings, calls))
+            .map(|name| ContractValidation::UnresolvedName { name })
+    }
+
+    fn contract_reference_is_resolved(
+        &self,
+        name: &str,
+        bindings: &[Binding],
+        calls: &[ContractCall],
+    ) -> bool {
+        is_contract_keyword(name)
+            || name == "true"
+            || name == "false"
+            || calls.iter().any(|call| call.callee == name)
+            || bindings.iter().any(|binding| binding.name == name)
+            || self.environment.function(name).is_some()
+    }
+
+    fn validate_whole_contract_call(
+        &self,
+        predicate: &str,
+        calls: &[ContractCall],
+    ) -> Option<ContractValidation> {
+        let call = calls
+            .iter()
+            .find(|call| call.start == 0 && call.end == predicate.len())?;
+        let return_type = self
+            .contract_call_signature(&call.callee)
+            .map(|(_, return_type, _)| return_type)
+            .unwrap_or(Type::Unknown);
+        Some(if return_type == Type::bool() {
+            ContractValidation::Valid
+        } else {
+            ContractValidation::NonBoolean {
+                actual_type: return_type.render(),
+            }
+        })
+    }
+
+    fn validate_missing_contract_field(
+        &self,
+        predicate: &str,
+        bindings: &[Binding],
+    ) -> Option<ContractValidation> {
+        missing_contract_field(predicate, bindings, &|callee| {
             self.contract_call_signature(callee)
                 .map(|(_, return_type, _)| return_type)
-        }) {
-            return ContractValidation::MissingField { base_type, field };
-        }
-        if predicate_is_boolean_with_calls(trimmed, bindings, &|callee| {
+        })
+        .map(|(base_type, field)| ContractValidation::MissingField { base_type, field })
+    }
+
+    fn validate_boolean_contract_predicate(
+        &self,
+        predicate: &str,
+        bindings: &[Binding],
+    ) -> ContractValidation {
+        if predicate_is_boolean_with_calls(predicate, bindings, &|callee| {
             self.contract_call_signature(callee)
                 .map(|(_, return_type, _)| return_type)
         }) {
             ContractValidation::Valid
         } else {
             ContractValidation::NonBoolean {
-                actual_type: predicate_rendered_type_with_calls(trimmed, bindings, &|callee| {
+                actual_type: predicate_rendered_type_with_calls(predicate, bindings, &|callee| {
                     self.contract_call_signature(callee)
                         .map(|(_, return_type, _)| return_type)
                 }),
@@ -1371,72 +1442,114 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Type {
+        if let Some(ty) = self.infer_constructor_call(expr, callee, args, expected) {
+            return ty;
+        }
+        if let Some(ty) = self.infer_declared_call(expr, callee, args, expected) {
+            return ty;
+        }
+        if let Some(ty) = self.infer_prelude_call(callee, args, expected) {
+            return ty;
+        }
+        if let Some(ty) = self.diagnose_method_call(expr, callee, args) {
+            return ty;
+        }
+        self.infer_unresolved_call(callee, args)
+    }
+
+    fn infer_constructor_call(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+    ) -> Option<Type> {
         if let ExprKind::NamePath(segments) = &callee.kind {
             if let Some(is_ok) = result_constructor_kind(segments) {
-                return self.infer_result_constructor(expr, args, expected, is_ok);
+                return Some(self.infer_result_constructor(expr, args, expected, is_ok));
             }
             if is_option_some_constructor(segments) {
-                return self.infer_option_constructor(expr, args, expected);
+                return Some(self.infer_option_constructor(expr, args, expected));
             }
         }
+        None
+    }
 
-        if let Some((params, return_type, origin)) = self.call_signature(
+    fn infer_declared_call(
+        &mut self,
+        expr: &Expr,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+    ) -> Option<Type> {
+        let (params, return_type, origin) = self.call_signature(
             callee,
             expected.map(|expected| &expected.ty),
             args.first()
                 .and_then(|arg| self.shallow_expr_type(arg))
                 .as_ref(),
-        ) {
-            for effect in &origin.effects {
-                self.inferred_effects.push(EffectUse {
-                    effect: effect.clone(),
-                    node_id: expr.node_id,
-                    span: expr.span.clone(),
-                    kind: "direct_call",
-                    symbol: origin.symbol.clone(),
-                });
-            }
-            for (index, arg) in args.iter().enumerate() {
-                let Some(param_type) = params.get(index) else {
-                    self.infer_expr(arg, None);
-                    continue;
-                };
-                let expected = ExpectedType {
-                    ty: param_type.clone(),
-                    source: ExpectedTypeSource::DeclaredParameter,
-                    origin_node_id: origin.node_id,
-                    origin_span: Some(origin.span.clone()),
-                    origin_message: "Callee parameter type declared here.",
-                };
-                let actual = self.infer_expr(arg, Some(&expected));
-                self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
-            }
-            return return_type;
-        }
+        )?;
 
-        if let ExprKind::NamePath(segments) = &callee.kind
-            && let [name] = segments.as_slice()
-            && let Some((params, return_type)) =
-                prelude_signature(name, expected.map(|expected| &expected.ty))
-        {
-            for (index, arg) in args.iter().enumerate() {
-                let Some(param_type) = params.get(index) else {
-                    self.infer_expr(arg, None);
-                    continue;
-                };
-                let expected = ExpectedType {
-                    ty: param_type.clone(),
-                    source: ExpectedTypeSource::Inferred,
-                    origin_node_id: callee.node_id,
-                    origin_span: Some(callee.span.clone()),
-                    origin_message: "Prelude helper parameter type inferred here.",
-                };
-                let actual = self.infer_expr(arg, Some(&expected));
-                self.check_prelude_argument_assignable(name, index, arg, &expected, &actual);
-            }
-            return return_type;
+        for effect in &origin.effects {
+            self.inferred_effects.push(EffectUse {
+                effect: effect.clone(),
+                node_id: expr.node_id,
+                span: expr.span.clone(),
+                kind: "direct_call",
+                symbol: origin.symbol.clone(),
+            });
         }
+        for (index, arg) in args.iter().enumerate() {
+            let Some(param_type) = params.get(index) else {
+                self.infer_expr(arg, None);
+                continue;
+            };
+            let expected = ExpectedType {
+                ty: param_type.clone(),
+                source: ExpectedTypeSource::DeclaredParameter,
+                origin_node_id: origin.node_id,
+                origin_span: Some(origin.span.clone()),
+                origin_message: "Callee parameter type declared here.",
+            };
+            let actual = self.infer_expr(arg, Some(&expected));
+            self.check_assignable(arg, &expected.ty, &actual, &expected, "call_argument");
+        }
+        Some(return_type)
+    }
 
+    fn infer_prelude_call(
+        &mut self,
+        callee: &Expr,
+        args: &[Expr],
+        expected: Option<&ExpectedType>,
+    ) -> Option<Type> {
+        let ExprKind::NamePath(segments) = &callee.kind else {
+            return None;
+        };
+        let [name] = segments.as_slice() else {
+            return None;
+        };
+        let (params, return_type) = prelude_signature(name, expected.map(|expected| &expected.ty))?;
+
+        for (index, arg) in args.iter().enumerate() {
+            let Some(param_type) = params.get(index) else {
+                self.infer_expr(arg, None);
+                continue;
+            };
+            let expected = ExpectedType {
+                ty: param_type.clone(),
+                source: ExpectedTypeSource::Inferred,
+                origin_node_id: callee.node_id,
+                origin_span: Some(callee.span.clone()),
+                origin_message: "Prelude helper parameter type inferred here.",
+            };
+            let actual = self.infer_expr(arg, Some(&expected));
+            self.check_prelude_argument_assignable(name, index, arg, &expected, &actual);
+        }
+        Some(return_type)
+    }
+
+    fn diagnose_method_call(&mut self, expr: &Expr, callee: &Expr, args: &[Expr]) -> Option<Type> {
         if let ExprKind::FieldAccess {
             base,
             field,
@@ -1473,9 +1586,12 @@ impl<'a> FunctionChecker<'a> {
                 ("span", span_json(&callee.span)),
             ]));
             self.diagnostics.push(diagnostic);
-            return Type::Unknown;
+            return Some(Type::Unknown);
         }
+        None
+    }
 
+    fn infer_unresolved_call(&mut self, callee: &Expr, args: &[Expr]) -> Type {
         if let Some((segments, _)) = callee_name_path_and_type_args(callee) {
             let symbol = segments.join("::");
             self.push_unresolved_name(callee.node_id, callee.span.clone(), &symbol, "call_target");
