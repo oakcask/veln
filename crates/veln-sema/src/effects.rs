@@ -107,9 +107,22 @@ pub(crate) fn concurrency_signature(
     let [module, name] = segments else {
         return None;
     };
+    match module.as_str() {
+        "channel" => channel_signature(name, expected, handle_type, explicit_item),
+        "task" => task_signature(name, expected, handle_type, explicit_item),
+        _ => None,
+    }
+}
+
+fn channel_signature(
+    name: &str,
+    expected: Option<&Type>,
+    handle_type: Option<&Type>,
+    explicit_item: Option<&Type>,
+) -> Option<(Vec<Type>, Type)> {
     let unknown = Type::Unknown;
-    match (module.as_str(), name.as_str()) {
-        ("channel", "bounded") => {
+    match name {
+        "bounded" => {
             let item = explicit_item
                 .cloned()
                 .or_else(|| channel_pair_item_type(expected))
@@ -122,106 +135,137 @@ pub(crate) fn concurrency_signature(
                 ]),
             ))
         }
-        ("channel", "clone") => {
-            let item = handle_type
-                .and_then(|ty| named_type_argument(ty, "Sender"))
-                .cloned()
-                .unwrap_or(Type::Unknown);
-            Some((
-                vec![Type::named("Sender", vec![item.clone()])],
-                Type::named("Sender", vec![item]),
-            ))
-        }
-        ("channel", "send") => {
-            let item = handle_type
-                .and_then(|ty| named_type_argument(ty, "Sender"))
-                .cloned()
-                .unwrap_or(Type::Unknown);
-            Some((
-                vec![Type::named("Sender", vec![item.clone()]), item],
-                Type::result(Type::unit(), Type::named("SendError", Vec::new())),
-            ))
-        }
-        ("channel", "recv") => {
-            let item = expected
-                .and_then(Type::option_part)
-                .cloned()
-                .or_else(|| {
-                    handle_type
-                        .and_then(|ty| named_type_argument(ty, "Receiver"))
-                        .cloned()
-                })
-                .unwrap_or(Type::Unknown);
-            Some((
-                vec![Type::named("Receiver", vec![item.clone()])],
-                Type::named("Option", vec![item]),
-            ))
-        }
-        (
-            "channel",
-            "select"
-            | "select_priority"
-            | "select_timeout"
-            | "select_result"
-            | "select_priority_result"
-            | "select_timeout_result",
-        ) => {
-            let reports_interrupt = name.ends_with("_result");
-            let item = select_item_type(expected, reports_interrupt)
-                .or_else(|| {
-                    handle_type
-                        .and_then(|ty| named_type_argument(ty, "Receiver"))
-                        .cloned()
-                })
-                .unwrap_or(Type::Unknown);
-            let mut params = vec![
-                Type::named("Receiver", vec![item.clone()]),
-                Type::named("Receiver", vec![item.clone()]),
-            ];
-            if matches!(name.as_str(), "select_timeout" | "select_timeout_result") {
-                params.push(Type::int());
-            }
-            let output = Type::named("Option", vec![select_output_record(item)]);
-            let return_type = if reports_interrupt {
-                Type::result(output, Type::named("SelectError", Vec::new()))
-            } else {
-                output
-            };
-            Some((params, return_type))
-        }
-        ("channel", "close") => Some((vec![Type::named("Sender", vec![unknown])], Type::unit())),
-        ("task", "spawn") => {
-            let item = explicit_item
-                .cloned()
-                .or_else(|| {
-                    expected
-                        .and_then(|ty| named_type_argument(ty, "Task"))
-                        .cloned()
-                })
-                .or_else(|| handle_type.and_then(function_return_type).cloned())
-                .unwrap_or(Type::Unknown);
-            Some((
-                vec![Type::Function {
-                    params: Vec::new(),
-                    return_type: Box::new(item.clone()),
-                    effects: vec!["concurrency".to_string()],
-                }],
-                Type::named("Task", vec![item]),
-            ))
-        }
-        ("task", "join") => {
-            let item = handle_type
-                .and_then(|ty| named_type_argument(ty, "Task"))
-                .cloned()
-                .unwrap_or(Type::Unknown);
-            Some((
-                vec![Type::named("Task", vec![item.clone()])],
-                Type::result(item, Type::named("JoinError", Vec::new())),
-            ))
-        }
-        ("task", "cancel") => Some((vec![Type::named("Task", vec![unknown])], Type::unit())),
+        "clone" => sender_clone_signature(handle_type),
+        "send" => sender_send_signature(handle_type),
+        "recv" => receiver_recv_signature(expected, handle_type),
+        "select"
+        | "select_priority"
+        | "select_timeout"
+        | "select_result"
+        | "select_priority_result"
+        | "select_timeout_result" => select_signature(name, expected, handle_type),
+        "close" => Some((vec![Type::named("Sender", vec![unknown])], Type::unit())),
         _ => None,
     }
+}
+
+fn sender_clone_signature(handle_type: Option<&Type>) -> Option<(Vec<Type>, Type)> {
+    let item = sender_item_type(handle_type);
+    Some((
+        vec![Type::named("Sender", vec![item.clone()])],
+        Type::named("Sender", vec![item]),
+    ))
+}
+
+fn sender_send_signature(handle_type: Option<&Type>) -> Option<(Vec<Type>, Type)> {
+    let item = sender_item_type(handle_type);
+    Some((
+        vec![Type::named("Sender", vec![item.clone()]), item],
+        Type::result(Type::unit(), Type::named("SendError", Vec::new())),
+    ))
+}
+
+fn receiver_recv_signature(
+    expected: Option<&Type>,
+    handle_type: Option<&Type>,
+) -> Option<(Vec<Type>, Type)> {
+    let item = expected
+        .and_then(Type::option_part)
+        .cloned()
+        .or_else(|| receiver_item_type(handle_type))
+        .unwrap_or(Type::Unknown);
+    Some((
+        vec![Type::named("Receiver", vec![item.clone()])],
+        Type::named("Option", vec![item]),
+    ))
+}
+
+fn select_signature(
+    name: &str,
+    expected: Option<&Type>,
+    handle_type: Option<&Type>,
+) -> Option<(Vec<Type>, Type)> {
+    let reports_interrupt = name.ends_with("_result");
+    let item = select_item_type(expected, reports_interrupt)
+        .or_else(|| receiver_item_type(handle_type))
+        .unwrap_or(Type::Unknown);
+    let mut params = vec![
+        Type::named("Receiver", vec![item.clone()]),
+        Type::named("Receiver", vec![item.clone()]),
+    ];
+    if matches!(name, "select_timeout" | "select_timeout_result") {
+        params.push(Type::int());
+    }
+    let output = Type::named("Option", vec![select_output_record(item)]);
+    let return_type = if reports_interrupt {
+        Type::result(output, Type::named("SelectError", Vec::new()))
+    } else {
+        output
+    };
+    Some((params, return_type))
+}
+
+fn task_signature(
+    name: &str,
+    expected: Option<&Type>,
+    handle_type: Option<&Type>,
+    explicit_item: Option<&Type>,
+) -> Option<(Vec<Type>, Type)> {
+    let unknown = Type::Unknown;
+    match name {
+        "spawn" => task_spawn_signature(expected, handle_type, explicit_item),
+        "join" => task_join_signature(handle_type),
+        "cancel" => Some((vec![Type::named("Task", vec![unknown])], Type::unit())),
+        _ => None,
+    }
+}
+
+fn task_spawn_signature(
+    expected: Option<&Type>,
+    handle_type: Option<&Type>,
+    explicit_item: Option<&Type>,
+) -> Option<(Vec<Type>, Type)> {
+    let item = explicit_item
+        .cloned()
+        .or_else(|| {
+            expected
+                .and_then(|ty| named_type_argument(ty, "Task"))
+                .cloned()
+        })
+        .or_else(|| handle_type.and_then(function_return_type).cloned())
+        .unwrap_or(Type::Unknown);
+    Some((
+        vec![Type::Function {
+            params: Vec::new(),
+            return_type: Box::new(item.clone()),
+            effects: vec!["concurrency".to_string()],
+        }],
+        Type::named("Task", vec![item]),
+    ))
+}
+
+fn task_join_signature(handle_type: Option<&Type>) -> Option<(Vec<Type>, Type)> {
+    let item = handle_type
+        .and_then(|ty| named_type_argument(ty, "Task"))
+        .cloned()
+        .unwrap_or(Type::Unknown);
+    Some((
+        vec![Type::named("Task", vec![item.clone()])],
+        Type::result(item, Type::named("JoinError", Vec::new())),
+    ))
+}
+
+fn sender_item_type(handle_type: Option<&Type>) -> Type {
+    handle_type
+        .and_then(|ty| named_type_argument(ty, "Sender"))
+        .cloned()
+        .unwrap_or(Type::Unknown)
+}
+
+fn receiver_item_type(handle_type: Option<&Type>) -> Option<Type> {
+    handle_type
+        .and_then(|ty| named_type_argument(ty, "Receiver"))
+        .cloned()
 }
 
 fn function_return_type(ty: &Type) -> Option<&Type> {
@@ -245,9 +289,22 @@ pub(crate) fn core_concurrency_signature(
     let [module, name] = segments else {
         return None;
     };
+    match module.as_str() {
+        "channel" => core_channel_signature(name, expected, handle_type, explicit_item),
+        "task" => core_task_signature(name, expected, handle_type, explicit_item),
+        _ => None,
+    }
+}
+
+fn core_channel_signature(
+    name: &str,
+    expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+    explicit_item: Option<&CoreType>,
+) -> Option<(Vec<CoreType>, CoreType)> {
     let unknown = CoreType::Unknown;
-    match (module.as_str(), name.as_str()) {
-        ("channel", "bounded") => {
+    match name {
+        "bounded" => {
             let item = explicit_item
                 .cloned()
                 .or_else(|| core_channel_pair_item_type(expected))
@@ -263,109 +320,139 @@ pub(crate) fn core_concurrency_signature(
                 ]),
             ))
         }
-        ("channel", "clone") => {
-            let item = handle_type
-                .and_then(|ty| core_named_type_argument(ty, "Sender"))
-                .cloned()
-                .unwrap_or(CoreType::Unknown);
-            Some((
-                vec![CoreType::named("Sender", vec![item.clone()])],
-                CoreType::named("Sender", vec![item]),
-            ))
-        }
-        ("channel", "send") => Some((
+        "clone" => core_sender_clone_signature(handle_type),
+        "send" => Some((
             vec![
                 CoreType::named("Sender", vec![unknown.clone()]),
                 unknown.clone(),
             ],
             CoreType::result(CoreType::unit(), CoreType::named("SendError", Vec::new())),
         )),
-        ("channel", "recv") => {
-            let item = expected
-                .and_then(CoreType::option_part)
-                .cloned()
-                .or_else(|| {
-                    handle_type
-                        .and_then(|ty| core_named_type_argument(ty, "Receiver"))
-                        .cloned()
-                })
-                .unwrap_or(CoreType::Unknown);
-            Some((
-                vec![CoreType::named("Receiver", vec![item.clone()])],
-                CoreType::option(item),
-            ))
-        }
-        (
-            "channel",
-            "select"
-            | "select_priority"
-            | "select_timeout"
-            | "select_result"
-            | "select_priority_result"
-            | "select_timeout_result",
-        ) => {
-            let reports_interrupt = name.ends_with("_result");
-            let item = core_select_item_type(expected, reports_interrupt)
-                .or_else(|| {
-                    handle_type
-                        .and_then(|ty| core_named_type_argument(ty, "Receiver"))
-                        .cloned()
-                })
-                .unwrap_or(CoreType::Unknown);
-            let mut params = vec![
-                CoreType::named("Receiver", vec![item.clone()]),
-                CoreType::named("Receiver", vec![item.clone()]),
-            ];
-            if matches!(name.as_str(), "select_timeout" | "select_timeout_result") {
-                params.push(CoreType::int());
-            }
-            let output = CoreType::option(core_select_output_record(item));
-            let return_type = if reports_interrupt {
-                CoreType::result(output, CoreType::named("SelectError", Vec::new()))
-            } else {
-                output
-            };
-            Some((params, return_type))
-        }
-        ("channel", "close") => Some((
+        "recv" => core_receiver_recv_signature(expected, handle_type),
+        "select"
+        | "select_priority"
+        | "select_timeout"
+        | "select_result"
+        | "select_priority_result"
+        | "select_timeout_result" => core_select_signature(name, expected, handle_type),
+        "close" => Some((
             vec![CoreType::named("Sender", vec![unknown])],
             CoreType::unit(),
         )),
-        ("task", "spawn") => {
-            let item = explicit_item
-                .cloned()
-                .or_else(|| {
-                    expected
-                        .and_then(|ty| core_named_type_argument(ty, "Task"))
-                        .cloned()
-                })
-                .or_else(|| handle_type.and_then(core_function_return_type).cloned())
-                .unwrap_or(CoreType::Unknown);
-            Some((
-                vec![CoreType::Function {
-                    params: Vec::new(),
-                    return_type: Box::new(item.clone()),
-                    effects: vec!["concurrency".to_string()],
-                }],
-                CoreType::named("Task", vec![item]),
-            ))
-        }
-        ("task", "join") => {
-            let item = handle_type
-                .and_then(|ty| core_named_type_argument(ty, "Task"))
-                .cloned()
-                .unwrap_or(CoreType::Unknown);
-            Some((
-                vec![CoreType::named("Task", vec![item.clone()])],
-                CoreType::result(item, CoreType::named("JoinError", Vec::new())),
-            ))
-        }
-        ("task", "cancel") => Some((
+        _ => None,
+    }
+}
+
+fn core_sender_clone_signature(
+    handle_type: Option<&CoreType>,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let item = handle_type
+        .and_then(|ty| core_named_type_argument(ty, "Sender"))
+        .cloned()
+        .unwrap_or(CoreType::Unknown);
+    Some((
+        vec![CoreType::named("Sender", vec![item.clone()])],
+        CoreType::named("Sender", vec![item]),
+    ))
+}
+
+fn core_receiver_recv_signature(
+    expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let item = expected
+        .and_then(CoreType::option_part)
+        .cloned()
+        .or_else(|| core_receiver_item_type(handle_type))
+        .unwrap_or(CoreType::Unknown);
+    Some((
+        vec![CoreType::named("Receiver", vec![item.clone()])],
+        CoreType::option(item),
+    ))
+}
+
+fn core_select_signature(
+    name: &str,
+    expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let reports_interrupt = name.ends_with("_result");
+    let item = core_select_item_type(expected, reports_interrupt)
+        .or_else(|| core_receiver_item_type(handle_type))
+        .unwrap_or(CoreType::Unknown);
+    let mut params = vec![
+        CoreType::named("Receiver", vec![item.clone()]),
+        CoreType::named("Receiver", vec![item.clone()]),
+    ];
+    if matches!(name, "select_timeout" | "select_timeout_result") {
+        params.push(CoreType::int());
+    }
+    let output = CoreType::option(core_select_output_record(item));
+    let return_type = if reports_interrupt {
+        CoreType::result(output, CoreType::named("SelectError", Vec::new()))
+    } else {
+        output
+    };
+    Some((params, return_type))
+}
+
+fn core_task_signature(
+    name: &str,
+    expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+    explicit_item: Option<&CoreType>,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let unknown = CoreType::Unknown;
+    match name {
+        "spawn" => core_task_spawn_signature(expected, handle_type, explicit_item),
+        "join" => core_task_join_signature(handle_type),
+        "cancel" => Some((
             vec![CoreType::named("Task", vec![unknown])],
             CoreType::unit(),
         )),
         _ => None,
     }
+}
+
+fn core_task_spawn_signature(
+    expected: Option<&CoreType>,
+    handle_type: Option<&CoreType>,
+    explicit_item: Option<&CoreType>,
+) -> Option<(Vec<CoreType>, CoreType)> {
+    let item = explicit_item
+        .cloned()
+        .or_else(|| {
+            expected
+                .and_then(|ty| core_named_type_argument(ty, "Task"))
+                .cloned()
+        })
+        .or_else(|| handle_type.and_then(core_function_return_type).cloned())
+        .unwrap_or(CoreType::Unknown);
+    Some((
+        vec![CoreType::Function {
+            params: Vec::new(),
+            return_type: Box::new(item.clone()),
+            effects: vec!["concurrency".to_string()],
+        }],
+        CoreType::named("Task", vec![item]),
+    ))
+}
+
+fn core_task_join_signature(handle_type: Option<&CoreType>) -> Option<(Vec<CoreType>, CoreType)> {
+    let item = handle_type
+        .and_then(|ty| core_named_type_argument(ty, "Task"))
+        .cloned()
+        .unwrap_or(CoreType::Unknown);
+    Some((
+        vec![CoreType::named("Task", vec![item.clone()])],
+        CoreType::result(item, CoreType::named("JoinError", Vec::new())),
+    ))
+}
+
+fn core_receiver_item_type(handle_type: Option<&CoreType>) -> Option<CoreType> {
+    handle_type
+        .and_then(|ty| core_named_type_argument(ty, "Receiver"))
+        .cloned()
 }
 
 pub(crate) fn is_concurrency_call(segments: &[String]) -> bool {

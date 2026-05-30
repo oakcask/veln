@@ -92,90 +92,164 @@ fn lower_expr(expr: &CoreExpr) -> Result<IrExpr, IrLowerError> {
         node_id: expr.node_id,
         ty: expr.ty.clone(),
         span: expr.span.clone(),
-        kind: match &expr.kind {
-            CoreExprKind::Missing => {
-                return Err(IrLowerError::MissingExpression {
-                    node_id: expr.node_id,
-                });
-            }
-            CoreExprKind::Hole { .. } => {
-                return Err(IrLowerError::Hole {
-                    node_id: expr.node_id,
-                });
-            }
-            CoreExprKind::Local(name) => IrExprKind::Local(name.clone()),
-            CoreExprKind::BoolLiteral(value) => IrExprKind::BoolLiteral(*value),
-            CoreExprKind::StringLiteral(value) => IrExprKind::StringLiteral(value.clone()),
-            CoreExprKind::IntLiteral(value) => IrExprKind::IntLiteral(value.clone()),
-            CoreExprKind::FloatLiteral(value) => IrExprKind::FloatLiteral(value.clone()),
-            CoreExprKind::Unit => IrExprKind::Unit,
-            CoreExprKind::FunctionValue(name) => IrExprKind::FunctionValue(name.clone()),
-            CoreExprKind::ResultOk(value) => IrExprKind::ResultOk(Box::new(lower_expr(value)?)),
-            CoreExprKind::ResultErr(value) => IrExprKind::ResultErr(Box::new(lower_expr(value)?)),
-            CoreExprKind::OptionSome(value) => IrExprKind::OptionSome(Box::new(lower_expr(value)?)),
-            CoreExprKind::OptionNone => IrExprKind::OptionNone,
-            CoreExprKind::Call { target, args } => IrExprKind::Call {
-                target: lower_call_target(expr.node_id, target)?,
-                args: args.iter().map(lower_expr).collect::<Result<Vec<_>, _>>()?,
-            },
-            CoreExprKind::FieldAccess { base, field } => IrExprKind::FieldAccess {
-                base: Box::new(lower_expr(base)?),
-                field: field.clone(),
-            },
-            CoreExprKind::Try(value) => IrExprKind::Try(Box::new(lower_expr(value)?)),
-            CoreExprKind::Record(fields) => IrExprKind::Record(
-                fields
-                    .iter()
-                    .map(|field| {
-                        Ok(IrRecordField {
-                            node_id: field.node_id,
-                            name: field.name.clone(),
-                            value: lower_expr(&field.expr)?,
-                        })
-                    })
-                    .collect::<Result<Vec<_>, IrLowerError>>()?,
-            ),
-            CoreExprKind::Dict(entries) => IrExprKind::Dict(
-                entries
-                    .iter()
-                    .map(|entry| {
-                        Ok(IrDictEntry {
-                            node_id: entry.node_id,
-                            key: lower_expr(&entry.key)?,
-                            value: lower_expr(&entry.value)?,
-                        })
-                    })
-                    .collect::<Result<Vec<_>, IrLowerError>>()?,
-            ),
-            CoreExprKind::List(items) => IrExprKind::List(
-                items
-                    .iter()
-                    .map(lower_expr)
-                    .collect::<Result<Vec<_>, _>>()?,
-            ),
-            CoreExprKind::Match { scrutinee, arms } => IrExprKind::Match {
-                scrutinee: Box::new(lower_expr(scrutinee)?),
-                arms: arms
-                    .iter()
-                    .map(|arm| {
-                        Ok(IrMatchArm {
-                            node_id: arm.node_id,
-                            pattern: lower_pattern(&arm.pattern),
-                            value: lower_expr(&arm.expr)?,
-                        })
-                    })
-                    .collect::<Result<Vec<_>, IrLowerError>>()?,
-            },
-            CoreExprKind::Prefix { op, expr } => IrExprKind::Prefix {
-                op: *op,
-                expr: Box::new(lower_expr(expr)?),
-            },
-            CoreExprKind::Binary { op, left, right } => IrExprKind::Binary {
-                op: *op,
-                left: Box::new(lower_expr(left)?),
-                right: Box::new(lower_expr(right)?),
-            },
-        },
+        kind: lower_expr_kind(expr)?,
+    })
+}
+
+fn lower_expr_kind(expr: &CoreExpr) -> Result<IrExprKind, IrLowerError> {
+    if let Some(kind) = lower_blocked_expr(expr)? {
+        return Ok(kind);
+    }
+    if let Some(kind) = lower_scalar_expr(expr) {
+        return Ok(kind);
+    }
+    if let Some(kind) = lower_wrapped_expr(expr)? {
+        return Ok(kind);
+    }
+    if let Some(kind) = lower_collection_expr(expr)? {
+        return Ok(kind);
+    }
+    lower_operator_expr(expr)
+}
+
+fn lower_blocked_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+    match &expr.kind {
+        CoreExprKind::Missing => Err(IrLowerError::MissingExpression {
+            node_id: expr.node_id,
+        }),
+        CoreExprKind::Hole { .. } => Err(IrLowerError::Hole {
+            node_id: expr.node_id,
+        }),
+        _ => Ok(None),
+    }
+}
+
+fn lower_scalar_expr(expr: &CoreExpr) -> Option<IrExprKind> {
+    match &expr.kind {
+        CoreExprKind::Local(name) => Some(IrExprKind::Local(name.clone())),
+        CoreExprKind::BoolLiteral(value) => Some(IrExprKind::BoolLiteral(*value)),
+        CoreExprKind::StringLiteral(value) => Some(IrExprKind::StringLiteral(value.clone())),
+        CoreExprKind::IntLiteral(value) => Some(IrExprKind::IntLiteral(value.clone())),
+        CoreExprKind::FloatLiteral(value) => Some(IrExprKind::FloatLiteral(value.clone())),
+        CoreExprKind::Unit => Some(IrExprKind::Unit),
+        CoreExprKind::FunctionValue(name) => Some(IrExprKind::FunctionValue(name.clone())),
+        CoreExprKind::OptionNone => Some(IrExprKind::OptionNone),
+        _ => None,
+    }
+}
+
+fn lower_wrapped_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+    match &expr.kind {
+        CoreExprKind::ResultOk(value) => lower_unary_expr(value, IrExprKind::ResultOk).map(Some),
+        CoreExprKind::ResultErr(value) => lower_unary_expr(value, IrExprKind::ResultErr).map(Some),
+        CoreExprKind::OptionSome(value) => {
+            lower_unary_expr(value, IrExprKind::OptionSome).map(Some)
+        }
+        CoreExprKind::Call { target, args } => {
+            lower_call_expr(expr.node_id, target, args).map(Some)
+        }
+        CoreExprKind::FieldAccess { base, field } => Ok(Some(IrExprKind::FieldAccess {
+            base: Box::new(lower_expr(base)?),
+            field: field.clone(),
+        })),
+        CoreExprKind::Try(value) => lower_unary_expr(value, IrExprKind::Try).map(Some),
+        _ => Ok(None),
+    }
+}
+
+fn lower_collection_expr(expr: &CoreExpr) -> Result<Option<IrExprKind>, IrLowerError> {
+    match &expr.kind {
+        CoreExprKind::Record(fields) => lower_record_expr(fields).map(Some),
+        CoreExprKind::Dict(entries) => lower_dict_expr(entries).map(Some),
+        CoreExprKind::List(items) => Ok(Some(IrExprKind::List(lower_exprs(items)?))),
+        CoreExprKind::Match { scrutinee, arms } => lower_match_expr(scrutinee, arms).map(Some),
+        _ => Ok(None),
+    }
+}
+
+fn lower_operator_expr(expr: &CoreExpr) -> Result<IrExprKind, IrLowerError> {
+    match &expr.kind {
+        CoreExprKind::Prefix { op, expr } => Ok(IrExprKind::Prefix {
+            op: *op,
+            expr: Box::new(lower_expr(expr)?),
+        }),
+        CoreExprKind::Binary { op, left, right } => Ok(IrExprKind::Binary {
+            op: *op,
+            left: Box::new(lower_expr(left)?),
+            right: Box::new(lower_expr(right)?),
+        }),
+        _ => unreachable!("core expression variant should be handled before operator lowering"),
+    }
+}
+
+fn lower_unary_expr(
+    expr: &CoreExpr,
+    build: impl FnOnce(Box<IrExpr>) -> IrExprKind,
+) -> Result<IrExprKind, IrLowerError> {
+    Ok(build(Box::new(lower_expr(expr)?)))
+}
+
+fn lower_call_expr(
+    node_id: NodeId,
+    target: &veln_core::CoreCallTarget,
+    args: &[CoreExpr],
+) -> Result<IrExprKind, IrLowerError> {
+    Ok(IrExprKind::Call {
+        target: lower_call_target(node_id, target)?,
+        args: lower_exprs(args)?,
+    })
+}
+
+fn lower_exprs(exprs: &[CoreExpr]) -> Result<Vec<IrExpr>, IrLowerError> {
+    exprs.iter().map(lower_expr).collect()
+}
+
+fn lower_record_expr(fields: &[veln_core::CoreRecordField]) -> Result<IrExprKind, IrLowerError> {
+    Ok(IrExprKind::Record(
+        fields
+            .iter()
+            .map(|field| {
+                Ok(IrRecordField {
+                    node_id: field.node_id,
+                    name: field.name.clone(),
+                    value: lower_expr(&field.expr)?,
+                })
+            })
+            .collect::<Result<Vec<_>, IrLowerError>>()?,
+    ))
+}
+
+fn lower_dict_expr(entries: &[veln_core::CoreDictEntry]) -> Result<IrExprKind, IrLowerError> {
+    Ok(IrExprKind::Dict(
+        entries
+            .iter()
+            .map(|entry| {
+                Ok(IrDictEntry {
+                    node_id: entry.node_id,
+                    key: lower_expr(&entry.key)?,
+                    value: lower_expr(&entry.value)?,
+                })
+            })
+            .collect::<Result<Vec<_>, IrLowerError>>()?,
+    ))
+}
+
+fn lower_match_expr(
+    scrutinee: &CoreExpr,
+    arms: &[veln_core::CoreMatchArm],
+) -> Result<IrExprKind, IrLowerError> {
+    Ok(IrExprKind::Match {
+        scrutinee: Box::new(lower_expr(scrutinee)?),
+        arms: arms
+            .iter()
+            .map(|arm| {
+                Ok(IrMatchArm {
+                    node_id: arm.node_id,
+                    pattern: lower_pattern(&arm.pattern),
+                    value: lower_expr(&arm.expr)?,
+                })
+            })
+            .collect::<Result<Vec<_>, IrLowerError>>()?,
     })
 }
 

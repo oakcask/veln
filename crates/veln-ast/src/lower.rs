@@ -38,6 +38,31 @@ pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
     }
 }
 
+fn lower_prefix_op(op: SyntaxPrefixOp) -> PrefixOp {
+    match op {
+        SyntaxPrefixOp::Not => PrefixOp::Not,
+        SyntaxPrefixOp::Negate => PrefixOp::Negate,
+    }
+}
+
+fn lower_binary_op(op: SyntaxBinaryOp) -> BinaryOp {
+    match op {
+        SyntaxBinaryOp::PipeGreater => BinaryOp::PipeGreater,
+        SyntaxBinaryOp::Or => BinaryOp::Or,
+        SyntaxBinaryOp::And => BinaryOp::And,
+        SyntaxBinaryOp::Equal => BinaryOp::Equal,
+        SyntaxBinaryOp::NotEqual => BinaryOp::NotEqual,
+        SyntaxBinaryOp::Less => BinaryOp::Less,
+        SyntaxBinaryOp::LessEqual => BinaryOp::LessEqual,
+        SyntaxBinaryOp::Greater => BinaryOp::Greater,
+        SyntaxBinaryOp::GreaterEqual => BinaryOp::GreaterEqual,
+        SyntaxBinaryOp::Add => BinaryOp::Add,
+        SyntaxBinaryOp::Subtract => BinaryOp::Subtract,
+        SyntaxBinaryOp::Multiply => BinaryOp::Multiply,
+        SyntaxBinaryOp::Divide => BinaryOp::Divide,
+    }
+}
+
 struct AstBuilder {
     next_node_id: u32,
 }
@@ -156,91 +181,124 @@ impl AstBuilder {
     fn lower_expr(&mut self, expr: &SyntaxExpr) -> Expr {
         Expr {
             node_id: self.alloc(),
-            kind: match &expr.kind {
-                SyntaxExprKind::Missing => ExprKind::Missing,
-                SyntaxExprKind::Hole { name, satisfy } => ExprKind::Hole {
-                    name: name.clone(),
-                    satisfy: satisfy.as_ref().map(crate::satisfy::lower_satisfy_clause),
-                },
-                SyntaxExprKind::NamePath(segments) => ExprKind::NamePath(segments.clone()),
-                SyntaxExprKind::StringLiteral(value) => ExprKind::StringLiteral(value.clone()),
-                SyntaxExprKind::IntLiteral(value) => ExprKind::IntLiteral(value.clone()),
-                SyntaxExprKind::FloatLiteral(value) => ExprKind::FloatLiteral(value.clone()),
-                SyntaxExprKind::BoolLiteral(value) => ExprKind::BoolLiteral(*value),
-                SyntaxExprKind::Unit => ExprKind::Unit,
-                SyntaxExprKind::TypeApply { callee, type_args } => ExprKind::TypeApply {
-                    callee: Box::new(self.lower_expr(callee)),
-                    type_args: type_args.clone(),
-                },
-                SyntaxExprKind::Call { callee, args } => ExprKind::Call {
-                    callee: Box::new(self.lower_expr(callee)),
-                    args: args.iter().map(|arg| self.lower_expr(arg)).collect(),
-                },
-                SyntaxExprKind::FieldAccess {
-                    base,
-                    field,
-                    field_span,
-                } => ExprKind::FieldAccess {
-                    base: Box::new(self.lower_expr(base)),
-                    field: field.clone(),
-                    field_span: field_span.clone(),
-                },
-                SyntaxExprKind::Try(expr) => ExprKind::Try(Box::new(self.lower_expr(expr))),
-                SyntaxExprKind::Record(fields) => ExprKind::Record(
-                    fields
-                        .iter()
-                        .map(|field| self.lower_record_field(field))
-                        .collect(),
-                ),
-                SyntaxExprKind::Dict(entries) => ExprKind::Dict(
-                    entries
-                        .iter()
-                        .map(|entry| self.lower_dict_entry(entry))
-                        .collect(),
-                ),
-                SyntaxExprKind::List(items) => {
-                    ExprKind::List(items.iter().map(|item| self.lower_expr(item)).collect())
-                }
-                SyntaxExprKind::Match { scrutinee, arms } => ExprKind::Match {
-                    scrutinee: Box::new(self.lower_expr(scrutinee)),
-                    arms: arms
-                        .iter()
-                        .map(|arm| MatchArm {
-                            node_id: self.alloc(),
-                            pattern: self.lower_pattern(&arm.pattern),
-                            expr: self.lower_expr(&arm.expr),
-                            span: arm.span.clone(),
-                        })
-                        .collect(),
-                },
-                SyntaxExprKind::Prefix { op, expr } => ExprKind::Prefix {
-                    op: match op {
-                        SyntaxPrefixOp::Not => PrefixOp::Not,
-                        SyntaxPrefixOp::Negate => PrefixOp::Negate,
-                    },
-                    expr: Box::new(self.lower_expr(expr)),
-                },
-                SyntaxExprKind::Binary { op, left, right } => ExprKind::Binary {
-                    op: match op {
-                        SyntaxBinaryOp::PipeGreater => BinaryOp::PipeGreater,
-                        SyntaxBinaryOp::Or => BinaryOp::Or,
-                        SyntaxBinaryOp::And => BinaryOp::And,
-                        SyntaxBinaryOp::Equal => BinaryOp::Equal,
-                        SyntaxBinaryOp::NotEqual => BinaryOp::NotEqual,
-                        SyntaxBinaryOp::Less => BinaryOp::Less,
-                        SyntaxBinaryOp::LessEqual => BinaryOp::LessEqual,
-                        SyntaxBinaryOp::Greater => BinaryOp::Greater,
-                        SyntaxBinaryOp::GreaterEqual => BinaryOp::GreaterEqual,
-                        SyntaxBinaryOp::Add => BinaryOp::Add,
-                        SyntaxBinaryOp::Subtract => BinaryOp::Subtract,
-                        SyntaxBinaryOp::Multiply => BinaryOp::Multiply,
-                        SyntaxBinaryOp::Divide => BinaryOp::Divide,
-                    },
-                    left: Box::new(self.lower_expr(left)),
-                    right: Box::new(self.lower_expr(right)),
-                },
-            },
+            kind: self.lower_expr_kind(expr),
             span: expr.span.clone(),
+        }
+    }
+
+    fn lower_expr_kind(&mut self, expr: &SyntaxExpr) -> ExprKind {
+        if let Some(kind) = self.lower_scalar_expr_kind(expr) {
+            return kind;
+        }
+        if let Some(kind) = self.lower_call_like_expr_kind(expr) {
+            return kind;
+        }
+        if let Some(kind) = self.lower_collection_expr_kind(expr) {
+            return kind;
+        }
+        self.lower_operator_expr_kind(expr)
+    }
+
+    fn lower_scalar_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
+        match &expr.kind {
+            SyntaxExprKind::Missing => Some(ExprKind::Missing),
+            SyntaxExprKind::Hole { name, satisfy } => Some(ExprKind::Hole {
+                name: name.clone(),
+                satisfy: satisfy.as_ref().map(crate::satisfy::lower_satisfy_clause),
+            }),
+            SyntaxExprKind::NamePath(segments) => Some(ExprKind::NamePath(segments.clone())),
+            SyntaxExprKind::StringLiteral(value) => Some(ExprKind::StringLiteral(value.clone())),
+            SyntaxExprKind::IntLiteral(value) => Some(ExprKind::IntLiteral(value.clone())),
+            SyntaxExprKind::FloatLiteral(value) => Some(ExprKind::FloatLiteral(value.clone())),
+            SyntaxExprKind::BoolLiteral(value) => Some(ExprKind::BoolLiteral(*value)),
+            SyntaxExprKind::Unit => Some(ExprKind::Unit),
+            _ => None,
+        }
+    }
+
+    fn lower_call_like_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
+        match &expr.kind {
+            SyntaxExprKind::TypeApply { callee, type_args } => Some(ExprKind::TypeApply {
+                callee: Box::new(self.lower_expr(callee)),
+                type_args: type_args.clone(),
+            }),
+            SyntaxExprKind::Call { callee, args } => Some(ExprKind::Call {
+                callee: Box::new(self.lower_expr(callee)),
+                args: self.lower_exprs(args),
+            }),
+            SyntaxExprKind::FieldAccess {
+                base,
+                field,
+                field_span,
+            } => Some(ExprKind::FieldAccess {
+                base: Box::new(self.lower_expr(base)),
+                field: field.clone(),
+                field_span: field_span.clone(),
+            }),
+            SyntaxExprKind::Try(expr) => Some(ExprKind::Try(Box::new(self.lower_expr(expr)))),
+            _ => None,
+        }
+    }
+
+    fn lower_collection_expr_kind(&mut self, expr: &SyntaxExpr) -> Option<ExprKind> {
+        match &expr.kind {
+            SyntaxExprKind::Record(fields) => Some(ExprKind::Record(
+                fields
+                    .iter()
+                    .map(|field| self.lower_record_field(field))
+                    .collect(),
+            )),
+            SyntaxExprKind::Dict(entries) => Some(ExprKind::Dict(
+                entries
+                    .iter()
+                    .map(|entry| self.lower_dict_entry(entry))
+                    .collect(),
+            )),
+            SyntaxExprKind::List(items) => Some(ExprKind::List(self.lower_exprs(items))),
+            SyntaxExprKind::Match { scrutinee, arms } => {
+                Some(self.lower_match_expr(scrutinee, arms))
+            }
+            _ => None,
+        }
+    }
+
+    fn lower_operator_expr_kind(&mut self, expr: &SyntaxExpr) -> ExprKind {
+        match &expr.kind {
+            SyntaxExprKind::Prefix { op, expr } => ExprKind::Prefix {
+                op: lower_prefix_op(*op),
+                expr: Box::new(self.lower_expr(expr)),
+            },
+            SyntaxExprKind::Binary { op, left, right } => ExprKind::Binary {
+                op: lower_binary_op(*op),
+                left: Box::new(self.lower_expr(left)),
+                right: Box::new(self.lower_expr(right)),
+            },
+            _ => {
+                unreachable!("syntax expression variant should be handled before operator lowering")
+            }
+        }
+    }
+
+    fn lower_exprs(&mut self, exprs: &[SyntaxExpr]) -> Vec<Expr> {
+        exprs.iter().map(|expr| self.lower_expr(expr)).collect()
+    }
+
+    fn lower_match_expr(
+        &mut self,
+        scrutinee: &SyntaxExpr,
+        arms: &[veln_syntax::MatchArm],
+    ) -> ExprKind {
+        ExprKind::Match {
+            scrutinee: Box::new(self.lower_expr(scrutinee)),
+            arms: arms
+                .iter()
+                .map(|arm| MatchArm {
+                    node_id: self.alloc(),
+                    pattern: self.lower_pattern(&arm.pattern),
+                    expr: self.lower_expr(&arm.expr),
+                    span: arm.span.clone(),
+                })
+                .collect(),
         }
     }
 

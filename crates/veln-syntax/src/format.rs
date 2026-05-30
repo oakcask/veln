@@ -333,26 +333,23 @@ enum ExprSide {
 
 fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide, indent: usize) -> String {
     let prec = expr_prec(expr);
-    let mut rendered = match &expr.kind {
+    let mut rendered = format_expr_inner(expr, prec, indent);
+
+    let needs_parens = match side {
+        ExprSide::Root | ExprSide::Left => prec < parent_prec,
+        ExprSide::Right => prec <= parent_prec && matches!(expr.kind, ExprKind::Binary { .. }),
+    };
+    if needs_parens {
+        rendered.insert(0, '(');
+        rendered.push(')');
+    }
+    rendered
+}
+
+fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
+    match &expr.kind {
         ExprKind::Missing => "_".to_string(),
-        ExprKind::Hole { name, satisfy } => {
-            let mut text = String::from("_");
-            if let Some(name) = name {
-                text.push_str(name);
-            }
-            if let Some(satisfy) = satisfy {
-                text.push_str(" satisfy");
-                if let Some(candidate) = &satisfy.candidate {
-                    text.push(' ');
-                    text.push_str(candidate);
-                }
-                if !satisfy.predicate.is_empty() {
-                    text.push_str(" => ");
-                    text.push_str(&satisfy.predicate);
-                }
-            }
-            text
-        }
+        ExprKind::Hole { name, satisfy } => format_hole_expr(name.as_deref(), satisfy.as_ref()),
         ExprKind::NamePath(segments) => segments.join("::"),
         ExprKind::StringLiteral(value)
         | ExprKind::IntLiteral(value)
@@ -367,108 +364,132 @@ fn format_expr_prec(expr: &Expr, parent_prec: u8, side: ExprSide, indent: usize)
                 type_args.join(", ")
             )
         }
-        ExprKind::Call { callee, args } => {
-            let args = args
-                .iter()
-                .map(|arg| format_expr_at_indent(arg, indent))
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!(
-                "{}({args})",
-                format_expr_prec(callee, expr_prec(expr), ExprSide::Left, indent)
-            )
-        }
+        ExprKind::Call { callee, args } => format_call_expr(callee, args, prec, indent),
         ExprKind::FieldAccess { base, field, .. } => {
             format!(
                 "{}.{field}",
-                format_expr_prec(base, expr_prec(expr), ExprSide::Left, indent)
+                format_expr_prec(base, prec, ExprSide::Left, indent)
             )
         }
-        ExprKind::Try(inner) => format!(
-            "{}?",
-            format_expr_prec(inner, expr_prec(expr), ExprSide::Left, indent)
-        ),
-        ExprKind::Record(fields) => {
-            if fields.is_empty() {
-                return "{}".to_string();
-            }
-            let fields = fields
-                .iter()
-                .map(|field| {
-                    format!(
-                        "{}: {}",
-                        field.name,
-                        format_expr_at_indent(&field.expr, indent)
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("{{ {fields} }}")
+        ExprKind::Try(inner) => {
+            format!("{}?", format_expr_prec(inner, prec, ExprSide::Left, indent))
         }
-        ExprKind::Dict(entries) => {
-            let entries = entries
-                .iter()
-                .map(|entry| {
-                    format!(
-                        "{}: {}",
-                        format_expr_at_indent(&entry.key, indent),
-                        format_expr_at_indent(&entry.value, indent)
-                    )
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("{{ {entries} }}")
-        }
-        ExprKind::List(items) => {
-            let items = items
-                .iter()
-                .map(|item| format_expr_at_indent(item, indent))
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("[{items}]")
-        }
-        ExprKind::Match { scrutinee, arms } => {
-            let mut text = format!("match {}\n", format_expr_at_indent(scrutinee, indent));
-            for arm in arms {
-                push_indent(&mut text, indent + 1);
-                text.push_str(&format_pattern(&arm.pattern));
-                text.push_str(" => ");
-                text.push_str(&format_expr_at_indent(&arm.expr, indent + 1));
-                text.push('\n');
-            }
-            push_indent(&mut text, indent);
-            text.push_str("end");
-            text
-        }
-        ExprKind::Prefix { op, expr: inner } => match op {
-            PrefixOp::Not => format!(
-                "not {}",
-                format_expr_prec(inner, expr_prec(expr), ExprSide::Right, indent)
-            ),
-            PrefixOp::Negate => format!(
-                "-{}",
-                format_expr_prec(inner, expr_prec(expr), ExprSide::Right, indent)
-            ),
-        },
-        ExprKind::Binary { op, left, right } => {
-            let op_text = binary_op_text(*op);
-            format!(
-                "{} {op_text} {}",
-                format_expr_prec(left, expr_prec(expr), ExprSide::Left, indent),
-                format_expr_prec(right, expr_prec(expr), ExprSide::Right, indent)
-            )
-        }
-    };
-
-    let needs_parens = match side {
-        ExprSide::Root | ExprSide::Left => prec < parent_prec,
-        ExprSide::Right => prec <= parent_prec && matches!(expr.kind, ExprKind::Binary { .. }),
-    };
-    if needs_parens {
-        rendered.insert(0, '(');
-        rendered.push(')');
+        ExprKind::Record(fields) => format_record_expr(fields, indent),
+        ExprKind::Dict(entries) => format_dict_expr(entries, indent),
+        ExprKind::List(items) => format_list_expr(items, indent),
+        ExprKind::Match { scrutinee, arms } => format_match_expr(scrutinee, arms, indent),
+        ExprKind::Prefix { op, expr: inner } => format_prefix_expr(*op, inner, prec, indent),
+        ExprKind::Binary { op, left, right } => format_binary_expr(*op, left, right, prec, indent),
     }
-    rendered
+}
+
+fn format_hole_expr(name: Option<&str>, satisfy: Option<&crate::SatisfyClause>) -> String {
+    let mut text = String::from("_");
+    if let Some(name) = name {
+        text.push_str(name);
+    }
+    if let Some(satisfy) = satisfy {
+        text.push_str(" satisfy");
+        if let Some(candidate) = &satisfy.candidate {
+            text.push(' ');
+            text.push_str(candidate);
+        }
+        if !satisfy.predicate.is_empty() {
+            text.push_str(" => ");
+            text.push_str(&satisfy.predicate);
+        }
+    }
+    text
+}
+
+fn format_call_expr(callee: &Expr, args: &[Expr], prec: u8, indent: usize) -> String {
+    let args = args
+        .iter()
+        .map(|arg| format_expr_at_indent(arg, indent))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "{}({args})",
+        format_expr_prec(callee, prec, ExprSide::Left, indent)
+    )
+}
+
+fn format_record_expr(fields: &[crate::RecordField], indent: usize) -> String {
+    if fields.is_empty() {
+        return "{}".to_string();
+    }
+    let fields = fields
+        .iter()
+        .map(|field| {
+            format!(
+                "{}: {}",
+                field.name,
+                format_expr_at_indent(&field.expr, indent)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{{ {fields} }}")
+}
+
+fn format_dict_expr(entries: &[crate::DictEntry], indent: usize) -> String {
+    let entries = entries
+        .iter()
+        .map(|entry| {
+            format!(
+                "{}: {}",
+                format_expr_at_indent(&entry.key, indent),
+                format_expr_at_indent(&entry.value, indent)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{{ {entries} }}")
+}
+
+fn format_list_expr(items: &[Expr], indent: usize) -> String {
+    let items = items
+        .iter()
+        .map(|item| format_expr_at_indent(item, indent))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("[{items}]")
+}
+
+fn format_match_expr(scrutinee: &Expr, arms: &[crate::MatchArm], indent: usize) -> String {
+    let mut text = format!("match {}\n", format_expr_at_indent(scrutinee, indent));
+    for arm in arms {
+        push_indent(&mut text, indent + 1);
+        text.push_str(&format_pattern(&arm.pattern));
+        text.push_str(" => ");
+        text.push_str(&format_expr_at_indent(&arm.expr, indent + 1));
+        text.push('\n');
+    }
+    push_indent(&mut text, indent);
+    text.push_str("end");
+    text
+}
+
+fn format_prefix_expr(op: PrefixOp, inner: &Expr, prec: u8, indent: usize) -> String {
+    match op {
+        PrefixOp::Not => format!(
+            "not {}",
+            format_expr_prec(inner, prec, ExprSide::Right, indent)
+        ),
+        PrefixOp::Negate => format!(
+            "-{}",
+            format_expr_prec(inner, prec, ExprSide::Right, indent)
+        ),
+    }
+}
+
+fn format_binary_expr(op: BinaryOp, left: &Expr, right: &Expr, prec: u8, indent: usize) -> String {
+    let op_text = binary_op_text(op);
+    format!(
+        "{} {op_text} {}",
+        format_expr_prec(left, prec, ExprSide::Left, indent),
+        format_expr_prec(right, prec, ExprSide::Right, indent)
+    )
 }
 
 fn expr_prec(expr: &Expr) -> u8 {
