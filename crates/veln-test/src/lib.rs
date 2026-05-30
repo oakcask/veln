@@ -11,8 +11,12 @@ use veln_ast::{BodyLineKind, Expr, ExprKind, FunctionKind, SurfaceModule};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity, diagnostic_to_json};
 use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan, TextRange};
 
+mod runtime_expectation;
 mod selection;
 
+pub use runtime_expectation::{
+    ExpectedContractFailure, ExpectedResultFailure, ExpectedRuntimeFailure, apply_runtime_result,
+};
 pub use selection::{
     TestSelection, TestSelectionConfidence, TestSelectionMetadata, TestSelectionMode,
     TestSelectionPlan, TestSelectionReason, TestTargetExpansion, dependency_aware_selection_plan,
@@ -183,44 +187,6 @@ pub fn compare_expected_output(case: &mut TestCase) {
         expected_span,
         actual_events,
     ));
-}
-
-pub fn apply_runtime_result(case: &mut TestCase, actual_failure: Option<TestFailure>) {
-    let Some(expected) = &case.expected_runtime_failure else {
-        if let Some(failure) = actual_failure {
-            case.status = TestCaseStatus::Failed;
-            case.failure = Some(failure);
-        } else {
-            case.status = TestCaseStatus::Passed;
-        }
-        return;
-    };
-
-    match actual_failure {
-        Some(failure) if expected.matches(&failure) => {
-            case.status = TestCaseStatus::Passed;
-            case.reason = None;
-            case.failure = None;
-        }
-        Some(failure) => {
-            case.status = TestCaseStatus::Failed;
-            case.reason = Some("expected_runtime_failure".to_string());
-            case.failure = Some(TestFailure::runtime_expectation(
-                "runtime failure did not match expectation",
-                expected,
-                Some(failure),
-            ));
-        }
-        None => {
-            case.status = TestCaseStatus::Failed;
-            case.reason = Some("expected_runtime_failure".to_string());
-            case.failure = Some(TestFailure::runtime_expectation(
-                "expected runtime failure did not occur",
-                expected,
-                None,
-            ));
-        }
-    }
 }
 
 pub fn stdio_call_spans(module: &SurfaceModule) -> BTreeMap<(String, String), SourceSpan> {
@@ -805,70 +771,6 @@ pub struct ExpectedOutput {
     pub stderr_span: Option<SourceSpan>,
 }
 
-#[derive(Clone, Debug)]
-pub struct ExpectedRuntimeFailure {
-    pub kind: String,
-    pub clause: String,
-    pub predicate: String,
-    pub function: Option<String>,
-    pub blame: Option<String>,
-    pub value: Option<String>,
-    pub span: SourceSpan,
-}
-
-impl ExpectedRuntimeFailure {
-    fn matches(&self, failure: &TestFailure) -> bool {
-        match self.kind.as_str() {
-            "contract" => {
-                if failure.kind != "contract" {
-                    return false;
-                }
-                json_object_field(&failure.details, "kind") == Some("contract")
-                    && json_object_field(&failure.details, "phase") == Some("runtime")
-                    && json_object_field(&failure.details, "clause") == Some(self.clause.as_str())
-                    && json_object_field(&failure.details, "predicate")
-                        == Some(self.predicate.as_str())
-                    && self.function.as_deref().is_none_or(|function| {
-                        json_object_field(&failure.details, "function") == Some(function)
-                    })
-                    && self.blame.as_deref().is_none_or(|blame| {
-                        json_object_field(&failure.details, "blame") == Some(blame)
-                    })
-            }
-            "result" => {
-                failure.kind == "result"
-                    && json_object_field(&failure.details, "kind") == Some("result")
-                    && json_object_field(&failure.details, "phase") == Some("runtime")
-                    && self.value.as_deref().is_some_and(|value| {
-                        json_object_field(&failure.details, "value") == Some(value)
-                    })
-            }
-            _ => false,
-        }
-    }
-
-    fn to_json(&self) -> JsonValue {
-        let mut fields = vec![
-            ("kind", JsonValue::string(self.kind.clone())),
-            ("span", source_span_to_json(&self.span)),
-        ];
-        if self.kind == "contract" {
-            fields.push(("clause", JsonValue::string(self.clause.clone())));
-            fields.push(("predicate", JsonValue::string(self.predicate.clone())));
-        }
-        if let Some(function) = &self.function {
-            fields.push(("function", JsonValue::string(function.clone())));
-        }
-        if let Some(blame) = &self.blame {
-            fields.push(("blame", JsonValue::string(blame.clone())));
-        }
-        if let Some(value) = &self.value {
-            fields.push(("value", JsonValue::string(value.clone())));
-        }
-        JsonValue::object(fields)
-    }
-}
-
 pub struct OutputDifference {
     pub line: usize,
     pub expected: Option<String>,
@@ -1127,28 +1029,17 @@ fn doctest_should_fail(info: &str) -> bool {
 fn doctest_runtime_failure(info: &str, span: SourceSpan) -> Option<ExpectedRuntimeFailure> {
     let runtime = metadata_value(info, "runtime")?;
     match runtime {
-        "contract" => Some(ExpectedRuntimeFailure {
-            kind: "contract".to_string(),
-            clause: metadata_value(info, "clause")
-                .unwrap_or_default()
-                .to_string(),
-            predicate: metadata_value(info, "predicate")
-                .unwrap_or_default()
-                .to_string(),
+        "contract" => Some(ExpectedRuntimeFailure::Contract(ExpectedContractFailure {
+            clause: metadata_value(info, "clause")?.to_string(),
+            predicate: metadata_value(info, "predicate")?.to_string(),
             function: metadata_value(info, "function").map(ToString::to_string),
             blame: metadata_value(info, "blame").map(ToString::to_string),
-            value: None,
             span,
-        }),
-        "result" => Some(ExpectedRuntimeFailure {
-            kind: "result".to_string(),
-            clause: String::new(),
-            predicate: String::new(),
-            function: None,
-            blame: None,
-            value: metadata_value(info, "value").map(ToString::to_string),
+        })),
+        "result" => Some(ExpectedRuntimeFailure::Result(ExpectedResultFailure {
+            value: metadata_value(info, "value")?.to_string(),
             span,
-        }),
+        })),
         _ => None,
     }
 }
@@ -2022,7 +1913,9 @@ mod tests {
             .expected_runtime_failure
             .as_ref()
             .expect("runtime expectation should be recorded");
-        assert_eq!(expected.kind, "contract");
+        let ExpectedRuntimeFailure::Contract(expected) = expected else {
+            panic!("expected contract runtime failure");
+        };
         assert_eq!(expected.clause, "require");
         assert_eq!(expected.predicate, "false");
         assert_eq!(expected.function.as_deref(), Some("reject"));
@@ -2056,8 +1949,10 @@ mod tests {
             .expected_runtime_failure
             .as_ref()
             .expect("runtime expectation should be recorded");
-        assert_eq!(expected.kind, "result");
-        assert_eq!(expected.value.as_deref(), Some("bad"));
+        let ExpectedRuntimeFailure::Result(expected) = expected else {
+            panic!("expected result runtime failure");
+        };
+        assert_eq!(expected.value, "bad");
         assert!(
             doctests.diagnostics.is_empty(),
             "{:#?}",
@@ -3287,15 +3182,15 @@ mod tests {
             reason: None,
             failure: None,
             expected_output: None,
-            expected_runtime_failure: Some(ExpectedRuntimeFailure {
-                kind: "contract".to_string(),
-                clause: "require".to_string(),
-                predicate: "false".to_string(),
-                function: Some("reject".to_string()),
-                blame: Some("caller".to_string()),
-                value: None,
-                span: span.clone(),
-            }),
+            expected_runtime_failure: Some(ExpectedRuntimeFailure::Contract(
+                ExpectedContractFailure {
+                    clause: "require".to_string(),
+                    predicate: "false".to_string(),
+                    function: Some("reject".to_string()),
+                    blame: Some("caller".to_string()),
+                    span: span.clone(),
+                },
+            )),
             events: Vec::new(),
             diagnostics: Vec::new(),
         };
@@ -3336,15 +3231,10 @@ mod tests {
             reason: None,
             failure: None,
             expected_output: None,
-            expected_runtime_failure: Some(ExpectedRuntimeFailure {
-                kind: "result".to_string(),
-                clause: String::new(),
-                predicate: String::new(),
-                function: None,
-                blame: None,
-                value: Some("bad".to_string()),
+            expected_runtime_failure: Some(ExpectedRuntimeFailure::Result(ExpectedResultFailure {
+                value: "bad".to_string(),
                 span,
-            }),
+            })),
             events: Vec::new(),
             diagnostics: Vec::new(),
         };
@@ -3376,15 +3266,15 @@ mod tests {
             reason: None,
             failure: None,
             expected_output: None,
-            expected_runtime_failure: Some(ExpectedRuntimeFailure {
-                kind: "contract".to_string(),
-                clause: "require".to_string(),
-                predicate: "true".to_string(),
-                function: Some("reject".to_string()),
-                blame: Some("caller".to_string()),
-                value: None,
-                span: span.clone(),
-            }),
+            expected_runtime_failure: Some(ExpectedRuntimeFailure::Contract(
+                ExpectedContractFailure {
+                    clause: "require".to_string(),
+                    predicate: "true".to_string(),
+                    function: Some("reject".to_string()),
+                    blame: Some("caller".to_string()),
+                    span: span.clone(),
+                },
+            )),
             events: Vec::new(),
             diagnostics: Vec::new(),
         };

@@ -20,7 +20,7 @@ equals = "failed"
 
 [[json_assert]]
 path = "summary.total"
-equals = 3
+equals = 4
 
 [[json_assert]]
 path = "summary.passed"
@@ -28,7 +28,7 @@ equals = 1
 
 [[json_assert]]
 path = "summary.failed"
-equals = 2
+equals = 3
 
 [[json_assert]]
 path = "cases.0.name"
@@ -137,3 +137,43 @@ equals = "false"
 [[json_assert]]
 path = "cases.2.failure.details.actual"
 equals = null
+
+[[json_assert]]
+path = "cases.3.name"
+equals = "doctest_4"
+
+[[json_assert]]
+path = "cases.3.status"
+equals = "failed"
+
+[[json_assert]]
+path = "cases.3.reason"
+equals = "expected_runtime_failure"
+
+[[json_assert]]
+path = "cases.3.failure.kind"
+equals = "runtime_expectation"
+
+[[json_assert]]
+path = "cases.3.failure.details.expected.kind"
+equals = "contract"
+
+[[json_assert]]
+path = "cases.3.failure.details.expected.clause"
+equals = "require"
+
+[[json_assert]]
+path = "cases.3.failure.details.expected.predicate"
+equals = "false"
+
+[[json_assert]]
+path = "cases.3.failure.details.actual.kind"
+equals = "result"
+
+[[json_assert]]
+path = "cases.3.failure.details.actual.details.kind"
+equals = "result"
+
+[[json_assert]]
+path = "cases.3.failure.details.actual.details.value"
+equals = "actual"
