@@ -10,6 +10,7 @@ use veln_core::{
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
+use crate::adt::{self, AdtVariantKind};
 use crate::contracts::contract_predicate_is_statically_true;
 use crate::effects::{
     core_concurrency_signature, core_standard_library_signature, is_concurrency_call,
@@ -661,14 +662,17 @@ impl<'a> CoreLowerer<'a> {
         expected: Option<&CoreType>,
     ) -> CoreExpr {
         match segments {
-            segments if is_option_none_constructor(segments) => self.core_expr(
-                expr,
-                expected
-                    .filter(|expected| expected.option_part().is_some())
+            segments if adt::nullary_constructor(segments).is_some() => {
+                let constructor =
+                    adt::nullary_constructor(segments).expect("guard should provide constructor");
+                let ty = expected
+                    .filter(|expected| {
+                        adt::core_adt_args(expected, constructor.descriptor).is_some()
+                    })
                     .cloned()
-                    .unwrap_or_else(|| CoreType::option(CoreType::Unknown)),
-                CoreExprKind::OptionNone,
-            ),
+                    .unwrap_or_else(|| adt::core_constructed_type(constructor, CoreType::Unknown));
+                self.core_expr(expr, ty, core_nullary_constructor_kind(constructor))
+            }
             [name] => {
                 if let Some(binding) = self
                     .bindings
@@ -731,13 +735,11 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> Option<CoreExpr> {
-        if let ExprKind::NamePath(segments) = &callee.kind {
-            if let Some(is_ok) = result_constructor_kind(segments) {
-                return Some(self.lower_result_constructor(expr, args, expected, is_ok));
-            }
-            if is_option_some_constructor(segments) {
-                return Some(self.lower_option_constructor(expr, args, expected));
-            }
+        if let ExprKind::NamePath(segments) = &callee.kind
+            && let Some(constructor) = adt::constructor(segments)
+            && !constructor.variant.payload_fields.is_empty()
+        {
+            return Some(self.lower_adt_constructor(expr, args, expected, constructor));
         }
         None
     }
@@ -877,80 +879,28 @@ impl<'a> CoreLowerer<'a> {
             .collect()
     }
 
-    fn lower_result_constructor(
+    fn lower_adt_constructor(
         &mut self,
         expr: &Expr,
         args: &[Expr],
         expected: Option<&CoreType>,
-        is_ok: bool,
+        constructor: adt::AdtConstructor,
     ) -> CoreExpr {
-        if args.len() != 1 {
+        let expected_count = constructor.variant.payload_fields.len();
+        if args.len() != expected_count {
             self.unsupported_expression(
                 expr,
-                "result_constructor_arity_mismatch",
+                constructor_arity_reason(constructor),
                 format!(
-                    "result constructor expects 1 argument, but got {}",
+                    "{} constructor expects {expected_count} argument, but got {}",
+                    constructor.descriptor.diagnostic_name,
                     args.len()
                 ),
                 Some(JsonValue::object([
-                    ("expected_argument_count", JsonValue::Number(1)),
                     (
-                        "actual_argument_count",
-                        JsonValue::Number(args.len() as i64),
+                        "expected_argument_count",
+                        JsonValue::Number(expected_count as i64),
                     ),
-                ])),
-            );
-        }
-        let (value_type, error_type) = expected
-            .and_then(CoreType::result_parts)
-            .map_or((CoreType::Unknown, CoreType::Unknown), |(value, error)| {
-                (value.clone(), error.clone())
-            });
-        let arg_expected = if is_ok { &value_type } else { &error_type };
-        let first = args
-            .first()
-            .map(|arg| self.lower_expr(arg, Some(arg_expected)))
-            .unwrap_or_else(|| {
-                self.missing_expression(expr, Some(arg_expected), "missing_constructor_argument");
-                self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
-            });
-        let ty = if expected.and_then(CoreType::result_parts).is_some() {
-            CoreType::result(value_type, error_type)
-        } else if is_ok {
-            CoreType::result(first.ty.clone(), CoreType::Unknown)
-        } else {
-            CoreType::result(CoreType::Unknown, first.ty.clone())
-        };
-        for arg in args.iter().skip(1) {
-            self.lower_expr(arg, None);
-        }
-        self.core_expr(
-            expr,
-            ty,
-            if is_ok {
-                CoreExprKind::ResultOk(Box::new(first))
-            } else {
-                CoreExprKind::ResultErr(Box::new(first))
-            },
-        )
-    }
-
-    fn lower_option_constructor(
-        &mut self,
-        expr: &Expr,
-        args: &[Expr],
-        expected: Option<&CoreType>,
-    ) -> CoreExpr {
-        if args.len() != 1 {
-            self.unsupported_expression(
-                expr,
-                "option_constructor_arity_mismatch",
-                format!(
-                    "option constructor expects 1 argument, but got {}",
-                    args.len()
-                ),
-                Some(JsonValue::object([
-                    ("expected_argument_count", JsonValue::Number(1)),
                     (
                         "actual_argument_count",
                         JsonValue::Number(args.len() as i64),
@@ -959,7 +909,7 @@ impl<'a> CoreLowerer<'a> {
             );
         }
         let value_type = expected
-            .and_then(CoreType::option_part)
+            .and_then(|expected| adt::core_payload_type(expected, constructor, 0))
             .cloned()
             .unwrap_or(CoreType::Unknown);
         let first = args
@@ -969,15 +919,18 @@ impl<'a> CoreLowerer<'a> {
                 self.missing_expression(expr, Some(&value_type), "missing_constructor_argument");
                 self.core_expr(expr, CoreType::Unknown, CoreExprKind::Missing)
             });
+        let ty = if expected
+            .and_then(|expected| adt::core_adt_args(expected, constructor.descriptor))
+            .is_some()
+        {
+            expected.cloned().unwrap_or(CoreType::Unknown)
+        } else {
+            adt::core_constructed_type(constructor, first.ty.clone())
+        };
         for arg in args.iter().skip(1) {
             self.lower_expr(arg, None);
         }
-        let ty = if value_type == CoreType::Unknown {
-            CoreType::option(first.ty.clone())
-        } else {
-            CoreType::option(value_type)
-        };
-        self.core_expr(expr, ty, CoreExprKind::OptionSome(Box::new(first)))
+        self.core_expr(expr, ty, core_payload_constructor_kind(constructor, first))
     }
 
     fn lower_field_access(&mut self, expr: &Expr, base: &Expr, field: &str) -> CoreExpr {
@@ -1005,8 +958,7 @@ impl<'a> CoreLowerer<'a> {
             .and_then(|return_type| parse_type_annotation(return_type).ok())
             .map(|ty| core_type(&ty))
             .and_then(|ty| {
-                ty.result_parts()
-                    .map(|(value, error)| (value.clone(), error.clone()))
+                adt::core_result_parts(&ty).map(|(value, error)| (value.clone(), error.clone()))
             });
         let (value_type, error_type) = match (expected, return_result) {
             (Some(expected), Some((_, error))) => (expected.clone(), error),
@@ -1014,7 +966,7 @@ impl<'a> CoreLowerer<'a> {
             (None, Some((value, error))) => (value, error),
             (None, None) => (CoreType::Unknown, CoreType::Unknown),
         };
-        let inner_expected = CoreType::result(value_type.clone(), error_type);
+        let inner_expected = adt::core_result_type(value_type.clone(), error_type);
         let inner = self.lower_expr(inner, Some(&inner_expected));
         self.core_expr(expr, value_type, CoreExprKind::Try(Box::new(inner)))
     }
@@ -1162,29 +1114,19 @@ impl<'a> CoreLowerer<'a> {
                     Self::pattern_bindings(&field.pattern, field_type)
                 })
                 .collect(),
-            PatternKind::Constructor { name, args } if is_option_some_constructor(name) => {
-                scrutinee_type
-                    .option_part()
-                    .zip(args.first())
-                    .map_or_else(Vec::new, |(inner, pattern)| {
-                        Self::pattern_bindings(pattern, inner)
+            PatternKind::Constructor { name, args } => {
+                let Some(constructor) = adt::constructor(name) else {
+                    return Vec::new();
+                };
+                args.iter()
+                    .enumerate()
+                    .flat_map(|(index, pattern)| {
+                        let ty = adt::core_payload_type(scrutinee_type, constructor, index)
+                            .unwrap_or(&CoreType::Unknown);
+                        Self::pattern_bindings(pattern, ty)
                     })
+                    .collect()
             }
-            PatternKind::Constructor { name, args } => match result_constructor_kind(name) {
-                Some(true) => scrutinee_type
-                    .result_parts()
-                    .zip(args.first())
-                    .map_or_else(Vec::new, |((value, _), pattern)| {
-                        Self::pattern_bindings(pattern, value)
-                    }),
-                Some(false) => scrutinee_type
-                    .result_parts()
-                    .zip(args.first())
-                    .map_or_else(Vec::new, |((_, error), pattern)| {
-                        Self::pattern_bindings(pattern, error)
-                    }),
-                None => Vec::new(),
-            },
         }
     }
 
@@ -1368,24 +1310,31 @@ fn render_core_type(ty: &CoreType) -> String {
     }
 }
 
-fn result_constructor_kind(segments: &[String]) -> Option<bool> {
-    match segments {
-        [name] if name == "Ok" => Some(true),
-        [type_name, name] if type_name == "Result" && name == "Ok" => Some(true),
-        [name] if name == "Err" => Some(false),
-        [type_name, name] if type_name == "Result" && name == "Err" => Some(false),
-        _ => None,
+fn constructor_arity_reason(constructor: adt::AdtConstructor) -> &'static str {
+    match constructor.descriptor.type_name {
+        "Option" => "option_constructor_arity_mismatch",
+        "Result" => "result_constructor_arity_mismatch",
+        _ => "constructor_arity_mismatch",
     }
 }
 
-fn is_option_some_constructor(segments: &[String]) -> bool {
-    matches!(segments, [name] if name == "Some")
-        || matches!(segments, [type_name, name] if type_name == "Option" && name == "Some")
+fn core_nullary_constructor_kind(constructor: adt::AdtConstructor) -> CoreExprKind {
+    match constructor.variant.kind {
+        AdtVariantKind::OptionNone => CoreExprKind::OptionNone,
+        _ => CoreExprKind::Missing,
+    }
 }
 
-fn is_option_none_constructor(segments: &[String]) -> bool {
-    matches!(segments, [name] if name == "None")
-        || matches!(segments, [type_name, name] if type_name == "Option" && name == "None")
+fn core_payload_constructor_kind(
+    constructor: adt::AdtConstructor,
+    payload: CoreExpr,
+) -> CoreExprKind {
+    match constructor.variant.kind {
+        AdtVariantKind::OptionSome => CoreExprKind::OptionSome(Box::new(payload)),
+        AdtVariantKind::ResultOk => CoreExprKind::ResultOk(Box::new(payload)),
+        AdtVariantKind::ResultErr => CoreExprKind::ResultErr(Box::new(payload)),
+        AdtVariantKind::OptionNone => CoreExprKind::OptionNone,
+    }
 }
 
 fn is_ordering_op(op: BinaryOp) -> bool {

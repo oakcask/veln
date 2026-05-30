@@ -323,6 +323,62 @@ fn lowers_runnable_checked_program_to_core_and_typed_ir() {
 }
 
 #[test]
+fn constructor_arity_diagnostics_keep_constructor_source_spans() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn make_result() -> Result(Int, AppError)\n",
+            "  Ok()\n",
+            "end\n",
+            "fn make_option() -> Option(Int)\n",
+            "  Some(1, 2)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    assert!(parsed.diagnostics.is_empty(), "{:#?}", parsed.diagnostics);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    let result_arity = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "core.result_constructor_arity_mismatch")
+        .expect("result constructor arity should be diagnosed");
+    assert_eq!(
+        result_arity.message,
+        "result constructor expects 1 argument, but got 0"
+    );
+    assert_diagnostic_span(result_arity, 2, 3, 2, 7);
+
+    let missing_argument = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "core.missing_expression")
+        .expect("missing result constructor argument should be diagnosed");
+    assert_eq!(missing_argument.message, "expression is missing");
+    assert!(
+        missing_argument
+            .details
+            .to_json()
+            .contains("\"expected_type\":\"Int\"")
+    );
+    assert_diagnostic_span(missing_argument, 2, 3, 2, 7);
+
+    let option_arity = lowered
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "core.option_constructor_arity_mismatch")
+        .expect("option constructor arity should be diagnosed");
+    assert_eq!(
+        option_arity.message,
+        "option constructor expects 1 argument, but got 2"
+    );
+    assert_diagnostic_span(option_arity, 5, 3, 5, 13);
+}
+
+#[test]
 fn wildcard_let_lowers_to_discarding_expression_statement() {
     let source = SourceFile::new(
         "main.veln",

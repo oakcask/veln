@@ -2,6 +2,7 @@ use veln_ast::Expr;
 
 use veln_core::CoreType;
 
+use crate::adt;
 use crate::standard_symbols::{effect_strings, qualified_symbol};
 use crate::types::{CallOrigin, Type};
 
@@ -56,28 +57,25 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
     match (module, symbol.name) {
         ("fs", "read_to_string") => Some((
             vec![path_type()],
-            Type::result(Type::string(), Type::named("FsError", Vec::new())),
+            adt::result_type(Type::string(), Type::named("FsError", Vec::new())),
         )),
         ("fs", "write_string") => Some((
             vec![path_type(), Type::string()],
-            Type::result(Type::unit(), Type::named("FsError", Vec::new())),
+            adt::result_type(Type::unit(), Type::named("FsError", Vec::new())),
         )),
         ("fs", "exists") => Some((
             vec![path_type()],
-            Type::result(Type::bool(), Type::named("FsError", Vec::new())),
+            adt::result_type(Type::bool(), Type::named("FsError", Vec::new())),
         )),
         ("fs", "read_dir") => Some((
             vec![path_type()],
-            Type::result(Type::vec(path_type()), Type::named("FsError", Vec::new())),
+            adt::result_type(Type::vec(path_type()), Type::named("FsError", Vec::new())),
         )),
         ("process", "args") => Some((Vec::new(), Type::vec(Type::string()))),
-        ("process", "env") => Some((
-            vec![Type::string()],
-            Type::named("Option", vec![Type::string()]),
-        )),
+        ("process", "env") => Some((vec![Type::string()], adt::option_type(Type::string()))),
         ("process", "cwd") => Some((
             Vec::new(),
-            Type::result(path_type(), Type::named("ProcessError", Vec::new())),
+            adt::result_type(path_type(), Type::named("ProcessError", Vec::new())),
         )),
         ("process", "exit") => Some((vec![Type::int()], Type::unit())),
         _ => None,
@@ -161,7 +159,7 @@ fn sender_send_signature(handle_type: Option<&Type>) -> Option<(Vec<Type>, Type)
     let item = sender_item_type(handle_type);
     Some((
         vec![Type::named("Sender", vec![item.clone()]), item],
-        Type::result(Type::unit(), Type::named("SendError", Vec::new())),
+        adt::result_type(Type::unit(), Type::named("SendError", Vec::new())),
     ))
 }
 
@@ -170,13 +168,13 @@ fn receiver_recv_signature(
     handle_type: Option<&Type>,
 ) -> Option<(Vec<Type>, Type)> {
     let item = expected
-        .and_then(Type::option_part)
+        .and_then(adt::option_part)
         .cloned()
         .or_else(|| receiver_item_type(handle_type))
         .unwrap_or(Type::Unknown);
     Some((
         vec![Type::named("Receiver", vec![item.clone()])],
-        Type::named("Option", vec![item]),
+        adt::option_type(item),
     ))
 }
 
@@ -196,9 +194,9 @@ fn select_signature(
     if matches!(name, "select_timeout" | "select_timeout_result") {
         params.push(Type::int());
     }
-    let output = Type::named("Option", vec![select_output_record(item)]);
+    let output = adt::option_type(select_output_record(item));
     let return_type = if reports_interrupt {
-        Type::result(output, Type::named("SelectError", Vec::new()))
+        adt::result_type(output, Type::named("SelectError", Vec::new()))
     } else {
         output
     };
@@ -251,7 +249,7 @@ fn task_join_signature(handle_type: Option<&Type>) -> Option<(Vec<Type>, Type)> 
         .unwrap_or(Type::Unknown);
     Some((
         vec![Type::named("Task", vec![item.clone()])],
-        Type::result(item, Type::named("JoinError", Vec::new())),
+        adt::result_type(item, Type::named("JoinError", Vec::new())),
     ))
 }
 
@@ -326,7 +324,7 @@ fn core_channel_signature(
                 CoreType::named("Sender", vec![unknown.clone()]),
                 unknown.clone(),
             ],
-            CoreType::result(CoreType::unit(), CoreType::named("SendError", Vec::new())),
+            adt::core_result_type(CoreType::unit(), CoreType::named("SendError", Vec::new())),
         )),
         "recv" => core_receiver_recv_signature(expected, handle_type),
         "select"
@@ -361,13 +359,13 @@ fn core_receiver_recv_signature(
     handle_type: Option<&CoreType>,
 ) -> Option<(Vec<CoreType>, CoreType)> {
     let item = expected
-        .and_then(CoreType::option_part)
+        .and_then(adt::core_option_part)
         .cloned()
         .or_else(|| core_receiver_item_type(handle_type))
         .unwrap_or(CoreType::Unknown);
     Some((
         vec![CoreType::named("Receiver", vec![item.clone()])],
-        CoreType::option(item),
+        adt::core_option_type(item),
     ))
 }
 
@@ -387,9 +385,9 @@ fn core_select_signature(
     if matches!(name, "select_timeout" | "select_timeout_result") {
         params.push(CoreType::int());
     }
-    let output = CoreType::option(core_select_output_record(item));
+    let output = adt::core_option_type(core_select_output_record(item));
     let return_type = if reports_interrupt {
-        CoreType::result(output, CoreType::named("SelectError", Vec::new()))
+        adt::core_result_type(output, CoreType::named("SelectError", Vec::new()))
     } else {
         output
     };
@@ -445,7 +443,7 @@ fn core_task_join_signature(handle_type: Option<&CoreType>) -> Option<(Vec<CoreT
         .unwrap_or(CoreType::Unknown);
     Some((
         vec![CoreType::named("Task", vec![item.clone()])],
-        CoreType::result(item, CoreType::named("JoinError", Vec::new())),
+        adt::core_result_type(item, CoreType::named("JoinError", Vec::new())),
     ))
 }
 
@@ -496,14 +494,14 @@ fn channel_pair_item_type(expected: Option<&Type>) -> Option<Type> {
 fn select_item_type(expected: Option<&Type>, reports_interrupt: bool) -> Option<Type> {
     if reports_interrupt {
         expected
-            .and_then(Type::result_parts)
+            .and_then(adt::result_parts)
             .map(|(value, _)| value)
-            .and_then(Type::option_part)
+            .and_then(adt::option_part)
             .and_then(select_result_value_type)
             .cloned()
     } else {
         expected
-            .and_then(Type::option_part)
+            .and_then(adt::option_part)
             .and_then(select_result_value_type)
             .cloned()
     }
@@ -535,14 +533,14 @@ fn core_channel_pair_item_type(expected: Option<&CoreType>) -> Option<CoreType> 
 fn core_select_item_type(expected: Option<&CoreType>, reports_interrupt: bool) -> Option<CoreType> {
     if reports_interrupt {
         expected
-            .and_then(CoreType::result_parts)
+            .and_then(adt::core_result_parts)
             .map(|(value, _)| value)
-            .and_then(CoreType::option_part)
+            .and_then(adt::core_option_part)
             .and_then(core_select_result_value_type)
             .cloned()
     } else {
         expected
-            .and_then(CoreType::option_part)
+            .and_then(adt::core_option_part)
             .and_then(core_select_result_value_type)
             .cloned()
     }

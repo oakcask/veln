@@ -128,6 +128,7 @@ impl Type {
         Self::named("Unit", Vec::new())
     }
 
+    #[cfg(test)]
     pub(crate) fn result(value: Type, error: Type) -> Self {
         Self::named("Result", vec![value, error])
     }
@@ -182,22 +183,6 @@ impl Type {
                 };
                 format!("fn({params}) -> {}{effects}", return_type.render())
             }
-        }
-    }
-
-    pub(crate) fn result_parts(&self) -> Option<(&Type, &Type)> {
-        match self {
-            Self::Named { name, args } if name == "Result" && args.len() == 2 => {
-                Some((&args[0], &args[1]))
-            }
-            _ => None,
-        }
-    }
-
-    pub(crate) fn option_part(&self) -> Option<&Type> {
-        match self {
-            Self::Named { name, args } if name == "Option" && args.len() == 1 => Some(&args[0]),
-            _ => None,
         }
     }
 

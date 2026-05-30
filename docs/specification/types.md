@@ -8,6 +8,9 @@ full type reference.
 - Type annotations include primitives, built-in containers, records, function
   types, named type paths, and optional result bindings.
 - Local inference is monomorphic and flow-sensitive within one function body.
+- `Option(T)` and `Result(T, E)` are compiler-owned built-in ADTs. Their
+  constructors, payload bindings, result propagation, and finite-domain
+  exhaustiveness are descriptor-backed.
 - `match` expressions over `Bool`, `Option(T)`, and `Result(T, E)` must be
   exhaustive unless a catch-all arm is present.
 - Assignment compatibility treats `unknown` as compatible with any type and

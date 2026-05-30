@@ -1,5 +1,6 @@
 //! Name, type, effect, contract, and hole analysis.
 
+mod adt;
 mod analysis;
 mod contracts;
 mod diagnostics;
