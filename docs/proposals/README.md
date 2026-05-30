@@ -23,6 +23,9 @@ compare it with `../specification/` before changing behavior.
 - [adt-generalization-route.md](adt-generalization-route.md):
   staged route from descriptor-backed `Option` and `Result` to ADTs, `List`,
   immutable collection helpers, and trampoline execution.
+- [user-defined-adts.md](user-defined-adts.md):
+  proposed source syntax, inference, constructor namespace rules, visibility,
+  and generation-function pattern for general user-defined ADTs.
 - [immutable-collection-trampoline.md](immutable-collection-trampoline.md):
   internal trampoline follow-up for source-authored immutable collection
   helpers after the ADT and `List` route.
