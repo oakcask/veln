@@ -328,16 +328,15 @@ The implemented standard symbol table has this current pure-helper split:
   `vec_concat`, `vec_map`, `vec_filter`, `vec_fold`, `vec_try_map`,
   `vec_try_map_with`, `dict_get`, `dict_contains`, `dict_insert`,
   `dict_remove`, `option_map`, `option_and_then`, `option_unwrap_or`,
-  `result_map`, `result_map_err`, `result_and_then`, `string_parse_int`,
-  and `int_to_string`
-- descriptor-only pure helpers: `string_split_once`
+  `result_map`, `result_map_err`, `result_and_then`, `string_split_once`,
+  `string_parse_int`, and `int_to_string`
+- descriptor-only pure helpers: none
 
 Use [Helper Signatures](#helper-signatures) for the implemented signature of
 each helper and [Value Semantics](#value-semantics) for behavior. The
 descriptor-only list above is the implemented candidate pool for proposal work
-that moves one already specified pure helper into embedded source; the
-proposal must still check that the body is expressible with current source
-syntax.
+that moves one already specified pure helper into embedded source. When it is
+empty, there is no current pure-helper target for this proposal route.
 
 Source-backed status is descriptor metadata as described in
 [Compiler-Known Descriptor Table](#compiler-known-descriptor-table). The

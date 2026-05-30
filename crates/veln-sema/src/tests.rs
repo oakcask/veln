@@ -7986,16 +7986,21 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
             ),
             "expected `String`, but found `Int`",
         ),
+        (
+            "string_split_once",
+            concat!(
+                "pub fn main(value: Int) -> Option({left: String, right: String}) effects []\n",
+                "  string_split_once(value, \",\")\n",
+                "end\n",
+            ),
+            "expected `String`, but found `Int`",
+        ),
     ] {
-        assert_source_backed_helper_user_call_site_type_mismatch(
-            helper,
-            source_text,
-            expected_message,
-        );
+        assert_helper_user_call_site_type_mismatch(helper, source_text, expected_message);
     }
 }
 
-fn assert_source_backed_helper_user_call_site_type_mismatch(
+fn assert_helper_user_call_site_type_mismatch(
     helper: &str,
     source_text: &'static str,
     expected_message: &'static str,
