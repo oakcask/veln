@@ -1,0 +1,16 @@
+[package]
+name = "veln-code-metrics"
+edition.workspace = true
+version.workspace = true
+publish = false
+
+[dependencies]
+proc-macro2 = { workspace = true, features = ["span-locations"] }
+syn = { workspace = true, features = ["full", "parsing", "visit"] }
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "veln-code-metrics"
+path = "src/main.rs"

@@ -1,0 +1,575 @@
+use std::env;
+use std::ffi::OsStr;
+use std::fmt;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+use syn::visit::{self, Visit};
+
+const DEFAULT_THRESHOLD: f64 = 30.0;
+const DEFAULT_FILE_LINE_THRESHOLD: usize = 700;
+const DEFAULT_MAX_WARNINGS: usize = 50;
+
+fn main() {
+    let args: Vec<_> = env::args().skip(1).collect();
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        println!("{}", usage());
+        return;
+    }
+
+    let config = match Config::parse(args) {
+        Ok(config) => config,
+        Err(message) => {
+            eprintln!("{message}");
+            std::process::exit(2);
+        }
+    };
+
+    let mut findings = match collect_findings(&config) {
+        Ok(findings) => findings,
+        Err(message) => {
+            eprintln!("{message}");
+            std::process::exit(1);
+        }
+    };
+
+    findings.sort_by(Finding::compare);
+
+    let shown = findings.len().min(config.max_warnings);
+    for finding in findings.iter().take(config.max_warnings) {
+        if config.github_annotations {
+            println!("{}", finding.github_annotation());
+        } else {
+            println!("{finding}");
+        }
+    }
+
+    if config.github_annotations && findings.len() > shown {
+        println!(
+            "::notice title=Code metrics truncated::showing {shown} of {} code metric warnings",
+            findings.len()
+        );
+    }
+}
+
+#[derive(Debug)]
+struct Config {
+    github_annotations: bool,
+    file_line_threshold: usize,
+    max_warnings: usize,
+    roots: Vec<PathBuf>,
+    threshold: f64,
+}
+
+impl Config {
+    fn parse(args: impl IntoIterator<Item = String>) -> Result<Self, String> {
+        let mut github_annotations = false;
+        let mut file_line_threshold = DEFAULT_FILE_LINE_THRESHOLD;
+        let mut max_warnings = DEFAULT_MAX_WARNINGS;
+        let mut roots = Vec::new();
+        let mut threshold = DEFAULT_THRESHOLD;
+        let mut args = args.into_iter();
+
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
+                "--github-annotations" => github_annotations = true,
+                "--file-line-threshold" => {
+                    let value = args
+                        .next()
+                        .ok_or_else(|| "--file-line-threshold requires a value".to_string())?;
+                    file_line_threshold = value.parse().map_err(|_| {
+                        format!("--file-line-threshold must be a positive integer, got {value:?}")
+                    })?;
+                    if file_line_threshold == 0 {
+                        return Err("--file-line-threshold must be greater than zero".to_string());
+                    }
+                }
+                "--max-warnings" => {
+                    let value = args
+                        .next()
+                        .ok_or_else(|| "--max-warnings requires a value".to_string())?;
+                    max_warnings = value.parse().map_err(|_| {
+                        format!("--max-warnings must be a positive integer, got {value:?}")
+                    })?;
+                    if max_warnings == 0 {
+                        return Err("--max-warnings must be greater than zero".to_string());
+                    }
+                }
+                "--threshold" => {
+                    let value = args
+                        .next()
+                        .ok_or_else(|| "--threshold requires a value".to_string())?;
+                    threshold = value
+                        .parse()
+                        .map_err(|_| format!("--threshold must be a number, got {value:?}"))?;
+                    if threshold <= 0.0 {
+                        return Err("--threshold must be greater than zero".to_string());
+                    }
+                }
+                _ if arg.starts_with('-') => return Err(format!("unknown option {arg:?}")),
+                _ => roots.push(PathBuf::from(arg)),
+            }
+        }
+
+        if roots.is_empty() {
+            roots.push(PathBuf::from("crates"));
+        }
+
+        Ok(Self {
+            github_annotations,
+            file_line_threshold,
+            max_warnings,
+            roots,
+            threshold,
+        })
+    }
+}
+
+fn usage() -> String {
+    "usage: veln-code-metrics [--github-annotations] [--file-line-threshold N] [--max-warnings N] [--threshold N] [PATH ...]"
+        .to_string()
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct AbcMetrics {
+    assignments: usize,
+    branches: usize,
+    conditionals: usize,
+}
+
+impl AbcMetrics {
+    fn score(self) -> f64 {
+        let assignments = self.assignments as f64;
+        let branches = self.branches as f64;
+        let conditionals = self.conditionals as f64;
+        (assignments.mul_add(
+            assignments,
+            branches.mul_add(branches, conditionals * conditionals),
+        ))
+        .sqrt()
+    }
+}
+
+#[derive(Debug, PartialEq)]
+enum Finding {
+    Function(FunctionFinding),
+    File(FileFinding),
+}
+
+impl Finding {
+    fn compare(left: &Self, right: &Self) -> std::cmp::Ordering {
+        right
+            .rank()
+            .total_cmp(&left.rank())
+            .then_with(|| left.file().cmp(right.file()))
+            .then_with(|| left.line().cmp(&right.line()))
+            .then_with(|| left.label().cmp(right.label()))
+    }
+
+    fn file(&self) -> &Path {
+        match self {
+            Self::Function(finding) => &finding.file,
+            Self::File(finding) => &finding.file,
+        }
+    }
+
+    fn github_annotation(&self) -> String {
+        match self {
+            Self::Function(finding) => finding.github_warning(),
+            Self::File(finding) => finding.github_warning(),
+        }
+    }
+
+    fn label(&self) -> &str {
+        match self {
+            Self::Function(finding) => &finding.name,
+            Self::File(_) => "file",
+        }
+    }
+
+    fn line(&self) -> usize {
+        match self {
+            Self::Function(finding) => finding.line,
+            Self::File(finding) => finding.line,
+        }
+    }
+
+    fn rank(&self) -> f64 {
+        match self {
+            Self::Function(finding) => finding.metrics.score(),
+            Self::File(finding) => finding.lines as f64 / 100.0,
+        }
+    }
+}
+
+impl fmt::Display for Finding {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Function(finding) => write!(formatter, "{finding}"),
+            Self::File(finding) => write!(formatter, "{finding}"),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct FunctionFinding {
+    file: PathBuf,
+    line: usize,
+    name: String,
+    metrics: AbcMetrics,
+}
+
+impl FunctionFinding {
+    fn github_warning(&self) -> String {
+        format!(
+            "::warning file={},line={},title={}::{}",
+            annotation_escape(self.file.to_string_lossy().as_ref()),
+            self.line,
+            annotation_escape("High ABC complexity"),
+            annotation_escape(&format!(
+                "{} has ABC {:.1} (A={}, B={}, C={}); when touching this function, prefer improving cohesion around one concern, clarifying ownership boundaries, and decoupling distinct concepts over mechanically splitting code",
+                self.name,
+                self.metrics.score(),
+                self.metrics.assignments,
+                self.metrics.branches,
+                self.metrics.conditionals
+            ))
+        )
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct FileFinding {
+    file: PathBuf,
+    line: usize,
+    lines: usize,
+}
+
+impl FileFinding {
+    fn github_warning(&self) -> String {
+        format!(
+            "::warning file={},line={},title={}::{}",
+            annotation_escape(self.file.to_string_lossy().as_ref()),
+            self.line,
+            annotation_escape("Large Rust file"),
+            annotation_escape(&format!(
+                "{} has {} lines; when touching this file, check whether its responsibilities still share one cohesive owner or whether distinct concepts should move behind clearer boundaries",
+                self.file.display(),
+                self.lines
+            ))
+        )
+    }
+}
+
+impl fmt::Display for FileFinding {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{}:{}: file has {} lines",
+            self.file.display(),
+            self.line,
+            self.lines
+        )
+    }
+}
+
+impl fmt::Display for FunctionFinding {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "{}:{}: {} ABC {:.1} (A={}, B={}, C={})",
+            self.file.display(),
+            self.line,
+            self.name,
+            self.metrics.score(),
+            self.metrics.assignments,
+            self.metrics.branches,
+            self.metrics.conditionals
+        )
+    }
+}
+
+fn annotation_escape(value: &str) -> String {
+    value
+        .replace('%', "%25")
+        .replace('\r', "%0D")
+        .replace('\n', "%0A")
+        .replace(':', "%3A")
+        .replace(',', "%2C")
+}
+
+fn collect_findings(config: &Config) -> Result<Vec<Finding>, String> {
+    let mut files = Vec::new();
+    for root in &config.roots {
+        collect_rust_files(root, &mut files)?;
+    }
+    files.sort();
+
+    let mut findings = Vec::new();
+    for file in files {
+        findings.extend(analyze_file(&file, config)?);
+    }
+    Ok(findings)
+}
+
+fn collect_rust_files(path: &Path, files: &mut Vec<PathBuf>) -> Result<(), String> {
+    let metadata = fs::metadata(path)
+        .map_err(|error| format!("failed to read metadata for {}: {error}", path.display()))?;
+    if metadata.is_file() {
+        if path.extension() == Some(OsStr::new("rs")) {
+            files.push(path.to_path_buf());
+        }
+        return Ok(());
+    }
+
+    if !metadata.is_dir() {
+        return Ok(());
+    }
+
+    for entry in
+        fs::read_dir(path).map_err(|error| format!("failed to read {}: {error}", path.display()))?
+    {
+        let entry = entry
+            .map_err(|error| format!("failed to read entry in {}: {error}", path.display()))?;
+        collect_rust_files(&entry.path(), files)?;
+    }
+
+    Ok(())
+}
+
+fn analyze_file(path: &Path, config: &Config) -> Result<Vec<Finding>, String> {
+    let source = fs::read_to_string(path)
+        .map_err(|error| format!("failed to read {}: {error}", path.display()))?;
+    let mut findings = analyze_source(path, &source, config.threshold)?;
+    let lines = source.lines().count();
+    if lines >= config.file_line_threshold {
+        findings.push(Finding::File(FileFinding {
+            file: path.to_path_buf(),
+            line: 1,
+            lines,
+        }));
+    }
+    Ok(findings)
+}
+
+fn analyze_source(path: &Path, source: &str, threshold: f64) -> Result<Vec<Finding>, String> {
+    let syntax = syn::parse_file(source)
+        .map_err(|error| format!("failed to parse {}: {error}", path.display()))?;
+    let mut analyzer = FileAnalyzer {
+        file: path.to_path_buf(),
+        findings: Vec::new(),
+        threshold,
+    };
+    analyzer.visit_file(&syntax);
+    Ok(analyzer.findings)
+}
+
+struct FileAnalyzer {
+    file: PathBuf,
+    findings: Vec<Finding>,
+    threshold: f64,
+}
+
+impl FileAnalyzer {
+    fn record_function(&mut self, name: String, line: usize, block: &syn::Block) {
+        let mut visitor = AbcVisitor::default();
+        visitor.visit_block(block);
+        if visitor.metrics.score() >= self.threshold {
+            self.findings.push(Finding::Function(FunctionFinding {
+                file: self.file.clone(),
+                line,
+                name,
+                metrics: visitor.metrics,
+            }));
+        }
+    }
+}
+
+impl<'ast> Visit<'ast> for FileAnalyzer {
+    fn visit_item_fn(&mut self, item: &'ast syn::ItemFn) {
+        self.record_function(
+            item.sig.ident.to_string(),
+            item.sig.ident.span().start().line,
+            &item.block,
+        );
+        visit::visit_item_fn(self, item);
+    }
+
+    fn visit_impl_item_fn(&mut self, item: &'ast syn::ImplItemFn) {
+        self.record_function(
+            item.sig.ident.to_string(),
+            item.sig.ident.span().start().line,
+            &item.block,
+        );
+        visit::visit_impl_item_fn(self, item);
+    }
+}
+
+#[derive(Default)]
+struct AbcVisitor {
+    metrics: AbcMetrics,
+}
+
+impl<'ast> Visit<'ast> for AbcVisitor {
+    fn visit_expr_assign(&mut self, node: &'ast syn::ExprAssign) {
+        self.metrics.assignments += 1;
+        visit::visit_expr_assign(self, node);
+    }
+
+    fn visit_expr_binary(&mut self, node: &'ast syn::ExprBinary) {
+        if matches!(
+            node.op,
+            syn::BinOp::AddAssign(_)
+                | syn::BinOp::SubAssign(_)
+                | syn::BinOp::MulAssign(_)
+                | syn::BinOp::DivAssign(_)
+                | syn::BinOp::RemAssign(_)
+                | syn::BinOp::BitXorAssign(_)
+                | syn::BinOp::BitAndAssign(_)
+                | syn::BinOp::BitOrAssign(_)
+                | syn::BinOp::ShlAssign(_)
+                | syn::BinOp::ShrAssign(_)
+        ) {
+            self.metrics.assignments += 1;
+        }
+
+        if matches!(node.op, syn::BinOp::And(_) | syn::BinOp::Or(_)) {
+            self.metrics.conditionals += 1;
+        }
+
+        visit::visit_expr_binary(self, node);
+    }
+
+    fn visit_local(&mut self, node: &'ast syn::Local) {
+        self.metrics.assignments += 1;
+        visit::visit_local(self, node);
+    }
+
+    fn visit_expr_call(&mut self, node: &'ast syn::ExprCall) {
+        self.metrics.branches += 1;
+        visit::visit_expr_call(self, node);
+    }
+
+    fn visit_expr_method_call(&mut self, node: &'ast syn::ExprMethodCall) {
+        self.metrics.branches += 1;
+        visit::visit_expr_method_call(self, node);
+    }
+
+    fn visit_expr_macro(&mut self, node: &'ast syn::ExprMacro) {
+        self.metrics.branches += 1;
+        visit::visit_expr_macro(self, node);
+    }
+
+    fn visit_stmt_macro(&mut self, node: &'ast syn::StmtMacro) {
+        self.metrics.branches += 1;
+        visit::visit_stmt_macro(self, node);
+    }
+
+    fn visit_expr_if(&mut self, node: &'ast syn::ExprIf) {
+        self.metrics.conditionals += 1;
+        visit::visit_expr_if(self, node);
+    }
+
+    fn visit_expr_for_loop(&mut self, node: &'ast syn::ExprForLoop) {
+        self.metrics.conditionals += 1;
+        visit::visit_expr_for_loop(self, node);
+    }
+
+    fn visit_expr_loop(&mut self, node: &'ast syn::ExprLoop) {
+        self.metrics.conditionals += 1;
+        visit::visit_expr_loop(self, node);
+    }
+
+    fn visit_expr_match(&mut self, node: &'ast syn::ExprMatch) {
+        self.metrics.conditionals += 1 + node.arms.len();
+        visit::visit_expr_match(self, node);
+    }
+
+    fn visit_expr_try(&mut self, node: &'ast syn::ExprTry) {
+        self.metrics.conditionals += 1;
+        visit::visit_expr_try(self, node);
+    }
+
+    fn visit_expr_while(&mut self, node: &'ast syn::ExprWhile) {
+        self.metrics.conditionals += 1;
+        visit::visit_expr_while(self, node);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::*;
+
+    #[test]
+    fn reports_function_over_threshold() {
+        let source = r#"
+fn complex(input: Result<i32, ()>) -> i32 {
+    let mut total = 0;
+    total += helper();
+    if total > 1 && helper() > 2 {
+        total = helper();
+    }
+    match input {
+        Ok(value) => value,
+        Err(_) => fallback(),
+    }
+}
+
+fn helper() -> i32 {
+    1
+}
+
+fn fallback() -> i32 {
+    0
+}
+"#;
+
+        let findings = analyze_source(Path::new("sample.rs"), source, 5.0).unwrap();
+
+        assert_eq!(findings.len(), 1);
+        let Finding::Function(finding) = &findings[0] else {
+            panic!("expected function finding");
+        };
+        assert_eq!(finding.name, "complex");
+        assert_eq!(
+            finding.metrics,
+            AbcMetrics {
+                assignments: 3,
+                branches: 4,
+                conditionals: 5,
+            }
+        );
+    }
+
+    #[test]
+    fn escapes_github_annotation_control_characters() {
+        assert_eq!(annotation_escape("a:b,c%\r\n"), "a%3Ab%2Cc%25%0D%0A");
+    }
+
+    #[test]
+    fn reports_file_over_line_threshold() {
+        let config = Config {
+            github_annotations: false,
+            file_line_threshold: 3,
+            max_warnings: 10,
+            roots: Vec::new(),
+            threshold: 100.0,
+        };
+        let source = "fn tiny() {}\n\nfn other() {}\n";
+        let path = Path::new("sample.rs");
+
+        let mut findings = analyze_source(path, source, config.threshold).unwrap();
+        let lines = source.lines().count();
+        if lines >= config.file_line_threshold {
+            findings.push(Finding::File(FileFinding {
+                file: path.to_path_buf(),
+                line: 1,
+                lines,
+            }));
+        }
+
+        assert!(matches!(findings.last(), Some(Finding::File(finding)) if finding.lines == 3));
+    }
+}
