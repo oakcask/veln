@@ -2138,6 +2138,14 @@ fn saved_command_candidate_with_edits(
     edit_summary: &str,
     edits: &[(&str, usize, usize, usize, usize, &str)],
 ) -> String {
+    saved_command_candidate_with_optional_verification_command(edit_summary, edits, None)
+}
+
+fn saved_command_candidate_with_optional_verification_command(
+    edit_summary: &str,
+    edits: &[(&str, usize, usize, usize, usize, &str)],
+    verification_command: Option<&str>,
+) -> String {
     let edits = edits
         .iter()
         .map(
@@ -2149,8 +2157,11 @@ fn saved_command_candidate_with_edits(
         )
         .collect::<Vec<_>>()
         .join(",");
+    let verification_command = verification_command
+        .map(|command| format!(r#","verification_command":"{command}""#))
+        .unwrap_or_default();
     format!(
-        r#"{{"candidates":[{{"repair_id":"repair-7","source_candidate_id":"symbol-1","name":"order","application_policy":"safe_repair_candidate","application_status":"unapplied","edit_summary":"{edit_summary}","edits":[{edits}]}}]}}"#
+        r#"{{"candidates":[{{"repair_id":"repair-7","source_candidate_id":"symbol-1","name":"order","application_policy":"safe_repair_candidate","application_status":"unapplied","edit_summary":"{edit_summary}","edits":[{edits}]{verification_command}}}]}}"#
     )
 }
 
@@ -2250,6 +2261,47 @@ fn repair_apply_writes_saved_multi_file_command_candidate_and_verifies() {
         project.read("helper.veln"),
         concat!(
             "fn helper(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+            "  order\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn repair_apply_records_verification_command_without_running_it() {
+    let project = TestProject::new("repair-verification-command-not-run");
+    let source = concat!(
+        "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
+        "  _value satisfy candidate => candidate.ready == order.ready\n",
+        "end\n",
+    );
+    project.write("main.veln", source);
+    project.write(
+        "saved-candidates.json",
+        &saved_command_candidate_with_optional_verification_command(
+            "Replace hole with `order`",
+            &[("main.veln", 3, 61, 9, 67, "order")],
+            Some("touch verification-ran"),
+        ),
+    );
+
+    let output = project.repair(&["--json", "--apply", "saved-candidates.json"]);
+    let stdout = stdout(&output);
+
+    assert!(output.status.success(), "{stdout}");
+    assert_contains_all(
+        stdout,
+        &[
+            "\"status\":\"applied\"",
+            "\"verification_command\":\"touch verification-ran\"",
+            "\"verification\":{\"status\":\"passed\",\"command\":\"touch verification-ran\"",
+        ],
+    );
+    assert!(!project.root.join("verification-ran").exists());
+    assert_eq!(
+        project.read("main.veln"),
+        concat!(
+            "fn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n",
             "  order\n",
             "end\n",
         )

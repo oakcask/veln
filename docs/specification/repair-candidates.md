@@ -139,7 +139,8 @@ Successful JSON output records `confirmation` and, when override was used,
 
 ## Remaining Proposal Boundary
 
-Do not promote partial application or broader automatic repair behavior into
-this specification until the behavior is implemented and tested. The current
-proposal route for that work is
+Do not promote any remaining repair-loop proposal axis into this specification
+until the behavior is implemented and tested. The current proposal route for
+verification orchestration, ranking evidence, edit granularity, and broader
+application authority is
 [../proposals/agent-repair-loop-followups.md](../proposals/agent-repair-loop-followups.md).
