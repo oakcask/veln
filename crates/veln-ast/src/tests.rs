@@ -173,7 +173,7 @@ fn lowers_module_header_and_use_aliases() {
     let module = lower_source(concat!(
         "mod app.core\n",
         "use platform.io\n",
-        "fn main() -> () effects []\n",
+        "fn main() -> ()\n",
         "  ()\n",
         "end\n",
     ));
@@ -196,7 +196,7 @@ fn lowers_type_declarations_with_variant_fields() {
         "  Nil\n",
         "  Cons(head: A, tail: List(A))\n",
         "end\n",
-        "fn main() -> () effects []\n",
+        "fn main() -> ()\n",
         "  ()\n",
         "end\n",
     ));

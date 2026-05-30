@@ -103,6 +103,8 @@ against the built `veln` binary.
 - `check/match-result-non-exhaustive/`: Result finite-domain match
   exhaustiveness diagnostics.
 - `check/effect-missing-public/`: public effect-boundary diagnostics.
+- `check/effect-empty-declaration/`: declaration-level `effects []`
+  diagnostics and pure test omission.
 - `check/effect-reserved-labels/`: reserved public effect labels accepted as
   declared compatibility boundaries.
 - `check/hole-satisfy/`: typed holes with `satisfy` repair constraints.

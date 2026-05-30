@@ -1,0 +1,8 @@
+// Empty declaration-level effects clauses are rejected.
+pub fn helper() -> Int effects []
+  1
+end
+
+test pure_check() -> ()
+  ()
+end

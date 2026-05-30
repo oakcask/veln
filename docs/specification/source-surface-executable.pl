@@ -86,7 +86,7 @@ grammar_line(40, "ModuleName    ::= Name (\".\" Name)*").
 grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
-grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects NL").
+grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
 grammar_line(110, "TypeParamList ::= \"(\" Name (\",\" Name)* \",\"? \")\"").
@@ -289,7 +289,7 @@ test_decl -->
     tok(lparen),
     tok(rparen),
     return_clause,
-    effects_clause,
+    effects_opt,
     nl,
     contracts,
     body,
