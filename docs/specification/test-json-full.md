@@ -22,7 +22,8 @@ Selection fields are:
 - `targets`
 - `confidence`: `complete`, `partial`, or `unknown`
 - `reason`: `pattern_discovery`, `user_selected`, or
-  `source_to_test_convention`
+  `source_to_test_convention`, `dependency_graph`, or
+  `widened_dependency_graph`
 - `notes`: optional human-readable selection notes
 
 With no explicit targets, `veln test --json` discovers selected `*_test.veln`
@@ -33,12 +34,21 @@ selected test-bearing file path once.
 
 With explicit targets, the command treats the caller's direct file or recursive
 directory list as intentional selection and reports `reason: "user_selected"`
-unless it adds paired tests by convention. If an explicit non-test `.veln` file has a
-same-directory `*_test.veln` peer with the same base name, the peer is added to
-the selected targets, the run reports `reason: "source_to_test_convention"`,
-and `confidence: "partial"` because the mapping is conservative but not a full
-dependency graph. The reported `targets` array is the final expanded selection
-and is sorted after duplicate removal.
+unless it adds tests by convention or dependency graph. If an explicit non-test
+`.veln` file has a same-directory `*_test.veln` peer with the same base name,
+the peer is added to the selected targets and the run records a selection note.
+
+For explicit non-test source targets with module identities, `test` also uses
+source-level `mod` and `use` declarations as a dependency graph. A discovered
+test source whose transitive imports include the selected source is included in
+the final selection. When the graph selects or confirms a test source and all
+needed graph evidence is present, the run reports
+`reason: "dependency_graph"` and `confidence: "complete"`. If graph evidence
+is missing, such as a selected source with no module identity or an import with
+no discovered source module, the command widens to all discovered tests,
+reports `reason: "widened_dependency_graph"`, and reports
+`confidence: "unknown"`. The reported `targets` array is the final selected
+test roots and is sorted after duplicate removal.
 
 ## Summary
 

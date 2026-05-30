@@ -1,4 +1,4 @@
-command = ["test", "--json", "app_test.veln", "math.veln"]
+command = ["test", "--json", "math.veln"]
 exit = 0
 
 [requires]
@@ -13,6 +13,26 @@ format = "empty"
 [[json_assert]]
 path = "status"
 equals = "passed"
+
+[[json_assert]]
+path = "selection.confidence"
+equals = "complete"
+
+[[json_assert]]
+path = "selection.reason"
+equals = "dependency_graph"
+
+[[json_assert]]
+path = "selection.notes.0"
+equals = "added 1 test source by dependency graph"
+
+[[json_assert]]
+path = "selection.targets.0"
+equals = "app_test.veln"
+
+[[json_assert]]
+path = "selection.targets.1"
+equals = "math.veln"
 
 [[json_assert]]
 path = "summary.total"

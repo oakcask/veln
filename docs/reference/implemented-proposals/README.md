@@ -27,6 +27,8 @@ behavior.
   [repair-command-first-boundary.md](repair-command-first-boundary.md).
 - Repair command confirmation and override:
   [repair-command-confirmation-override.md](repair-command-confirmation-override.md).
+- Agent test selection graph:
+  [agent-test-selection-graph.md](agent-test-selection-graph.md).
 
 ## Skip Unless Needed
 

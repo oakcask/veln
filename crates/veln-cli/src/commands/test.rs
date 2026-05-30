@@ -1,17 +1,18 @@
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use veln_ast::FunctionKind;
 use veln_backend_jvm::generate_classfiles_with_entry;
 use veln_diagnostics::DiagnosticEnvelope;
-use veln_project::Project;
+use veln_project::{Project, discover_source_paths};
 use veln_test::{
     SuiteError, TestCase, TestCaseStatus, TestFailure, TestReport, TestRunStatus, TestSelection,
-    apply_runtime_result, attach_doctest_expectations, compare_expected_output,
-    contract_failure_from_trace, discover_test_cases, expand_test_targets, selected_test_files,
-    stdio_call_spans, stdio_events_from_output, stdio_events_from_trace,
+    TestSelectionPlan, apply_runtime_result, attach_doctest_expectations, compare_expected_output,
+    contract_failure_from_trace, dependency_aware_selection_plan, discover_test_cases,
+    expand_test_targets, selected_test_files, stdio_call_spans, stdio_events_from_output,
+    stdio_events_from_trace,
 };
 
 use crate::analysis::{DoctestMode, ProjectAnalysis, analyze_project};
@@ -22,10 +23,15 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     let root = env::current_dir().map_err(|error| error.to_string())?;
     let explicit = !targets.is_empty();
     let target_expansion = expand_test_targets(&root, &targets);
-    let project =
-        Project::discover(root, &target_expansion.targets).map_err(|error| error.to_string())?;
+    let selection_plan = selection_plan(&root, &targets, explicit, &target_expansion)?;
+    let project = Project::discover(root, &selection_plan.analysis_targets)
+        .map_err(|error| error.to_string())?;
     let analysis = analyze_project(project, DoctestMode::Include);
-    let test_files = selected_test_files(&analysis.project, &analysis.module, explicit);
+    let test_files = selected_test_files(
+        &analysis.project,
+        &analysis.module,
+        selection_plan.selected_roots.as_ref(),
+    );
     let mut cases = discover_test_cases(&analysis.module, &test_files);
     attach_doctest_expectations(&mut cases, &analysis.doctest_expectations);
     let mut suite_errors = Vec::new();
@@ -50,7 +56,7 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
 
     let report = TestReport::new(
         TestSelection::new(&analysis.project, &test_files, explicit)
-            .source_to_test_convention(target_expansion.source_to_test_added_count),
+            .apply_metadata(selection_plan.metadata),
         diagnostics,
         suite_errors,
         cases,
@@ -67,6 +73,81 @@ pub(crate) fn test(json: bool, targets: Vec<PathBuf>) -> Result<ExitCode, String
     } else {
         ExitCode::from(1)
     })
+}
+
+fn selection_plan(
+    root: &Path,
+    targets: &[PathBuf],
+    explicit: bool,
+    target_expansion: &veln_test::TestTargetExpansion,
+) -> Result<TestSelectionPlan, String> {
+    if !explicit {
+        return Ok(TestSelectionPlan::discovered());
+    }
+
+    let explicit_roots = discovered_source_set(root, &target_expansion.targets)?;
+    if targets
+        .iter()
+        .any(|target| absolute_path(root, target).is_dir())
+    {
+        return Ok(TestSelectionPlan::explicit(
+            explicit_roots,
+            target_expansion.source_to_test_added_count,
+        ));
+    }
+
+    let source_roots = discovered_source_set(root, targets)?
+        .into_iter()
+        .filter(|path| !path.ends_with("_test.veln"))
+        .collect::<std::collections::BTreeSet<_>>();
+
+    if source_roots.is_empty() {
+        return Ok(TestSelectionPlan::explicit(
+            explicit_roots,
+            target_expansion.source_to_test_added_count,
+        ));
+    }
+
+    let graph_project = Project::discover(root, &[]).map_err(|error| error.to_string())?;
+    let graph_analysis = analyze_project(graph_project, DoctestMode::Exclude);
+    Ok(dependency_aware_selection_plan(
+        &graph_analysis.project,
+        &graph_analysis.module,
+        &explicit_roots,
+        &source_roots,
+        target_expansion.source_to_test_added_count,
+    ))
+}
+
+fn discovered_source_set(
+    root: &Path,
+    inputs: &[PathBuf],
+) -> Result<std::collections::BTreeSet<String>, String> {
+    discover_source_paths(root, inputs)
+        .map_err(|error| error.to_string())
+        .map(|paths| {
+            paths
+                .into_iter()
+                .map(|path| source_path(root, &path))
+                .collect()
+        })
+}
+
+fn source_path(root: &Path, path: &Path) -> String {
+    let absolute = absolute_path(root, path);
+    absolute
+        .strip_prefix(root)
+        .map_or_else(|_| absolute.clone(), PathBuf::from)
+        .to_string_lossy()
+        .replace('\\', "/")
+}
+
+fn absolute_path(root: &Path, path: &Path) -> PathBuf {
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        root.join(path)
+    }
 }
 
 fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), String> {
