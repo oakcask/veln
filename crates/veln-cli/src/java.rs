@@ -86,7 +86,14 @@ fn ensure_cached_jvm_classes(
         .join("target")
         .join("veln-cache")
         .join("jvm");
-    fs::create_dir_all(&cache_root).map_err(|error| error.to_string())?;
+    ensure_cached_jvm_classes_in(&cache_root, program)
+}
+
+fn ensure_cached_jvm_classes_in(
+    cache_root: &Path,
+    program: &veln_backend_jvm::JvmProgram,
+) -> Result<CachedJvmClasses, String> {
+    fs::create_dir_all(cache_root).map_err(|error| error.to_string())?;
     let key = jvm_class_cache_key(program);
     let cache_dir = cache_root.join(&key);
 
@@ -99,7 +106,7 @@ fn ensure_cached_jvm_classes(
         }
 
         let compile_dir =
-            create_cache_compile_dir(&cache_root, &key).map_err(|error| error.to_string())?;
+            create_cache_compile_dir(cache_root, &key).map_err(|error| error.to_string())?;
         match write_cached_jvm_classes(&compile_dir, program) {
             Ok(()) => {}
             Err(error) => {
@@ -565,6 +572,24 @@ mod tests {
         root
     }
 
+    fn cached_path(result: CachedJvmClasses) -> PathBuf {
+        match result {
+            CachedJvmClasses::Ready(path) => path,
+            CachedJvmClasses::ToolError(message) => panic!("unexpected tool error: {message}"),
+        }
+    }
+
+    fn ready_cache_entries(root: &Path) -> Vec<PathBuf> {
+        let mut entries = fs::read_dir(root)
+            .expect("cache root should be readable")
+            .filter_map(Result::ok)
+            .filter(|entry| marker_for(&entry.path()).is_file())
+            .map(|entry| entry.path())
+            .collect::<Vec<_>>();
+        entries.sort();
+        entries
+    }
+
     #[test]
     fn jvm_class_cache_key_tracks_class_path_contents_and_order() {
         let base = jvm_program(&[
@@ -663,6 +688,88 @@ mod tests {
             !validate_cached_jvm_classes(&root, &program).expect("cache should be checked"),
             "cache with an unexpected class should not validate"
         );
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn cached_jvm_classes_reuse_prepared_entry() {
+        let root = temp_root("cache-reuse");
+        let program = jvm_program(&[("VelnEntry.class", b"entry")]);
+
+        let first = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be prepared"),
+        );
+        let second = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be reused"),
+        );
+
+        assert_eq!(first, second);
+        assert_eq!(ready_cache_entries(&root), vec![first]);
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn cached_jvm_classes_use_new_entry_after_program_changes() {
+        let root = temp_root("cache-source-change");
+        let initial = jvm_program(&[("VelnEntry.class", b"entry")]);
+        let changed = jvm_program(&[("VelnEntry.class", b"changed entry")]);
+
+        let first = cached_path(
+            ensure_cached_jvm_classes_in(&root, &initial)
+                .expect("initial cache should be prepared"),
+        );
+        let second = cached_path(
+            ensure_cached_jvm_classes_in(&root, &changed)
+                .expect("changed cache should be prepared"),
+        );
+
+        assert_ne!(first, second);
+        assert_eq!(ready_cache_entries(&root), vec![first, second]);
+
+        fs::remove_dir_all(root).expect("test root should be removed");
+    }
+
+    #[test]
+    fn cached_jvm_classes_repair_invalid_and_incomplete_entries() {
+        let root = temp_root("cache-repair");
+        let program = jvm_program(&[("VelnEntry.class", b"entry")]);
+
+        let cache_dir = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be prepared"),
+        );
+        fs::write(cache_dir.join("VelnEntry.class"), b"poisoned")
+            .expect("class should be poisoned");
+        let repaired = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be repaired"),
+        );
+        assert_eq!(repaired, cache_dir);
+        assert_eq!(
+            fs::read(cache_dir.join("VelnEntry.class")).expect("class should be readable"),
+            b"entry"
+        );
+
+        fs::remove_file(cache_dir.join("VelnEntry.class")).expect("class should be removed");
+        let repaired = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be repaired"),
+        );
+        assert_eq!(repaired, cache_dir);
+        assert_eq!(
+            fs::read(cache_dir.join("VelnEntry.class")).expect("class should be readable"),
+            b"entry"
+        );
+
+        fs::remove_file(manifest_for(&cache_dir)).expect("manifest should be removed");
+        let repaired = cached_path(
+            ensure_cached_jvm_classes_in(&root, &program).expect("cache should be repaired"),
+        );
+        assert_eq!(repaired, cache_dir);
+        assert_eq!(
+            fs::read(manifest_for(&cache_dir)).expect("manifest should be readable"),
+            render_jvm_cache_manifest(&program)
+        );
+        assert_eq!(ready_cache_entries(&root), vec![cache_dir]);
 
         fs::remove_dir_all(root).expect("test root should be removed");
     }
