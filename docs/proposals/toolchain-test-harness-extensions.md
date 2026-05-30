@@ -22,8 +22,7 @@ live in the reference harness documentation.
 
 The implemented case manifest covers command invocation, fixture setup,
 stream and JSON assertions, diagnostic selectors, file assertions, host and
-platform gates, command help assertions, and JVM cache assertions and
-mutations. Keep field-level details in the
+platform gates, and command help assertions. Keep field-level details in the
 [reference harness manifest section](../reference/toolchain-test-harness.md#manifest-fields).
 
 Do not restate implemented field contracts here. This page keeps only
@@ -39,7 +38,9 @@ proposal-level target status.
 
 Candidate follow-ups include broad diagnostic detail checks and setup rules
 that replace repeated bespoke CLI test code across at least two command paths.
-Move any large follow-up to its own proposal page before implementation.
+Backend cache layout checks should remain in unit or integration tests that
+own that implementation detail, not in declarative toolchain cases. Move any
+large follow-up to its own proposal page before implementation.
 
 ## Non-Goals
 

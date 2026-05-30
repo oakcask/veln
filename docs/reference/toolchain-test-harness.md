@@ -37,14 +37,11 @@ assertions, diagnostic selectors, and file content assertions.
 ## Manifest Fields
 
 - Invocation and fixture setup: `command`, `stdin`, `repeat`, `[env]`,
-  `[tools]`, `[requires]`, `[skip]`, and `[[project_update]]`.
+  `[tools]`, `[requires]`, and `[skip]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
-  `[help]`, `[[json_assert]]`, `[[diagnostics]]`, `[[file_assert]]`, and
-  `[[jvm_cache_assert]]`.
+  `[help]`, `[[json_assert]]`, `[[diagnostics]]`, and `[[file_assert]]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
   `"real"`.
-- JVM cache setup and assertions: `repeat`, `[[project_update]]`,
-  `[[jvm_cache_assert]]`, and `[[jvm_cache_mutation]]`.
 
 ## Output Cases
 
@@ -62,24 +59,6 @@ that the matching section heading and listed entries appear. Help cases should
 still use `[stdout]` and `[stderr]` for stream format and emptiness, and should
 point behavior questions to the command specification.
 
-## Cache Cases
-
-Use this route for generated JVM class cache behavior that is visible through
-`run` or `test` results. Start with `repeat`; add `[[project_update]]` when the
-source changes before a later run; add `[[jvm_cache_mutation]]` only when the
-case prepares an invalid or incomplete cache entry for the next command.
-
-Use `[[jvm_cache_assert]]` after the selected run. `ready_entries` checks how
-many command-ready cache entries exist. `repaired_mutations = true` checks that
-prior `[[jvm_cache_mutation]]` changes were replaced by a later command run.
-
-Use `[[jvm_cache_mutation]]` only between repeated `run` or `test`
-invocations. Its fields are `after_run` and `action`. Supported actions are
-`"corrupt-required-file"`, `"remove-required-file"`, and
-`"remove-validation-record"`. These actions are semantic harness operations;
-case manifests must not assert classfile bytes, cache keys, the full cache
-layout, or backend internals.
-
 ## Manifest Policy
 
 Case manifests are declarative. They should describe the command, expected exit
@@ -93,11 +72,7 @@ and `[skip]` for platform-specific exclusions with an explicit reason.
 Use `[env]` for fixed environment variables that belong to the fixture. Use
 `repeat` when one isolated project should run the same command more than once.
 Repeated invocations can check stable stdout, stderr, exit status, JSON, file
-results, and JVM class cache state across command-visible state changes.
-
-Use `[[project_update]]` for declarative fixture changes before a specific
-repeat. Its fields are `before_run`, `path`, and `contents`. Paths are project
-relative and cannot escape the isolated fixture directory.
+results, and other command-visible state changes.
 
 Use `[tools]` for controlled external tool availability owned by the harness.
 The implemented key is `java`, with values `"missing"`, `"fake-success"`, and
