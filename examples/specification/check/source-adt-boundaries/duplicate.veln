@@ -8,6 +8,14 @@ pub type Beta
 	pub Same
 end
 
+pub type Gamma
+	pub Wrap(value: Int)
+end
+
+pub type Delta
+	pub Wrap(value: String)
+end
+
 type Broken
 	Repeat
 	Repeat
@@ -19,4 +27,16 @@ end
 
 fn beta() -> Beta
 	Beta::Same
+end
+
+fn gamma() -> Gamma
+	Gamma::Wrap(1)
+end
+
+fn delta() -> Delta
+	Delta::Wrap("value")
+end
+
+fn ambiguous_payload() -> Gamma
+	Wrap(1)
 end
