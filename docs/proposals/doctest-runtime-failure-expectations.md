@@ -21,8 +21,6 @@ failure kind after a concrete failure class is selected.
   [../specification/contracts.md](../specification/contracts.md).
 - Current readable CLI coverage:
   [../specification/test-json.md](../specification/test-json.md).
-- Proposal promotion checks:
-  [implementation-route.md](implementation-route.md).
 
 ## Read When
 

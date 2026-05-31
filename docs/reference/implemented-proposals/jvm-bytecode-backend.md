@@ -53,8 +53,6 @@ the expected classfile target and entry descriptor through `javap -verbose`.
   [completion criteria](jvm-bytecode-backend-full.md#completion-criteria),
   [implementation notes](jvm-bytecode-backend-full.md#implementation-notes),
   and [promotion route](jvm-bytecode-backend-full.md#promotion-route).
-- Proposal promotion mechanics:
-  [../../proposals/implementation-route.md](../../proposals/implementation-route.md).
 
 ## Boundary
 

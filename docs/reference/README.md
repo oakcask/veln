@@ -45,7 +45,7 @@ behavior page needs rationale, source support, or toolchain reference material.
 - Historical gap evidence belongs in the matching proposal or reference page.
 - Implemented language behavior belongs in
   [specification/README.md](../specification/README.md).
-- Use [../document-status.md](../document-status.md) before moving text between
+- Check the source and destination README files before moving text between
   route areas.
 
 ## Skip Unless Needed

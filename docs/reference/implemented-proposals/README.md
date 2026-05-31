@@ -11,7 +11,6 @@ behavior.
 
 - Current behavior: [../../specification/README.md](../../specification/README.md).
 - Planned or incomplete work: [../../proposals/README.md](../../proposals/README.md).
-- Placement rules: [../../document-status.md](../../document-status.md).
 
 ## Records
 

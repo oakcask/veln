@@ -12,14 +12,14 @@ question.
 - Checking the stable boundary before using any proposal record:
   [specification/overview.md](specification/overview.md).
 - Checking whether proposal text is current behavior: start with
-  [specification/README.md](specification/README.md), then compare
-  the chosen proposal through
-  [proposals/implementation-route.md](proposals/implementation-route.md).
+  [specification/README.md](specification/README.md), then compare the chosen
+  proposal with the matching specification page.
 
 ## Proposal Work
 
 - Choosing, implementing, or promoting proposal work:
-  [proposals/implementation-route.md](proposals/implementation-route.md).
+  [proposals/README.md](proposals/README.md), then the matching specification
+  page.
 - Reading incomplete proposal targets:
   [proposals/README.md](proposals/README.md).
 - Stop proposal reading when `specification/` already covers the
@@ -51,15 +51,10 @@ question.
 - Start with source families when the topic is known, claim map when the claim
   is known, and reference metadata only when exact source details are needed.
 
-## Status Work
-
-- Moving text between proposal and reference areas:
-  [document-status.md](document-status.md).
-
 ## Documentation Maintenance
 
 - Entry-page routing, document movement, or status labels:
-  [document-status.md](document-status.md).
+  the README for the directory whose classification is changing.
 - Source-decision category routing, record placement, or storage audits:
   [reference/source-decisions/README.md](reference/source-decisions/README.md).
 - Link-health work: start from the page being edited, then verify links across
@@ -70,21 +65,21 @@ question.
 - Current behavior work: `specification/README.md` first, then the
   topic-specific short page, then the matching `*-full.md` file only if named.
 - Implementation target work: start from `proposals/README.md`, open the
-  proposal page that matches the task, then use
-  `proposals/implementation-route.md` for promotion checks.
+  proposal page that matches the task, then compare it with the matching
+  specification page for promotion checks.
 - Completed proposal history: start from
   [reference/implemented-proposals/README.md](reference/implemented-proposals/README.md)
   after checking the current specification page.
-- Documentation routing work: `document-status.md` first, then the README for
-  only the directory whose classification is changing.
+- Documentation routing work: use the README for only the directory whose
+  classification is changing.
 - Rationale work: current specification page first, then
   `specification/source-decisions.md`, then one source-decision category.
   Open `reference/source-decisions/records/` only when that category names one
   record.
 - Research-source work: `reference/bibliography/README.md` first, then one
   short bibliography route page, then one matching full source section.
-- Status or movement work: `document-status.md` before editing labels or moving
-  text between directories.
+- Status or movement work: check the relevant directory README before editing
+  labels or moving text between directories.
 
 ## Route Boundaries
 
@@ -101,7 +96,7 @@ question.
 - A `result-*.md` source-decision file is a record. Open it through
   [reference/source-decisions/topic-map.md](reference/source-decisions/topic-map.md)
   for task work or
-  [reference/source-decisions/result-index.md](reference/source-decisions/result-index.md)
+  [reference/source-decisions/README.md#record-placement](reference/source-decisions/README.md#record-placement)
   for record audits.
 
 ## Skip Unless Needed

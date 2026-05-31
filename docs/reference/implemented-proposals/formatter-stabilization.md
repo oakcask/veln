@@ -15,8 +15,6 @@ Use the specification pages for current `veln fmt` behavior.
 - Implemented comment and source syntax:
   [../../specification/source-surface.md](../../specification/source-surface.md).
 - Completion evidence is summarized in this page.
-- Promotion mechanics:
-  [../../proposals/implementation-route.md](../../proposals/implementation-route.md).
 
 ## Outcome
 

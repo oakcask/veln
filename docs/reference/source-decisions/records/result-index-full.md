@@ -9,7 +9,7 @@ smallest category page.
 
 - Current implemented behavior: [../../../specification/README.md](../../../specification/README.md).
 - Category route: [../README.md](../README.md).
-- Short audit route: [../result-index.md](../result-index.md).
+- Short audit route: [../README.md#record-placement](../README.md#record-placement).
 
 ## Language Surface Records
 
@@ -68,7 +68,7 @@ smallest category page.
 - [Runtime Value Freeze Boundary](result-runtime-value-freeze-boundary.md)
 - [Transitive Effect Diagnostics](result-transitive-effect-diagnostics.md)
 
-## Process And Rationale Records
+## Process Rationale Records
 
 - [ADR-Lite Decision Location](result-adr-lite-decision-location.md)
 - [Comparison Example Task](result-comparison-example-task.md)

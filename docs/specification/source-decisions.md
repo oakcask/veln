@@ -23,7 +23,7 @@ categorized specification files. The full implemented decision index is
 - Runtime, AST, architecture, mutability, concurrency, or compatibility:
   [../reference/source-decisions/implementation-boundaries.md](../reference/source-decisions/implementation-boundaries.md).
 - Decision placement, comparison tasks, repair policy, or diagnostic severity:
-  [../reference/source-decisions/process-rationale.md](../reference/source-decisions/process-rationale.md).
+  [../reference/source-decisions/README.md#process-rationale](../reference/source-decisions/README.md#process-rationale).
 
 ## Read When
 
@@ -38,5 +38,6 @@ categorized specification files. The full implemented decision index is
 
 - Do not use source decisions as implementation status when a specification
   page says otherwise.
-- Do not open [../reference/source-decisions/result-index.md](../reference/source-decisions/result-index.md)
+- Do not use
+  [../reference/source-decisions/README.md#record-placement](../reference/source-decisions/README.md#record-placement)
   unless auditing the full decision-record set.

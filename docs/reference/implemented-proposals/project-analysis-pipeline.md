@@ -14,9 +14,6 @@ first-slice review. Use the specification pages for current command behavior.
 - Current JSON output boundaries:
   [../../specification/json-output.md](../../specification/json-output.md).
 - Use this page for completion evidence and cleanup routing only.
-- Use
-  [../../proposals/implementation-route.md](../../proposals/implementation-route.md)
-  only for a new or reopened proposal target.
 
 ## Outcome
 

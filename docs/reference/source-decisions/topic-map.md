@@ -46,7 +46,7 @@ implemented behavior.
 - Runtime, compatibility, transitive effects, and value freezing:
   [implementation-boundaries.md#runtime-boundaries](implementation-boundaries.md#runtime-boundaries).
 - Documentation placement, comparison, repair, and severity policy:
-  [process-rationale.md](process-rationale.md).
+  [README.md#process-rationale](README.md#process-rationale).
 
 ## Skip Unless Needed
 

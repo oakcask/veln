@@ -23,6 +23,41 @@ Keep documentation discoverable without forcing agents to read long historical o
 7. Update relative links after moves and verify that Markdown links resolve.
 8. If planned behavior, phase scope, diagnostics gates, or quality rationale change, keep the relevant docs aligned with the code change.
 
+## Placement Rules
+
+- `docs/specification/` is the first stop for implemented language behavior.
+- Keep prose specification pages thin: they should route, summarize, and
+  explain executable or mechanically checked evidence when practical.
+- Prefer `examples/specification/`, generated grammar, compiler tests, checked
+  fixtures, or CLI harness cases for behavior that can be expressed
+  mechanically.
+- Use `docs/reference/source-decisions/` for implemented rationale and decision
+  history.
+- Use `docs/reference/implemented-proposals/` for completed proposal history
+  and completion evidence, not current behavior.
+- Use `docs/proposals/` for proposed targets that are not fully implemented.
+- Keep implementation gaps, verification evidence, and correction lists in the
+  matching proposal or reference page.
+- When prose and executable evidence disagree, update the implementation,
+  executable evidence, or prose together.
+
+## Status Labels
+
+Use durable document labels narrowly:
+
+- `implemented`: current behavior or implemented rationale supported by code
+  and tests.
+- `proposed`: committed proposal text whose implementation is absent or
+  incomplete.
+- `routing`: an index or selection route that does not define behavior.
+- `closed`: a former proposal route preserved only for old links.
+- `superseded`: another document replaces this one.
+- `rejected`: the project decided not to pursue the design.
+
+`Status:` describes document authority and placement, not whether every idea in
+the file exists in the product. Proposal pages should not use
+`Implementation:` to describe current behavior.
+
 ## Index Page Rules
 
 - Index pages should be routing documents, not summaries of everything.
