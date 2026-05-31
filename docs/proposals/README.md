@@ -9,8 +9,13 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
-There are no active proposal pages. Add a narrow proposal page here only after
-the target is concrete enough to compare against `../specification/`.
+- [Implicit Prelude And Unqualified Imports](implicit-prelude-and-unqualified-imports.md):
+  make `use` introduce unambiguous public exports into bare scope, define the
+  standard prelude as an implicit import, and rename `core_prelude` to
+  `prelude`.
+- [Public Member Alias Re-Exports](public-member-alias-reexports.md):
+  add explicit public aliases for re-exporting `fn` and `type` members without
+  writing wrappers or exposing implementation module paths.
 
 ## Update When
 
