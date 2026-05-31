@@ -1395,6 +1395,42 @@ fn same_module_constructor_leaf_conflicts_resolve_through_type_paths() {
 }
 
 #[test]
+fn same_module_payload_constructor_leaf_conflicts_resolve_through_type_paths() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Left\n",
+            "  Build(value: Int)\n",
+            "end\n",
+            "type Right\n",
+            "  Build(value: String)\n",
+            "end\n",
+            "fn left() -> Left\n",
+            "  Left::Build(1)\n",
+            "end\n",
+            "fn right() -> Right\n",
+            "  Right::Build(\"ok\")\n",
+            "end\n",
+            "fn ambiguous() -> Left\n",
+            "  Build(1)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.ambiguous" && diagnostic.message == "ambiguous call_target `Build`"
+    }));
+    assert!(!diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate constructor declaration name `Build`"
+    }));
+}
+
+#[test]
 fn ambiguous_unqualified_imported_source_adt_constructor_is_rejected() {
     let first = SourceFile::new(
         "first.veln",
