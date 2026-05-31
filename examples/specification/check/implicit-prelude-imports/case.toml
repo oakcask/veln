@@ -1,9 +1,9 @@
-command = ["check", "--json", "main.veln", "measure.veln"]
+command = ["check", "--json", "main.veln", "measure.veln", "claimed-prelude.veln"]
 exit = 1
 
 [stdout]
 format = "json"
-contains = ["ambiguous call_target `vec_len`", "use `measure::vec_len` to select it", "use `prelude::vec_len` to select it", "import alias `prelude` conflicts with the standard prelude"]
+contains = ["ambiguous call_target `vec_len`", "use `measure::vec_len` to select it", "use `prelude::vec_len` to select it", "import alias `prelude` conflicts with the standard prelude", "module identity `prelude` conflicts with the standard prelude"]
 
 [stderr]
 format = "empty"
@@ -16,8 +16,16 @@ equals = "error"
 id = "name.ambiguous"
 severity = "error"
 kind = "name"
+message = "ambiguous call_target `vec_len`"
 
 [[diagnostics]]
 id = "name.reserved"
 severity = "error"
 kind = "name"
+message = "import alias `prelude` conflicts with the standard prelude"
+
+[[diagnostics]]
+id = "name.reserved"
+severity = "error"
+kind = "name"
+message = "module identity `prelude` conflicts with the standard prelude"

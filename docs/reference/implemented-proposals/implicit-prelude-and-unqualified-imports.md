@@ -100,7 +100,8 @@ It is not a public module import.
 - Semantic tests cover qualified prelude calls, prelude/import ambiguity,
   local declaration shadowing, non-callable local shadowing, and reserved
   `prelude` module claims.
-- Checked examples cover ambiguous bare helper imports and reserved aliases.
+- Checked examples cover ambiguous bare helper imports, qualified selectors,
+  reserved aliases, and reserved module identities.
 - Runtime examples cover `prelude::` fallback and local declaration shadowing.
 - Standard symbol descriptor tests verify that source metadata points at
   `crates/veln-stdlib/veln/prelude.veln` and the embedded module header is
