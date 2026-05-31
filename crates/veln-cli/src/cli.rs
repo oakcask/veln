@@ -7,6 +7,9 @@ pub(crate) enum Command {
         json: bool,
         inputs: Vec<PathBuf>,
     },
+    Doc {
+        inputs: Vec<PathBuf>,
+    },
     Fmt {
         inputs: Vec<PathBuf>,
     },
@@ -65,6 +68,7 @@ fn app() -> ClapCommand {
         .subcommand_required(false)
         .arg_required_else_help(false)
         .subcommand(check_command())
+        .subcommand(doc_command())
         .subcommand(fmt_command())
         .subcommand(run_command())
         .subcommand(test_command())
@@ -80,6 +84,16 @@ fn check_command() -> ClapCommand {
         .arg(path_args(
             "inputs",
             "Source files or directories to check",
+            "INPUTS",
+        ))
+}
+
+fn doc_command() -> ClapCommand {
+    ClapCommand::new("doc")
+        .about("Generate documentation")
+        .arg(path_args(
+            "inputs",
+            "Source files or directories to document",
             "INPUTS",
         ))
 }
@@ -234,7 +248,7 @@ fn parse_help_or_version(args: &[String]) -> Result<Option<Command>, String> {
         .first()
         .expect("empty arguments are handled before reading the first argument");
     match first.as_str() {
-        "check" | "fmt" | "test" | "repair" | "explain" | "lsp"
+        "check" | "doc" | "fmt" | "test" | "repair" | "explain" | "lsp"
             if has_help_flag(args.iter().skip(1)) =>
         {
             Ok(Some(Command::Help {
@@ -264,6 +278,7 @@ fn validate_command_args(args: &[String]) -> Result<(), String> {
         .expect("help and version handling rejects empty arguments");
     match first.as_str() {
         "check" => reject_unknown_check_flags(args.iter().skip(1)),
+        "doc" => reject_unknown_doc_flags(args.iter().skip(1)),
         "fmt" => reject_unknown_fmt_flags(args.iter().skip(1)),
         "run" => {
             reject_unknown_run_flags(args.iter().skip(1))?;
@@ -281,6 +296,9 @@ fn command_from_matches(matches: &clap::ArgMatches) -> Command {
     match matches.subcommand() {
         Some(("check", matches)) => Command::Check {
             json: matches.get_flag("json"),
+            inputs: path_values(matches, "inputs"),
+        },
+        Some(("doc", matches)) => Command::Doc {
             inputs: path_values(matches, "inputs"),
         },
         Some(("fmt", matches)) => Command::Fmt {
@@ -373,6 +391,17 @@ fn reject_unknown_check_flags<'a>(args: impl Iterator<Item = &'a String>) -> Res
         match arg.as_str() {
             "--json" | "--help" | "-h" => {}
             flag if flag.starts_with('-') => return Err(format!("unknown check flag `{flag}`")),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn reject_unknown_doc_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
+    for arg in args {
+        match arg.as_str() {
+            "--help" | "-h" => {}
+            flag if flag.starts_with('-') => return Err(format!("unknown doc flag `{flag}`")),
             _ => {}
         }
     }
@@ -555,6 +584,30 @@ mod tests {
     }
 
     #[test]
+    fn doc_parser_accepts_input_paths() {
+        let command = parse(&["doc", "src/main.veln", "docs"]).expect("doc command should parse");
+
+        let Command::Doc { inputs } = command else {
+            panic!("expected doc command");
+        };
+
+        assert_eq!(
+            inputs,
+            [PathBuf::from("src/main.veln"), PathBuf::from("docs")]
+        );
+    }
+
+    #[test]
+    fn doc_parser_reports_unknown_flags() {
+        let error = match parse(&["doc", "--json"]) {
+            Ok(_) => panic!("unknown doc flag should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown doc flag `--json`");
+    }
+
+    #[test]
     fn fmt_parser_accepts_input_paths() {
         let command =
             parse(&["fmt", "src/main.veln", "tests/case.veln"]).expect("fmt command should parse");
@@ -647,6 +700,10 @@ mod tests {
     fn subcommands_return_help_for_help_flags() {
         assert!(matches!(
             parse(&["check", "--help"]).unwrap(),
+            Command::Help { .. }
+        ));
+        assert!(matches!(
+            parse(&["doc", "--help"]).unwrap(),
             Command::Help { .. }
         ));
         assert!(matches!(

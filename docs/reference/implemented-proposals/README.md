@@ -35,6 +35,8 @@ behavior.
   [repair-command-confirmation-override.md](repair-command-confirmation-override.md).
 - Agent test selection graph:
   [agent-test-selection-graph.md](agent-test-selection-graph.md).
+- Agent module, package, and documentation model:
+  [agent-module-package-docs.md](agent-module-package-docs.md).
 - Self-hosting standard library:
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Path runtime representation:

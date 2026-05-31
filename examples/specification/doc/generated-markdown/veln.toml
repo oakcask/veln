@@ -1,0 +1,10 @@
+[package]
+name = "demo-docs"
+version = "0.1.0"
+description = "Generated documentation fixture."
+
+[tool.docs]
+format = "markdown"
+
+[modules]
+"main.veln" = "docs.main"

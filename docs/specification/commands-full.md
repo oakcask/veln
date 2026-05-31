@@ -9,6 +9,7 @@ behavior, gates, or output boundaries.
 - [Command help](#command-help)
 - [`veln check`](#veln-check)
 - [`veln fmt`](#veln-fmt)
+- [`veln doc`](#veln-doc)
 - [`veln run`](#veln-run)
 - [`veln test`](#veln-test)
 - [`veln repair`](#veln-repair)
@@ -111,6 +112,41 @@ closing `end` lines do not prevent parsing or deterministic formatting of
 those declarations. Trailing line comments after source code stay on the same
 formatted source line. `veln fmt` formats parse-clean source only; it does not
 migrate slash-prefixed comment-like text.
+
+<a id="veln-doc"></a>
+
+## `veln doc [path ...]`
+
+`doc` generates deterministic Markdown documentation for selected source
+files. It uses the same source discovery rule as `check`: absent paths discover
+`.veln` files recursively below the current project root, explicit directories
+are searched recursively, and selected paths are sorted and deduplicated.
+
+`doc` reads `veln.toml` when present. The implemented manifest documentation
+surface accepts string-valued `[package]` fields and string-valued
+`[tool.<name>]` fields. Package fields are emitted as package metadata, and
+tool fields are emitted under a tool metadata section. The package `name`
+field, when present, is the generated document title; otherwise the title is
+`Veln Project`.
+
+The command has a parse gate. If any selected source has parse diagnostics, or
+if a selected `[modules]` manifest entry drifts from the selected source
+`mod` declaration, `doc` emits human diagnostics on stderr, writes no
+documentation, and exits with failure.
+
+For each parse-clean selected source, `doc` emits the source module identity or
+`<anonymous>`, the source path, imports, public source `type` declarations,
+public constructors, and public `fn` declarations. Public `fn` documentation
+includes attached documentation line comments and contract clauses. Public
+`type` documentation includes attached documentation line comments.
+
+Documentation line comments are attached to the nearest following module,
+public type, or public function declaration only when they are immediately
+above that declaration. The generated Markdown strips the `##` marker.
+Executable doctest and expected-output fences remain visible examples, except
+hidden setup lines whose visible doc-comment content starts with `> ` are
+omitted from the generated example. ADR-lite records are emitted in a separate
+ADR-lite section and keep their parsed anchor when one exists.
 
 <a id="veln-run"></a>
 

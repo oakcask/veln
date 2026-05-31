@@ -128,12 +128,25 @@ single-file source with no imports. A source file with one or more `use`
 declarations must declare `mod` before those imports.
 
 When a project root contains `veln.toml`, the implemented manifest subset may
-list source modules in a `[modules]` table:
+list package metadata, tool metadata, and source modules:
 
 ```toml
+[package]
+name = "app"
+description = "Example package."
+
+[tool.docs]
+format = "markdown"
+
 [modules]
 "src/main.veln" = "app.main"
 ```
+
+`[package]` stores string-valued package facts such as package identity,
+version, description, or documentation pointers. `[tool.<name>]` stores
+string-valued tool-specific facts. These fields are manifest-owned metadata
+and are used by generated documentation. They do not create source symbols and
+do not affect parsing, name resolution, type checking, lowering, or execution.
 
 The source `mod` declaration remains the compiler-visible owner of the module
 name. A manifest entry is packaging/discovery metadata and cannot rename the
@@ -400,9 +413,10 @@ same visible bindings as `require` and cannot read an explicit result binding.
 
 Implemented lowering and execution do not include user-defined ADT
 declarations, method calls, loops, mutation, classes, traits, macros,
-comprehensions, anonymous functions, custom operators, task selection, package
-manifest fields beyond `[modules]`, foreign declarations, or doctest metadata
-other than `error`, `ignore`, `fail`, `runtime=contract`, runtime contract
-detail attributes, `runtime=ensure`, runtime ensure detail attributes,
+comprehensions, anonymous functions, custom operators, task selection,
+manifest fields beyond the implemented `[package]`, `[tool.<name>]`, and
+`[modules]` string tables, foreign declarations, or doctest metadata other
+than `error`, `ignore`, `fail`, `runtime=contract`, runtime contract detail
+attributes, `runtime=ensure`, runtime ensure detail attributes,
 `runtime=result`, runtime result value matching, and `veln-output` stream
 selection.

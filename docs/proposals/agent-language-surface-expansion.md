@@ -25,7 +25,8 @@ operator subset.
 The implemented lowering and execution boundary does not include user-defined
 ADT declarations, method calls, loops, mutation, classes, traits, macros,
 comprehensions, anonymous functions, custom operators, task selection, foreign
-declarations, or package manifest fields beyond `[modules]`.
+declarations, or package dependency, workspace, and source-root manifest
+fields beyond the implemented metadata and module tables.
 
 ## Proposed Targets
 

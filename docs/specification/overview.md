@@ -8,7 +8,8 @@ current Veln workspace.
 The following behavior is fixed for the implemented slice:
 
 - The standard edit loop is `veln fmt`, `veln check --json`,
-  `veln run [--json] <entry> [-- arg ...]`, and `veln test [--json]`.
+  `veln run [--json] <entry> [-- arg ...]`, `veln test [--json]`, and
+  `veln doc`.
 - `veln check` and `veln test` extract executable doctest fences from
   documentation line comments; `veln test` can compare adjacent expected
   stdout and stderr fences.
@@ -29,5 +30,6 @@ The following behavior is not fixed by this reference:
 - Source-decision history that predates the categorized reference files.
 - The exact shape of kind-specific diagnostic `details` fields not listed in
   [diagnostics-json.md](diagnostics-json.md).
-- Package manifests beyond implemented module validation, imports, modules
-  beyond source discovery, and the exact on-disk layout of build caches.
+- Package manifests beyond implemented package fields, tool fields, module
+  validation, imports, modules beyond source discovery, and the exact on-disk
+  layout of build caches.

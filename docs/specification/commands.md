@@ -25,6 +25,11 @@ requiring the full command reference on the first read.
   for standalone and trailing line comments. Use
   [commands-full.md](commands-full.md) only when the route summary is not
   enough.
+- `doc`: generated Markdown documentation from selected source files,
+  package/tool manifest metadata, documentation comments, public API
+  declarations, contracts, doctest fences, and ADR-lite records. Use
+  [commands-full.md](commands-full.md) when changing generated documentation
+  output.
 - `run`: entry resolution, argument conversion, static gates, direct JVM
   classfile execution without an ordinary Java source compiler requirement, and
   run JSON. Use [run-json.md](run-json.md) first for machine-readable output,

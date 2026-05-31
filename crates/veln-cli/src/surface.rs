@@ -45,7 +45,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
     )
 }
 
-fn validate_manifest_module(
+pub(crate) fn validate_manifest_module(
     project: &Project,
     source_path: &str,
     module: &SurfaceModule,
@@ -1486,12 +1486,14 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                package: Default::default(),
                 modules: vec![ManifestModule {
                     path: "src/main.veln".to_string(),
                     name: "manifest.main".to_string(),
                     path_span: span("veln.toml", 2, 2, 11),
                     name_span: span("veln.toml", 2, 20, 33),
                 }],
+                tools: Vec::new(),
             }),
         };
 
@@ -1514,12 +1516,14 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                package: Default::default(),
                 modules: vec![ManifestModule {
                     path: "src/main.veln".to_string(),
                     name: "manifest.main".to_string(),
                     path_span: span("veln.toml", 2, 2, 11),
                     name_span: span("veln.toml", 2, 20, 33),
                 }],
+                tools: Vec::new(),
             }),
         };
 
@@ -1548,12 +1552,14 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                package: Default::default(),
                 modules: vec![ManifestModule {
                     path: "src/main.veln".to_string(),
                     name: "app.main".to_string(),
                     path_span: span("veln.toml", 2, 2, 11),
                     name_span: span("veln.toml", 2, 20, 28),
                 }],
+                tools: Vec::new(),
             }),
         };
 
@@ -1579,6 +1585,7 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                package: Default::default(),
                 modules: vec![
                     ManifestModule {
                         path: "src/other.veln".to_string(),
@@ -1593,6 +1600,7 @@ mod tests {
                         name_span: span("veln.toml", 3, 20, 28),
                     },
                 ],
+                tools: Vec::new(),
             }),
         };
 

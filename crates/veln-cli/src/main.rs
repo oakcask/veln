@@ -24,6 +24,7 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
     let command = Command::parse(args)?;
     match command {
         Command::Check { json, inputs } => commands::check::check(json, inputs),
+        Command::Doc { inputs } => commands::doc::doc(inputs),
         Command::Fmt { inputs } => commands::fmt::fmt(inputs),
         Command::Run {
             json,

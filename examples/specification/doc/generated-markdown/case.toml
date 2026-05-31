@@ -1,0 +1,9 @@
+command = ["doc"]
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["# demo-docs", "Generated documentation fixture.", "- name: `demo-docs`", "- version: `0.1.0`", "## Tool Metadata", "- format: `markdown`", "### docs.main", "Source: `main.veln`", "#### Imports", "- `docs.helper`", "##### type DocResult(A)", "A documented public result type.", "Public constructors:", "- `Ready { value: A }`", "##### fn double(value: Int) -> Int", "Doubles a non-negative value.", "```veln\ndouble(seed)\n```", "Contracts:", "- `require` value >= 0", "- `ensure` result >= value", "#### ADR-Lite Records", "- `docs-boundary` (accepted) anchored to module `docs.main`"]
+
+[stderr]
+format = "empty"
