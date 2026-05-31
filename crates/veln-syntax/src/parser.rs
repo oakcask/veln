@@ -1733,80 +1733,78 @@ impl<'a> ExprParser<'a> {
         };
 
         match token.kind {
-            TokenKind::Underscore | TokenKind::Hole => {
-                self.bump();
-                let name = token.text.strip_prefix('_').and_then(|suffix| {
-                    if suffix.is_empty() {
-                        None
-                    } else {
-                        Some(suffix.to_string())
-                    }
-                });
-                let satisfy = self.parse_satisfy_clause();
-                Expr {
-                    kind: ExprKind::Hole { name, satisfy },
-                    span: self.source.span(token.range),
-                }
-            }
-            TokenKind::String => {
-                self.bump();
-                Expr {
-                    kind: ExprKind::StringLiteral(token.text),
-                    span: self.source.span(token.range),
-                }
-            }
-            TokenKind::Int => {
-                self.bump();
-                Expr {
-                    kind: ExprKind::IntLiteral(token.text),
-                    span: self.source.span(token.range),
-                }
-            }
-            TokenKind::Float => {
-                self.bump();
-                Expr {
-                    kind: ExprKind::FloatLiteral(token.text),
-                    span: self.source.span(token.range),
-                }
-            }
+            TokenKind::Underscore | TokenKind::Hole => self.parse_hole_primary(token),
+            TokenKind::String => self.parse_literal_primary(token, ExprKind::StringLiteral),
+            TokenKind::Int => self.parse_literal_primary(token, ExprKind::IntLiteral),
+            TokenKind::Float => self.parse_literal_primary(token, ExprKind::FloatLiteral),
             TokenKind::Ident => self.parse_name_path(),
-            TokenKind::LParen => {
-                let start = self.bump();
-                if let Some(end) = self.eat(TokenKind::RParen) {
-                    Expr {
-                        kind: ExprKind::Unit,
-                        span: self.source.span(start.range.cover(end.range)),
-                    }
-                } else {
-                    let expr = self.parse_expr(0);
-                    let end = self
-                        .eat(TokenKind::RParen)
-                        .map_or_else(|| lhs_range(&expr), |token| token.range);
-                    Expr {
-                        span: self.source.span(start.range.cover(end)),
-                        ..expr
-                    }
-                }
-            }
-            TokenKind::LBrace => {
-                if self.peek_kind(1) == Some(TokenKind::RBrace)
-                    || (self.peek_kind(1) == Some(TokenKind::Ident)
-                        && self.peek_kind(2) == Some(TokenKind::Colon))
-                {
-                    self.parse_record()
-                } else {
-                    self.parse_dict()
-                }
-            }
+            TokenKind::LParen => self.parse_group_or_unit_primary(),
+            TokenKind::LBrace => self.parse_record_or_dict_primary(),
             TokenKind::LBracket => self.parse_list(),
             TokenKind::Match => self.parse_match(),
-            _ => {
-                self.bump();
-                Expr {
-                    kind: ExprKind::Missing,
-                    span: self.source.span(token.range),
-                }
-            }
+            _ => self.parse_missing_primary(token),
+        }
+    }
+
+    fn parse_hole_primary(&mut self, token: Token) -> Expr {
+        self.bump();
+        let name = token
+            .text
+            .strip_prefix('_')
+            .and_then(|suffix| (!suffix.is_empty()).then(|| suffix.to_string()));
+        let satisfy = self.parse_satisfy_clause();
+        Expr {
+            kind: ExprKind::Hole { name, satisfy },
+            span: self.source.span(token.range),
+        }
+    }
+
+    fn parse_literal_primary(
+        &mut self,
+        token: Token,
+        kind: impl FnOnce(String) -> ExprKind,
+    ) -> Expr {
+        self.bump();
+        Expr {
+            kind: kind(token.text),
+            span: self.source.span(token.range),
+        }
+    }
+
+    fn parse_group_or_unit_primary(&mut self) -> Expr {
+        let start = self.bump();
+        if let Some(end) = self.eat(TokenKind::RParen) {
+            return Expr {
+                kind: ExprKind::Unit,
+                span: self.source.span(start.range.cover(end.range)),
+            };
+        }
+        let expr = self.parse_expr(0);
+        let end = self
+            .eat(TokenKind::RParen)
+            .map_or_else(|| lhs_range(&expr), |token| token.range);
+        Expr {
+            span: self.source.span(start.range.cover(end)),
+            ..expr
+        }
+    }
+
+    fn parse_record_or_dict_primary(&mut self) -> Expr {
+        if self.peek_kind(1) == Some(TokenKind::RBrace)
+            || (self.peek_kind(1) == Some(TokenKind::Ident)
+                && self.peek_kind(2) == Some(TokenKind::Colon))
+        {
+            self.parse_record()
+        } else {
+            self.parse_dict()
+        }
+    }
+
+    fn parse_missing_primary(&mut self, token: Token) -> Expr {
+        self.bump();
+        Expr {
+            kind: ExprKind::Missing,
+            span: self.source.span(token.range),
         }
     }
 
