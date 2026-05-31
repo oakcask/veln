@@ -1,0 +1,3 @@
+[package]
+name = "empty-docs"
+description = "Documents package metadata without source modules."

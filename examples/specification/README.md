@@ -127,6 +127,11 @@ against the built `veln` binary.
   fences, hidden doctest setup, and ADR-lite records.
 - `doc/manifest-drift/`: generated documentation is blocked when selected
   manifest module metadata disagrees with source-owned module identity.
+- `doc/no-selected-sources/`: generated documentation can contain only
+  package metadata and an empty module section when no source files are
+  selected.
+- `doc/parse-gate/`: generated documentation is blocked by selected-source
+  parse diagnostics before writing Markdown.
 - `fmt/canonical-formatting/`: headers, imports, standalone and trailing
   comments, contracts, match indentation, operators, postfix `?`, lists,
   records, and idempotence.
