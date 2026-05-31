@@ -139,7 +139,10 @@ against the built `veln` binary.
 - `check/prelude-helper-diagnostics/`: fallible `vec_map` callback diagnostics
   and repair hints toward `vec_try_map`.
 - `check/implicit-prelude-imports/`: implicit standard prelude import
-  ambiguity with written imports and reserved `prelude` aliases.
+  ambiguity with written imports and reserved `prelude` aliases and module
+  identities.
+- `check/implicit-prelude-qualified-imports/`: qualified written-import and
+  `prelude::` selection when both export the same bare helper name.
 - `check/doctest-static-examples/`: documentation-only doctest fences and
   negative static doctest fences.
 - `check/doctest-metadata-diagnostics/`: unknown and invalid doctest metadata,
