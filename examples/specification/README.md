@@ -85,6 +85,9 @@ against the built `veln` binary.
   invalid type annotations, and top-level test declaration shape requirements.
 - `check/named-type-annotations/`: non-built-in named type paths with type
   arguments inside value and function type annotations.
+- `check/source-adt-boundaries/`: source-declared ADT constructor namespace
+  conflicts, ambiguous imported constructors, and nullary generic constructor
+  context.
 - `check/manifest-metadata/`: source `mod` ownership wins over manifest module
   metadata, manifest module names require selected source owners, and manifest
   entries do not add unselected source files.

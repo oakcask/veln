@@ -1,0 +1,49 @@
+command = ["check", "--json", "duplicate.veln", "first.veln", "second.veln", "app.veln", "inference.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 3
+
+[[diagnostics]]
+id = "name.duplicate"
+severity = "error"
+kind = "name"
+message = "duplicate constructor declaration name `Same`"
+
+[diagnostics.span]
+file = "duplicate.veln"
+line = 8
+column = 3
+
+[[diagnostics]]
+id = "name.ambiguous"
+severity = "error"
+kind = "name"
+message = "ambiguous value `Same`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 6
+column = 15
+
+[[diagnostics]]
+id = "type.inference_ambiguous"
+severity = "error"
+kind = "type"
+message = "constructor `Missing` needs type context"
+
+[diagnostics.span]
+file = "inference.veln"
+line = 9
+column = 15

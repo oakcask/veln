@@ -1,0 +1,8 @@
+mod spec.app
+use spec.first
+use spec.second
+
+fn ambiguous_constructor() -> Int
+  let value = Same
+  1
+end

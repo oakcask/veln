@@ -1,0 +1,5 @@
+mod spec.second
+
+pub type Right
+  pub Same
+end

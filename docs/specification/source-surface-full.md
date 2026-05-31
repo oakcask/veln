@@ -328,8 +328,11 @@ or type-qualified names. From an importing module, public constructors also
 resolve through the import alias as `alias::Constructor` or
 `alias::Type::Constructor`. A public type does not automatically export its
 constructors; each exported constructor line uses its own `pub` prefix.
-Private constructors remain usable in their declaring module. The built-in
-`List(A)` descriptor recognizes `Nil`, `Cons(head, tail)`, `List::Nil`, and
+Private constructors remain usable in their declaring module. One module cannot
+declare the same constructor leaf name twice, even across different ADTs. When
+multiple imports expose the same public constructor leaf name, unqualified use
+is ambiguous and must use a qualifying path. The built-in `List(A)` descriptor
+recognizes `Nil`, `Cons(head, tail)`, `List::Nil`, and
 `List::Cons(head, tail)` and keeps the existing runtime list representation.
 
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
@@ -411,12 +414,11 @@ same visible bindings as `require` and cannot read an explicit result binding.
 
 ## Not Implemented
 
-Implemented lowering and execution do not include user-defined ADT
-declarations, method calls, loops, mutation, classes, traits, macros,
-comprehensions, anonymous functions, custom operators, task selection,
-manifest fields beyond the implemented `[package]`, `[tool.<name>]`, and
-`[modules]` string tables, foreign declarations, or doctest metadata other
-than `error`, `ignore`, `fail`, `runtime=contract`, runtime contract detail
-attributes, `runtime=ensure`, runtime ensure detail attributes,
-`runtime=result`, runtime result value matching, and `veln-output` stream
-selection.
+Implemented lowering and execution do not include method calls, loops,
+mutation, classes, traits, macros, comprehensions, anonymous functions, custom
+operators, task selection, manifest fields beyond the implemented `[package]`,
+`[tool.<name>]`, and `[modules]` string tables, foreign declarations, or
+doctest metadata other than `error`, `ignore`, `fail`, `runtime=contract`,
+runtime contract detail attributes, `runtime=ensure`, runtime ensure detail
+attributes, `runtime=result`, runtime result value matching, and
+`veln-output` stream selection.

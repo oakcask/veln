@@ -1,0 +1,10 @@
+mod spec.inference
+
+type Maybe(A)
+  Missing
+  Just(A)
+end
+
+fn missing_context() -> ()
+  let value = Missing
+end

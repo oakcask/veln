@@ -1,0 +1,9 @@
+mod spec.duplicates
+
+type Left
+  Same
+end
+
+type Right
+  Same
+end

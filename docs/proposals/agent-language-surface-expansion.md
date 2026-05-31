@@ -18,21 +18,20 @@ source subset. Proposal text here is not current language behavior unless
 ## Current Boundary
 
 The implemented surface includes modules, imports, `fn`, `test`, contracts,
-`let`, records, dictionaries, lists, `match`, built-in `Result` and `Option`
-constructors, holes, `satisfy`, pipelines, calls, field access, and the current
-operator subset.
+source-declared ADTs, `let`, records, dictionaries, lists, `match`, built-in
+`Result` and `Option` constructors, holes, `satisfy`, pipelines, calls, field
+access, and the current operator subset.
 
-The implemented lowering and execution boundary does not include user-defined
-ADT declarations, method calls, loops, mutation, classes, traits, macros,
-comprehensions, anonymous functions, custom operators, task selection, foreign
-declarations, or package dependency, workspace, and source-root manifest
-fields beyond the implemented metadata and module tables.
+The implemented lowering and execution boundary does not include method calls,
+loops, mutation, classes, traits, macros, comprehensions, anonymous functions,
+custom operators, task selection, foreign declarations, or package dependency,
+workspace, and source-root manifest fields beyond the implemented metadata and
+module tables.
 
 ## Proposed Targets
 
 Each feature below needs a narrow proposal before implementation:
 
-- User-defined ADTs and constructor namespace rules.
 - Method calls or receiver-style sugar, if they remain useful after targeted
   diagnostics for method-call-shaped syntax.
 - Looping or comprehension syntax that does not duplicate existing `match` and

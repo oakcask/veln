@@ -1,6 +1,6 @@
-# Doctest Runtime Failure Expectations
+# Doctest Runtime Failure Follow-Ups
 
-Status: implemented target, no open follow-up selected
+Status: proposed follow-ups
 
 This page records remaining runtime-failure expectation work outside the
 implemented doctest routes. Current behavior is specified in
@@ -47,7 +47,7 @@ Runtime failure expectations and expected-output fences are separate doctest
 expectation routes. Runtime matching decides only failure kind and details;
 output comparison decides only captured stdout or stderr text.
 
-## Target
+## Follow-Up Target
 
 No additional runtime failure expectation kind is selected here. Add one only
 when that failure class has structured test JSON details, metadata diagnostics,
