@@ -1199,71 +1199,7 @@ fn veln_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
     let mut diagnostics: Vec<Diagnostic> = info
         .split_whitespace()
         .skip(1)
-        .filter_map(|field| {
-            if let Some(value) = metadata_field_value(field, "error") {
-                value.is_empty().then(|| {
-                    invalid_doctest_metadata_diagnostic(
-                        "empty doctest error type",
-                        "error",
-                        span.clone(),
-                        Vec::new(),
-                    )
-                })
-            } else if let Some(value) = metadata_field_value(field, RUNTIME_ATTRIBUTE) {
-                if value.is_empty() {
-                    Some(invalid_doctest_metadata_diagnostic(
-                        "empty doctest runtime failure kind",
-                        RUNTIME_ATTRIBUTE,
-                        span.clone(),
-                        Vec::new(),
-                    ))
-                } else if !matches!(
-                    value,
-                    RUNTIME_CONTRACT_KIND | RUNTIME_ENSURE_KIND | RUNTIME_RESULT_KIND
-                ) {
-                    Some(invalid_doctest_metadata_diagnostic(
-                        format!("unknown doctest runtime failure kind `{value}`"),
-                        RUNTIME_ATTRIBUTE,
-                        span.clone(),
-                        vec![("runtime", JsonValue::string(value))],
-                    ))
-                } else {
-                    None
-                }
-            } else if let Some((attribute, value)) = runtime_expectation_metadata_field(field) {
-                if runtime_kind.is_none_or(|kind| !kind.allows_attribute(attribute)) {
-                    Some(unknown_doctest_metadata_diagnostic(
-                        format!("unknown doctest attribute `{attribute}`"),
-                        attribute,
-                        "veln",
-                        span.clone(),
-                    ))
-                } else {
-                    value.is_empty().then(|| {
-                        invalid_doctest_metadata_diagnostic(
-                            runtime_kind
-                                .expect("runtime kind should allow attribute")
-                                .empty_attribute_message(attribute),
-                            attribute,
-                            span.clone(),
-                            Vec::new(),
-                        )
-                    })
-                }
-            } else if matches!(field, "ignore" | "fail") {
-                None
-            } else {
-                Some(unknown_doctest_metadata_diagnostic(
-                    format!(
-                        "unknown doctest attribute `{}`",
-                        metadata_attribute_name(field)
-                    ),
-                    metadata_attribute_name(field),
-                    "veln",
-                    span.clone(),
-                ))
-            }
-        })
+        .filter_map(|field| veln_metadata_field_diagnostic(field, runtime_kind, span.clone()))
         .collect();
 
     if let Some(kind) = runtime_kind {
@@ -1280,6 +1216,102 @@ fn veln_metadata_diagnostics(info: &str, span: SourceSpan) -> Vec<Diagnostic> {
     }
 
     diagnostics
+}
+
+fn veln_metadata_field_diagnostic(
+    field: &str,
+    runtime_kind: Option<RuntimeExpectationKind>,
+    span: SourceSpan,
+) -> Option<Diagnostic> {
+    match classify_veln_metadata_field(field) {
+        VelnMetadataField::Error(value) => empty_error_metadata_diagnostic(value, span),
+        VelnMetadataField::Runtime(value) => runtime_metadata_diagnostic(value, span),
+        VelnMetadataField::RuntimeExpectation { attribute, value } => {
+            runtime_expectation_metadata_diagnostic(attribute, value, runtime_kind, span)
+        }
+        VelnMetadataField::Flag => None,
+        VelnMetadataField::Unknown(attribute) => Some(unknown_doctest_metadata_diagnostic(
+            format!("unknown doctest attribute `{attribute}`"),
+            attribute,
+            "veln",
+            span,
+        )),
+    }
+}
+
+enum VelnMetadataField<'a> {
+    Error(&'a str),
+    Runtime(&'a str),
+    RuntimeExpectation { attribute: &'a str, value: &'a str },
+    Flag,
+    Unknown(&'a str),
+}
+
+fn classify_veln_metadata_field(field: &str) -> VelnMetadataField<'_> {
+    if let Some(value) = metadata_field_value(field, "error") {
+        VelnMetadataField::Error(value)
+    } else if let Some(value) = metadata_field_value(field, RUNTIME_ATTRIBUTE) {
+        VelnMetadataField::Runtime(value)
+    } else if let Some((attribute, value)) = runtime_expectation_metadata_field(field) {
+        VelnMetadataField::RuntimeExpectation { attribute, value }
+    } else if matches!(field, "ignore" | "fail") {
+        VelnMetadataField::Flag
+    } else {
+        VelnMetadataField::Unknown(metadata_attribute_name(field))
+    }
+}
+
+fn empty_error_metadata_diagnostic(value: &str, span: SourceSpan) -> Option<Diagnostic> {
+    value.is_empty().then(|| {
+        invalid_doctest_metadata_diagnostic("empty doctest error type", "error", span, Vec::new())
+    })
+}
+
+fn runtime_metadata_diagnostic(value: &str, span: SourceSpan) -> Option<Diagnostic> {
+    if value.is_empty() {
+        Some(invalid_doctest_metadata_diagnostic(
+            "empty doctest runtime failure kind",
+            RUNTIME_ATTRIBUTE,
+            span,
+            Vec::new(),
+        ))
+    } else if !matches!(
+        value,
+        RUNTIME_CONTRACT_KIND | RUNTIME_ENSURE_KIND | RUNTIME_RESULT_KIND
+    ) {
+        Some(invalid_doctest_metadata_diagnostic(
+            format!("unknown doctest runtime failure kind `{value}`"),
+            RUNTIME_ATTRIBUTE,
+            span,
+            vec![("runtime", JsonValue::string(value))],
+        ))
+    } else {
+        None
+    }
+}
+
+fn runtime_expectation_metadata_diagnostic(
+    attribute: &str,
+    value: &str,
+    runtime_kind: Option<RuntimeExpectationKind>,
+    span: SourceSpan,
+) -> Option<Diagnostic> {
+    let Some(kind) = runtime_kind.filter(|kind| kind.allows_attribute(attribute)) else {
+        return Some(unknown_doctest_metadata_diagnostic(
+            format!("unknown doctest attribute `{attribute}`"),
+            attribute,
+            "veln",
+            span,
+        ));
+    };
+    value.is_empty().then(|| {
+        invalid_doctest_metadata_diagnostic(
+            kind.empty_attribute_message(attribute),
+            attribute,
+            span,
+            Vec::new(),
+        )
+    })
 }
 
 fn runtime_expectation_metadata_field(field: &str) -> Option<(&str, &str)> {

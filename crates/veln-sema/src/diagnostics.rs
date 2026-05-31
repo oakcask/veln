@@ -100,75 +100,115 @@ pub(crate) fn effect_missing_public_details(
         ("node_id", JsonValue::string(node_id.clone())),
         ("effect", JsonValue::string(effect)),
         ("boundary", JsonValue::string(boundary)),
-        (
-            "declared_effects",
-            JsonValue::array(declared_effects.iter().cloned().map(JsonValue::string)),
-        ),
-        (
-            "inferred_effects",
-            JsonValue::array(inferred_effects.iter().cloned().map(JsonValue::string)),
-        ),
-        (
-            "provenance",
-            JsonValue::array(provenance.iter().map(|effect_use| {
-                JsonValue::object([
-                    (
-                        "node_id",
-                        JsonValue::string(effect_use.node_id.display("call")),
-                    ),
-                    ("kind", JsonValue::string(effect_use.kind)),
-                    ("symbol", JsonValue::string(effect_use.symbol.clone())),
-                ])
-            })),
-        ),
+        ("declared_effects", string_array(declared_effects)),
+        ("inferred_effects", string_array(inferred_effects)),
+        ("provenance", effect_provenance_summary(provenance)),
         (
             "provenance_truncated",
             JsonValue::Bool(provenance_truncated),
         ),
         (
             "provenance_paths",
-            JsonValue::array(provenance.iter().enumerate().map(|(index, effect_use)| {
-                JsonValue::object([
-                    ("effect", JsonValue::string(effect)),
-                    (
-                        "entries",
-                        JsonValue::array([
-                            JsonValue::object([
-                                (
-                                    "kind",
-                                    JsonValue::string(match boundary {
-                                        "test_declaration" => "test_boundary",
-                                        _ => "public_boundary",
-                                    }),
-                                ),
-                                ("node_id", JsonValue::string(node_id.clone())),
-                                ("symbol", JsonValue::string(boundary_symbol)),
-                                ("span", span_json(boundary_span)),
-                            ]),
-                            JsonValue::object([
-                                ("kind", JsonValue::string(effect_use.kind)),
-                                (
-                                    "node_id",
-                                    JsonValue::string(effect_use.node_id.display("call")),
-                                ),
-                                ("symbol", JsonValue::string(effect_use.symbol.clone())),
-                                ("span", span_json(&effect_use.span)),
-                            ]),
-                        ]),
-                    ),
-                    ("truncated", JsonValue::Bool(provenance_truncated)),
-                    ("hidden_frame_count", JsonValue::Number(0)),
-                    (
-                        "omitted_path_count",
-                        JsonValue::Number(if index == 0 {
-                            omitted_path_count as i64
-                        } else {
-                            0
-                        }),
-                    ),
-                ])
-            })),
+            effect_provenance_paths(
+                &node_id,
+                boundary_symbol,
+                boundary_span,
+                effect,
+                boundary,
+                provenance,
+                provenance_truncated,
+                omitted_path_count,
+            ),
         ),
+    ])
+}
+
+fn string_array(values: &[String]) -> JsonValue {
+    JsonValue::array(values.iter().cloned().map(JsonValue::string))
+}
+
+fn effect_provenance_summary(provenance: &[EffectUse]) -> JsonValue {
+    JsonValue::array(provenance.iter().map(|effect_use| {
+        JsonValue::object([
+            (
+                "node_id",
+                JsonValue::string(effect_use.node_id.display("call")),
+            ),
+            ("kind", JsonValue::string(effect_use.kind)),
+            ("symbol", JsonValue::string(effect_use.symbol.clone())),
+        ])
+    }))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn effect_provenance_paths(
+    node_id: &str,
+    boundary_symbol: &str,
+    boundary_span: &SourceSpan,
+    effect: &str,
+    boundary: &'static str,
+    provenance: &[EffectUse],
+    provenance_truncated: bool,
+    omitted_path_count: usize,
+) -> JsonValue {
+    JsonValue::array(provenance.iter().enumerate().map(|(index, effect_use)| {
+        JsonValue::object([
+            ("effect", JsonValue::string(effect)),
+            (
+                "entries",
+                JsonValue::array([
+                    effect_boundary_provenance_entry(
+                        node_id,
+                        boundary_symbol,
+                        boundary_span,
+                        boundary,
+                    ),
+                    effect_use_provenance_entry(effect_use),
+                ]),
+            ),
+            ("truncated", JsonValue::Bool(provenance_truncated)),
+            ("hidden_frame_count", JsonValue::Number(0)),
+            (
+                "omitted_path_count",
+                JsonValue::Number(if index == 0 {
+                    omitted_path_count as i64
+                } else {
+                    0
+                }),
+            ),
+        ])
+    }))
+}
+
+fn effect_boundary_provenance_entry(
+    node_id: &str,
+    boundary_symbol: &str,
+    boundary_span: &SourceSpan,
+    boundary: &'static str,
+) -> JsonValue {
+    JsonValue::object([
+        (
+            "kind",
+            JsonValue::string(match boundary {
+                "test_declaration" => "test_boundary",
+                _ => "public_boundary",
+            }),
+        ),
+        ("node_id", JsonValue::string(node_id.to_string())),
+        ("symbol", JsonValue::string(boundary_symbol)),
+        ("span", span_json(boundary_span)),
+    ])
+}
+
+fn effect_use_provenance_entry(effect_use: &EffectUse) -> JsonValue {
+    JsonValue::object([
+        ("kind", JsonValue::string(effect_use.kind)),
+        (
+            "node_id",
+            JsonValue::string(effect_use.node_id.display("call")),
+        ),
+        ("symbol", JsonValue::string(effect_use.symbol.clone())),
+        ("span", span_json(&effect_use.span)),
     ])
 }
 

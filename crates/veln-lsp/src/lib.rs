@@ -100,55 +100,63 @@ impl Server {
         };
 
         match method {
-            "initialize" => id
-                .map(|id| response(&id, &initialize_result()))
-                .into_iter()
-                .collect(),
+            "initialize" => self.handle_initialize(id),
             "initialized" => Vec::new(),
-            "shutdown" => id.map(|id| response(&id, "null")).into_iter().collect(),
-            "exit" => {
-                self.should_exit = true;
-                Vec::new()
+            "shutdown" => self.handle_shutdown(id),
+            "exit" => self.handle_exit(),
+            "textDocument/didOpen" | "textDocument/didChange" => {
+                self.handle_document_update(message)
             }
-            "textDocument/didOpen" => {
-                if let (Some(uri), Some(text)) = (
-                    extract_string_field(message, "uri"),
-                    extract_string_field(message, "text"),
-                ) {
-                    self.documents.insert(uri.clone(), text);
-                    return vec![publish_diagnostics(&uri, self.document_text(&uri))];
-                }
-                Vec::new()
-            }
-            "textDocument/didChange" => {
-                if let (Some(uri), Some(text)) = (
-                    extract_string_field(message, "uri"),
-                    extract_string_field(message, "text"),
-                ) {
-                    self.documents.insert(uri.clone(), text);
-                    return vec![publish_diagnostics(&uri, self.document_text(&uri))];
-                }
-                Vec::new()
-            }
-            "textDocument/didClose" => {
-                if let Some(uri) = extract_string_field(message, "uri") {
-                    self.documents.remove(&uri);
-                    return vec![empty_publish_diagnostics(&uri)];
-                }
-                Vec::new()
-            }
-            "textDocument/semanticTokens/full" => id
-                .map(|id| {
-                    let uri = extract_string_field(message, "uri").unwrap_or_default();
-                    response(&id, &semantic_tokens_result(&uri, self.document_text(&uri)))
-                })
-                .into_iter()
-                .collect(),
-            _ => id
-                .map(|id| error_response(&id, -32601, "method not found"))
-                .into_iter()
-                .collect(),
+            "textDocument/didClose" => self.handle_document_close(message),
+            "textDocument/semanticTokens/full" => self.handle_semantic_tokens(message, id),
+            _ => self.handle_unknown_method(id),
         }
+    }
+
+    fn handle_initialize(&self, id: Option<String>) -> Vec<String> {
+        id.map(|id| response(&id, &initialize_result()))
+            .into_iter()
+            .collect()
+    }
+
+    fn handle_shutdown(&self, id: Option<String>) -> Vec<String> {
+        id.map(|id| response(&id, "null")).into_iter().collect()
+    }
+
+    fn handle_exit(&mut self) -> Vec<String> {
+        self.should_exit = true;
+        Vec::new()
+    }
+
+    fn handle_document_update(&mut self, message: &str) -> Vec<String> {
+        let Some((uri, text)) = document_uri_and_text(message) else {
+            return Vec::new();
+        };
+        self.documents.insert(uri.clone(), text);
+        vec![publish_diagnostics(&uri, self.document_text(&uri))]
+    }
+
+    fn handle_document_close(&mut self, message: &str) -> Vec<String> {
+        let Some(uri) = extract_string_field(message, "uri") else {
+            return Vec::new();
+        };
+        self.documents.remove(&uri);
+        vec![empty_publish_diagnostics(&uri)]
+    }
+
+    fn handle_semantic_tokens(&self, message: &str, id: Option<String>) -> Vec<String> {
+        id.map(|id| {
+            let uri = extract_string_field(message, "uri").unwrap_or_default();
+            response(&id, &semantic_tokens_result(&uri, self.document_text(&uri)))
+        })
+        .into_iter()
+        .collect()
+    }
+
+    fn handle_unknown_method(&self, id: Option<String>) -> Vec<String> {
+        id.map(|id| error_response(&id, -32601, "method not found"))
+            .into_iter()
+            .collect()
     }
 
     fn document_text(&self, uri: &str) -> String {
@@ -159,6 +167,13 @@ impl Server {
             .and_then(|path| fs::read_to_string(path).ok())
             .unwrap_or_default()
     }
+}
+
+fn document_uri_and_text(message: &str) -> Option<(String, String)> {
+    Some((
+        extract_string_field(message, "uri")?,
+        extract_string_field(message, "text")?,
+    ))
 }
 
 fn initialize_result() -> String {

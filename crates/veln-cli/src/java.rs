@@ -114,38 +114,19 @@ fn ensure_cached_jvm_classes_in(
     let cache_dir = cache_root.join(&key);
 
     for _ in 0..JVM_CACHE_PREPARE_ATTEMPTS {
-        if validate_cached_jvm_classes(&cache_dir, program).map_err(|error| error.to_string())? {
+        if validated_cache_exists(&cache_dir, program)? {
             return Ok(CachedJvmClasses::Ready(cache_dir));
         }
-        if cache_dir.exists() {
-            fs::remove_dir_all(&cache_dir).map_err(|error| error.to_string())?;
-        }
 
-        let compile_dir =
-            create_cache_compile_dir(cache_root, &key).map_err(|error| error.to_string())?;
-        match write_cached_jvm_classes(&compile_dir, program) {
-            Ok(()) => {}
-            Err(error) => {
-                let _ = fs::remove_dir_all(&compile_dir);
-                return Err(error.to_string());
+        remove_invalid_cache(&cache_dir)?;
+        let compile_dir = match prepare_jvm_cache_compile_dir(cache_root, &key, program)? {
+            CacheCompilePreparation::Ready(path) => path,
+            CacheCompilePreparation::ToolError(message) => {
+                return Ok(CachedJvmClasses::ToolError(message));
             }
-        }
-        if !compile_dir.join(JVM_ENTRY_CLASS).is_file() {
-            let _ = fs::remove_dir_all(&compile_dir);
-            return Ok(CachedJvmClasses::ToolError(
-                "veln: JVM class preparation did not produce an entry class".to_string(),
-            ));
-        }
+        };
 
-        fs::write(
-            manifest_for(&compile_dir),
-            render_jvm_cache_manifest(program),
-        )
-        .map_err(|error| error.to_string())?;
-        fs::write(marker_for(&compile_dir), b"ok\n").map_err(|error| error.to_string())?;
-        match publish_cached_jvm_classes(&compile_dir, &cache_dir, program)
-            .map_err(|error| error.to_string())?
-        {
+        match publish_prepared_jvm_cache(&compile_dir, &cache_dir, program)? {
             CachePublish::Published | CachePublish::ReusedValidated => {
                 return Ok(CachedJvmClasses::Ready(cache_dir));
             }
@@ -154,6 +135,66 @@ fn ensure_cached_jvm_classes_in(
     }
 
     Err("could not prepare validated JVM class cache entry".to_string())
+}
+
+enum CacheCompilePreparation {
+    Ready(PathBuf),
+    ToolError(String),
+}
+
+fn validated_cache_exists(
+    cache_dir: &Path,
+    program: &veln_backend_jvm::JvmProgram,
+) -> Result<bool, String> {
+    validate_cached_jvm_classes(cache_dir, program).map_err(|error| error.to_string())
+}
+
+fn remove_invalid_cache(cache_dir: &Path) -> Result<(), String> {
+    if cache_dir.exists() {
+        fs::remove_dir_all(cache_dir).map_err(|error| error.to_string())?;
+    }
+    Ok(())
+}
+
+fn prepare_jvm_cache_compile_dir(
+    cache_root: &Path,
+    key: &str,
+    program: &veln_backend_jvm::JvmProgram,
+) -> Result<CacheCompilePreparation, String> {
+    let compile_dir =
+        create_cache_compile_dir(cache_root, key).map_err(|error| error.to_string())?;
+    if let Err(error) = write_cached_jvm_classes(&compile_dir, program) {
+        let _ = fs::remove_dir_all(&compile_dir);
+        return Err(error.to_string());
+    }
+    if !compile_dir.join(JVM_ENTRY_CLASS).is_file() {
+        let _ = fs::remove_dir_all(&compile_dir);
+        return Ok(CacheCompilePreparation::ToolError(
+            "veln: JVM class preparation did not produce an entry class".to_string(),
+        ));
+    }
+    write_jvm_cache_metadata(&compile_dir, program)?;
+    Ok(CacheCompilePreparation::Ready(compile_dir))
+}
+
+fn write_jvm_cache_metadata(
+    compile_dir: &Path,
+    program: &veln_backend_jvm::JvmProgram,
+) -> Result<(), String> {
+    fs::write(
+        manifest_for(compile_dir),
+        render_jvm_cache_manifest(program),
+    )
+    .map_err(|error| error.to_string())?;
+    fs::write(marker_for(compile_dir), b"ok\n").map_err(|error| error.to_string())
+}
+
+fn publish_prepared_jvm_cache(
+    compile_dir: &Path,
+    cache_dir: &Path,
+    program: &veln_backend_jvm::JvmProgram,
+) -> Result<CachePublish, String> {
+    publish_cached_jvm_classes(compile_dir, cache_dir, program).map_err(|error| error.to_string())
 }
 
 fn write_cached_jvm_classes(

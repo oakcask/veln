@@ -3191,55 +3191,33 @@ struct FieldAccessRef<'a> {
 }
 
 fn split_field_access(predicate: &str) -> Option<FieldAccessRef<'_>> {
-    let mut depth = 0usize;
-    let mut in_string = false;
-    let mut escaped = false;
+    let mut scanner = FieldAccessScanner::default();
     let mut first_dot = None;
     let mut fields = Vec::new();
     let mut index = 0usize;
     while index < predicate.len() {
         let ch = predicate[index..].chars().next()?;
-        if in_string {
-            if escaped {
-                escaped = false;
-            } else if ch == '\\' {
-                escaped = true;
-            } else if ch == '"' {
-                in_string = false;
-            }
+        if scanner.consume_quoted(ch) {
             index += ch.len_utf8();
             continue;
         }
         match ch {
             '"' => {
-                in_string = true;
+                scanner.start_string();
                 index += ch.len_utf8();
             }
             '(' => {
-                depth += 1;
+                scanner.open_group();
                 index += ch.len_utf8();
             }
             ')' => {
-                depth = depth.saturating_sub(1);
+                scanner.close_group();
                 index += ch.len_utf8();
             }
-            '.' if depth == 0 => {
-                let field_start = index + ch.len_utf8();
-                let field_first = predicate[field_start..].chars().next()?;
-                if !(field_first.is_ascii_alphabetic() || field_first == '_') {
-                    return None;
-                }
-                let mut field_end = field_start + field_first.len_utf8();
-                while field_end < predicate.len() {
-                    let next = predicate[field_end..].chars().next()?;
-                    if next.is_ascii_alphanumeric() || next == '_' {
-                        field_end += next.len_utf8();
-                    } else {
-                        break;
-                    }
-                }
+            '.' if scanner.at_top_level() => {
+                let (field, field_end) = parse_field_access_segment(predicate, index)?;
                 first_dot.get_or_insert(index);
-                fields.push(&predicate[field_start..field_end]);
+                fields.push(field);
                 index = field_end;
                 let rest = predicate[index..].trim_start();
                 if rest.is_empty() {
@@ -3255,6 +3233,63 @@ fn split_field_access(predicate: &str) -> Option<FieldAccessRef<'_>> {
     let dot = first_dot?;
     let base = predicate[..dot].trim();
     (!base.is_empty() && !fields.is_empty()).then_some(FieldAccessRef { base, fields })
+}
+
+#[derive(Default)]
+struct FieldAccessScanner {
+    depth: usize,
+    in_string: bool,
+    escaped: bool,
+}
+
+impl FieldAccessScanner {
+    fn consume_quoted(&mut self, ch: char) -> bool {
+        if !self.in_string {
+            return false;
+        }
+        if self.escaped {
+            self.escaped = false;
+        } else if ch == '\\' {
+            self.escaped = true;
+        } else if ch == '"' {
+            self.in_string = false;
+        }
+        true
+    }
+
+    fn start_string(&mut self) {
+        self.in_string = true;
+    }
+
+    fn open_group(&mut self) {
+        self.depth += 1;
+    }
+
+    fn close_group(&mut self) {
+        self.depth = self.depth.saturating_sub(1);
+    }
+
+    fn at_top_level(&self) -> bool {
+        self.depth == 0
+    }
+}
+
+fn parse_field_access_segment(predicate: &str, dot_index: usize) -> Option<(&str, usize)> {
+    let field_start = dot_index + '.'.len_utf8();
+    let field_first = predicate[field_start..].chars().next()?;
+    if !(field_first.is_ascii_alphabetic() || field_first == '_') {
+        return None;
+    }
+    let mut field_end = field_start + field_first.len_utf8();
+    while field_end < predicate.len() {
+        let next = predicate[field_end..].chars().next()?;
+        if next.is_ascii_alphanumeric() || next == '_' {
+            field_end += next.len_utf8();
+        } else {
+            break;
+        }
+    }
+    Some((&predicate[field_start..field_end], field_end))
 }
 
 fn field_accesses(predicate: &str) -> Vec<FieldAccess> {
