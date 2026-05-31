@@ -22,9 +22,6 @@ compare it with `../specification/` before changing behavior.
 - [type-parameter-angle-brackets.md](type-parameter-angle-brackets.md):
   proposed migration from parenthesized type parameters and arguments to
   angle-bracket type syntax.
-- [tail-recursion-trampoline.md](tail-recursion-trampoline.md):
-  stack-safe trampoline execution route for eligible tail-recursive
-  user-defined functions.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
   remaining repair-loop axes for verification orchestration, candidate
   evidence, edit granularity, and application authority.

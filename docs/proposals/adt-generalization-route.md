@@ -37,9 +37,10 @@ their representation and complexity are not language guarantees.
   `Vec(A)` after real examples require them.
 - Decide whether ADT exhaustiveness diagnostics should report missing
   constructors by qualified name, unqualified name, or both.
-- Decide whether source-level tail-recursion guarantees belong in
-  [tail-recursion-trampoline.md](tail-recursion-trampoline.md) after iterative
-  helper traversal proves insufficient for user functions.
+- Source-level tail-recursion assertions or mutual-recursion guarantees are
+  outside this ADT follow-up route; see the completed user-function record in
+  [../reference/implemented-proposals/tail-recursion-trampoline.md](../reference/implemented-proposals/tail-recursion-trampoline.md)
+  before opening new recursion work.
 
 ## Non-Goals
 

@@ -3,6 +3,7 @@ use std::process::Command;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::classfile::{TailRecursionEligibility, classify_tail_recursion};
 use crate::java::{
     java_type_identifier, sanitize_identifier_text, unique_java_identifier,
     veln_string_literal_value,
@@ -321,6 +322,166 @@ fn bytecode_backend_runs_list_helpers_when_java_is_available() {
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "6\n6\n5\nstop\n1\n"
+    );
+}
+
+#[test]
+fn bytecode_backend_runs_deep_tail_recursion_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn countdown(value: Int) -> Int\n",
+        "require value >= 0\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => countdown(value - 1)\n",
+        "  end\n",
+        "end\n",
+        "fn nested_countdown(value: Int, active: Bool) -> Int\n",
+        "  match active\n",
+        "    true => match value\n",
+        "      0 => 0\n",
+        "      _ => nested_countdown(value - 1, true)\n",
+        "    end\n",
+        "    false => 0\n",
+        "  end\n",
+        "end\n",
+        "fn pair_step(first: Int, second: Int, steps: Int) -> Int\n",
+        "  match steps\n",
+        "    0 => first\n",
+        "    _ => pair_step(second, first + second, steps - 1)\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> () effects [stdio]\n",
+        "  stdio::println(int_to_string(countdown(30000)))\n",
+        "  stdio::println(int_to_string(nested_countdown(30000, true)))\n",
+        "  stdio::println(int_to_string(pair_step(0, 1, 10)))\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-tail-recursion", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "0\n0\n55\n");
+}
+
+#[test]
+fn bytecode_backend_rechecks_require_contracts_inside_tail_recursion_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn countdown(value: Int) -> Int\n",
+        "require value != 2\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => countdown(value - 1)\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Int\n",
+        "  countdown(4)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-tail-recursion-require", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("contract failure: require `value != 2`"));
+    assert!(stderr.contains("blame caller"));
+}
+
+#[test]
+fn bytecode_backend_verifies_all_tail_match_recursion_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "fn reject(value: Int) -> Int\n",
+        "require false\n",
+        "  match value\n",
+        "    _ => reject(value)\n",
+        "  end\n",
+        "end\n",
+        "pub fn main() -> Int\n",
+        "  reject(0)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-tail-recursion-all-tail", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("contract failure: require `false`"));
+}
+
+#[test]
+fn bytecode_backend_classifies_tail_recursion_conservatively() {
+    let ir = lower_to_ir(concat!(
+        "type List(A)\n",
+        "  Nil\n",
+        "  Cons(head: A, tail: List(A))\n",
+        "end\n",
+        "fn countdown(value: Int) -> Int\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => countdown(value - 1)\n",
+        "  end\n",
+        "end\n",
+        "fn length(items: List(Int)) -> Int\n",
+        "  match items\n",
+        "    Nil => 0\n",
+        "    Cons(_, tail) => 1 + length(tail)\n",
+        "  end\n",
+        "end\n",
+        "fn checked(value: Int) -> result: Int\n",
+        "ensure result >= 0\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => checked(value - 1)\n",
+        "  end\n",
+        "end\n",
+        "fn through_value(callback: fn(Int) -> Int, value: Int) -> Int\n",
+        "  match value\n",
+        "    0 => 0\n",
+        "    _ => through_value(callback, callback(value - 1))\n",
+        "  end\n",
+        "end\n",
+    ));
+
+    let function = |name: &str| {
+        ir.functions
+            .iter()
+            .find(|function| function.name == name)
+            .expect("function should exist")
+    };
+
+    assert_eq!(
+        classify_tail_recursion(function("countdown")),
+        TailRecursionEligibility::Eligible
+    );
+    assert_eq!(
+        classify_tail_recursion(function("length")),
+        TailRecursionEligibility::NonTailSelfCall
+    );
+    assert_eq!(
+        classify_tail_recursion(function("checked")),
+        TailRecursionEligibility::RuntimeReturnContract
+    );
+    assert_eq!(
+        classify_tail_recursion(function("through_value")),
+        TailRecursionEligibility::IndirectValueCall
     );
 }
 

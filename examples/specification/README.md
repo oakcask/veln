@@ -50,6 +50,9 @@ against the built `veln` binary.
   record let and match patterns, private inference, parenthesized expressions,
   nested match expressions in call and aggregate positions, and trailing
   record type fields.
+- `check/recursive-call-shapes/`: direct recursive calls, nested-match
+  tail-shaped recursive calls, postcondition-bearing recursive functions,
+  non-tail recursive calls, and function-typed callback calls.
 - `check/slash-comments-rejected/`: slash-prefixed comment-like text is
   rejected as source instead of being treated as ordinary or documentation
   comments.
@@ -158,6 +161,9 @@ against the built `veln` binary.
 - `run/prelude-containers/`: vec, dictionary, list, option, result, and string
   prelude helper value semantics, including non-mutating container updates,
   source-order vec and list traversal, and empty-container checks.
+- `run/tail-recursion-trampoline/`: stack-safe direct tail recursion, nested
+  match tail positions, runtime `require` checks, and argument evaluation
+  before parameter rebinding.
 - `run/result-propagation/`: `Result` propagation, dictionary lookup, function
   values, and runtime JSON success.
 - `run/match-source-order/`: match arms are evaluated in source order.

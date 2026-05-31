@@ -280,12 +280,22 @@ struct FunctionBytecodeEmitter<'a, 'program> {
     locals: BTreeMap<String, u16>,
     next_local: u16,
     max_local: u16,
+    tail_loop_start: Option<usize>,
 }
 
 #[derive(Clone, Copy)]
 enum ContractCheckPosition {
     Entry,
     Return,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TailRecursionEligibility {
+    Eligible,
+    NotRecursive,
+    NonTailSelfCall,
+    RuntimeReturnContract,
+    IndirectValueCall,
 }
 
 impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
@@ -300,10 +310,17 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             locals,
             next_local: function.params.len() as u16,
             max_local: function.params.len() as u16,
+            tail_loop_start: None,
         }
     }
 
     fn emit(&mut self, code: &mut MethodCode) {
+        let tail_recursion = classify_tail_recursion(self.function);
+        if tail_recursion == TailRecursionEligibility::Eligible {
+            let start = code.new_label();
+            code.bind(start);
+            self.tail_loop_start = Some(start);
+        }
         for contract in self
             .function
             .contracts
@@ -341,7 +358,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 code.op(0x57);
             }
             IrStmtKind::Return { value } => {
-                self.emit_expr(code, value);
+                if self.emit_tail_expr(code, value) {
+                    return;
+                }
                 if self.has_ensure_contracts() {
                     let result = self.alloc_local();
                     code.astore(result);
@@ -351,6 +370,88 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 code.op(0xb0);
             }
         }
+    }
+
+    fn emit_tail_expr(&mut self, code: &mut MethodCode, expr: &IrExpr) -> bool {
+        match &expr.kind {
+            IrExprKind::Call {
+                target: IrCallTarget::Function(name),
+                args,
+            } if self.tail_loop_start.is_some() && name == &self.function.name => {
+                self.emit_tail_self_call(code, args);
+                true
+            }
+            IrExprKind::Match { scrutinee, arms } => self.emit_tail_match(code, scrutinee, arms),
+            _ => {
+                self.emit_expr(code, expr);
+                false
+            }
+        }
+    }
+
+    fn emit_tail_self_call(&mut self, code: &mut MethodCode, args: &[IrExpr]) {
+        let mut temp_slots = Vec::with_capacity(args.len());
+        for arg in args {
+            self.emit_expr(code, arg);
+            let slot = self.alloc_local();
+            code.astore(slot);
+            temp_slots.push(slot);
+        }
+        for (index, slot) in temp_slots.into_iter().enumerate() {
+            code.aload(slot);
+            code.astore(index as u16);
+        }
+        code.branch_to(
+            0xa7,
+            self.tail_loop_start
+                .expect("tail self call requires a loop start"),
+        );
+    }
+
+    fn emit_tail_match(
+        &mut self,
+        code: &mut MethodCode,
+        scrutinee: &IrExpr,
+        arms: &[IrMatchArm],
+    ) -> bool {
+        self.emit_expr(code, scrutinee);
+        let value_slot = self.alloc_local();
+        let result_slot = self.alloc_local();
+        code.astore(value_slot);
+        let end = code.new_label();
+        let saved_locals = self.locals.clone();
+        let saved_next = self.next_local;
+        let mut has_value_arm = false;
+        for arm in arms {
+            self.locals = saved_locals.clone();
+            self.next_local = saved_next;
+            let next = code.new_label();
+            self.emit_pattern_condition(code, &arm.pattern, ValueRef::Local(value_slot));
+            code.branch_to(0x99, next);
+            self.emit_pattern_bindings(code, &arm.pattern, ValueRef::Local(value_slot));
+            if !self.emit_tail_expr(code, &arm.value) {
+                has_value_arm = true;
+                code.astore(result_slot);
+                code.branch_to(0xa7, end);
+            }
+            code.bind(next);
+        }
+        code.new_class("java/lang/IllegalStateException");
+        code.op(0x59);
+        code.ldc_string("non-exhaustive match");
+        code.invokespecial(
+            "java/lang/IllegalStateException",
+            "<init>",
+            "(Ljava/lang/String;)V",
+        );
+        code.op(0xbf);
+        self.locals = saved_locals;
+        self.next_local = self.next_local.max(result_slot + 1);
+        if has_value_arm {
+            code.bind(end);
+            code.aload(result_slot);
+        }
+        !has_value_arm
     }
 
     fn emit_expr(&mut self, code: &mut MethodCode, expr: &IrExpr) {
@@ -1208,6 +1309,134 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             .get(name)
             .unwrap_or_else(|| panic!("missing JVM local `{name}`"))
     }
+}
+
+pub(crate) fn classify_tail_recursion(function: &IrFunction) -> TailRecursionEligibility {
+    if has_runtime_return_contract(function) {
+        return TailRecursionEligibility::RuntimeReturnContract;
+    }
+    let mut facts = TailRecursionFacts::default();
+    for stmt in &function.body {
+        scan_stmt_tail_recursion(stmt, &function.name, &mut facts);
+    }
+    if facts.has_indirect_value_call {
+        return TailRecursionEligibility::IndirectValueCall;
+    }
+    if facts.has_non_tail_self_call {
+        return TailRecursionEligibility::NonTailSelfCall;
+    }
+    if facts.has_tail_self_call {
+        TailRecursionEligibility::Eligible
+    } else {
+        TailRecursionEligibility::NotRecursive
+    }
+}
+
+fn has_runtime_return_contract(function: &IrFunction) -> bool {
+    function.contracts.iter().any(|contract| {
+        matches!(
+            contract.kind,
+            ContractKind::Ensure | ContractKind::Invariant
+        ) && contract.obligation_status == ContractObligationStatus::RuntimeRequired
+    })
+}
+
+#[derive(Default)]
+struct TailRecursionFacts {
+    has_tail_self_call: bool,
+    has_non_tail_self_call: bool,
+    has_indirect_value_call: bool,
+}
+
+fn scan_stmt_tail_recursion(stmt: &IrStmt, function: &str, facts: &mut TailRecursionFacts) {
+    match &stmt.kind {
+        IrStmtKind::Let { value, .. } | IrStmtKind::Expr { value } => {
+            scan_expr_tail_recursion(value, function, false, facts);
+        }
+        IrStmtKind::Return { value } => scan_expr_tail_recursion(value, function, true, facts),
+    }
+}
+
+fn scan_expr_tail_recursion(
+    expr: &IrExpr,
+    function: &str,
+    tail_position: bool,
+    facts: &mut TailRecursionFacts,
+) {
+    match &expr.kind {
+        IrExprKind::Call { target, args } => {
+            match target {
+                IrCallTarget::Function(name) if name == function && tail_position => {
+                    facts.has_tail_self_call = true;
+                }
+                IrCallTarget::Function(name) if name == function => {
+                    facts.has_non_tail_self_call = true;
+                }
+                IrCallTarget::Value(_) => {
+                    facts.has_indirect_value_call = true;
+                }
+                _ => {}
+            }
+            for arg in args {
+                scan_expr_tail_recursion(arg, function, false, facts);
+            }
+        }
+        IrExprKind::Match { scrutinee, arms } => {
+            scan_expr_tail_recursion(scrutinee, function, false, facts);
+            for arm in arms {
+                scan_expr_tail_recursion(&arm.value, function, tail_position, facts);
+            }
+        }
+        IrExprKind::ResultOk(value)
+        | IrExprKind::ResultErr(value)
+        | IrExprKind::OptionSome(value)
+        | IrExprKind::FieldAccess { base: value, .. }
+        | IrExprKind::Try(value)
+        | IrExprKind::Prefix { expr: value, .. } => {
+            scan_expr_tail_recursion(value, function, false, facts);
+        }
+        IrExprKind::ListCons { head, tail } => {
+            scan_expr_tail_recursion(head, function, false, facts);
+            scan_expr_tail_recursion(tail, function, false, facts);
+        }
+        IrExprKind::AdtVariant { payloads, .. } | IrExprKind::List(payloads) => {
+            for value in payloads {
+                scan_expr_tail_recursion(value, function, false, facts);
+            }
+        }
+        IrExprKind::Record(fields) => {
+            for field in fields {
+                scan_record_field_tail_recursion(field, function, facts);
+            }
+        }
+        IrExprKind::Dict(entries) => {
+            for entry in entries {
+                scan_expr_tail_recursion(&entry.key, function, false, facts);
+                scan_expr_tail_recursion(&entry.value, function, false, facts);
+            }
+        }
+        IrExprKind::Binary { left, right, .. } => {
+            scan_expr_tail_recursion(left, function, false, facts);
+            scan_expr_tail_recursion(right, function, false, facts);
+        }
+        IrExprKind::Local(_)
+        | IrExprKind::BoolLiteral(_)
+        | IrExprKind::StringLiteral(_)
+        | IrExprKind::IntLiteral(_)
+        | IrExprKind::FloatLiteral(_)
+        | IrExprKind::Unit
+        | IrExprKind::FunctionValue(_)
+        | IrExprKind::OptionNone
+        | IrExprKind::ListNil => {}
+    }
+}
+
+fn scan_record_field_tail_recursion(
+    field: &IrRecordField,
+    function: &str,
+    facts: &mut TailRecursionFacts,
+) {
+    scan_expr_tail_recursion(&field.value, function, false, facts);
 }
 
 #[derive(Clone)]

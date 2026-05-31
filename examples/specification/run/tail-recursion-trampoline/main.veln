@@ -1,0 +1,30 @@
+fn countdown(value: Int) -> Int
+require value >= 0
+  match value
+    0 => 0
+    _ => countdown(value - 1)
+  end
+end
+
+fn nested_countdown(value: Int, active: Bool) -> Int
+  match active
+    true => match value
+      0 => 0
+      _ => nested_countdown(value - 1, true)
+    end
+    false => 0
+  end
+end
+
+fn pair_step(first: Int, second: Int, steps: Int) -> Int
+  match steps
+    0 => first
+    _ => pair_step(second, first + second, steps - 1)
+  end
+end
+
+pub fn main() -> () effects [stdio]
+  stdio::println(int_to_string(countdown(30000)))
+  stdio::println(int_to_string(nested_countdown(30000, true)))
+  stdio::println(int_to_string(pair_step(0, 1, 10)))
+end

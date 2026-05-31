@@ -1,0 +1,52 @@
+# Recursive call shapes remain ordinary static calls; execution stack-safety
+# depends on the eligible direct tail-recursive subset.
+type List(A)
+  Nil
+  Cons(head: A, tail: List(A))
+end
+
+fn countdown(value: Int) -> Int
+  match value
+    0 => 0
+    _ => countdown(value - 1)
+  end
+end
+
+fn nested_countdown(value: Int, active: Bool) -> Int
+  match active
+    true => match value
+      0 => 0
+      _ => nested_countdown(value - 1, true)
+    end
+    false => 0
+  end
+end
+
+fn checked_countdown(value: Int) -> result: Int
+ensure result >= 0
+  match value
+    0 => 0
+    _ => checked_countdown(value - 1)
+  end
+end
+
+fn length(items: List(Int)) -> Int
+  match items
+    Nil => 0
+    Cons(_, tail) => 1 + length(tail)
+  end
+end
+
+fn apply_once(callback: fn(Int) -> Int, value: Int) -> Int
+  callback(value)
+end
+
+pub fn main() -> Int
+  let items: List(Int) = Cons(1, Cons(2, Nil))
+  let direct: Int = countdown(2)
+  let nested: Int = nested_countdown(2, true)
+  let checked: Int = checked_countdown(2)
+  let non_tail: Int = length(items)
+  let indirect: Int = apply_once(countdown, 2)
+  direct + nested + checked + non_tail + indirect
+end
