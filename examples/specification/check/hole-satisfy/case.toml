@@ -24,7 +24,7 @@ message = "hole requires a `Int` value"
 [diagnostics.span]
 file = "main.veln"
 line = 4
-column = 3
+column = 2
 
 [[json_assert]]
 path = "diagnostics.0.details.constraints.1.repair_status"

@@ -1,10 +1,10 @@
 # Ensure clauses are checked before question-mark early returns.
-fn fail() -> Result(Int, String)
-  Err("boom")
+fn fail() -> Result<Int, String>
+	Err("boom")
 end
 
-pub fn main() -> Result(Int, String)
-ensure false
-  let value: Int = fail()?
-  Ok(value)
+pub fn main() -> Result<Int, String>
+	ensure false
+	let value: Int = fail()?
+	Ok(value)
 end

@@ -149,7 +149,7 @@ the duplicate `stream`.
 
 Executable doctests that contain `?` may omit `error=<TypePath>` when the
 doctest immediately documents a public function whose declared return type is
-`Result(_, E)`. The generated doctest wrapper returns `Result((), E)` and
+`Result<_, E>`. The generated doctest wrapper returns `Result<(), E>` and
 appends the implicit success value before static gates run.
 
 Doctest fences marked `veln ignore` are documentation-only examples. They do

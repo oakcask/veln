@@ -5,7 +5,7 @@ fn match_exhaustiveness_reports_missing_result_case() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> String\n",
+            "fn main(value: Result<Int, String>) -> String\n",
             "  match value\n",
             "    Err(error) => error\n",
             "  end\n",
@@ -301,7 +301,7 @@ fn comparison_does_not_select_float_from_expected_result() {
 fn reports_invalid_type_annotations() {
     let source = SourceFile::new(
         "main.veln",
-        "fn bad(value: Result(Int)) -> Option()\n  ()\nend\n",
+        "fn bad(value: Result<Int>) -> Option<>\n  ()\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -321,10 +321,10 @@ fn infers_non_constructor_calls_from_local_function_signatures() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn parse(raw: String) -> Result(Int, AppError)\n",
+            "fn parse(raw: String) -> Result<Int, AppError>\n",
             "  Ok(1)\n",
             "end\n",
-            "pub fn main() -> Result(Int, AppError)\n",
+            "pub fn main() -> Result<Int, AppError>\n",
             "  parse(\"1\")\n",
             "end\n",
         ),
@@ -392,7 +392,7 @@ fn resolves_qualified_function_values_through_import_aliases() {
         concat!(
             "mod app.main\n",
             "use app.text\n",
-            "pub fn main() -> Vec(String)\n",
+            "pub fn main() -> Vec<String>\n",
             "  vec_map([1], text::stringify)\n",
             "end\n",
         ),

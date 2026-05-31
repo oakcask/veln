@@ -9,9 +9,9 @@ mod docs.main
 use docs.helper
 
 ## A documented public result type.
-pub type DocResult(A)
-  pub Ready(A)
-  Hidden(String)
+pub type DocResult<A>
+	pub Ready(A)
+	Hidden(String)
 end
 
 ## Doubles a non-negative value.
@@ -20,7 +20,7 @@ end
 ## double(seed)
 ## ```
 pub fn double(value: Int) -> Int
-  require value >= 0
-  ensure result >= value
-  value + value
+	require value >= 0
+	ensure result >= value
+	value + value
 end

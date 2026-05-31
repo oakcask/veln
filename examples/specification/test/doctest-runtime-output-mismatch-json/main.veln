@@ -1,7 +1,7 @@
 # Expected-output comparison remains independent from runtime failure matching.
 fn reject() -> ()
-require false
-  ()
+	require false
+	()
 end
 
 ## ```veln runtime=contract clause=require predicate=false function=reject blame=caller
@@ -20,5 +20,5 @@ end
 ## result expected
 ## ```
 pub fn main() -> ()
-  ()
+	()
 end

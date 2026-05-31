@@ -133,10 +133,10 @@ The checker recognizes these file-system call targets through the standard
 symbol table:
 
 ```veln
-fs::read_to_string(path: Path) -> Result(String, FsError) effects [fs]
-fs::write_string(path: Path, text: String) -> Result((), FsError) effects [fs]
-fs::exists(path: Path) -> Result(Bool, FsError) effects [fs]
-fs::read_dir(path: Path) -> Result(Vec(Path), FsError) effects [fs]
+fs::read_to_string(path: Path) -> Result<String, FsError> effects [fs]
+fs::write_string(path: Path, text: String) -> Result<(), FsError> effects [fs]
+fs::exists(path: Path) -> Result<Bool, FsError> effects [fs]
+fs::read_dir(path: Path) -> Result<Vec<Path>, FsError> effects [fs]
 ```
 
 Direct calls to these functions infer the `fs` effect. A public function or
@@ -160,9 +160,9 @@ The checker recognizes these current-process call targets through the standard
 symbol table:
 
 ```veln
-process::args() -> Vec(String) effects [process]
-process::env(name: String) -> Option(String) effects [process]
-process::cwd() -> Result(Path, ProcessError) effects [process]
+process::args() -> Vec<String> effects [process]
+process::env(name: String) -> Option<String> effects [process]
+process::cwd() -> Result<Path, ProcessError> effects [process]
 process::exit(status: Int) -> () effects [process]
 ```
 
@@ -183,18 +183,18 @@ standard symbol table for effect metadata, and through the existing
 concurrency signature rules for static type checking:
 
 ```veln
-channel::bounded(capacity: Int) -> {tx: Sender(T), rx: Receiver(T)} effects [concurrency]
-channel::bounded[T](capacity: Int) -> {tx: Sender(T), rx: Receiver(T)} effects [concurrency]
-channel::clone(tx: Sender(T)) -> Sender(T) effects [concurrency]
-channel::send(tx: Sender(T), value: T) -> Result((), SendError) effects [concurrency]
-channel::recv(rx: Receiver(T)) -> Option(T) effects [concurrency]
-channel::select(left: Receiver(T), right: Receiver(T)) -> Option({index: Int, value: T}) effects [concurrency]
-channel::select_priority(left: Receiver(T), right: Receiver(T)) -> Option({index: Int, value: T}) effects [concurrency]
-channel::select_timeout(left: Receiver(T), right: Receiver(T), timeout_ms: Int) -> Option({index: Int, value: T}) effects [concurrency]
-channel::select_result(left: Receiver(T), right: Receiver(T)) -> Result(Option({index: Int, value: T}), SelectError) effects [concurrency]
-channel::select_priority_result(left: Receiver(T), right: Receiver(T)) -> Result(Option({index: Int, value: T}), SelectError) effects [concurrency]
-channel::select_timeout_result(left: Receiver(T), right: Receiver(T), timeout_ms: Int) -> Result(Option({index: Int, value: T}), SelectError) effects [concurrency]
-channel::close(tx: Sender(T)) -> () effects [concurrency]
+channel::bounded(capacity: Int) -> {tx: Sender<T>, rx: Receiver<T>} effects [concurrency]
+channel::bounded[T](capacity: Int) -> {tx: Sender<T>, rx: Receiver<T>} effects [concurrency]
+channel::clone(tx: Sender<T>) -> Sender<T> effects [concurrency]
+channel::send(tx: Sender<T>, value: T) -> Result<(), SendError> effects [concurrency]
+channel::recv(rx: Receiver<T>) -> Option<T> effects [concurrency]
+channel::select(left: Receiver<T>, right: Receiver<T>) -> Option<{index: Int, value: T}> effects [concurrency]
+channel::select_priority(left: Receiver<T>, right: Receiver<T>) -> Option<{index: Int, value: T}> effects [concurrency]
+channel::select_timeout(left: Receiver<T>, right: Receiver<T>, timeout_ms: Int) -> Option<{index: Int, value: T}> effects [concurrency]
+channel::select_result(left: Receiver<T>, right: Receiver<T>) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
+channel::select_priority_result(left: Receiver<T>, right: Receiver<T>) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
+channel::select_timeout_result(left: Receiver<T>, right: Receiver<T>, timeout_ms: Int) -> Result<Option<{index: Int, value: T}>, SelectError> effects [concurrency]
+channel::close(tx: Sender<T>) -> () effects [concurrency]
 ```
 
 Direct calls to these functions infer the `concurrency` effect. A public
@@ -203,7 +203,7 @@ function or test that calls one of them must declare `concurrency` in its
 
 `channel::bounded(capacity)` creates a bounded channel pair. Its item type is
 inferred from the expected record type, such as
-`{tx: Sender(String), rx: Receiver(String)}`. `channel::bounded[T](capacity)`
+`{tx: Sender<String>, rx: Receiver<String>}`. `channel::bounded[T](capacity)`
 uses the explicit item type when no expected record type is present.
 `channel::clone` returns another sender endpoint for the same channel and
 preserves the sender item type. `channel::send` waits while a positive-capacity
@@ -238,10 +238,10 @@ returns `()`.
 The checker also recognizes these task-operation call targets:
 
 ```veln
-task::spawn(job: fn() -> T effects [concurrency]) -> Task(T) effects [concurrency]
-task::spawn[T](job: fn() -> T effects [concurrency]) -> Task(T) effects [concurrency]
-task::join(task: Task(T)) -> Result(T, JoinError) effects [concurrency]
-task::cancel(task: Task(T)) -> () effects [concurrency]
+task::spawn(job: fn() -> T effects [concurrency]) -> Task<T> effects [concurrency]
+task::spawn[T](job: fn() -> T effects [concurrency]) -> Task<T> effects [concurrency]
+task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
+task::cancel(task: Task<T>) -> () effects [concurrency]
 ```
 
 `task::spawn` starts a zero-argument callable in a concurrent task and returns
@@ -279,35 +279,35 @@ type. They do not infer effects.
 ### Helper Signatures
 
 ```veln
-vec_len(items: Vec(A)) -> Int
-vec_is_empty(items: Vec(A)) -> Bool
-vec_push(items: Vec(A), value: A) -> Vec(A)
-vec_concat(left: Vec(A), right: Vec(A)) -> Vec(A)
-vec_map(items: Vec(A), f: fn(A) -> B) -> Vec(B)
-vec_filter(items: Vec(A), f: fn(A) -> Bool) -> Vec(A)
-vec_fold(items: Vec(A), initial: B, f: fn(B, A) -> B) -> B
-vec_try_map(items: Vec(A), f: fn(A) -> Result(B, E)) -> Result(Vec(B), E)
-vec_try_map_with(context: C, items: Vec(A), f: fn(C, A) -> Result(B, E)) -> Result(Vec(B), E)
-list_nil() -> List(A)
-list_cons(head: A, tail: List(A)) -> List(A)
-list_is_empty(items: List(A)) -> Bool
-list_fold(items: List(A), initial: B, f: fn(B, A) -> B) -> B
-list_reverse(items: List(A)) -> List(A)
-list_map(items: List(A), f: fn(A) -> B) -> List(B)
-list_filter(items: List(A), f: fn(A) -> Bool) -> List(A)
-list_try_map(items: List(A), f: fn(A) -> Result(B, E)) -> Result(List(B), E)
-dict_get(dict: Dict(K, V), key: K) -> Option(V)
-dict_contains(dict: Dict(K, V), key: K) -> Bool
-dict_insert(dict: Dict(K, V), key: K, value: V) -> Dict(K, V)
-dict_remove(dict: Dict(K, V), key: K) -> Dict(K, V)
-option_map(value: Option(A), f: fn(A) -> B) -> Option(B)
-option_and_then(value: Option(A), f: fn(A) -> Option(B)) -> Option(B)
-option_unwrap_or(value: Option(A), fallback: A) -> A
-result_map(value: Result(A, E), f: fn(A) -> B) -> Result(B, E)
-result_map_err(value: Result(A, E), f: fn(E) -> F) -> Result(A, F)
-result_and_then(value: Result(A, E), f: fn(A) -> Result(B, E)) -> Result(B, E)
-string_split_once(text: String, separator: String) -> Option({left: String, right: String})
-string_parse_int(text: String) -> Result(Int, String)
+vec_len(items: Vec<A>) -> Int
+vec_is_empty(items: Vec<A>) -> Bool
+vec_push(items: Vec<A>, value: A) -> Vec<A>
+vec_concat(left: Vec<A>, right: Vec<A>) -> Vec<A>
+vec_map(items: Vec<A>, f: fn(A) -> B) -> Vec<B>
+vec_filter(items: Vec<A>, f: fn(A) -> Bool) -> Vec<A>
+vec_fold(items: Vec<A>, initial: B, f: fn(B, A) -> B) -> B
+vec_try_map(items: Vec<A>, f: fn(A) -> Result<B, E>) -> Result<Vec<B>, E>
+vec_try_map_with(context: C, items: Vec<A>, f: fn(C, A) -> Result<B, E>) -> Result<Vec<B>, E>
+list_nil() -> List<A>
+list_cons(head: A, tail: List<A>) -> List<A>
+list_is_empty(items: List<A>) -> Bool
+list_fold(items: List<A>, initial: B, f: fn(B, A) -> B) -> B
+list_reverse(items: List<A>) -> List<A>
+list_map(items: List<A>, f: fn(A) -> B) -> List<B>
+list_filter(items: List<A>, f: fn(A) -> Bool) -> List<A>
+list_try_map(items: List<A>, f: fn(A) -> Result<B, E>) -> Result<List<B>, E>
+dict_get(dict: Dict<K, V>, key: K) -> Option<V>
+dict_contains(dict: Dict<K, V>, key: K) -> Bool
+dict_insert(dict: Dict<K, V>, key: K, value: V) -> Dict<K, V>
+dict_remove(dict: Dict<K, V>, key: K) -> Dict<K, V>
+option_map(value: Option<A>, f: fn(A) -> B) -> Option<B>
+option_and_then(value: Option<A>, f: fn(A) -> Option<B>) -> Option<B>
+option_unwrap_or(value: Option<A>, fallback: A) -> A
+result_map(value: Result<A, E>, f: fn(A) -> B) -> Result<B, E>
+result_map_err(value: Result<A, E>, f: fn(E) -> F) -> Result<A, F>
+result_and_then(value: Result<A, E>, f: fn(A) -> Result<B, E>) -> Result<B, E>
+string_split_once(text: String, separator: String) -> Option<{left: String, right: String}>
+string_parse_int(text: String) -> Result<Int, String>
 int_to_string(value: Int) -> String
 ```
 
@@ -380,7 +380,7 @@ their step helpers are implementation details, and this source placement does
 not expose or stabilize a public vec representation. The `vec_fold` entry uses
 an isolated `core_prelude` source unit so other helper bodies keep resolving
 fold calls through the descriptor-backed adapter during this migration. The
-list helpers use the descriptor-backed `List(A)` constructors and pattern
+list helpers use the descriptor-backed `List<A>` constructors and pattern
 coverage; their private step helpers are ordinary support source and do not
 expose a public list representation beyond `Nil` and `Cons`. The
 dict helpers keep using the existing prelude runtime operation: `dict_get`,
@@ -392,7 +392,7 @@ source and are not separate prelude descriptors.
 ### Compiler-Support Source
 
 The embedded `compiler_support` source contains
-`load_source_text(path: Path) -> Result(String, FsError) effects [fs]`. It is
+`load_source_text(path: Path) -> Result<String, FsError> effects [fs]`. It is
 not a prelude helper. It is a small compiler-support subsystem used to exercise
 Veln source checking and JVM execution through `fs::read_to_string`.
 

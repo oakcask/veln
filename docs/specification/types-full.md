@@ -50,7 +50,7 @@ The optional result binding in `-> name: Type` names the return value for
 postconditions, but the type annotation remains `Type`.
 
 Test declarations must use an empty parameter list, annotate the return type as
-`()` or `Result((), E)`, and provide an explicit `effects [...]` clause. Their
+`()` or `Result<(), E>`, and provide an explicit `effects [...]` clause. Their
 declared effect list is checked against directly inferred effects, but test
 declarations are not callable function values.
 
@@ -85,8 +85,8 @@ has a known record type.
 payload patterns to the corresponding descriptor argument when the scrutinee
 type is known. Source-declared constructor patterns may use bare,
 type-qualified, import-alias-qualified, or import-alias-and-type-qualified
-names when the constructor is visible. For `List(A)`, `head` binds as `A` and
-`tail` binds as `List(A)`. A record pattern field binds nested patterns to the
+names when the constructor is visible. For `List<A>`, `head` binds as `A` and
+`tail` binds as `List<A>`. A record pattern field binds nested patterns to the
 corresponding record field type when the scrutinee type is known. Unknown or
 non-record scrutinee types leave nested pattern bindings unknown. Arm
 expressions share the expected result type when one is available; otherwise the
@@ -94,8 +94,8 @@ first arm supplies the initial result type for later arms.
 
 After scrutinee type inference and arm expression checking, `match` expressions
 over finite domains must be exhaustive. `Bool` scrutinees require coverage for
-`true` and `false`; `Option(T)` scrutinees require `Some(_)` and `None`;
-`Result(T, E)` scrutinees require `Ok(_)` and `Err(_)`; `List(A)` scrutinees
+`true` and `false`; `Option<T>` scrutinees require `Some(_)` and `None`;
+`Result<T, E>` scrutinees require `Ok(_)` and `Err(_)`; `List<A>` scrutinees
 require `Nil` and `Cons(_)`; source-declared ADT scrutinees require every
 declared variant. `_` and binding patterns are catch-all arms. A
 non-exhaustive finite-domain match reports
@@ -107,8 +107,8 @@ the scrutinee type and the arms that prove partial coverage.
 Assignment compatibility treats `unknown` as compatible with any type. Record
 assignment is width-compatible: every expected field must exist in the actual
 record and be assignable. Named types with the same constructor are compatible
-when their arguments are pairwise assignable, so `Vec(unknown)` accepts
-`Vec(Int)`. `Path` and `String` are distinct named types at assignment
+when their arguments are pairwise assignable, so `Vec<unknown>` accepts
+`Vec<Int>`. `Path` and `String` are distinct named types at assignment
 boundaries; the runtime path representation is not source-visible.
 Function assignment checks parameter count, parameter types, return type, and
 effects. The actual callable's effects must all be present in the expected
@@ -119,7 +119,7 @@ One record literal cannot declare the same field name twice. Duplicate record
 literal fields are name errors before record assignability chooses an expected
 field type.
 
-Dictionary literals infer `Dict(K, V)` from their expected type when available.
+Dictionary literals infer `Dict<K, V>` from their expected type when available.
 Without an expected dictionary type, the first entry supplies the initial key
 and value types. Later entries are checked against the same key and value
 expectations. A dictionary key may be any implemented expression; the parser

@@ -244,7 +244,7 @@ fn test_declaration_requires_return_annotation() {
         diagnostics[0]
             .details
             .to_json()
-            .contains("\"expected_type\":\"() or Result((), E)\",\"actual_type\":\"missing\"")
+            .contains("\"expected_type\":\"() or Result<(), E>\",\"actual_type\":\"missing\"")
     );
     assert_eq!(diagnostics[0].related.len(), 1);
 }
@@ -575,13 +575,13 @@ fn reports_hole_with_declared_return_expected_type() {
         diagnostics[0].details.to_json(),
         concat!(
             "{\"phase\":\"hole\",\"node_id\":\"hole-3\",\"label\":null,",
-            "\"expected_type\":\"Result((), AppError)\",",
+            "\"expected_type\":\"Result<(), AppError>\",",
             "\"expected_type_source\":\"declared\",",
             "\"constraints\":[],\"local_bindings\":[],",
             "\"candidate_queries\":[{\"kind\":\"symbol\",",
             "\"candidate_status\":\"query_only\",",
             "\"application_policy\":\"manual_review_required\",",
-            "\"query\":\"fn() -> Result((), AppError)\"}]}"
+            "\"query\":\"fn() -> Result<(), AppError>\"}]}"
         )
     );
     assert_eq!(diagnostics[0].related.len(), 1);

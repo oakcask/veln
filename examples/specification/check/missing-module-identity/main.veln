@@ -2,5 +2,5 @@
 use platform.io
 
 fn main() -> ()
-  ()
+	()
 end

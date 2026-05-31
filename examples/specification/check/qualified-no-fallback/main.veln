@@ -2,9 +2,9 @@
 mod spec.qualified
 
 fn helper() -> Int
-  1
+	1
 end
 
 pub fn main() -> Int
-  missing::helper()
+	missing::helper()
 end

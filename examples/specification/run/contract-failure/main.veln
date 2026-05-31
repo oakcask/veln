@@ -1,5 +1,5 @@
 # Runtime contract failures report the violated clause, predicate, function, and blame.
 pub fn main() -> ()
-require false
-  ()
+	require false
+	()
 end

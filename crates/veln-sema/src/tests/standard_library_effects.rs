@@ -10,25 +10,25 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
                 "  vec_is_empty(value)\n",
                 "end\n",
             ),
-            "expected `Vec(unknown)`, but found `Int`",
+            "expected `Vec<unknown>`, but found `Int`",
         ),
         (
             "vec_push",
             concat!(
-                "pub fn main(value: Int) -> Vec(Int)\n",
+                "pub fn main(value: Int) -> Vec<Int>\n",
                 "  vec_push(value, 1)\n",
                 "end\n",
             ),
-            "expected `Vec(Int)`, but found `Int`",
+            "expected `Vec<Int>`, but found `Int`",
         ),
         (
             "vec_concat",
             concat!(
-                "pub fn main(value: Int, other: Vec(Int)) -> Vec(Int)\n",
+                "pub fn main(value: Int, other: Vec<Int>) -> Vec<Int>\n",
                 "  vec_concat(value, other)\n",
                 "end\n",
             ),
-            "expected `Vec(Int)`, but found `Int`",
+            "expected `Vec<Int>`, but found `Int`",
         ),
         (
             "vec_map",
@@ -36,89 +36,89 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
                 "fn stringify(value: Int) -> String\n",
                 "  \"ok\"\n",
                 "end\n",
-                "pub fn main(value: Int) -> Vec(String)\n",
+                "pub fn main(value: Int) -> Vec<String>\n",
                 "  vec_map(value, stringify)\n",
                 "end\n",
             ),
-            "expected `Vec(unknown)`, but found `Int`",
+            "expected `Vec<unknown>`, but found `Int`",
         ),
         (
             "vec_try_map",
             concat!(
-                "fn stringify(value: Int) -> Result(String, String)\n",
+                "fn stringify(value: Int) -> Result<String, String>\n",
                 "  Ok(\"ok\")\n",
                 "end\n",
-                "pub fn main(value: Int) -> Result(Vec(String), String)\n",
+                "pub fn main(value: Int) -> Result<Vec<String>, String>\n",
                 "  vec_try_map(value, stringify)\n",
                 "end\n",
             ),
-            "expected `Vec(unknown)`, but found `Int`",
+            "expected `Vec<unknown>`, but found `Int`",
         ),
         (
             "vec_try_map_with",
             concat!(
-                "fn stringify(context: String, value: Int) -> Result(String, String)\n",
+                "fn stringify(context: String, value: Int) -> Result<String, String>\n",
                 "  Ok(context)\n",
                 "end\n",
-                "pub fn main(value: Int) -> Result(Vec(String), String)\n",
+                "pub fn main(value: Int) -> Result<Vec<String>, String>\n",
                 "  vec_try_map_with(\"prefix\", value, stringify)\n",
                 "end\n",
             ),
-            "expected `Vec(unknown)`, but found `Int`",
+            "expected `Vec<unknown>`, but found `Int`",
         ),
         (
             "list_is_empty",
             concat!(
-                "type List(A)\n",
+                "type List<A>\n",
                 "  Nil\n",
-                "  Cons(head: A, tail: List(A))\n",
+                "  Cons(head: A, tail: List<A>)\n",
                 "end\n",
                 "pub fn main(value: Int) -> Bool\n",
                 "  list_is_empty(value)\n",
                 "end\n",
             ),
-            "expected `List(unknown)`, but found `Int`",
+            "expected `List<unknown>`, but found `Int`",
         ),
         (
             "list_map",
             concat!(
-                "type List(A)\n",
+                "type List<A>\n",
                 "  Nil\n",
-                "  Cons(head: A, tail: List(A))\n",
+                "  Cons(head: A, tail: List<A>)\n",
                 "end\n",
                 "fn stringify(value: Int) -> String\n",
                 "  \"ok\"\n",
                 "end\n",
-                "pub fn main(value: Int) -> List(String)\n",
+                "pub fn main(value: Int) -> List<String>\n",
                 "  list_map(value, stringify)\n",
                 "end\n",
             ),
-            "expected `List(unknown)`, but found `Int`",
+            "expected `List<unknown>`, but found `Int`",
         ),
         (
             "list_try_map",
             concat!(
-                "type List(A)\n",
+                "type List<A>\n",
                 "  Nil\n",
-                "  Cons(head: A, tail: List(A))\n",
+                "  Cons(head: A, tail: List<A>)\n",
                 "end\n",
-                "fn stringify(value: Int) -> Result(String, String)\n",
+                "fn stringify(value: Int) -> Result<String, String>\n",
                 "  Ok(\"ok\")\n",
                 "end\n",
-                "pub fn main(value: Int) -> Result(List(String), String)\n",
+                "pub fn main(value: Int) -> Result<List<String>, String>\n",
                 "  list_try_map(value, stringify)\n",
                 "end\n",
             ),
-            "expected `List(unknown)`, but found `Int`",
+            "expected `List<unknown>`, but found `Int`",
         ),
         (
             "dict_get",
             concat!(
-                "pub fn main(value: Int) -> Option(String)\n",
+                "pub fn main(value: Int) -> Option<String>\n",
                 "  dict_get(value, \"key\")\n",
                 "end\n",
             ),
-            "expected `Dict(unknown, String)`, but found `Int`",
+            "expected `Dict<unknown, String>`, but found `Int`",
         ),
         (
             "dict_contains",
@@ -127,25 +127,25 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
                 "  dict_contains(value, \"key\")\n",
                 "end\n",
             ),
-            "expected `Dict(unknown, unknown)`, but found `Int`",
+            "expected `Dict<unknown, unknown>`, but found `Int`",
         ),
         (
             "dict_insert",
             concat!(
-                "pub fn main(value: Int) -> Dict(String, Int)\n",
+                "pub fn main(value: Int) -> Dict<String, Int>\n",
                 "  dict_insert(value, \"key\", 1)\n",
                 "end\n",
             ),
-            "expected `Dict(String, Int)`, but found `Int`",
+            "expected `Dict<String, Int>`, but found `Int`",
         ),
         (
             "dict_remove",
             concat!(
-                "pub fn main(value: Int) -> Dict(String, Int)\n",
+                "pub fn main(value: Int) -> Dict<String, Int>\n",
                 "  dict_remove(value, \"key\")\n",
                 "end\n",
             ),
-            "expected `Dict(String, Int)`, but found `Int`",
+            "expected `Dict<String, Int>`, but found `Int`",
         ),
         (
             "int_to_string",
@@ -159,7 +159,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "string_parse_int",
             concat!(
-                "pub fn main(value: Int) -> Result(Int, String)\n",
+                "pub fn main(value: Int) -> Result<Int, String>\n",
                 "  string_parse_int(value)\n",
                 "end\n",
             ),
@@ -168,7 +168,7 @@ fn source_backed_prelude_helpers_report_direct_argument_diagnostics() {
         (
             "string_split_once",
             concat!(
-                "pub fn main(value: Int) -> Option({left: String, right: String})\n",
+                "pub fn main(value: Int) -> Option<{left: String, right: String}>\n",
                 "  string_split_once(value, \",\")\n",
                 "end\n",
             ),
@@ -268,7 +268,7 @@ fn channel_calls_require_concurrency_effect() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(tx: Sender(String)) -> Result((), SendError)\n",
+            "pub fn main(tx: Sender<String>) -> Result((), SendError)\n",
             "  channel::send(tx, \"hello\")\n",
             "end\n",
         ),
@@ -298,7 +298,7 @@ fn task_calls_require_concurrency_effect() {
             "fn produce() -> String\n",
             "  \"hello\"\n",
             "end\n",
-            "pub fn main() -> Task(String)\n",
+            "pub fn main() -> Task<String>\n",
             "  task::spawn(produce)\n",
             "end\n",
         ),
@@ -324,7 +324,7 @@ fn fs_calls_require_fs_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(path: Path) -> Result(String, FsError)\n",
+            "pub fn main(path: Path) -> Result<String, FsError>\n",
             "  fs::read_to_string(path)\n",
             "end\n",
         ),
@@ -352,7 +352,7 @@ fn fs_calls_reject_string_for_every_path_parameter() {
         (
             "read_to_string",
             concat!(
-                "pub fn main(path: String) -> Result(String, FsError) effects [fs]\n",
+                "pub fn main(path: String) -> Result<String, FsError> effects [fs]\n",
                 "  fs::read_to_string(path)\n",
                 "end\n",
             ),
@@ -368,7 +368,7 @@ fn fs_calls_reject_string_for_every_path_parameter() {
         (
             "exists",
             concat!(
-                "pub fn main(path: String) -> Result(Bool, FsError) effects [fs]\n",
+                "pub fn main(path: String) -> Result<Bool, FsError> effects [fs]\n",
                 "  fs::exists(path)\n",
                 "end\n",
             ),
@@ -376,7 +376,7 @@ fn fs_calls_reject_string_for_every_path_parameter() {
         (
             "read_dir",
             concat!(
-                "pub fn main(path: String) -> Result(Vec(Path), FsError) effects [fs]\n",
+                "pub fn main(path: String) -> Result<Vec<Path>, FsError> effects [fs]\n",
                 "  fs::read_dir(path)\n",
                 "end\n",
             ),
@@ -402,8 +402,8 @@ fn process_cwd_path_return_is_not_assignable_to_string() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> Result(String, ProcessError) effects [process]\n",
-            "  let cwd: Result(String, ProcessError) = process::cwd()\n",
+            "pub fn main() -> Result<String, ProcessError> effects [process]\n",
+            "  let cwd: Result<String, ProcessError> = process::cwd()\n",
             "  cwd\n",
             "end\n",
         ),
@@ -417,7 +417,7 @@ fn process_cwd_path_return_is_not_assignable_to_string() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(
         diagnostics[0].message,
-        "expected `Result(String, ProcessError)`, but found `Result(Path, ProcessError)`"
+        "expected `Result<String, ProcessError>`, but found `Result<Path, ProcessError>`"
     );
 }
 
@@ -426,7 +426,7 @@ fn process_cwd_path_value_is_not_usable_as_string_argument() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> Option(String) effects [process]\n",
+            "pub fn main() -> Option<String> effects [process]\n",
             "  match process::cwd()\n",
             "    Ok(cwd) => process::env(cwd)\n",
             "    Err(_) => None\n",
@@ -452,7 +452,7 @@ fn process_calls_require_process_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> Vec(String)\n",
+            "pub fn main() -> Vec<String>\n",
             "  process::args()\n",
             "end\n",
         ),
@@ -478,9 +478,9 @@ fn fs_and_process_calls_lower_to_standard_library_builtins() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(path: Path, key: String) -> Result(String, FsError) effects [fs, process]\n",
-            "  let cwd: Result(Path, ProcessError) = process::cwd()\n",
-            "  let present: Option(String) = process::env(key)\n",
+            "pub fn main(path: Path, key: String) -> Result<String, FsError> effects [fs, process]\n",
+            "  let cwd: Result<Path, ProcessError> = process::cwd()\n",
+            "  let present: Option<String> = process::env(key)\n",
             "  fs::read_to_string(path)\n",
             "end\n",
         ),
@@ -527,7 +527,7 @@ fn task_spawn_and_join_preserve_item_type() {
             "fn produce() -> String\n",
             "  \"hello\"\n",
             "end\n",
-            "pub fn main() -> Result(String, JoinError) effects [concurrency]\n",
+            "pub fn main() -> Result<String, JoinError> effects [concurrency]\n",
             "  let task = task::spawn(produce)\n",
             "  task::join(task)\n",
             "end\n",
@@ -581,7 +581,7 @@ fn declared_concurrency_calls_lower_to_executable_ir() {
         "main.veln",
         concat!(
             "pub fn main() -> String effects [concurrency]\n",
-            "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let pair: {tx: Sender<String>, rx: Receiver<String>} = channel::bounded(1)\n",
             "  let _ = channel::send(pair.tx, \"hello\")\n",
             "  match channel::recv(pair.rx)\n",
             "    Some(value) => value\n",
@@ -664,7 +664,7 @@ fn channel_clone_preserves_sender_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(tx: Sender(String)) -> Result((), SendError) effects [concurrency]\n",
+            "pub fn main(tx: Sender<String>) -> Result((), SendError) effects [concurrency]\n",
             "  let clone = channel::clone(tx)\n",
             "  channel::send(clone, \"hello\")\n",
             "end\n",
@@ -689,7 +689,7 @@ fn channel_send_checks_value_against_sender_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(tx: Sender(String)) -> Result((), SendError) effects [concurrency]\n",
+            "pub fn main(tx: Sender<String>) -> Result((), SendError) effects [concurrency]\n",
             "  channel::send(tx, 1)\n",
             "end\n",
         ),

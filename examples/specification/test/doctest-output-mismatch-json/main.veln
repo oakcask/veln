@@ -6,5 +6,5 @@
 ## ready
 ## ```
 pub fn main() -> ()
-  ()
+	()
 end

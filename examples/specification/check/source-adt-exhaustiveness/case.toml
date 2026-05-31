@@ -24,4 +24,4 @@ message = "match is missing case Missing"
 [diagnostics.span]
 file = "main.veln"
 line = 7
-column = 3
+column = 2

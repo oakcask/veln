@@ -22,4 +22,4 @@ equals = "core.call_arity_mismatch"
 
 [[file_assert]]
 path = "main.veln"
-equals = "# Repair verification rolls back when shared check analysis reports checked-core errors.\nfn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n  _value satisfy candidate => candidate.ready == order.ready\nend\n"
+equals = "# Repair verification rolls back when shared check analysis reports checked-core errors.\nfn main(order: { ready : Bool, paid : Bool }) -> { ready : Bool }\n\t_value satisfy candidate => candidate.ready == order.ready\nend\n"

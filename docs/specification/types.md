@@ -14,7 +14,7 @@ full type reference.
   and source-declared ADTs are descriptor-backed. Their constructors, payload
   bindings, result propagation where applicable, and finite-domain
   exhaustiveness use descriptor facts.
-- `match` expressions over `Bool`, `Option(T)`, `Result(T, E)`, `List(T)`, and
+- `match` expressions over `Bool`, `Option<T>`, `Result<T, E>`, `List<T>`, and
   source-declared ADTs must be exhaustive unless a catch-all arm is present.
 - Assignment compatibility treats `unknown` as compatible with any type and
   checks records by required fields. `Path` is distinct from `String`; the

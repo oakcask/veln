@@ -1538,7 +1538,13 @@ fn strip_result_binding(return_text: &str) -> &str {
 
 fn result_error_type(ty: &str) -> Option<&str> {
     let ty = ty.trim();
-    let args = ty.strip_prefix("Result(")?.strip_suffix(')')?;
+    let args = ty
+        .strip_prefix("Result<")
+        .and_then(|ty| ty.strip_suffix('>'))
+        .or_else(|| {
+            ty.strip_prefix("Result(")
+                .and_then(|ty| ty.strip_suffix(')'))
+        })?;
     let comma = top_level_comma(args)?;
     let error = args[comma + 1..].trim();
     (!error.is_empty()).then_some(error)
@@ -1548,8 +1554,8 @@ fn top_level_comma(text: &str) -> Option<usize> {
     let mut depth = 0usize;
     for (index, ch) in text.char_indices() {
         match ch {
-            '(' | '[' | '{' => depth += 1,
-            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            '(' | '[' | '{' | '<' => depth += 1,
+            ')' | ']' | '}' | '>' => depth = depth.saturating_sub(1),
             ',' if depth == 0 => return Some(index),
             _ => {}
         }
@@ -1560,7 +1566,7 @@ fn top_level_comma(text: &str) -> Option<usize> {
 fn generated_doctest_source(name: &str, doctest: &ExtractedDoctest) -> String {
     let return_type = doctest.error_type.as_ref().map_or_else(
         || "()".to_string(),
-        |error_type| format!("Result((), {error_type})"),
+        |error_type| format!("Result<(), {error_type}>"),
     );
     let item_kind = if doctest.should_fail { "fn" } else { "test" };
     let mut text = format!("{item_kind} {name}() -> {return_type} effects [stdio]\n");
@@ -2792,7 +2798,7 @@ mod tests {
         assert_eq!(
             doctests.sources[0].text(),
             concat!(
-                "test doctest_1() -> Result((), AppError) effects [stdio]\n",
+                "test doctest_1() -> Result<(), AppError> effects [stdio]\n",
                 "  let value = parse(\"1\")?\n",
                 "  stdio::println(\"ready\")\n",
                 "  Ok(())\n",
@@ -2821,7 +2827,7 @@ mod tests {
         assert_eq!(
             doctests.sources[0].text(),
             concat!(
-                "test doctest_1() -> Result((), AppError) effects [stdio]\n",
+                "test doctest_1() -> Result<(), AppError> effects [stdio]\n",
                 "  let value: Int = Ok(1)?\n",
                 "  Ok(())\n",
                 "end\n",
@@ -2852,7 +2858,7 @@ mod tests {
         assert_eq!(
             doctests.sources[0].text(),
             concat!(
-                "test doctest_1() -> Result((), AppError) effects [stdio]\n",
+                "test doctest_1() -> Result<(), AppError> effects [stdio]\n",
                 "  let value = parse(\"1\")?\n",
                 "  Ok(())\n",
                 "end\n",
@@ -2883,7 +2889,7 @@ mod tests {
         assert_eq!(
             doctests.sources[0].text(),
             concat!(
-                "test doctest_1() -> Result((), AppError) effects [stdio]\n",
+                "test doctest_1() -> Result<(), AppError> effects [stdio]\n",
                 "  let value = parse(\"1\")?\n",
                 "  Ok(())\n",
                 "end\n",
@@ -2914,7 +2920,7 @@ mod tests {
         assert_eq!(
             doctests.sources[0].text(),
             concat!(
-                "test doctest_1() -> Result((), AppError) effects [stdio]\n",
+                "test doctest_1() -> Result<(), AppError> effects [stdio]\n",
                 "  let value = parse(\"1\")?\n",
                 "  Ok(())\n",
                 "end\n",
@@ -2985,7 +2991,7 @@ mod tests {
         assert_eq!(
             doctests.sources[0].text(),
             concat!(
-                "test doctest_1() -> Result((), ExampleError) effects [stdio]\n",
+                "test doctest_1() -> Result<(), ExampleError> effects [stdio]\n",
                 "  let value = parse(\"1\")?\n",
                 "  let text = read(\"x\")?\n",
                 "  Ok(())\n",
@@ -3523,7 +3529,7 @@ mod tests {
     fn expected_runtime_result_failure_marks_matching_case_passed() {
         let source_file = SourceFile::new(
             "main.veln#doctest-1_test.veln",
-            "test doctest_1() -> Result((), String) effects [stdio]\n  Err(\"bad\")?\nend\n",
+            "test doctest_1() -> Result<(), String> effects [stdio]\n  Err(\"bad\")?\nend\n",
         );
         let span = source_file.span(TextRange::new(0, source_file.len()));
         let mut case = TestCase {

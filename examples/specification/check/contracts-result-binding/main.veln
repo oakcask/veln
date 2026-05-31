@@ -1,12 +1,12 @@
 # Contract result bindings give postconditions an explicit name for the return value.
-fn has_items(items: Vec(Int)) -> Bool
-  not vec_is_empty(items)
+fn has_items(items: Vec<Int>) -> Bool
+	not vec_is_empty(items)
 end
 
-pub fn first_count(items: Vec(Int)) -> result: Int
-require has_items(items)
-require vec_len(items) > 0
-ensure result >= 0
-invariant vec_len(items) > 0
-  vec_len(items)
+pub fn first_count(items: Vec<Int>) -> result: Int
+	require has_items(items)
+	require vec_len(items) > 0
+	ensure result >= 0
+	invariant vec_len(items) > 0
+	vec_len(items)
 end

@@ -192,13 +192,13 @@ for `veln check` and `veln test`.
 Executable doctest metadata is one concept with separate checks:
 
 - `error=<TypePath>` makes the generated wrapper return
-  `Result((), <TypePath>)` and append an implicit `Ok(())` success value. If the
+  `Result<(), <TypePath>>` and append an implicit `Ok(())` success value. If the
   fence omits `error=<TypePath>`, contains `?`, and immediately documents a
-  public function with an explicit `Result(_, E)` return type, the generated
-  wrapper uses `Result((), E)` and also appends the implicit `Ok(())` success
+  public function with an explicit `Result<_, E>` return type, the generated
+  wrapper uses `Result<(), E>` and also appends the implicit `Ok(())` success
   value. If there is no documented result context, the wrapper error type is
   inferred when every `?` applies to a known function call returning
-  `Result(_, E)` and all such calls use the same `E`.
+  `Result<_, E>` and all such calls use the same `E`.
 - `runtime=contract`, `clause=<Clause>`, and `predicate=<Predicate>` on a
   positive executable doctest expect a runtime contract failure. Optional
   `function=<Name>` and `blame=<Side>` attributes further constrain that
@@ -374,7 +374,7 @@ that pattern or a value binding already visible at the pattern. Record pattern
 field names must be unique.
 
 The checker rejects non-exhaustive `match` expressions for scrutinee types it
-can classify as finite domains: `Bool`, `Option(T)`, `Result(T, E)`, `List(A)`,
+can classify as finite domains: `Bool`, `Option<T>`, `Result<T, E>`, `List<A>`,
 and source-declared ADTs. `_` and binding patterns are catch-all arms. Bool
 matches must cover `true` and `false`; option matches must cover `Some(_)` and
 `None`; result matches must cover `Ok(_)` and `Err(_)`; list matches must cover

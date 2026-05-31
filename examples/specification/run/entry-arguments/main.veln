@@ -1,15 +1,15 @@
 # Run entries receive command-line arguments as source-typed parameters.
 pub fn main(label: String, count: Int, ratio: Float, enabled: Bool) -> () effects [stdio]
-  let adjusted: Float = ratio + 0.5
-  let status: String = match enabled
-    true => "enabled"
-    false => "disabled"
-  end
-  stdio::println(label)
-  stdio::println(int_to_string(count + 1))
-  stdio::println(status)
-  match adjusted > 2.0
-    true => stdio::println("large")
-    false => stdio::println("small")
-  end
+	let adjusted: Float = ratio + 0.5
+	let status: String = match enabled
+		true => "enabled"
+		false => "disabled"
+	end
+	stdio::println(label)
+	stdio::println(int_to_string(count + 1))
+	stdio::println(status)
+	match adjusted > 2.0
+		true => stdio::println("large")
+		false => stdio::println("small")
+	end
 end

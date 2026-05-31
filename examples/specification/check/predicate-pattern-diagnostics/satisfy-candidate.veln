@@ -1,4 +1,4 @@
 # A satisfy candidate is local to the suffix and must be used without shadowing.
 fn default_port(max: Int) -> Int
-  _port satisfy max => true
+	_port satisfy max => true
 end

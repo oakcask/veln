@@ -16,5 +16,5 @@ mod spec.metadata
 ## decision: Keep annotations explicit at the public boundary.
 ## consequences: Callers observe the declared effect list.
 pub fn main() -> Int
-  1
+	1
 end

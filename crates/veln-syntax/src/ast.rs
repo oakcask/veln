@@ -50,8 +50,15 @@ pub struct TypeDecl {
 pub struct TypeVariantDecl {
     pub visibility: Visibility,
     pub name: Option<String>,
+    pub field_delimiter: Option<TypeVariantFieldDelimiter>,
     pub fields: Vec<TypeVariantField>,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TypeVariantFieldDelimiter {
+    Tuple,
+    Record,
 }
 
 #[derive(Clone, Debug)]

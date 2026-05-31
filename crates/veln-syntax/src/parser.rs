@@ -7,7 +7,8 @@ use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, RecordField, SatisfyClause, SyntaxItem, SyntaxTree, Token, TokenKind,
-    TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, Visibility, lex,
+    TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, Visibility,
+    lex,
 };
 
 #[derive(Clone, Debug)]
@@ -251,21 +252,22 @@ impl<'a> Parser<'a> {
             Visibility::Private
         };
         let name = self.expect_ident("type_variant", "variant name");
-        let fields = if self.eat(TokenKind::LParen).is_some() {
+        let (field_delimiter, fields) = if self.eat(TokenKind::LParen).is_some() {
             let fields = self.parse_type_variant_fields();
             self.expect(TokenKind::RParen, "type_variant", vec![")"]);
-            fields
+            (Some(TypeVariantFieldDelimiter::Tuple), fields)
         } else if self.eat(TokenKind::LBrace).is_some() {
             let fields = self.parse_type_variant_fields_until(TokenKind::RBrace);
             self.expect(TokenKind::RBrace, "type_variant", vec!["}"]);
-            fields
+            (Some(TypeVariantFieldDelimiter::Record), fields)
         } else {
-            Vec::new()
+            (None, Vec::new())
         };
         let end = self.expect_newline("type_variant").range;
         TypeVariantDecl {
             visibility,
             name,
+            field_delimiter,
             fields,
             span: self.source.span(start.cover(end)),
         }

@@ -1,6 +1,6 @@
 # Option matches must cover both Some and None unless a catch-all arm is present.
-fn label(value: Option(Int)) -> String
-  match value
-    Some(_) => "some"
-  end
+fn label(value: Option<Int>) -> String
+	match value
+		Some(_) => "some"
+	end
 end

@@ -1,9 +1,9 @@
 mod spec.duplicates
 
 type Left
-  Same
+	Same
 end
 
 type Right
-  Same
+	Same
 end

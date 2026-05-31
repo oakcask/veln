@@ -2,5 +2,5 @@
 mod spec.unselected_source
 
 pub fn ignored() -> ()
-  ()
+	()
 end

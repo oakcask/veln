@@ -104,7 +104,7 @@ fn satisfy_predicate_reports_unresolved_names() {
 fn propagates_try_expected_type_from_result_return() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result(Int, AppError)\n  Ok(_?)\nend\n",
+        "fn main() -> Result<Int, AppError>\n  Ok(_?)\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -117,7 +117,7 @@ fn propagates_try_expected_type_from_result_return() {
         diagnostics[0]
             .details
             .to_json()
-            .contains("\"expected_type\":\"Result(Int, AppError)\"")
+            .contains("\"expected_type\":\"Result<Int, AppError>\"")
     );
 }
 
@@ -126,7 +126,7 @@ fn lowers_option_constructor_with_expected_return_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> Option(String)\n",
+            "pub fn main() -> Option<String>\n",
             "  Some(\"ok\")\n",
             "end\n",
         ),
@@ -159,7 +159,7 @@ fn lowers_option_constructor_with_expected_return_type() {
 fn lowers_none_constructor_with_expected_return_type() {
     let source = SourceFile::new(
         "main.veln",
-        concat!("pub fn main() -> Option(String)\n", "  None\n", "end\n",),
+        concat!("pub fn main() -> Option<String>\n", "  None\n", "end\n",),
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -187,7 +187,7 @@ fn lowers_qualified_none_constructor_with_expected_return_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main() -> Option(String)\n",
+            "pub fn main() -> Option<String>\n",
             "  Option::None\n",
             "end\n",
         ),
@@ -217,10 +217,10 @@ fn lowers_qualified_builtin_constructors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(use_result: Bool) -> Result(Option(String), AppError)\n",
+            "pub fn main(use_result: Bool) -> Result<Option<String>, AppError>\n",
             "  if_missing(use_result)\n",
             "end\n",
-            "fn if_missing(use_result: Bool) -> Result(Option(String), AppError)\n",
+            "fn if_missing(use_result: Bool) -> Result<Option<String>, AppError>\n",
             "  Result::Ok(Option::Some(\"ok\"))\n",
             "end\n",
         ),
@@ -259,7 +259,7 @@ fn lowers_runnable_checked_program_to_core_and_typed_ir() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn parse(raw: String) -> Result(Int, AppError)\n",
+            "fn parse(raw: String) -> Result<Int, AppError>\n",
             "  Ok(1)\n",
             "end\n",
             "pub fn main(raw: String) -> Result((), AppError) effects [stdio]\n",
@@ -323,10 +323,10 @@ fn constructor_arity_diagnostics_keep_constructor_source_spans() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn make_result() -> Result(Int, AppError)\n",
+            "fn make_result() -> Result<Int, AppError>\n",
             "  Ok()\n",
             "end\n",
-            "fn make_option() -> Option(Int)\n",
+            "fn make_option() -> Option<Int>\n",
             "  Some(1, 2)\n",
             "end\n",
         ),
@@ -459,7 +459,7 @@ fn refutable_let_pattern_reports_diagnostic() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(value: Option(Int)) -> ()\n",
+            "pub fn main(value: Option<Int>) -> ()\n",
             "  let Some(amount) = value\n",
             "  ()\n",
             "end\n",
@@ -483,7 +483,7 @@ fn match_expression_binds_constructor_payloads() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(value: Option(Int)) -> Int\n",
+            "pub fn main(value: Option<Int>) -> Int\n",
             "  match value\n",
             "    Some(count) => count + 1\n",
             "    None => 0\n",
@@ -527,7 +527,7 @@ fn match_expression_binds_qualified_constructor_payloads() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(value: Result(Int, String)) -> Int\n",
+            "pub fn main(value: Result<Int, String>) -> Int\n",
             "  match value\n",
             "    Result::Ok(count) => count + 1\n",
             "    Result::Err(_) => 0\n",

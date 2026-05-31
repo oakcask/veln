@@ -1,4 +1,4 @@
 # Parse-clean discovered files still participate in semantic analysis.
 fn clean() -> Int
-  "wrong"
+	"wrong"
 end

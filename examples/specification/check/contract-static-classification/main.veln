@@ -1,8 +1,8 @@
 # Literal and tautological predicates can be accepted without runtime checks.
 fn bounded(value: Int, flag: Bool) -> result: Int
-require 1 + 1 == 2
-require flag or not flag
-ensure result >= result
-invariant not (value < 0 and value >= 0)
-  value
+	require 1 + 1 == 2
+	require flag or not flag
+	ensure result >= result
+	invariant not(value < 0 and value >= 0)
+	value
 end

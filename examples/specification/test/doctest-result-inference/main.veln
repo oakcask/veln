@@ -1,6 +1,6 @@
 # Doctests infer Result wrapper errors from documented APIs and propagated calls.
-pub fn parse_count(raw: String) -> Result(Int, String)
-  string_parse_int(raw)
+pub fn parse_count(raw: String) -> Result<Int, String>
+	string_parse_int(raw)
 end
 
 ## ```veln
@@ -10,8 +10,8 @@ end
 ## ```veln-output stream=stdout
 ## 7
 ## ```
-pub fn documented_result(raw: String) -> Result(Int, String)
-  parse_count(raw)
+pub fn documented_result(raw: String) -> Result<Int, String>
+	parse_count(raw)
 end
 
 ## ```veln
@@ -22,7 +22,7 @@ end
 ## 8
 ## ```
 pub fn inferred_from_call() -> ()
-  ()
+	()
 end
 
 ## ```veln
@@ -32,5 +32,5 @@ end
 ## warn
 ## ```
 pub fn stderr_doctest() -> ()
-  ()
+	()
 end

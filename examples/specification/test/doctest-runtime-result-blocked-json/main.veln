@@ -4,5 +4,5 @@
 ## Err("bad")?
 ## ```
 pub fn main() -> ()
-  ()
+	()
 end

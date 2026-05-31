@@ -5,7 +5,7 @@ fn channel_recv_checks_receiver_against_expected_option_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(rx: Receiver(Int)) -> Option(String) effects [concurrency]\n",
+            "pub fn main(rx: Receiver<Int>) -> Option<String> effects [concurrency]\n",
             "  channel::recv(rx)\n",
             "end\n",
         ),
@@ -19,7 +19,7 @@ fn channel_recv_checks_receiver_against_expected_option_item_type() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(
         diagnostics[0].message,
-        "expected `Receiver(String)`, but found `Receiver(Int)`"
+        "expected `Receiver<String>`, but found `Receiver<Int>`"
     );
 }
 
@@ -28,7 +28,7 @@ fn channel_select_preserves_receiver_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Receiver(String), right: Receiver(String)) -> Option({index: Int, value: String}) effects [concurrency]\n",
+            "pub fn main(left: Receiver<String>, right: Receiver<String>) -> Option<{index: Int, value: String}> effects [concurrency]\n",
             "  channel::select(left, right)\n",
             "end\n",
         ),
@@ -58,7 +58,7 @@ fn channel_select_checks_both_receivers_against_same_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Receiver(String), right: Receiver(Int)) -> Option({index: Int, value: String}) effects [concurrency]\n",
+            "pub fn main(left: Receiver<String>, right: Receiver<Int>) -> Option<{index: Int, value: String}> effects [concurrency]\n",
             "  channel::select(left, right)\n",
             "end\n",
         ),
@@ -72,7 +72,7 @@ fn channel_select_checks_both_receivers_against_same_item_type() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(
         diagnostics[0].message,
-        "expected `Receiver(String)`, but found `Receiver(Int)`"
+        "expected `Receiver<String>`, but found `Receiver<Int>`"
     );
 }
 
@@ -81,7 +81,7 @@ fn channel_select_priority_preserves_receiver_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Receiver(String), right: Receiver(String)) -> Option({index: Int, value: String}) effects [concurrency]\n",
+            "pub fn main(left: Receiver<String>, right: Receiver<String>) -> Option<{index: Int, value: String}> effects [concurrency]\n",
             "  channel::select_priority(left, right)\n",
             "end\n",
         ),
@@ -111,7 +111,7 @@ fn channel_select_timeout_preserves_receiver_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Receiver(String), right: Receiver(String)) -> Option({index: Int, value: String}) effects [concurrency]\n",
+            "pub fn main(left: Receiver<String>, right: Receiver<String>) -> Option<{index: Int, value: String}> effects [concurrency]\n",
             "  channel::select_timeout(left, right, 10)\n",
             "end\n",
         ),
@@ -141,7 +141,7 @@ fn channel_select_result_reports_interrupts_with_receiver_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Receiver(String), right: Receiver(String)) -> Result(Option({index: Int, value: String}), SelectError) effects [concurrency]\n",
+            "pub fn main(left: Receiver<String>, right: Receiver<String>) -> Result<Option<{index: Int, value: String}>, SelectError> effects [concurrency]\n",
             "  channel::select_result(left, right)\n",
             "end\n",
         ),
@@ -174,7 +174,7 @@ fn channel_select_timeout_result_requires_integer_timeout() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Receiver(String), right: Receiver(String)) -> Result(Option({index: Int, value: String}), SelectError) effects [concurrency]\n",
+            "pub fn main(left: Receiver<String>, right: Receiver<String>) -> Result<Option<{index: Int, value: String}>, SelectError> effects [concurrency]\n",
             "  channel::select_timeout_result(left, right, \"soon\")\n",
             "end\n",
         ),
@@ -194,7 +194,7 @@ fn channel_select_timeout_requires_integer_timeout() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(left: Receiver(String), right: Receiver(String)) -> Option({index: Int, value: String}) effects [concurrency]\n",
+            "pub fn main(left: Receiver<String>, right: Receiver<String>) -> Option<{index: Int, value: String}> effects [concurrency]\n",
             "  channel::select_timeout(left, right, \"soon\")\n",
             "end\n",
         ),
@@ -214,7 +214,7 @@ fn channel_close_requires_sender_handle() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(rx: Receiver(String)) -> () effects [concurrency]\n",
+            "pub fn main(rx: Receiver<String>) -> () effects [concurrency]\n",
             "  channel::close(rx)\n",
             "end\n",
         ),
@@ -228,7 +228,7 @@ fn channel_close_requires_sender_handle() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(
         diagnostics[0].message,
-        "expected `Sender(unknown)`, but found `Receiver(String)`"
+        "expected `Sender<unknown>`, but found `Receiver<String>`"
     );
 }
 

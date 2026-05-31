@@ -192,9 +192,9 @@ fn lowers_module_header_and_use_aliases() {
 #[test]
 fn lowers_type_declarations_with_variant_fields() {
     let module = lower_source(concat!(
-        "type List(A)\n",
+        "type List<A>\n",
         "  Nil\n",
-        "  Cons(head: A, tail: List(A))\n",
+        "  Cons(head: A, tail: List<A>)\n",
         "end\n",
         "fn main() -> ()\n",
         "  ()\n",
@@ -212,7 +212,7 @@ fn lowers_type_declarations_with_variant_fields() {
     assert_eq!(list.variants[1].fields[0].name, "head");
     assert_eq!(list.variants[1].fields[0].ty, "A");
     assert_eq!(list.variants[1].fields[1].name, "tail");
-    assert_eq!(list.variants[1].fields[1].ty, "List(A)");
+    assert_eq!(list.variants[1].fields[1].ty, "List<A>");
 }
 
 #[test]

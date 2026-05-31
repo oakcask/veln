@@ -44,6 +44,8 @@ behavior.
   [iterative-list-helper-runtime.md](iterative-list-helper-runtime.md).
 - User function tail recursion trampoline:
   [tail-recursion-trampoline.md](tail-recursion-trampoline.md).
+- Type parameter angle brackets:
+  [type-parameter-angle-brackets.md](type-parameter-angle-brackets.md).
 
 ## Skip Unless Needed
 

@@ -1,4 +1,4 @@
 # Function bodies must be assignment-compatible with their declared return type.
 fn parse_count() -> Int
-  "three"
+	"three"
 end

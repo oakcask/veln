@@ -113,7 +113,7 @@ fn contract_predicate_accepts_prelude_helper_calls() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn first(items: Vec(Int)) -> Int\n",
+            "pub fn first(items: Vec<Int>) -> Int\n",
             "require vec_len(items) > 0\n",
             "require not vec_is_empty(items)\n",
             "  1\n",
@@ -134,7 +134,7 @@ fn satisfy_predicate_accepts_prelude_helper_calls() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn fallback(items: Vec(Int)) -> Vec(Int)\n",
+            "pub fn fallback(items: Vec<Int>) -> Vec<Int>\n",
             "  _value satisfy candidate => vec_len(candidate) >= vec_len(items)\n",
             "end\n",
         ),

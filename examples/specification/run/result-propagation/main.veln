@@ -1,22 +1,22 @@
 # The question-mark operator propagates Err values from Result-returning calls.
-fn parse(raw: String) -> Result(Int, {message: String})
-  Ok(1)
+fn parse(raw: String) -> Result<Int, { message : String }>
+	Ok(1)
 end
 
 fn stringify(value: Int) -> String
-  "ok"
+	"ok"
 end
 
-pub fn main(raw: String) -> Result((), {message: String}) effects [stdio]
-  let value: Int = parse(raw)?
-  let mapped: Vec(String) = vec_map([value], stringify)
-  let message: String = match dict_get({"first": "bad", "second": "ok"}, "second")
-    Some(found) => found
-    None => "missing"
-  end
-  stdio::println(message)
-  match vec_len(mapped) == 1
-    true => Ok(())
-    false => Err({message: "bad"})
-  end
+pub fn main(raw: String) -> Result<(), { message : String }> effects [stdio]
+	let value: Int = parse(raw)?
+	let mapped: Vec<String> = vec_map([value], stringify)
+	let message: String = match dict_get({ "first": "bad", "second": "ok" }, "second")
+		Some(found) => found
+		None => "missing"
+	end
+	stdio::println(message)
+	match vec_len(mapped) == 1
+		true => Ok(())
+		false => Err({ message: "bad" })
+	end
 end

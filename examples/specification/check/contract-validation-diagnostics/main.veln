@@ -1,19 +1,19 @@
 # Contract predicates parse first, then fail static validation for unsupported facts.
-fn summary(value: Int) -> {total: Int}
-  {total: value}
+fn summary(value: Int) -> { total : Int }
+	{ total: value }
 end
 
 pub fn effectful(text: String) -> () effects [stdio]
-require stdio::println(text)
-  ()
+	require stdio::println(text)
+	()
 end
 
 pub fn non_boolean(value: Int) -> ()
-require value
-  ()
+	require value
+	()
 end
 
 pub fn missing_call_field(value: Int) -> ()
-require summary(value).missing == 1
-  ()
+	require summary(value).missing == 1
+	()
 end

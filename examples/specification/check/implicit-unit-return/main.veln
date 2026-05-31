@@ -6,5 +6,5 @@ fn missing_value() -> Int
 end
 
 pub fn main() -> ()
-  ok_unit()
+	ok_unit()
 end

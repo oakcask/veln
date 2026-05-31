@@ -213,11 +213,11 @@ A doctest starts with a doc comment fence whose info string is `veln` and is
 checked as a generated private `test` declaration. By default the generated
 test returns `()` and declares `effects [stdio]`. A doctest fence may include
 an `error=<TypePath>` info-string attribute. With that attribute, the
-generated test returns `Result((), <TypePath>)` and appends `Ok(())` as the
+generated test returns `Result<(), <TypePath>>` and appends `Ok(())` as the
 implicit success value, so the visible example body can use `?` without
 writing harness-only success code. Without `error=<TypePath>`, a doctest that
 uses `?` can infer the wrapper error type from the immediately documented
-public `Result(_, E)` function or from known propagated function calls when all
+public `Result<_, E>` function or from known propagated function calls when all
 of them use the same `E`. A `veln ignore` fence is documentation-only: it is
 not generated, checked, selected, or paired with expected output. A `veln fail`
 fence is a negative static example: `check` and `test` accept it only when its

@@ -158,7 +158,7 @@ impl Type {
             Self::Named { name, args } if args.is_empty() => name.clone(),
             Self::Named { name, args } => {
                 let args = args.iter().map(Type::render).collect::<Vec<_>>().join(", ");
-                format!("{name}({args})")
+                format!("{name}<{args}>")
             }
             Self::Record(fields) => {
                 let fields = fields
@@ -969,7 +969,7 @@ mod tests {
         assert_eq!(Type::unit().render(), "()");
         assert_eq!(
             Type::result(Type::unit(), Type::named("AppError", Vec::new())).render(),
-            "Result((), AppError)"
+            "Result<(), AppError>"
         );
     }
 
@@ -998,11 +998,11 @@ mod tests {
             effects: vec!["stdio".to_string(), "net".to_string()],
         };
 
-        assert_eq!(record.render(), "{name: String, scores: Vec(Int)}");
+        assert_eq!(record.render(), "{name: String, scores: Vec<Int>}");
         assert_eq!(pure_function.render(), "fn(Int, Float) -> Bool");
         assert_eq!(
             effectful_function.render(),
-            "fn({name: String, scores: Vec(Int)}) -> Result((), AppError) effects [stdio, net]"
+            "fn({name: String, scores: Vec<Int>}) -> Result<(), AppError> effects [stdio, net]"
         );
     }
 
@@ -1105,7 +1105,7 @@ mod tests {
     fn parses_nested_type_annotations_with_whitespace() {
         assert_eq!(
             parse_type_annotation(
-                " fn ( Vec( Int ) , platform::Request ) -> Result ( Dict ( String , Int ) , AppError ) effects [ stdio , net ] "
+                " fn ( Vec< Int > , platform::Request ) -> Result ( Dict ( String , Int ) , AppError ) effects [ stdio , net ] "
             ),
             Ok(Type::Function {
                 params: vec![
@@ -1120,14 +1120,14 @@ mod tests {
             })
         );
         assert_eq!(
-            parse_type_annotation("{ name: String, scores: Vec(Int) }"),
+            parse_type_annotation("{ name: String, scores: Vec<Int> }"),
             Ok(Type::Record(vec![
                 ("name".to_string(), Type::string()),
                 ("scores".to_string(), Type::vec(Type::int())),
             ]))
         );
         assert_eq!(
-            parse_type_annotation("{ name: String, scores: Vec(Int), }"),
+            parse_type_annotation("{ name: String, scores: Vec<Int>, }"),
             Ok(Type::Record(vec![
                 ("name".to_string(), Type::string()),
                 ("scores".to_string(), Type::vec(Type::int())),
@@ -1176,7 +1176,7 @@ mod tests {
             ("fn() -> () effects [,]", "expected effect name"),
             ("fn() -> () effects [stdio", "expected `]`"),
             ("Vec", "`Vec` expects 1 type argument(s), found 0"),
-            ("Dict(String)", "`Dict` expects 2 type argument(s), found 1"),
+            ("Dict<String>", "`Dict` expects 2 type argument(s), found 1"),
             ("std::", "expected type"),
         ];
 

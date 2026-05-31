@@ -9,4 +9,4 @@ format = "empty"
 
 [[file_assert]]
 path = "main.veln"
-equals = "# A single safe repair candidate can be applied and verified.\nfn main(order: {ready: Bool, paid: Bool}) -> {ready: Bool}\n  order\nend\n"
+equals = "# A single safe repair candidate can be applied and verified.\nfn main(order: { ready : Bool, paid : Bool }) -> { ready : Bool }\n\torder\nend\n"

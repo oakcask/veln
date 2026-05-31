@@ -3,20 +3,20 @@ mod spec.app
 use spec.math
 
 fn apply(value: Int, op: fn(Int) -> Int effects []) -> Int
-  op(value)
+	op(value)
 end
 
 fn unreachable_static_error() -> Int
-  "not an int"
+	"not an int"
 end
 
 fn shadowed() -> Int
-  _
+	_
 end
 
 pub fn main() -> () effects [stdio]
-  let op: fn(Int) -> Int effects [] = math::double
-  let shadowed: Int = 1
-  stdio::println(int_to_string(apply(4, op)))
-  stdio::println(int_to_string(shadowed))
+	let op: fn(Int) -> Int effects [] = math::double
+	let shadowed: Int = 1
+	stdio::println(int_to_string(apply(4, op)))
+	stdio::println(int_to_string(shadowed))
 end

@@ -10,8 +10,8 @@ format = "empty"
 
 [[file_assert]]
 path = "main.veln"
-equals = "# Canonical formatting normalizes headers, contracts, expressions, and comments.\nmod app\nuse stdio\n\npub fn main(raw: String) -> Result({ value : Int, tags : Vec(String) }, AppError) effects [stdio]\n\trequire raw != \"\"\n\tensure output.value >= 0 and not(output.value == - 1)\n\tlet parsed: Int = parse(raw)?  # parsed value\n\t# preserve body comment\n\tlet payload: { message : String, values : Vec(Int) } = { message: raw, values: [1, 2, add(3, 4)] }\n\tmatch Some(parsed)\n\t\tSome(count) => { value: count + 1 * (2 + 3), tags: [choose(payload.message, \"fallback\"), \"done\"] }\n\t\tNone => { value: 0, tags: [] }\n\tend\nend\n"
+equals = "# Canonical formatting normalizes headers, contracts, expressions, and comments.\nmod app\nuse stdio\n\npub fn main(raw: String) -> Result<{ value : Int, tags : Vec<String> }, AppError> effects [stdio]\n\trequire raw != \"\"\n\tensure output.value >= 0 and not(output.value == - 1)\n\tlet parsed: Int = parse(raw)?  # parsed value\n\t# preserve body comment\n\tlet payload: { message : String, values : Vec<Int> } = { message: raw, values: [1, 2, add(3, 4)] }\n\tmatch Some(parsed)\n\t\tSome(count) => { value: count + 1 * (2 + 3), tags: [choose(payload.message, \"fallback\"), \"done\"] }\n\t\tNone => { value: 0, tags: [] }\n\tend\nend\n"
 
 [[file_assert]]
 path = "helpers.veln"
-equals = "# Helper declarations participate in multi-file canonical formatting.\nfn parse(raw: String) -> Result(Int, AppError)\n\tOk(1)\nend\n\nfn choose(value: String, fallback: String) -> String\n\tif_missing({ primary: value, nested: { fallback: fallback } })\nend\n"
+equals = "# Helper declarations participate in multi-file canonical formatting.\nfn parse(raw: String) -> Result<Int, AppError>\n\tOk(1)\nend\n\nfn choose(value: String, fallback: String) -> String\n\tif_missing({ primary: value, nested: { fallback: fallback } })\nend\n"
