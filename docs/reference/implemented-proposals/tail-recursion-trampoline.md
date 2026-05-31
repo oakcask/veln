@@ -28,13 +28,13 @@ was added.
 The JVM backend keeps typed IR runtime-neutral and lowers eligible direct tail
 self calls to a backend-owned loop. Each step evaluates the next call
 arguments before rebinding parameters, then re-enters the function boundary so
-runtime `require` checks and entry-position `invariant` checks run for each
-logical invocation.
+runtime `require` checks run for each logical invocation.
 
-Functions with runtime `ensure` or `invariant` return checks stay on ordinary
-call lowering. Non-tail recursion, mutual recursion, indirect recursion through
-function-typed values, and calls whose self target is not a direct resolved
-function call do not receive the stack-safety guarantee.
+Functions with runtime `ensure` or `invariant` clauses stay on ordinary call
+lowering because runtime `invariant` clauses include return checks. Non-tail
+recursion, mutual recursion, indirect recursion through function-typed values,
+and calls whose self target is not a direct resolved function call do not
+receive the stack-safety guarantee.
 
 ## Original Target
 
@@ -53,8 +53,8 @@ diagnostics, and command JSON to remain otherwise unchanged.
   stack-safety guarantee.
 - Recursive-call arguments are evaluated before parameter rebinding.
 - Runtime `require` checks run for each logical recursive invocation.
-- Runtime `ensure` and return-position `invariant` checks exclude a function
-  from this route.
+- Runtime `ensure` and runtime `invariant` clauses exclude a function from
+  this route.
 - Existing diagnostics and command JSON for static blockers keep their current
   anchors because eligibility does not add diagnostics or output fields.
 
