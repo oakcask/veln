@@ -1,5 +1,0 @@
-mod core_prelude
-
-fn vec_fold(items: Vec<A>, initial: B, f: fn(B, A) -> B) -> B
-	vec_fold(items, initial, f)
-end

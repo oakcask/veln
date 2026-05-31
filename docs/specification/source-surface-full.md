@@ -290,6 +290,8 @@ Implemented expressions:
 - task effect calls: `task::spawn(job)`, `task::spawn<Item>(job)`,
   `task::join(task)`, and `task::cancel(task)`
 - prelude helpers as bare calls such as `vec_len(items)`
+- reserved embedded-standard-library builtin calls such as
+  `prelude_builtin::vec_fold(items, initial, f)`
 - records: `{name: value, ...}`
 - dictionaries: `{key_expr: value_expr, ...}` when the first entry is not a
   bare `name: value` field; identifier-led expression keys such as `seed + 1`

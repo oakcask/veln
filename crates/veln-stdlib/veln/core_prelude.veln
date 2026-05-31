@@ -1,11 +1,11 @@
 mod core_prelude
 
-fn vec_len(items: Vec<A>) -> Int
-	vec_fold(items, 0, vec_len_step)
+fn vec_fold(items: Vec<A>, initial: B, f: fn(B, A) -> B) -> B
+	prelude_builtin::vec_fold(items, initial, f)
 end
 
-fn vec_len_step(count: Int, item: A) -> Int
-	count + 1
+fn vec_len(items: Vec<A>) -> Int
+	prelude_builtin::vec_len(items)
 end
 
 fn vec_is_empty(items: Vec<A>) -> Bool
@@ -17,15 +17,15 @@ fn vec_push(items: Vec<A>, value: A) -> Vec<A>
 end
 
 fn vec_concat(left: Vec<A>, right: Vec<A>) -> Vec<A>
-	vec_fold(right, left, vec_append)
+	prelude_builtin::vec_fold(right, left, vec_append)
 end
 
 fn vec_append(items: Vec<A>, item: A) -> Vec<A>
-	vec_push(items, item)
+	prelude_builtin::vec_push(items, item)
 end
 
 fn vec_map(items: Vec<Item>, f: fn(Item) -> A) -> Vec<A>
-	let state: { values : Vec<A>, map : fn(Item) -> A } = vec_fold(items, { values: [], map: f }, vec_map_step)
+	let state: { values : Vec<A>, map : fn(Item) -> A } = prelude_builtin::vec_fold(items, { values: [], map: f }, vec_map_step)
 	state.values
 end
 
@@ -35,7 +35,7 @@ fn vec_map_step(state: { values : Vec<A>, map : fn(Item) -> A }, item: Item) -> 
 end
 
 fn vec_filter(items: Vec<A>, f: fn(A) -> Bool) -> Vec<A>
-	let state: { values : Vec<A>, keep : fn(A) -> Bool } = vec_fold(items, { values: [], keep: f }, vec_filter_step)
+	let state: { values : Vec<A>, keep : fn(A) -> Bool } = prelude_builtin::vec_fold(items, { values: [], keep: f }, vec_filter_step)
 	state.values
 end
 
@@ -48,7 +48,7 @@ fn vec_filter_step(state: { values : Vec<A>, keep : fn(A) -> Bool }, item: A) ->
 end
 
 fn vec_try_map(items: Vec<Item>, f: fn(Item) -> Result<A, E>) -> Result<Vec<A>, E>
-	let state: { values : Result<Vec<A>, E>, map : fn(Item) -> Result<A, E> } = vec_fold(items, { values: Ok([]), map: f }, vec_try_map_step)
+	let state: { values : Result<Vec<A>, E>, map : fn(Item) -> Result<A, E> } = prelude_builtin::vec_fold(items, { values: Ok([]), map: f }, vec_try_map_step)
 	state.values
 end
 
@@ -64,7 +64,7 @@ fn vec_try_map_step(state: { values : Result<Vec<A>, E>, map : fn(Item) -> Resul
 end
 
 fn vec_try_map_with(context: C, items: Vec<Item>, f: fn(C, Item) -> Result<A, E>) -> Result<Vec<A>, E>
-	let state: { values : Result<Vec<A>, E>, map : fn(C, Item) -> Result<A, E>, context : C } = vec_fold(items, { values: Ok([]), map: f, context: context }, vec_try_map_with_step)
+	let state: { values : Result<Vec<A>, E>, map : fn(C, Item) -> Result<A, E>, context : C } = prelude_builtin::vec_fold(items, { values: Ok([]), map: f, context: context }, vec_try_map_with_step)
 	state.values
 end
 
@@ -156,22 +156,22 @@ fn list_try_map_step(items: List<Item>, f: fn(Item) -> Result<A, E>, acc: List<A
 end
 
 fn dict_get(dict: Dict<K, V>, key: K) -> Option<V>
-	dict_get(dict, key)
+	prelude_builtin::dict_get(dict, key)
 end
 
 fn dict_contains(dict: Dict<K, V>, key: K) -> Bool
-	match dict_get(dict, key)
+	match prelude_builtin::dict_get(dict, key)
 		Some(_) => true
 		None => false
 	end
 end
 
 fn dict_insert(dict: Dict<K, V>, key: K, value: V) -> Dict<K, V>
-	dict_insert(dict, key, value)
+	prelude_builtin::dict_insert(dict, key, value)
 end
 
 fn dict_remove(dict: Dict<K, V>, key: K) -> Dict<K, V>
-	dict_remove(dict, key)
+	prelude_builtin::dict_remove(dict, key)
 end
 
 fn option_map(value: Option<A>, f: fn(A) -> B) -> Option<B>
@@ -217,13 +217,13 @@ fn result_and_then(value: Result<A, E>, f: fn(A) -> Result<B, E>) -> Result<B, E
 end
 
 fn string_split_once(text: String, separator: String) -> Option<{ left : String, right : String }>
-	string_split_once(text, separator)
+	prelude_builtin::string_split_once(text, separator)
 end
 
 fn string_parse_int(text: String) -> Result<Int, String>
-	string_parse_int(text)
+	prelude_builtin::string_parse_int(text)
 end
 
 fn int_to_string(value: Int) -> String
-	int_to_string(value)
+	prelude_builtin::int_to_string(value)
 end

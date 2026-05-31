@@ -28,7 +28,7 @@ use crate::effects::{
 };
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
-    prelude_signature,
+    prelude_signature, qualified_prelude_builtin_signature,
 };
 use crate::repair_candidates::{
     APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED, APPLICATION_STATUS_UNAPPLIED,
@@ -1647,10 +1647,13 @@ impl<'a> FunctionChecker<'a> {
         let ExprKind::NamePath(segments) = &callee.kind else {
             return None;
         };
-        let [name] = segments.as_slice() else {
-            return None;
+        let (name, params, return_type) = if let [name] = segments.as_slice() {
+            let (params, return_type) =
+                prelude_signature(name, expected.map(|expected| &expected.ty))?;
+            (name.clone(), params, return_type)
+        } else {
+            qualified_prelude_builtin_signature(segments, expected.map(|expected| &expected.ty))?
         };
-        let (params, return_type) = prelude_signature(name, expected.map(|expected| &expected.ty))?;
 
         for (index, arg) in args.iter().enumerate() {
             let Some(param_type) = params.get(index) else {
@@ -1665,7 +1668,7 @@ impl<'a> FunctionChecker<'a> {
                 origin_message: "Prelude helper parameter type inferred here.",
             };
             let actual = self.infer_expr(arg, Some(&expected));
-            self.check_prelude_argument_assignable(name, index, arg, &expected, &actual);
+            self.check_prelude_argument_assignable(&name, index, arg, &expected, &actual);
         }
         Some(return_type)
     }

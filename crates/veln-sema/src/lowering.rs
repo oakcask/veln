@@ -18,7 +18,7 @@ use crate::effects::{
 };
 use crate::prelude::{
     core_prelude_signature, float_arithmetic_prelude_name, float_comparison_prelude_name,
-    float_prefix_prelude_name,
+    float_prefix_prelude_name, qualified_core_prelude_builtin_signature,
 };
 use crate::types::{TypeEnvironment, core_type, parse_type_annotation, parse_type_or_unknown};
 
@@ -1218,6 +1218,15 @@ impl<'a> CoreLowerer<'a> {
             let (params, return_type) = core_standard_library_signature(segments)?;
             return Some(CoreCallSignature {
                 target: CoreCallTarget::StandardLibraryBuiltin(segments.join("::")),
+                params,
+                return_type,
+            });
+        }
+        if let Some((target, params, return_type)) =
+            qualified_core_prelude_builtin_signature(segments, expected)
+        {
+            return Some(CoreCallSignature {
+                target,
                 params,
                 return_type,
             });
