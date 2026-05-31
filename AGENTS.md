@@ -23,6 +23,8 @@
 * When investigating slow tests or changing analysis code that processes large
   generated inputs, use `$performance-regression-audit` before reporting the
   work complete.
+* When running broad tests, stress cases, generated-input tests, or analysis
+  commands that may process large inputs, use `$agent-safe-local-runs`.
 * Do not split Rust source into numbered bucket file series such as
   `parser01.rs` / `parser02.rs` or `part01.rs` / `part02.rs`. Module and file
   names must describe the responsibility or concept they own, especially when
