@@ -7,6 +7,13 @@
   behavior. Treat `docs/proposals/` as planned or accepted work only; do not
   cite or edit proposal text as current behavior unless the matching
   specification page also states it.
+* When implementing or completing proposal work, use
+  `$proposal-implementation-audit` to promote implemented behavior into
+  `docs/specification/` and `examples/specification/`, and to remove completed
+  work from `docs/proposals/`.
+* When adding, moving, or reclassifying documentation, use
+  `$docs-progressive-disclosure` to keep documentation routes short and status
+  boundaries consistent.
 * When adding or changing human diagnostics, keep the primary message focused
   on the specific failed fact at the reported span. Put causes, provenance,
   repair hints, and other related locations in `related` notes, and add human

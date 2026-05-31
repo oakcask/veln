@@ -11,7 +11,7 @@ routes below are not enough.
 - Planned or accepted proposal work: [proposals/README.md](proposals/README.md).
 - Rationale routes: [specification/source-decisions.md](specification/source-decisions.md).
 - Status, placement, and promotion boundaries:
-  [document-status.md](document-status.md).
+  [navigation-full.md#documentation-maintenance](navigation-full.md#documentation-maintenance).
 
 ## Choose One Route
 
@@ -20,19 +20,17 @@ routes below are not enough.
   [specification/diagnostics-json.md](specification/diagnostics-json.md)
   and [specification/json-output.md](specification/json-output.md).
 - Proposal catalog: [proposals/README.md](proposals/README.md).
-- Proposal implementation and promotion:
-  [proposals/implementation-route.md](proposals/implementation-route.md) after
-  a short proposal page is selected.
+- Proposal implementation and promotion: compare the selected proposal with the
+  matching specification page.
 - Reviews, bibliography, or rationale:
   [navigation-full.md#history-and-evidence](navigation-full.md#history-and-evidence).
 - Documentation maintenance:
-  [document-status.md](document-status.md) and
   [navigation-full.md#documentation-maintenance](navigation-full.md#documentation-maintenance).
 
 ## Boundary Rules
 
-- Use [document-status.md](document-status.md) for the current-behavior,
-  proposal, and reference placement rules.
+- Use the specification, proposal, and reference README files for placement
+  rules.
 - A `*-full.md` file is a detail record. Open it only through the short page
   that names the relevant section.
 

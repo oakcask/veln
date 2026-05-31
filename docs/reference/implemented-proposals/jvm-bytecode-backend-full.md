@@ -17,8 +17,6 @@ execution behavior belongs in the specification pages.
   [../../specification/commands.md](../../specification/commands.md).
 - Harness organization:
   [../toolchain-test-harness.md](../toolchain-test-harness.md).
-- Promotion mechanics:
-  [../../proposals/implementation-route.md](../../proposals/implementation-route.md).
 
 ## Implementation Status
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Proposal Implementation Audit"
+  short_description: "Promote implemented proposal work into current specs"
+  default_prompt: "Use $proposal-implementation-audit when implementing or completing proposal work so current specification pages, executable examples, and proposal records stay aligned."

@@ -9,8 +9,6 @@ also states it.
 ## Read First
 
 - Current behavior: [../specification/README.md](../specification/README.md).
-- Proposal catalog and promotion mechanics:
-  [README.md](README.md) and [implementation-route.md](implementation-route.md).
 - Use the follow-up routing list below only after current behavior does not
   already cover the task.
 
@@ -23,7 +21,7 @@ stays a broad follow-up map.
 
 - Proposal catalog: [README.md](README.md#catalog).
 - Implementation and promotion checks:
-  [implementation-route.md](implementation-route.md).
+  [README.md](README.md).
 - Implemented proposal records:
   [../reference/implemented-proposals/README.md](../reference/implemented-proposals/README.md).
 

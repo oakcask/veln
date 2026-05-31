@@ -12,26 +12,19 @@ compare it with `../specification/` before changing behavior.
 - [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md):
   declarative test harness and command analysis follow-ups.
 - [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md):
-  future runtime-failure doctest expectation kinds beyond the implemented
-  `runtime=contract`, `runtime=ensure`, and `runtime=result` routes.
-- [forbid-empty-effects-declarations.md](forbid-empty-effects-declarations.md):
-  require pure function and test declarations to omit empty `effects []`
-  clauses.
+  future runtime-failure doctest expectation kinds beyond current structured
+  runtime routes.
 - [adt-generalization-route.md](adt-generalization-route.md):
-  staged route from descriptor-backed `Option` and `Result` to ADTs, `List`,
-  immutable collection helpers, and iterative list traversal support.
+  follow-ups outside the implemented ADT descriptor, `List`, and helper
+  boundary.
 - [user-defined-adts.md](user-defined-adts.md):
-  proposed source syntax, inference, constructor namespace rules, visibility,
-  and generation-function pattern for general user-defined ADTs.
+  follow-ups outside the implemented source-declared ADT surface.
 - [tail-recursion-trampoline.md](tail-recursion-trampoline.md):
   stack-safe trampoline execution route for eligible tail-recursive
   user-defined functions.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
   remaining repair-loop axes for verification orchestration, candidate
   evidence, edit granularity, and application authority.
-- [agent-module-package-docs.md](agent-module-package-docs.md):
-  implemented route for package metadata, generated documentation, and the
-  export-model decision.
 - [agent-language-surface-expansion.md](agent-language-surface-expansion.md):
   future language surface features outside the implemented subset.
 - [reference-followups.md](reference-followups.md):

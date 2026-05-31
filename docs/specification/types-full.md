@@ -21,6 +21,9 @@ qualified and unqualified constructor names, postfix `?` result propagation for
 `Result`, and finite-domain exhaustiveness. Source ADTs may be generic and
 recursive through variant payloads. Constructor payload types instantiate the
 declared type parameters from surrounding context and payload expressions.
+Nullary generic constructors require surrounding type context; when no
+assignment, return, call, match, or other expected type determines the omitted
+parameter, inference reports an ambiguous constructor type.
 
 In a function or test return annotation, a returned function type may carry its
 own effect list before the enclosing declaration's effect list. For example,

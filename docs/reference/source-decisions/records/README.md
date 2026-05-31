@@ -8,7 +8,7 @@ route.
 
 - Category route: [../README.md](../README.md).
 - Topic map: [../topic-map.md](../topic-map.md).
-- Short audit route: [../result-index.md](../result-index.md).
+- Short audit route: [../README.md#record-placement](../README.md#record-placement).
 
 ## Storage Shape
 

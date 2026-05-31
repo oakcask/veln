@@ -13,15 +13,14 @@ first route is not obvious.
   [proposals/README.md](proposals/README.md).
 - Rationale, source support, and implemented proposal records:
   [reference/README.md](reference/README.md).
-- Documentation placement and promotion rules:
-  [document-status.md](document-status.md).
 
 ## Choose One Task
 
 - Change implemented language behavior:
   [specification/topic-map.md](specification/topic-map.md).
 - Promote proposal work into implemented behavior:
-  [proposals/implementation-route.md](proposals/implementation-route.md).
+  [proposals/README.md](proposals/README.md), then the matching
+  specification page.
 - Update diagnostics, related notes, or command JSON behavior:
   [specification/diagnostics-json.md](specification/diagnostics-json.md)
   or [specification/json-output.md](specification/json-output.md).
@@ -48,8 +47,8 @@ first route is not obvious.
 
 ## Skip Unless Needed
 
-- Use [document-status.md](document-status.md) for status and placement rules
-  instead of repeating those rules here.
+- Use the directory README files for status and placement routes instead of
+  repeating those rules here.
 - Do not read implemented proposal records before the current specification page
   and [reference/implemented-proposals/README.md](reference/implemented-proposals/README.md)
   route.
