@@ -2,9 +2,8 @@
 
 Status: implemented
 
-This page routes the implemented formatter follow-up target from
-[../../proposals/reference-followups.md](../../proposals/reference-followups.md).
-Use the specification pages for current `veln fmt` behavior.
+This page routes the implemented formatter follow-up target. Use the
+specification pages for current `veln fmt` behavior.
 
 ## Read First
 
@@ -43,6 +42,4 @@ comment attachment behavior.
 
 - Do not read this page for ordinary current `veln fmt` behavior.
 - Do not use this page as a source of current command behavior.
-- Do not use nearby follow-up bullets in
-  [../../proposals/reference-followups.md](../../proposals/reference-followups.md)
-  as formatter requirements.
+- Do not use removed follow-up inventories as formatter requirements.

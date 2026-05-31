@@ -135,6 +135,19 @@ fn is_default_positional_field(index: usize, name: &str) -> bool {
 }
 
 fn format_function(out: &mut String, comments: &LineComments, function: &FunctionDecl) {
+    push_source_line(
+        out,
+        comments,
+        function.span.start.line,
+        0,
+        format_function_signature(function),
+    );
+    format_function_contracts(out, comments, function);
+    format_function_body(out, comments, function);
+    format_function_end(out, comments, function);
+}
+
+fn format_function_signature(function: &FunctionDecl) -> String {
     let mut signature = String::new();
     if function.kind == FunctionKind::Test {
         signature.push_str("test ");
@@ -175,8 +188,10 @@ fn format_function(out: &mut String, comments: &LineComments, function: &Functio
         }
         signature.push(']');
     }
-    push_source_line(out, comments, function.span.start.line, 0, signature);
+    signature
+}
 
+fn format_function_contracts(out: &mut String, comments: &LineComments, function: &FunctionDecl) {
     for contract in &function.contracts {
         let mut line = String::new();
         line.push_str(match contract.kind {
@@ -190,29 +205,38 @@ fn format_function(out: &mut String, comments: &LineComments, function: &Functio
         }
         push_source_line(out, comments, contract.span.start.line, 1, line);
     }
+}
 
+fn format_function_body(out: &mut String, comments: &LineComments, function: &FunctionDecl) {
     for line in &function.body {
-        let (source_line, content) = match line {
-            BodyLine::Let {
-                pattern,
-                annotation,
-                expr,
-                span,
-            } => {
-                let mut content = String::from("let ");
-                content.push_str(&format_pattern(pattern));
-                if let Some(annotation) = annotation {
-                    content.push_str(": ");
-                    content.push_str(&canonical_type_text(annotation));
-                }
-                content.push_str(" = ");
-                content.push_str(&format_expr_at_indent(expr, 1));
-                (span.start.line, content)
-            }
-            BodyLine::Expr { expr, span } => (span.start.line, format_expr_at_indent(expr, 1)),
-        };
+        let (source_line, content) = format_body_line(line);
         push_source_line(out, comments, source_line, 1, content);
     }
+}
+
+fn format_body_line(line: &BodyLine) -> (usize, String) {
+    match line {
+        BodyLine::Let {
+            pattern,
+            annotation,
+            expr,
+            span,
+        } => {
+            let mut content = String::from("let ");
+            content.push_str(&format_pattern(pattern));
+            if let Some(annotation) = annotation {
+                content.push_str(": ");
+                content.push_str(&canonical_type_text(annotation));
+            }
+            content.push_str(" = ");
+            content.push_str(&format_expr_at_indent(expr, 1));
+            (span.start.line, content)
+        }
+        BodyLine::Expr { expr, span } => (span.start.line, format_expr_at_indent(expr, 1)),
+    }
+}
+
+fn format_function_end(out: &mut String, comments: &LineComments, function: &FunctionDecl) {
     let end_line = function_end_line(function);
     comments.emit_before_first_after(function_body_end_line(function), end_line, out, 1);
     push_source_line(out, comments, end_line, 0, String::from("end"));

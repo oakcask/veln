@@ -1,6 +1,7 @@
 use veln_source::TextRange;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[repr(usize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TokenKind {
     Whitespace,
     Comment,
@@ -57,63 +58,120 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
+    pub const ALL: &'static [Self] = &[
+        Self::Whitespace,
+        Self::Comment,
+        Self::Ident,
+        Self::Hole,
+        Self::String,
+        Self::Int,
+        Self::Float,
+        Self::Newline,
+        Self::Eof,
+        Self::Invalid,
+        Self::Pub,
+        Self::Fn,
+        Self::Type,
+        Self::Test,
+        Self::Effects,
+        Self::Let,
+        Self::End,
+        Self::Require,
+        Self::Ensure,
+        Self::Invariant,
+        Self::Mod,
+        Self::Use,
+        Self::Match,
+        Self::Or,
+        Self::And,
+        Self::Not,
+        Self::LParen,
+        Self::RParen,
+        Self::LBracket,
+        Self::RBracket,
+        Self::LBrace,
+        Self::RBrace,
+        Self::Comma,
+        Self::Colon,
+        Self::Dot,
+        Self::DoubleColon,
+        Self::Arrow,
+        Self::FatArrow,
+        Self::PipeGreater,
+        Self::Question,
+        Self::Underscore,
+        Self::Equal,
+        Self::EqualEqual,
+        Self::BangEqual,
+        Self::Less,
+        Self::LessEqual,
+        Self::Greater,
+        Self::GreaterEqual,
+        Self::Plus,
+        Self::Minus,
+        Self::Star,
+        Self::Slash,
+    ];
+
     pub fn label(&self) -> &'static str {
-        match self {
-            Self::Whitespace => "whitespace",
-            Self::Comment => "comment",
-            Self::Ident => "identifier",
-            Self::Hole => "hole",
-            Self::String => "string",
-            Self::Int => "integer",
-            Self::Float => "float",
-            Self::Newline => "newline",
-            Self::Eof => "end of file",
-            Self::Invalid => "invalid token",
-            Self::Pub => "pub",
-            Self::Fn => "fn",
-            Self::Type => "type",
-            Self::Test => "test",
-            Self::Effects => "effects",
-            Self::Let => "let",
-            Self::End => "end",
-            Self::Require => "require",
-            Self::Ensure => "ensure",
-            Self::Invariant => "invariant",
-            Self::Mod => "mod",
-            Self::Use => "use",
-            Self::Match => "match",
-            Self::Or => "or",
-            Self::And => "and",
-            Self::Not => "not",
-            Self::LParen => "(",
-            Self::RParen => ")",
-            Self::LBracket => "[",
-            Self::RBracket => "]",
-            Self::LBrace => "{",
-            Self::RBrace => "}",
-            Self::Comma => ",",
-            Self::Colon => ":",
-            Self::Dot => ".",
-            Self::DoubleColon => "::",
-            Self::Arrow => "->",
-            Self::FatArrow => "=>",
-            Self::PipeGreater => "|>",
-            Self::Question => "?",
-            Self::Underscore => "_",
-            Self::Equal => "=",
-            Self::EqualEqual => "==",
-            Self::BangEqual => "!=",
-            Self::Less => "<",
-            Self::LessEqual => "<=",
-            Self::Greater => ">",
-            Self::GreaterEqual => ">=",
-            Self::Plus => "+",
-            Self::Minus => "-",
-            Self::Star => "*",
-            Self::Slash => "/",
-        }
+        TOKEN_LABELS[*self as usize]
     }
 }
+
+const TOKEN_LABELS: &[&str] = &[
+    "whitespace",
+    "comment",
+    "identifier",
+    "hole",
+    "string",
+    "integer",
+    "float",
+    "newline",
+    "end of file",
+    "invalid token",
+    "pub",
+    "fn",
+    "type",
+    "test",
+    "effects",
+    "let",
+    "end",
+    "require",
+    "ensure",
+    "invariant",
+    "mod",
+    "use",
+    "match",
+    "or",
+    "and",
+    "not",
+    "(",
+    ")",
+    "[",
+    "]",
+    "{",
+    "}",
+    ",",
+    ":",
+    ".",
+    "::",
+    "->",
+    "=>",
+    "|>",
+    "?",
+    "_",
+    "=",
+    "==",
+    "!=",
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "+",
+    "-",
+    "*",
+    "/",
+];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Token {
@@ -140,5 +198,19 @@ pub struct Lexed {
 impl TokenKind {
     pub(crate) fn is_trivia(&self) -> bool {
         matches!(self, Self::Whitespace | Self::Comment)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{TOKEN_LABELS, TokenKind};
+
+    #[test]
+    fn token_labels_cover_all_token_kinds() {
+        assert_eq!(TOKEN_LABELS.len(), TokenKind::ALL.len());
+        for (index, kind) in TokenKind::ALL.iter().enumerate() {
+            assert_eq!(*kind as usize, index);
+            assert!(!kind.label().is_empty());
+        }
     }
 }

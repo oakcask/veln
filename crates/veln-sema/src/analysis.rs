@@ -23,8 +23,8 @@ use crate::diagnostics::{
     type_details,
 };
 use crate::effects::{
-    concurrency_origin, concurrency_signature, standard_library_origin, standard_library_signature,
-    stdio_signature,
+    KNOWN_EFFECT_LABELS, concurrency_origin, concurrency_signature, standard_library_origin,
+    standard_library_signature, stdio_signature,
 };
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
@@ -88,95 +88,113 @@ pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnos
 }
 
 pub(crate) fn check_declared_effect_labels(function: &Function) -> Vec<Diagnostic> {
-    const KNOWN_EFFECTS: &[&str] = &[
-        "stdio",
-        "fs",
-        "net",
-        "db",
-        "time",
-        "random",
-        "process",
-        "concurrency",
-    ];
-
     let Some(declared_effects) = &function.effects else {
         return Vec::new();
     };
-    let boundary = match function.kind {
-        FunctionKind::Test => "test_declaration",
-        FunctionKind::Function if function.visibility == Visibility::Public => "public_function",
-        FunctionKind::Function => "private_function",
-    };
+    let boundary = declared_effect_boundary(function);
     let node_prefix = function.kind.node_prefix();
 
     if declared_effects.is_empty() {
-        let subject = match function.kind {
-            FunctionKind::Test => "test declaration",
-            FunctionKind::Function => "function declaration",
-        };
-        let mut diagnostic = Diagnostic::new(
-            "effect.empty_declaration",
-            Severity::Error,
-            DiagnosticKind::Effect,
-            format!("empty effects list is not allowed on a {subject}"),
-            Some(function.span.clone()),
-            effect_details(function.node_id.display(node_prefix), boundary),
-        );
-        diagnostic.related.push(JsonValue::object([
-            ("kind", JsonValue::string("repair_hint")),
-            (
-                "message",
-                JsonValue::string("Remove the clause when the inferred effect set is empty."),
-            ),
-        ]));
-        diagnostic.related.push(JsonValue::object([
-            ("kind", JsonValue::string("repair_hint")),
-            (
-                "message",
-                JsonValue::string("Replace the empty list with non-empty effect labels when the body performs effects."),
-            ),
-        ]));
-        return vec![diagnostic];
+        return vec![empty_declared_effect_diagnostic(
+            function,
+            node_prefix,
+            boundary,
+        )];
     }
 
     declared_effects
         .iter()
-        .filter(|effect| !KNOWN_EFFECTS.contains(&effect.as_str()))
-        .map(|effect| {
-            let mut diagnostic = Diagnostic::new(
-                "effect.unknown",
-                Severity::Error,
-                DiagnosticKind::Effect,
-                format!("declared effect `{effect}` is not known"),
-                Some(function.span.clone()),
-                JsonValue::object([
-                    ("phase", JsonValue::string("effect")),
-                    (
-                        "node_id",
-                        JsonValue::string(function.node_id.display(node_prefix)),
-                    ),
-                    ("effect", JsonValue::string(effect.clone())),
-                    ("boundary", JsonValue::string(boundary)),
-                    (
-                        "declared_effects",
-                        JsonValue::array(declared_effects.iter().cloned().map(JsonValue::string)),
-                    ),
-                    (
-                        "known_effects",
-                        JsonValue::array(KNOWN_EFFECTS.iter().copied().map(JsonValue::string)),
-                    ),
-                ]),
-            );
-            diagnostic.related.push(JsonValue::object([
-                ("kind", JsonValue::string("repair_hint")),
-                (
-                    "message",
-                    JsonValue::string("Use a known effect label or remove the declaration."),
-                ),
-            ]));
-            diagnostic
-        })
+        .filter(|effect| !KNOWN_EFFECT_LABELS.contains(&effect.as_str()))
+        .map(|effect| unknown_declared_effect_diagnostic(function, effect, node_prefix, boundary))
         .collect()
+}
+
+fn declared_effect_boundary(function: &Function) -> &'static str {
+    match function.kind {
+        FunctionKind::Test => "test_declaration",
+        FunctionKind::Function if function.visibility == Visibility::Public => "public_function",
+        FunctionKind::Function => "private_function",
+    }
+}
+
+fn empty_declared_effect_diagnostic(
+    function: &Function,
+    node_prefix: &'static str,
+    boundary: &'static str,
+) -> Diagnostic {
+    let subject = match function.kind {
+        FunctionKind::Test => "test declaration",
+        FunctionKind::Function => "function declaration",
+    };
+    let mut diagnostic = Diagnostic::new(
+        "effect.empty_declaration",
+        Severity::Error,
+        DiagnosticKind::Effect,
+        format!("empty effects list is not allowed on a {subject}"),
+        Some(function.span.clone()),
+        effect_details(function.node_id.display(node_prefix), boundary),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("repair_hint")),
+        (
+            "message",
+            JsonValue::string("Remove the clause when the inferred effect set is empty."),
+        ),
+    ]));
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("repair_hint")),
+        (
+            "message",
+            JsonValue::string(
+                "Replace the empty list with non-empty effect labels when the body performs effects.",
+            ),
+        ),
+    ]));
+    diagnostic
+}
+
+fn unknown_declared_effect_diagnostic(
+    function: &Function,
+    effect: &str,
+    node_prefix: &'static str,
+    boundary: &'static str,
+) -> Diagnostic {
+    let declared_effects = function
+        .effects
+        .as_ref()
+        .expect("unknown effect diagnostics require a declared effects clause");
+    let mut diagnostic = Diagnostic::new(
+        "effect.unknown",
+        Severity::Error,
+        DiagnosticKind::Effect,
+        format!("declared effect `{effect}` is not known"),
+        Some(function.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("effect")),
+            (
+                "node_id",
+                JsonValue::string(function.node_id.display(node_prefix)),
+            ),
+            ("effect", JsonValue::string(effect.to_string())),
+            ("boundary", JsonValue::string(boundary)),
+            (
+                "declared_effects",
+                JsonValue::array(declared_effects.iter().cloned().map(JsonValue::string)),
+            ),
+            (
+                "known_effects",
+                JsonValue::array(KNOWN_EFFECT_LABELS.iter().copied().map(JsonValue::string)),
+            ),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("repair_hint")),
+        (
+            "message",
+            JsonValue::string("Use a known effect label or remove the declaration."),
+        ),
+    ]));
+    diagnostic
 }
 
 pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diagnostic> {

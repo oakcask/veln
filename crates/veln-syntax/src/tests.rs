@@ -691,7 +691,7 @@ fn lexes_number_string_hole_and_invalid_boundaries() {
         .tokens
         .iter()
         .filter(|token| token.kind != TokenKind::Whitespace)
-        .map(|token| (token.kind.clone(), token.text.clone()))
+        .map(|token| (token.kind, token.text.clone()))
         .collect::<Vec<_>>();
 
     assert_eq!(

@@ -9,19 +9,8 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
-- [toolchain-test-harness-extensions.md](toolchain-test-harness-extensions.md):
-  declarative test harness and command analysis follow-ups.
-- [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md):
-  future runtime-failure doctest expectation kinds beyond current structured
-  runtime routes.
-- [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
-  remaining repair-loop axes for verification orchestration, candidate
-  evidence, edit granularity, and application authority.
-- [agent-language-surface-expansion.md](agent-language-surface-expansion.md):
-  future language surface features outside the implemented subset.
-- [reference-followups.md](reference-followups.md):
-  broad follow-up inventory that should be split into narrower proposal pages
-  before implementation.
+There are no active proposal pages. Add a narrow proposal page here only after
+the target is concrete enough to compare against `../specification/`.
 
 ## Update When
 

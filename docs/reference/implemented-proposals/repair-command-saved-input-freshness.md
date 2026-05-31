@@ -15,8 +15,6 @@ input and freshness target. Use the specification pages for current behavior.
   [../../specification/repair-json.md](../../specification/repair-json.md).
 - Executable repair cases:
   `examples/specification/repair/README.md`.
-- Remaining proposal route:
-  [../../proposals/agent-repair-loop-followups.md](../../proposals/agent-repair-loop-followups.md).
 
 ## Outcome
 
@@ -41,4 +39,4 @@ write authorization.
 This target did not add the remaining repair-loop axes: external verification
 commands, broader candidate ranking evidence, partial application of a
 candidate's edit set, or broader automatic application authority. Those remain
-proposal work until a narrow target is selected and implemented.
+proposal work only after a narrow target is selected and documented.

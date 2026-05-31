@@ -11,8 +11,7 @@ input behavior.
   [repair-candidates.md](../../../docs/specification/repair-candidates.md),
   [repair-application.md](../../../docs/specification/repair-application.md),
   and [repair-json.md](../../../docs/specification/repair-json.md).
-- Remaining repair-loop proposal work is routed through
-  [agent-repair-loop-followups.md](../../../docs/proposals/agent-repair-loop-followups.md).
+- Broader repair-loop work needs a narrow proposal page before implementation.
 - Prefer adding a case here when a repair behavior can be observed through CLI
   output, JSON records, source writes, or rollback.
 

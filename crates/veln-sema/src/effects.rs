@@ -6,6 +6,17 @@ use crate::adt;
 use crate::standard_symbols::{effect_strings, qualified_symbol};
 use crate::types::{CallOrigin, Type};
 
+pub(crate) const KNOWN_EFFECT_LABELS: &[&str] = &[
+    "stdio",
+    "fs",
+    "net",
+    "db",
+    "time",
+    "random",
+    "process",
+    "concurrency",
+];
+
 pub(crate) fn stdio_signature(segments: &[String], callee: &Expr) -> Option<CallOrigin> {
     let symbol = qualified_symbol(segments)?;
     if !symbol.effects.contains(&"stdio") {

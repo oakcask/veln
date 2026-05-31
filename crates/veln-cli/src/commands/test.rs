@@ -1,10 +1,10 @@
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::ExitCode;
+use std::process::{ExitCode, Output};
 
-use veln_ast::FunctionKind;
-use veln_backend_jvm::generate_classfiles_with_entry;
+use veln_ast::{FunctionKind, SurfaceModule};
+use veln_backend_jvm::{JvmProgram, generate_classfiles_with_entry};
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::{Project, discover_source_paths};
 use veln_test::{
@@ -160,7 +160,42 @@ fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), 
         return Ok(());
     };
 
-    let jvm = generate_classfiles_with_entry(&ir, &case.name);
+    let TestRunArtifacts {
+        output,
+        event_trace,
+        contract_error_trace,
+        result_error_trace,
+    } = match execute_test_program(&generate_classfiles_with_entry(&ir, &case.name))? {
+        TestExecution::Ran(artifacts) => artifacts,
+        TestExecution::ToolError(message) => {
+            case.status = TestCaseStatus::Error;
+            case.reason = Some("runner_error".to_string());
+            case.failure = Some(TestFailure::runtime(message));
+            return Ok(());
+        }
+    };
+
+    collect_test_events(case, &reachable.module, &output, &event_trace);
+    apply_test_process_result(case, &output, &contract_error_trace, &result_error_trace);
+    if case.status == TestCaseStatus::Passed {
+        compare_expected_output(case);
+    }
+    Ok(())
+}
+
+struct TestRunArtifacts {
+    output: Output,
+    event_trace: String,
+    contract_error_trace: String,
+    result_error_trace: String,
+}
+
+enum TestExecution {
+    Ran(TestRunArtifacts),
+    ToolError(String),
+}
+
+fn execute_test_program(jvm: &JvmProgram) -> Result<TestExecution, String> {
     let build_dir = create_build_dir("veln-test").map_err(|error| error.to_string())?;
     let event_file = build_dir.join("stdio-events.tsv");
     let contract_error_file = build_dir.join("contract-errors.tsv");
@@ -171,7 +206,7 @@ fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), 
         ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
     ];
     let result =
-        prepare_and_run_jvm_capture_with_env(&build_dir, &jvm, "veln test", &event_env, &[]);
+        prepare_and_run_jvm_capture_with_env(&build_dir, jvm, "veln test", &event_env, &[]);
     let event_trace = fs::read_to_string(&event_file).unwrap_or_default();
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
     let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
@@ -183,35 +218,46 @@ fn run_test_case(analysis: &ProjectAnalysis, case: &mut TestCase) -> Result<(), 
         );
     }
 
-    let output = match result? {
-        JvmRunResult::Ran(output) => output,
-        JvmRunResult::ToolError(message) => {
-            case.status = TestCaseStatus::Error;
-            case.reason = Some("runner_error".to_string());
-            case.failure = Some(TestFailure::runtime(message));
-            return Ok(());
-        }
-    };
+    match result? {
+        JvmRunResult::Ran(output) => Ok(TestExecution::Ran(TestRunArtifacts {
+            output,
+            event_trace,
+            contract_error_trace,
+            result_error_trace,
+        })),
+        JvmRunResult::ToolError(message) => Ok(TestExecution::ToolError(message)),
+    }
+}
 
-    let call_spans = stdio_call_spans(&reachable.module);
+fn collect_test_events(
+    case: &mut TestCase,
+    module: &SurfaceModule,
+    output: &Output,
+    event_trace: &str,
+) {
+    let call_spans = stdio_call_spans(module);
     case.events = if event_trace.is_empty() {
-        stdio_events_from_output(&output, &case.source)
+        stdio_events_from_output(output, &case.source)
     } else {
-        stdio_events_from_trace(&event_trace, &call_spans, &case.source)
+        stdio_events_from_trace(event_trace, &call_spans, &case.source)
     };
+}
+
+fn apply_test_process_result(
+    case: &mut TestCase,
+    output: &Output,
+    contract_error_trace: &str,
+    result_error_trace: &str,
+) {
     if output.status.success() {
         apply_runtime_result(case, None);
     } else {
         let message = format!("test process exited with status {}", output.status);
-        let actual_failure = contract_failure_from_trace(&contract_error_trace)
-            .or_else(|| result_failure_from_trace(&result_error_trace))
+        let actual_failure = contract_failure_from_trace(contract_error_trace)
+            .or_else(|| result_failure_from_trace(result_error_trace))
             .or_else(|| Some(TestFailure::runtime(message)));
         apply_runtime_result(case, actual_failure);
     }
-    if case.status == TestCaseStatus::Passed {
-        compare_expected_output(case);
-    }
-    Ok(())
 }
 
 fn print_test_human(report: &TestReport) -> Result<(), String> {

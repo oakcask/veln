@@ -14,8 +14,6 @@ behavior.
   [../../specification/commands.md](../../specification/commands.md).
 - Current repair JSON behavior:
   [../../specification/repair-json.md](../../specification/repair-json.md).
-- Remaining proposal route:
-  [../../proposals/agent-repair-loop-followups.md](../../proposals/agent-repair-loop-followups.md).
 
 ## Outcome
 

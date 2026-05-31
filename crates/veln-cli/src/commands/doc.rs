@@ -99,25 +99,38 @@ fn generate_markdown(project: &Project) -> GeneratedDocs {
 
 fn source_docs(source: &SourceFile, tree: &veln_syntax::SyntaxTree) -> String {
     let mut out = String::new();
+    push_module_header(&mut out, source, tree);
+    push_imports(&mut out, tree);
+    push_public_api(&mut out, source, tree);
+    push_adr_lite_records(&mut out, tree);
+    out
+}
+
+fn push_module_header(out: &mut String, source: &SourceFile, tree: &veln_syntax::SyntaxTree) {
     let module_name = tree
         .module
         .as_ref()
         .map(|module| module.name.as_str())
         .unwrap_or("<anonymous>");
-    push_heading(&mut out, 3, module_name);
-    push_paragraph(&mut out, &format!("Source: `{}`", source.path().as_str()));
+    push_heading(out, 3, module_name);
+    push_paragraph(out, &format!("Source: `{}`", source.path().as_str()));
 
     if let Some(module) = &tree.module {
-        push_doc_block(&mut out, doc_block_before(source, module.span.start.line));
+        push_doc_block(out, doc_block_before(source, module.span.start.line));
     }
+}
+
+fn push_imports(out: &mut String, tree: &veln_syntax::SyntaxTree) {
     if !tree.uses.is_empty() {
-        push_heading(&mut out, 4, "Imports");
+        push_heading(out, 4, "Imports");
         for import in &tree.uses {
             out.push_str(&format!("- `{}`\n", import.name));
         }
         out.push('\n');
     }
+}
 
+fn push_public_api(out: &mut String, source: &SourceFile, tree: &veln_syntax::SyntaxTree) {
     let public_types = tree
         .items
         .iter()
@@ -143,14 +156,11 @@ fn source_docs(source: &SourceFile, tree: &veln_syntax::SyntaxTree) -> String {
         .collect::<Vec<_>>();
 
     if !public_types.is_empty() || !public_functions.is_empty() {
-        push_heading(&mut out, 4, "Public API");
+        push_heading(out, 4, "Public API");
     }
     for type_decl in public_types {
-        push_heading(&mut out, 5, &type_signature(type_decl));
-        push_doc_block(
-            &mut out,
-            doc_block_before(source, type_decl.span.start.line),
-        );
+        push_heading(out, 5, &type_signature(type_decl));
+        push_doc_block(out, doc_block_before(source, type_decl.span.start.line));
         let variants = type_decl
             .variants
             .iter()
@@ -165,13 +175,15 @@ fn source_docs(source: &SourceFile, tree: &veln_syntax::SyntaxTree) -> String {
         }
     }
     for function in public_functions {
-        push_heading(&mut out, 5, &function_signature(function));
-        push_doc_block(&mut out, doc_block_before(source, function.span.start.line));
-        push_contracts(&mut out, &function.contracts);
+        push_heading(out, 5, &function_signature(function));
+        push_doc_block(out, doc_block_before(source, function.span.start.line));
+        push_contracts(out, &function.contracts);
     }
+}
 
+fn push_adr_lite_records(out: &mut String, tree: &veln_syntax::SyntaxTree) {
     if !tree.adr_lite_records.is_empty() {
-        push_heading(&mut out, 4, "ADR-Lite Records");
+        push_heading(out, 4, "ADR-Lite Records");
         for record in &tree.adr_lite_records {
             out.push_str(&format!("- `{}` ({})", record.id, record.status));
             if let Some(anchor) = &record.anchor {
@@ -184,8 +196,6 @@ fn source_docs(source: &SourceFile, tree: &veln_syntax::SyntaxTree) -> String {
         }
         out.push('\n');
     }
-
-    out
 }
 
 fn push_heading(out: &mut String, level: usize, text: &str) {
