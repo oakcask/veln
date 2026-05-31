@@ -52,6 +52,8 @@ behavior.
   [type-parameter-angle-brackets.md](type-parameter-angle-brackets.md).
 - Canonical type argument delimiters:
   [canonical-type-argument-delimiters.md](canonical-type-argument-delimiters.md).
+- Public member alias re-exports:
+  [public-member-alias-reexports.md](public-member-alias-reexports.md).
 
 ## Skip Unless Needed
 

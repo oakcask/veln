@@ -1,0 +1,7 @@
+# Use declarations do not publish another module's public API.
+mod spec.app
+use spec.facade
+
+pub fn main() -> Int
+	facade::double(3)
+end

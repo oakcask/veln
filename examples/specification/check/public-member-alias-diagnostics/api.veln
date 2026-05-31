@@ -1,0 +1,17 @@
+mod spec.api
+use spec.impl
+
+fn parse() -> Int
+	1
+end
+
+type Document
+	pub Text(String)
+end
+
+pub fn wrong_function = Document
+pub type WrongType = parse
+pub fn missing_fn = impl::missing
+pub type MissingType = impl::Missing
+pub fn parse = parse
+pub type Document = Document

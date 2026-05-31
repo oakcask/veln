@@ -1,0 +1,49 @@
+command = ["check", "--json", "api.veln", "impl.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["public alias target `Document` is a type, not a function", "public alias target `parse` is a function, not a type", "unresolved function alias target `impl::missing`", "unresolved type alias target `impl::Missing`", "duplicate function alias name `parse`", "duplicate type alias name `Document`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.kind_mismatch"
+severity = "error"
+kind = "name"
+message = "public alias target `Document` is a type, not a function"
+
+[[diagnostics]]
+id = "name.kind_mismatch"
+severity = "error"
+kind = "name"
+message = "public alias target `parse` is a function, not a type"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved function alias target `impl::missing`"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved type alias target `impl::Missing`"
+
+[[diagnostics]]
+id = "name.duplicate"
+severity = "error"
+kind = "name"
+message = "duplicate function alias name `parse`"
+
+[[diagnostics]]
+id = "name.duplicate"
+severity = "error"
+kind = "name"
+message = "duplicate type alias name `Document`"

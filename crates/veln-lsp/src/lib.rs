@@ -62,6 +62,7 @@ pub fn diagnostics(source: &SourceFile) -> Vec<Diagnostic> {
     let module = SurfaceModule {
         module: lowered.module,
         uses: lowered.uses,
+        aliases: lowered.aliases,
         types: lowered.types,
         functions: lowered.functions,
     };

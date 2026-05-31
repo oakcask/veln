@@ -13,9 +13,6 @@ compare it with `../specification/` before changing behavior.
   make `use` introduce unambiguous public exports into bare scope, define the
   standard prelude as an implicit import, and rename `core_prelude` to
   `prelude`.
-- [Public Member Alias Re-Exports](public-member-alias-reexports.md):
-  add explicit public aliases for re-exporting `fn` and `type` members without
-  writing wrappers or exposing implementation module paths.
 
 ## Update When
 

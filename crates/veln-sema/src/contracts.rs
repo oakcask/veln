@@ -114,7 +114,7 @@ fn static_boolean_literal_value(predicate: &str) -> Option<StaticBooleanValue> {
 
 fn static_boolean_top_level_shortcut(predicate: &str) -> Option<StaticBooleanValue> {
     let top_level_or_count = split_top_level_keyword(predicate, "or").len();
-    if top_level_or_count >= 512 && has_exhaustive_case_split_top_level_or_between(predicate, 2, 11)
+    if top_level_or_count >= 128 && has_exhaustive_case_split_top_level_or_between(predicate, 7, 11)
     {
         return Some(StaticBooleanValue::True);
     }
@@ -2916,10 +2916,14 @@ fn predicate_boolean_type(
     call_type: &impl Fn(&str) -> Option<Type>,
 ) -> Option<Type> {
     for operator in ["or", "and"] {
-        if let Some((left, right)) = split_top_level_keyword_operator(predicate, operator) {
-            let left = predicate_type_with_calls(left, bindings, call_type)?;
-            let right = predicate_type_with_calls(right, bindings, call_type)?;
-            return (left == Type::bool() && right == Type::bool()).then(Type::bool);
+        let clauses = split_top_level_keyword(predicate, operator);
+        if clauses.len() > 1 {
+            return clauses
+                .into_iter()
+                .all(|clause| {
+                    predicate_type_with_calls(clause, bindings, call_type) == Some(Type::bool())
+                })
+                .then(Type::bool);
         }
     }
     None

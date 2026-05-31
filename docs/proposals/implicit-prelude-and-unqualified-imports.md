@@ -77,9 +77,9 @@ bare name when unambiguous and by qualified name as `prelude::<name>` when
 qualification is useful or required.
 
 This proposal consumes whatever public exports a module declares. A separate
-proposal defines public member aliases as another way for a module to declare
-those exports:
-[Public Member Alias Re-Exports](public-member-alias-reexports.md).
+implemented record covers public member aliases as another way for a module to
+declare those exports:
+[Public Member Alias Re-Exports](../reference/implemented-proposals/public-member-alias-reexports.md).
 
 ## Prelude Module Rename
 

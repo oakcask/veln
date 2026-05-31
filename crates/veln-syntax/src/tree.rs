@@ -1,6 +1,9 @@
 use veln_source::{SourceSpan, TextRange};
 
-use crate::{BodyLine, FunctionDecl, ModuleDecl, SyntaxItem, Token, TokenKind, TypeDecl, UseDecl};
+use crate::{
+    BodyLine, FunctionDecl, ModuleDecl, PublicAliasDecl, SyntaxItem, Token, TokenKind, TypeDecl,
+    UseDecl,
+};
 
 #[derive(Clone, Debug)]
 pub struct SyntaxTree {
@@ -65,6 +68,7 @@ pub enum SyntaxNodeKind {
     UseDecl,
     FunctionDecl,
     TypeDecl,
+    PublicAliasDecl,
     FunctionSignature,
     ContractClause,
     Body,
@@ -137,6 +141,7 @@ pub(crate) fn build_lossless_root(
     top_level.extend(items.iter().map(|item| match item {
         SyntaxItem::Function(function) => TopLevelNode::Function(function),
         SyntaxItem::Type(type_decl) => TopLevelNode::Type(type_decl),
+        SyntaxItem::PublicAlias(alias) => TopLevelNode::PublicAlias(alias),
     }));
     top_level.sort_by_key(|node| node.range().start);
 
@@ -154,6 +159,11 @@ pub(crate) fn build_lossless_root(
                 span_range(&type_decl.span),
                 node_tokens,
             ),
+            TopLevelNode::PublicAlias(alias) => token_node(
+                SyntaxNodeKind::PublicAliasDecl,
+                span_range(&alias.span),
+                node_tokens,
+            ),
         }));
     }
 
@@ -166,6 +176,7 @@ enum TopLevelNode<'a> {
     Use(TextRange),
     Function(&'a FunctionDecl),
     Type(&'a TypeDecl),
+    PublicAlias(&'a PublicAliasDecl),
 }
 
 impl TopLevelNode<'_> {
@@ -174,6 +185,7 @@ impl TopLevelNode<'_> {
             Self::Module(range) | Self::Use(range) => *range,
             Self::Function(function) => span_range(&function.span),
             Self::Type(type_decl) => span_range(&type_decl.span),
+            Self::PublicAlias(alias) => span_range(&alias.span),
         }
     }
 }

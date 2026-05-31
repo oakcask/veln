@@ -1,0 +1,23 @@
+command = ["check", "--json", "app.veln", "facade.veln", "math.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["unresolved call_target `facade::double`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+
+[diagnostics.span]
+file = "app.veln"
+line = 6
+column = 2

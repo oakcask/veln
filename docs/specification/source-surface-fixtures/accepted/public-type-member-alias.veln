@@ -1,0 +1,4 @@
+mod spec.alias
+use spec.impl
+
+pub type Document = impl::Document

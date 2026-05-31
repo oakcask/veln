@@ -1,4 +1,4 @@
-use veln_ast::{SurfaceModule, TypeDecl, UseDecl, Visibility};
+use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
 
 use crate::types::{Type, parse_type_or_unknown};
@@ -74,7 +74,14 @@ pub(crate) enum ConstructorLookup<'a> {
 impl AdtRegistry {
     pub(crate) fn from_module(module: &SurfaceModule) -> Self {
         let mut descriptors = builtin_descriptors();
-        descriptors.extend(module.types.iter().filter_map(source_descriptor));
+        let source_descriptors = module
+            .types
+            .iter()
+            .filter_map(source_descriptor)
+            .collect::<Vec<_>>();
+        let aliases = type_alias_descriptors(module, &source_descriptors);
+        descriptors.extend(aliases);
+        descriptors.extend(source_descriptors);
         Self { descriptors }
     }
 
@@ -158,6 +165,49 @@ impl AdtRegistry {
             [constructor] => ConstructorLookup::Found(*constructor),
             _ => ConstructorLookup::Ambiguous,
         }
+    }
+}
+
+fn type_alias_descriptors(
+    module: &SurfaceModule,
+    descriptors: &[AdtDescriptor],
+) -> Vec<AdtDescriptor> {
+    module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Type)
+        .filter_map(|alias| {
+            let name = alias.name.clone()?;
+            let target = descriptor_for_alias_target(&alias.target, &module.uses, descriptors)?;
+            let mut descriptor = target.clone();
+            descriptor.type_name = name;
+            descriptor.module_name = alias.module_name.clone();
+            descriptor.visibility = Visibility::Public;
+            Some(descriptor)
+        })
+        .collect()
+}
+
+fn descriptor_for_alias_target<'a>(
+    segments: &[String],
+    uses: &[UseDecl],
+    descriptors: &'a [AdtDescriptor],
+) -> Option<&'a AdtDescriptor> {
+    match segments {
+        [name] => descriptors
+            .iter()
+            .find(|descriptor| descriptor.type_name == *name),
+        [alias, name] => {
+            let module_name = uses
+                .iter()
+                .find(|use_decl| use_decl.alias == *alias)
+                .map(|use_decl| use_decl.name.as_str())?;
+            descriptors.iter().find(|descriptor| {
+                descriptor.type_name == *name
+                    && descriptor.module_name.as_deref() == Some(module_name)
+            })
+        }
+        _ => None,
     }
 }
 

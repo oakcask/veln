@@ -21,6 +21,7 @@ impl NodeId {
 pub struct SurfaceModule {
     pub module: Option<ModuleHeader>,
     pub uses: Vec<UseDecl>,
+    pub aliases: Vec<PublicAlias>,
     pub types: Vec<TypeDecl>,
     pub functions: Vec<Function>,
 }
@@ -38,6 +39,22 @@ pub struct UseDecl {
     pub name: String,
     pub alias: String,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct PublicAlias {
+    pub node_id: NodeId,
+    pub module_name: Option<String>,
+    pub kind: PublicAliasKind,
+    pub name: Option<String>,
+    pub target: Vec<String>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PublicAliasKind {
+    Function,
+    Type,
 }
 
 #[derive(Clone, Debug)]

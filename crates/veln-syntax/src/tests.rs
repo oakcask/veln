@@ -6,7 +6,7 @@ use veln_source::SourceFile;
 fn first_function(output: &ParseOutput) -> &FunctionDecl {
     match &output.tree.items[0] {
         SyntaxItem::Function(function) => function,
-        SyntaxItem::Type(_) => panic!("expected function item"),
+        SyntaxItem::Type(_) | SyntaxItem::PublicAlias(_) => panic!("expected function item"),
     }
 }
 
@@ -28,6 +28,105 @@ fn parses_minimal_public_function() {
         &vec!["stdio".to_string()]
     );
     assert!(function.end_present);
+}
+
+#[test]
+fn parses_public_member_aliases() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "use spec.impl\n",
+            "\n",
+            "pub fn parse = impl::parse\n",
+            "pub type Document = impl::Document\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.items.len(), 2);
+    let SyntaxItem::PublicAlias(function_alias) = &output.tree.items[0] else {
+        panic!("expected function alias");
+    };
+    assert_eq!(function_alias.kind, PublicAliasKind::Function);
+    assert_eq!(function_alias.name.as_deref(), Some("parse"));
+    assert_eq!(function_alias.target, vec!["impl", "parse"]);
+    let SyntaxItem::PublicAlias(type_alias) = &output.tree.items[1] else {
+        panic!("expected type alias");
+    };
+    assert_eq!(type_alias.kind, PublicAliasKind::Type);
+    assert_eq!(type_alias.name.as_deref(), Some("Document"));
+    assert_eq!(type_alias.target, vec!["impl", "Document"]);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "mod spec.api\n",
+            "use spec.impl\n",
+            "\n",
+            "pub fn parse = impl::parse\n",
+            "\n",
+            "pub type Document = impl::Document\n",
+        )
+    );
+}
+
+#[test]
+fn rejects_public_member_alias_call_targets() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!("mod spec.api\n", "pub fn parse = impl::parse()\n"),
+    );
+
+    let output = parse(&source);
+
+    assert!(
+        output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "parse.expected_newline"
+                && diagnostic.message.contains("expected a newline")
+        }),
+        "{:#?}",
+        output.diagnostics
+    );
+}
+
+#[test]
+fn rejects_public_member_alias_signatures() {
+    let function_source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "pub fn parse(input: String) = impl::parse\n",
+        ),
+    );
+
+    let function_output = parse(&function_source);
+
+    assert!(
+        function_output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.expected_newline"),
+        "{:#?}",
+        function_output.diagnostics
+    );
+
+    let type_source = SourceFile::new(
+        "api.veln",
+        concat!("mod spec.api\n", "pub type Document<T> = impl::Document\n"),
+    );
+
+    let type_output = parse(&type_source);
+
+    assert!(
+        type_output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.expected_newline"),
+        "{:#?}",
+        type_output.diagnostics
+    );
 }
 
 #[test]

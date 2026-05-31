@@ -70,11 +70,16 @@ the rejected opening delimiter. When the matching closing delimiter is present,
 the parse details include one safe candidate with replacement edits for both
 delimiters.
 
-Name diagnostic `details` are stable for unresolved and duplicate names:
+Name diagnostic `details` are stable for unresolved names, duplicate names,
+and public alias kind mismatches:
 
 - `phase`
 - `node_id`
 - `symbol` for unresolved references
+- `target` for unresolved public alias targets and public alias kind mismatches
+- `expected_kind` for unresolved public alias targets and public alias kind
+  mismatches
+- `actual_kind` for public alias kind mismatches
 - `name` for duplicate declarations
 - `namespace`
 - `resolution_status` and `candidates` for unresolved references

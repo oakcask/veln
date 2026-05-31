@@ -14,12 +14,13 @@ Module        ::= ModDecl? UseDecl* Item*
 ModDecl       ::= "mod" ModuleName NL
 UseDecl       ::= "use" ModuleName NL
 ModuleName    ::= Name ("." Name)*
-Item          ::= Function | TestDecl | TypeDecl
+Item          ::= Function | TestDecl | TypeDecl | PublicAlias
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
+PublicAlias   ::= "pub" ("fn" | "type") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
@@ -57,6 +58,7 @@ RecordPattern ::= "{" PatternFieldList? "}"
 PatternList   ::= Pattern ("," Pattern)* ","?
 PatternFieldList ::= PatternField ("," PatternField)* ","?
 PatternField  ::= Name ":" Pattern
+MemberPath    ::= Name ("::" Name)*
 ```
 <!-- source-surface-grammar:end -->
 
@@ -161,8 +163,9 @@ segment of the imported module path, so `use platform.io` declares the alias
 program. Public source ADT constructors may also use the import alias, either
 as `alias::Constructor` or `alias::Type::Constructor`.
 
-Public `fn` declarations and public source `type` declarations are the
-implemented public API boundary. Dedicated export lists are not implemented.
+Public `fn` declarations, public source `type` declarations, and public member
+aliases are the implemented public API boundary. Dedicated export lists are not
+implemented.
 Function declarations can be referenced by bare name or by a `use`
 alias-qualified path as callable values where a function-typed expression is
 expected. When a selected `run` or `test` entry uses a function declaration as a
@@ -174,6 +177,22 @@ and match-pattern bindings shadow same-named function declarations for this
 reachability rule. Calls through a function-typed local binding or parameter
 conservatively include visible function declarations with the same argument
 count when surface reachability cannot prove one concrete declaration target.
+
+A public member alias publishes an existing function or source ADT member
+through the declaring module's public path without introducing a wrapper or a
+new type identity:
+
+```veln
+pub fn parse = impl::parse
+pub type Document = impl::Document
+```
+
+The left side is the exported member name. The right side is a member path,
+not an expression, signature, constructor list, or body. `pub fn` aliases
+resolve to function members and `pub type` aliases resolve to source ADT
+members; unresolved or wrong-kind targets are rejected at the alias
+declaration. An alias name shares the corresponding function or type member
+namespace for the declaring module.
 
 `test` is a top-level declaration keyword, not a visibility modifier. Test
 declarations are selected by `veln test` from `*_test.veln` files, explicit
