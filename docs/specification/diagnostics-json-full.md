@@ -136,11 +136,12 @@ include `phase`, `node_id`, `expected: "function_call"`,
 `actual: "method_call"`, `constraint: "call_target"`, and `method`. A related
 note carries the canonical named-call repair direction.
 
-`type.match_non_exhaustive` reports a `match` expression over a finite built-in
-domain that does not cover every case and has no catch-all arm. Its primary
-span is the `match` expression, and the primary message names the first missing
-case. Its `details` include `phase`, `node_id`, `scrutinee_type`,
-`missing_case`, and `constraint: "match_exhaustiveness"`. Related notes include
+`type.match_non_exhaustive` reports a `match` expression over a finite domain
+that does not cover every case and has no catch-all arm. Its primary span is
+the `match` expression, and the primary message names the first missing case.
+Source-declared ADT missing cases use unqualified constructor coverage labels.
+Its `details` include `phase`, `node_id`, `scrutinee_type`, `missing_case`,
+and `constraint: "match_exhaustiveness"`. Related notes include
 `kind: "scrutinee_type"` for the scrutinee span and `kind: "covered_case"` for
 arms that prove partial coverage.
 

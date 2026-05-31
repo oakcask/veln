@@ -91,8 +91,10 @@ against the built `veln` binary.
 - `check/named-type-annotations/`: non-built-in named type paths with type
   arguments inside value and function type annotations.
 - `check/source-adt-boundaries/`: source-declared ADT constructor namespace
-  conflicts, ambiguous imported constructors, and nullary generic constructor
-  context.
+  conflicts, import visibility, nullary generic constructor context, and
+  current `List`/`Vec` conversion helper boundaries.
+- `check/source-adt-exhaustiveness/`: source-declared ADT finite-domain
+  matching reports unqualified missing constructor coverage labels.
 - `check/manifest-metadata/`: source `mod` ownership wins over manifest module
   metadata, manifest module names require selected source owners, and manifest
   entries do not add unselected source files.

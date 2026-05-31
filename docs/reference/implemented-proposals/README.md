@@ -42,6 +42,8 @@ behavior.
   [path-runtime-representation.md](path-runtime-representation.md).
 - Iterative list helper runtime:
   [iterative-list-helper-runtime.md](iterative-list-helper-runtime.md).
+- ADT generalization route:
+  [adt-generalization-route.md](adt-generalization-route.md).
 - User function tail recursion trampoline:
   [tail-recursion-trampoline.md](tail-recursion-trampoline.md).
 - Type parameter angle brackets:

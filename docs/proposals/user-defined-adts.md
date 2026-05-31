@@ -15,8 +15,8 @@ under `../specification/` and covered by `../../examples/specification/`.
   [../specification/types.md](../specification/types.md).
 - Current contract clause behavior:
   [../specification/contracts.md](../specification/contracts.md).
-- ADT generalization follow-ups:
-  [adt-generalization-route.md](adt-generalization-route.md).
+- Completed ADT generalization route:
+  [../reference/implemented-proposals/adt-generalization-route.md](../reference/implemented-proposals/adt-generalization-route.md).
 
 ## Proposed Follow-Ups
 

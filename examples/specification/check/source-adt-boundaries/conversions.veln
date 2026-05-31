@@ -1,0 +1,9 @@
+mod spec.conversions
+
+fn list_to_vec_missing(items: List<Int>) -> Vec<Int>
+	list_to_vec(items)
+end
+
+fn vec_to_list_missing(items: Vec<Int>) -> List<Int>
+	vec_to_list(items)
+end

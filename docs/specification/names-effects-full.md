@@ -274,7 +274,9 @@ The implemented compiler-known prelude helpers are ordinary bare function calls
 with prefix names. They are registered in the standard symbol table as pure
 compatibility helpers or source-backed pure helpers, so a name must be present
 in that table before the prelude signature adapter assigns its compiler-known
-type. They do not infer effects.
+type. They do not infer effects. No `List`/`Vec` conversion helpers are part of
+this public helper set; names such as `list_to_vec` or `vec_to_list` resolve
+only when user declarations put them in scope.
 
 ### Helper Signatures
 
