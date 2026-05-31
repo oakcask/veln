@@ -129,6 +129,10 @@ tool fields are emitted under a tool metadata section. The package `name`
 field, when present, is the generated document title; otherwise the title is
 `Veln Project`.
 
+If discovery selects no source files, `doc` still emits package and tool
+metadata from `veln.toml` when present. The generated module section states
+that no source modules were selected.
+
 The command has a parse gate. If any selected source has parse diagnostics, or
 if a selected `[modules]` manifest entry drifts from the selected source
 `mod` declaration, `doc` emits human diagnostics on stderr, writes no

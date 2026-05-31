@@ -1,0 +1,9 @@
+command = ["doc"]
+exit = 0
+
+[stdout]
+format = "text"
+contains = ["# empty-docs", "Documents package metadata without source modules.", "- name: `empty-docs`", "- description: `Documents package metadata without source modules.`", "## Modules", "No source modules selected."]
+
+[stderr]
+format = "empty"

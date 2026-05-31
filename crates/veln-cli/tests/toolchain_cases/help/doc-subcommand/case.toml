@@ -1,0 +1,14 @@
+command = ["doc", "--help"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+summary = "Generate documentation"
+usage = "veln doc [INPUTS]..."
+arguments = ["  [INPUTS]...  Source files or directories to document"]
+options = ["  -h, --help  Print help"]
