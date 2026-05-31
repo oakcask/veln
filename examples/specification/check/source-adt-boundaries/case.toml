@@ -56,7 +56,7 @@ message = "unresolved value `library::Hidden`"
 
 [diagnostics.span]
 file = "routes.veln"
-line = 21
+line = 25
 column = 2
 
 [[diagnostics]]

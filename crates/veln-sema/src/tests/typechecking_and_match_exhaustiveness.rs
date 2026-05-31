@@ -1277,6 +1277,45 @@ fn arbitrary_source_adt_constructors_type_check_and_lower() {
 }
 
 #[test]
+fn record_shaped_source_adt_constructor_calls_lower_payloads() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Shape\n",
+            "  Point {x: Int, y: Int}\n",
+            "  Origin\n",
+            "end\n",
+            "fn main() -> Shape\n",
+            "  Shape::Point(2, 5)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert_eq!(expr.ty, CoreType::named("Shape", Vec::new()));
+    let CoreExprKind::AdtVariant { name, payloads } = &expr.kind else {
+        panic!("Shape::Point call should lower to a source ADT variant");
+    };
+    assert_eq!(name, &vec!["Shape".to_string(), "Point".to_string()]);
+    assert_eq!(payloads.len(), 2);
+    assert_eq!(payloads[0].ty, CoreType::int());
+    assert_eq!(payloads[1].ty, CoreType::int());
+}
+
+#[test]
 fn nullary_generic_source_adt_constructor_requires_type_context() {
     let source = SourceFile::new(
         "main.veln",
@@ -1452,6 +1491,27 @@ fn private_source_adt_constructor_remains_usable_in_declaring_module() {
             "end\n",
             "fn make() -> Rect\n",
             "  Rect\n",
+            "end\n",
+        ),
+    );
+    let module = lower_surface_ast(&parse(&shapes).tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn private_source_adt_constructor_type_path_remains_usable_in_declaring_module() {
+    let shapes = SourceFile::new(
+        "shapes.veln",
+        concat!(
+            "mod shapes\n",
+            "pub type Rect\n",
+            "  Rect\n",
+            "end\n",
+            "fn make() -> Rect\n",
+            "  Rect::Rect\n",
             "end\n",
         ),
     );

@@ -9,3 +9,7 @@ end
 fn hidden_local() -> Signal<Int>
 	Hidden
 end
+
+fn hidden_type_qualified_local() -> Signal<Int>
+	Signal::Hidden
+end
