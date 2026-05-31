@@ -10,9 +10,9 @@ use veln_ir::{
 };
 
 use crate::api::{EntryArgType, JvmClassFile, JvmProgram, SanitizedOptions};
-use crate::java::{
-    binary_method, concurrency_method, prelude_method, sanitize_identifier_text,
-    standard_library_method, stdio_method, unique_java_identifier, veln_string_literal_value,
+use crate::java::{sanitize_identifier_text, unique_java_identifier, veln_string_literal_value};
+use crate::runtime::{
+    binary_method, concurrency_method, prelude_method, standard_library_method, stdio_method,
 };
 
 const PROGRAM_MAJOR_VERSION: u16 = 49;
@@ -1381,90 +1381,10 @@ fn split_contract_args(text: &str) -> Vec<&str> {
     args
 }
 
+include!(concat!(env!("OUT_DIR"), "/runtime_classes.rs"));
+
 fn runtime_classes() -> Vec<JvmClassFile> {
-    const CLASSES: &[(&str, &[u8])] = &[
-        (
-            "VelnRuntime$1.class",
-            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$1.class")),
-        ),
-        (
-            "VelnRuntime$Adt.class",
-            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$Adt.class")),
-        ),
-        (
-            "VelnRuntime$Channel.class",
-            include_bytes!(concat!(
-                env!("OUT_DIR"),
-                "/runtime/VelnRuntime$Channel.class"
-            )),
-        ),
-        (
-            "VelnRuntime$ContractFailure.class",
-            include_bytes!(concat!(
-                env!("OUT_DIR"),
-                "/runtime/VelnRuntime$ContractFailure.class"
-            )),
-        ),
-        (
-            "VelnRuntime$Fn.class",
-            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$Fn.class")),
-        ),
-        (
-            "VelnRuntime$ListValue.class",
-            include_bytes!(concat!(
-                env!("OUT_DIR"),
-                "/runtime/VelnRuntime$ListValue.class"
-            )),
-        ),
-        (
-            "VelnRuntime$Option.class",
-            include_bytes!(concat!(
-                env!("OUT_DIR"),
-                "/runtime/VelnRuntime$Option.class"
-            )),
-        ),
-        (
-            "VelnRuntime$PathValue.class",
-            include_bytes!(concat!(
-                env!("OUT_DIR"),
-                "/runtime/VelnRuntime$PathValue.class"
-            )),
-        ),
-        (
-            "VelnRuntime$Receiver.class",
-            include_bytes!(concat!(
-                env!("OUT_DIR"),
-                "/runtime/VelnRuntime$Receiver.class"
-            )),
-        ),
-        (
-            "VelnRuntime$Result.class",
-            include_bytes!(concat!(
-                env!("OUT_DIR"),
-                "/runtime/VelnRuntime$Result.class"
-            )),
-        ),
-        (
-            "VelnRuntime$Sender.class",
-            include_bytes!(concat!(
-                env!("OUT_DIR"),
-                "/runtime/VelnRuntime$Sender.class"
-            )),
-        ),
-        (
-            "VelnRuntime$Task.class",
-            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$Task.class")),
-        ),
-        (
-            "VelnRuntime$Unit.class",
-            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime$Unit.class")),
-        ),
-        (
-            "VelnRuntime.class",
-            include_bytes!(concat!(env!("OUT_DIR"), "/runtime/VelnRuntime.class")),
-        ),
-    ];
-    CLASSES
+    RUNTIME_CLASSES
         .iter()
         .map(|(path, contents)| JvmClassFile {
             path: (*path).to_string(),

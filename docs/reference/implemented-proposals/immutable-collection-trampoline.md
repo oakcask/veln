@@ -57,8 +57,8 @@ avoiding new compiler-admitted tail-call syntax or selected-helper checks.
 
 ## Evidence
 
-- `crates/veln-backend-jvm/runtime/VelnRuntime.java` implements list
-  traversal helpers with loops over `ListValue`.
+- The JVM runtime source fragments implement list traversal helpers with loops
+  over `ListValue`.
 - `crates/veln-backend-jvm/src/tests.rs` covers runtime and public helper
   traversal over large lists.
 - `examples/specification/run/prelude-containers/` covers public list helper

@@ -4,9 +4,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::java::{
-    concurrency_method, java_type_identifier, prelude_method, sanitize_identifier_text,
-    standard_library_method, stdio_method, unique_java_identifier, veln_string_literal_value,
+    java_type_identifier, sanitize_identifier_text, unique_java_identifier,
+    veln_string_literal_value,
 };
+use crate::runtime::{concurrency_method, prelude_method, standard_library_method, stdio_method};
 use crate::*;
 use veln_ast::lower_surface_ast;
 use veln_ir::TypedProgram;

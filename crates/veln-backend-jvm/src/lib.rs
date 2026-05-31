@@ -21,6 +21,7 @@
 mod api;
 mod classfile;
 mod java;
+mod runtime;
 
 pub use api::{
     EntryArgType, JvmBackendOptions, JvmClassFile, JvmProgram, generate_classfiles_with_entry,
