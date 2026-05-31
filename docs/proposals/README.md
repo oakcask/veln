@@ -19,6 +19,9 @@ compare it with `../specification/` before changing behavior.
   boundary.
 - [user-defined-adts.md](user-defined-adts.md):
   follow-ups outside the implemented source-declared ADT surface.
+- [type-parameter-angle-brackets.md](type-parameter-angle-brackets.md):
+  proposed migration from parenthesized type parameters and arguments to
+  angle-bracket type syntax.
 - [tail-recursion-trampoline.md](tail-recursion-trampoline.md):
   stack-safe trampoline execution route for eligible tail-recursive
   user-defined functions.
