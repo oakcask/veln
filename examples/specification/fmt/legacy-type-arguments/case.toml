@@ -1,0 +1,13 @@
+command = ["fmt", "main.veln"]
+repeat = 2
+exit = 0
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "empty"
+
+[[file_assert]]
+path = "main.veln"
+equals = "# Formatter canonicalizes compatibility type argument spelling.\ntype Box<A>\n\tEmpty\n\tWrap { value: Result<A, String> }\nend\n\nfn wrap(value: Box<Int>) -> Result<Box<Int>, String>\n\tOk(value)\nend\n\nfn callback(handler: fn(Box<Int>) -> Result<Box<Int>, String>) -> ()\n\t()\nend\n"

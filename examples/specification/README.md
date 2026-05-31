@@ -138,6 +138,8 @@ against the built `veln` binary.
   selected.
 - `doc/parse-gate/`: generated documentation is blocked by selected-source
   parse diagnostics before writing Markdown.
+- `fmt/legacy-type-arguments/`: formatter canonicalization for compatibility
+  parenthesized type parameters and type arguments.
 - `fmt/canonical-formatting/`: headers, imports, standalone and trailing
   comments, contracts, match indentation, operators, postfix `?`, lists,
   records, and idempotence.

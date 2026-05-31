@@ -334,9 +334,9 @@ multiple imports expose the same public constructor leaf name, unqualified use
 is ambiguous and must use a qualifying path. The built-in `List<A>` descriptor
 recognizes `Nil`, `Cons(head, tail)`, `List::Nil`, and
 `List::Cons(head, tail)` and keeps the existing runtime list representation.
-The legacy `type Name(A)` declaration spelling remains accepted in type
-positions during the compatibility window, but `type Name<A>` is the current
-source spelling for declared type parameters.
+The legacy `type Name(A)` declaration spelling remains accepted during the
+compatibility window, but `type Name<A>` is the current source spelling for
+declared type parameters.
 
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding

@@ -1,0 +1,13 @@
+# Formatter canonicalizes compatibility type argument spelling.
+type Box(A)
+  Empty
+  Wrap { value: Result(A, String) }
+end
+
+fn wrap(value: Box(Int)) -> Result(Box(Int), String)
+  Ok(value)
+end
+
+fn callback(handler: fn(Box(Int)) -> Result(Box(Int), String)) -> ()
+  ()
+end
