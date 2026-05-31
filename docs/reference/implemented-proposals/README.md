@@ -44,6 +44,8 @@ behavior.
   [iterative-list-helper-runtime.md](iterative-list-helper-runtime.md).
 - ADT generalization route:
   [adt-generalization-route.md](adt-generalization-route.md).
+- User-defined ADT follow-ups:
+  [user-defined-adts.md](user-defined-adts.md).
 - User function tail recursion trampoline:
   [tail-recursion-trampoline.md](tail-recursion-trampoline.md).
 - Type parameter angle brackets:

@@ -21,6 +21,14 @@ fn label(value: Signal<Int>) -> String
 	end
 end
 
+fn hidden_requires_catch_all(value: Signal<Int>) -> String
+	match value
+		library::Hidden => "hidden"
+		library::Idle => "idle"
+		library::Signal::Emit(_) => "emit"
+	end
+end
+
 fn hidden_imported_constructor() -> Signal<Int>
 	library::Hidden
 end

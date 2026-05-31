@@ -1,9 +1,22 @@
 mod spec.duplicates
 
-type Left
-	Same
+pub type Alpha
+	pub Same
 end
 
-type Right
-	Same
+pub type Beta
+	pub Same
+end
+
+type Broken
+	Repeat
+	Repeat
+end
+
+fn alpha() -> Alpha
+	Alpha::Same
+end
+
+fn beta() -> Beta
+	Beta::Same
 end

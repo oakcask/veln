@@ -232,14 +232,19 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
 
 pub(crate) fn check_duplicate_constructor_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+    let mut seen =
+        BTreeMap::<(Option<String>, Option<String>, String), (String, SourceSpan)>::new();
 
     for type_decl in &module.types {
         for variant in &type_decl.variants {
             let Some(name) = &variant.name else {
                 continue;
             };
-            let key = (type_decl.module_name.clone(), name.clone());
+            let key = (
+                type_decl.module_name.clone(),
+                type_decl.name.clone(),
+                name.clone(),
+            );
             let node_id = variant.node_id.display("variant");
             if let Some((first_node_id, first_span)) = seen.get(&key) {
                 diagnostics.push(duplicate_name_diagnostic(
@@ -490,6 +495,7 @@ fn match_pattern_coverage(
     domain: &MatchDomain,
     scrutinee_type: &Type,
     environment: &TypeEnvironment,
+    current_module: Option<&str>,
 ) -> PatternCoverage {
     match &pattern.kind {
         PatternKind::Wildcard | PatternKind::Binding(_) => PatternCoverage {
@@ -508,7 +514,12 @@ fn match_pattern_coverage(
                     .and_then(|descriptor| {
                         environment
                             .adts
-                            .constructor_for_descriptor(name, descriptor)
+                            .constructor_for_descriptor(
+                                name,
+                                descriptor,
+                                current_module,
+                                &environment.uses,
+                            )
                             .map(|constructor| constructor.variant.coverage_case.clone())
                     }),
                 MatchDomain::Bool => None,
@@ -1974,8 +1985,13 @@ impl<'a> FunctionChecker<'a> {
         let mut covered = Vec::new();
         let mut proving_arms = Vec::new();
         for arm in arms {
-            let coverage =
-                match_pattern_coverage(&arm.pattern, &domain, scrutinee_type, self.environment);
+            let coverage = match_pattern_coverage(
+                &arm.pattern,
+                &domain,
+                scrutinee_type,
+                self.environment,
+                self.function.module_name.as_deref(),
+            );
             if coverage.catches_all {
                 return;
             }

@@ -117,18 +117,17 @@ impl AdtRegistry {
         &self,
         segments: &[String],
         descriptor: &AdtDescriptor,
+        current_module: Option<&str>,
+        uses: &[UseDecl],
     ) -> Option<AdtConstructor<'_>> {
-        self.descriptors
-            .iter()
-            .find(|candidate| same_descriptor(candidate, descriptor))
-            .and_then(|descriptor| {
-                descriptor.variants.iter().find_map(|variant| {
-                    constructor_matches(descriptor, variant, segments).then_some(AdtConstructor {
-                        descriptor,
-                        variant,
-                    })
-                })
-            })
+        match self.constructor(segments, current_module, uses) {
+            ConstructorLookup::Found(constructor)
+                if same_descriptor(constructor.descriptor, descriptor) =>
+            {
+                Some(constructor)
+            }
+            _ => None,
+        }
     }
 
     fn lookup_constructor(
@@ -144,7 +143,7 @@ impl AdtRegistry {
                 continue;
             }
             for variant in &descriptor.variants {
-                if constructor_matches(descriptor, variant, segments)
+                if constructor_matches_visible_path(descriptor, variant, segments, uses)
                     && variant_visible(descriptor, variant, current_module, segments)
                 {
                     matches.push(AdtConstructor {
@@ -533,15 +532,32 @@ fn variant_visible(
     variant.visibility == Visibility::Public
 }
 
-fn constructor_matches(
+fn constructor_matches_visible_path(
     descriptor: &AdtDescriptor,
     variant: &AdtVariantDescriptor,
     segments: &[String],
+    uses: &[UseDecl],
 ) -> bool {
-    matches!(segments, [name] if name == &variant.name)
-        || matches!(segments, [type_name, name] if type_name == &descriptor.type_name && name == &variant.name)
-        || matches!(segments, [_alias, name] if name == &variant.name)
-        || matches!(segments, [_alias, type_name, name] if type_name == &descriptor.type_name && name == &variant.name)
+    match segments {
+        [name] => name == &variant.name,
+        [qualifier, name] if name == &variant.name => {
+            qualifier == &descriptor.type_name || import_alias_matches(descriptor, qualifier, uses)
+        }
+        [alias, type_name, name] => {
+            name == &variant.name
+                && type_name == &descriptor.type_name
+                && import_alias_matches(descriptor, alias, uses)
+        }
+        _ => false,
+    }
+}
+
+fn import_alias_matches(descriptor: &AdtDescriptor, alias: &str, uses: &[UseDecl]) -> bool {
+    let Some(module_name) = descriptor.module_name.as_deref() else {
+        return false;
+    };
+    uses.iter()
+        .any(|use_decl| use_decl.alias == alias && use_decl.name == module_name)
 }
 
 fn same_descriptor(left: &AdtDescriptor, right: &AdtDescriptor) -> bool {

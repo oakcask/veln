@@ -1342,7 +1342,24 @@ fn nullary_generic_source_adt_constructor_requires_type_context() {
 }
 
 #[test]
-fn duplicate_source_adt_constructor_names_are_rejected_per_module() {
+fn duplicate_source_adt_constructor_names_are_rejected_per_type() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("type Left\n", "  Same\n", "  Same\n", "end\n",),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate constructor declaration name `Same`"
+    }));
+}
+
+#[test]
+fn same_module_constructor_leaf_conflicts_resolve_through_type_paths() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -1350,6 +1367,15 @@ fn duplicate_source_adt_constructor_names_are_rejected_per_module() {
             "  Same\n",
             "end\n",
             "type Right\n",
+            "  Same\n",
+            "end\n",
+            "fn left() -> Left\n",
+            "  Left::Same\n",
+            "end\n",
+            "fn right() -> Right\n",
+            "  Right::Same\n",
+            "end\n",
+            "fn ambiguous() -> Left\n",
             "  Same\n",
             "end\n",
         ),
@@ -1360,6 +1386,9 @@ fn duplicate_source_adt_constructor_names_are_rejected_per_module() {
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.ambiguous" && diagnostic.message == "ambiguous value `Same`"
+    }));
+    assert!(!diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.duplicate"
             && diagnostic.message == "duplicate constructor declaration name `Same`"
     }));
@@ -1477,6 +1506,48 @@ fn private_source_adt_constructor_is_hidden_from_importing_module() {
 
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.unresolved" && diagnostic.message == "unresolved value `Rect`"
+    }));
+}
+
+#[test]
+fn private_source_adt_constructor_pattern_does_not_satisfy_imported_exhaustiveness() {
+    let shapes = SourceFile::new(
+        "shapes.veln",
+        concat!(
+            "mod shapes\n",
+            "pub type Shape\n",
+            "  Hidden\n",
+            "  pub Shown\n",
+            "end\n",
+        ),
+    );
+    let app = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use shapes\n",
+            "fn label(value: Shape) -> String\n",
+            "  match value\n",
+            "    shapes::Hidden => \"hidden\"\n",
+            "    shapes::Shown => \"shown\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let shapes = lower_surface_ast(&parse(&shapes).tree);
+    let app = lower_surface_ast(&parse(&app).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        types: shapes.types,
+        functions: app.functions,
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "type.match_non_exhaustive"
+            && diagnostic.message == "match is missing case Hidden"
     }));
 }
 

@@ -13,8 +13,8 @@ by examples under `../../../examples/specification/`.
   [../../specification/source-surface.md](../../specification/source-surface.md).
 - Current type annotation behavior:
   [../../specification/types.md](../../specification/types.md).
-- Current ADT follow-up boundary:
-  [../../proposals/user-defined-adts.md](../../proposals/user-defined-adts.md).
+- Completed ADT follow-up boundary:
+  [user-defined-adts.md](user-defined-adts.md).
 
 ## Problem
 

@@ -91,7 +91,8 @@ against the built `veln` binary.
 - `check/named-type-annotations/`: non-built-in named type paths with type
   arguments inside value and function type annotations.
 - `check/source-adt-boundaries/`: source-declared ADT constructor namespace
-  conflicts, import visibility, local private constructor paths, nullary
+  conflicts, same-module type-qualified disambiguation, import visibility,
+  local private constructor paths, hidden-constructor exhaustiveness, nullary
   generic constructor context, and current `List`/`Vec` conversion helper
   boundaries.
 - `check/source-adt-exhaustiveness/`: source-declared ADT finite-domain

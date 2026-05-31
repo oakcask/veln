@@ -14,8 +14,6 @@ compare it with `../specification/` before changing behavior.
 - [doctest-runtime-failure-expectations.md](doctest-runtime-failure-expectations.md):
   future runtime-failure doctest expectation kinds beyond current structured
   runtime routes.
-- [user-defined-adts.md](user-defined-adts.md):
-  follow-ups outside the implemented source-declared ADT surface.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
   remaining repair-loop axes for verification orchestration, candidate
   evidence, edit granularity, and application authority.
