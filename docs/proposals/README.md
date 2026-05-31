@@ -19,8 +19,6 @@ compare it with `../specification/` before changing behavior.
   boundary.
 - [user-defined-adts.md](user-defined-adts.md):
   follow-ups outside the implemented source-declared ADT surface.
-- [canonical-type-argument-delimiters.md](canonical-type-argument-delimiters.md):
-  use angle brackets for source type parameters and explicit type arguments.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
   remaining repair-loop axes for verification orchestration, candidate
   evidence, edit granularity, and application authority.

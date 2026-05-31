@@ -753,7 +753,7 @@ mod tests {
             concat!(
                 "mod app.core\n",
                 "use stdio\n",
-                "test parses(value: Int) -> result: Result(Int, String) effects [stdio]\n",
+                "test parses(value: Int) -> result: Result<Int, String> effects [stdio]\n",
                 "  let next: Int = int_to_string(value)\n",
                 "  _todo satisfy candidate => candidate > 0\n",
                 "end\n",

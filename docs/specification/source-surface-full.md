@@ -20,7 +20,7 @@ Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
-TypeParamList ::= "<" Name ("," Name)* ","? ">" | "(" Name ("," Name)* ","? ")"
+TypeParamList ::= "<" Name ("," Name)* ","? ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
                   | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
@@ -43,7 +43,7 @@ PrimaryExpr   ::= Hole | Literal | NamePath | "(" Expr ")" | "()"
                   | Record | Dict | List | Match
 Call          ::= "(" ArgList? ")"
 ArgList       ::= Expr ("," Expr)* ","?
-TypeArgs      ::= "[" TypeText ("," TypeText)* ","? "]"
+TypeArgs      ::= "<" TypeText ("," TypeText)* ","? ">"
 FieldAccess   ::= "." Name
 Record        ::= "{" (Name ":" Expr) ("," Name ":" Expr)* ","? "}"
 Dict          ::= "{" Expr ":" Expr ("," Expr ":" Expr)* ","? "}"
@@ -272,13 +272,13 @@ Implemented expressions:
 - holes: `_` and `_name`, with optional `satisfy candidate => predicate`
 - literals: strings, integers, floats, `true`, `false`, and `()`
 - paths and calls: `name`, `module::name`, `callee(args...)`
-- type-applied call callees: `callee[TypeText](args...)`
+- type-applied call callees: `callee<TypeText>(args...)`
 - callable function declaration values by bare name
 - constructors: `Ok(value)`, `Err(error)`, `Some(value)`, `None`, `Nil`,
   `Cons(head, tail)`, and their `Result::`, `Option::`, or `List::`
   qualified forms
 - channel effect calls: `channel::bounded(capacity)`,
-  `channel::bounded[Item](capacity)`, `channel::clone(tx)`,
+  `channel::bounded<Item>(capacity)`, `channel::clone(tx)`,
   `channel::send(tx, value)`, `channel::recv(rx)`,
   `channel::select(left, right)`,
   `channel::select_priority(left, right)`,
@@ -287,7 +287,7 @@ Implemented expressions:
   `channel::select_priority_result(left, right)`,
   `channel::select_timeout_result(left, right, timeout_ms)`, and
   `channel::close(tx)`
-- task effect calls: `task::spawn(job)`, `task::spawn[Item](job)`,
+- task effect calls: `task::spawn(job)`, `task::spawn<Item>(job)`,
   `task::join(task)`, and `task::cancel(task)`
 - prelude helpers as bare calls such as `vec_len(items)`
 - records: `{name: value, ...}`
@@ -334,9 +334,9 @@ multiple imports expose the same public constructor leaf name, unqualified use
 is ambiguous and must use a qualifying path. The built-in `List<A>` descriptor
 recognizes `Nil`, `Cons(head, tail)`, `List::Nil`, and
 `List::Cons(head, tail)` and keeps the existing runtime list representation.
-The legacy `type Name(A)` declaration spelling remains accepted during the
-compatibility window, but `type Name<A>` is the current source spelling for
-declared type parameters.
+Type declarations use `type Name<A>` for declared type parameters. Legacy
+`type Name(A)` declarations are rejected with a parse diagnostic at the opening
+delimiter and a safe repair candidate when both delimiters are present.
 
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
@@ -353,9 +353,13 @@ whose callee is a field access, but it is not a valid implemented call form.
 The checker reports `type.method_call` at the method name and expects the
 canonical named function-call spelling with the receiver passed explicitly.
 
-Type-applied call callees currently contribute static item-type information
-only for recognized built-in calls such as `channel::bounded[String](capacity)`.
-They are not a general user-defined generic function mechanism.
+Angle-bracket type-applied call callees currently contribute static item-type
+information only for recognized built-in calls such as
+`channel::bounded<String>(capacity)`. Square-bracket explicit type arguments
+such as `channel::bounded[String](capacity)` are rejected with a parse
+diagnostic at the opening delimiter and a safe repair candidate when both
+delimiters are present. Type-applied callees are not a general user-defined
+generic function mechanism.
 
 Call arguments must be separated with commas and closed with `)`. When the
 parser can identify an adjacent argument without a separator, it reports

@@ -65,6 +65,7 @@ pub(super) fn build_edit_plan(
             .any(|other| other.file == edit.file && other.start.offset == edit.end.offset);
         let resolved = resolve_edit_span(
             &pending_files[pending_index].original,
+            candidate,
             edit,
             has_explicit_followup,
         )?;
@@ -109,6 +110,7 @@ fn source_path(root: &Path, file: &str) -> Result<PathBuf, String> {
 
 fn resolve_edit_span(
     source: &str,
+    candidate: &RepairCandidate,
     edit: &RepairEdit,
     has_explicit_followup: bool,
 ) -> Result<ResolvedEdit, String> {
@@ -127,7 +129,9 @@ fn resolve_edit_span(
                 .find('\n')
                 .unwrap_or_else(|| source[end..].len());
         }
-    } else if !(edit.is_satisfy_suffix_deletion() && is_satisfy_suffix_text(target)) {
+    } else if !(is_delimiter_replacement_candidate(candidate, target, &edit.replacement)
+        || edit.is_satisfy_suffix_deletion() && is_satisfy_suffix_text(target))
+    {
         return Err("repair target no longer names a hole".to_string());
     }
 
@@ -147,6 +151,18 @@ fn resolve_edit_span(
 
 fn is_satisfy_suffix_text(text: &str) -> bool {
     text.starts_with(" satisfy ") || text.starts_with("satisfy ")
+}
+
+fn is_delimiter_replacement_candidate(
+    candidate: &RepairCandidate,
+    target: &str,
+    replacement: &str,
+) -> bool {
+    candidate.source_candidate_id.starts_with("parse.")
+        && matches!(
+            (target, replacement),
+            ("(", "<") | (")", ">") | ("[", "<") | ("]", ">")
+        )
 }
 
 fn line_col_at(source: &str, offset: usize) -> LineCol {
@@ -176,7 +192,7 @@ fn replace_span(source: &str, candidate: &RepairCandidate) -> Result<LegacyResol
         .edits
         .first()
         .ok_or_else(|| "unsupported edit shape".to_string())?;
-    let resolved = resolve_edit_span(source, edit, false)?;
+    let resolved = resolve_edit_span(source, candidate, edit, false)?;
     let mut repaired = source.to_string();
     repaired.replace_range(
         resolved.start..resolved.end,

@@ -28,10 +28,11 @@ repair, candidate edits, applying edits, or the repair command.
 
 ## Concept Map
 
-- `candidate_queries` are diagnostic `details` records that describe how to
-  look for hole fills.
-- `candidates` are ranked, source-backed replacement suggestions inside a
-  query.
+- `candidate_queries` are diagnostic `details` records that describe either
+  how to look for hole fills or a concrete parse repair.
+- `candidates` are source-backed replacement suggestions inside a query. Hole
+  fill candidates are ranked; delimiter parse repairs are concrete
+  multi-edit candidates.
 - `application_policy` describes review and evidence state. It is not a write
   authorization.
 - `application_status: "unapplied"` is the current behavior for emitted
@@ -70,6 +71,8 @@ repair, candidate edits, applying edits, or the repair command.
   `details` payload boundaries: [diagnostics-json.md](diagnostics-json.md).
 - Candidate ranking, `satisfy` repair constraints, safe-repair matching, and
   exact examples: [holes.md](holes.md).
+- Parse diagnostics for legacy type delimiters may emit safe candidates that
+  replace matching `(`/`)` or `[`/`]` delimiters with `<`/`>`.
 - Applying candidates, saved-input validation, confirmation, override, target
   gates, verification, and rollback: [repair-application.md](repair-application.md).
 - Implemented command availability: [commands.md](commands.md).

@@ -26,7 +26,7 @@ The first slice excludes statement braces, semicolon-separated statement
 lists, indentation-sensitive nesting, method calls, user-defined ADT
 declarations, loops, mutation, classes, traits, macros, comprehensions,
 anonymous functions, and custom operators. Dictionary types may appear in
-signatures as `Dict(K, V)`, and the implemented source surface includes
+signatures as `Dict<K, V>`, and the implemented source surface includes
 non-identifier-key dictionary literals.
 
 ## Implemented Grammar

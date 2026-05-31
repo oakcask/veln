@@ -214,7 +214,7 @@ fn omitted_tail_expression_lowers_to_unit_return() {
 fn ok_constructor_accepts_declared_result_return() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result((), AppError)\n  Ok(())\nend\n",
+        "fn main() -> Result<(), AppError>\n  Ok(())\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -228,7 +228,7 @@ fn ok_constructor_accepts_declared_result_return() {
 fn result_constructor_checks_expected_value_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result((), AppError)\n  Ok(\"no\")\nend\n",
+        "fn main() -> Result<(), AppError>\n  Ok(\"no\")\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -472,7 +472,7 @@ fn descriptor_routed_try_checks_result_error_type_at_operand() {
             "fn parse(raw: String) -> Result<Int, String>\n",
             "  Ok(1)\n",
             "end\n",
-            "fn main(raw: String) -> Result((), AppError)\n",
+            "fn main(raw: String) -> Result<(), AppError>\n",
             "  let value: Int = parse(raw)?\n",
             "  Ok(())\n",
             "end\n",
@@ -1228,7 +1228,7 @@ fn arbitrary_source_adt_constructors_type_check_and_lower() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type Maybe(A)\n",
+            "type Maybe<A>\n",
             "  Missing\n",
             "  Just(value: A)\n",
             "end\n",
@@ -1281,7 +1281,7 @@ fn nullary_generic_source_adt_constructor_requires_type_context() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type Maybe(A)\n",
+            "type Maybe<A>\n",
             "  Missing\n",
             "  Just(A)\n",
             "end\n",
@@ -1370,7 +1370,7 @@ fn imported_source_adt_constructor_resolves_through_module_and_type_paths() {
         "types.veln",
         concat!(
             "mod types\n",
-            "pub type Maybe(A)\n",
+            "pub type Maybe<A>\n",
             "  pub Missing\n",
             "  pub Just(A)\n",
             "end\n",

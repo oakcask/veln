@@ -22,7 +22,7 @@ test prints_message() -> () effects [stdio]
   ()
 end
 
-test returns_ok() -> Result((), String) effects []
+test returns_ok() -> Result<(), String> effects []
   Ok(())
 end
 ```
@@ -49,7 +49,7 @@ explicit `effects [...]` clause on every `test` declaration.
   `fn` declarations merely because they have zero parameters.
 - A `test` declaration must have no parameters. A non-empty parameter list is a
   test-shape diagnostic at the parameter span.
-- A `test` declaration must return `()` or `Result((), E)`. Completing a `()`
+- A `test` declaration must return `()` or `Result<(), E>`. Completing a `()`
   test passes. Returning `Ok(())` passes. Returning `Err(error)` fails the case.
 - A `test` declaration must include `effects [...]`, including `effects []` for
   pure tests. Tests are not public API, but they are externally selected tool
@@ -116,7 +116,7 @@ the parser and formatter small while removing the ambiguous part: discovery.
 The durable test source syntax becomes self-describing:
 
 ```veln
-test calculates_total() -> Result((), String) effects []
+test calculates_total() -> Result<(), String> effects []
   Ok(())
 end
 ```

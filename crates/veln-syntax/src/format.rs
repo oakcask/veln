@@ -519,7 +519,7 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
                 .map(|arg| canonical_type_text(arg))
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("{}[{}]", format_expr_at_indent(callee, indent), type_args)
+            format!("{}<{}>", format_expr_at_indent(callee, indent), type_args)
         }
         ExprKind::Call { callee, args } => format_call_expr(callee, args, prec, indent),
         ExprKind::FieldAccess { base, field, .. } => {

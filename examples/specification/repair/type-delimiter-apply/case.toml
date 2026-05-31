@@ -1,0 +1,12 @@
+command = ["repair", "--apply", "main.veln"]
+exit = 0
+
+[stdout]
+contains = ["applied repair-1", "verification passed"]
+
+[stderr]
+format = "empty"
+
+[[file_assert]]
+path = "main.veln"
+equals = "# Safe parse delimiter repairs replace a complete type parameter list.\ntype Box<A>\n\tWrap(A)\nend\n"

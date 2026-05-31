@@ -29,7 +29,7 @@ The source-visible boundary keeps `Path` on implemented `fs` parameters and the
 `process::cwd` result, removes the special `Path` and `String` assignment
 bridge, and documents that the types are distinct at assignment boundaries.
 Semantic coverage rejects `String` at every implemented `fs` path parameter and
-rejects `process::cwd()` where `Result(String, ProcessError)` is expected.
+rejects `process::cwd()` where `Result<String, ProcessError>` is expected.
 
 ## Completed Target
 

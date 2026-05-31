@@ -2815,7 +2815,7 @@ mod tests {
                 "## ```veln\n",
                 "## let value: Int = Ok(1)?\n",
                 "## ```\n",
-                "pub fn parse(raw: String) -> Result(Int, AppError)\n",
+                "pub fn parse(raw: String) -> Result<Int, AppError>\n",
                 "  Ok(1)\n",
                 "end\n",
             ),
@@ -2840,7 +2840,7 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Int, AppError)\n",
+                "fn parse(raw: String) -> Result<Int, AppError>\n",
                 "  Ok(1)\n",
                 "end\n",
                 "## ```veln\n",
@@ -2871,7 +2871,7 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> result: Result(Int, AppError)\n",
+                "fn parse(raw: String) -> result: Result<Int, AppError>\n",
                 "  Ok(1)\n",
                 "end\n",
                 "## ```veln\n",
@@ -2902,7 +2902,7 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Vec(Result(Int, ParseError)), AppError)\n",
+                "fn parse(raw: String) -> Result<Vec<Result<Int, ParseError>>, AppError>\n",
                 "  Ok([])\n",
                 "end\n",
                 "## ```veln\n",
@@ -2933,10 +2933,10 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Int, AppError)\n",
+                "fn parse(raw: String) -> Result<Int, AppError>\n",
                 "  Ok(1)\n",
                 "end\n",
-                "fn read(raw: String) -> Result(String, IoError)\n",
+                "fn read(raw: String) -> Result<String, IoError>\n",
                 "  Ok(raw)\n",
                 "end\n",
                 "## ```veln\n",
@@ -2969,10 +2969,10 @@ mod tests {
         let source = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Int, AppError)\n",
+                "fn parse(raw: String) -> Result<Int, AppError>\n",
                 "  Ok(1)\n",
                 "end\n",
-                "fn read(raw: String) -> Result(String, IoError)\n",
+                "fn read(raw: String) -> Result<String, IoError>\n",
                 "  Ok(raw)\n",
                 "end\n",
                 "## ```veln error=ExampleError\n",
@@ -3010,7 +3010,7 @@ mod tests {
         let primary = SourceFile::new(
             "main.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Int, AppError)\n",
+                "fn parse(raw: String) -> Result<Int, AppError>\n",
                 "  Ok(1)\n",
                 "end\n",
                 "## ```veln\n",
@@ -3024,7 +3024,7 @@ mod tests {
         let imported = SourceFile::new(
             "other.veln",
             concat!(
-                "fn parse(raw: String) -> Result(Int, ParseError)\n",
+                "fn parse(raw: String) -> Result<Int, ParseError>\n",
                 "  Ok(1)\n",
                 "end\n",
             ),
@@ -3291,7 +3291,7 @@ mod tests {
     fn stdio_call_spans_include_type_applied_stdio_calls() {
         let module = module(concat!(
             "test first() -> () effects [stdio]\n",
-            "  stdio::println[String](\"out\")\n",
+            "  stdio::println<String>(\"out\")\n",
             "  ()\n",
             "end\n",
         ));

@@ -51,7 +51,7 @@ by the hole.
     "candidate_queries": [
       {
         "kind": "symbol",
-        "query": "fn(String) -> Result(UserConfig, _)"
+        "query": "fn(String) -> Result<UserConfig, _>"
       }
     ]
   },

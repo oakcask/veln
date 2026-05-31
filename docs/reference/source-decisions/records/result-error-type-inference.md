@@ -35,7 +35,7 @@ gives `?` a simple check: does this operation's error fit the function's
 declared `Result` error?
 
 Private helpers can stay lightweight when the answer is obvious. A helper that
-only propagates `ParseError` can infer `Result(T, ParseError)`. Once a helper
+only propagates `ParseError` can infer `Result<T, ParseError>`. Once a helper
 mixes `ParseError` and `IoError`, the implementation should force the author or
 agent to choose the intended public shape, such as converting both into
 `ConfigError`.
@@ -53,7 +53,7 @@ a synthetic type that may not be stable across edits.
   compatible `Result`.
 - If the surrounding return error type is known, each `?` must either produce
   that type or use an explicit conversion accepted by the checker.
-- Private helpers may infer `Result(T, E)` when every propagated fallible
+- Private helpers may infer `Result<T, E>` when every propagated fallible
   operation has the same concrete `E`.
 - Private helpers with multiple incompatible propagated errors must receive an
   explicit return type or explicit conversions before inference succeeds.

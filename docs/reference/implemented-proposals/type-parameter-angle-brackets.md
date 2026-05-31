@@ -65,18 +65,17 @@ current function arrow shape, for example `fn(String) -> Result<(), E>`.
 Variant payloads remain value-like declaration fields or tuple payloads, so
 `pub Just(A)` and `Just(value)` do not change.
 
-Type-applied call callees such as `channel::bounded[String](capacity)` are not
-changed by this proposal. They are expression-level explicit type arguments,
-use the existing square-bracket form, and remain limited to recognized built-in
-calls unless a later proposal generalizes them.
+Type-applied call callees were outside this proposal. The later
+[canonical type argument delimiters](canonical-type-argument-delimiters.md)
+record removed the square-bracket expression-level spelling.
 
 ## Parser And Formatter
 
 - Parse `Name<Args>` and `path::Name<Args>` as the same type constructor
   application currently represented by `Name(Args)`.
 - Parse `type Name<Params>` as the source-declared generic parameter list.
-- Continue accepting `Name(Args)` in type positions during the compatibility
-  window.
+- The implementation initially continued accepting `Name(Args)` in type
+  positions during a compatibility window.
 - Keep expression calls and constructor payloads unchanged.
 - Treat `<` and `>` as type delimiters only while parsing a type annotation or
   type declaration parameter list. Expression parsing keeps comparison
@@ -88,9 +87,10 @@ calls unless a later proposal generalizes them.
 
 ## Diagnostics
 
-During compatibility, legacy parenthesized type arguments remain valid. The
-checker does not emit a style diagnostic; the formatter is the migration
-mechanism.
+During this migration's compatibility window, legacy parenthesized type
+arguments remained valid and the checker did not emit a style diagnostic. The
+later canonical-delimiter record removed that compatibility path and added
+parse diagnostics with repair candidates.
 
 Arity diagnostics should render the canonical type name. For example, `Dict<T>`
 should say that `Dict` expects two type arguments and show `Dict<K, V>` as the
@@ -118,21 +118,13 @@ change does not regress expression parsing.
   generic functions.
 - Do not change constructor expression syntax, pattern syntax, record syntax,
   dictionary syntax, vec literals, or function value call syntax.
-- Do not change square-bracket explicit type arguments on built-in effect
-  calls.
+- Do not generalize expression-level explicit type arguments beyond recognized
+  built-in calls.
 - Do not change runtime type representation, ADT layout, or exhaustiveness
   semantics.
-- Do not document this proposal as current behavior until implementation,
-  specification, and executable examples have moved together.
-
-## Follow-Up Boundary
-
-Ending the compatibility window for parenthesized type-constructor arguments is
-not part of this completed record. If that migration happens later, it should
-be tracked by a new proposal that covers parse diagnostics and repair
-candidates for legacy spelling.
+- Do not treat this historical record as the current delimiter source of truth;
+  use `../../specification/`.
 
 ## Update When
 
-- The parser or formatter changes type-argument compatibility again.
-- A follow-up proposal removes the parenthesized compatibility spelling.
+- The parser or formatter changes type-argument delimiter behavior again.

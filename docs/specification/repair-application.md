@@ -35,7 +35,8 @@ write:
 
 - The target file path is source-relative.
 - The target span is still in bounds and on character boundaries.
-- Non-empty replacement targets still name holes.
+- Non-empty replacement targets still name holes, except parse delimiter
+  repairs may replace current `(`/`)` or `[`/`]` tokens with `<`/`>`.
 - Explicit empty replacements are limited to current `satisfy` suffix removal.
 - Edits in the same file do not overlap.
 
@@ -52,7 +53,7 @@ same candidate; otherwise application refuses before writing.
 `--override` requires `--confirm` and permits a selected
 `manual_review_required` candidate to pass the application-policy gate. The
 selected candidate must still be `unapplied`, and every replacement target must
-pass the same source-relative, current-span, hole-target, explicit empty
+pass the same source-relative, current-span, target-shape, explicit empty
 replacement, non-overlap, rollback, and post-edit verification rules as the
 safe path.
 

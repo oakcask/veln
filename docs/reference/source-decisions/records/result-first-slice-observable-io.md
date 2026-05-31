@@ -79,7 +79,7 @@ one model for execution, captured output, and effect provenance.
 ## Example Shape
 
 ```veln
-pub fn main() -> Result((), AppError) effects [stdio]
+pub fn main() -> Result<(), AppError> effects [stdio]
   stdio::println("hello")
   Ok(())
 end

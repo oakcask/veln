@@ -14,7 +14,7 @@ fn first_function(output: &ParseOutput) -> &FunctionDecl {
 fn parses_minimal_public_function() {
     let source = SourceFile::new(
         "main.veln",
-        "pub fn main() -> Result((), AppError) effects [stdio]\n  Ok(())\nend\n",
+        "pub fn main() -> Result<(), AppError> effects [stdio]\n  Ok(())\nend\n",
     );
 
     let output = parse(&source);
@@ -34,7 +34,7 @@ fn parses_minimal_public_function() {
 fn parses_explicit_test_declaration() {
     let source = SourceFile::new(
         "main_test.veln",
-        "test returns_ok() -> Result((), String)\n\tOk(())\nend\n",
+        "test returns_ok() -> Result<(), String>\n\tOk(())\nend\n",
     );
 
     let output = parse(&source);
@@ -443,7 +443,7 @@ fn parses_structured_calls_and_holes() {
 fn parses_type_argument_call_callees() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> ()\n  channel::bounded[String](1)\nend\n",
+        "fn main() -> ()\n  channel::bounded<String>(1)\nend\n",
     );
 
     let output = parse(&source);
@@ -464,6 +464,136 @@ fn parses_type_argument_call_callees() {
         &callee.kind,
         ExprKind::NamePath(segments) if segments == &vec!["channel".to_string(), "bounded".to_string()]
     ));
+    assert_eq!(
+        format_tree(&output.tree),
+        "fn main() -> ()\n\tchannel::bounded<String>(1)\nend\n"
+    );
+}
+
+#[test]
+fn parses_task_spawn_type_argument_call_callee() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main(job: fn() -> String effects [concurrency]) -> ()\n  task::spawn<String>(job)\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let function = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &function.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Call { callee, args } = &expr.kind else {
+        panic!("expected call expression");
+    };
+    assert_eq!(args.len(), 1);
+    let ExprKind::TypeApply { callee, type_args } = &callee.kind else {
+        panic!("expected type-applied callee");
+    };
+    assert_eq!(type_args, &vec!["String".to_string()]);
+    assert!(matches!(
+        &callee.kind,
+        ExprKind::NamePath(segments) if segments == &vec!["task".to_string(), "spawn".to_string()]
+    ));
+}
+
+#[test]
+fn parses_angle_type_argument_call_without_hiding_comparisons() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn compare(value: Int, limit: Int) -> Bool\n",
+            "\tvalue < limit\n",
+            "end\n",
+            "\n",
+            "fn make() -> ()\n",
+            "\tchannel::bounded<Result<String, AppError>>(1)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let compare = first_function(&output);
+    let BodyLine::Expr { expr, .. } = &compare.body[0] else {
+        panic!("expected expression line");
+    };
+    assert!(matches!(
+        expr.kind,
+        ExprKind::Binary {
+            op: BinaryOp::Less,
+            ..
+        }
+    ));
+    let SyntaxItem::Function(make) = &output.tree.items[1] else {
+        panic!("expected function declaration");
+    };
+    let BodyLine::Expr { expr, .. } = &make.body[0] else {
+        panic!("expected expression line");
+    };
+    let ExprKind::Call { callee, .. } = &expr.kind else {
+        panic!("expected call expression");
+    };
+    let ExprKind::TypeApply { type_args, .. } = &callee.kind else {
+        panic!("expected type-applied callee");
+    };
+    assert_eq!(type_args, &vec!["Result<String,AppError>".to_string()]);
+}
+
+#[test]
+fn rejects_legacy_square_type_argument_call_callees() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn main() -> ()\n  channel::bounded[String](1)\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert_eq!(output.diagnostics.len(), 1);
+    let diagnostic = &output.diagnostics[0];
+    assert_eq!(diagnostic.id, "parse.legacy_call_type_argument_delimiters");
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 19);
+    assert_eq!(diagnostic.repair_candidates.len(), 1);
+    assert_eq!(diagnostic.repair_candidates[0].edits.len(), 2);
+}
+
+#[test]
+fn rejects_legacy_parenthesized_type_parameters() {
+    let source = SourceFile::new("main.veln", "type Box(A)\n  Wrap(A)\nend\n");
+
+    let output = parse(&source);
+
+    assert_eq!(output.diagnostics.len(), 1);
+    let diagnostic = &output.diagnostics[0];
+    assert_eq!(diagnostic.id, "parse.legacy_type_parameter_delimiters");
+    assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 9);
+    assert_eq!(diagnostic.repair_candidates[0].edits.len(), 2);
+}
+
+#[test]
+fn rejects_legacy_parenthesized_type_arguments() {
+    let source = SourceFile::new(
+        "main.veln",
+        "fn make(value: Result(Int, String)) -> Box(Result(Int, String))\n  _\nend\n",
+    );
+
+    let output = parse(&source);
+
+    assert_eq!(output.diagnostics.len(), 3, "{:#?}", output.diagnostics);
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id == "parse.legacy_type_argument_delimiters")
+    );
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.repair_candidates.is_empty())
+    );
 }
 
 #[test]

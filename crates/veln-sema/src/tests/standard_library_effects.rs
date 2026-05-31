@@ -268,7 +268,7 @@ fn channel_calls_require_concurrency_effect() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(tx: Sender<String>) -> Result((), SendError)\n",
+            "pub fn main(tx: Sender<String>) -> Result<(), SendError>\n",
             "  channel::send(tx, \"hello\")\n",
             "end\n",
         ),
@@ -360,7 +360,7 @@ fn fs_calls_reject_string_for_every_path_parameter() {
         (
             "write_string",
             concat!(
-                "pub fn main(path: String) -> Result((), FsError) effects [fs]\n",
+                "pub fn main(path: String) -> Result<(), FsError> effects [fs]\n",
                 "  fs::write_string(path, \"text\")\n",
                 "end\n",
             ),
@@ -624,7 +624,7 @@ fn channel_bounded_accepts_explicit_item_type_argument() {
         "main.veln",
         concat!(
             "pub fn main() -> String effects [concurrency]\n",
-            "  let pair = channel::bounded[String](1)\n",
+            "  let pair = channel::bounded<String>(1)\n",
             "  let _ = channel::send(pair.tx, \"hello\")\n",
             "  match channel::recv(pair.rx)\n",
             "    Some(value) => value\n",
@@ -664,7 +664,7 @@ fn channel_clone_preserves_sender_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(tx: Sender<String>) -> Result((), SendError) effects [concurrency]\n",
+            "pub fn main(tx: Sender<String>) -> Result<(), SendError> effects [concurrency]\n",
             "  let clone = channel::clone(tx)\n",
             "  channel::send(clone, \"hello\")\n",
             "end\n",
@@ -689,7 +689,7 @@ fn channel_send_checks_value_against_sender_item_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(tx: Sender<String>) -> Result((), SendError) effects [concurrency]\n",
+            "pub fn main(tx: Sender<String>) -> Result<(), SendError> effects [concurrency]\n",
             "  channel::send(tx, 1)\n",
             "end\n",
         ),

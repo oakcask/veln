@@ -111,7 +111,7 @@ the events that produced the actual stream.
 /// ```veln-output stream=stdout
 /// A-1 subtotal: 2
 /// ```
-pub fn parse_order(text: String) -> Result(Order, OrderError)
+pub fn parse_order(text: String) -> Result<Order, OrderError>
 end
 ````
 

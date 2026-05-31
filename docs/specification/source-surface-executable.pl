@@ -89,7 +89,7 @@ grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
-grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\" | \"(\" Name (\",\" Name)* \",\"? \")\"").
+grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
 grammar_line(140, "                  | \"{\" TypeVariantField (\",\" TypeVariantField)* \",\"? \"}\"").
@@ -112,7 +112,7 @@ grammar_line(290, "PrimaryExpr   ::= Hole | Literal | NamePath | \"(\" Expr \")\
 grammar_line(300, "                  | Record | Dict | List | Match").
 grammar_line(310, "Call          ::= \"(\" ArgList? \")\"").
 grammar_line(320, "ArgList       ::= Expr (\",\" Expr)* \",\"?").
-grammar_line(330, "TypeArgs      ::= \"[\" TypeText (\",\" TypeText)* \",\"? \"]\"").
+grammar_line(330, "TypeArgs      ::= \"<\" TypeText (\",\" TypeText)* \",\"? \">\"").
 grammar_line(340, "FieldAccess   ::= \".\" Name").
 grammar_line(350, "Record        ::= \"{\" (Name \":\" Expr) (\",\" Name \":\" Expr)* \",\"? \"}\"").
 grammar_line(360, "Dict          ::= \"{\" Expr \":\" Expr (\",\" Expr \":\" Expr)* \",\"? \"}\"").
@@ -308,7 +308,6 @@ type_decl -->
     newline_opt.
 
 type_params_opt --> tok(less), ident_list_opt, tok(greater), !.
-type_params_opt --> tok(lparen), ident_list_opt, tok(rparen), !.
 type_params_opt --> [].
 ident_list_opt --> ident, ident_tail, trailing_comma_opt, !.
 ident_list_opt --> [].
@@ -503,10 +502,10 @@ args_opt --> [].
 args_tail --> tok(comma), nls, expr, nls, !, args_tail.
 args_tail --> [].
 
-type_args_suffix --> tok(lbracket), type_arg, type_arg_tail, trailing_comma_opt, tok(rbracket).
+type_args_suffix --> tok(less), type_arg, type_arg_tail, trailing_comma_opt, tok(greater).
 type_arg_tail --> tok(comma), type_arg, !, type_arg_tail.
 type_arg_tail --> [].
-type_arg --> type_text_until([comma, rbracket]).
+type_arg --> type_text_until([comma, greater]).
 
 field_suffix --> tok(dot), ident.
 

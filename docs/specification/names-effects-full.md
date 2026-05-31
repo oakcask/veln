@@ -184,7 +184,7 @@ concurrency signature rules for static type checking:
 
 ```veln
 channel::bounded(capacity: Int) -> {tx: Sender<T>, rx: Receiver<T>} effects [concurrency]
-channel::bounded[T](capacity: Int) -> {tx: Sender<T>, rx: Receiver<T>} effects [concurrency]
+channel::bounded<T>(capacity: Int) -> {tx: Sender<T>, rx: Receiver<T>} effects [concurrency]
 channel::clone(tx: Sender<T>) -> Sender<T> effects [concurrency]
 channel::send(tx: Sender<T>, value: T) -> Result<(), SendError> effects [concurrency]
 channel::recv(rx: Receiver<T>) -> Option<T> effects [concurrency]
@@ -203,7 +203,7 @@ function or test that calls one of them must declare `concurrency` in its
 
 `channel::bounded(capacity)` creates a bounded channel pair. Its item type is
 inferred from the expected record type, such as
-`{tx: Sender<String>, rx: Receiver<String>}`. `channel::bounded[T](capacity)`
+`{tx: Sender<String>, rx: Receiver<String>}`. `channel::bounded<T>(capacity)`
 uses the explicit item type when no expected record type is present.
 `channel::clone` returns another sender endpoint for the same channel and
 preserves the sender item type. `channel::send` waits while a positive-capacity
@@ -239,7 +239,7 @@ The checker also recognizes these task-operation call targets:
 
 ```veln
 task::spawn(job: fn() -> T effects [concurrency]) -> Task<T> effects [concurrency]
-task::spawn[T](job: fn() -> T effects [concurrency]) -> Task<T> effects [concurrency]
+task::spawn<T>(job: fn() -> T effects [concurrency]) -> Task<T> effects [concurrency]
 task::join(task: Task<T>) -> Result<T, JoinError> effects [concurrency]
 task::cancel(task: Task<T>) -> () effects [concurrency]
 ```

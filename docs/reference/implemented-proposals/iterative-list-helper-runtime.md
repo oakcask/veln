@@ -3,7 +3,7 @@
 Status: implemented
 
 This page records the completed list helper traversal follow-up. The
-implemented route uses iterative JVM runtime support for public `List(A)`
+implemented route uses iterative JVM runtime support for public `List<A>`
 helpers instead of adding source helper trampoline lowering.
 
 ## Read First
@@ -21,7 +21,7 @@ helpers instead of adding source helper trampoline lowering.
 
 ## Implemented Outcome
 
-The implemented proving target is the `List(A)` helper family. The helpers are
+The implemented proving target is the `List<A>` helper family. The helpers are
 source-backed in `core_prelude`, and public JVM calls for `list_fold`,
 `list_reverse`, `list_map`, `list_filter`, and `list_try_map` execute through
 runtime support that traverses the list representation iteratively instead of
@@ -36,7 +36,7 @@ documented in the specification execution and prelude helper pages.
 The original proposal target was to allow immutable collection helpers to be
 implemented as ordinary Veln source using structurally tail-recursive private
 support functions, while executing deep traversals without consuming one host
-stack frame per collection element. The preferred proving target was `List(A)`
+stack frame per collection element. The preferred proving target was `List<A>`
 helper source after the minimal ADT stage.
 
 The original proposal named this work as a trampoline route. The implementation
@@ -68,5 +68,5 @@ compiler-admitted tail-call syntax or selected-helper checks.
 ## Update When
 
 - General user-facing tail-call behavior is proposed or implemented.
-- `List(A)` helper names, signatures, value semantics, or runtime traversal
+- `List<A>` helper names, signatures, value semantics, or runtime traversal
   strategy change.

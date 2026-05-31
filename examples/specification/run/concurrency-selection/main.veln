@@ -1,7 +1,7 @@
 # Channel receive, selection, timeout selection, and task cancellation are part
 # of the declared concurrency boundary.
 fn idle() -> String effects [concurrency]
-	let pair = channel::bounded[String](0)
+	let pair = channel::bounded<String>(0)
 	match channel::recv(pair.rx)
 		Some(value) => value
 		None => "closed"
@@ -9,22 +9,22 @@ fn idle() -> String effects [concurrency]
 end
 
 pub fn main() -> () effects [concurrency, stdio]
-	let pair = channel::bounded[String](2)
+	let pair = channel::bounded<String>(2)
 	let _ = channel::send(pair.tx, "first")
 	match channel::recv(pair.rx)
 		Some(value) => stdio::println(value)
 		None => stdio::println("missing")
 	end
-	let left = channel::bounded[String](1)
-	let right = channel::bounded[String](1)
+	let left = channel::bounded<String>(1)
+	let right = channel::bounded<String>(1)
 	let _ = channel::send(left.tx, "left")
 	let _ = channel::send(right.tx, "right")
 	match channel::select(left.rx, right.rx)
 		Some(selected) => stdio::println(selected.value)
 		None => stdio::println("none")
 	end
-	let balanced_left = channel::bounded[String](2)
-	let balanced_right = channel::bounded[String](2)
+	let balanced_left = channel::bounded<String>(2)
+	let balanced_right = channel::bounded<String>(2)
 	let _ = channel::send(balanced_left.tx, "left-a")
 	let _ = channel::send(balanced_left.tx, "left-b")
 	let _ = channel::send(balanced_right.tx, "right-a")
@@ -41,7 +41,7 @@ pub fn main() -> () effects [concurrency, stdio]
 		Some(selected) => stdio::println(selected.value)
 		None => stdio::println("none")
 	end
-	let timeout = channel::bounded[String](1)
+	let timeout = channel::bounded<String>(1)
 	match channel::select_timeout(timeout.rx, timeout.rx, 0)
 		Some(selected) => stdio::println(selected.value)
 		None => stdio::println("timeout")

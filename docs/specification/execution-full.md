@@ -99,7 +99,7 @@ syntax, annotations, warnings, or machine-readable eligibility output as
 language behavior.
 
 Bounded channel values are backend-owned runtime handles. `channel::bounded`
-and `channel::bounded[T]` return a record with `tx` and `rx` fields.
+and `channel::bounded<T>` return a record with `tx` and `rx` fields.
 `channel::clone(tx)` returns another sender endpoint for the same channel.
 Sending freezes the sent value before crossing the channel boundary. On a
 positive-capacity channel, sending waits while the queue is full and then

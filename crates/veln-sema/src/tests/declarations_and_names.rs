@@ -196,7 +196,7 @@ fn test_declaration_accepts_result_unit_return() {
     let source = SourceFile::new(
         "main_test.veln",
         concat!(
-            "test returns_result() -> Result((), String)\n",
+            "test returns_result() -> Result<(), String>\n",
             "  Ok(())\n",
             "end\n",
         ),
@@ -562,7 +562,7 @@ fn duplicate_record_pattern_field_names_are_static_errors() {
 
 #[test]
 fn reports_hole_with_declared_return_expected_type() {
-    let source = SourceFile::new("main.veln", "fn todo() -> Result((), AppError)\n  _\nend\n");
+    let source = SourceFile::new("main.veln", "fn todo() -> Result<(), AppError>\n  _\nend\n");
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 

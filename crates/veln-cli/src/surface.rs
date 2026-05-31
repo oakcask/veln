@@ -1392,7 +1392,7 @@ mod tests {
             "fn helper() -> Int\n",
             "  _\n",
             "end\n",
-            "pub fn main(value: Option(Int)) -> Int\n",
+            "pub fn main(value: Option<Int>) -> Int\n",
             "  match value\n",
             "    Some(helper) => helper\n",
             "    None => 0\n",
