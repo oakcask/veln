@@ -1,0 +1,11 @@
+set -euo pipefail
+
+if [ -z "${CARGO_BUILD_JOBS:-}" ]; then
+  export CARGO_BUILD_JOBS="${VELN_AGENT_CARGO_JOBS:-2}"
+fi
+
+if [ "$#" -eq 0 ]; then
+  set -- --locked --workspace
+fi
+
+exec bash scripts/agent-run cargo test "$@"

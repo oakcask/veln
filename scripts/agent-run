@@ -1,0 +1,40 @@
+set -euo pipefail
+
+if [ "$#" -eq 0 ]; then
+  printf 'usage: bash scripts/agent-run <command> [args...]\n' >&2
+  exit 64
+fi
+
+timeout_limit="${VELN_AGENT_TIMEOUT:-300s}"
+memory_mb="${VELN_AGENT_MEMORY_MB:-6144}"
+systemd_mode="${VELN_AGENT_SYSTEMD:-auto}"
+
+case "$memory_mb" in
+  ''|*[!0-9]*)
+    printf 'VELN_AGENT_MEMORY_MB must be a whole number of megabytes\n' >&2
+    exit 64
+    ;;
+esac
+
+if ! command -v timeout >/dev/null 2>&1; then
+  printf 'timeout command is required for guarded agent runs\n' >&2
+  exit 69
+fi
+
+memory_kb=$((memory_mb * 1024))
+
+if [ "$systemd_mode" != 0 ] && command -v systemd-run >/dev/null 2>&1; then
+  if systemd-run --user --scope --quiet true >/dev/null 2>&1; then
+    exec systemd-run \
+      --user \
+      --scope \
+      --quiet \
+      -p "MemoryMax=${memory_mb}M" \
+      timeout --foreground --kill-after=10s "$timeout_limit" "$@"
+  fi
+fi
+
+(
+  ulimit -v "$memory_kb"
+  exec timeout --foreground --kill-after=10s "$timeout_limit" "$@"
+)
