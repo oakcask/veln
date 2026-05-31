@@ -2,16 +2,17 @@ use veln_syntax::{
     BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, ContractKind as SyntaxContractKind,
     DictEntry as SyntaxDictEntry, Expr as SyntaxExpr, ExprKind as SyntaxExprKind,
     FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule, Pattern as SyntaxPattern,
-    PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp, RecordField as SyntaxRecordField,
-    SyntaxItem, SyntaxTree, TypeDecl as SyntaxTypeDecl, UseDecl as SyntaxUse,
-    Visibility as SyntaxVisibility,
+    PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
+    PublicAliasDecl as SyntaxPublicAlias, PublicAliasKind as SyntaxPublicAliasKind,
+    RecordField as SyntaxRecordField, SyntaxItem, SyntaxTree, TypeDecl as SyntaxTypeDecl,
+    UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
 };
 
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
-    PrefixOp, RecordField, ResultBinding, SurfaceModule, TypeDecl, TypeVariantDecl,
-    TypeVariantField, UseDecl, Visibility,
+    PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SurfaceModule, TypeDecl,
+    TypeVariantDecl, TypeVariantField, UseDecl, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -27,6 +28,7 @@ pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
         .collect();
     let mut types = Vec::new();
     let mut functions = Vec::new();
+    let mut aliases = Vec::new();
 
     let module_name = module.as_ref().map(|module| module.name.clone());
     for item in &tree.items {
@@ -37,12 +39,16 @@ pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
             SyntaxItem::Type(type_decl) => {
                 types.push(builder.lower_type_decl(type_decl, module_name.clone()));
             }
+            SyntaxItem::PublicAlias(alias) => {
+                aliases.push(builder.lower_public_alias(alias, module_name.clone()));
+            }
         }
     }
 
     SurfaceModule {
         module,
         uses,
+        aliases,
         types,
         functions,
     }
@@ -103,6 +109,24 @@ impl AstBuilder {
                 .unwrap_or(use_decl.name.as_str())
                 .to_string(),
             span: use_decl.span.clone(),
+        }
+    }
+
+    fn lower_public_alias(
+        &mut self,
+        alias: &SyntaxPublicAlias,
+        module_name: Option<String>,
+    ) -> PublicAlias {
+        PublicAlias {
+            node_id: self.alloc(),
+            module_name,
+            kind: match alias.kind {
+                SyntaxPublicAliasKind::Function => PublicAliasKind::Function,
+                SyntaxPublicAliasKind::Type => PublicAliasKind::Type,
+            },
+            name: alias.name.clone(),
+            target: alias.target.clone(),
+            span: alias.span.clone(),
         }
     }
 

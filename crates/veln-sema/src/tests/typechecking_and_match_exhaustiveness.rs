@@ -1457,6 +1457,7 @@ fn ambiguous_unqualified_imported_source_adt_constructor_is_rejected() {
     let module = SurfaceModule {
         module: app.module,
         uses: app.uses,
+        aliases: Vec::new(),
         types: first.types.into_iter().chain(second.types).collect(),
         functions: app.functions,
     };
@@ -1504,6 +1505,7 @@ fn imported_source_adt_constructor_resolves_through_module_and_type_paths() {
     let module = SurfaceModule {
         module: app.module,
         uses: app.uses,
+        aliases: Vec::new(),
         types: types.types,
         functions: app.functions,
     };
@@ -1511,6 +1513,53 @@ fn imported_source_adt_constructor_resolves_through_module_and_type_paths() {
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn public_type_alias_reexports_imported_constructors() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod spec.app\n",
+            "use spec.api\n",
+            "pub fn main() -> Int\n",
+            "  match api::Circle(3)\n",
+            "    api::Circle(radius) => radius\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let api_source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "use spec.impl\n",
+            "pub type Shape = impl::Shape\n",
+        ),
+    );
+    let impl_source = SourceFile::new(
+        "impl.veln",
+        concat!(
+            "mod spec.impl\n",
+            "type Shape\n",
+            "  pub Circle(Int)\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let api = lower_surface_ast(&parse(&api_source).tree);
+    let implementation = lower_surface_ast(&parse(&impl_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses.into_iter().chain(api.uses).collect(),
+        aliases: api.aliases,
+        types: implementation.types,
+        functions: app.functions,
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
 }
 
 #[test]
@@ -1534,6 +1583,7 @@ fn private_source_adt_constructor_is_hidden_from_importing_module() {
     let module = SurfaceModule {
         module: app.module,
         uses: app.uses,
+        aliases: Vec::new(),
         types: shapes.types,
         functions: app.functions,
     };
@@ -1575,6 +1625,7 @@ fn private_source_adt_constructor_pattern_does_not_satisfy_imported_exhaustivene
     let module = SurfaceModule {
         module: app.module,
         uses: app.uses,
+        aliases: Vec::new(),
         types: shapes.types,
         functions: app.functions,
     };

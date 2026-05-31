@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use veln_ast::{
-    BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, Pattern, PatternKind, SurfaceModule,
-    UseDecl,
+    BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind,
+    SurfaceModule, UseDecl,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -19,6 +19,7 @@ pub(crate) struct TypeEnvironment {
 #[derive(Clone)]
 pub(crate) struct FunctionSignature {
     pub(crate) name: String,
+    pub(crate) target_name: String,
     pub(crate) module_name: Option<String>,
     pub(crate) params: Vec<Type>,
     pub(crate) return_type: Type,
@@ -247,6 +248,7 @@ impl TypeEnvironment {
                     .collect();
                 let return_type = parse_type_or_unknown(function.return_type.as_deref());
                 Some(FunctionSignature {
+                    target_name: name.clone(),
                     name,
                     module_name: function.module_name.clone(),
                     params,
@@ -258,6 +260,8 @@ impl TypeEnvironment {
             })
             .collect::<Vec<_>>();
         infer_function_body_effects(module, &mut functions);
+        let aliases = function_alias_signatures(module, &functions);
+        functions.extend(aliases);
         Self {
             functions,
             uses: module.uses.clone(),
@@ -294,6 +298,51 @@ impl FunctionSignature {
             self.return_type.clone(),
             self.effects.clone(),
         )
+    }
+}
+
+fn function_alias_signatures(
+    module: &SurfaceModule,
+    functions: &[FunctionSignature],
+) -> Vec<FunctionSignature> {
+    module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Function)
+        .filter_map(|alias| {
+            let name = alias.name.clone()?;
+            let target = function_signature_path(&alias.target, &module.uses, functions)?;
+            Some(FunctionSignature {
+                name,
+                target_name: target.target_name.clone(),
+                module_name: alias.module_name.clone(),
+                params: target.params.clone(),
+                return_type: target.return_type.clone(),
+                effects: target.effects.clone(),
+                node_id: alias.node_id,
+                span: alias.span.clone(),
+            })
+        })
+        .collect()
+}
+
+fn function_signature_path<'a>(
+    segments: &[String],
+    uses: &[UseDecl],
+    functions: &'a [FunctionSignature],
+) -> Option<&'a FunctionSignature> {
+    match segments {
+        [name] => functions.iter().find(|function| function.name == *name),
+        [alias, name] => {
+            let module_name = uses
+                .iter()
+                .find(|use_decl| use_decl.alias == *alias)
+                .map(|use_decl| use_decl.name.as_str())?;
+            functions.iter().find(|function| {
+                function.name == *name && function.module_name.as_deref() == Some(module_name)
+            })
+        }
+        _ => None,
     }
 }
 

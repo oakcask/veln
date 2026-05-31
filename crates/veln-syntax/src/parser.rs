@@ -6,9 +6,9 @@ use crate::tree::build_lossless_root;
 use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
-    PatternKind, PrefixOp, RecordField, SatisfyClause, SyntaxItem, SyntaxTree, Token, TokenKind,
-    TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, Visibility,
-    lex,
+    PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
+    SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField,
+    TypeVariantFieldDelimiter, UseDecl, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -147,7 +147,9 @@ impl<'a> Parser<'a> {
             if self.at(TokenKind::Eof) {
                 break;
             }
-            if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Type) {
+            if self.at_public_alias_header() {
+                items.push(SyntaxItem::PublicAlias(self.parse_public_alias()));
+            } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Type) {
                 items.push(SyntaxItem::Type(self.parse_type_decl()));
             } else if self.at(TokenKind::Pub) || self.at(TokenKind::Fn) {
                 items.push(SyntaxItem::Function(
@@ -195,6 +197,53 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn at_public_alias_header(&self) -> bool {
+        self.at(TokenKind::Pub)
+            && matches!(
+                (self.peek_kind(1), self.peek_kind(2), self.peek_kind(3)),
+                (
+                    Some(TokenKind::Fn | TokenKind::Type),
+                    Some(TokenKind::Ident),
+                    Some(TokenKind::Equal)
+                )
+            )
+    }
+
+    fn parse_public_alias(&mut self) -> PublicAliasDecl {
+        let start = self
+            .expect(TokenKind::Pub, "public_alias", vec!["pub"])
+            .range;
+        let kind = if self.eat(TokenKind::Fn).is_some() {
+            PublicAliasKind::Function
+        } else {
+            self.expect(TokenKind::Type, "public_alias", vec!["fn", "type"]);
+            PublicAliasKind::Type
+        };
+        let name = self.expect_ident("public_alias", "public member name");
+        self.expect(TokenKind::Equal, "public_alias", vec!["="]);
+        let target = self.parse_member_alias_target();
+        let end = self.expect_newline("public_alias").range;
+        PublicAliasDecl {
+            kind,
+            name,
+            target,
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_member_alias_target(&mut self) -> Vec<String> {
+        let mut segments = Vec::new();
+        if let Some(segment) = self.expect_ident("public_alias", "member path") {
+            segments.push(segment);
+        }
+        while self.eat(TokenKind::DoubleColon).is_some() {
+            if let Some(segment) = self.expect_ident("public_alias", "member path segment") {
+                segments.push(segment);
+            }
+        }
+        segments
+    }
+
     fn parse_type_decl(&mut self) -> TypeDecl {
         let visibility = if self.eat(TokenKind::Pub).is_some() {
             Visibility::Public
@@ -239,7 +288,11 @@ impl<'a> Parser<'a> {
         } else {
             Vec::new()
         };
-        self.expect_newline("type_declaration");
+        let header_cursor = self.cursor;
+        let header_end = self.expect_newline("type_declaration").range;
+        if self.cursor == header_cursor {
+            self.skip_to_next_line();
+        }
 
         let mut variants = Vec::new();
         let mut end_present = false;
@@ -270,7 +323,7 @@ impl<'a> Parser<'a> {
             );
         }
 
-        let end = self.previous().map_or(start, |token| token.range);
+        let end = self.previous().map_or(header_end, |token| token.range);
         TypeDecl {
             visibility,
             name,
@@ -1144,6 +1197,15 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn skip_to_next_line(&mut self) {
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            self.bump();
+        }
+        if self.at(TokenKind::Newline) {
+            self.bump();
+        }
+    }
+
     fn eat(&mut self, kind: TokenKind) -> Option<Token> {
         if self.at(kind) {
             Some(self.bump())
@@ -1160,6 +1222,12 @@ impl<'a> Parser<'a> {
         self.tokens
             .get(self.cursor + 1)
             .is_some_and(|token| token.kind == kind)
+    }
+
+    fn peek_kind(&self, offset: usize) -> Option<TokenKind> {
+        self.tokens
+            .get(self.cursor + offset)
+            .map(|token| token.kind)
     }
 
     fn current(&self) -> &Token {

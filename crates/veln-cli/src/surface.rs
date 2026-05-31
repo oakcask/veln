@@ -1,6 +1,6 @@
 use veln_ast::{
-    Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind, SurfaceModule, UseDecl,
-    lower_surface_ast,
+    Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind, PublicAliasKind, SurfaceModule,
+    UseDecl, lower_surface_ast,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_project::ManifestModule;
@@ -14,6 +14,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
     let mut diagnostics = Vec::new();
     let mut module = None;
     let mut uses = Vec::new();
+    let mut aliases = Vec::new();
     let mut types = Vec::new();
     let mut functions = Vec::new();
 
@@ -29,6 +30,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
             ));
             module = module.or(lowered.module);
             uses.extend(lowered.uses);
+            aliases.extend(lowered.aliases);
             types.extend(lowered.types);
             functions.extend(lowered.functions);
         }
@@ -38,6 +40,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
         SurfaceModule {
             module,
             uses,
+            aliases,
             types,
             functions,
         },
@@ -189,18 +192,23 @@ pub(crate) fn reachable_entry_module(
     entry: &str,
     entry_kind: FunctionKind,
 ) -> SurfaceModule {
-    let function_targets = module
+    let mut function_targets = module
         .functions
         .iter()
         .filter(|function| function.kind == FunctionKind::Function)
         .filter_map(|function| {
+            let name = function.name.clone()?;
             Some(FunctionTarget {
-                name: function.name.clone()?,
+                name: name.clone(),
                 module_name: function.module_name.clone(),
+                target_name: name,
+                target_module_name: function.module_name.clone(),
                 arity: function.params.len(),
             })
         })
         .collect::<Vec<_>>();
+    let aliases = function_alias_targets(module, &function_targets);
+    function_targets.extend(aliases);
     let mut reachable = Vec::<ReachableFunction>::new();
     let mut stack = vec![ReachableFunction {
         kind: entry_kind,
@@ -232,6 +240,7 @@ pub(crate) fn reachable_entry_module(
     SurfaceModule {
         module: module.module.clone(),
         uses: module.uses.clone(),
+        aliases: module.aliases.clone(),
         types: module.types.clone(),
         functions: module
             .functions
@@ -263,7 +272,51 @@ struct ReachableFunction {
 struct FunctionTarget {
     name: String,
     module_name: Option<String>,
+    target_name: String,
+    target_module_name: Option<String>,
     arity: usize,
+}
+
+fn function_alias_targets(
+    module: &SurfaceModule,
+    function_targets: &[FunctionTarget],
+) -> Vec<FunctionTarget> {
+    module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Function)
+        .filter_map(|alias| {
+            let name = alias.name.clone()?;
+            let target = target_for_alias_path(&alias.target, &module.uses, function_targets)?;
+            Some(FunctionTarget {
+                name,
+                module_name: alias.module_name.clone(),
+                target_name: target.target_name.clone(),
+                target_module_name: target.target_module_name.clone(),
+                arity: target.arity,
+            })
+        })
+        .collect()
+}
+
+fn target_for_alias_path<'a>(
+    segments: &[String],
+    uses: &[UseDecl],
+    function_targets: &'a [FunctionTarget],
+) -> Option<&'a FunctionTarget> {
+    match segments {
+        [name] => function_targets.iter().find(|target| target.name == *name),
+        [alias, name] => {
+            let module_name = uses
+                .iter()
+                .find(|use_decl| use_decl.alias == *alias)
+                .map(|use_decl| use_decl.name.as_str())?;
+            function_targets.iter().find(|target| {
+                target.name == *name && target.module_name.as_deref() == Some(module_name)
+            })
+        }
+        _ => None,
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -780,8 +833,8 @@ fn resolve_function_reference(
             })
             .map(|target| ReachableFunction {
                 kind: FunctionKind::Function,
-                name: target.name.clone(),
-                module_name: target.module_name.clone(),
+                name: target.target_name.clone(),
+                module_name: target.target_module_name.clone(),
             })
             .collect(),
         [alias, name] => {
@@ -799,8 +852,8 @@ fn resolve_function_reference(
                 })
                 .map(|target| ReachableFunction {
                     kind: FunctionKind::Function,
-                    name: target.name.clone(),
-                    module_name: target.module_name.clone(),
+                    name: target.target_name.clone(),
+                    module_name: target.target_module_name.clone(),
                 })
                 .collect()
         }
@@ -1204,6 +1257,66 @@ mod tests {
             vec![
                 (Some("app.main"), FunctionKind::Function, Some("main")),
                 (Some("app.util"), FunctionKind::Function, Some("value")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_imported_alias_target() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![
+                SourceFile::new(
+                    "main.veln",
+                    concat!(
+                        "mod app.main\n",
+                        "use app.api\n",
+                        "pub fn main() -> Int\n",
+                        "  api::twice(21)\n",
+                        "end\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "api.veln",
+                    concat!(
+                        "mod app.api\n",
+                        "use app.impl\n",
+                        "pub fn twice = impl::double\n",
+                    ),
+                ),
+                SourceFile::new(
+                    "impl.veln",
+                    concat!(
+                        "mod app.impl\n",
+                        "fn double(value: Int) -> Int\n",
+                        "  value + value\n",
+                        "end\n",
+                    ),
+                ),
+            ],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("app.main"), FunctionKind::Function, Some("main")),
+                (Some("app.impl"), FunctionKind::Function, Some("double")),
             ]
         );
     }

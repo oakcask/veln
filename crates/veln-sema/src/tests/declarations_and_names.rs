@@ -377,6 +377,108 @@ fn duplicate_use_aliases_are_static_errors() {
 }
 
 #[test]
+fn public_function_alias_rejects_type_targets() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "type Document\n",
+            "  pub Text(String)\n",
+            "end\n",
+            "pub fn parse = Document\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.kind_mismatch"
+            && diagnostic.message == "public alias target `Document` is a type, not a function"
+    }));
+}
+
+#[test]
+fn public_type_alias_rejects_function_targets() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "fn parse() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub type Document = parse\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.kind_mismatch"
+            && diagnostic.message == "public alias target `parse` is a function, not a type"
+    }));
+}
+
+#[test]
+fn public_alias_rejects_unresolved_targets() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "pub fn parse = impl::parse\n",
+            "pub type Document = impl::Document\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved function alias target `impl::parse`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved type alias target `impl::Document`"
+    }));
+}
+
+#[test]
+fn public_alias_names_share_member_namespaces() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "fn parse() -> Int\n",
+            "  1\n",
+            "end\n",
+            "pub fn parse = parse\n",
+            "type Document\n",
+            "  pub Text(String)\n",
+            "end\n",
+            "pub type Document = Document\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate function alias name `parse`"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate type alias name `Document`"
+    }));
+}
+
+#[test]
 fn use_declarations_require_module_identity() {
     let source = SourceFile::new(
         "main.veln",

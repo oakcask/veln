@@ -1,0 +1,8 @@
+mod spec.app
+use spec.api
+
+pub fn main() -> Int
+	match api::Circle(api::twice(21))
+		api::Circle(radius) => radius
+	end
+end

@@ -83,12 +83,13 @@ grammar_line(10, "Module        ::= ModDecl? UseDecl* Item*").
 grammar_line(20, "ModDecl       ::= \"mod\" ModuleName NL").
 grammar_line(30, "UseDecl       ::= \"use\" ModuleName NL").
 grammar_line(40, "ModuleName    ::= Name (\".\" Name)*").
-grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl").
+grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl | PublicAlias").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
+grammar_line(105, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
@@ -126,6 +127,7 @@ grammar_line(430, "RecordPattern ::= \"{\" PatternFieldList? \"}\"").
 grammar_line(440, "PatternList   ::= Pattern (\",\" Pattern)* \",\"?").
 grammar_line(450, "PatternFieldList ::= PatternField (\",\" PatternField)* \",\"?").
 grammar_line(460, "PatternField  ::= Name \":\" Pattern").
+grammar_line(470, "MemberPath    ::= Name (\"::\" Name)*").
 
 tokens(Tokens) -->
     trivia,
@@ -268,6 +270,7 @@ items --> [].
 item --> nls, function_decl.
 item --> nls, test_decl.
 item --> nls, type_decl.
+item --> nls, public_alias.
 
 function_decl -->
     visibility,
@@ -306,6 +309,17 @@ type_decl -->
     type_variants,
     tok(end),
     newline_opt.
+
+public_alias -->
+    tok(pub),
+    alias_kind,
+    ident,
+    tok(equal),
+    member_path,
+    nl.
+
+alias_kind --> tok(fn).
+alias_kind --> tok(type).
 
 type_params_opt --> tok(less), ident_list_opt, tok(greater), !.
 type_params_opt --> [].
@@ -565,6 +579,10 @@ literal --> ident_text("false").
 name_path --> ident, name_path_tail.
 name_path_tail --> tok(double_colon), ident, !, name_path_tail.
 name_path_tail --> [].
+
+member_path --> ident, member_path_tail.
+member_path_tail --> tok(double_colon), ident, !, member_path_tail.
+member_path_tail --> [].
 
 module_name --> ident, module_name_tail.
 module_name_tail --> tok(dot), ident, !, module_name_tail.

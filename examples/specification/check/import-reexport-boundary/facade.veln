@@ -1,0 +1,7 @@
+# This module can consume spec.math without re-exporting math::double.
+mod spec.facade
+use spec.math
+
+pub fn visible(value: Int) -> Int
+	math::double(value)
+end

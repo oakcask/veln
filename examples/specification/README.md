@@ -65,6 +65,14 @@ against the built `veln` binary.
   zero-diagnostic summary behavior.
 - `check/module-imports/`: `mod`, `use`, import aliases, qualified calls, and
   qualified pipeline targets.
+- `check/import-reexport-boundary/`: `use` declarations let a module consume
+  another module's public API without publishing that API through the consuming
+  module's own qualified path.
+- `check/public-member-alias-reexports/`: `pub fn` and `pub type` member
+  aliases publish imported implementation members through the declaring
+  module's public path.
+- `check/public-member-alias-diagnostics/`: public member aliases reject
+  wrong-kind targets, unresolved targets, and duplicate exported names.
 - `check/qualified-no-fallback/`: qualified calls require a matching import
   alias and do not fall back to same-named bare functions.
 - `check/missing-module-identity/`: `use` declarations without a source module

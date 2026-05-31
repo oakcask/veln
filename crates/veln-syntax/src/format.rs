@@ -40,6 +40,15 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         match item {
             SyntaxItem::Function(function) => format_function(&mut out, &comments, function),
             SyntaxItem::Type(type_decl) => format_type_decl(&mut out, &comments, type_decl),
+            SyntaxItem::PublicAlias(alias) => {
+                push_source_line(
+                    &mut out,
+                    &comments,
+                    alias.span.start.line,
+                    0,
+                    format_alias(alias),
+                );
+            }
         }
     }
 
@@ -51,6 +60,18 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         out.push('\n');
     }
     out
+}
+
+fn format_alias(alias: &crate::PublicAliasDecl) -> String {
+    let kind = match alias.kind {
+        crate::PublicAliasKind::Function => "fn",
+        crate::PublicAliasKind::Type => "type",
+    };
+    format!(
+        "pub {kind} {} = {}",
+        alias.name.as_deref().unwrap_or("<missing>"),
+        alias.target.join("::")
+    )
 }
 
 fn format_type_decl(out: &mut String, comments: &LineComments, type_decl: &TypeDecl) {

@@ -688,7 +688,7 @@ impl<'a> CoreLowerer<'a> {
                         self.core_expr(
                             expr,
                             core_type(&function.ty()),
-                            CoreExprKind::FunctionValue(name.clone()),
+                            CoreExprKind::FunctionValue(function.target_name.clone()),
                         )
                     } else {
                         self.core_expr(expr, CoreType::Unknown, CoreExprKind::Local(name.clone()))
@@ -699,7 +699,7 @@ impl<'a> CoreLowerer<'a> {
                         self.core_expr(
                             expr,
                             core_type(&function.ty()),
-                            CoreExprKind::FunctionValue(function.name.clone()),
+                            CoreExprKind::FunctionValue(function.target_name.clone()),
                         )
                     } else {
                         self.core_expr(
@@ -1254,7 +1254,7 @@ impl<'a> CoreLowerer<'a> {
         }
         if let Some(function) = self.environment.function_path(segments) {
             return Some(CoreCallSignature {
-                target: CoreCallTarget::Function(function.name.clone()),
+                target: CoreCallTarget::Function(function.target_name.clone()),
                 params: function.params.iter().map(core_type).collect(),
                 return_type: core_type(&function.return_type),
             });

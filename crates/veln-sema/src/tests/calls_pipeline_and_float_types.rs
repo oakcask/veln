@@ -363,6 +363,7 @@ fn resolves_qualified_calls_through_import_aliases() {
     let module = SurfaceModule {
         module: main.module,
         uses: main.uses,
+        aliases: Vec::new(),
         types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
     };
@@ -411,6 +412,7 @@ fn resolves_qualified_function_values_through_import_aliases() {
     let module = SurfaceModule {
         module: main.module,
         uses: main.uses,
+        aliases: Vec::new(),
         types: main.types.into_iter().chain(text.types).collect(),
         functions: main.functions.into_iter().chain(text.functions).collect(),
     };
@@ -434,6 +436,68 @@ fn resolves_qualified_function_values_through_import_aliases() {
         &args[1].kind,
         CoreExprKind::FunctionValue(name) if name == "stringify"
     ));
+}
+
+#[test]
+fn public_function_alias_reexports_imported_target() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod spec.app\n",
+            "use spec.api\n",
+            "pub fn main() -> Int\n",
+            "  api::twice(21)\n",
+            "end\n",
+        ),
+    );
+    let api_source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "use spec.impl\n",
+            "pub fn twice = impl::double\n",
+        ),
+    );
+    let impl_source = SourceFile::new(
+        "impl.veln",
+        concat!(
+            "mod spec.impl\n",
+            "fn double(value: Int) -> Int\n",
+            "  value + value\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let api = lower_surface_ast(&parse(&api_source).tree);
+    let implementation = lower_surface_ast(&parse(&impl_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses.into_iter().chain(api.uses).collect(),
+        aliases: api.aliases,
+        types: Vec::new(),
+        functions: app
+            .functions
+            .into_iter()
+            .chain(implementation.functions)
+            .collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { target, .. } = &expr.kind else {
+        panic!("alias call should lower as a call");
+    };
+    assert_eq!(target, &CoreCallTarget::Function("double".to_string()));
 }
 
 #[test]

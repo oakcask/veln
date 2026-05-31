@@ -6,8 +6,8 @@ use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::{ManifestField, Project};
 use veln_source::SourceFile;
 use veln_syntax::{
-    AdrLiteAnchor, ContractClause, ContractKind, FunctionDecl, FunctionKind, SyntaxItem, TypeDecl,
-    TypeVariantDecl, Visibility, canonical_type_text, parse,
+    AdrLiteAnchor, ContractClause, ContractKind, FunctionDecl, FunctionKind, PublicAliasDecl,
+    PublicAliasKind, SyntaxItem, TypeDecl, TypeVariantDecl, Visibility, canonical_type_text, parse,
 };
 
 use crate::diagnostics::{parse_diagnostic_to_envelope, print_human_stderr, tool_info};
@@ -154,8 +154,16 @@ fn push_public_api(out: &mut String, source: &SourceFile, tree: &veln_syntax::Sy
             _ => None,
         })
         .collect::<Vec<_>>();
+    let public_aliases = tree
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            SyntaxItem::PublicAlias(alias) => Some(alias),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
 
-    if !public_types.is_empty() || !public_functions.is_empty() {
+    if !public_types.is_empty() || !public_functions.is_empty() || !public_aliases.is_empty() {
         push_heading(out, 4, "Public API");
     }
     for type_decl in public_types {
@@ -178,6 +186,10 @@ fn push_public_api(out: &mut String, source: &SourceFile, tree: &veln_syntax::Sy
         push_heading(out, 5, &function_signature(function));
         push_doc_block(out, doc_block_before(source, function.span.start.line));
         push_contracts(out, &function.contracts);
+    }
+    for alias in public_aliases {
+        push_heading(out, 5, &alias_signature(alias));
+        push_doc_block(out, doc_block_before(source, alias.span.start.line));
     }
 }
 
@@ -333,6 +345,18 @@ fn type_signature(type_decl: &TypeDecl) -> String {
         signature.push('>');
     }
     signature
+}
+
+fn alias_signature(alias: &PublicAliasDecl) -> String {
+    let kind = match alias.kind {
+        PublicAliasKind::Function => "fn",
+        PublicAliasKind::Type => "type",
+    };
+    format!(
+        "{kind} {} = {}",
+        alias.name.as_deref().unwrap_or("<anonymous>"),
+        alias.target.join("::")
+    )
 }
 
 fn variant_signature(variant: &TypeVariantDecl) -> String {

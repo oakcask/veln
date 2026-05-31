@@ -17,6 +17,7 @@ Bare names resolve to local bindings. Function calls resolve to:
 - discovered function signatures by bare name
 - discovered function signatures through a `use` alias in `alias::function`
   form
+- public function aliases through the declaring module path
 - compiler-known prelude helper calls
 
 Unresolved values and call targets produce `name.unresolved` diagnostics. A
@@ -37,7 +38,8 @@ Current duplicate checks reject:
 
 - duplicate import aliases, where the alias is the final segment of the
   imported module path
-- duplicate top-level function or test names
+- duplicate top-level function, test, or public function alias names
+- duplicate top-level source type or public type alias names
 - duplicate parameter names in one function
 - a result binding that duplicates a parameter name
 - duplicate `let` names in the same function value scope, including names that
@@ -124,7 +126,8 @@ also carry effects inferred from their bodies, so a public function or test that
 calls a private helper whose body reaches `stdio` must declare `stdio` even when
 the helper omitted its own `effects` clause. Function-body effect inference
 follows direct bare function calls and `use` alias qualified function calls
-until a fixed point. Calls through a local binding with a function type infer
+until a fixed point. Public function aliases carry the referenced function's
+signature and effects. Calls through a local binding with a function type infer
 the effects written in that function type.
 
 ## File System Calls
@@ -253,12 +256,13 @@ interrupting the task and returns `()`. Cancellation is cooperative at the JVM
 runtime boundary.
 
 Executable-command reachability also follows bare and `use`-alias qualified
-function declaration values in reachable expressions, pure helper calls used
-in reachable contract predicates, and function declaration values passed as
-contract call arguments. Calls through function-typed local bindings and
-parameters conservatively include visible same-arity function declarations when
-the surface graph does not identify one concrete target, so blockers inside
-possible helpers are reported before the selected entry runs.
+function declaration values in reachable expressions, public function aliases,
+pure helper calls used in reachable contract predicates, and function
+declaration values passed as contract call arguments. Calls through
+function-typed local bindings and parameters conservatively include visible
+same-arity function declarations when the surface graph does not identify one
+concrete target, so blockers inside possible helpers are reported before the
+selected entry runs.
 
 A public function whose declared effects omit an inferred effect reports
 `effect.missing_public` with related provenance pointing at bounded call sites.

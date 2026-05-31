@@ -17,18 +17,18 @@ pub(super) struct SatisfyAllowedBinding {
 impl SatisfyRepairConstraint {
     pub(super) fn from_satisfy(satisfy: &SatisfyClause, allow_static_truth: bool) -> Option<Self> {
         let candidate = satisfy.candidate.as_ref()?;
-        if let Some(tautology) = tautological_candidate_predicate(&satisfy.predicate, candidate) {
-            return Some(Self {
-                allowed_bindings: None,
-                reason: tautology.reason,
-            });
-        }
         if allow_static_truth
             && predicate_is_statically_true_with_literal_bounds(&satisfy.predicate)
         {
             return Some(Self {
                 allowed_bindings: None,
                 reason: "satisfy_tautology",
+            });
+        }
+        if let Some(tautology) = tautological_candidate_predicate(&satisfy.predicate, candidate) {
+            return Some(Self {
+                allowed_bindings: None,
+                reason: tautology.reason,
             });
         }
         if let Some(bindings) = reflexive_candidate_disjunct_bindings(&satisfy.predicate, candidate)

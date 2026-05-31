@@ -172,10 +172,9 @@ predicates.
 It also recognizes exhaustive oct case splits where two hundred fifty-six
 top-level conjunction branches cover both polarities of eight non-static
 predicates.
-It also recognizes exhaustive case splits with the same shape for nine, ten,
-or eleven non-static predicates. These high-arity exhaustive case splits use
-the dedicated case-split classifier rather than the smaller general
-truth-table path.
+It also recognizes exhaustive case splits with the same shape for seven
+through eleven non-static predicates using the dedicated case-split classifier
+rather than the smaller general truth-table path.
 Top-level `or` also recognizes complementary comparison pairs over the same
 operands after whitespace normalization and commuted ordering normalization,
 such as `value == limit or value != limit`,

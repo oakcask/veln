@@ -34,6 +34,21 @@ pub struct UseDecl {
 pub enum SyntaxItem {
     Function(FunctionDecl),
     Type(TypeDecl),
+    PublicAlias(PublicAliasDecl),
+}
+
+#[derive(Clone, Debug)]
+pub struct PublicAliasDecl {
+    pub kind: PublicAliasKind,
+    pub name: Option<String>,
+    pub target: Vec<String>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PublicAliasKind {
+    Function,
+    Type,
 }
 
 #[derive(Clone, Debug)]

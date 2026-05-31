@@ -1,4 +1,5 @@
 use super::*;
+use veln_ast::PublicAliasKind;
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -158,14 +159,15 @@ fn unknown_declared_effect_diagnostic(
 
 pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen = BTreeMap::<String, (String, SourceSpan)>::new();
+    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
 
     for function in &module.functions {
         let Some(name) = &function.name else {
             continue;
         };
+        let key = (function.module_name.clone(), name.clone());
         let node_id = function.node_id.display(function.kind.node_prefix());
-        if let Some((first_node_id, first_span)) = seen.get(name) {
+        if let Some((first_node_id, first_span)) = seen.get(&key) {
             diagnostics.push(duplicate_name_diagnostic(
                 name,
                 "function",
@@ -176,11 +178,211 @@ pub(crate) fn check_duplicate_function_names(module: &SurfaceModule) -> Vec<Diag
                 first_span,
             ));
         } else {
-            seen.insert(name.clone(), (node_id, function.span.clone()));
+            seen.insert(key, (node_id, function.span.clone()));
+        }
+    }
+    for alias in module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Function)
+    {
+        let Some(name) = &alias.name else {
+            continue;
+        };
+        let key = (alias.module_name.clone(), name.clone());
+        let node_id = alias.node_id.display("alias");
+        if let Some((first_node_id, first_span)) = seen.get(&key) {
+            diagnostics.push(duplicate_name_diagnostic(
+                name,
+                "function",
+                "function alias",
+                node_id,
+                alias.span.clone(),
+                first_node_id.clone(),
+                first_span,
+            ));
+        } else {
+            seen.insert(key, (node_id, alias.span.clone()));
         }
     }
 
     diagnostics
+}
+
+pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+
+    for type_decl in &module.types {
+        let Some(name) = &type_decl.name else {
+            continue;
+        };
+        let key = (type_decl.module_name.clone(), name.clone());
+        let node_id = type_decl.node_id.display("type");
+        if let Some((first_node_id, first_span)) = seen.get(&key) {
+            diagnostics.push(duplicate_name_diagnostic(
+                name,
+                "type",
+                "type declaration",
+                node_id,
+                type_decl.span.clone(),
+                first_node_id.clone(),
+                first_span,
+            ));
+        } else {
+            seen.insert(key, (node_id, type_decl.span.clone()));
+        }
+    }
+    for alias in module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Type)
+    {
+        let Some(name) = &alias.name else {
+            continue;
+        };
+        let key = (alias.module_name.clone(), name.clone());
+        let node_id = alias.node_id.display("alias");
+        if let Some((first_node_id, first_span)) = seen.get(&key) {
+            diagnostics.push(duplicate_name_diagnostic(
+                name,
+                "type",
+                "type alias",
+                node_id,
+                alias.span.clone(),
+                first_node_id.clone(),
+                first_span,
+            ));
+        } else {
+            seen.insert(key, (node_id, alias.span.clone()));
+        }
+    }
+
+    diagnostics
+}
+
+pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for alias in &module.aliases {
+        if alias.name.is_none() {
+            continue;
+        }
+        match alias.kind {
+            PublicAliasKind::Function => {
+                if function_target(module, &alias.target).is_none()
+                    && type_target(module, &alias.target).is_some()
+                {
+                    diagnostics.push(alias_kind_mismatch_diagnostic(alias, "function", "type"));
+                } else if function_target(module, &alias.target).is_none() {
+                    diagnostics.push(unresolved_alias_diagnostic(alias, "function"));
+                }
+            }
+            PublicAliasKind::Type => {
+                if type_target(module, &alias.target).is_none()
+                    && function_target(module, &alias.target).is_some()
+                {
+                    diagnostics.push(alias_kind_mismatch_diagnostic(alias, "type", "function"));
+                } else if type_target(module, &alias.target).is_none() {
+                    diagnostics.push(unresolved_alias_diagnostic(alias, "type"));
+                }
+            }
+        }
+    }
+    diagnostics
+}
+
+fn function_target<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+) -> Option<&'a veln_ast::Function> {
+    match segments {
+        [name] => module.functions.iter().find(|function| {
+            function.kind == FunctionKind::Function && function.name.as_deref() == Some(name)
+        }),
+        [alias, name] => {
+            let module_name = module
+                .uses
+                .iter()
+                .find(|use_decl| use_decl.alias == *alias)
+                .map(|use_decl| use_decl.name.as_str())?;
+            module.functions.iter().find(|function| {
+                function.kind == FunctionKind::Function
+                    && function.name.as_deref() == Some(name)
+                    && function.module_name.as_deref() == Some(module_name)
+            })
+        }
+        _ => None,
+    }
+}
+
+fn type_target<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+) -> Option<&'a veln_ast::TypeDecl> {
+    match segments {
+        [name] => module
+            .types
+            .iter()
+            .find(|type_decl| type_decl.name.as_deref() == Some(name)),
+        [alias, name] => {
+            let module_name = module
+                .uses
+                .iter()
+                .find(|use_decl| use_decl.alias == *alias)
+                .map(|use_decl| use_decl.name.as_str())?;
+            module.types.iter().find(|type_decl| {
+                type_decl.name.as_deref() == Some(name)
+                    && type_decl.module_name.as_deref() == Some(module_name)
+            })
+        }
+        _ => None,
+    }
+}
+
+fn unresolved_alias_diagnostic(
+    alias: &veln_ast::PublicAlias,
+    expected_kind: &'static str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "name.unresolved",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!(
+            "unresolved {expected_kind} alias target `{}`",
+            alias.target.join("::")
+        ),
+        Some(alias.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::string(alias.node_id.display("alias"))),
+            ("expected_kind", JsonValue::string(expected_kind)),
+            ("target", JsonValue::string(alias.target.join("::"))),
+        ]),
+    )
+}
+
+fn alias_kind_mismatch_diagnostic(
+    alias: &veln_ast::PublicAlias,
+    expected_kind: &'static str,
+    actual_kind: &'static str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "name.kind_mismatch",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!(
+            "public alias target `{}` is a {actual_kind}, not a {expected_kind}",
+            alias.target.join("::")
+        ),
+        Some(alias.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::string(alias.node_id.display("alias"))),
+            ("expected_kind", JsonValue::string(expected_kind)),
+            ("actual_kind", JsonValue::string(actual_kind)),
+            ("target", JsonValue::string(alias.target.join("::"))),
+        ]),
+    )
 }
 
 pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
