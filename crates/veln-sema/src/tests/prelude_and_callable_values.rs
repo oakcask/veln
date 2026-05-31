@@ -134,6 +134,40 @@ fn infers_prelude_helper_calls_from_expected_types() {
 }
 
 #[test]
+fn lowers_qualified_prelude_builtin_calls() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(items: Vec<Int>) -> Int\n",
+            "  prelude_builtin::vec_len(items)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::PreludeBuiltin(name),
+            ..
+        } if name == "vec_len"
+    ));
+}
+
+#[test]
 fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
     let mut entries = Vec::new();
 

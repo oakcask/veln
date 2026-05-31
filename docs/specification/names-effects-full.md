@@ -377,19 +377,27 @@ descriptor-backed signature adapter, and the JVM backend still lowers each
 helper through the existing prelude runtime operation, so diagnostics stay
 anchored on user call sites rather than the embedded standard library source.
 Source-backed helpers are declared in `core_prelude` and may use other
-existing helpers. The vec traversal helpers may call `vec_fold` and `vec_push`;
-their step helpers are implementation details, and this source placement does
-not expose or stabilize a public vec representation. The `vec_fold` entry uses
-an isolated `core_prelude` source unit so other helper bodies keep resolving
-fold calls through the descriptor-backed adapter during this migration. The
-list helpers use the descriptor-backed `List<A>` constructors and pattern
-coverage; their private step helpers are ordinary support source and do not
-expose a public list representation beyond `Nil` and `Cons`. The
-dict helpers keep using the existing prelude runtime operation: `dict_get`,
-`dict_insert`, and `dict_remove` are source-backed descriptor entry points, and
-`dict_contains` derives its result from `dict_get`. Private support functions
-such as `vec_try_map_with_step` and `list_try_map_step` are ordinary support
-source and are not separate prelude descriptors.
+existing helpers. Embedded helper source may call compiler-known prelude
+runtime operations through the reserved `prelude_builtin` module, such as
+`prelude_builtin::vec_fold(items, initial, f)`, to avoid spelling a runtime
+operation like an ordinary recursive call to the helper being defined.
+`vec_len` delegates to `prelude_builtin::vec_len` so the runtime can use the
+host vec size directly. The vec traversal helpers use
+`prelude_builtin::vec_fold`, and vec append support uses
+`prelude_builtin::vec_push`; their step helpers are implementation details, and
+this source placement does not expose or stabilize a public vec
+representation. The `vec_fold` entry is declared in the shared
+`core_prelude` source and delegates to `prelude_builtin::vec_fold`. The list
+helpers use the descriptor-backed `List<A>` constructors and pattern coverage;
+their private step helpers are ordinary support source and do not expose a
+public list representation beyond `Nil` and `Cons`. The dict helpers keep
+using the existing prelude runtime operation through
+`prelude_builtin::dict_get`, `prelude_builtin::dict_insert`, and
+`prelude_builtin::dict_remove`; their public bare names remain source-backed
+descriptor entry points, and `dict_contains` derives its result from the
+builtin get operation. Private support functions such as
+`vec_try_map_with_step` and `list_try_map_step` are ordinary support source and
+are not separate prelude descriptors.
 
 ### Compiler-Support Source
 

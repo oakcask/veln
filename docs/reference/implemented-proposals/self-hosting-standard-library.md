@@ -38,8 +38,9 @@ stated by `../../specification/`.
 
 - `core_prelude` source contains the source-backed helper bodies and private
   support functions for reusable helper behavior.
-- The isolated `core_prelude` vec-fold source keeps fold calls resolving
-  through the descriptor-backed adapter during migration.
+- `vec_len` and `vec_fold` live in `core_prelude` and delegate to their
+  matching `prelude_builtin` operations, while traversal-oriented vec helpers
+  call `prelude_builtin::vec_fold` explicitly.
 - Standard symbol descriptor tests verify that source-backed descriptors carry
   source metadata, private support functions are not public prelude
   descriptors, and no descriptor-only pure helpers remain.

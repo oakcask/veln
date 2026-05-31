@@ -152,7 +152,7 @@ const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
 const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 source_prelude_symbol_set! {
-    "vec_fold" => veln_stdlib::core_prelude_vec_fold_source(),
+    "vec_fold" => veln_stdlib::core_prelude_source("vec_fold"),
     "vec_len" => veln_stdlib::core_prelude_source("vec_len"),
     "vec_is_empty" => veln_stdlib::core_prelude_source("vec_is_empty"),
     "vec_push" => veln_stdlib::core_prelude_source("vec_push"),
@@ -353,12 +353,12 @@ mod tests {
     }
 
     #[test]
-    fn vec_fold_source_metadata_uses_isolated_core_prelude_source() {
+    fn vec_fold_source_metadata_uses_core_prelude_source() {
         let symbol = prelude_symbol("vec_fold").expect("vec_fold descriptor");
         let source = symbol.source.expect("vec_fold source metadata");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Veln);
-        assert_eq!(source.path, "stdlib/core_prelude_vec_fold.veln");
+        assert_eq!(source.path, "stdlib/core_prelude.veln");
         assert!(source.text.contains("mod core_prelude"));
         assert!(source.text.contains("fn vec_fold("));
     }

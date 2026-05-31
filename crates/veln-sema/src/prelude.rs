@@ -5,6 +5,8 @@ use crate::adt;
 use crate::standard_symbols::prelude_symbol;
 use crate::types::Type;
 
+const PRELUDE_BUILTIN_MODULE: &str = "prelude_builtin";
+
 pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(Vec<Type>, Type)> {
     let descriptor = prelude_symbol(name)?;
     let expected = ExpectedPreludeParts::from_expected(expected);
@@ -15,6 +17,20 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
         .or_else(|| prelude_dict_signature(descriptor.name, &expected))
         .or_else(|| prelude_option_signature(descriptor.name, &expected))
         .or_else(|| prelude_result_signature(descriptor.name, &expected))
+}
+
+pub(crate) fn qualified_prelude_builtin_signature(
+    segments: &[String],
+    expected: Option<&Type>,
+) -> Option<(String, Vec<Type>, Type)> {
+    let [module, name] = segments else {
+        return None;
+    };
+    if module != PRELUDE_BUILTIN_MODULE {
+        return None;
+    }
+    let (params, return_type) = prelude_signature(name, expected)?;
+    Some((name.clone(), params, return_type))
 }
 
 struct ExpectedPreludeParts {
@@ -491,6 +507,19 @@ pub(crate) fn core_prelude_signature(
         signature.0,
         signature.1,
     ))
+}
+
+pub(crate) fn qualified_core_prelude_builtin_signature(
+    segments: &[String],
+    expected: Option<&CoreType>,
+) -> Option<(CoreCallTarget, Vec<CoreType>, CoreType)> {
+    let [module, name] = segments else {
+        return None;
+    };
+    if module != PRELUDE_BUILTIN_MODULE {
+        return None;
+    }
+    core_prelude_signature(name, expected)
 }
 
 struct ExpectedCorePreludeParts {
