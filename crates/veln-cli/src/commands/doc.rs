@@ -239,10 +239,7 @@ fn doc_block_before(source: &SourceFile, target_line: usize) -> Vec<String> {
     let mut index = target_line - 2;
     let mut docs = Vec::new();
 
-    loop {
-        let Some(line) = lines.get(index) else {
-            break;
-        };
+    while let Some(line) = lines.get(index) {
         let trimmed = line.trim_start();
         if let Some(content) = trimmed.strip_prefix("##") {
             docs.push(content.trim_start().to_string());
