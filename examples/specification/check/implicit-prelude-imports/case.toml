@@ -1,0 +1,23 @@
+command = ["check", "--json", "main.veln", "measure.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["ambiguous call_target `vec_len`", "use `measure::vec_len` to select it", "use `prelude::vec_len` to select it", "import alias `prelude` conflicts with the standard prelude"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.ambiguous"
+severity = "error"
+kind = "name"
+
+[[diagnostics]]
+id = "name.reserved"
+severity = "error"
+kind = "name"

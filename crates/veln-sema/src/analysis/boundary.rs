@@ -1,4 +1,5 @@
 use super::*;
+use crate::prelude::PRELUDE_MODULE;
 use veln_ast::PublicAliasKind;
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
@@ -407,6 +408,69 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
     }
 
     diagnostics
+}
+
+pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
+    if let Some(header) = &module.module
+        && header.name == PRELUDE_MODULE
+        && !is_standard_prelude_source(&header.span)
+    {
+        diagnostics.push(reserved_prelude_diagnostic(
+            header.node_id.display("mod"),
+            header.span.clone(),
+            "module",
+            "module identity",
+            "Choose a non-conflicting module name.",
+        ));
+    }
+
+    for use_decl in &module.uses {
+        if use_decl.alias == PRELUDE_MODULE {
+            diagnostics.push(reserved_prelude_diagnostic(
+                use_decl.node_id.display("use"),
+                use_decl.span.clone(),
+                "module",
+                "import alias",
+                "Choose a non-conflicting import path.",
+            ));
+        }
+    }
+
+    diagnostics
+}
+
+fn is_standard_prelude_source(span: &SourceSpan) -> bool {
+    span.file.as_str() == "stdlib/prelude.veln"
+}
+
+fn reserved_prelude_diagnostic(
+    node_id: String,
+    span: SourceSpan,
+    namespace: &'static str,
+    declaration_kind: &'static str,
+    hint: &'static str,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "name.reserved",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("{declaration_kind} `prelude` conflicts with the standard prelude"),
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::string(node_id)),
+            ("name", JsonValue::string(PRELUDE_MODULE)),
+            ("namespace", JsonValue::string(namespace)),
+            ("reserved_for", JsonValue::string("standard_prelude")),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("repair_hint")),
+        ("message", JsonValue::string(hint)),
+    ]));
+    diagnostic
 }
 
 pub(crate) fn check_duplicate_constructor_names(module: &SurfaceModule) -> Vec<Diagnostic> {

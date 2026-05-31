@@ -63,8 +63,8 @@ against the built `veln` binary.
   changing static behavior.
 - `check/json-ok-envelope/`: successful `check --json` envelope fields and
   zero-diagnostic summary behavior.
-- `check/module-imports/`: `mod`, `use`, import aliases, qualified calls, and
-  qualified pipeline targets.
+- `check/module-imports/`: `mod`, `use`, import aliases, unqualified public
+  imports, qualified calls, and qualified pipeline targets.
 - `check/import-reexport-boundary/`: `use` declarations let a module consume
   another module's public API without publishing that API through the consuming
   module's own qualified path.
@@ -138,6 +138,8 @@ against the built `veln` binary.
 - `check/human-ok/`: human `check` output for valid input.
 - `check/prelude-helper-diagnostics/`: fallible `vec_map` callback diagnostics
   and repair hints toward `vec_try_map`.
+- `check/implicit-prelude-imports/`: implicit standard prelude import
+  ambiguity with written imports and reserved `prelude` aliases.
 - `check/doctest-static-examples/`: documentation-only doctest fences and
   negative static doctest fences.
 - `check/doctest-metadata-diagnostics/`: unknown and invalid doctest metadata,
@@ -175,6 +177,8 @@ against the built `veln` binary.
 - `run/prelude-containers/`: vec, dictionary, list, option, result, and string
   prelude helper value semantics, including non-mutating container updates,
   source-order vec and list traversal, and empty-container checks.
+- `run/implicit-prelude-imports/`: qualified `prelude::` fallback and local
+  declaration shadowing over implicit prelude imports.
 - `run/tail-recursion-trampoline/`: stack-safe direct tail recursion, nested
   match tail positions, runtime `require` checks, and argument evaluation
   before parameter rebinding.

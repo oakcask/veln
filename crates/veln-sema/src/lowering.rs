@@ -19,8 +19,11 @@ use crate::effects::{
 use crate::prelude::{
     core_prelude_signature, float_arithmetic_prelude_name, float_comparison_prelude_name,
     float_prefix_prelude_name, qualified_core_prelude_builtin_signature,
+    qualified_core_prelude_signature,
 };
-use crate::types::{TypeEnvironment, core_type, parse_type_annotation, parse_type_or_unknown};
+use crate::types::{
+    FunctionLookup, TypeEnvironment, core_type, parse_type_annotation, parse_type_or_unknown,
+};
 
 struct CoreBinding {
     name: String,
@@ -640,7 +643,8 @@ impl<'a> CoreLowerer<'a> {
                     .map(|binding| binding.ty.clone())
                     .or_else(|| {
                         self.environment
-                            .function(name)
+                            .unqualified_function(name, self.function.module_name.as_deref())
+                            .found()
                             .map(|function| core_type(&function.ty()))
                     }),
                 _ => self
@@ -684,14 +688,22 @@ impl<'a> CoreLowerer<'a> {
                         .find(|binding| binding.name == *name)
                     {
                         self.core_expr(expr, binding.ty.clone(), CoreExprKind::Local(name.clone()))
-                    } else if let Some(function) = self.environment.function(name) {
-                        self.core_expr(
-                            expr,
-                            core_type(&function.ty()),
-                            CoreExprKind::FunctionValue(function.target_name.clone()),
-                        )
                     } else {
-                        self.core_expr(expr, CoreType::Unknown, CoreExprKind::Local(name.clone()))
+                        match self
+                            .environment
+                            .unqualified_function(name, self.function.module_name.as_deref())
+                        {
+                            FunctionLookup::Found(function) => self.core_expr(
+                                expr,
+                                core_type(&function.ty()),
+                                CoreExprKind::FunctionValue(function.target_name.clone()),
+                            ),
+                            FunctionLookup::Ambiguous | FunctionLookup::Missing => self.core_expr(
+                                expr,
+                                CoreType::Unknown,
+                                CoreExprKind::Local(name.clone()),
+                            ),
+                        }
                     }
                 }
                 _ => {
@@ -1231,6 +1243,15 @@ impl<'a> CoreLowerer<'a> {
                 return_type,
             });
         }
+        if let Some((target, params, return_type)) =
+            qualified_core_prelude_signature(segments, expected)
+        {
+            return Some(CoreCallSignature {
+                target,
+                params,
+                return_type,
+            });
+        }
         if let [name] = segments.as_slice()
             && let Some(binding) = self
                 .bindings
@@ -1252,7 +1273,14 @@ impl<'a> CoreLowerer<'a> {
             }
             return None;
         }
-        if let Some(function) = self.environment.function_path(segments) {
+        let function = match segments.as_slice() {
+            [name] => self
+                .environment
+                .unqualified_function(name, self.function.module_name.as_deref())
+                .found(),
+            _ => self.environment.function_path(segments),
+        };
+        if let Some(function) = function {
             return Some(CoreCallSignature {
                 target: CoreCallTarget::Function(function.target_name.clone()),
                 params: function.params.iter().map(core_type).collect(),

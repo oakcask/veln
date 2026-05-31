@@ -168,6 +168,40 @@ fn lowers_qualified_prelude_builtin_calls() {
 }
 
 #[test]
+fn lowers_qualified_standard_prelude_calls() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(items: Vec<Int>) -> Int\n",
+            "  prelude::vec_len(items)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::PreludeBuiltin(name),
+            ..
+        } if name == "vec_len"
+    ));
+}
+
+#[test]
 fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
     let mut entries = Vec::new();
 
@@ -207,6 +241,174 @@ fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
     entries.sort_unstable();
     expected_entries.sort_unstable();
     assert_eq!(entries, expected_entries);
+}
+
+#[test]
+fn imported_public_function_conflicts_with_implicit_prelude_bare_call() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.measure\n",
+            "pub fn main(items: Vec<Int>) -> Int\n",
+            "  vec_len(items)\n",
+            "end\n",
+        ),
+    );
+    let measure_source = SourceFile::new(
+        "measure.veln",
+        concat!(
+            "mod app.measure\n",
+            "pub fn vec_len(items: Vec<Int>) -> Int\n",
+            "  0\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let measure = lower_surface_ast(&parse(&measure_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        aliases: Vec::new(),
+        types: Vec::new(),
+        functions: main
+            .functions
+            .into_iter()
+            .chain(measure.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "name.ambiguous"
+                && diagnostic.message == "ambiguous call_target `vec_len`"
+        })
+        .expect("prelude conflict should be ambiguous");
+    let related = diagnostic
+        .related
+        .iter()
+        .map(|note| note.to_json())
+        .collect::<Vec<_>>();
+    assert!(
+        related
+            .iter()
+            .any(|note| note.contains("use `measure::vec_len` to select it"))
+    );
+    assert!(
+        related
+            .iter()
+            .any(|note| note.contains("use `prelude::vec_len` to select it"))
+    );
+}
+
+#[test]
+fn local_declaration_shadows_implicit_prelude_import() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn vec_len(items: String) -> Int\n",
+            "  7\n",
+            "end\n",
+            "pub fn main() -> Int\n",
+            "  vec_len(\"local\")\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { target, .. } = &expr.kind else {
+        panic!("tail expression should lower as call");
+    };
+    assert_eq!(target, &CoreCallTarget::Function("vec_len".to_string()));
+}
+
+#[test]
+fn non_callable_local_shadow_blocks_implicit_prelude_call_resolution() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(items: Vec<Int>) -> Int\n",
+            "  let vec_len: Int = 1\n",
+            "  vec_len(items)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.unresolved"
+                && diagnostic.message == "unresolved call_target `vec_len`"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn user_source_cannot_claim_prelude_module_alias() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.prelude\n",
+            "pub fn main() -> Int\n",
+            "  1\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.reserved"
+                && diagnostic.message
+                    == "import alias `prelude` conflicts with the standard prelude"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn user_source_cannot_claim_prelude_module_identity() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("mod prelude\n", "pub fn main() -> Int\n", "  1\n", "end\n",),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "name.reserved"
+                && diagnostic.message
+                    == "module identity `prelude` conflicts with the standard prelude"
+        }),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

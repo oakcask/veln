@@ -780,7 +780,11 @@ impl<'a> FunctionChecker<'a> {
             || name == "false"
             || calls.iter().any(|call| call.callee == name)
             || bindings.iter().any(|binding| binding.name == name)
-            || self.environment.function(name).is_some()
+            || matches!(
+                self.environment
+                    .unqualified_function(name, self.function.module_name.as_deref()),
+                FunctionLookup::Found(_)
+            )
     }
 
     pub(super) fn validate_whole_contract_call(
@@ -840,8 +844,15 @@ impl<'a> FunctionChecker<'a> {
         &self,
         callee: &str,
     ) -> Option<(Vec<Type>, Type, Vec<String>)> {
-        self.environment
-            .function_path(&contract_callee_segments(callee))
+        let segments = contract_callee_segments(callee);
+        let signature = match segments.as_slice() {
+            [name] => self
+                .environment
+                .unqualified_function(name, self.function.module_name.as_deref())
+                .found(),
+            _ => self.environment.function_path(&segments),
+        };
+        signature
             .map(|signature| {
                 (
                     signature.params.clone(),
@@ -849,13 +860,13 @@ impl<'a> FunctionChecker<'a> {
                     signature.effects.clone(),
                 )
             })
-            .or_else(|| {
-                (!callee.contains("::"))
-                    .then(|| {
-                        prelude_signature(callee, None)
-                            .map(|(params, return_type)| (params, return_type, Vec::new()))
-                    })
-                    .flatten()
+            .or_else(|| match segments.as_slice() {
+                [name] if !self.bare_prelude_import_is_ambiguous(name) => {
+                    prelude_signature(name, None)
+                        .map(|(params, return_type)| (params, return_type, Vec::new()))
+                }
+                _ => qualified_prelude_signature(&segments, None)
+                    .map(|(_, params, return_type)| (params, return_type, Vec::new())),
             })
     }
 
@@ -886,8 +897,20 @@ impl<'a> FunctionChecker<'a> {
             return ty;
         }
         let segments = contract_callee_segments(trimmed);
-        if let Some(function) = self.environment.function_path(&segments) {
-            return function.ty();
+        match segments.as_slice() {
+            [name] => {
+                if let FunctionLookup::Found(function) = self
+                    .environment
+                    .unqualified_function(name, self.function.module_name.as_deref())
+                {
+                    return function.ty();
+                }
+            }
+            _ => {
+                if let Some(function) = self.environment.function_path(&segments) {
+                    return function.ty();
+                }
+            }
         }
         let mut parts = trimmed.split('.');
         let Some(base) = parts.next() else {
@@ -1082,11 +1105,39 @@ impl<'a> FunctionChecker<'a> {
                         .find(|binding| binding.name == *name)
                     {
                         binding.ty.clone()
-                    } else if let Some(function) = self.environment.function(name) {
-                        function.ty()
-                    } else {
-                        self.push_unresolved_name(expr.node_id, expr.span.clone(), name, "value");
+                    } else if self.bare_prelude_import_is_ambiguous(name) {
+                        self.push_ambiguous_unqualified_function_import(
+                            expr.node_id,
+                            expr.span.clone(),
+                            name,
+                            "value",
+                        );
                         Type::Unknown
+                    } else {
+                        match self
+                            .environment
+                            .unqualified_function(name, self.function.module_name.as_deref())
+                        {
+                            FunctionLookup::Found(function) => function.ty(),
+                            FunctionLookup::Ambiguous => {
+                                self.push_ambiguous_unqualified_function_import(
+                                    expr.node_id,
+                                    expr.span.clone(),
+                                    name,
+                                    "value",
+                                );
+                                Type::Unknown
+                            }
+                            FunctionLookup::Missing => {
+                                self.push_unresolved_name(
+                                    expr.node_id,
+                                    expr.span.clone(),
+                                    name,
+                                    "value",
+                                );
+                                Type::Unknown
+                            }
+                        }
                     }
                 }
                 _ => {
@@ -1163,6 +1214,23 @@ impl<'a> FunctionChecker<'a> {
         args: &[Expr],
         expected: Option<&ExpectedType>,
     ) -> Option<Type> {
+        if self.bare_call_is_ambiguous(callee) {
+            if let ExprKind::NamePath(segments) = &callee.kind
+                && let [name] = segments.as_slice()
+            {
+                self.push_ambiguous_unqualified_function_import(
+                    callee.node_id,
+                    callee.span.clone(),
+                    name,
+                    "call_target",
+                );
+            }
+            for arg in args {
+                self.infer_expr(arg, None);
+            }
+            return Some(Type::Unknown);
+        }
+
         let (params, return_type, origin) = self.call_signature(
             callee,
             expected.map(|expected| &expected.ty),
@@ -1208,9 +1276,16 @@ impl<'a> FunctionChecker<'a> {
             return None;
         };
         let (name, params, return_type) = if let [name] = segments.as_slice() {
+            if self.bare_name_is_shadowed(name) || self.bare_prelude_import_is_ambiguous(name) {
+                return None;
+            }
             let (params, return_type) =
                 prelude_signature(name, expected.map(|expected| &expected.ty))?;
             (name.clone(), params, return_type)
+        } else if let Some((name, params, return_type)) =
+            qualified_prelude_signature(segments, expected.map(|expected| &expected.ty))
+        {
+            (name, params, return_type)
         } else {
             qualified_prelude_builtin_signature(segments, expected.map(|expected| &expected.ty))?
         };
@@ -1379,18 +1454,17 @@ impl<'a> FunctionChecker<'a> {
                         },
                     ));
                 }
-                self.environment.function_path(segments).map(|function| {
-                    (
-                        function.params.clone(),
-                        function.return_type.clone(),
-                        CallOrigin {
-                            node_id: function.node_id,
-                            span: function.span.clone(),
-                            symbol: segments.join("::"),
-                            effects: function.effects.clone(),
-                        },
-                    )
-                })
+                match segments.as_slice() {
+                    [name] => self
+                        .environment
+                        .unqualified_function(name, self.function.module_name.as_deref())
+                        .found()
+                        .map(|function| self.function_call_origin(function, name.clone())),
+                    _ => self
+                        .environment
+                        .function_path(segments)
+                        .map(|function| self.function_call_origin(function, segments.join("::"))),
+                }
             }
             ExprKind::TypeApply { .. } => {
                 let (segments, type_args) = type_applied_name_path(callee)?;
@@ -1410,6 +1484,126 @@ impl<'a> FunctionChecker<'a> {
             }
             _ => None,
         }
+    }
+
+    fn bare_call_is_ambiguous(&self, callee: &Expr) -> bool {
+        let ExprKind::NamePath(segments) = &callee.kind else {
+            return false;
+        };
+        let [name] = segments.as_slice() else {
+            return false;
+        };
+        if self.bare_name_is_shadowed(name) {
+            return false;
+        }
+        if self.bare_prelude_import_is_ambiguous(name) {
+            return true;
+        }
+        matches!(
+            self.environment
+                .unqualified_function(name, self.function.module_name.as_deref()),
+            FunctionLookup::Ambiguous
+        )
+    }
+
+    fn bare_name_is_shadowed(&self, name: &str) -> bool {
+        self.bindings
+            .iter()
+            .rev()
+            .any(|binding| binding.name == name)
+            || matches!(
+                self.environment
+                    .unqualified_function(name, self.function.module_name.as_deref()),
+                FunctionLookup::Found(function)
+                    if function.module_name.as_deref() == self.function.module_name.as_deref()
+            )
+    }
+
+    fn bare_prelude_import_is_ambiguous(&self, name: &str) -> bool {
+        prelude_symbol(name).is_some()
+            && !self
+                .environment
+                .unqualified_function_import_candidates(name)
+                .is_empty()
+    }
+
+    fn function_call_origin(
+        &self,
+        function: &crate::types::FunctionSignature,
+        symbol: String,
+    ) -> (Vec<Type>, Type, CallOrigin) {
+        (
+            function.params.clone(),
+            function.return_type.clone(),
+            CallOrigin {
+                node_id: function.node_id,
+                span: function.span.clone(),
+                symbol,
+                effects: function.effects.clone(),
+            },
+        )
+    }
+
+    fn push_ambiguous_unqualified_function_import(
+        &mut self,
+        node_id: NodeId,
+        span: SourceSpan,
+        name: &str,
+        namespace: &'static str,
+    ) {
+        let mut diagnostic = Diagnostic::new(
+            "name.ambiguous",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("ambiguous {namespace} `{name}`"),
+            Some(span),
+            JsonValue::object([
+                ("phase", JsonValue::string("name")),
+                ("node_id", JsonValue::string(node_id.display("name"))),
+                ("symbol", JsonValue::string(name)),
+                ("namespace", JsonValue::string(namespace)),
+                ("resolution_status", JsonValue::string("ambiguous")),
+            ]),
+        );
+        for candidate in self
+            .environment
+            .unqualified_function_import_candidates(name)
+        {
+            let Some(module_name) = candidate.module_name.as_deref() else {
+                continue;
+            };
+            let Some(use_decl) = self
+                .environment
+                .uses
+                .iter()
+                .find(|use_decl| use_decl.name == module_name)
+            else {
+                continue;
+            };
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("import_candidate")),
+                (
+                    "message",
+                    JsonValue::string(format!(
+                        "Imported module `{module_name}` exports `{name}`; use `{}::{name}` to select it.",
+                        use_decl.alias
+                    )),
+                ),
+                ("span", span_json(&use_decl.span)),
+            ]));
+        }
+        if prelude_symbol(name).is_some() {
+            diagnostic.related.push(JsonValue::object([
+                ("kind", JsonValue::string("import_candidate")),
+                (
+                    "message",
+                    JsonValue::string(format!(
+                        "The standard prelude exports `{name}`; use `prelude::{name}` to select it.",
+                    )),
+                ),
+            ]));
+        }
+        self.diagnostics.push(diagnostic);
     }
 
     pub(super) fn infer_adt_constructor(
@@ -2134,7 +2328,8 @@ impl<'a> FunctionChecker<'a> {
                     .map(|binding| binding.ty.clone())
                     .or_else(|| {
                         self.environment
-                            .function(name)
+                            .unqualified_function(name, self.function.module_name.as_deref())
+                            .found()
                             .map(|function| function.ty())
                     }),
                 _ => None,

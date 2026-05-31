@@ -22,7 +22,7 @@ helpers instead of adding source helper trampoline lowering.
 ## Implemented Outcome
 
 The implemented proving target is the `List<A>` helper family. The helpers are
-source-backed in `core_prelude`, and public JVM calls for `list_fold`,
+source-backed in `prelude`, and public JVM calls for `list_fold`,
 `list_reverse`, `list_map`, `list_filter`, and `list_try_map` execute through
 runtime support that traverses the list representation iteratively instead of
 lowering source helper recursion to trampoline steps.

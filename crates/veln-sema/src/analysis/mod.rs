@@ -28,7 +28,7 @@ use crate::effects::{
 };
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
-    prelude_signature, qualified_prelude_builtin_signature,
+    prelude_signature, qualified_prelude_builtin_signature, qualified_prelude_signature,
 };
 use crate::repair_candidates::{
     APPLICATION_POLICY_MANUAL_REVIEW_REQUIRED, APPLICATION_STATUS_UNAPPLIED,
@@ -36,9 +36,10 @@ use crate::repair_candidates::{
     SATISFY_STATUS_STATICALLY_SATISFIED, application_policy, candidate_blocking_obligations,
     candidate_evidence, candidate_known_limits, candidate_satisfy_status,
 };
+use crate::standard_symbols::prelude_symbol;
 use crate::types::{
-    Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, Type, TypeEnvironment,
-    is_assignable, parse_type_annotation,
+    Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, FunctionLookup, Type,
+    TypeEnvironment, is_assignable, parse_type_annotation,
 };
 
 mod body;
@@ -51,5 +52,5 @@ pub(crate) use boundary::{
     check_declared_effect_labels, check_duplicate_constructor_names,
     check_duplicate_function_names, check_duplicate_type_names, check_duplicate_use_aliases,
     check_module_boundary, check_public_aliases, check_public_function_boundary,
-    check_test_declaration_boundary,
+    check_reserved_prelude_aliases, check_test_declaration_boundary,
 };

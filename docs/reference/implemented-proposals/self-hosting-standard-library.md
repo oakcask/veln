@@ -36,9 +36,9 @@ stated by `../../specification/`.
 
 ## Completion Evidence
 
-- `core_prelude` source contains the source-backed helper bodies and private
+- `prelude` source contains the source-backed helper bodies and private
   support functions for reusable helper behavior.
-- `vec_len` and `vec_fold` live in `core_prelude` and delegate to their
+- `vec_len` and `vec_fold` live in `prelude` and delegate to their
   matching `prelude_builtin` operations, while traversal-oriented vec helpers
   call `prelude_builtin::vec_fold` explicitly.
 - Standard symbol descriptor tests verify that source-backed descriptors carry

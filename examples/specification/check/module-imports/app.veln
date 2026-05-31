@@ -3,5 +3,5 @@ mod spec.app
 use spec.math
 
 pub fn main() -> Int
-	3 |> math::double()
+	double(2) + (3 |> math::double())
 end

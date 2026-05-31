@@ -9,10 +9,7 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
-- [Implicit Prelude And Unqualified Imports](implicit-prelude-and-unqualified-imports.md):
-  make `use` introduce unambiguous public exports into bare scope, define the
-  standard prelude as an implicit import, and rename `core_prelude` to
-  `prelude`.
+No active proposals are currently cataloged here.
 
 ## Update When
 
