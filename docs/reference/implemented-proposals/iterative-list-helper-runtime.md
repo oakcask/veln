@@ -1,10 +1,10 @@
-# Immutable Collection Trampolines
+# Iterative List Helper Runtime
 
 Status: implemented
 
-This page records the completed immutable collection trampoline follow-up. The
+This page records the completed list helper traversal follow-up. The
 implemented route uses iterative JVM runtime support for public `List(A)`
-helpers instead of exposing trampoline mechanics in the source language.
+helpers instead of adding source helper trampoline lowering.
 
 ## Read First
 
@@ -14,7 +14,7 @@ helpers instead of exposing trampoline mechanics in the source language.
   [../../specification/execution.md](../../specification/execution.md).
 - Current source-backed helper boundary:
   [../../specification/names-effects-full.md#source-backed-boundary](../../specification/names-effects-full.md#source-backed-boundary).
-- Staged ADT, `List`, immutable collection, and tail-recursive execution route:
+- Staged ADT, `List`, immutable collection, and traversal runtime route:
   [../../proposals/adt-generalization-route.md](../../proposals/adt-generalization-route.md).
 - Current source grammar, which does not include loops or mutation:
   [../../specification/source-surface.md](../../specification/source-surface.md).
@@ -39,9 +39,10 @@ support functions, while executing deep traversals without consuming one host
 stack frame per collection element. The preferred proving target was `List(A)`
 helper source after the minimal ADT stage.
 
-The implementation replaced the internal trampoline lowering slice with a
-narrow runtime strategy. This keeps the observable acceptance boundary while
-avoiding new compiler-admitted tail-call syntax or selected-helper checks.
+The original proposal named this work as a trampoline route. The implementation
+replaced the internal trampoline lowering slice with a narrow runtime strategy.
+This keeps the observable acceptance boundary while avoiding new
+compiler-admitted tail-call syntax or selected-helper checks.
 
 ## Acceptance Review
 
