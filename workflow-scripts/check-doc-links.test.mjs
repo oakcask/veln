@@ -93,6 +93,44 @@ test("rejects links escaping the docs root", () => {
   ]);
 });
 
+test("rejects specification links to proposals", () => {
+  using fixture = tempDocs("doc-links-specification-proposals");
+  fixture.write(
+    "specification/README.md",
+    [
+      "# Specification",
+      "",
+      "[planned work](../proposals/future.md)",
+      "[planned section](../proposals/future.md#scope)",
+    ].join("\n"),
+  );
+  fixture.write("proposals/future.md", ["# Future", "", "## Scope"].join("\n"));
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, [
+    "specification/README.md:3: remove specification-to-proposal link: ../proposals/future.md; specification pages must describe current behavior without routing readers to planned work",
+    "specification/README.md:4: remove specification-to-proposal link: ../proposals/future.md#scope; specification pages must describe current behavior without routing readers to planned work",
+  ]);
+});
+
+test("allows proposal links to specifications", () => {
+  using fixture = tempDocs("doc-links-proposals-specification");
+  fixture.write(
+    "proposals/future.md",
+    ["# Future", "", "[current behavior](../specification/README.md)"].join(
+      "\n",
+    ),
+  );
+  fixture.write("specification/README.md", "# Specification\n");
+
+  const result = validateDocsLinks(fixture.root);
+
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.valid, true);
+});
+
 test("rejects references to unversioned paths", () => {
   using fixture = tempDocs("doc-links-unversioned");
   fixture.git("init");

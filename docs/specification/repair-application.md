@@ -78,10 +78,8 @@ The applying-command boundary is covered by the executable repair case route in
 confirmed override, override refusal, saved-input freshness, verification, and
 rollback evidence instead of expanding this page with every fixture.
 
-## Remaining Proposal Boundary
+## Boundary
 
-Do not promote any remaining repair-loop proposal axis into this specification
-until the behavior is implemented and tested. The current proposal route for
-verification orchestration, ranking evidence, edit granularity, and broader
-application authority is
-[../proposals/agent-repair-loop-followups.md](../proposals/agent-repair-loop-followups.md).
+Do not promote verification orchestration, ranking evidence, edit granularity,
+or broader application authority into this specification until the behavior is
+implemented and tested.

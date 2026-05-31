@@ -52,6 +52,10 @@ function validateLocalLink({ docsRoot, fromFile, link }) {
     return `${relativeFrom}:${link.line}: link escapes docs: ${link.target}`;
   }
 
+  if (isSpecificationToProposalLink({ docsRoot, fromFile, targetFile })) {
+    return `${relativeFrom}:${link.line}: remove specification-to-proposal link: ${link.target}; specification pages must describe current behavior without routing readers to planned work`;
+  }
+
   if (!fs.existsSync(targetFile) || !fs.statSync(targetFile).isFile()) {
     return `${relativeFrom}:${link.line}: missing target: ${link.target}`;
   }
@@ -177,6 +181,13 @@ function isRepositoryPathReference(value) {
       value.startsWith("../") ||
       startsWithKnownRepoRoot(value) ||
       hasFileExtension(value))
+  );
+}
+
+function isSpecificationToProposalLink({ docsRoot, fromFile, targetFile }) {
+  return (
+    path.relative(docsRoot, fromFile).startsWith(`specification${path.sep}`) &&
+    path.relative(docsRoot, targetFile).startsWith(`proposals${path.sep}`)
   );
 }
 

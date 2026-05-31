@@ -76,15 +76,13 @@ repair, candidate edits, applying edits, or the repair command.
 - `repair --json` output: [repair-json.md](repair-json.md).
 - Rationale for keeping advisory candidates separate from edit application:
   [source-decisions.md](source-decisions.md).
-- Proposal route for broader applying workflows:
-  [../proposals/agent-repair-loop-followups.md](../proposals/agent-repair-loop-followups.md).
 
 ## Read When
 
 - Changing candidate record fields, ranking, edits, evidence, known limits,
   blocking obligations, verification hints, or application policy.
 - Deciding whether repair-loop behavior belongs in implemented `check --json`
-  diagnostics, implemented `repair`, or proposal work.
+  diagnostics or implemented `repair`.
 - Routing an applying-command task before opening
   [repair-application.md](repair-application.md).
 - Auditing that proposal text stays subordinate to current implemented
