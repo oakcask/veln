@@ -1,4 +1,4 @@
-command = ["check", "--json", "main.veln"]
+command = ["check", "--json", "main.veln", "ownerless.veln"]
 exit = 1
 
 [stdout]
@@ -13,7 +13,15 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 1
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "main.veln"
+
+[[json_assert]]
+path = "diagnostics.1.details.source_path"
+equals = "ownerless.veln"
 
 [[diagnostics]]
 id = "module.metadata_drift"
@@ -25,3 +33,14 @@ message = "manifest module name `spec.manifest` does not match source module `sp
 file = "veln.toml"
 line = 2
 column = 16
+
+[[diagnostics]]
+id = "module.metadata_drift"
+severity = "error"
+kind = "module"
+message = "manifest module name `spec.ownerless` has no source `mod` owner"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 3
+column = 21

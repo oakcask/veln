@@ -27,7 +27,8 @@ compare it with `../specification/` before changing behavior.
   remaining repair-loop axes for verification orchestration, candidate
   evidence, edit granularity, and application authority.
 - [agent-module-package-docs.md](agent-module-package-docs.md):
-  package metadata, generated documentation, and export-model follow-ups.
+  implemented route for package metadata, generated documentation, and the
+  export-model decision.
 - [agent-language-surface-expansion.md](agent-language-surface-expansion.md):
   future language surface features outside the implemented subset.
 - [reference-followups.md](reference-followups.md):

@@ -1,0 +1,4 @@
+[modules]
+"main.veln" = "app.main"
+"unselected.veln" = "app.unselected_manifest"
+"missing.veln" = "app.missing_manifest"

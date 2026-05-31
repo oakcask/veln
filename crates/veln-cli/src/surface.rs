@@ -45,7 +45,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
     )
 }
 
-fn validate_manifest_module(
+pub(crate) fn validate_manifest_module(
     project: &Project,
     source_path: &str,
     module: &SurfaceModule,
@@ -1486,12 +1486,14 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                package: Default::default(),
                 modules: vec![ManifestModule {
                     path: "src/main.veln".to_string(),
                     name: "manifest.main".to_string(),
                     path_span: span("veln.toml", 2, 2, 11),
                     name_span: span("veln.toml", 2, 20, 33),
                 }],
+                tools: Vec::new(),
             }),
         };
 
@@ -1507,6 +1509,39 @@ mod tests {
     }
 
     #[test]
+    fn manifest_module_name_requires_source_mod_owner() {
+        let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
+        let project = Project {
+            root: ".".into(),
+            files: vec![source],
+            manifest: Some(ProjectManifest {
+                path: SourcePath::new("veln.toml"),
+                package: Default::default(),
+                modules: vec![ManifestModule {
+                    path: "src/main.veln".to_string(),
+                    name: "manifest.main".to_string(),
+                    path_span: span("veln.toml", 2, 2, 11),
+                    name_span: span("veln.toml", 2, 20, 33),
+                }],
+                tools: Vec::new(),
+            }),
+        };
+
+        let (_, diagnostics) = load_surface_module(&project);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].id, "module.metadata_drift");
+        assert_eq!(
+            diagnostics[0].message,
+            "manifest module name `manifest.main` has no source `mod` owner"
+        );
+        assert_eq!(
+            diagnostics[0].details.to_json(),
+            "{\"phase\":\"module\",\"field\":\"module_identity\",\"canonical_owner\":\"source\",\"derived_owner\":\"manifest\",\"observed_value\":\"manifest.main\",\"manifest_path\":\"veln.toml\",\"source_path\":\"src/main.veln\"}"
+        );
+    }
+
+    #[test]
     fn matching_manifest_module_name_does_not_report_drift() {
         let source = SourceFile::new(
             "src/main.veln",
@@ -1517,18 +1552,60 @@ mod tests {
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
+                package: Default::default(),
                 modules: vec![ManifestModule {
                     path: "src/main.veln".to_string(),
                     name: "app.main".to_string(),
                     path_span: span("veln.toml", 2, 2, 11),
                     name_span: span("veln.toml", 2, 20, 28),
                 }],
+                tools: Vec::new(),
             }),
         };
 
         let (module, diagnostics) = load_surface_module(&project);
 
         assert_eq!(module.module.as_ref().unwrap().name, "app.main");
+        assert!(
+            diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.id != "module.metadata_drift"),
+            "{diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn unselected_manifest_module_entries_do_not_report_drift() {
+        let source = SourceFile::new(
+            "src/main.veln",
+            "mod app.main\nfn main() -> ()\n  ()\nend\n",
+        );
+        let project = Project {
+            root: ".".into(),
+            files: vec![source],
+            manifest: Some(ProjectManifest {
+                path: SourcePath::new("veln.toml"),
+                package: Default::default(),
+                modules: vec![
+                    ManifestModule {
+                        path: "src/other.veln".to_string(),
+                        name: "manifest.other".to_string(),
+                        path_span: span("veln.toml", 2, 2, 12),
+                        name_span: span("veln.toml", 2, 21, 35),
+                    },
+                    ManifestModule {
+                        path: "src/main.veln".to_string(),
+                        name: "app.main".to_string(),
+                        path_span: span("veln.toml", 3, 2, 11),
+                        name_span: span("veln.toml", 3, 20, 28),
+                    },
+                ],
+                tools: Vec::new(),
+            }),
+        };
+
+        let (_, diagnostics) = load_surface_module(&project);
+
         assert!(
             diagnostics
                 .iter()

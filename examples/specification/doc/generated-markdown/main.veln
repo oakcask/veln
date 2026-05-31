@@ -1,0 +1,26 @@
+## @adr
+## id: docs-boundary
+## status: accepted
+## scope: docs
+## context: Generated docs need source-owned module facts.
+## decision: Build docs from parsed source and manifest metadata.
+## consequences: Source comments and public API declarations stay canonical.
+mod docs.main
+use docs.helper
+
+## A documented public result type.
+pub type DocResult(A)
+  pub Ready(A)
+  Hidden(String)
+end
+
+## Doubles a non-negative value.
+## ```veln
+## > let seed: Int = 2
+## double(seed)
+## ```
+pub fn double(value: Int) -> Int
+  require value >= 0
+  ensure result >= value
+  value + value
+end

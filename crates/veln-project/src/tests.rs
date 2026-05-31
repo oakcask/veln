@@ -314,6 +314,45 @@ fn read_manifest_tracks_modules_sections_and_ignores_non_entries() {
 }
 
 #[test]
+fn read_manifest_tracks_package_and_tool_string_fields() {
+    let temp = TempProject::new("manifest-package-tool-fields");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[package]\n",
+            "name = \"demo\"\n",
+            "version = \"0.1.0\"\n",
+            "ignored = 1\n",
+            "[tool.docs]\n",
+            "template = \"reference\"\n",
+            "[tool.docs]\n",
+            "output = \"docs/api.md\"\n",
+            "[modules]\n",
+            "\"src/main.veln\" = \"demo.main\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(manifest.package.fields.len(), 2);
+    assert_eq!(manifest.package.fields[0].key, "name");
+    assert_eq!(manifest.package.fields[0].value, "demo");
+    assert_eq!(manifest.package.fields[0].key_span.start.line, 2);
+    assert_eq!(manifest.package.fields[0].value_span.start.column, 9);
+    assert_eq!(manifest.package.fields[1].key, "version");
+    assert_eq!(manifest.tools.len(), 1);
+    assert_eq!(manifest.tools[0].name, "docs");
+    assert_eq!(manifest.tools[0].fields.len(), 2);
+    assert_eq!(manifest.tools[0].fields[0].key, "template");
+    assert_eq!(manifest.tools[0].fields[0].value, "reference");
+    assert_eq!(manifest.tools[0].fields[1].key, "output");
+    assert_eq!(manifest.tools[0].fields[1].value, "docs/api.md");
+    assert_eq!(manifest.modules.len(), 1);
+}
+
+#[test]
 fn read_manifest_accepts_crlf_lines_and_trailing_entry_text() {
     let temp = TempProject::new("manifest-crlf");
     temp.write(

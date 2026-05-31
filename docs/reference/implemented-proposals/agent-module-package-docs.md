@@ -1,0 +1,52 @@
+# Agent Module, Package, And Documentation Model
+
+Status: implemented
+
+This page records completion evidence for the module, package, and generated
+documentation target. Use the specification pages for current behavior.
+
+## Read First
+
+- Current source surface:
+  [../../specification/source-surface.md](../../specification/source-surface.md).
+- Current command behavior:
+  [../../specification/commands.md](../../specification/commands.md).
+- Planned work now only belongs in
+  [../../proposals/README.md](../../proposals/README.md).
+
+## Outcome
+
+The implemented manifest surface now keeps package metadata and tool metadata
+in `veln.toml`. String-valued `[package]` fields describe package-scale facts,
+and string-valued `[tool.<name>]` fields describe tool-specific facts. Source
+`mod` declarations still own compiler-visible module identity, and selected
+manifest module entries are still checked for drift against source.
+
+`veln doc` generates Markdown from selected source files and the manifest. The
+output includes package and tool metadata, source modules, imports, public
+types, public constructors, public functions, contracts, documentation line
+comments, executable doctest fences, expected-output fences, and ADR-lite
+records. Hidden doctest setup lines are omitted from generated examples.
+
+Dedicated export lists were not added. Public `fn` declarations and public
+source `type` declarations remain the implemented public API boundary.
+
+## Completion Evidence
+
+- Manifest package and tool fields are parsed and preserved independently from
+  source declarations.
+- `veln doc` has a parse gate and refuses documentation output when selected
+  manifest module metadata drifts from source-owned module identity.
+- Generated documentation is covered by
+  `../../../examples/specification/doc/generated-markdown/`.
+- Public API documentation derives from declarations and attached source
+  comments, not from proposal text.
+- ADR-lite records remain source metadata and appear in generated docs without
+  affecting parsing, checking, lowering, or execution.
+
+## Read When
+
+- Checking why package metadata and generated documentation are no longer
+  listed as active proposal work.
+- Reviewing completion evidence before changing manifest or documentation
+  generation behavior.

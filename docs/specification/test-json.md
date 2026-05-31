@@ -12,6 +12,8 @@ This page routes implemented JSON output for `veln test --json`.
   expectations pass only when the selected runtime failure details match;
   mismatches use
   `reason: "expected_runtime_failure"`.
+- Doctest hidden setup uses `> ` inside executable `veln` fences; `#`
+  remains visible source comment syntax.
 - Doctest expected-output comparison is a separate route; mismatches use
   `reason: "expected_output"` even when a runtime expectation matches.
 

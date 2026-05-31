@@ -13,8 +13,8 @@ against the built `veln` binary.
   aligned with the observable expectations here.
 - Prefer adding or improving a case here over expanding prose when the behavior
   is observable through source, diagnostics, command output, or JSON.
-- Keep case names grouped by command surface: `check`, `fmt`, `explain`,
-  `lsp`, `run`, `test`, and `repair`.
+- Keep case names grouped by command surface: `check`, `doc`, `fmt`,
+  `explain`, `lsp`, `run`, `test`, and `repair`.
 - Put the expected observable behavior in `case.toml`; keep the `.veln` files
   readable as examples of the language feature.
 
@@ -35,6 +35,7 @@ against the built `veln` binary.
 ## Case Kinds
 
 - `check/`: static diagnostics and successful static validation.
+- `doc/`: generated Markdown documentation from source and manifest metadata.
 - `fmt/`: deterministic source formatting and whole-invocation write gates.
 - `explain/`: diagnostic catalog lookup and command-line errors.
 - `lsp/`: editor JSON-RPC behavior exposed by the CLI.
@@ -85,7 +86,8 @@ against the built `veln` binary.
 - `check/named-type-annotations/`: non-built-in named type paths with type
   arguments inside value and function type annotations.
 - `check/manifest-metadata/`: source `mod` ownership wins over manifest module
-  metadata.
+  metadata, manifest module names require selected source owners, and manifest
+  entries do not add unselected source files.
 - `check/implicit-unit-return/`: omitted tail expressions returning `()` and
   the implicit-unit diagnostic detail.
 - `check/types-operators/`: primitive annotations, returned function types,
@@ -120,6 +122,11 @@ against the built `veln` binary.
   negative static doctest fences.
 - `check/doctest-metadata-diagnostics/`: unknown and invalid doctest metadata,
   duplicate output fences, and missing expected failures.
+- `doc/generated-markdown/`: generated documentation from package and tool
+  metadata, module identity, imports, public functions, contracts, doctest
+  fences, hidden doctest setup, and ADR-lite records.
+- `doc/manifest-drift/`: generated documentation is blocked when selected
+  manifest module metadata disagrees with source-owned module identity.
 - `fmt/canonical-formatting/`: headers, imports, standalone and trailing
   comments, contracts, match indentation, operators, postfix `?`, lists,
   records, and idempotence.

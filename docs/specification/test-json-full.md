@@ -165,9 +165,11 @@ diagnostic, the run reports `doctest.expected_failure_missing` as a static doc
 diagnostic. Negative doctests do not produce case records or expected-output
 attachments.
 
-Executable doctest lines that start with `# ` are hidden setup lines. The
+Executable doctest lines that start with `> ` are hidden setup lines. The
 generated doctest includes each hidden setup line after removing the marker,
 and diagnostics for that generated source use the normal doctest source path.
+Lines that start with `#` remain visible source comments inside the generated
+doctest source.
 
 Unknown doctest metadata and invalid doctest metadata are also reported as
 static doc diagnostics before execution. Unknown `veln` and `veln-output`
