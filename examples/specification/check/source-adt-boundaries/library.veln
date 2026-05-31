@@ -1,0 +1,11 @@
+mod spec.library
+
+pub type Signal<A>
+	Hidden
+	pub Idle
+	pub Emit(A)
+end
+
+fn hidden_local() -> Signal<Int>
+	Hidden
+end

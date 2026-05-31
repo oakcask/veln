@@ -100,8 +100,10 @@ over finite domains must be exhaustive. `Bool` scrutinees require coverage for
 require `Nil` and `Cons(_)`; source-declared ADT scrutinees require every
 declared variant. `_` and binding patterns are catch-all arms. A
 non-exhaustive finite-domain match reports
-`type.match_non_exhaustive` at the `match` expression. Related notes identify
-the scrutinee type and the arms that prove partial coverage.
+`type.match_non_exhaustive` at the `match` expression. The missing case is the
+unqualified coverage label: source-declared ADTs use the constructor leaf name,
+with `_` for payload variants. Related notes identify the scrutinee type and
+the arms that prove partial coverage.
 
 ## Assignment Compatibility
 

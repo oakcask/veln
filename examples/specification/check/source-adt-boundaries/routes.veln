@@ -1,0 +1,22 @@
+mod spec.routes
+use spec.library
+
+fn via_module() -> Signal<Int>
+	library::Emit(1)
+end
+
+fn via_type() -> Signal<Int>
+	library::Signal::Emit(1)
+end
+
+fn label(value: Signal<Int>) -> String
+	match value
+		library::Idle => "idle"
+		library::Signal::Emit(_) => "emit"
+		_ => "hidden"
+	end
+end
+
+fn hidden_imported_constructor() -> Signal<Int>
+	library::Hidden
+end

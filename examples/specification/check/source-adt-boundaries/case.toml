@@ -1,4 +1,4 @@
-command = ["check", "--json", "duplicate.veln", "first.veln", "second.veln", "app.veln", "inference.veln"]
+command = ["check", "--json", "duplicate.veln", "first.veln", "second.veln", "app.veln", "inference.veln", "library.veln", "routes.veln", "conversions.veln"]
 exit = 1
 
 [stdout]
@@ -13,7 +13,7 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 3
+equals = 6
 
 [[diagnostics]]
 id = "name.duplicate"
@@ -47,3 +47,36 @@ message = "constructor `Missing` needs type context"
 file = "inference.veln"
 line = 9
 column = 14
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `library::Hidden`"
+
+[diagnostics.span]
+file = "routes.veln"
+line = 21
+column = 2
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `list_to_vec`"
+
+[diagnostics.span]
+file = "conversions.veln"
+line = 4
+column = 2
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `vec_to_list`"
+
+[diagnostics.span]
+file = "conversions.veln"
+line = 8
+column = 2
