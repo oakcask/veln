@@ -283,7 +283,7 @@ impl<'a> Parser<'a> {
 
     fn parse_type_params_until(&mut self, close: TokenKind) -> Vec<String> {
         let mut params = Vec::new();
-        while !self.at(close.clone()) && !self.at(TokenKind::Eof) {
+        while !self.at(close) && !self.at(TokenKind::Eof) {
             if let Some(param) = self.expect_ident("type_declaration", "type parameter") {
                 params.push(param);
             }
@@ -330,15 +330,14 @@ impl<'a> Parser<'a> {
     fn parse_type_variant_fields_until(&mut self, close: TokenKind) -> Vec<TypeVariantField> {
         let mut fields = Vec::new();
         let mut positional_index = 0usize;
-        while !self.at(close.clone()) && !self.at(TokenKind::Eof) {
+        while !self.at(close) && !self.at(TokenKind::Eof) {
             let start = self.current().range;
             let (name, ty) = if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Colon) {
                 let name = self
                     .expect_ident("type_variant", "variant field name")
                     .unwrap_or_default();
                 self.expect(TokenKind::Colon, "type_variant", vec![":"]);
-                let ty =
-                    self.collect_type_until("type_variant", &[TokenKind::Comma, close.clone()]);
+                let ty = self.collect_type_until("type_variant", &[TokenKind::Comma, close]);
                 (name, ty)
             } else {
                 let name = if positional_index == 0 {
@@ -346,8 +345,7 @@ impl<'a> Parser<'a> {
                 } else {
                     format!("_{positional_index}")
                 };
-                let ty =
-                    self.collect_type_until("type_variant", &[TokenKind::Comma, close.clone()]);
+                let ty = self.collect_type_until("type_variant", &[TokenKind::Comma, close]);
                 positional_index += 1;
                 (name, ty)
             };
@@ -675,7 +673,7 @@ impl<'a> Parser<'a> {
         let mut depth = 0usize;
         let mut previous = None::<Token>;
         while !self.at(TokenKind::Eof) {
-            if depth == 0 && stop.iter().any(|kind| self.at(kind.clone())) {
+            if depth == 0 && stop.iter().any(|kind| self.at(*kind)) {
                 break;
             }
             let token = self.current().clone();
@@ -1454,127 +1452,150 @@ impl<'a> ExprParser<'a> {
     fn parse_postfix(&mut self) -> Expr {
         let mut expr = self.parse_primary();
         loop {
-            if self.at(TokenKind::LBracket) && matches!(expr.kind, ExprKind::NamePath(_)) {
-                let start = lhs_range(&expr);
-                let open_index = self.cursor;
-                let open = self.current().clone();
-                let close =
-                    self.matching_delimiter(open_index, TokenKind::LBracket, TokenKind::RBracket);
-                let repair_candidates = delimiter_repair_candidate(
-                    self.source,
-                    "parse.call_type_argument_delimiters",
-                    "Use angle brackets for call type arguments",
-                    "Replace square-bracket call type arguments with angle brackets",
-                    (&open, "<"),
-                    close.as_ref().map(|token| (token, ">")),
-                );
-                self.error_at_token(
-                    &open,
-                    DiagnosticRequest {
-                        id: "parse.legacy_call_type_argument_delimiters",
-                        message: "square-bracket explicit type arguments are no longer accepted for calls; use angle brackets".to_string(),
-                        parser_context: self.context,
-                        expected: vec!["<"],
-                        strategy: RecoveryStrategy::None,
-                        anchor: None,
-                        repair_candidates,
-                    },
-                );
-                let (type_args, end) = self.parse_type_argument_list(TokenKind::RBracket);
-                expr = Expr {
-                    span: self.source.span(start.cover(end)),
-                    kind: ExprKind::TypeApply {
-                        callee: Box::new(expr),
-                        type_args,
-                    },
-                };
+            if self.legacy_call_type_arguments_start(&expr) {
+                expr = self.parse_legacy_call_type_apply(expr);
                 continue;
             }
-            if self.at(TokenKind::Less)
-                && matches!(expr.kind, ExprKind::NamePath(_))
-                && self.angle_type_arguments_are_followed_by_call()
-            {
-                let start = lhs_range(&expr);
-                let (type_args, end) = self.parse_type_argument_list(TokenKind::Greater);
-                expr = Expr {
-                    span: self.source.span(start.cover(end)),
-                    kind: ExprKind::TypeApply {
-                        callee: Box::new(expr),
-                        type_args,
-                    },
-                };
+            if self.call_type_arguments_start(&expr) {
+                expr = self.parse_call_type_apply(expr);
                 continue;
             }
             if self.at(TokenKind::LParen) {
-                let start = lhs_range(&expr);
-                self.bump();
-                let mut args = Vec::new();
-                while !self.at(TokenKind::RParen) && !self.is_at_end() {
-                    args.push(self.parse_expr(0));
-                    if self.eat(TokenKind::Comma).is_some() {
-                        continue;
-                    }
-                    if self.at(TokenKind::RParen) || self.is_at_end() {
-                        break;
-                    }
-                    self.error_current(
-                        "parse.call_argument",
-                        "call argument is missing `,` or `)`",
-                        vec![",", ")"],
-                        RecoveryStrategy::InsertToken,
-                        Some(","),
-                    );
-                }
-                let end = self.eat(TokenKind::RParen).map_or_else(
-                    || lhs_range(args.last().unwrap_or(&expr)),
-                    |token| token.range,
-                );
-                expr = Expr {
-                    span: self.source.span(start.cover(end)),
-                    kind: ExprKind::Call {
-                        callee: Box::new(expr),
-                        args,
-                    },
-                };
+                expr = self.parse_call_postfix(expr);
                 continue;
             }
             if self.at(TokenKind::Dot) {
-                let start = lhs_range(&expr);
-                let dot = self.bump();
-                let (field, field_range) = if self.at(TokenKind::Ident) {
-                    let field = self.bump();
-                    (field.text, field.range)
-                } else {
-                    self.error_current(
-                        "parse.field_access",
-                        "field access is missing a field name",
-                        vec!["field name"],
-                        RecoveryStrategy::InsertToken,
-                        None,
-                    );
-                    (String::new(), dot.range)
-                };
-                expr = Expr {
-                    span: self.source.span(start.cover(field_range)),
-                    kind: ExprKind::FieldAccess {
-                        base: Box::new(expr),
-                        field,
-                        field_span: self.source.span(field_range),
-                    },
-                };
+                expr = self.parse_field_postfix(expr);
                 continue;
             }
             if self.at(TokenKind::Question) {
-                let token = self.bump();
-                expr = Expr {
-                    span: self.source.span(lhs_range(&expr).cover(token.range)),
-                    kind: ExprKind::Try(Box::new(expr)),
-                };
+                expr = self.parse_try_postfix(expr);
                 continue;
             }
             break;
         }
         expr
+    }
+
+    fn legacy_call_type_arguments_start(&self, expr: &Expr) -> bool {
+        self.at(TokenKind::LBracket) && matches!(expr.kind, ExprKind::NamePath(_))
+    }
+
+    fn call_type_arguments_start(&self, expr: &Expr) -> bool {
+        self.at(TokenKind::Less)
+            && matches!(expr.kind, ExprKind::NamePath(_))
+            && self.angle_type_arguments_are_followed_by_call()
+    }
+
+    fn parse_legacy_call_type_apply(&mut self, expr: Expr) -> Expr {
+        let start = lhs_range(&expr);
+        let open_index = self.cursor;
+        let open = self.current().clone();
+        let close = self.matching_delimiter(open_index, TokenKind::LBracket, TokenKind::RBracket);
+        let repair_candidates = delimiter_repair_candidate(
+            self.source,
+            "parse.call_type_argument_delimiters",
+            "Use angle brackets for call type arguments",
+            "Replace square-bracket call type arguments with angle brackets",
+            (&open, "<"),
+            close.as_ref().map(|token| (token, ">")),
+        );
+        self.error_at_token(
+            &open,
+            DiagnosticRequest {
+                id: "parse.legacy_call_type_argument_delimiters",
+                message: "square-bracket explicit type arguments are no longer accepted for calls; use angle brackets".to_string(),
+                parser_context: self.context,
+                expected: vec!["<"],
+                strategy: RecoveryStrategy::None,
+                anchor: None,
+                repair_candidates,
+            },
+        );
+        self.parse_type_apply(expr, start, TokenKind::RBracket)
+    }
+
+    fn parse_call_type_apply(&mut self, expr: Expr) -> Expr {
+        let start = lhs_range(&expr);
+        self.parse_type_apply(expr, start, TokenKind::Greater)
+    }
+
+    fn parse_type_apply(&mut self, expr: Expr, start: TextRange, closing: TokenKind) -> Expr {
+        let (type_args, end) = self.parse_type_argument_list(closing);
+        Expr {
+            span: self.source.span(start.cover(end)),
+            kind: ExprKind::TypeApply {
+                callee: Box::new(expr),
+                type_args,
+            },
+        }
+    }
+
+    fn parse_call_postfix(&mut self, expr: Expr) -> Expr {
+        let start = lhs_range(&expr);
+        self.bump();
+        let mut args = Vec::new();
+        while !self.at(TokenKind::RParen) && !self.is_at_end() {
+            args.push(self.parse_expr(0));
+            if self.eat(TokenKind::Comma).is_some() {
+                continue;
+            }
+            if self.at(TokenKind::RParen) || self.is_at_end() {
+                break;
+            }
+            self.error_current(
+                "parse.call_argument",
+                "call argument is missing `,` or `)`",
+                vec![",", ")"],
+                RecoveryStrategy::InsertToken,
+                Some(","),
+            );
+        }
+        let end = self.eat(TokenKind::RParen).map_or_else(
+            || lhs_range(args.last().unwrap_or(&expr)),
+            |token| token.range,
+        );
+        Expr {
+            span: self.source.span(start.cover(end)),
+            kind: ExprKind::Call {
+                callee: Box::new(expr),
+                args,
+            },
+        }
+    }
+
+    fn parse_field_postfix(&mut self, expr: Expr) -> Expr {
+        let start = lhs_range(&expr);
+        let dot = self.bump();
+        let (field, field_range) = if self.at(TokenKind::Ident) {
+            let field = self.bump();
+            (field.text, field.range)
+        } else {
+            self.error_current(
+                "parse.field_access",
+                "field access is missing a field name",
+                vec!["field name"],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+            (String::new(), dot.range)
+        };
+        Expr {
+            span: self.source.span(start.cover(field_range)),
+            kind: ExprKind::FieldAccess {
+                base: Box::new(expr),
+                field,
+                field_span: self.source.span(field_range),
+            },
+        }
+    }
+
+    fn parse_try_postfix(&mut self, expr: Expr) -> Expr {
+        let token = self.bump();
+        Expr {
+            span: self.source.span(lhs_range(&expr).cover(token.range)),
+            kind: ExprKind::Try(Box::new(expr)),
+        }
     }
 
     fn angle_type_arguments_are_followed_by_call(&self) -> bool {
@@ -2255,7 +2276,7 @@ impl<'a> ExprParser<'a> {
     fn peek_kind(&self, offset: usize) -> Option<TokenKind> {
         self.tokens
             .get(self.cursor + offset)
-            .map(|token| token.kind.clone())
+            .map(|token| token.kind)
     }
 
     fn at_ident_text(&self, text: &str) -> bool {

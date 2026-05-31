@@ -16,30 +16,43 @@ const DEFAULT_DEPENDENCY_CYCLE_LIMIT: usize = 5;
 const DEFAULT_MAX_WARNINGS: usize = 50;
 
 fn main() {
-    let args: Vec<_> = env::args().skip(1).collect();
-    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+    if help_requested(env::args().skip(1)) {
         println!("{}", usage());
         return;
     }
 
-    let config = match Config::parse(args) {
+    let config = match Config::parse(env::args().skip(1)) {
         Ok(config) => config,
-        Err(message) => {
-            eprintln!("{message}");
-            std::process::exit(2);
-        }
+        Err(message) => exit_with_message(2, message),
     };
 
     let mut findings = match collect_findings(&config) {
         Ok(findings) => findings,
-        Err(message) => {
-            eprintln!("{message}");
-            std::process::exit(1);
-        }
+        Err(message) => exit_with_message(1, message),
     };
 
     findings.sort_by(Finding::compare);
+    emit_findings(&findings, &config);
 
+    if config.dependency_summary {
+        emit_dependency_summary(&config);
+    }
+
+    if findings.iter().any(Finding::blocks_merge) {
+        std::process::exit(1);
+    }
+}
+
+fn help_requested(args: impl IntoIterator<Item = String>) -> bool {
+    args.into_iter().any(|arg| arg == "--help" || arg == "-h")
+}
+
+fn exit_with_message(code: i32, message: String) -> ! {
+    eprintln!("{message}");
+    std::process::exit(code);
+}
+
+fn emit_findings(findings: &[Finding], config: &Config) {
     let shown = findings.len().min(config.max_warnings);
     for finding in findings.iter().take(config.max_warnings) {
         if config.github_annotations {
@@ -55,34 +68,23 @@ fn main() {
             findings.len()
         );
     }
+}
 
-    if config.dependency_summary {
-        let files = match collect_configured_rust_files(&config) {
-            Ok(files) => files,
-            Err(message) => {
-                eprintln!("{message}");
-                std::process::exit(1);
-            }
-        };
-        let summary = match dependency_graph::collect_summary(
-            files,
-            config.dependency_hotspots,
-            config.dependency_cycle_limit,
-        ) {
-            Ok(summary) => summary,
-            Err(message) => {
-                eprintln!("{message}");
-                std::process::exit(1);
-            }
-        };
-        if let Err(message) = dependency_graph::emit_summary(&summary) {
-            eprintln!("{message}");
-            std::process::exit(1);
-        }
-    }
-
-    if findings.iter().any(Finding::blocks_merge) {
-        std::process::exit(1);
+fn emit_dependency_summary(config: &Config) {
+    let files = match collect_configured_rust_files(config) {
+        Ok(files) => files,
+        Err(message) => exit_with_message(1, message),
+    };
+    let summary = match dependency_graph::collect_summary(
+        files,
+        config.dependency_hotspots,
+        config.dependency_cycle_limit,
+    ) {
+        Ok(summary) => summary,
+        Err(message) => exit_with_message(1, message),
+    };
+    if let Err(message) = dependency_graph::emit_summary(&summary) {
+        exit_with_message(1, message);
     }
 }
 
@@ -101,79 +103,115 @@ struct Config {
 
 impl Config {
     fn parse(args: impl IntoIterator<Item = String>) -> Result<Self, String> {
-        let mut dependency_cycle_limit = DEFAULT_DEPENDENCY_CYCLE_LIMIT;
-        let mut dependency_hotspots = DEFAULT_DEPENDENCY_HOTSPOTS;
-        let mut dependency_summary = false;
-        let mut github_annotations = false;
-        let mut deny_numbered_split_files = false;
-        let mut file_line_threshold = DEFAULT_FILE_LINE_THRESHOLD;
-        let mut max_warnings = DEFAULT_MAX_WARNINGS;
-        let mut roots = Vec::new();
-        let mut threshold = DEFAULT_THRESHOLD;
+        let mut builder = ConfigBuilder::default();
         let mut args = args.into_iter();
 
         while let Some(arg) = args.next() {
-            match arg.as_str() {
-                "--dependency-summary" => dependency_summary = true,
-                "--dependency-cycle-limit" => {
-                    let value = args
-                        .next()
-                        .ok_or_else(|| "--dependency-cycle-limit requires a value".to_string())?;
-                    dependency_cycle_limit =
-                        parse_positive_usize("--dependency-cycle-limit", &value)?;
-                }
-                "--dependency-hotspots" => {
-                    let value = args
-                        .next()
-                        .ok_or_else(|| "--dependency-hotspots requires a value".to_string())?;
-                    dependency_hotspots = parse_positive_usize("--dependency-hotspots", &value)?;
-                }
-                "--deny-numbered-split-files" => deny_numbered_split_files = true,
-                "--github-annotations" => github_annotations = true,
-                "--file-line-threshold" => {
-                    let value = args
-                        .next()
-                        .ok_or_else(|| "--file-line-threshold requires a value".to_string())?;
-                    file_line_threshold = parse_positive_usize("--file-line-threshold", &value)?;
-                }
-                "--max-warnings" => {
-                    let value = args
-                        .next()
-                        .ok_or_else(|| "--max-warnings requires a value".to_string())?;
-                    max_warnings = parse_positive_usize("--max-warnings", &value)?;
-                }
-                "--threshold" => {
-                    let value = args
-                        .next()
-                        .ok_or_else(|| "--threshold requires a value".to_string())?;
-                    threshold = value
-                        .parse()
-                        .map_err(|_| format!("--threshold must be a number, got {value:?}"))?;
-                    if threshold <= 0.0 {
-                        return Err("--threshold must be greater than zero".to_string());
-                    }
-                }
-                _ if arg.starts_with('-') => return Err(format!("unknown option {arg:?}")),
-                _ => roots.push(PathBuf::from(arg)),
-            }
+            builder.parse_arg(arg, &mut args)?;
         }
 
-        if roots.is_empty() {
-            roots.push(PathBuf::from("crates"));
-        }
-
-        Ok(Self {
-            dependency_cycle_limit,
-            dependency_hotspots,
-            dependency_summary,
-            deny_numbered_split_files,
-            github_annotations,
-            file_line_threshold,
-            max_warnings,
-            roots,
-            threshold,
-        })
+        Ok(builder.finish())
     }
+}
+
+#[derive(Debug)]
+struct ConfigBuilder {
+    dependency_cycle_limit: usize,
+    dependency_hotspots: usize,
+    dependency_summary: bool,
+    deny_numbered_split_files: bool,
+    github_annotations: bool,
+    file_line_threshold: usize,
+    max_warnings: usize,
+    roots: Vec<PathBuf>,
+    threshold: f64,
+}
+
+impl Default for ConfigBuilder {
+    fn default() -> Self {
+        Self {
+            dependency_cycle_limit: DEFAULT_DEPENDENCY_CYCLE_LIMIT,
+            dependency_hotspots: DEFAULT_DEPENDENCY_HOTSPOTS,
+            dependency_summary: false,
+            deny_numbered_split_files: false,
+            github_annotations: false,
+            file_line_threshold: DEFAULT_FILE_LINE_THRESHOLD,
+            max_warnings: DEFAULT_MAX_WARNINGS,
+            roots: Vec::new(),
+            threshold: DEFAULT_THRESHOLD,
+        }
+    }
+}
+
+impl ConfigBuilder {
+    fn parse_arg(
+        &mut self,
+        arg: String,
+        args: &mut impl Iterator<Item = String>,
+    ) -> Result<(), String> {
+        match arg.as_str() {
+            "--dependency-summary" => self.dependency_summary = true,
+            "--dependency-cycle-limit" => {
+                self.dependency_cycle_limit = parse_next_usize(args, "--dependency-cycle-limit")?;
+            }
+            "--dependency-hotspots" => {
+                self.dependency_hotspots = parse_next_usize(args, "--dependency-hotspots")?;
+            }
+            "--deny-numbered-split-files" => self.deny_numbered_split_files = true,
+            "--github-annotations" => self.github_annotations = true,
+            "--file-line-threshold" => {
+                self.file_line_threshold = parse_next_usize(args, "--file-line-threshold")?;
+            }
+            "--max-warnings" => self.max_warnings = parse_next_usize(args, "--max-warnings")?,
+            "--threshold" => {
+                self.threshold = parse_next_threshold(args)?;
+            }
+            _ if arg.starts_with('-') => return Err(format!("unknown option {arg:?}")),
+            _ => self.roots.push(PathBuf::from(arg)),
+        }
+        Ok(())
+    }
+
+    fn finish(mut self) -> Config {
+        if self.roots.is_empty() {
+            self.roots.push(PathBuf::from("crates"));
+        }
+
+        Config {
+            dependency_cycle_limit: self.dependency_cycle_limit,
+            dependency_hotspots: self.dependency_hotspots,
+            dependency_summary: self.dependency_summary,
+            deny_numbered_split_files: self.deny_numbered_split_files,
+            github_annotations: self.github_annotations,
+            file_line_threshold: self.file_line_threshold,
+            max_warnings: self.max_warnings,
+            roots: self.roots,
+            threshold: self.threshold,
+        }
+    }
+}
+
+fn parse_next_usize(
+    args: &mut impl Iterator<Item = String>,
+    option: &str,
+) -> Result<usize, String> {
+    let value = args
+        .next()
+        .ok_or_else(|| format!("{option} requires a value"))?;
+    parse_positive_usize(option, &value)
+}
+
+fn parse_next_threshold(args: &mut impl Iterator<Item = String>) -> Result<f64, String> {
+    let value = args
+        .next()
+        .ok_or_else(|| "--threshold requires a value".to_string())?;
+    let threshold = value
+        .parse()
+        .map_err(|_| format!("--threshold must be a number, got {value:?}"))?;
+    if threshold <= 0.0 {
+        return Err("--threshold must be greater than zero".to_string());
+    }
+    Ok(threshold)
 }
 
 fn usage() -> String {

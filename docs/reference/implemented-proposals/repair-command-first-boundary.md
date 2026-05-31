@@ -32,7 +32,6 @@ follows:
 - Command tests cover preview, application, refusal, JSON output, stale target
   handling, verification rollback, and preservation of the existing advisory
   `check --json` boundary.
-- Remaining unresolved repair-loop behavior stays in proposal text.
 
 ## Handoff
 
@@ -43,8 +42,6 @@ input behavior is specified outside this historical record. Use
 [../../specification/repair-json.md](../../specification/repair-json.md) for
 current behavior.
 
-Use
-[../../proposals/agent-repair-loop-followups.md](../../proposals/agent-repair-loop-followups.md)
-for adjacent command-level proposal work. Do not promote broader repair-loop
-behavior into `../../specification/` before implementation and tests support
-it.
+Adjacent command-level proposal work needs a narrow proposal page before
+implementation. Do not promote broader repair-loop behavior into
+`../../specification/` before implementation and tests support it.

@@ -612,7 +612,7 @@ impl<'a> Classifier<'a> {
             .iter()
             .rev()
             .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
-            .map(|token| token.kind.clone())
+            .map(|token| token.kind)
     }
 
     fn next_significant_kind(&self) -> Option<TokenKind> {
@@ -620,7 +620,7 @@ impl<'a> Classifier<'a> {
             .iter()
             .skip(self.cursor + 1)
             .find(|token| !matches!(token.kind, TokenKind::Whitespace | TokenKind::Newline))
-            .map(|token| token.kind.clone())
+            .map(|token| token.kind)
     }
 }
 

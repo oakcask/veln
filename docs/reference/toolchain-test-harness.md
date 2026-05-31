@@ -9,9 +9,6 @@ reference for test organization, not a source for command behavior.
   [../specification/commands.md](../specification/commands.md).
 - JSON output behavior belongs in
   [../specification/json-output.md](../specification/json-output.md).
-- This page owns implemented manifest fields. Planned manifest extensions
-  belong in
-  [../proposals/toolchain-test-harness-extensions.md](../proposals/toolchain-test-harness-extensions.md).
 
 ## Read When
 

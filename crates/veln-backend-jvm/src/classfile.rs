@@ -456,141 +456,168 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
 
     fn emit_expr(&mut self, code: &mut MethodCode, expr: &IrExpr) {
         match &expr.kind {
-            IrExprKind::Local(name) => code.aload(self.local_slot(name)),
-            IrExprKind::BoolLiteral(value) => {
-                code.getstatic(
-                    "java/lang/Boolean",
-                    if *value { "TRUE" } else { "FALSE" },
-                    "Ljava/lang/Boolean;",
-                );
-            }
-            IrExprKind::StringLiteral(value) => code.ldc_string(&veln_string_literal_value(value)),
-            IrExprKind::IntLiteral(value) => {
-                code.ldc_long(value.parse::<i64>().unwrap_or(0));
-                code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
-            }
-            IrExprKind::FloatLiteral(value) => {
-                code.ldc_double(value.parse::<f64>().unwrap_or(0.0));
-                code.invokestatic("java/lang/Double", "valueOf", "(D)Ljava/lang/Double;");
-            }
-            IrExprKind::Unit => {
-                code.getstatic(
-                    &self.program.options.runtime_class,
-                    "UNIT",
-                    &format!("L{}$Unit;", self.program.options.runtime_class),
-                );
-            }
-            IrExprKind::FunctionValue(name) => {
-                code.new_class(&format!(
-                    "{}${}",
-                    self.program.options.program_class,
-                    self.program.function_name(name)
-                ));
-                code.op(0x59);
-                code.invokespecial(
-                    &format!(
-                        "{}${}",
-                        self.program.options.program_class,
-                        self.program.function_name(name)
-                    ),
-                    "<init>",
-                    "()V",
-                );
-            }
-            IrExprKind::ResultOk(value) => self.emit_unary_runtime_with_descriptor(
-                code,
-                "ok",
-                &format!(
-                    "(Ljava/lang/Object;)L{}$Result;",
-                    self.program.options.runtime_class
-                ),
-                value,
-            ),
-            IrExprKind::ResultErr(value) => self.emit_unary_runtime_with_descriptor(
-                code,
-                "err",
-                &format!(
-                    "(Ljava/lang/Object;)L{}$Result;",
-                    self.program.options.runtime_class
-                ),
-                value,
-            ),
-            IrExprKind::OptionSome(value) => self.emit_unary_runtime_with_descriptor(
-                code,
-                "some",
-                &format!(
-                    "(Ljava/lang/Object;)L{}$Option;",
-                    self.program.options.runtime_class
-                ),
-                value,
-            ),
-            IrExprKind::OptionNone => {
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    "none",
-                    &format!("()L{}$Option;", self.program.options.runtime_class),
-                );
-            }
-            IrExprKind::ListNil => {
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    "listNil",
-                    "()Ljava/lang/Object;",
-                );
-            }
-            IrExprKind::ListCons { head, tail } => {
-                self.emit_expr(code, head);
-                self.emit_expr(code, tail);
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    "listCons",
-                    "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
-                );
-            }
+            IrExprKind::Local(name) => self.emit_local(code, name),
+            IrExprKind::BoolLiteral(value) => self.emit_bool_literal(code, *value),
+            IrExprKind::StringLiteral(value) => self.emit_string_literal(code, value),
+            IrExprKind::IntLiteral(value) => self.emit_int_literal(code, value),
+            IrExprKind::FloatLiteral(value) => self.emit_float_literal(code, value),
+            IrExprKind::Unit => self.emit_unit(code),
+            IrExprKind::FunctionValue(name) => self.emit_function_value(code, name),
+            IrExprKind::ResultOk(value) => self.emit_result_constructor(code, "ok", value),
+            IrExprKind::ResultErr(value) => self.emit_result_constructor(code, "err", value),
+            IrExprKind::OptionSome(value) => self.emit_option_some(code, value),
+            IrExprKind::OptionNone => self.emit_option_none(code),
+            IrExprKind::ListNil => self.emit_list_nil(code),
+            IrExprKind::ListCons { head, tail } => self.emit_list_cons(code, head, tail),
             IrExprKind::AdtVariant { name, payloads } => {
-                code.ldc_string(&name.join("::"));
-                self.emit_object_array(code, payloads.len(), |this, code, index| {
-                    this.emit_expr(code, &payloads[index]);
-                });
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    "adt",
-                    "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;",
-                );
+                self.emit_adt_variant(code, name, payloads)
             }
             IrExprKind::Call { target, args } => self.emit_call(code, expr, target, args),
-            IrExprKind::FieldAccess { base, field } => {
-                self.emit_expr(code, base);
-                code.ldc_string(field);
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    "recordField",
-                    "(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;",
-                );
-            }
+            IrExprKind::FieldAccess { base, field } => self.emit_field_access(code, base, field),
             IrExprKind::Try(value) => self.emit_try(code, value),
             IrExprKind::Record(fields) => self.emit_record(code, fields),
             IrExprKind::Dict(entries) => self.emit_dict(code, entries),
-            IrExprKind::List(items) => {
-                self.emit_object_array(code, items.len(), |this, code, index| {
-                    this.emit_expr(code, &items[index]);
-                });
-                code.invokestatic(
-                    &self.program.options.runtime_class,
-                    "list",
-                    "([Ljava/lang/Object;)Ljava/util/List;",
-                );
-            }
+            IrExprKind::List(items) => self.emit_list(code, items),
             IrExprKind::Match { scrutinee, arms } => self.emit_match(code, scrutinee, arms),
-            IrExprKind::Prefix { op, expr } => {
-                let method = match op {
-                    PrefixOp::Not => "not",
-                    PrefixOp::Negate => "negate",
-                };
-                self.emit_unary_runtime(code, method, expr);
-            }
+            IrExprKind::Prefix { op, expr } => self.emit_prefix(code, *op, expr),
             IrExprKind::Binary { op, left, right } => self.emit_binary(code, *op, left, right),
         }
+    }
+
+    fn emit_local(&mut self, code: &mut MethodCode, name: &str) {
+        code.aload(self.local_slot(name));
+    }
+
+    fn emit_bool_literal(&mut self, code: &mut MethodCode, value: bool) {
+        code.getstatic(
+            "java/lang/Boolean",
+            if value { "TRUE" } else { "FALSE" },
+            "Ljava/lang/Boolean;",
+        );
+    }
+
+    fn emit_string_literal(&mut self, code: &mut MethodCode, value: &str) {
+        code.ldc_string(&veln_string_literal_value(value));
+    }
+
+    fn emit_int_literal(&mut self, code: &mut MethodCode, value: &str) {
+        code.ldc_long(value.parse::<i64>().unwrap_or(0));
+        code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
+    }
+
+    fn emit_float_literal(&mut self, code: &mut MethodCode, value: &str) {
+        code.ldc_double(value.parse::<f64>().unwrap_or(0.0));
+        code.invokestatic("java/lang/Double", "valueOf", "(D)Ljava/lang/Double;");
+    }
+
+    fn emit_unit(&mut self, code: &mut MethodCode) {
+        code.getstatic(
+            &self.program.options.runtime_class,
+            "UNIT",
+            &format!("L{}$Unit;", self.program.options.runtime_class),
+        );
+    }
+
+    fn emit_function_value(&mut self, code: &mut MethodCode, name: &str) {
+        let class_name = format!(
+            "{}${}",
+            self.program.options.program_class,
+            self.program.function_name(name)
+        );
+        code.new_class(&class_name);
+        code.op(0x59);
+        code.invokespecial(&class_name, "<init>", "()V");
+    }
+
+    fn emit_result_constructor(&mut self, code: &mut MethodCode, method: &str, value: &IrExpr) {
+        self.emit_unary_runtime_with_descriptor(
+            code,
+            method,
+            &format!(
+                "(Ljava/lang/Object;)L{}$Result;",
+                self.program.options.runtime_class
+            ),
+            value,
+        );
+    }
+
+    fn emit_option_some(&mut self, code: &mut MethodCode, value: &IrExpr) {
+        self.emit_unary_runtime_with_descriptor(
+            code,
+            "some",
+            &format!(
+                "(Ljava/lang/Object;)L{}$Option;",
+                self.program.options.runtime_class
+            ),
+            value,
+        );
+    }
+
+    fn emit_option_none(&mut self, code: &mut MethodCode) {
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "none",
+            &format!("()L{}$Option;", self.program.options.runtime_class),
+        );
+    }
+
+    fn emit_list_nil(&mut self, code: &mut MethodCode) {
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "listNil",
+            "()Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_list_cons(&mut self, code: &mut MethodCode, head: &IrExpr, tail: &IrExpr) {
+        self.emit_expr(code, head);
+        self.emit_expr(code, tail);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "listCons",
+            "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_adt_variant(&mut self, code: &mut MethodCode, name: &[String], payloads: &[IrExpr]) {
+        code.ldc_string(&name.join("::"));
+        self.emit_object_array(code, payloads.len(), |this, code, index| {
+            this.emit_expr(code, &payloads[index]);
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "adt",
+            "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_field_access(&mut self, code: &mut MethodCode, base: &IrExpr, field: &str) {
+        self.emit_expr(code, base);
+        code.ldc_string(field);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "recordField",
+            "(Ljava/lang/Object;Ljava/lang/String;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_list(&mut self, code: &mut MethodCode, items: &[IrExpr]) {
+        self.emit_object_array(code, items.len(), |this, code, index| {
+            this.emit_expr(code, &items[index]);
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_prefix(&mut self, code: &mut MethodCode, op: PrefixOp, expr: &IrExpr) {
+        let method = match op {
+            PrefixOp::Not => "not",
+            PrefixOp::Negate => "negate",
+        };
+        self.emit_unary_runtime(code, method, expr);
     }
 
     fn emit_call(
