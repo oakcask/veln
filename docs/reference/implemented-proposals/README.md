@@ -46,6 +46,8 @@ behavior.
   [tail-recursion-trampoline.md](tail-recursion-trampoline.md).
 - Type parameter angle brackets:
   [type-parameter-angle-brackets.md](type-parameter-angle-brackets.md).
+- Canonical type argument delimiters:
+  [canonical-type-argument-delimiters.md](canonical-type-argument-delimiters.md).
 
 ## Skip Unless Needed
 

@@ -15,9 +15,10 @@ Implemented type annotations:
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
 
-Angle brackets are the source spelling for type constructor arguments. The
-legacy parenthesized spelling remains accepted in type positions during the
-compatibility window.
+Angle brackets are the source spelling for type constructor arguments. Legacy
+parenthesized type constructor arguments in type positions are rejected with a
+parse diagnostic at the opening delimiter and a safe repair candidate when both
+delimiters are present.
 
 `Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs. `List<T>` and
 source-declared ADTs use descriptor entries for constructor payload typing,

@@ -22,7 +22,7 @@ single runtime lock.
 
 The source-level coordination model should prefer structured tasks plus typed
 MPSC channels over an `async`/`await`-centered style. `spawn` creates a task.
-Normal values and work results move through `Sender(T)` and `Receiver(T)`.
+Normal values and work results move through `Sender<T>` and `Receiver<T>`.
 Joining or awaiting a task remains useful for lifecycle, cancellation, and
 failure aggregation, but it should not be the default way to express ordinary
 data flow between concurrent computations.
@@ -30,7 +30,7 @@ data flow between concurrent computations.
 Channels should start with a bounded MPSC shape:
 
 ```veln
-let (tx, rx) = channel::bounded[String](32)
+let pair = channel::bounded<String>(32)
 ```
 
 The sender endpoint may be cloned and sent to multiple producers. The receiver
@@ -40,12 +40,12 @@ Unbounded channels may be added later, but should be explicit rather than the
 default.
 
 Channel operations should use existing Veln absence and error conventions.
-Receiving from a closed channel returns `Option(T)`. Sending to a channel whose
-receiver has been dropped returns `Result((), SendError)`.
+Receiving from a closed channel returns `Option<T>`. Sending to a channel whose
+receiver has been dropped returns `Result<(), SendError>`.
 
 ```veln
-channel::send(tx, value) -> Result((), SendError)
-channel::recv(rx) -> Option(T)
+channel::send(tx, value) -> Result<(), SendError>
+channel::recv(rx) -> Option<T>
 channel::close(tx) -> ()
 ```
 
@@ -89,13 +89,13 @@ locks.
   interpreter lock.
 - Source-level concurrent data flow should be expressed primarily with typed
   MPSC channels rather than with general-purpose shared mutable state.
-- `Sender(T)` is cloneable for multiple producers; `Receiver(T)` is
+- `Sender<T>` is cloneable for multiple producers; `Receiver<T>` is
   single-consumer in the first model.
 - Bounded channels are the default channel constructor. A rendezvous channel is
   a bounded channel with capacity zero.
-- Sending returns `Result((), SendError)` when the receiver is no longer
+- Sending returns `Result<(), SendError>` when the receiver is no longer
   available.
-- Receiving returns `Option(T)`, with `None` representing closed and drained.
+- Receiving returns `Option<T>`, with `None` representing closed and drained.
 - Channel construction, sender clone, send, receive, and close calls carry the
   coarse `concurrency` effect.
 - Task spawn, task join, and task cancellation calls carry the coarse
@@ -137,26 +137,26 @@ becoming the default programming style.
 ## Reference Surface
 
 The current workspace implements a minimal executable bounded-channel slice:
-`channel::bounded(capacity)`, `channel::bounded[T](capacity)`,
+`channel::bounded(capacity)`, `channel::bounded<T>(capacity)`,
 `channel::clone(tx)`, `channel::send(tx, value)`, `channel::recv(rx)`,
 `channel::select(left, right)`, and `channel::close(tx)` are `concurrency`
 effect calls. Public functions and tests that reach these calls must declare
 `effects [concurrency]`. It also implements an executable task slice:
-`task::spawn(job)`, `task::spawn[T](job)`,
+`task::spawn(job)`, `task::spawn<T>(job)`,
 `task::join(task)`, and `task::cancel(task)` are `concurrency` effect calls.
 
 The implemented constructor infers the item type from an expected
-`{tx: Sender(T), rx: Receiver(T)}` record type, or uses the explicit item type
-from `channel::bounded[T](capacity)`. The runtime supports direct send with
+`{tx: Sender<T>, rx: Receiver<T>}` record type, or uses the explicit item type
+from `channel::bounded<T>(capacity)`. The runtime supports direct send with
 positive-capacity backpressure, sender clone, blocking receive, close on a
 single channel pair, and zero-capacity rendezvous transfer between a waiting
 sender and receiver. Two-receiver selection returns
-`Option({index: Int, value: T})`, rotating the first polled receiver when both
+`Option<{index: Int, value: T}>`, rotating the first polled receiver when both
 receivers are ready in the same poll and returning `None` only after both
 receivers are closed and drained. `channel::select_priority` exposes an
 explicit left-priority variant for callers that need deterministic receiver
 preference. The task runtime starts zero-argument callables on JVM threads,
 freezes task results before they cross the task boundary, joins with
-`Result(T, JoinError)`, and treats cancellation as a cooperative interruption
+`Result<T, JoinError>`, and treats cancellation as a cooperative interruption
 request. Result-returning channel selection variants report cooperative
 cancellation separately from closed or timed-out selection.

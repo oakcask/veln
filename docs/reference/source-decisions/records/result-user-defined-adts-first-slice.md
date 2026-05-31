@@ -44,7 +44,7 @@ those types.
 
 ## First-Slice Rules
 
-- `Result(T, E)` and `Option(T)` are built-in parametric forms with known branch
+- `Result<T, E>` and `Option<T>` are built-in parametric forms with known branch
   behavior for `?`, `match`, hole expected types, and diagnostics.
 - Records, lists, and dictionaries are the first user-buildable data shapes.
 - Source-level `type`, `enum`, `union`, or equivalent ADT declarations are
@@ -75,7 +75,7 @@ wrapping, exhaustiveness, generated docs, or candidate search.
 ## Consequence
 
 The first checker can keep type analysis small while still producing concrete
-diagnostics such as `Result(UserConfig, ParseError)` and hole queries for
+diagnostics such as `Result<UserConfig, ParseError>` and hole queries for
 `UserConfig`. Agents get useful repair targets early, and the language avoids
 locking in ADT syntax before the surrounding pattern, module, and documentation
 model is clearer.

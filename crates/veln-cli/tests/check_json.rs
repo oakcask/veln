@@ -783,7 +783,7 @@ fn fmt_formats_supported_golden_and_is_idempotent() {
         concat!(
             "mod app\n",
             "use stdio\n",
-            "pub   fn   main ( name : String ) -> Result ( () , AppError ) effects [ stdio ]\n",
+            "pub   fn   main ( name : String ) -> Result < () , AppError > effects [ stdio ]\n",
             " require name != \"\"\n",
             " let payload : { message : String, values : Vec<Int> } = { message : name , values : [ 1 , 2 , add ( 3 , 4 ) ] }\n",
             " stdio::println ( payload )\n",
@@ -847,10 +847,10 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
     project.write(
         "main.veln",
         concat!(
-            "fn parse ( raw : String ) -> Result ( Int , AppError )\n",
+            "fn parse ( raw : String ) -> Result < Int , AppError >\n",
             " Ok ( 1 )\n",
             "end\n",
-            "pub fn main ( raw : String ) -> Result ( { value : Int, tags : Vec<String> } , AppError )\n",
+            "pub fn main ( raw : String ) -> Result < { value : Int, tags : Vec<String> } , AppError >\n",
             " ensure output.value >= 0 and not ( output.value == - 1 )\n",
             " let parsed : Int = parse ( raw ) ?\n",
             " { value : parsed + 1 * ( 2 + 3 ) , tags : [ choose ( raw , \"fallback\" ) , \"done\" ] }\n",
@@ -2927,7 +2927,7 @@ fn run_executes_explicit_type_argument_bounded_channel_when_jdk_is_available() {
         "main.veln",
         concat!(
             "pub fn main() -> () effects [concurrency, stdio]\n",
-            "  let pair = channel::bounded[String](1)\n",
+            "  let pair = channel::bounded<String>(1)\n",
             "  let _ = channel::send(pair.tx, \"hello\")\n",
             "  let output: String = match channel::recv(pair.rx)\n",
             "    Some(value) => value\n",

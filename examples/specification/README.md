@@ -73,6 +73,8 @@ against the built `veln` binary.
   parameters, local bindings, record fields, and pattern bindings.
 - `check/parse-recovery-diagnostics/`: parse recovery diagnostics for call
   arguments, missing newlines, and malformed let patterns.
+- `check/type-delimiter-diagnostics/`: legacy type delimiters report parse
+  diagnostics with safe replacement candidates.
 - `check/predicate-pattern-diagnostics/`: unsupported contract and `satisfy`
   predicate syntax, malformed `satisfy` suffixes, refutable `let` patterns,
   and invalid `satisfy` candidate bindings.
@@ -138,8 +140,6 @@ against the built `veln` binary.
   selected.
 - `doc/parse-gate/`: generated documentation is blocked by selected-source
   parse diagnostics before writing Markdown.
-- `fmt/legacy-type-arguments/`: formatter canonicalization for compatibility
-  parenthesized type parameters and type arguments.
 - `fmt/canonical-formatting/`: headers, imports, standalone and trailing
   comments, contracts, match indentation, operators, postfix `?`, lists,
   records, and idempotence.

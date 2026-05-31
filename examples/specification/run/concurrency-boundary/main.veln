@@ -9,12 +9,12 @@ pub fn main() -> () effects [concurrency, stdio]
 		Ok(value) => value
 		Err(_) => "failed"
 	end
-	let typed_task = task::spawn[String](produce)
+	let typed_task = task::spawn<String>(produce)
 	let typed_task_output: String = match task::join(typed_task)
 		Ok(value) => value
 		Err(_) => "failed"
 	end
-	let pair = channel::bounded[String](1)
+	let pair = channel::bounded<String>(1)
 	let extra = channel::clone(pair.tx)
 	let _ = channel::send(extra, "channel")
 	let channel_output: String = match channel::select_priority_result(pair.rx, pair.rx)
@@ -28,7 +28,7 @@ pub fn main() -> () effects [concurrency, stdio]
 		Some(value) => value
 		None => "closed"
 	end
-	let closed = channel::bounded[String](1)
+	let closed = channel::bounded<String>(1)
 	channel::close(closed.tx)
 	let closed_recv: String = match channel::recv(closed.rx)
 		Some(value) => value

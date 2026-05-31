@@ -262,7 +262,7 @@ fn lowers_runnable_checked_program_to_core_and_typed_ir() {
             "fn parse(raw: String) -> Result<Int, AppError>\n",
             "  Ok(1)\n",
             "end\n",
-            "pub fn main(raw: String) -> Result((), AppError) effects [stdio]\n",
+            "pub fn main(raw: String) -> Result<(), AppError> effects [stdio]\n",
             "  let value: Int = parse(raw)?\n",
             "  stdio::println(\"ok\")\n",
             "  Ok(())\n",
@@ -561,7 +561,7 @@ fn match_expression_binds_qualified_constructor_payloads() {
 fn holes_build_blocked_core_but_not_executable_ir() {
     let source = SourceFile::new(
         "main.veln",
-        "pub fn main() -> Result((), AppError)\n  _\nend\n",
+        "pub fn main() -> Result<(), AppError>\n  _\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);

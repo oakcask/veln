@@ -8,7 +8,8 @@ full type reference.
 - Type annotations include primitives, descriptor-backed `Option`, `Result`,
   `List`, source-declared ADTs, built-in containers, records, function types,
   named type paths, and optional result bindings. Type constructor arguments
-  use angle brackets, with parenthesized arguments accepted for compatibility.
+  use angle brackets; parenthesized type constructor arguments are rejected in
+  source type positions.
 - Local inference is monomorphic and flow-sensitive within one function body.
 - `Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs. `List<T>`
   and source-declared ADTs are descriptor-backed. Their constructors, payload

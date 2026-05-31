@@ -1,0 +1,3 @@
+type Box(A)
+	Wrap(A)
+end

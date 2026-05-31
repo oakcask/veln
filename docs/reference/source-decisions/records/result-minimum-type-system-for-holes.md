@@ -31,8 +31,8 @@ Public function signatures already give the checker stable boundary facts.
 Local unification can then push those facts inward to holes without requiring a
 large inference engine. Built-in parametric forms are worth including because
 they appear in the proposed first slice and directly improve repair hints:
-`Result(User, ParseError)` is much more actionable than an opaque fallible
-value, and `Vec(User)` gives candidate search better shape than an unknown
+`Result<User, ParseError>` is much more actionable than an opaque fallible
+value, and `Vec<User>` gives candidate search better shape than an unknown
 collection.
 
 Avoiding generalized polymorphism keeps diagnostics simpler. A private helper
@@ -46,7 +46,7 @@ variables instead of concrete edit guidance.
 - Primitive types include at least `Bool`, `Int`, `Float`, `String`, and
   `()`.
 - Built-in compound types include records, homogeneous lists, homogeneous
-  dictionaries, function types, `Option(T)`, and `Result(T, E)`.
+  dictionaries, function types, `Option<T>`, and `Result<T, E>`.
 - Type variables may exist internally during checking, but public diagnostics
   should render them only when no concrete expected type can be derived.
 - Private function inference is local and monomorphic by default. The checker
@@ -62,10 +62,8 @@ variables instead of concrete edit guidance.
 
 ## Open Detail
 
-The first-slice grammar resolves the initial source spelling for type
-arguments as `Result(T, E)`, `Option(T)`, and other `TypePath(...)` forms.
-Future generic syntax can revisit that spelling if user-defined generics need a
-different shape.
+The current source spelling for type arguments is `Result<T, E>`,
+`Option<T>`, and other `TypePath<...>` forms.
 
 User-defined algebraic data types and error type inference remain separate
 open questions. This decision only says the first typed-hole implementation can

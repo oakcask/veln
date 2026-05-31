@@ -234,7 +234,7 @@ fn lowers_holes_to_node_id_backed_expression_nodes() {
 #[test]
 fn lowers_function_metadata_contracts_and_let_lines() {
     let module = lower_source(concat!(
-        "pub fn publish(user: User, count: Int) -> output: Result((), Error) effects [db, log]\n",
+        "pub fn publish(user: User, count: Int) -> output: Result<(), Error> effects [db, log]\n",
         "  require count >= 0\n",
         "  invariant count >= 0\n",
         "  ensure output == output\n",
@@ -253,7 +253,7 @@ fn lowers_function_metadata_contracts_and_let_lines() {
             .map(|binding| binding.name.as_str()),
         Some("output")
     );
-    assert_eq!(function.return_type.as_deref(), Some("Result((), Error)"));
+    assert_eq!(function.return_type.as_deref(), Some("Result<(), Error>"));
     assert_eq!(
         function.effects,
         Some(vec!["db".to_string(), "log".to_string()])

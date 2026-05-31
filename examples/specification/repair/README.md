@@ -24,6 +24,8 @@ input behavior.
   command-level preview candidates.
 - `apply-safe-candidate/`: `repair --apply` writes one safe candidate and
   verifies the result.
+- `type-delimiter-apply/`: `repair --apply` can write a safe parse delimiter
+  candidate and verify the result.
 - `apply-confirmed-override/`: confirmed override applies and records a
   manual-review candidate.
 - `refuse-multiple-candidates/`: automatic apply refuses ambiguous safe

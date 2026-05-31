@@ -508,7 +508,7 @@ mod tests {
 
     fn fixture_ids() -> SurfaceModule {
         lower_source(concat!(
-            "pub fn main(input: Int, mapper: Mapper) -> Result((), AppError) effects [stdio]\n",
+            "pub fn main(input: Int, mapper: Mapper) -> Result<(), AppError> effects [stdio]\n",
             "  let answer: Int = mapper(input)\n",
             "  stdio::println(\"done\")\n",
             "  Ok(())\n",
@@ -910,13 +910,13 @@ mod tests {
     #[test]
     fn lower_preserves_contracts_result_binding_dict_match_and_builtin_targets() {
         let module = lower_source(concat!(
-            "pub fn main(input: Option(Int), receiver: Receiver(Int), count: Int) -> result: () effects [concurrency, stdio]\n",
+            "pub fn main(input: Option<Int>, receiver: Receiver<Int>, count: Int) -> result: () effects [concurrency, stdio]\n",
             "  ensure result == ()\n",
             "  let selected: Int = match input\n",
             "    Some(value) => value\n",
             "    None => 0\n",
             "  end\n",
-            "  let table: Dict(String, Int) = {\"selected\": selected}\n",
+            "  let table: Dict<String, Int> = {\"selected\": selected}\n",
             "  channel::recv(receiver)\n",
             "  stdio::println(list::len(table))\n",
             "  None\n",

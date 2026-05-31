@@ -1,0 +1,3 @@
+fn main() -> ()
+	channel::bounded[String](1)
+end
