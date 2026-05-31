@@ -1,0 +1,4 @@
+interface:
+  display_name: "Performance Regression Audit"
+  short_description: "Measure slow compiler paths before optimizing or reporting done."
+  default_prompt: "Use $performance-regression-audit when investigating slow tests or changing analysis code that processes large generated inputs."
