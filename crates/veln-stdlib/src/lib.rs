@@ -7,14 +7,14 @@ pub struct StdlibSource {
     pub text: &'static str,
 }
 
-const CORE_PRELUDE_PATH: &str = "stdlib/core_prelude.veln";
-const CORE_PRELUDE_TEXT: &str = include_str!("../veln/core_prelude.veln");
+const PRELUDE_PATH: &str = "stdlib/prelude.veln";
+const PRELUDE_TEXT: &str = include_str!("../veln/prelude.veln");
 
-pub const fn core_prelude_source(entry: &'static str) -> StdlibSource {
+pub const fn prelude_source(entry: &'static str) -> StdlibSource {
     StdlibSource {
-        path: CORE_PRELUDE_PATH,
+        path: PRELUDE_PATH,
         entry,
-        text: CORE_PRELUDE_TEXT,
+        text: PRELUDE_TEXT,
     }
 }
 

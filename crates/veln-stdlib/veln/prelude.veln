@@ -1,22 +1,22 @@
-mod core_prelude
+mod prelude
 
-fn vec_fold(items: Vec<A>, initial: B, f: fn(B, A) -> B) -> B
+pub fn vec_fold(items: Vec<A>, initial: B, f: fn(B, A) -> B) -> B
 	prelude_builtin::vec_fold(items, initial, f)
 end
 
-fn vec_len(items: Vec<A>) -> Int
+pub fn vec_len(items: Vec<A>) -> Int
 	prelude_builtin::vec_len(items)
 end
 
-fn vec_is_empty(items: Vec<A>) -> Bool
+pub fn vec_is_empty(items: Vec<A>) -> Bool
 	vec_len(items) == 0
 end
 
-fn vec_push(items: Vec<A>, value: A) -> Vec<A>
+pub fn vec_push(items: Vec<A>, value: A) -> Vec<A>
 	vec_concat(items, [value])
 end
 
-fn vec_concat(left: Vec<A>, right: Vec<A>) -> Vec<A>
+pub fn vec_concat(left: Vec<A>, right: Vec<A>) -> Vec<A>
 	prelude_builtin::vec_fold(right, left, vec_append)
 end
 
@@ -24,7 +24,7 @@ fn vec_append(items: Vec<A>, item: A) -> Vec<A>
 	prelude_builtin::vec_push(items, item)
 end
 
-fn vec_map(items: Vec<Item>, f: fn(Item) -> A) -> Vec<A>
+pub fn vec_map(items: Vec<Item>, f: fn(Item) -> A) -> Vec<A>
 	let state: { values : Vec<A>, map : fn(Item) -> A } = prelude_builtin::vec_fold(items, { values: [], map: f }, vec_map_step)
 	state.values
 end
@@ -34,7 +34,7 @@ fn vec_map_step(state: { values : Vec<A>, map : fn(Item) -> A }, item: Item) -> 
 	{ values: vec_push(state.values, map(item)), map: map }
 end
 
-fn vec_filter(items: Vec<A>, f: fn(A) -> Bool) -> Vec<A>
+pub fn vec_filter(items: Vec<A>, f: fn(A) -> Bool) -> Vec<A>
 	let state: { values : Vec<A>, keep : fn(A) -> Bool } = prelude_builtin::vec_fold(items, { values: [], keep: f }, vec_filter_step)
 	state.values
 end
@@ -47,7 +47,7 @@ fn vec_filter_step(state: { values : Vec<A>, keep : fn(A) -> Bool }, item: A) ->
 	end
 end
 
-fn vec_try_map(items: Vec<Item>, f: fn(Item) -> Result<A, E>) -> Result<Vec<A>, E>
+pub fn vec_try_map(items: Vec<Item>, f: fn(Item) -> Result<A, E>) -> Result<Vec<A>, E>
 	let state: { values : Result<Vec<A>, E>, map : fn(Item) -> Result<A, E> } = prelude_builtin::vec_fold(items, { values: Ok([]), map: f }, vec_try_map_step)
 	state.values
 end
@@ -63,7 +63,7 @@ fn vec_try_map_step(state: { values : Result<Vec<A>, E>, map : fn(Item) -> Resul
 	end
 end
 
-fn vec_try_map_with(context: C, items: Vec<Item>, f: fn(C, Item) -> Result<A, E>) -> Result<Vec<A>, E>
+pub fn vec_try_map_with(context: C, items: Vec<Item>, f: fn(C, Item) -> Result<A, E>) -> Result<Vec<A>, E>
 	let state: { values : Result<Vec<A>, E>, map : fn(C, Item) -> Result<A, E>, context : C } = prelude_builtin::vec_fold(items, { values: Ok([]), map: f, context: context }, vec_try_map_with_step)
 	state.values
 end
@@ -80,29 +80,29 @@ fn vec_try_map_with_step(state: { values : Result<Vec<A>, E>, map : fn(C, Item) 
 	end
 end
 
-fn list_nil() -> List<A>
+pub fn list_nil() -> List<A>
 	Nil
 end
 
-fn list_cons(head: A, tail: List<A>) -> List<A>
+pub fn list_cons(head: A, tail: List<A>) -> List<A>
 	Cons(head, tail)
 end
 
-fn list_is_empty(items: List<A>) -> Bool
+pub fn list_is_empty(items: List<A>) -> Bool
 	match items
 		Nil => true
 		Cons(_, _) => false
 	end
 end
 
-fn list_fold(items: List<Item>, initial: B, f: fn(B, Item) -> B) -> B
+pub fn list_fold(items: List<Item>, initial: B, f: fn(B, Item) -> B) -> B
 	match items
 		Nil => initial
 		Cons(head, tail) => list_fold(tail, f(initial, head), f)
 	end
 end
 
-fn list_reverse(items: List<A>) -> List<A>
+pub fn list_reverse(items: List<A>) -> List<A>
 	list_reverse_step(items, Nil)
 end
 
@@ -113,7 +113,7 @@ fn list_reverse_step(items: List<A>, acc: List<A>) -> List<A>
 	end
 end
 
-fn list_map(items: List<Item>, f: fn(Item) -> A) -> List<A>
+pub fn list_map(items: List<Item>, f: fn(Item) -> A) -> List<A>
 	list_reverse(list_map_step(items, f, Nil))
 end
 
@@ -124,7 +124,7 @@ fn list_map_step(items: List<Item>, f: fn(Item) -> A, acc: List<A>) -> List<A>
 	end
 end
 
-fn list_filter(items: List<A>, f: fn(A) -> Bool) -> List<A>
+pub fn list_filter(items: List<A>, f: fn(A) -> Bool) -> List<A>
 	list_reverse(list_filter_step(items, f, Nil))
 end
 
@@ -138,7 +138,7 @@ fn list_filter_step(items: List<A>, f: fn(A) -> Bool, acc: List<A>) -> List<A>
 	end
 end
 
-fn list_try_map(items: List<Item>, f: fn(Item) -> Result<A, E>) -> Result<List<A>, E>
+pub fn list_try_map(items: List<Item>, f: fn(Item) -> Result<A, E>) -> Result<List<A>, E>
 	match list_try_map_step(items, f, Nil)
 		Ok(mapped) => Ok(list_reverse(mapped))
 		Err(error) => Err(error)
@@ -155,75 +155,75 @@ fn list_try_map_step(items: List<Item>, f: fn(Item) -> Result<A, E>, acc: List<A
 	end
 end
 
-fn dict_get(dict: Dict<K, V>, key: K) -> Option<V>
+pub fn dict_get(dict: Dict<K, V>, key: K) -> Option<V>
 	prelude_builtin::dict_get(dict, key)
 end
 
-fn dict_contains(dict: Dict<K, V>, key: K) -> Bool
+pub fn dict_contains(dict: Dict<K, V>, key: K) -> Bool
 	match prelude_builtin::dict_get(dict, key)
 		Some(_) => true
 		None => false
 	end
 end
 
-fn dict_insert(dict: Dict<K, V>, key: K, value: V) -> Dict<K, V>
+pub fn dict_insert(dict: Dict<K, V>, key: K, value: V) -> Dict<K, V>
 	prelude_builtin::dict_insert(dict, key, value)
 end
 
-fn dict_remove(dict: Dict<K, V>, key: K) -> Dict<K, V>
+pub fn dict_remove(dict: Dict<K, V>, key: K) -> Dict<K, V>
 	prelude_builtin::dict_remove(dict, key)
 end
 
-fn option_map(value: Option<A>, f: fn(A) -> B) -> Option<B>
+pub fn option_map(value: Option<A>, f: fn(A) -> B) -> Option<B>
 	match value
 		Some(inner) => Some(f(inner))
 		None => None
 	end
 end
 
-fn option_and_then(value: Option<A>, f: fn(A) -> Option<B>) -> Option<B>
+pub fn option_and_then(value: Option<A>, f: fn(A) -> Option<B>) -> Option<B>
 	match value
 		Some(inner) => f(inner)
 		None => None
 	end
 end
 
-fn option_unwrap_or(value: Option<A>, fallback: A) -> A
+pub fn option_unwrap_or(value: Option<A>, fallback: A) -> A
 	match value
 		Some(inner) => inner
 		None => fallback
 	end
 end
 
-fn result_map(value: Result<A, E>, f: fn(A) -> B) -> Result<B, E>
+pub fn result_map(value: Result<A, E>, f: fn(A) -> B) -> Result<B, E>
 	match value
 		Ok(inner) => Ok(f(inner))
 		Err(error) => Err(error)
 	end
 end
 
-fn result_map_err(value: Result<A, E>, f: fn(E) -> F) -> Result<A, F>
+pub fn result_map_err(value: Result<A, E>, f: fn(E) -> F) -> Result<A, F>
 	match value
 		Ok(inner) => Ok(inner)
 		Err(error) => Err(f(error))
 	end
 end
 
-fn result_and_then(value: Result<A, E>, f: fn(A) -> Result<B, E>) -> Result<B, E>
+pub fn result_and_then(value: Result<A, E>, f: fn(A) -> Result<B, E>) -> Result<B, E>
 	match value
 		Ok(inner) => f(inner)
 		Err(error) => Err(error)
 	end
 end
 
-fn string_split_once(text: String, separator: String) -> Option<{ left : String, right : String }>
+pub fn string_split_once(text: String, separator: String) -> Option<{ left : String, right : String }>
 	prelude_builtin::string_split_once(text, separator)
 end
 
-fn string_parse_int(text: String) -> Result<Int, String>
+pub fn string_parse_int(text: String) -> Result<Int, String>
 	prelude_builtin::string_parse_int(text)
 end
 
-fn int_to_string(value: Int) -> String
+pub fn int_to_string(value: Int) -> String
 	prelude_builtin::int_to_string(value)
 end

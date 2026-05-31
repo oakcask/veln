@@ -160,7 +160,13 @@ checker reports module metadata drift.
 segment of the imported module path, so `use platform.io` declares the alias
 `io`. Calls may use that alias as a qualified function path, such as
 `io::read_line()`, when the imported module's source is part of the analyzed
-program. Public source ADT constructors may also use the import alias, either
+program. Public functions from imported modules are also available by bare
+name when exactly one import exposes that name and no local declaration shadows
+it. Every user module also has an implicit standard `prelude` import. Public
+prelude helpers are available by bare name under the same unambiguous import
+rule and by qualified paths such as `prelude::vec_len(items)`. The `prelude`
+module name and import alias are reserved for this standard import in user
+source. Public source ADT constructors may also use the import alias, either
 as `alias::Constructor` or `alias::Type::Constructor`.
 
 Public `fn` declarations, public source `type` declarations, and public member
@@ -308,7 +314,8 @@ Implemented expressions:
   `channel::close(tx)`
 - task effect calls: `task::spawn(job)`, `task::spawn<Item>(job)`,
   `task::join(task)`, and `task::cancel(task)`
-- prelude helpers as bare calls such as `vec_len(items)`
+- prelude helpers as bare or qualified calls such as `vec_len(items)` and
+  `prelude::vec_len(items)`
 - reserved embedded-standard-library builtin calls such as
   `prelude_builtin::vec_fold(items, initial, f)`
 - records: `{name: value, ...}`
@@ -425,12 +432,13 @@ The parser rejects holes, `?`, pipelines, `match`, records, and lists in
 contract predicates before semantic checking. A syntactically valid predicate
 may still fail contract validation. Function calls must resolve to discovered
 pure functions or pure prelude helpers. Bare calls resolve against the current
-program's function names or the prelude helper set, and qualified calls resolve
-through `use` aliases. Call arguments must be assignable to declared parameter
-types. Function declaration values may be passed to contract calls where the
-callee expects a function type; bare references resolve against visible
-function declarations, and `use` alias-qualified references keep the imported
-module identity. Numeric return values from pure calls may be used inside
+program's function names or the implicit prelude import, and qualified calls
+resolve through `use` aliases or `prelude::` for standard prelude helpers.
+Call arguments must be assignable to declared parameter types. Function
+declaration values may be passed to contract calls where the callee expects a
+function type; bare references resolve against visible function declarations,
+and `use` alias-qualified references keep the imported module identity. Numeric
+return values from pure calls may be used inside
 arithmetic operands of comparison predicates. Record-typed return values from
 pure calls may feed field access, such as `summary(value).ready`. Field access
 must resolve through record-typed values visible to the clause or returned by a

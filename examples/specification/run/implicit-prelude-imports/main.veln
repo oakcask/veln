@@ -1,0 +1,10 @@
+# The implicit prelude supports qualified fallback, and local declarations
+# shadow bare prelude helper names.
+fn vec_len(items: String) -> Int
+	7
+end
+
+pub fn main() -> () effects [stdio]
+	stdio::println(int_to_string(vec_len("local")))
+	stdio::println(int_to_string(prelude::vec_len([1, 2, 3])))
+end

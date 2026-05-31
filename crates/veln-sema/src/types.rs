@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use veln_ast::{
     BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind,
-    SurfaceModule, UseDecl,
+    SurfaceModule, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -21,11 +21,27 @@ pub(crate) struct FunctionSignature {
     pub(crate) name: String,
     pub(crate) target_name: String,
     pub(crate) module_name: Option<String>,
+    pub(crate) visibility: Visibility,
     pub(crate) params: Vec<Type>,
     pub(crate) return_type: Type,
     pub(crate) effects: Vec<String>,
     pub(crate) node_id: NodeId,
     pub(crate) span: SourceSpan,
+}
+
+pub(crate) enum FunctionLookup<'a> {
+    Found(&'a FunctionSignature),
+    Ambiguous,
+    Missing,
+}
+
+impl<'a> FunctionLookup<'a> {
+    pub(crate) fn found(self) -> Option<&'a FunctionSignature> {
+        match self {
+            Self::Found(function) => Some(function),
+            Self::Ambiguous | Self::Missing => None,
+        }
+    }
 }
 
 pub(crate) struct CallOrigin {
@@ -251,6 +267,7 @@ impl TypeEnvironment {
                     target_name: name.clone(),
                     name,
                     module_name: function.module_name.clone(),
+                    visibility: function.visibility,
                     params,
                     return_type,
                     effects: function.effects.clone().unwrap_or_default(),
@@ -271,6 +288,54 @@ impl TypeEnvironment {
 
     pub(crate) fn function(&self, name: &str) -> Option<&FunctionSignature> {
         self.functions.iter().find(|function| function.name == name)
+    }
+
+    pub(crate) fn unqualified_function(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> FunctionLookup<'_> {
+        if let Some(function) = self.functions.iter().find(|function| {
+            function.name == name && function.module_name.as_deref() == current_module
+        }) {
+            return FunctionLookup::Found(function);
+        }
+
+        let mut matches = self.functions.iter().filter(|function| {
+            function.name == name
+                && function.visibility == Visibility::Public
+                && function.module_name.as_deref().is_some_and(|module_name| {
+                    self.uses
+                        .iter()
+                        .any(|use_decl| use_decl.name.as_str() == module_name)
+                })
+        });
+        let Some(first) = matches.next() else {
+            return FunctionLookup::Missing;
+        };
+        if matches.next().is_some() {
+            FunctionLookup::Ambiguous
+        } else {
+            FunctionLookup::Found(first)
+        }
+    }
+
+    pub(crate) fn unqualified_function_import_candidates(
+        &self,
+        name: &str,
+    ) -> Vec<&FunctionSignature> {
+        self.functions
+            .iter()
+            .filter(|function| {
+                function.name == name
+                    && function.visibility == Visibility::Public
+                    && function.module_name.as_deref().is_some_and(|module_name| {
+                        self.uses
+                            .iter()
+                            .any(|use_decl| use_decl.name.as_str() == module_name)
+                    })
+            })
+            .collect()
     }
 
     pub(crate) fn function_path(&self, segments: &[String]) -> Option<&FunctionSignature> {
@@ -316,6 +381,7 @@ fn function_alias_signatures(
                 name,
                 target_name: target.target_name.clone(),
                 module_name: alias.module_name.clone(),
+                visibility: Visibility::Public,
                 params: target.params.clone(),
                 return_type: target.return_type.clone(),
                 effects: target.effects.clone(),

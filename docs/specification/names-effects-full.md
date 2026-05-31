@@ -14,21 +14,28 @@ Bare names resolve to local bindings. Function calls resolve to:
 
 - compiler-known stdio calls
 - local bindings with function type
-- discovered function signatures by bare name
+- declarations in the current source module by bare name
+- unambiguous public function exports from written imports by bare name
 - discovered function signatures through a `use` alias in `alias::function`
   form
 - public function aliases through the declaring module path
-- compiler-known prelude helper calls
+- implicit standard prelude helper imports by bare name or `prelude::function`
+  form
 
 Unresolved values and call targets produce `name.unresolved` diagnostics. A
 qualified call does not fall back to a bare function with the same final
 segment when no matching import alias exists.
+When more than one import provides the same bare function name, including a
+conflict between a written import and the implicit prelude import, the checker
+reports `name.ambiguous` at the bare name and lists qualified spellings in
+related notes.
 Duplicate declarations in the same implemented namespace produce
 `name.duplicate` diagnostics at the later declaration, with the first
 declaration reported as related context.
 
-Local value bindings shadow discovered function declarations for both bare
-values and calls.
+Local value bindings and declarations in the current source module shadow
+imported names for both bare values and calls. The standard prelude remains
+available through `prelude::` when a local declaration shadows its bare name.
 
 A wildcard let target, `_`, evaluates its expression without declaring a local
 name. It can be annotated for type checking, but it is never a resolvable
@@ -56,6 +63,9 @@ part of annotation parsing rather than value-name resolution.
 Module boundary checks reject `use` declarations when the source file has no
 `mod` declaration. The diagnostic is `module.missing_identity` at the first
 `use` declaration and includes a repair hint in `related`.
+User source cannot declare `mod prelude` or a written import whose final alias
+segment is `prelude`; both names are reserved for the implicit standard
+prelude import and report `name.reserved`.
 
 When `veln.toml` contains a `[modules]` entry for a selected source file, the
 entry is checked against that file's source `mod` declaration. The diagnostic
@@ -274,13 +284,16 @@ inference, hidden frame counts are zero.
 
 ## Prelude Helpers
 
-The implemented compiler-known prelude helpers are ordinary bare function calls
-with prefix names. They are registered in the standard symbol table as pure
-compatibility helpers or source-backed pure helpers, so a name must be present
-in that table before the prelude signature adapter assigns its compiler-known
-type. They do not infer effects. No `List`/`Vec` conversion helpers are part of
-this public helper set; names such as `list_to_vec` or `vec_to_list` resolve
-only when user declarations put them in scope.
+Every user module is checked with an implicit standard `prelude` import.
+Prelude helper exports are ordinary pure helper calls for name-resolution
+purposes: bare helper names resolve when no local declaration shadows them and
+no written import creates an ambiguity, and `prelude::name` selects the
+standard helper explicitly. The helpers are registered in the standard symbol
+table as pure compatibility helpers or source-backed pure helpers, so a name
+must be present in that table before the prelude signature adapter assigns its
+compiler-known type. They do not infer effects. No `List`/`Vec` conversion
+helpers are part of this public helper set; names such as `list_to_vec` or
+`vec_to_list` resolve only when user declarations put them in scope.
 
 ### Helper Signatures
 
@@ -373,15 +386,15 @@ empty, there is no current pure-helper target for this proposal route.
 
 Source-backed status is descriptor metadata as described in
 [Compiler-Known Descriptor Table](#compiler-known-descriptor-table). The
-embedded source is ordinary Veln source in the `core_prelude` module, with one
+embedded source is ordinary Veln source in the `prelude` module, with one
 descriptor entry per exported helper entry point. The source metadata records
 the repository-relative standard library path and entry function name used for
 checking the embedded helper source. The current checker still uses the
 descriptor-backed signature adapter, and the JVM backend still lowers each
 helper through the existing prelude runtime operation, so diagnostics stay
 anchored on user call sites rather than the embedded standard library source.
-Source-backed helpers are declared in `core_prelude` and may use other
-existing helpers. Embedded helper source may call compiler-known prelude
+Source-backed helpers are declared in `prelude` as public functions and may use
+other existing helpers. Embedded helper source may call compiler-known prelude
 runtime operations through the reserved `prelude_builtin` module, such as
 `prelude_builtin::vec_fold(items, initial, f)`, to avoid spelling a runtime
 operation like an ordinary recursive call to the helper being defined.
@@ -390,8 +403,8 @@ host vec size directly. The vec traversal helpers use
 `prelude_builtin::vec_fold`, and vec append support uses
 `prelude_builtin::vec_push`; their step helpers are implementation details, and
 this source placement does not expose or stabilize a public vec
-representation. The `vec_fold` entry is declared in the shared
-`core_prelude` source and delegates to `prelude_builtin::vec_fold`. The list
+representation. The `vec_fold` entry is declared in the shared `prelude`
+source and delegates to `prelude_builtin::vec_fold`. The list
 helpers use the descriptor-backed `List<A>` constructors and pattern coverage;
 their private step helpers are ordinary support source and do not expose a
 public list representation beyond `Nil` and `Cons`. The dict helpers keep

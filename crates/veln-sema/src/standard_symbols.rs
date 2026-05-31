@@ -152,36 +152,36 @@ const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
 const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 source_prelude_symbol_set! {
-    "vec_fold" => veln_stdlib::core_prelude_source("vec_fold"),
-    "vec_len" => veln_stdlib::core_prelude_source("vec_len"),
-    "vec_is_empty" => veln_stdlib::core_prelude_source("vec_is_empty"),
-    "vec_push" => veln_stdlib::core_prelude_source("vec_push"),
-    "vec_concat" => veln_stdlib::core_prelude_source("vec_concat"),
-    "vec_map" => veln_stdlib::core_prelude_source("vec_map"),
-    "vec_filter" => veln_stdlib::core_prelude_source("vec_filter"),
-    "vec_try_map" => veln_stdlib::core_prelude_source("vec_try_map"),
-    "vec_try_map_with" => veln_stdlib::core_prelude_source("vec_try_map_with"),
-    "list_nil" => veln_stdlib::core_prelude_source("list_nil"),
-    "list_cons" => veln_stdlib::core_prelude_source("list_cons"),
-    "list_is_empty" => veln_stdlib::core_prelude_source("list_is_empty"),
-    "list_fold" => veln_stdlib::core_prelude_source("list_fold"),
-    "list_reverse" => veln_stdlib::core_prelude_source("list_reverse"),
-    "list_map" => veln_stdlib::core_prelude_source("list_map"),
-    "list_filter" => veln_stdlib::core_prelude_source("list_filter"),
-    "list_try_map" => veln_stdlib::core_prelude_source("list_try_map"),
-    "dict_get" => veln_stdlib::core_prelude_source("dict_get"),
-    "dict_contains" => veln_stdlib::core_prelude_source("dict_contains"),
-    "dict_insert" => veln_stdlib::core_prelude_source("dict_insert"),
-    "dict_remove" => veln_stdlib::core_prelude_source("dict_remove"),
-    "option_map" => veln_stdlib::core_prelude_source("option_map"),
-    "option_and_then" => veln_stdlib::core_prelude_source("option_and_then"),
-    "option_unwrap_or" => veln_stdlib::core_prelude_source("option_unwrap_or"),
-    "result_map" => veln_stdlib::core_prelude_source("result_map"),
-    "result_map_err" => veln_stdlib::core_prelude_source("result_map_err"),
-    "result_and_then" => veln_stdlib::core_prelude_source("result_and_then"),
-    "string_split_once" => veln_stdlib::core_prelude_source("string_split_once"),
-    "string_parse_int" => veln_stdlib::core_prelude_source("string_parse_int"),
-    "int_to_string" => veln_stdlib::core_prelude_source("int_to_string"),
+    "vec_fold" => veln_stdlib::prelude_source("vec_fold"),
+    "vec_len" => veln_stdlib::prelude_source("vec_len"),
+    "vec_is_empty" => veln_stdlib::prelude_source("vec_is_empty"),
+    "vec_push" => veln_stdlib::prelude_source("vec_push"),
+    "vec_concat" => veln_stdlib::prelude_source("vec_concat"),
+    "vec_map" => veln_stdlib::prelude_source("vec_map"),
+    "vec_filter" => veln_stdlib::prelude_source("vec_filter"),
+    "vec_try_map" => veln_stdlib::prelude_source("vec_try_map"),
+    "vec_try_map_with" => veln_stdlib::prelude_source("vec_try_map_with"),
+    "list_nil" => veln_stdlib::prelude_source("list_nil"),
+    "list_cons" => veln_stdlib::prelude_source("list_cons"),
+    "list_is_empty" => veln_stdlib::prelude_source("list_is_empty"),
+    "list_fold" => veln_stdlib::prelude_source("list_fold"),
+    "list_reverse" => veln_stdlib::prelude_source("list_reverse"),
+    "list_map" => veln_stdlib::prelude_source("list_map"),
+    "list_filter" => veln_stdlib::prelude_source("list_filter"),
+    "list_try_map" => veln_stdlib::prelude_source("list_try_map"),
+    "dict_get" => veln_stdlib::prelude_source("dict_get"),
+    "dict_contains" => veln_stdlib::prelude_source("dict_contains"),
+    "dict_insert" => veln_stdlib::prelude_source("dict_insert"),
+    "dict_remove" => veln_stdlib::prelude_source("dict_remove"),
+    "option_map" => veln_stdlib::prelude_source("option_map"),
+    "option_and_then" => veln_stdlib::prelude_source("option_and_then"),
+    "option_unwrap_or" => veln_stdlib::prelude_source("option_unwrap_or"),
+    "result_map" => veln_stdlib::prelude_source("result_map"),
+    "result_map_err" => veln_stdlib::prelude_source("result_map_err"),
+    "result_and_then" => veln_stdlib::prelude_source("result_and_then"),
+    "string_split_once" => veln_stdlib::prelude_source("string_split_once"),
+    "string_parse_int" => veln_stdlib::prelude_source("string_parse_int"),
+    "int_to_string" => veln_stdlib::prelude_source("int_to_string"),
 }
 
 const fn runtime_symbol(
@@ -353,13 +353,13 @@ mod tests {
     }
 
     #[test]
-    fn vec_fold_source_metadata_uses_core_prelude_source() {
+    fn vec_fold_source_metadata_uses_prelude_source() {
         let symbol = prelude_symbol("vec_fold").expect("vec_fold descriptor");
         let source = symbol.source.expect("vec_fold source metadata");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Veln);
-        assert_eq!(source.path, "stdlib/core_prelude.veln");
-        assert!(source.text.contains("mod core_prelude"));
+        assert_eq!(source.path, "stdlib/prelude.veln");
+        assert!(source.text.contains("mod prelude"));
         assert!(source.text.contains("fn vec_fold("));
     }
 

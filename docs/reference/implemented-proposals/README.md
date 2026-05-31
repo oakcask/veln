@@ -54,6 +54,8 @@ behavior.
   [canonical-type-argument-delimiters.md](canonical-type-argument-delimiters.md).
 - Public member alias re-exports:
   [public-member-alias-reexports.md](public-member-alias-reexports.md).
+- Implicit prelude and unqualified imports:
+  [implicit-prelude-and-unqualified-imports.md](implicit-prelude-and-unqualified-imports.md).
 
 ## Skip Unless Needed
 

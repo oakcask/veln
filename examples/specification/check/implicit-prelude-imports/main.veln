@@ -1,0 +1,7 @@
+mod app.main
+use app.measure
+use app.prelude
+
+pub fn main(items: Vec<Int>) -> Int
+	vec_len(items)
+end

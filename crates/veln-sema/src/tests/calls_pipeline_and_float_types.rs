@@ -439,6 +439,254 @@ fn resolves_qualified_function_values_through_import_aliases() {
 }
 
 #[test]
+fn resolves_unqualified_public_function_imports() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.math\n",
+            "pub fn main() -> Int\n",
+            "  double(2)\n",
+            "end\n",
+        ),
+    );
+    let math_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod app.math\n",
+            "pub fn double(value: Int) -> Int\n",
+            "  value + value\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let math = lower_surface_ast(&parse(&math_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        aliases: Vec::new(),
+        types: main.types.into_iter().chain(math.types).collect(),
+        functions: main.functions.into_iter().chain(math.functions).collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { target, .. } = &expr.kind else {
+        panic!("unqualified import should lower as a call");
+    };
+    assert_eq!(target, &CoreCallTarget::Function("double".to_string()));
+}
+
+#[test]
+fn resolves_unqualified_imported_function_values() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.text\n",
+            "pub fn main() -> Vec<String>\n",
+            "  vec_map([1], stringify)\n",
+            "end\n",
+        ),
+    );
+    let text_source = SourceFile::new(
+        "text.veln",
+        concat!(
+            "mod app.text\n",
+            "pub fn stringify(value: Int) -> String\n",
+            "  \"ok\"\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let text = lower_surface_ast(&parse(&text_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        aliases: Vec::new(),
+        types: main.types.into_iter().chain(text.types).collect(),
+        functions: main.functions.into_iter().chain(text.functions).collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    let CoreExprKind::Call { args, .. } = &expr.kind else {
+        panic!("tail expression should lower as call");
+    };
+    assert!(matches!(
+        &args[1].kind,
+        CoreExprKind::FunctionValue(name) if name == "stringify"
+    ));
+}
+
+#[test]
+fn local_functions_shadow_unqualified_function_imports() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.math\n",
+            "fn double(value: String) -> String\n",
+            "  value\n",
+            "end\n",
+            "pub fn main() -> String\n",
+            "  double(\"ok\")\n",
+            "end\n",
+        ),
+    );
+    let math_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod app.math\n",
+            "pub fn double(value: Int) -> Int\n",
+            "  value + value\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let math = lower_surface_ast(&parse(&math_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        aliases: Vec::new(),
+        types: main.types.into_iter().chain(math.types).collect(),
+        functions: main.functions.into_iter().chain(math.functions).collect(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+}
+
+#[test]
+fn ambiguous_unqualified_public_function_imports_are_rejected() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.left\n",
+            "use app.right\n",
+            "pub fn main() -> Int\n",
+            "  size()\n",
+            "end\n",
+        ),
+    );
+    let left_source = SourceFile::new(
+        "left.veln",
+        concat!("mod app.left\n", "pub fn size() -> Int\n", "  1\n", "end\n",),
+    );
+    let right_source = SourceFile::new(
+        "right.veln",
+        concat!(
+            "mod app.right\n",
+            "pub fn size() -> Int\n",
+            "  2\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let left = lower_surface_ast(&parse(&left_source).tree);
+    let right = lower_surface_ast(&parse(&right_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        aliases: Vec::new(),
+        types: Vec::new(),
+        functions: main
+            .functions
+            .into_iter()
+            .chain(left.functions)
+            .chain(right.functions)
+            .collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.id == "name.ambiguous"
+                && diagnostic.message == "ambiguous call_target `size`"
+        })
+        .expect("ambiguous imported call should be diagnosed");
+    assert_eq!(diagnostic.related.len(), 2);
+    let related = diagnostic
+        .related
+        .iter()
+        .map(|note| note.to_json())
+        .collect::<Vec<_>>();
+    assert!(
+        related
+            .iter()
+            .any(|note| note.contains("use `left::size` to select it"))
+    );
+    assert!(
+        related
+            .iter()
+            .any(|note| note.contains("use `right::size` to select it"))
+    );
+}
+
+#[test]
+fn private_functions_are_hidden_from_unqualified_imports() {
+    let main_source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.math\n",
+            "pub fn main() -> Int\n",
+            "  hidden(2)\n",
+            "end\n",
+        ),
+    );
+    let math_source = SourceFile::new(
+        "math.veln",
+        concat!(
+            "mod app.math\n",
+            "fn hidden(value: Int) -> Int\n",
+            "  value\n",
+            "end\n",
+        ),
+    );
+    let main = lower_surface_ast(&parse(&main_source).tree);
+    let math = lower_surface_ast(&parse(&math_source).tree);
+    let module = SurfaceModule {
+        module: main.module,
+        uses: main.uses,
+        aliases: Vec::new(),
+        types: Vec::new(),
+        functions: main.functions.into_iter().chain(math.functions).collect(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `hidden`"
+    }));
+}
+
+#[test]
 fn public_function_alias_reexports_imported_target() {
     let app_source = SourceFile::new(
         "app.veln",
