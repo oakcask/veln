@@ -38,7 +38,7 @@ source `type` declarations remain the implemented public API boundary.
 - `veln doc` has a parse gate and refuses documentation output when selected
   manifest module metadata drifts from source-owned module identity.
 - Generated documentation is covered by
-  `../../examples/specification/doc/generated-markdown/`.
+  `../../../examples/specification/doc/generated-markdown/`.
 - Public API documentation derives from declarations and attached source
   comments, not from proposal text.
 - ADR-lite records remain source metadata and appear in generated docs without
