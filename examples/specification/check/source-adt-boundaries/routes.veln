@@ -9,11 +9,23 @@ fn via_type() -> Signal<Int>
 	library::Signal::Emit(1)
 end
 
+fn via_unqualified_import() -> Signal<Int>
+	Idle
+end
+
 fn label(value: Signal<Int>) -> String
 	match value
 		library::Idle => "idle"
 		library::Signal::Emit(_) => "emit"
 		_ => "hidden"
+	end
+end
+
+fn hidden_requires_catch_all(value: Signal<Int>) -> String
+	match value
+		library::Hidden => "hidden"
+		library::Idle => "idle"
+		library::Signal::Emit(_) => "emit"
 	end
 end
 

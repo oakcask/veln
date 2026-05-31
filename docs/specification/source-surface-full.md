@@ -328,11 +328,13 @@ or type-qualified names. From an importing module, public constructors also
 resolve through the import alias as `alias::Constructor` or
 `alias::Type::Constructor`. A public type does not automatically export its
 constructors; each exported constructor line uses its own `pub` prefix.
-Private constructors remain usable in their declaring module. One module cannot
-declare the same constructor leaf name twice, even across different ADTs. When
-multiple imports expose the same public constructor leaf name, unqualified use
-is ambiguous and must use a qualifying path. The built-in `List<A>` descriptor
-recognizes `Nil`, `Cons(head, tail)`, `List::Nil`, and
+Variant payload fields do not have independent visibility syntax. Private
+constructors remain usable in their declaring module. One ADT cannot declare
+the same constructor leaf name twice. Different ADTs in the same module may
+reuse a constructor leaf name; bare use of that leaf is ambiguous and must use
+a type-qualified path. When imports expose the same public constructor leaf
+name, unqualified use is ambiguous and must use a qualifying path. The built-in
+`List<A>` descriptor recognizes `Nil`, `Cons(head, tail)`, `List::Nil`, and
 `List::Cons(head, tail)` and keeps the existing runtime list representation.
 Type declarations use `type Name<A>` for declared type parameters. Legacy
 `type Name(A)` declarations are rejected with a parse diagnostic at the opening

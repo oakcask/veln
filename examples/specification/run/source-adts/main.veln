@@ -3,6 +3,11 @@ type Maybe<A>
 	Just(A)
 end
 
+type Shape
+	Point { x: Int, y: Int }
+	Origin
+end
+
 fn label(value: Maybe<Int>) -> String
 	match value
 		Missing => "missing"
@@ -10,6 +15,14 @@ fn label(value: Maybe<Int>) -> String
 	end
 end
 
+fn coordinate_sum(value: Shape) -> Int
+	match value
+		Point(x, y) => x + y
+		Origin => 0
+	end
+end
+
 pub fn main() -> () effects [stdio]
 	stdio::println(label(Just(1)))
+	stdio::println(int_to_string(coordinate_sum(Point(2, 5))))
 end

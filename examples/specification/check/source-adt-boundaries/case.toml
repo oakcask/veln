@@ -13,17 +13,17 @@ equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 6
+equals = 7
 
 [[diagnostics]]
 id = "name.duplicate"
 severity = "error"
 kind = "name"
-message = "duplicate constructor declaration name `Same`"
+message = "duplicate constructor declaration name `Repeat`"
 
 [diagnostics.span]
 file = "duplicate.veln"
-line = 8
+line = 13
 column = 2
 
 [[diagnostics]]
@@ -49,6 +49,17 @@ line = 9
 column = 14
 
 [[diagnostics]]
+id = "type.match_non_exhaustive"
+severity = "error"
+kind = "type"
+message = "match is missing case Hidden"
+
+[diagnostics.span]
+file = "routes.veln"
+line = 25
+column = 2
+
+[[diagnostics]]
 id = "name.unresolved"
 severity = "error"
 kind = "name"
@@ -56,7 +67,7 @@ message = "unresolved value `library::Hidden`"
 
 [diagnostics.span]
 file = "routes.veln"
-line = 21
+line = 33
 column = 2
 
 [[diagnostics]]

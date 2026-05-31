@@ -91,8 +91,10 @@ against the built `veln` binary.
 - `check/named-type-annotations/`: non-built-in named type paths with type
   arguments inside value and function type annotations.
 - `check/source-adt-boundaries/`: source-declared ADT constructor namespace
-  conflicts, import visibility, nullary generic constructor context, and
-  current `List`/`Vec` conversion helper boundaries.
+  conflicts, same-module type-qualified disambiguation, import visibility,
+  local private constructor paths, hidden-constructor exhaustiveness, nullary
+  generic constructor context, and current `List`/`Vec` conversion helper
+  boundaries.
 - `check/source-adt-exhaustiveness/`: source-declared ADT finite-domain
   matching reports unqualified missing constructor coverage labels.
 - `check/manifest-metadata/`: source `mod` ownership wins over manifest module
@@ -171,6 +173,8 @@ against the built `veln` binary.
 - `run/result-propagation/`: `Result` propagation, dictionary lookup, function
   values, and runtime JSON success.
 - `run/match-source-order/`: match arms are evaluated in source order.
+- `run/source-adts/`: source-declared ADT construction, matching, runtime
+  output, and record-shaped variant payload order.
 - `run/selected-reachability/`: selected-entry reachability, ignored
   unreachable semantic errors, imported function values, function-typed local
   calls, and local shadowing of same-named function declarations.

@@ -98,7 +98,10 @@ over finite domains must be exhaustive. `Bool` scrutinees require coverage for
 `true` and `false`; `Option<T>` scrutinees require `Some(_)` and `None`;
 `Result<T, E>` scrutinees require `Ok(_)` and `Err(_)`; `List<A>` scrutinees
 require `Nil` and `Cons(_)`; source-declared ADT scrutinees require every
-declared variant. `_` and binding patterns are catch-all arms. A
+declared variant. In an importing module, hidden source-declared constructors
+still belong to the finite domain, so public constructor arms alone are not
+exhaustive; use `_` or a binding catch-all arm when private constructors may be
+present. `_` and binding patterns are catch-all arms. A
 non-exhaustive finite-domain match reports
 `type.match_non_exhaustive` at the `match` expression. The missing case is the
 unqualified coverage label: source-declared ADTs use the constructor leaf name,

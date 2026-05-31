@@ -16,8 +16,8 @@ behavior is specified under `../../specification/` and covered by
   [../../specification/names-effects.md](../../specification/names-effects.md).
 - Completed list helper runtime traversal record:
   [iterative-list-helper-runtime.md](iterative-list-helper-runtime.md).
-- Source-declared ADT follow-ups:
-  [../../proposals/user-defined-adts.md](../../proposals/user-defined-adts.md).
+- Completed source-declared ADT follow-ups:
+  [user-defined-adts.md](user-defined-adts.md).
 
 ## Implemented Outcome
 
@@ -40,11 +40,16 @@ constructor by its unqualified coverage case, using the constructor leaf name
 and `_` for payload variants. Qualifying paths are accepted in patterns for
 resolution, but the missing-case diagnostic remains a concise coverage label.
 
+Different ADTs in the same module may expose the same constructor leaf name.
+Bare use of that leaf is ambiguous, and type-qualified constructor paths remain
+the disambiguation boundary.
+
 ## Evidence
 
 - `examples/specification/check/source-adt-boundaries/` covers constructor
-  namespace conflicts, import visibility, nullary generic constructor context,
-  and the absence of public `List`/`Vec` conversion helpers.
+  namespace conflicts, same-module type-qualified disambiguation, import
+  visibility, nullary generic constructor context, and the absence of public
+  `List`/`Vec` conversion helpers.
 - `examples/specification/check/source-adt-exhaustiveness/` covers
   source-declared ADT missing-case diagnostics.
 - `docs/specification/source-surface-full.md` defines constructor visibility
@@ -55,10 +60,9 @@ resolution, but the missing-case diagnostic remains a concise coverage label.
 
 ## Deferred Work
 
-Broader source-declared ADT questions remain in
-[../../proposals/user-defined-adts.md](../../proposals/user-defined-adts.md).
-Source-level tail-recursion assertions or mutual-recursion guarantees remain
-outside this route; see
+The source-declared ADT follow-up list is closed in
+[user-defined-adts.md](user-defined-adts.md). Source-level tail-recursion
+assertions or mutual-recursion guarantees remain outside this route; see
 [tail-recursion-trampoline.md](tail-recursion-trampoline.md) before opening
 new recursion work.
 
@@ -66,5 +70,5 @@ new recursion work.
 
 - Current ADT, `List`, or helper behavior changes under
   `../../specification/`.
-- A completed follow-up from `../../proposals/user-defined-adts.md` changes
-  this boundary.
+- A completed follow-up in [user-defined-adts.md](user-defined-adts.md)
+  changes this boundary.
