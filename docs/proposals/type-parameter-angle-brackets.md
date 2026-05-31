@@ -1,10 +1,12 @@
 # Type Parameter Angle Brackets
 
-Status: proposed
+Status: partially implemented
 
 This proposal changes source type parameter and type argument delimiters from
-parentheses to angle brackets. It is not current language behavior until the
-matching specification pages and executable examples say so.
+parentheses to angle brackets. The parser now accepts angle brackets in type
+positions, and the matching specification pages and executable examples cover
+that compatibility phase. The formatter, generated output, and broader
+canonical rendering migration remain planned work.
 
 ## Read First
 
@@ -71,9 +73,9 @@ calls unless a later proposal generalizes them.
 
 ## Parser And Formatter
 
-Implementation should proceed in two phases.
+Implementation proceeds in phases.
 
-First, accept both spellings in type positions:
+The compatibility phase is implemented:
 
 - Parse `Name<Args>` and `path::Name<Args>` as the same type constructor
   application currently represented by `Name(Args)`.
@@ -85,10 +87,11 @@ First, accept both spellings in type positions:
   type declaration parameter list. Expression parsing keeps comparison
   precedence and operator diagnostics unchanged.
 
-Then make the formatter canonicalize type positions to angle brackets. After
-that point, generated examples, doctest wrappers, human diagnostics, JSON
-diagnostic fields that render expected or actual types, and documentation
-snippets should use the angle-bracket spelling.
+The remaining canonicalization phase should make the formatter canonicalize
+type positions to angle brackets. After that point, generated examples,
+doctest wrappers, human diagnostics, JSON diagnostic fields that render
+expected or actual types, and documentation snippets should use the
+angle-bracket spelling.
 
 ## Diagnostics
 

@@ -20,8 +20,9 @@ compare it with `../specification/` before changing behavior.
 - [user-defined-adts.md](user-defined-adts.md):
   follow-ups outside the implemented source-declared ADT surface.
 - [type-parameter-angle-brackets.md](type-parameter-angle-brackets.md):
-  proposed migration from parenthesized type parameters and arguments to
-  angle-bracket type syntax.
+  partially implemented migration from parenthesized type parameters and
+  arguments to angle-bracket type syntax; parser compatibility is implemented,
+  while formatter and rendered-output canonicalization remain planned.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
   remaining repair-loop axes for verification orchestration, candidate
   evidence, edit granularity, and application authority.

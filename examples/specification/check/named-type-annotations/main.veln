@@ -1,8 +1,12 @@
-# Type annotations accept non-built-in named type paths with type arguments.
-pub fn carry(value: domain::Envelope(String, Result(Int, AppError))) -> domain::Envelope(String, Result(Int, AppError))
+# Type annotations accept non-built-in named type paths with angle-bracket type arguments.
+pub fn carry(value: domain::Envelope<String, Result<Int, AppError>>) -> domain::Envelope<String, Result<Int, AppError>>
   value
 end
 
-pub fn accept_callback(callback: fn(domain::Envelope(String, AppError)) -> () effects [stdio]) -> fn(domain::Envelope(String, AppError)) -> () effects [stdio]
+pub fn accept_callback(callback: fn(domain::Envelope<String, AppError>) -> () effects [stdio]) -> fn(domain::Envelope<String, AppError>) -> () effects [stdio]
   callback
+end
+
+fn compare_near_generic_annotation(value: Vec<Int>) -> Bool
+  1 < 2
 end

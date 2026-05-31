@@ -8,14 +8,18 @@ compatibility, and operator typing.
 Implemented type annotations:
 
 - primitives: `Bool`, `Int`, `Float`, `String`, and `()`
-- built-in and descriptor-backed type constructors: `Option(T)`,
-  `Result(T, E)`, `List(T)`, `Vec(T)`, and `Dict(K, V)`
+- built-in and descriptor-backed type constructors: `Option<T>`,
+  `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`
 - records: `{name: Type, ...}`
 - function types: `fn(T, ...) -> U` with optional `effects [name, ...]`
 - other named type paths with optional type arguments, unless they are one of
   the arity-checked built-ins above
 
-`Option(T)` and `Result(T, E)` are compiler-owned built-in ADTs. `List(T)` and
+Angle brackets are the source spelling for type constructor arguments. The
+legacy parenthesized spelling remains accepted in type positions during the
+compatibility window.
+
+`Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs. `List<T>` and
 source-declared ADTs use descriptor entries for constructor payload typing,
 qualified and unqualified constructor names, postfix `?` result propagation for
 `Result`, and finite-domain exhaustiveness. Source ADTs may be generic and

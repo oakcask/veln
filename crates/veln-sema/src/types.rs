@@ -743,7 +743,11 @@ impl<'a> TypeParser<'a> {
             return Err("expected type".to_string());
         };
         self.skip_ws();
-        let args = if self.eat('(') {
+        let args = if self.eat('<') {
+            let args = self.parse_type_list('>')?;
+            self.expect('>')?;
+            args
+        } else if self.eat('(') {
             let args = self.parse_type_list(')')?;
             self.expect(')')?;
             args
@@ -1128,6 +1132,29 @@ mod tests {
                 ("name".to_string(), Type::string()),
                 ("scores".to_string(), Type::vec(Type::int())),
             ]))
+        );
+    }
+
+    #[test]
+    fn parses_angle_bracket_type_annotations() {
+        assert_eq!(
+            parse_type_annotation(
+                "fn(Vec<Int>, domain::Envelope<String, Result<(), AppError>>) -> Dict<String, Int>"
+            ),
+            Ok(Type::Function {
+                params: vec![
+                    Type::vec(Type::int()),
+                    Type::named(
+                        "domain::Envelope",
+                        vec![
+                            Type::string(),
+                            Type::result(Type::unit(), Type::named("AppError", Vec::new())),
+                        ],
+                    ),
+                ],
+                return_type: Box::new(Type::dict(Type::string(), Type::int())),
+                effects: Vec::new(),
+            })
         );
     }
 

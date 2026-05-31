@@ -84,6 +84,41 @@ fn parses_minimal_list_type_declaration() {
 }
 
 #[test]
+fn parses_angle_bracket_type_parameters_and_annotations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Envelope<A, E>\n",
+            "\tOk(A)\n",
+            "\tErr(E)\n",
+            "end\n",
+            "\n",
+            "fn nested(value: domain::Envelope<String, Result<Int, AppError>>) -> Bool\n",
+            "\t1 < 2\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.items.len(), 2);
+    let SyntaxItem::Type(envelope) = &output.tree.items[0] else {
+        panic!("expected type declaration");
+    };
+    assert_eq!(envelope.name.as_deref(), Some("Envelope"));
+    assert_eq!(envelope.params, vec!["A", "E"]);
+    assert_eq!(envelope.variants[0].fields[0].ty, "A");
+    let SyntaxItem::Function(function) = &output.tree.items[1] else {
+        panic!("expected function declaration");
+    };
+    assert_eq!(
+        function.params[0].ty.as_deref(),
+        Some("domain::Envelope<String, Result<Int, AppError>>")
+    );
+}
+
+#[test]
 fn parses_public_type_declaration_with_public_record_variant() {
     let source = SourceFile::new(
         "main.veln",

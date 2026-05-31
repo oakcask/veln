@@ -20,7 +20,7 @@ Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
-TypeParamList ::= "(" Name ("," Name)* ","? ")"
+TypeParamList ::= "<" Name ("," Name)* ","? ">" | "(" Name ("," Name)* ","? ")"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
                   | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
@@ -311,11 +311,11 @@ they are not ordinary value names.
 
 `Option` and `Result` constructors are built-in compiler-owned ADT
 constructors. Source `type` declarations define additional ADT descriptors
-with generic parameters, nullary variants, tuple-like variants, and
-record-shaped variant declarations:
+with angle-bracket generic parameters, nullary variants, tuple-like variants,
+and record-shaped variant declarations:
 
 ```text
-pub type Maybe(A)
+pub type Maybe<A>
   pub Missing
   pub Just(A)
 end
@@ -331,9 +331,12 @@ constructors; each exported constructor line uses its own `pub` prefix.
 Private constructors remain usable in their declaring module. One module cannot
 declare the same constructor leaf name twice, even across different ADTs. When
 multiple imports expose the same public constructor leaf name, unqualified use
-is ambiguous and must use a qualifying path. The built-in `List(A)` descriptor
+is ambiguous and must use a qualifying path. The built-in `List<A>` descriptor
 recognizes `Nil`, `Cons(head, tail)`, `List::Nil`, and
 `List::Cons(head, tail)` and keeps the existing runtime list representation.
+The legacy `type Name(A)` declaration spelling remains accepted in type
+positions during the compatibility window, but `type Name<A>` is the current
+source spelling for declared type parameters.
 
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
