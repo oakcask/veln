@@ -4,7 +4,7 @@ Status: stages 1, 2, and 3 implemented
 
 This page records a staged route from compiler-special `Option` and `Result`
 handling toward user-defined ADTs, standard-library `List`, immutable
-collection helpers, and internal tail-recursive execution support. It is
+collection helpers, and iterative runtime traversal support. It is
 proposal work, not current language behavior unless `../specification/` also
 states it.
 
@@ -16,8 +16,8 @@ states it.
   [../specification/types.md](../specification/types.md).
 - Current immutable helper behavior:
   [../specification/names-effects.md](../specification/names-effects.md).
-- Completed tail-recursive helper execution follow-up:
-  [../reference/implemented-proposals/immutable-collection-trampoline.md](../reference/implemented-proposals/immutable-collection-trampoline.md).
+- Completed list helper runtime traversal follow-up:
+  [../reference/implemented-proposals/iterative-list-helper-runtime.md](../reference/implemented-proposals/iterative-list-helper-runtime.md).
 - General user-defined ADT surface:
   [user-defined-adts.md](user-defined-adts.md).
 
@@ -38,7 +38,7 @@ their representation and complexity are not language guarantees.
 ## Target Sequence
 
 Use three implementation stages instead of introducing `List`, immutable
-collection source helpers, and tail-call recursion in one step.
+collection source helpers, and large-list runtime traversal in one step.
 
 ### Stage 1: Descriptor-Backed Option And Result
 
@@ -89,12 +89,12 @@ The required language surface is:
 This stage should leave `Vec(A)` unchanged. The list literal syntax `[]`
 continues to mean the existing vec literal unless a later proposal changes it.
 
-### Stage 3: List Helpers And Tail-Recursive Execution
+### Stage 3: List Helpers And Iterative Runtime Traversal
 
 Status: implemented
 
 After `List(A)` is expressible, add standard-library list helpers and use them
-as the proving target for internal tail-recursive execution.
+as the proving target for iterative runtime traversal.
 
 Implemented helpers:
 
@@ -154,5 +154,5 @@ compiler/runtime strategy rather than a user-facing `tailrec` feature.
   rejected.
 - Source-declared ADTs become current behavior under `../specification/`.
 - `List(A)` helpers are implemented, renamed, or scoped differently.
-- Tail-recursive execution support moves into the implemented execution
+- Iterative traversal support moves into the implemented execution
   reference.

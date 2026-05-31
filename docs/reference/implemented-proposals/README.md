@@ -41,8 +41,8 @@ behavior.
   [self-hosting-standard-library.md](self-hosting-standard-library.md).
 - Path runtime representation:
   [path-runtime-representation.md](path-runtime-representation.md).
-- Immutable collection trampoline replacement:
-  [immutable-collection-trampoline.md](immutable-collection-trampoline.md).
+- Iterative list helper runtime:
+  [iterative-list-helper-runtime.md](iterative-list-helper-runtime.md).
 
 ## Skip Unless Needed
 

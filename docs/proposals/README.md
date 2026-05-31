@@ -19,10 +19,13 @@ compare it with `../specification/` before changing behavior.
   clauses.
 - [adt-generalization-route.md](adt-generalization-route.md):
   staged route from descriptor-backed `Option` and `Result` to ADTs, `List`,
-  immutable collection helpers, and trampoline execution.
+  immutable collection helpers, and iterative list traversal support.
 - [user-defined-adts.md](user-defined-adts.md):
   proposed source syntax, inference, constructor namespace rules, visibility,
   and generation-function pattern for general user-defined ADTs.
+- [tail-recursion-trampoline.md](tail-recursion-trampoline.md):
+  stack-safe trampoline execution route for eligible tail-recursive
+  user-defined functions.
 - [agent-repair-loop-followups.md](agent-repair-loop-followups.md):
   remaining repair-loop axes for verification orchestration, candidate
   evidence, edit granularity, and application authority.
