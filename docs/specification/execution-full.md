@@ -79,6 +79,25 @@ that iterates over the list representation instead of growing the host call
 stack. This support does not expose source-level tail-call syntax or a general
 tail-call optimization guarantee.
 
+User-defined `fn` declarations are stack-safe for direct self-recursive chains
+when every direct self call appears in tail position and the function has no
+runtime `ensure` or `invariant` clauses. The final expression of a
+function body is tail position. For a tail-position `match`, each arm result
+expression is tail position, recursively through nested tail-position
+matches. A direct self call in binary or prefix operands, call arguments,
+aggregate literals, field access, `?`, `let` initializers, match scrutinees,
+or non-final expression statements is not tail position. Calls through
+function-typed values are not tail-recursive steps and keep ordinary call
+lowering. Eligible tail-recursive steps evaluate the next call arguments
+before rebinding parameters for the next logical invocation. Runtime `require`
+checks still run at each logical function entry. Non-tail recursion, mutual
+recursion, indirect recursion, and functions with runtime return checks,
+including runtime `ensure` or `invariant` clauses, keep ordinary call lowering
+and do not receive a stack-safety guarantee. The lowering strategy is
+backend-owned and does not expose trampoline classes, continuation layout,
+syntax, annotations, warnings, or machine-readable eligibility output as
+language behavior.
+
 Bounded channel values are backend-owned runtime handles. `channel::bounded`
 and `channel::bounded[T]` return a record with `tx` and `rx` fields.
 `channel::clone(tx)` returns another sender endpoint for the same channel.

@@ -18,6 +18,8 @@ execution reference.
   invalid or incomplete entries are regenerated before execution.
 - Standard `List` traversal helpers execute through runtime support that avoids
   growing the host call stack for large helper traversals.
+- Eligible direct tail-recursive user functions execute deep self-recursive
+  chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior
   as an observable language boundary.
 
