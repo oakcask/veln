@@ -1,42 +1,42 @@
 # File-system operations report value-level Result outcomes at runtime.
 fn read_dir_label(path: Path) -> String effects [fs]
-  match fs::read_dir(path)
-    Ok(entries) => match vec_len(entries) > 0
-      true => "entries"
-      false => "empty"
-    end
-    Err(_) => "read-dir-error"
-  end
+	match fs::read_dir(path)
+		Ok(entries) => match vec_len(entries) > 0
+			true => "entries"
+			false => "empty"
+		end
+		Err(_) => "read-dir-error"
+	end
 end
 
 fn read_file_label(path: Path) -> String effects [fs]
-  match fs::read_to_string(path)
-    Ok(_) => "read-file"
-    Err(_) => "read-dir-error"
-  end
+	match fs::read_to_string(path)
+		Ok(_) => "read-file"
+		Err(_) => "read-dir-error"
+	end
 end
 
 fn write_file_label(path: Path) -> String effects [fs]
-  match fs::write_string(path, "updated")
-    Ok(_) => "write-file"
-    Err(_) => "write-dir-error"
-  end
+	match fs::write_string(path, "updated")
+		Ok(_) => "write-file"
+		Err(_) => "write-dir-error"
+	end
 end
 
 fn inspect_cwd(cwd: Path) -> () effects [fs, stdio]
-  match fs::exists(cwd)
-    Ok(true) => stdio::println("exists")
-    Ok(false) => stdio::println("missing")
-    Err(_) => stdio::println("exists-error")
-  end
-  stdio::println(read_dir_label(cwd))
-  stdio::println(read_file_label(cwd))
-  stdio::println(write_file_label(cwd))
+	match fs::exists(cwd)
+		Ok(true) => stdio::println("exists")
+		Ok(false) => stdio::println("missing")
+		Err(_) => stdio::println("exists-error")
+	end
+	stdio::println(read_dir_label(cwd))
+	stdio::println(read_file_label(cwd))
+	stdio::println(write_file_label(cwd))
 end
 
 pub fn main() -> () effects [process, fs, stdio]
-  match process::cwd()
-    Ok(cwd) => inspect_cwd(cwd)
-    Err(_) => process::exit(2)
-  end
+	match process::cwd()
+		Ok(cwd) => inspect_cwd(cwd)
+		Err(_) => process::exit(2)
+	end
 end

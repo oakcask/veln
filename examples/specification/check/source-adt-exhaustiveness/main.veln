@@ -1,10 +1,10 @@
-type Maybe(A)
-  Missing
-  Just(A)
+type Maybe<A>
+	Missing
+	Just(A)
 end
 
-fn label(value: Maybe(Int)) -> String
-  match value
-    Just(_) => "value"
-  end
+fn label(value: Maybe<Int>) -> String
+	match value
+		Just(_) => "value"
+	end
 end

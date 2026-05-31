@@ -1,4 +1,9 @@
 mod app
+
+type Box<T>
+	Wrap(T)
+end
+
 fn main() -> ()
-  ()
+	()
 end

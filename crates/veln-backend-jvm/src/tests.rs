@@ -151,7 +151,7 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
 #[test]
 fn bytecode_backend_runs_result_try_collections_and_function_values_when_java_is_available() {
     let ir = lower_to_ir(concat!(
-        "fn parse(raw: String) -> Result(Int, {message: String})\n",
+        "fn parse(raw: String) -> Result<Int, {message: String}>\n",
         "  Ok(1)\n",
         "end\n",
         "fn stringify(value: Int) -> String\n",
@@ -159,7 +159,7 @@ fn bytecode_backend_runs_result_try_collections_and_function_values_when_java_is
         "end\n",
         "pub fn main(raw: String) -> Result((), {message: String}) effects [stdio]\n",
         "  let value: Int = parse(raw)?\n",
-        "  let mapped: Vec(String) = vec_map([value], stringify)\n",
+        "  let mapped: Vec<String> = vec_map([value], stringify)\n",
         "  let message: String = match dict_get({\"first\": \"bad\", \"second\": \"ok\"}, \"second\")\n",
         "    Some(found) => found\n",
         "    None => \"missing\"\n",
@@ -190,11 +190,11 @@ fn bytecode_backend_runs_result_try_collections_and_function_values_when_java_is
 #[test]
 fn bytecode_backend_runs_minimal_list_adt_when_java_is_available() {
     let ir = lower_to_ir(concat!(
-        "type List(A)\n",
+        "type List<A>\n",
         "  Nil\n",
-        "  Cons(head: A, tail: List(A))\n",
+        "  Cons(head: A, tail: List<A>)\n",
         "end\n",
-        "fn sum(values: List(Int)) -> Int\n",
+        "fn sum(values: List<Int>) -> Int\n",
         "  match values\n",
         "    Nil => 0\n",
         "    Cons(head, tail) => head + sum(tail)\n",
@@ -222,10 +222,10 @@ fn bytecode_backend_runs_minimal_list_adt_when_java_is_available() {
 #[test]
 fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_available() {
     let ir = lower_to_ir(concat!(
-        "fn attach(context: String, value: Int) -> Result({prefix: String, value: Int}, String)\n",
+        "fn attach(context: String, value: Int) -> Result<{prefix: String, value: Int}, String>\n",
         "  Ok({prefix: context, value: value})\n",
         "end\n",
-        "fn stop_at_two(context: String, value: Int) -> Result({prefix: String, value: Int}, String)\n",
+        "fn stop_at_two(context: String, value: Int) -> Result<{prefix: String, value: Int}, String>\n",
         "  match value == 2\n",
         "    true => Err(context)\n",
         "    false => match value == 3\n",
@@ -238,8 +238,8 @@ fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_availab
         "  total + item.value\n",
         "end\n",
         "pub fn main() -> () effects [stdio]\n",
-        "  let mapped: Result(Vec({prefix: String, value: Int}), String) = vec_try_map_with(\"ctx\", [1, 2], attach)\n",
-        "  let stopped: Result(Vec({prefix: String, value: Int}), String) = vec_try_map_with(\"ctx\", [1, 2, 3], stop_at_two)\n",
+        "  let mapped: Result<Vec<{prefix: String, value: Int}>, String> = vec_try_map_with(\"ctx\", [1, 2], attach)\n",
+        "  let stopped: Result<Vec<{prefix: String, value: Int}>, String> = vec_try_map_with(\"ctx\", [1, 2, 3], stop_at_two)\n",
         "  match mapped\n",
         "    Ok(items) => stdio::println(int_to_string(vec_fold(items, 0, add_value)))\n",
         "    Err(error) => stdio::println(error)\n",
@@ -269,9 +269,9 @@ fn bytecode_backend_runs_vec_try_map_with_context_and_error_when_java_is_availab
 #[test]
 fn bytecode_backend_runs_list_helpers_when_java_is_available() {
     let ir = lower_to_ir(concat!(
-        "type List(A)\n",
+        "type List<A>\n",
         "  Nil\n",
-        "  Cons(head: A, tail: List(A))\n",
+        "  Cons(head: A, tail: List<A>)\n",
         "end\n",
         "fn add(total: Int, value: Int) -> Int\n",
         "  total + value\n",
@@ -282,7 +282,7 @@ fn bytecode_backend_runs_list_helpers_when_java_is_available() {
         "fn keep_large(value: Int) -> Bool\n",
         "  value > 1\n",
         "end\n",
-        "fn stop_at_two(value: Int) -> Result(String, String)\n",
+        "fn stop_at_two(value: Int) -> Result<String, String>\n",
         "  match value == 2\n",
         "    true => Err(\"stop\")\n",
         "    false => match value == 3\n",
@@ -292,7 +292,7 @@ fn bytecode_backend_runs_list_helpers_when_java_is_available() {
         "  end\n",
         "end\n",
         "pub fn main() -> () effects [stdio]\n",
-        "  let values: List(Int) = list_cons(1, list_cons(2, list_cons(3, list_nil())))\n",
+        "  let values: List<Int> = list_cons(1, list_cons(2, list_cons(3, list_nil())))\n",
         "  stdio::println(int_to_string(list_fold(values, 0, add)))\n",
         "  stdio::println(int_to_string(list_fold(list_reverse(values), 0, add)))\n",
         "  stdio::println(int_to_string(list_fold(list_filter(values, keep_large), 0, add)))\n",
@@ -429,9 +429,9 @@ fn bytecode_backend_verifies_all_tail_match_recursion_when_java_is_available() {
 #[test]
 fn bytecode_backend_classifies_tail_recursion_conservatively() {
     let ir = lower_to_ir(concat!(
-        "type List(A)\n",
+        "type List<A>\n",
         "  Nil\n",
-        "  Cons(head: A, tail: List(A))\n",
+        "  Cons(head: A, tail: List<A>)\n",
         "end\n",
         "fn countdown(value: Int) -> Int\n",
         "  match value\n",
@@ -439,7 +439,7 @@ fn bytecode_backend_classifies_tail_recursion_conservatively() {
         "    _ => countdown(value - 1)\n",
         "  end\n",
         "end\n",
-        "fn length(items: List(Int)) -> Int\n",
+        "fn length(items: List<Int>) -> Int\n",
         "  match items\n",
         "    Nil => 0\n",
         "    Cons(_, tail) => 1 + length(tail)\n",
@@ -586,9 +586,9 @@ fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_ja
     }
 
     let ir = lower_to_ir(concat!(
-        "type List(A)\n",
+        "type List<A>\n",
         "  Nil\n",
-        "  Cons(head: A, tail: List(A))\n",
+        "  Cons(head: A, tail: List<A>)\n",
         "end\n",
         "fn add(total: Int, value: Int) -> Int\n",
         "  total + value\n",
@@ -599,18 +599,18 @@ fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_ja
         "fn keep_one(value: Int) -> Bool\n",
         "  value == 1\n",
         "end\n",
-        "fn ok_next(value: Int) -> Result(Int, String)\n",
+        "fn ok_next(value: Int) -> Result<Int, String>\n",
         "  Ok(value + 1)\n",
         "end\n",
-        "fn stop_at_two(value: Int) -> Result(Int, String)\n",
+        "fn stop_at_two(value: Int) -> Result<Int, String>\n",
         "  match value == 2\n",
         "    true => Err(\"stop\")\n",
         "    false => Ok(value)\n",
         "  end\n",
         "end\n",
-        "pub fn consume(values: List(Int)) -> () effects [stdio]\n",
-        "  let mapped: List(Int) = list_map(values, double)\n",
-        "  let tried: Result(List(Int), String) = list_try_map(values, ok_next)\n",
+        "pub fn consume(values: List<Int>) -> () effects [stdio]\n",
+        "  let mapped: List<Int> = list_map(values, double)\n",
+        "  let tried: Result<List<Int>, String> = list_try_map(values, ok_next)\n",
         "  stdio::println(int_to_string(list_fold(values, 0, add)))\n",
         "  stdio::println(int_to_string(list_fold(mapped, 0, add)))\n",
         "  stdio::println(int_to_string(list_fold(list_filter(values, keep_one), 0, add)))\n",

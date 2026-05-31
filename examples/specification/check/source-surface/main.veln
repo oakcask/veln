@@ -1,73 +1,69 @@
 # This case exercises the implemented surface syntax for modules and expressions.
 mod spec.source
 
-fn choose(value: Option(Int)) -> Int
-  match value
-    Some(count) => count
-    None => 0
-  end
+fn choose(value: Option<Int>) -> Int
+	match value
+		Some(count) => count
+		None => 0
+	end
 end
 
-fn summarize(input: {count: Int, label: String,}) -> {count: Int, label: String,}
-  let {count: count, label: label} = input
-  let _: Int = count + 1
-  {count: count, label: label}
+fn summarize(input: { count : Int, label : String, }) -> { count : Int, label : String, }
+	let { count: count, label: label } = input
+	let _: Int = count + 1
+	{ count: count, label: label }
 end
 
 fn inferred_value()
-  1
+	1
 end
 
-fn qualified_option(value: Option(Int)) -> Int
-  match value
-    Option::Some(count) => count
-    Option::None => 0
-  end
+fn qualified_option(value: Option<Int>) -> Int
+	match value
+		Option::Some(count) => count
+		Option::None => 0
+	end
 end
 
 fn render(value: Int) -> String
-  int_to_string(value)
+	int_to_string(value)
 end
 
-fn nested_match(input: Bool) -> {label: String, values: Vec(Int), chosen: Int}
-  {
-    label: render(match input
-      true => 1
-      false => 0
-    end),
-    values: [match input
-      true => 2
-      false => 3
-    end],
-    chosen: match input
-      true => 4
-      false => 5
-    end,
-  }
+fn nested_match(input: Bool) -> { label : String, values : Vec<Int>, chosen : Int }
+	{ label: render(match input
+		true => 1
+		false => 0
+	end), values: [match input
+		true => 2
+		false => 3
+	end], chosen: match input
+		true => 4
+		false => 5
+	end }
 end
 
-fn dictionary(seed: Int) -> Dict(Int, String)
-  {seed + 1: "next", 0: "zero"}
+fn dictionary(seed: Int) -> Dict<Int, String>
+	{ seed + 1: "next", 0: "zero" }
 end
 
-fn classify(result: Result({count: Int, label: String}, String)) -> String
-  match result
-    Result::Ok({count: count, label: label}) => label
-    Result::Err(error) => error
-  end
+fn classify(result: Result<{ count : Int, label : String }, String>) -> String
+	match result
+		Result::Ok({ count: count, label: label }) => label
+		Result::Err(error) => error
+	end
 end
 
 pub fn main() -> Int
-  let value: Int = Some(2) |> choose()
-  let summary = summarize({count: value, label: "ok"})
-  let qualified: Int = qualified_option(Option::Some(inferred_value()))
-  let _: Dict(Int, String) = dictionary(summary.count)
-  let grouped: Int = ((summary.count + qualified))
-  let label: String = classify(Result::Ok({count: grouped, label: "ok"}))
-  let failure: String = classify(Result::Err("err"))
-  let placed = nested_match(label == "ok")
-  let _: String = placed.label
-  let _: Int = placed.chosen + vec_len(placed.values)
-  let _: Bool = label == "ok" and failure != ""
-  grouped
+	let value: Int = Some(2) |> choose()
+	let summary = summarize({ count: value, label: "ok" })
+	let qualified: Int = qualified_option(Option::Some(inferred_value()))
+	let _: Dict<Int, String> = dictionary(summary.count)
+	let grouped: Int = summary.count + qualified
+	let label: String = classify(Result::Ok({ count: grouped, label: "ok" }))
+	let failure: String = classify(Result::Err("err"))
+	let placed = nested_match(label == "ok")
+	let _: String = placed.label
+	let _: Int = placed.chosen + vec_len(placed.values)
+	let _: Bool = label == "ok" and failure != ""
+	grouped
 end

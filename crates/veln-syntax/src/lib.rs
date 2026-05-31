@@ -8,7 +8,7 @@ mod token;
 mod tree;
 
 pub use ast::*;
-pub use format::format_tree;
+pub use format::{canonical_type_text, format_tree};
 pub use lexer::lex;
 pub use parser::*;
 pub use token::*;

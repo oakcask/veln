@@ -14,7 +14,7 @@ is recorded in
 The pure API is:
 
 ```veln
-summarize_order(lines: Vec(String), catalog: Dict(String, Int)) -> Result({item_count: Int, subtotal_cents: Int}, {kind: String, input: String})
+summarize_order(lines: Vec<String>, catalog: Dict<String, Int>) -> Result<{item_count: Int, subtotal_cents: Int}, {kind: String, input: String}>
 ```
 
 Input lines use `sku,quantity` spelling. The implementation rejects malformed

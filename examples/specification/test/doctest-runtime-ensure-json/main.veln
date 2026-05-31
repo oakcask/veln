@@ -1,12 +1,12 @@
 # Doctest runtime ensure expectations reuse structured contract failures.
 fn reject() -> ()
-ensure false
-  ()
+	ensure false
+	()
 end
 
 fn require_failure() -> ()
-require false
-  ()
+	require false
+	()
 end
 
 ## ```veln runtime=ensure predicate=false function=reject blame=implementation
@@ -29,5 +29,5 @@ end
 ## require_failure()
 ## ```
 pub fn main() -> ()
-  ()
+	()
 end

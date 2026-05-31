@@ -1,5 +1,5 @@
 mod spec.first
 
 pub type Left
-  pub Same
+	pub Same
 end

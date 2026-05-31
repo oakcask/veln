@@ -1,23 +1,24 @@
 # Type Parameter Angle Brackets
 
-Status: proposed
+Status: implemented
 
-This proposal changes source type parameter and type argument delimiters from
-parentheses to angle brackets. It is not current language behavior until the
-matching specification pages and executable examples say so.
+This record tracks the completed migration of source type parameter and type
+argument rendering from parenthesized type-constructor syntax to angle-bracket
+syntax. Current behavior is specified under `../../specification/` and checked
+by examples under `../../../examples/specification/`.
 
 ## Read First
 
 - Current source grammar and expression boundary:
-  [../specification/source-surface.md](../specification/source-surface.md).
+  [../../specification/source-surface.md](../../specification/source-surface.md).
 - Current type annotation behavior:
-  [../specification/types.md](../specification/types.md).
+  [../../specification/types.md](../../specification/types.md).
 - Current ADT follow-up boundary:
-  [user-defined-adts.md](user-defined-adts.md).
+  [../../proposals/user-defined-adts.md](../../proposals/user-defined-adts.md).
 
 ## Problem
 
-Veln currently spells type constructor arguments with call-like parentheses:
+Veln previously spelled type constructor arguments with call-like parentheses:
 `Option(Int)`, `Result(Int, E)`, `Vec(T)`, `Dict(K, V)`, `List(A)`, and
 source-declared ADTs such as `Envelope(String, Error)`. Source `type`
 declarations use the same delimiter for declared parameters:
@@ -34,10 +35,10 @@ variant payloads. The difference is recoverable from context, but examples,
 diagnostics, and generated documentation become harder to scan when nested
 types appear beside constructor calls.
 
-## Proposed Syntax
+## Implemented Syntax
 
-Use angle brackets for type constructor parameters in declarations and for
-type constructor arguments in type annotations:
+Veln uses angle brackets for type constructor parameters in declarations and
+for type constructor arguments in type annotations:
 
 ```veln
 pub type Envelope<A, E>
@@ -50,7 +51,7 @@ pub fn parse(raw: String) -> Result<Envelope<String, Int>, ParseError>
 end
 ```
 
-The new canonical spelling covers:
+The canonical spelling covers:
 
 - built-in ADTs: `Option<T>` and `Result<T, E>`
 - descriptor-backed ADTs: `List<T>` and source-declared ADTs
@@ -71,10 +72,6 @@ calls unless a later proposal generalizes them.
 
 ## Parser And Formatter
 
-Implementation should proceed in two phases.
-
-First, accept both spellings in type positions:
-
 - Parse `Name<Args>` and `path::Name<Args>` as the same type constructor
   application currently represented by `Name(Args)`.
 - Parse `type Name<Params>` as the source-declared generic parameter list.
@@ -84,32 +81,24 @@ First, accept both spellings in type positions:
 - Treat `<` and `>` as type delimiters only while parsing a type annotation or
   type declaration parameter list. Expression parsing keeps comparison
   precedence and operator diagnostics unchanged.
-
-Then make the formatter canonicalize type positions to angle brackets. After
-that point, generated examples, doctest wrappers, human diagnostics, JSON
-diagnostic fields that render expected or actual types, and documentation
-snippets should use the angle-bracket spelling.
+- Canonicalize type positions to angle brackets in formatter output, standard
+  library sources, generated documentation, doctest wrappers, human
+  diagnostics, and JSON diagnostic fields that render expected or actual
+  types.
 
 ## Diagnostics
 
-During compatibility, legacy parenthesized type arguments should remain valid.
-The checker may emit a style diagnostic only if the project has a broader
-style-warning route; otherwise the formatter is the migration mechanism.
-
-After the compatibility window, parenthesized type constructor arguments in
-type positions should report a parse diagnostic at the opening parenthesis. The
-primary message should state the failed fact at that span, such as
-``type arguments use `<...>` delimiters``. Related notes may show the canonical
-spelling and explain that value calls and constructor payloads still use
-parentheses.
+During compatibility, legacy parenthesized type arguments remain valid. The
+checker does not emit a style diagnostic; the formatter is the migration
+mechanism.
 
 Arity diagnostics should render the canonical type name. For example, `Dict<T>`
 should say that `Dict` expects two type arguments and show `Dict<K, V>` as the
 shape.
 
-## Migration Scope
+## Completion Evidence
 
-The implementation must update these surfaces together:
+The implementation updated these surfaces together:
 
 - grammar notes and type specification pages
 - `examples/specification/` fixtures and their expected output
@@ -118,9 +107,9 @@ The implementation must update these surfaces together:
 - human and JSON diagnostic snapshots that include rendered types
 - command help or generated docs that show type annotations
 
-The migration should include checked examples for nested generic types, source
-ADT declarations, built-in containers, function types returning generic
-results, and comparison expressions near generic annotations so the delimiter
+Checked examples cover nested generic types, source ADT declarations, built-in
+containers, function types returning generic results, generated doctest
+wrappers, and comparison expressions near generic annotations so the delimiter
 change does not regress expression parsing.
 
 ## Non-Goals
@@ -136,22 +125,14 @@ change does not regress expression parsing.
 - Do not document this proposal as current behavior until implementation,
   specification, and executable examples have moved together.
 
-## Open Questions
+## Follow-Up Boundary
 
-- Should the compatibility window end in the same change that updates the
-  formatter, or should the formatter canonicalize while the parser accepts the
-  legacy spelling for one additional release cycle?
-- Should the parser offer a targeted repair candidate from `Name(Args)` to
-  `Name<Args>` after legacy spelling becomes invalid?
-- Should documentation examples preserve any legacy spelling solely in negative
-  tests, or should all user-facing snippets switch to the canonical spelling at
-  once?
+Ending the compatibility window for parenthesized type-constructor arguments is
+not part of this completed record. If that migration happens later, it should
+be tracked by a new proposal that covers parse diagnostics and repair
+candidates for legacy spelling.
 
 ## Update When
 
-- The parser accepts the angle-bracket form.
-- The formatter chooses the canonical spelling.
-- The specification and executable examples move this behavior from proposed
-  to implemented.
-- The legacy parenthesized spelling is removed or its compatibility boundary
-  changes.
+- The parser or formatter changes type-argument compatibility again.
+- A follow-up proposal removes the parenthesized compatibility spelling.

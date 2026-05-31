@@ -7,7 +7,8 @@ use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, RecordField, SatisfyClause, SyntaxItem, SyntaxTree, Token, TokenKind,
-    TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, Visibility, lex,
+    TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, Visibility,
+    lex,
 };
 
 #[derive(Clone, Debug)]
@@ -177,8 +178,12 @@ impl<'a> Parser<'a> {
             .expect(TokenKind::Type, "type_declaration", vec!["type"])
             .range;
         let name = self.expect_ident("type_declaration", "type name");
-        let params = if self.eat(TokenKind::LParen).is_some() {
-            let params = self.parse_type_params();
+        let params = if self.eat(TokenKind::Less).is_some() {
+            let params = self.parse_type_params_until(TokenKind::Greater);
+            self.expect(TokenKind::Greater, "type_declaration", vec![">"]);
+            params
+        } else if self.eat(TokenKind::LParen).is_some() {
+            let params = self.parse_type_params_until(TokenKind::RParen);
             self.expect(TokenKind::RParen, "type_declaration", vec![")"]);
             params
         } else {
@@ -226,9 +231,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn parse_type_params(&mut self) -> Vec<String> {
+    fn parse_type_params_until(&mut self, close: TokenKind) -> Vec<String> {
         let mut params = Vec::new();
-        while !self.at(TokenKind::RParen) && !self.at(TokenKind::Eof) {
+        while !self.at(close.clone()) && !self.at(TokenKind::Eof) {
             if let Some(param) = self.expect_ident("type_declaration", "type parameter") {
                 params.push(param);
             }
@@ -247,21 +252,22 @@ impl<'a> Parser<'a> {
             Visibility::Private
         };
         let name = self.expect_ident("type_variant", "variant name");
-        let fields = if self.eat(TokenKind::LParen).is_some() {
+        let (field_delimiter, fields) = if self.eat(TokenKind::LParen).is_some() {
             let fields = self.parse_type_variant_fields();
             self.expect(TokenKind::RParen, "type_variant", vec![")"]);
-            fields
+            (Some(TypeVariantFieldDelimiter::Tuple), fields)
         } else if self.eat(TokenKind::LBrace).is_some() {
             let fields = self.parse_type_variant_fields_until(TokenKind::RBrace);
             self.expect(TokenKind::RBrace, "type_variant", vec!["}"]);
-            fields
+            (Some(TypeVariantFieldDelimiter::Record), fields)
         } else {
-            Vec::new()
+            (None, Vec::new())
         };
         let end = self.expect_newline("type_variant").range;
         TypeVariantDecl {
             visibility,
             name,
+            field_delimiter,
             fields,
             span: self.source.span(start.cover(end)),
         }
@@ -622,15 +628,20 @@ impl<'a> Parser<'a> {
                 break;
             }
             match self.current().kind {
-                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace => depth += 1,
-                TokenKind::RParen | TokenKind::RBracket | TokenKind::RBrace => {
+                TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace | TokenKind::Less => {
+                    depth += 1;
+                }
+                TokenKind::RParen
+                | TokenKind::RBracket
+                | TokenKind::RBrace
+                | TokenKind::Greater => {
                     depth = depth.saturating_sub(1);
                 }
                 _ => {}
             }
             parts.push(self.bump().text);
         }
-        normalize_collected_text(parts)
+        normalize_type_text(parts)
     }
 
     fn collect_return_type_until(&mut self, context: &'static str, stop: &[TokenKind]) -> String {
@@ -2411,4 +2422,11 @@ fn normalize_collected_text(parts: Vec<String>) -> String {
         .replace("[ ", "[")
         .replace(" ]", "]")
         .replace(" ,", ",")
+}
+
+fn normalize_type_text(parts: Vec<String>) -> String {
+    normalize_collected_text(parts)
+        .replace(" <", "<")
+        .replace("< ", "<")
+        .replace(" >", ">")
 }

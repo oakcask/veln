@@ -22,19 +22,19 @@ by `../../examples/specification/`.
 
 ## Current Boundary
 
-`Option(T)` and `Result(T, E)` are compiler-owned built-in ADTs.
-Source-declared ADTs, `List(A)`, constructor expressions and patterns,
+`Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs.
+Source-declared ADTs, `List<A>`, constructor expressions and patterns,
 descriptor-backed exhaustiveness, and the implemented list helper set are
 current behavior in the specification.
 
-`Vec(A)` and `Dict(K, V)` remain built-in immutable container types from the
+`Vec<A>` and `Dict<K, V>` remain built-in immutable container types from the
 source user's point of view. Their helper contracts are current behavior, but
 their representation and complexity are not language guarantees.
 
 ## Proposed Follow-Ups
 
-- Decide whether `List(A)` should expose conversion helpers to and from
-  `Vec(A)` after real examples require them.
+- Decide whether `List<A>` should expose conversion helpers to and from
+  `Vec<A>` after real examples require them.
 - Decide whether ADT exhaustiveness diagnostics should report missing
   constructors by qualified name, unqualified name, or both.
 - Source-level tail-recursion assertions or mutual-recursion guarantees are
@@ -44,7 +44,7 @@ their representation and complexity are not language guarantees.
 
 ## Non-Goals
 
-- Do not change current `Vec(A)`, `Dict(K, V)`, or `[]` behavior in this
+- Do not change current `Vec<A>`, `Dict<K, V>`, or `[]` behavior in this
   follow-up route.
 - Do not expose ADT runtime layout as a source compatibility contract.
 - Do not use this page as current behavior for implemented ADT syntax,

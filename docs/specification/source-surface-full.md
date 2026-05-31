@@ -20,7 +20,7 @@ Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
-TypeParamList ::= "(" Name ("," Name)* ","? ")"
+TypeParamList ::= "<" Name ("," Name)* ","? ">" | "(" Name ("," Name)* ","? ")"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
 TypeVariantFields ::= "(" TypeVariantField ("," TypeVariantField)* ","? ")"
                   | "{" TypeVariantField ("," TypeVariantField)* ","? "}"
@@ -192,13 +192,13 @@ for `veln check` and `veln test`.
 Executable doctest metadata is one concept with separate checks:
 
 - `error=<TypePath>` makes the generated wrapper return
-  `Result((), <TypePath>)` and append an implicit `Ok(())` success value. If the
+  `Result<(), <TypePath>>` and append an implicit `Ok(())` success value. If the
   fence omits `error=<TypePath>`, contains `?`, and immediately documents a
-  public function with an explicit `Result(_, E)` return type, the generated
-  wrapper uses `Result((), E)` and also appends the implicit `Ok(())` success
+  public function with an explicit `Result<_, E>` return type, the generated
+  wrapper uses `Result<(), E>` and also appends the implicit `Ok(())` success
   value. If there is no documented result context, the wrapper error type is
   inferred when every `?` applies to a known function call returning
-  `Result(_, E)` and all such calls use the same `E`.
+  `Result<_, E>` and all such calls use the same `E`.
 - `runtime=contract`, `clause=<Clause>`, and `predicate=<Predicate>` on a
   positive executable doctest expect a runtime contract failure. Optional
   `function=<Name>` and `blame=<Side>` attributes further constrain that
@@ -311,11 +311,11 @@ they are not ordinary value names.
 
 `Option` and `Result` constructors are built-in compiler-owned ADT
 constructors. Source `type` declarations define additional ADT descriptors
-with generic parameters, nullary variants, tuple-like variants, and
-record-shaped variant declarations:
+with angle-bracket generic parameters, nullary variants, tuple-like variants,
+and record-shaped variant declarations:
 
 ```text
-pub type Maybe(A)
+pub type Maybe<A>
   pub Missing
   pub Just(A)
 end
@@ -331,9 +331,12 @@ constructors; each exported constructor line uses its own `pub` prefix.
 Private constructors remain usable in their declaring module. One module cannot
 declare the same constructor leaf name twice, even across different ADTs. When
 multiple imports expose the same public constructor leaf name, unqualified use
-is ambiguous and must use a qualifying path. The built-in `List(A)` descriptor
+is ambiguous and must use a qualifying path. The built-in `List<A>` descriptor
 recognizes `Nil`, `Cons(head, tail)`, `List::Nil`, and
 `List::Cons(head, tail)` and keeps the existing runtime list representation.
+The legacy `type Name(A)` declaration spelling remains accepted in type
+positions during the compatibility window, but `type Name<A>` is the current
+source spelling for declared type parameters.
 
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
@@ -371,7 +374,7 @@ that pattern or a value binding already visible at the pattern. Record pattern
 field names must be unique.
 
 The checker rejects non-exhaustive `match` expressions for scrutinee types it
-can classify as finite domains: `Bool`, `Option(T)`, `Result(T, E)`, `List(A)`,
+can classify as finite domains: `Bool`, `Option<T>`, `Result<T, E>`, `List<A>`,
 and source-declared ADTs. `_` and binding patterns are catch-all arms. Bool
 matches must cover `true` and `false`; option matches must cover `Some(_)` and
 `None`; result matches must cover `Ok(_)` and `Err(_)`; list matches must cover

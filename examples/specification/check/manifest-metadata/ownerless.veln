@@ -1,5 +1,4 @@
 # Manifest module metadata cannot supply the compiler-visible module owner.
-
 pub fn helper() -> ()
-  ()
+	()
 end

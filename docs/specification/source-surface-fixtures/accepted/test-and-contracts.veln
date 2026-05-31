@@ -1,5 +1,5 @@
-test returns_ok() -> Result((), String)
-require true
-  let value = Ok(())
-  value
+test returns_ok() -> Result<(), String>
+	require true
+	let value = Ok(())
+	value
 end

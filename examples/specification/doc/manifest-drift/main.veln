@@ -1,5 +1,5 @@
 mod docs.source
 
 pub fn main() -> ()
-  ()
+	()
 end

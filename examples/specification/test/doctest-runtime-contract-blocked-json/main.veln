@@ -3,5 +3,5 @@
 ## let value: Int = "no"
 ## ```
 pub fn main() -> ()
-  ()
+	()
 end

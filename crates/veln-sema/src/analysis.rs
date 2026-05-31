@@ -411,7 +411,7 @@ fn test_return_diagnostic(
         JsonValue::object([
             ("phase", JsonValue::string("test")),
             ("node_id", JsonValue::string(node_id)),
-            ("expected_type", JsonValue::string("() or Result((), E)")),
+            ("expected_type", JsonValue::string("() or Result<(), E>")),
             ("actual_type", JsonValue::string(actual_type)),
         ]),
     );
@@ -419,7 +419,7 @@ fn test_return_diagnostic(
         ("kind", JsonValue::string("test_shape")),
         (
             "message",
-            JsonValue::string("A test declaration returns `()` or `Result((), E)`."),
+            JsonValue::string("A test declaration returns `()` or `Result<(), E>`."),
         ),
         ("span", span_json(&function.span)),
     ]));

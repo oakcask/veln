@@ -1310,7 +1310,7 @@ fn render_core_type(ty: &CoreType) -> String {
                 .map(render_core_type)
                 .collect::<Vec<_>>()
                 .join(", ");
-            format!("{name}({args})")
+            format!("{name}<{args}>")
         }
         CoreType::Record(fields) => {
             let fields = fields

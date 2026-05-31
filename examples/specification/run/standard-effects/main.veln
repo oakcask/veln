@@ -1,24 +1,24 @@
 # Standard process, file-system, and stdio calls must be declared as effects.
 fn cwd_status() -> String effects [process, fs]
-  match process::cwd()
-    Ok(path) => match fs::exists(path)
-      Ok(true) => "cwd"
-      Ok(false) => "missing"
-      Err(_) => "fs-error"
-    end
-    Err(_) => "process-error"
-  end
+	match process::cwd()
+		Ok(path) => match fs::exists(path)
+			Ok(true) => "cwd"
+			Ok(false) => "missing"
+			Err(_) => "fs-error"
+		end
+		Err(_) => "process-error"
+	end
 end
 
 pub fn main(first: String, second: String) -> () effects [process, fs, stdio]
-  stdio::println(int_to_string(vec_len(process::args())))
-  match process::env("VELN_SPEC_MESSAGE")
-    Some(value) => stdio::println(value)
-    None => stdio::println("missing")
-  end
-  match process::env("VELN_SPEC_MISSING=KEY")
-    Some(value) => stdio::println(value)
-    None => stdio::println("missing")
-  end
-  stdio::println(cwd_status())
+	stdio::println(int_to_string(vec_len(process::args())))
+	match process::env("VELN_SPEC_MESSAGE")
+		Some(value) => stdio::println(value)
+		None => stdio::println("missing")
+	end
+	match process::env("VELN_SPEC_MISSING=KEY")
+		Some(value) => stdio::println(value)
+		None => stdio::println("missing")
+	end
+	stdio::println(cwd_status())
 end

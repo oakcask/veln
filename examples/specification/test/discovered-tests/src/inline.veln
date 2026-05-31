@@ -1,4 +1,4 @@
 # Test discovery also selects non-test source files that contain tests.
 test inline() -> ()
-  ()
+	()
 end

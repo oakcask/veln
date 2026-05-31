@@ -253,7 +253,7 @@ fn result_constructor_checks_expected_value_type() {
 fn descriptor_routed_err_constructor_checks_expected_error_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result(Int, AppError)\n  Err(1)\nend\n",
+        "fn main() -> Result<Int, AppError>\n  Err(1)\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -277,7 +277,7 @@ fn descriptor_routed_err_constructor_checks_expected_error_type() {
 fn descriptor_routed_option_constructor_checks_expected_item_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Option(Int)\n  Some(\"no\")\nend\n",
+        "fn main() -> Option<Int>\n  Some(\"no\")\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -298,7 +298,7 @@ fn descriptor_routed_option_constructor_checks_expected_item_type() {
 fn descriptor_routed_qualified_option_constructor_checks_expected_item_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Option(Int)\n  Option::Some(\"no\")\nend\n",
+        "fn main() -> Option<Int>\n  Option::Some(\"no\")\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -319,7 +319,7 @@ fn descriptor_routed_qualified_option_constructor_checks_expected_item_type() {
 fn descriptor_routed_qualified_result_constructor_checks_expected_error_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result(Int, AppError)\n  Result::Err(1)\nend\n",
+        "fn main() -> Result<Int, AppError>\n  Result::Err(1)\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -343,7 +343,7 @@ fn descriptor_routed_qualified_result_constructor_checks_expected_error_type() {
 fn descriptor_routed_qualified_result_constructor_checks_expected_value_type() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result(Int, AppError)\n  Result::Ok(\"no\")\nend\n",
+        "fn main() -> Result<Int, AppError>\n  Result::Ok(\"no\")\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -365,11 +365,11 @@ fn descriptor_routed_qualified_list_constructor_checks_expected_head_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type List(A)\n",
+            "type List<A>\n",
             "  Nil\n",
-            "  Cons(head: A, tail: List(A))\n",
+            "  Cons(head: A, tail: List<A>)\n",
             "end\n",
-            "fn main() -> List(Int)\n",
+            "fn main() -> List<Int>\n",
             "  List::Cons(\"no\", List::Nil)\n",
             "end\n",
         ),
@@ -394,11 +394,11 @@ fn descriptor_routed_qualified_list_constructor_checks_expected_tail_type() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type List(A)\n",
+            "type List<A>\n",
             "  Nil\n",
-            "  Cons(head: A, tail: List(A))\n",
+            "  Cons(head: A, tail: List<A>)\n",
             "end\n",
-            "fn main() -> List(Int)\n",
+            "fn main() -> List<Int>\n",
             "  List::Cons(1, None)\n",
             "end\n",
         ),
@@ -412,12 +412,12 @@ fn descriptor_routed_qualified_list_constructor_checks_expected_tail_type() {
     assert_eq!(diagnostics[0].id, "type.mismatch");
     assert_eq!(
         diagnostics[0].message,
-        "expected `List(Int)`, but found `Option(unknown)`"
+        "expected `List<Int>`, but found `Option<unknown>`"
     );
     assert_diagnostic_span(&diagnostics[0], 6, 17, 6, 21);
     let details = diagnostics[0].details.to_json();
-    assert!(details.contains("\"expected_type\":\"List(Int)\""));
-    assert!(details.contains("\"actual_type\":\"Option(unknown)\""));
+    assert!(details.contains("\"expected_type\":\"List<Int>\""));
+    assert!(details.contains("\"actual_type\":\"Option<unknown>\""));
     assert!(details.contains("\"constraint\":\"call_argument\""));
 }
 
@@ -425,7 +425,7 @@ fn descriptor_routed_qualified_list_constructor_checks_expected_tail_type() {
 fn descriptor_routed_result_arity_diagnostic_keeps_call_span() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Result(Int, AppError)\n  Ok()\nend\n",
+        "fn main() -> Result<Int, AppError>\n  Ok()\nend\n",
     );
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
@@ -446,7 +446,7 @@ fn descriptor_routed_result_arity_diagnostic_keeps_call_span() {
 
 #[test]
 fn descriptor_routed_option_arity_diagnostic_keeps_call_span() {
-    let source = SourceFile::new("main.veln", "fn main() -> Option(Int)\n  Some(1, 2)\nend\n");
+    let source = SourceFile::new("main.veln", "fn main() -> Option<Int>\n  Some(1, 2)\nend\n");
     let parsed = parse(&source);
     let module = lower_surface_ast(&parsed.tree);
 
@@ -469,7 +469,7 @@ fn descriptor_routed_try_checks_result_error_type_at_operand() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn parse(raw: String) -> Result(Int, String)\n",
+            "fn parse(raw: String) -> Result<Int, String>\n",
             "  Ok(1)\n",
             "end\n",
             "fn main(raw: String) -> Result((), AppError)\n",
@@ -489,13 +489,13 @@ fn descriptor_routed_try_checks_result_error_type_at_operand() {
         .expect("try operand result error type should be diagnosed");
     assert_eq!(
         diagnostic.message,
-        "expected `Result(Int, AppError)`, but found `Result(Int, String)`"
+        "expected `Result<Int, AppError>`, but found `Result<Int, String>`"
     );
     assert_diagnostic_span(diagnostic, 5, 20, 5, 30);
     let details = diagnostic.details.to_json();
     assert!(details.contains("\"constraint\":\"return_value\""));
-    assert!(details.contains("\"expected_type\":\"Result(Int, AppError)\""));
-    assert!(details.contains("\"actual_type\":\"Result(Int, String)\""));
+    assert!(details.contains("\"expected_type\":\"Result<Int, AppError>\""));
+    assert!(details.contains("\"actual_type\":\"Result<Int, String>\""));
 }
 
 #[test]
@@ -503,7 +503,7 @@ fn accepts_supported_type_forms_and_record_expected_fields() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main() -> {score: Float, names: Vec(String), table: Dict(String, Int), ",
+            "fn main() -> {score: Float, names: Vec<String>, table: Dict<String, Int>, ",
             "callback: fn(Int) -> String}\n",
             "  {score: _, names: [], table: _, callback: _}\n",
             "end\n",
@@ -521,7 +521,7 @@ fn accepts_supported_type_forms_and_record_expected_fields() {
         .collect::<Vec<_>>()
         .join("\n");
     assert!(rendered.contains("\"expected_type\":\"Float\""));
-    assert!(rendered.contains("\"expected_type\":\"Dict(String, Int)\""));
+    assert!(rendered.contains("\"expected_type\":\"Dict<String, Int>\""));
     assert!(rendered.contains("\"expected_type\":\"fn(Int) -> String\""));
     assert!(rendered.contains("\"candidate_queries\":[{\"kind\":\"symbol\""));
     assert!(
@@ -536,7 +536,7 @@ fn accepts_dictionary_literals_with_expected_key_and_value_types() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main() -> Dict(String, Int)\n",
+            "fn main() -> Dict<String, Int>\n",
             "  {\"one\": 1, \"two\": 2}\n",
             "end\n",
         ),
@@ -583,7 +583,7 @@ fn accepts_dictionary_literals_with_identifier_led_expression_keys() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(seed: Int) -> Dict(Int, String)\n",
+            "fn main(seed: Int) -> Dict<Int, String>\n",
             "  {seed + 1: \"next\"}\n",
             "end\n",
         ),
@@ -691,7 +691,7 @@ fn match_expression_type_checks_inside_call_argument() {
             "fn wrap(value: String) -> String\n",
             "  value\n",
             "end\n",
-            "fn describe(value: Option(Int)) -> String\n",
+            "fn describe(value: Option<Int>) -> String\n",
             "  wrap(match value\n",
             "    Some(count) => \"some\"\n",
             "    None => \"none\"\n",
@@ -725,7 +725,7 @@ fn descriptor_routed_constructor_patterns_bind_payload_types() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> Int\n",
+            "fn main(value: Option<Int>) -> Int\n",
             "  match value\n",
             "    Option::Some(count) => count + 1\n",
             "    Option::None => 0\n",
@@ -760,7 +760,7 @@ fn descriptor_routed_result_pattern_reports_payload_type_mismatch_at_branch_expr
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> Int\n",
+            "fn main(value: Result<Int, String>) -> Int\n",
             "  match value\n",
             "    Result::Ok(count) => count\n",
             "    Result::Err(error) => error\n",
@@ -796,13 +796,13 @@ fn match_exhaustiveness_accepts_finite_builtin_domains() {
             "    false => \"false\"\n",
             "  end\n",
             "end\n",
-            "fn option_label(value: Option(Int)) -> String\n",
+            "fn option_label(value: Option<Int>) -> String\n",
             "  match value\n",
             "    Some(_) => \"some\"\n",
             "    None => \"none\"\n",
             "  end\n",
             "end\n",
-            "fn result_label(value: Result(Int, String)) -> String\n",
+            "fn result_label(value: Result<Int, String>) -> String\n",
             "  match value\n",
             "    Ok(_) => \"ok\"\n",
             "    Err(_) => \"err\"\n",
@@ -825,13 +825,13 @@ fn match_exhaustiveness_accepts_catch_all_patterns() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn wildcard(value: Option(Int)) -> String\n",
+            "fn wildcard(value: Option<Int>) -> String\n",
             "  match value\n",
             "    Some(_) => \"some\"\n",
             "    _ => \"fallback\"\n",
             "  end\n",
             "end\n",
-            "fn binding(value: Result(Int, String)) -> String\n",
+            "fn binding(value: Result<Int, String>) -> String\n",
             "  match value\n",
             "    Ok(_) => \"ok\"\n",
             "    other => \"fallback\"\n",
@@ -907,7 +907,7 @@ fn match_exhaustiveness_reports_missing_option_case() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> String\n",
+            "fn main(value: Option<Int>) -> String\n",
             "  match value\n",
             "    Some(count) => \"some\"\n",
             "  end\n",
@@ -933,7 +933,7 @@ fn match_exhaustiveness_reports_missing_option_case() {
         .map(|note| note.to_json())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(related.contains("Scrutinee has type `Option(Int)`."));
+    assert!(related.contains("Scrutinee has type `Option<Int>`."));
     assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
     assert!(related.contains("This arm covers Some(_)."));
     assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
@@ -944,7 +944,7 @@ fn match_exhaustiveness_reports_qualified_option_case_with_source_anchors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> String\n",
+            "fn main(value: Option<Int>) -> String\n",
             "  match value\n",
             "    Option::Some(count) => \"some\"\n",
             "  end\n",
@@ -971,7 +971,7 @@ fn match_exhaustiveness_reports_qualified_option_case_with_source_anchors() {
         .map(|note| note.to_json())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(related.contains("Scrutinee has type `Option(Int)`."));
+    assert!(related.contains("Scrutinee has type `Option<Int>`."));
     assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
     assert!(related.contains("This arm covers Some(_)."));
     assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
@@ -982,7 +982,7 @@ fn match_exhaustiveness_reports_qualified_option_none_case_with_source_anchors()
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> String\n",
+            "fn main(value: Option<Int>) -> String\n",
             "  match value\n",
             "    Option::None => \"none\"\n",
             "  end\n",
@@ -1009,7 +1009,7 @@ fn match_exhaustiveness_reports_qualified_option_none_case_with_source_anchors()
         .map(|note| note.to_json())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(related.contains("Scrutinee has type `Option(Int)`."));
+    assert!(related.contains("Scrutinee has type `Option<Int>`."));
     assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
     assert!(related.contains("This arm covers None."));
     assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
@@ -1020,7 +1020,7 @@ fn match_exhaustiveness_reports_missing_result_case_with_source_anchors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> String\n",
+            "fn main(value: Result<Int, String>) -> String\n",
             "  match value\n",
             "    Err(error) => error\n",
             "  end\n",
@@ -1047,7 +1047,7 @@ fn match_exhaustiveness_reports_missing_result_case_with_source_anchors() {
         .map(|note| note.to_json())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(related.contains("Scrutinee has type `Result(Int, String)`."));
+    assert!(related.contains("Scrutinee has type `Result<Int, String>`."));
     assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
     assert!(related.contains("This arm covers Err(_)."));
     assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
@@ -1058,7 +1058,7 @@ fn match_exhaustiveness_reports_qualified_result_case_with_source_anchors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> String\n",
+            "fn main(value: Result<Int, String>) -> String\n",
             "  match value\n",
             "    Result::Err(error) => error\n",
             "  end\n",
@@ -1085,7 +1085,7 @@ fn match_exhaustiveness_reports_qualified_result_case_with_source_anchors() {
         .map(|note| note.to_json())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(related.contains("Scrutinee has type `Result(Int, String)`."));
+    assert!(related.contains("Scrutinee has type `Result<Int, String>`."));
     assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
     assert!(related.contains("This arm covers Err(_)."));
     assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
@@ -1096,7 +1096,7 @@ fn match_exhaustiveness_reports_qualified_result_ok_case_with_source_anchors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> String\n",
+            "fn main(value: Result<Int, String>) -> String\n",
             "  match value\n",
             "    Result::Ok(count) => \"ok\"\n",
             "  end\n",
@@ -1123,7 +1123,7 @@ fn match_exhaustiveness_reports_qualified_result_ok_case_with_source_anchors() {
         .map(|note| note.to_json())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(related.contains("Scrutinee has type `Result(Int, String)`."));
+    assert!(related.contains("Scrutinee has type `Result<Int, String>`."));
     assert!(related.contains("\"start\":{\"line\":2,\"column\":9,"));
     assert!(related.contains("This arm covers Ok(_)."));
     assert!(related.contains("\"start\":{\"line\":3,\"column\":5,"));
@@ -1134,11 +1134,11 @@ fn minimal_list_adt_declaration_type_checks_constructor_patterns() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type List(A)\n",
+            "type List<A>\n",
             "  Nil\n",
-            "  Cons(head: A, tail: List(A))\n",
+            "  Cons(head: A, tail: List<A>)\n",
             "end\n",
-            "fn main(value: List(Int)) -> Int\n",
+            "fn main(value: List<Int>) -> Int\n",
             "  match value\n",
             "    Nil => 0\n",
             "    Cons(head, _) => head\n",
@@ -1159,17 +1159,17 @@ fn minimal_list_adt_qualified_constructors_type_check_and_bind_payloads() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type List(A)\n",
+            "type List<A>\n",
             "  Nil\n",
-            "  Cons(head: A, tail: List(A))\n",
+            "  Cons(head: A, tail: List<A>)\n",
             "end\n",
-            "fn main(value: List(Int)) -> Int\n",
+            "fn main(value: List<Int>) -> Int\n",
             "  match value\n",
             "    List::Nil => 0\n",
             "    List::Cons(head, tail) => head + length(tail)\n",
             "  end\n",
             "end\n",
-            "fn length(value: List(Int)) -> Int\n",
+            "fn length(value: List<Int>) -> Int\n",
             "  match value\n",
             "    List::Nil => 0\n",
             "    List::Cons(_, tail) => 1 + length(tail)\n",
@@ -1190,11 +1190,11 @@ fn minimal_list_adt_constructor_calls_lower_with_declared_context() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type List(A)\n",
+            "type List<A>\n",
             "  Nil\n",
-            "  Cons(head: A, tail: List(A))\n",
+            "  Cons(head: A, tail: List<A>)\n",
             "end\n",
-            "fn main() -> List(Int)\n",
+            "fn main() -> List<Int>\n",
             "  List::Cons(1, List::Nil)\n",
             "end\n",
         ),
@@ -1467,11 +1467,11 @@ fn minimal_list_adt_match_reports_missing_cons_case() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type List(A)\n",
+            "type List<A>\n",
             "  Nil\n",
-            "  Cons(head: A, tail: List(A))\n",
+            "  Cons(head: A, tail: List<A>)\n",
             "end\n",
-            "fn main(value: List(Int)) -> Int\n",
+            "fn main(value: List<Int>) -> Int\n",
             "  match value\n",
             "    Nil => 0\n",
             "  end\n",
@@ -1498,11 +1498,11 @@ fn minimal_list_adt_match_reports_missing_qualified_nil_case_with_source_anchors
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type List(A)\n",
+            "type List<A>\n",
             "  Nil\n",
-            "  Cons(head: A, tail: List(A))\n",
+            "  Cons(head: A, tail: List<A>)\n",
             "end\n",
-            "fn main(value: List(Int)) -> Int\n",
+            "fn main(value: List<Int>) -> Int\n",
             "  match value\n",
             "    List::Cons(head, _) => head\n",
             "  end\n",
@@ -1529,7 +1529,7 @@ fn minimal_list_adt_match_reports_missing_qualified_nil_case_with_source_anchors
         .map(|note| note.to_json())
         .collect::<Vec<_>>()
         .join("\n");
-    assert!(related.contains("Scrutinee has type `List(Int)`."));
+    assert!(related.contains("Scrutinee has type `List<Int>`."));
     assert!(related.contains("\"start\":{\"line\":6,\"column\":9,"));
     assert!(related.contains("This arm covers Cons(_)."));
     assert!(related.contains("\"start\":{\"line\":7,\"column\":5,"));

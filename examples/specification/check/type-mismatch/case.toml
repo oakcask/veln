@@ -24,4 +24,4 @@ message = "expected `Int`, but found `String`"
 [diagnostics.span]
 file = "main.veln"
 line = 3
-column = 3
+column = 2

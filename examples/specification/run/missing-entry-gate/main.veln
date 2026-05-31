@@ -1,4 +1,4 @@
 # Run entry selection fails before executable code is selected.
 pub fn main() -> ()
-  ()
+	()
 end

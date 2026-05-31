@@ -277,7 +277,7 @@ fn check_json_accepts_valid_input() {
     let project = TestProject::new("valid");
     project.write(
         "main.veln",
-        "pub fn main() -> Result((), AppError) effects [stdio]\n  Ok(())\nend\n",
+        "pub fn main() -> Result<(), AppError> effects [stdio]\n  Ok(())\nend\n",
     );
 
     let output = project.check_json(&["main.veln"]);
@@ -349,7 +349,7 @@ fn check_human_reports_match_exhaustiveness_context() {
     project.write(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> String\n",
+            "fn main(value: Option<Int>) -> String\n",
             "  match value\n",
             "    Some(count) => \"some\"\n",
             "  end\n",
@@ -365,7 +365,7 @@ fn check_human_reports_match_exhaustiveness_context() {
         stdout(&output),
         &[
             "main.veln:2:3: error[type.match_non_exhaustive]: match is missing case None",
-            "  note: main.veln:2:9: Scrutinee has type `Option(Int)`.",
+            "  note: main.veln:2:9: Scrutinee has type `Option<Int>`.",
             "  note: main.veln:3:5: This arm covers Some(_).",
         ],
     );
@@ -552,10 +552,10 @@ fn check_json_reports_checked_core_call_arity_blockers() {
             "fn add(left: Int, right: Int) -> Int\n",
             "  left + right\n",
             "end\n",
-            "fn make_result() -> Result(Int, AppError)\n",
+            "fn make_result() -> Result<Int, AppError>\n",
             "  Ok()\n",
             "end\n",
-            "fn make_option() -> Option(Int)\n",
+            "fn make_option() -> Option<Int>\n",
             "  Some(1, 2)\n",
             "end\n",
             "pub fn main() -> Int\n",
@@ -631,7 +631,7 @@ fn check_json_accepts_executable_concurrency_runtime_calls() {
         "main.veln",
         concat!(
             "pub fn main() -> String effects [concurrency]\n",
-            "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let pair: {tx: Sender<String>, rx: Receiver<String>} = channel::bounded(1)\n",
             "  let _ = channel::send(pair.tx, \"hello\")\n",
             "  match channel::recv(pair.rx)\n",
             "    Some(value) => value\n",
@@ -705,7 +705,7 @@ fn check_human_accepts_executable_concurrency_runtime_calls() {
         "main.veln",
         concat!(
             "pub fn main() -> String effects [concurrency]\n",
-            "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let pair: {tx: Sender<String>, rx: Receiver<String>} = channel::bounded(1)\n",
             "  let _ = channel::send(pair.tx, \"hello\")\n",
             "  match channel::recv(pair.rx)\n",
             "    Some(value) => value\n",
@@ -755,7 +755,7 @@ fn check_human_reports_refutable_let_pattern_hint() {
     project.write(
         "main.veln",
         concat!(
-            "fn main(value: Option(Int)) -> ()\n",
+            "fn main(value: Option<Int>) -> ()\n",
             "  let Some(amount) = value\n",
             "  ()\n",
             "end\n",
@@ -785,7 +785,7 @@ fn fmt_formats_supported_golden_and_is_idempotent() {
             "use stdio\n",
             "pub   fn   main ( name : String ) -> Result ( () , AppError ) effects [ stdio ]\n",
             " require name != \"\"\n",
-            " let payload : { message : String, values : Vec(Int) } = { message : name , values : [ 1 , 2 , add ( 3 , 4 ) ] }\n",
+            " let payload : { message : String, values : Vec<Int> } = { message : name , values : [ 1 , 2 , add ( 3 , 4 ) ] }\n",
             " stdio::println ( payload )\n",
             " _result satisfy candidate => candidate != \"\"\n",
             "end\n",
@@ -805,9 +805,9 @@ fn fmt_formats_supported_golden_and_is_idempotent() {
             "mod app\n",
             "use stdio\n",
             "\n",
-            "pub fn main(name: String) -> Result((), AppError) effects [stdio]\n",
+            "pub fn main(name: String) -> Result<(), AppError> effects [stdio]\n",
             "\trequire name != \"\"\n",
-            "\tlet payload: { message : String, values : Vec(Int) } = { message: name, values: [1, 2, add(3, 4)] }\n",
+            "\tlet payload: { message : String, values : Vec<Int> } = { message: name, values: [1, 2, add(3, 4)] }\n",
             "\tstdio::println(payload)\n",
             "\t_result satisfy candidate => candidate != \"\"\n",
             "end\n",
@@ -827,9 +827,9 @@ fn fmt_formats_supported_golden_and_is_idempotent() {
             "mod app\n",
             "use stdio\n",
             "\n",
-            "pub fn main(name: String) -> Result((), AppError) effects [stdio]\n",
+            "pub fn main(name: String) -> Result<(), AppError> effects [stdio]\n",
             "\trequire name != \"\"\n",
-            "\tlet payload: { message : String, values : Vec(Int) } = { message: name, values: [1, 2, add(3, 4)] }\n",
+            "\tlet payload: { message : String, values : Vec<Int> } = { message: name, values: [1, 2, add(3, 4)] }\n",
             "\tstdio::println(payload)\n",
             "\t_result satisfy candidate => candidate != \"\"\n",
             "end\n",
@@ -850,7 +850,7 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
             "fn parse ( raw : String ) -> Result ( Int , AppError )\n",
             " Ok ( 1 )\n",
             "end\n",
-            "pub fn main ( raw : String ) -> Result ( { value : Int, tags : Vec(String) } , AppError )\n",
+            "pub fn main ( raw : String ) -> Result ( { value : Int, tags : Vec<String> } , AppError )\n",
             " ensure output.value >= 0 and not ( output.value == - 1 )\n",
             " let parsed : Int = parse ( raw ) ?\n",
             " { value : parsed + 1 * ( 2 + 3 ) , tags : [ choose ( raw , \"fallback\" ) , \"done\" ] }\n",
@@ -873,11 +873,11 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
     assert_eq!(
         project.read("main.veln"),
         concat!(
-            "fn parse(raw: String) -> Result(Int, AppError)\n",
+            "fn parse(raw: String) -> Result<Int, AppError>\n",
             "\tOk(1)\n",
             "end\n",
             "\n",
-            "pub fn main(raw: String) -> Result({ value : Int, tags : Vec(String) }, AppError)\n",
+            "pub fn main(raw: String) -> Result<{ value : Int, tags : Vec<String> }, AppError>\n",
             "\tensure output.value >= 0 and not(output.value == - 1)\n",
             "\tlet parsed: Int = parse(raw)?\n",
             "\t{ value: parsed + 1 * (2 + 3), tags: [choose(raw, \"fallback\"), \"done\"] }\n",
@@ -899,11 +899,11 @@ fn fmt_formats_focused_supported_forms_across_multiple_files() {
     assert_eq!(
         project.read("main.veln"),
         concat!(
-            "fn parse(raw: String) -> Result(Int, AppError)\n",
+            "fn parse(raw: String) -> Result<Int, AppError>\n",
             "\tOk(1)\n",
             "end\n",
             "\n",
-            "pub fn main(raw: String) -> Result({ value : Int, tags : Vec(String) }, AppError)\n",
+            "pub fn main(raw: String) -> Result<{ value : Int, tags : Vec<String> }, AppError>\n",
             "\tensure output.value >= 0 and not(output.value == - 1)\n",
             "\tlet parsed: Int = parse(raw)?\n",
             "\t{ value: parsed + 1 * (2 + 3), tags: [choose(raw, \"fallback\"), \"done\"] }\n",
@@ -926,13 +926,13 @@ fn fmt_formats_match_expressions_with_tab_relative_indentation() {
     project.write(
         "main.veln",
         concat!(
-            "fn describe ( value : Option(Int) ) -> String\n",
+            "fn describe ( value : Option<Int> ) -> String\n",
             " match value\n",
             " Some(count) => \"some\"\n",
             " None => \"none\"\n",
             " end\n",
             "end\n",
-            "fn nested ( value : Option(Int) ) -> { labels : Vec(String), primary : String }\n",
+            "fn nested ( value : Option<Int> ) -> { labels : Vec<String>, primary : String }\n",
             " { labels : [ wrap ( match value\n",
             " Some(count) => \"some\"\n",
             " None => \"none\"\n",
@@ -950,14 +950,14 @@ fn fmt_formats_match_expressions_with_tab_relative_indentation() {
     assert_eq!(
         project.read("main.veln"),
         concat!(
-            "fn describe(value: Option(Int)) -> String\n",
+            "fn describe(value: Option<Int>) -> String\n",
             "\tmatch value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
             "\tend\n",
             "end\n",
             "\n",
-            "fn nested(value: Option(Int)) -> { labels : Vec(String), primary : String }\n",
+            "fn nested(value: Option<Int>) -> { labels : Vec<String>, primary : String }\n",
             "\t{ labels: [wrap(match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -975,14 +975,14 @@ fn fmt_formats_match_expressions_with_tab_relative_indentation() {
     assert_eq!(
         project.read("main.veln"),
         concat!(
-            "fn describe(value: Option(Int)) -> String\n",
+            "fn describe(value: Option<Int>) -> String\n",
             "\tmatch value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
             "\tend\n",
             "end\n",
             "\n",
-            "fn nested(value: Option(Int)) -> { labels : Vec(String), primary : String }\n",
+            "fn nested(value: Option<Int>) -> { labels : Vec<String>, primary : String }\n",
             "\t{ labels: [wrap(match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1218,7 +1218,7 @@ fn check_json_reports_hole_with_return_expected_type() {
     let project = TestProject::new("hole-return");
     project.write(
         "main.veln",
-        "pub fn main() -> Result((), AppError)\n  _\nend\n",
+        "pub fn main() -> Result<(), AppError>\n  _\nend\n",
     );
 
     let output = project.check_json(&["main.veln"]);
@@ -1234,15 +1234,15 @@ fn check_json_reports_hole_with_return_expected_type() {
             "\"id\":\"hole.unfilled\",",
             "\"severity\":\"hint\",",
             "\"kind\":\"hole\",",
-            "\"message\":\"hole requires a `Result((), AppError)` value\",",
+            "\"message\":\"hole requires a `Result<(), AppError>` value\",",
             "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":2,\"column\":3,\"offset\":40},\"end\":{\"line\":2,\"column\":4,\"offset\":41}},",
             "\"details\":{\"phase\":\"hole\",\"node_id\":\"hole-3\",\"label\":null,",
-            "\"expected_type\":\"Result((), AppError)\",\"expected_type_source\":\"declared\",",
+            "\"expected_type\":\"Result<(), AppError>\",\"expected_type_source\":\"declared\",",
             "\"constraints\":[],\"local_bindings\":[],",
             "\"candidate_queries\":[{\"kind\":\"symbol\",",
             "\"candidate_status\":\"query_only\",",
             "\"application_policy\":\"manual_review_required\",",
-            "\"query\":\"fn() -> Result((), AppError)\"}]},",
+            "\"query\":\"fn() -> Result<(), AppError>\"}]},",
             "\"related\":[{\"kind\":\"expected_type_origin\",\"message\":\"Return type declared here.\",",
             "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":4,\"column\":1,\"offset\":46}}}]}],",
             "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"hint\":1},\"by_kind\":{\"hole\":1}}}\n"
@@ -1328,7 +1328,7 @@ fn check_json_reports_match_exhaustiveness_details() {
     project.write(
         "main.veln",
         concat!(
-            "fn main(value: Result(Int, String)) -> String\n",
+            "fn main(value: Result<Int, String>) -> String\n",
             "  match value\n",
             "    Err(error) => error\n",
             "  end\n",
@@ -1344,7 +1344,7 @@ fn check_json_reports_match_exhaustiveness_details() {
         &[
             "\"id\":\"type.match_non_exhaustive\"",
             "\"message\":\"match is missing case Ok(_)\"",
-            "\"scrutinee_type\":\"Result(Int, String)\"",
+            "\"scrutinee_type\":\"Result<Int, String>\"",
             "\"missing_case\":\"Ok(_)\"",
             "\"constraint\":\"match_exhaustiveness\"",
             "\"kind\":\"scrutinee_type\"",
@@ -2897,7 +2897,7 @@ fn run_executes_bounded_channel_send_and_receive_when_jdk_is_available() {
         "main.veln",
         concat!(
             "pub fn main() -> () effects [concurrency, stdio]\n",
-            "  let pair: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let pair: {tx: Sender<String>, rx: Receiver<String>} = channel::bounded(1)\n",
             "  let _ = channel::send(pair.tx, \"hello\")\n",
             "  let output: String = match channel::recv(pair.rx)\n",
             "    Some(value) => value\n",
@@ -2957,8 +2957,8 @@ fn run_executes_channel_select_timeout_when_jdk_is_available() {
         "main.veln",
         concat!(
             "pub fn main() -> () effects [concurrency, stdio]\n",
-            "  let left: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
-            "  let right: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let left: {tx: Sender<String>, rx: Receiver<String>} = channel::bounded(1)\n",
+            "  let right: {tx: Sender<String>, rx: Receiver<String>} = channel::bounded(1)\n",
             "  let _ = channel::send(right.tx, \"hello\")\n",
             "  let output: String = match channel::select_timeout(left.rx, right.rx, 10)\n",
             "    Some(selected) => selected.value\n",
@@ -2988,8 +2988,8 @@ fn run_executes_channel_select_result_when_jdk_is_available() {
         "main.veln",
         concat!(
             "pub fn main() -> () effects [concurrency, stdio]\n",
-            "  let left: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
-            "  let right: {tx: Sender(String), rx: Receiver(String)} = channel::bounded(1)\n",
+            "  let left: {tx: Sender<String>, rx: Receiver<String>} = channel::bounded(1)\n",
+            "  let right: {tx: Sender<String>, rx: Receiver<String>} = channel::bounded(1)\n",
             "  let _ = channel::send(right.tx, \"hello\")\n",
             "  let output: String = match channel::select_result(left.rx, right.rx)\n",
             "    Ok(Some(selected)) => selected.value\n",
@@ -3046,7 +3046,7 @@ fn run_blocks_reachable_holes_before_jdk_execution() {
     let project = TestProject::new("run-hole");
     project.write(
         "main.veln",
-        "pub fn main() -> Result((), AppError)\n  _\nend\n",
+        "pub fn main() -> Result<(), AppError>\n  _\nend\n",
     );
 
     let output = project.run(&["main", "main.veln"]);
@@ -3056,7 +3056,7 @@ fn run_blocks_reachable_holes_before_jdk_execution() {
     assert_contains_all(
         stderr(&output),
         &[
-            "hint[hole.unfilled]: hole requires a `Result((), AppError)` value",
+            "hint[hole.unfilled]: hole requires a `Result<(), AppError>` value",
             "veln: run blocked: checked program is not executable",
         ],
     );
@@ -3068,7 +3068,7 @@ fn run_blocks_holes_reachable_through_function_values_before_jdk_execution() {
     project.write(
         "main.veln",
         concat!(
-            "pub fn main() -> Vec(String)\n",
+            "pub fn main() -> Vec<String>\n",
             "  vec_map([1], stringify)\n",
             "end\n",
             "fn stringify(value: Int) -> String\n",
@@ -3107,7 +3107,7 @@ fn run_blocks_holes_reachable_through_qualified_function_values_before_jdk_execu
         concat!(
             "mod app.main\n",
             "use app.text\n",
-            "pub fn main() -> Vec(String)\n",
+            "pub fn main() -> Vec<String>\n",
             "  vec_map([1], text::stringify)\n",
             "end\n",
         ),
@@ -3446,7 +3446,7 @@ fn run_rejects_unsupported_entry_parameters_before_jdk_execution() {
     let project = TestProject::new("run-entry-unsupported-param");
     project.write(
         "main.veln",
-        "pub fn main(value: Vec(Int)) -> Vec(Int)\n  value\nend\n",
+        "pub fn main(value: Vec<Int>) -> Vec<Int>\n  value\nend\n",
     );
 
     let output = project.run(&["main", "main.veln", "--", "1"]);
@@ -3679,7 +3679,7 @@ fn test_json_blocks_static_gate_before_jdk_execution() {
     let project = TestProject::new("test-static-gate");
     project.write(
         "main_test.veln",
-        "test blocked() -> Result((), AppError)\n  _\nend\n",
+        "test blocked() -> Result<(), AppError>\n  _\nend\n",
     );
 
     let output = project.test(&["--json"]);
@@ -3764,7 +3764,7 @@ fn test_json_auto_discovers_same_file_test_declarations() {
             "fn helper() -> ()\n",
             "  ()\n",
             "end\n",
-            "test same_file() -> Result((), AppError)\n",
+            "test same_file() -> Result<(), AppError>\n",
             "  _\n",
             "end\n",
         ),
@@ -3856,7 +3856,7 @@ fn check_json_infers_doctest_error_type_from_public_result() {
             "## ```veln\n",
             "## let value: Int = Ok(1)?\n",
             "## ```\n",
-            "pub fn parse(raw: String) -> Result(Int, AppError)\n",
+            "pub fn parse(raw: String) -> Result<Int, AppError>\n",
             "  Ok(1)\n",
             "end\n",
         ),
@@ -4220,7 +4220,7 @@ fn test_json_maps_explicit_source_file_to_paired_test_file() {
     project.write(
         "app_test.veln",
         concat!(
-            "test paired() -> Result((), AppError)\n",
+            "test paired() -> Result<(), AppError>\n",
             "  helper()\n",
             "  _\n",
             "end\n",
@@ -4327,7 +4327,7 @@ fn test_human_reports_source_to_test_selection_note() {
     project.write(
         "app_test.veln",
         concat!(
-            "test paired() -> Result((), AppError)\n",
+            "test paired() -> Result<(), AppError>\n",
             "  helper()\n",
             "  _\n",
             "end\n",
@@ -4342,7 +4342,7 @@ fn test_human_reports_source_to_test_selection_note() {
         stderr(&output),
         &[
             "veln: test selection: added 1 test file by source-to-test convention",
-            "app_test.veln:3:3: hint[hole.unfilled]: hole requires a `Result((), AppError)` value",
+            "app_test.veln:3:3: hint[hole.unfilled]: hole requires a `Result<(), AppError>` value",
         ],
     );
 }
@@ -4352,7 +4352,7 @@ fn test_json_treats_explicit_directory_target_as_user_selected() {
     let project = TestProject::new("test-explicit-directory-target");
     project.write(
         "tests/app_test.veln",
-        "test directory_case() -> Result((), AppError)\n  _\nend\n",
+        "test directory_case() -> Result<(), AppError>\n  _\nend\n",
     );
     project.write("tests/helper.veln", "fn helper() -> ()\n  ()\nend\n");
 
@@ -4377,7 +4377,7 @@ fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
     let project = TestProject::new("test-human-static-gate");
     project.write(
         "main_test.veln",
-        "test blocked() -> Result((), AppError)\n  _\nend\n",
+        "test blocked() -> Result<(), AppError>\n  _\nend\n",
     );
 
     let output = project.test(&[]);
@@ -4386,7 +4386,7 @@ fn test_human_prints_blocked_cases_and_static_gate_diagnostics() {
     assert_eq!(stdout(&output), "blocked blocked\n");
     assert_contains_all(
         stderr(&output),
-        &["main_test.veln:2:3: hint[hole.unfilled]: hole requires a `Result((), AppError)` value"],
+        &["main_test.veln:2:3: hint[hole.unfilled]: hole requires a `Result<(), AppError>` value"],
     );
 }
 
@@ -4403,7 +4403,7 @@ fn test_human_reports_passed_and_failed_cases_when_jdk_is_available() {
             "test passes() -> ()\n",
             "  ()\n",
             "end\n",
-            "test fails() -> Result((), String)\n",
+            "test fails() -> Result<(), String>\n",
             "  Err(\"bad\")\n",
             "end\n",
         ),
@@ -4435,7 +4435,7 @@ fn test_json_discovers_runs_and_captures_stdio_when_jdk_is_available() {
             "  stdio::eprintln(\"err\")\n",
             "  ()\n",
             "end\n",
-            "test fails() -> Result((), String)\n",
+            "test fails() -> Result<(), String>\n",
             "  Err(\"bad\")\n",
             "end\n",
         ),

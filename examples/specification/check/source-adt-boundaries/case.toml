@@ -24,7 +24,7 @@ message = "duplicate constructor declaration name `Same`"
 [diagnostics.span]
 file = "duplicate.veln"
 line = 8
-column = 3
+column = 2
 
 [[diagnostics]]
 id = "name.ambiguous"
@@ -35,7 +35,7 @@ message = "ambiguous value `Same`"
 [diagnostics.span]
 file = "app.veln"
 line = 6
-column = 15
+column = 14
 
 [[diagnostics]]
 id = "type.inference_ambiguous"
@@ -46,4 +46,4 @@ message = "constructor `Missing` needs type context"
 [diagnostics.span]
 file = "inference.veln"
 line = 9
-column = 15
+column = 14

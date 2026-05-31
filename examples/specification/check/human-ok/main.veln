@@ -1,4 +1,4 @@
 # Human check output prints ok for valid input.
 fn main() -> ()
-  ()
+	()
 end

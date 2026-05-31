@@ -213,7 +213,7 @@ against the built `veln` binary.
 - `test/no-discovered-json/`: targetless test discovery reports a blocked JSON
   suite error when no top-level tests are discovered.
 - `test/top-level-tests/`: top-level `test` declarations, including
-  `Result((), E)` tests and captured stdio event JSON, selected through the
+  `Result<(), E>` tests and captured stdio event JSON, selected through the
   public test command.
 - `test/doctest-output/`: doctest expected-output fences.
 - `test/doctest-result-metadata/`: doctest `error` metadata and hidden setup.

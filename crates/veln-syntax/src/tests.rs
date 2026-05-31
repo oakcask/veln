@@ -47,7 +47,7 @@ fn parses_explicit_test_declaration() {
     assert_eq!(function.name.as_deref(), Some("returns_ok"));
     assert_eq!(
         format_tree(&output.tree),
-        "test returns_ok() -> Result((), String)\n\tOk(())\nend\n"
+        "test returns_ok() -> Result<(), String>\n\tOk(())\nend\n"
     );
 }
 
@@ -56,9 +56,9 @@ fn parses_minimal_list_type_declaration() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "type List(A)\n",
+            "type List<A>\n",
             "\tNil\n",
-            "\tCons(head: A, tail: List(A))\n",
+            "\tCons(head: A, tail: List<A>)\n",
             "end\n",
         ),
     );
@@ -79,8 +79,46 @@ fn parses_minimal_list_type_declaration() {
     assert_eq!(list.variants[1].fields[0].name, "head");
     assert_eq!(list.variants[1].fields[0].ty, "A");
     assert_eq!(list.variants[1].fields[1].name, "tail");
-    assert_eq!(list.variants[1].fields[1].ty, "List(A)");
-    assert_eq!(format_tree(&output.tree), source.text());
+    assert_eq!(list.variants[1].fields[1].ty, "List<A>");
+    assert_eq!(
+        format_tree(&output.tree),
+        "type List<A>\n\tNil\n\tCons(head: A, tail: List<A>)\nend\n"
+    );
+}
+
+#[test]
+fn parses_angle_bracket_type_parameters_and_annotations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Envelope<A, E>\n",
+            "\tOk(A)\n",
+            "\tErr(E)\n",
+            "end\n",
+            "\n",
+            "fn nested(value: domain::Envelope<String, Result<Int, AppError>>) -> Bool\n",
+            "\t1 < 2\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    assert_eq!(output.tree.items.len(), 2);
+    let SyntaxItem::Type(envelope) = &output.tree.items[0] else {
+        panic!("expected type declaration");
+    };
+    assert_eq!(envelope.name.as_deref(), Some("Envelope"));
+    assert_eq!(envelope.params, vec!["A", "E"]);
+    assert_eq!(envelope.variants[0].fields[0].ty, "A");
+    let SyntaxItem::Function(function) = &output.tree.items[1] else {
+        panic!("expected function declaration");
+    };
+    assert_eq!(
+        function.params[0].ty.as_deref(),
+        Some("domain::Envelope<String, Result<Int, AppError>>")
+    );
 }
 
 #[test]
@@ -674,7 +712,7 @@ fn parses_module_use_nested_types_and_multiple_effects() {
         concat!(
             "mod app.core\n",
             "use platform.io\n",
-            "fn collect(items: Vec(Result(Int, Error))) -> Result(Vec(Int), Error) effects [fs, net]\n",
+            "fn collect(items: Vec<Result<Int, Error>>) -> Result<Vec<Int>, Error> effects [fs, net]\n",
             "end\n",
         ),
     );
@@ -687,11 +725,11 @@ fn parses_module_use_nested_types_and_multiple_effects() {
     let function = first_function(&output);
     assert_eq!(
         function.params[0].ty.as_deref(),
-        Some("Vec(Result(Int, Error))")
+        Some("Vec<Result<Int, Error>>")
     );
     assert_eq!(
         function.return_type.as_deref(),
-        Some("Result(Vec(Int), Error)")
+        Some("Result<Vec<Int>, Error>")
     );
     assert_eq!(
         function.effects.as_ref().unwrap(),
@@ -816,7 +854,7 @@ fn formats_unit_type_with_empty_tuple_spelling() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn main(value: Unit) -> Result(Unit, AppError)\n",
+            "fn main(value: Unit) -> Result<Unit, AppError>\n",
             "\tlet ready: Unit = ()\n",
             "\tOk(ready)\n",
             "end\n",
@@ -829,7 +867,7 @@ fn formats_unit_type_with_empty_tuple_spelling() {
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "fn main(value: ()) -> Result((), AppError)\n",
+            "fn main(value: ()) -> Result<(), AppError>\n",
             "\tlet ready: () = ()\n",
             "\tOk(ready)\n",
             "end\n",
@@ -1083,7 +1121,7 @@ fn parses_boolean_literals_as_patterns() {
 fn parses_dictionary_literals_with_expression_keys() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main() -> Dict(String, Int)\n\t{\"one\": 1, \"two\": 2}\nend\n",
+        "fn main() -> Dict<String, Int>\n\t{\"one\": 1, \"two\": 2}\nend\n",
     );
 
     let output = parse(&source);
@@ -1091,7 +1129,7 @@ fn parses_dictionary_literals_with_expression_keys() {
     assert!(output.diagnostics.is_empty());
     assert_eq!(
         format_tree(&output.tree),
-        "fn main() -> Dict(String, Int)\n\t{ \"one\": 1, \"two\": 2 }\nend\n"
+        "fn main() -> Dict<String, Int>\n\t{ \"one\": 1, \"two\": 2 }\nend\n"
     );
     let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
@@ -1109,7 +1147,7 @@ fn parses_dictionary_literals_with_expression_keys() {
 fn parses_dictionary_literals_with_identifier_led_expression_keys() {
     let source = SourceFile::new(
         "main.veln",
-        "fn main(seed: Int) -> Dict(Int, String)\n\t{seed + 1: \"next\"}\nend\n",
+        "fn main(seed: Int) -> Dict<Int, String>\n\t{seed + 1: \"next\"}\nend\n",
     );
 
     let output = parse(&source);
@@ -1117,7 +1155,7 @@ fn parses_dictionary_literals_with_identifier_led_expression_keys() {
     assert!(output.diagnostics.is_empty());
     assert_eq!(
         format_tree(&output.tree),
-        "fn main(seed: Int) -> Dict(Int, String)\n\t{ seed + 1: \"next\" }\nend\n"
+        "fn main(seed: Int) -> Dict<Int, String>\n\t{ seed + 1: \"next\" }\nend\n"
     );
     let function = first_function(&output);
     let BodyLine::Expr { expr, .. } = &function.body[0] else {
@@ -1203,7 +1241,15 @@ fn parses_field_access_as_postfix_expression() {
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty());
-    assert_eq!(format_tree(&output.tree), source.text());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn data() -> ()\n",
+            "\tlet count = { nested: { count: 1 } }.nested.count\n",
+            "\tcount\n",
+            "end\n",
+        )
+    );
     let function = first_function(&output);
     let BodyLine::Let { expr, .. } = &function.body[0] else {
         panic!("expected let statement");
@@ -1454,7 +1500,7 @@ fn parses_and_formats_match_expression() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: Option(Int)) -> String\n",
+            "fn describe(value: Option<Int>) -> String\n",
             "\tmatch value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1486,7 +1532,7 @@ fn reports_missing_match_arm_arrow_and_keeps_arm_expression() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: Option(Int)) -> String\n",
+            "fn describe(value: Option<Int>) -> String\n",
             "  match value\n",
             "    Some(count) \"some\"\n",
             "    None => \"none\"\n",
@@ -1527,7 +1573,7 @@ fn parses_match_expression_inside_call_argument() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: Option(Int)) -> String\n",
+            "fn describe(value: Option<Int>) -> String\n",
             "\twrap(match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1550,7 +1596,7 @@ fn parses_match_expression_inside_call_argument() {
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "fn describe(value: Option(Int)) -> String\n",
+            "fn describe(value: Option<Int>) -> String\n",
             "\twrap(match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1565,7 +1611,7 @@ fn parses_match_expression_inside_aggregate_literals() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: Option(Int)) -> {labels: [String], primary: String}\n",
+            "fn describe(value: Option<Int>) -> {labels: [String], primary: String}\n",
             "\t{labels: [match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1595,7 +1641,7 @@ fn parses_match_expression_inside_aggregate_literals() {
     assert_eq!(
         format_tree(&output.tree),
         concat!(
-            "fn describe(value: Option(Int)) -> { labels : [String], primary : String }\n",
+            "fn describe(value: Option<Int>) -> { labels : [String], primary : String }\n",
             "\t{ labels: [match value\n",
             "\t\tSome(count) => \"some\"\n",
             "\t\tNone => \"none\"\n",
@@ -1613,7 +1659,7 @@ fn parses_and_formats_qualified_builtin_constructors() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn describe(value: Result(Option(Int), String)) -> Result(String, String)\n",
+            "fn describe(value: Result<Option<Int>, String>) -> Result<String, String>\n",
             "\tmatch value\n",
             "\t\tResult::Ok(Option::Some(count)) => Result::Ok(\"some\")\n",
             "\t\tResult::Ok(Option::None) => Result::Ok(\"none\")\n",
@@ -1649,7 +1695,18 @@ fn parses_and_formats_qualified_builtin_constructors() {
         &callee.kind,
         ExprKind::NamePath(segments) if segments == &vec!["Result".to_string(), "Ok".to_string()]
     ));
-    assert_eq!(format_tree(&output.tree), source.text());
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "fn describe(value: Result<Option<Int>, String>) -> Result<String, String>\n",
+            "\tmatch value\n",
+            "\t\tResult::Ok(Option::Some(count)) => Result::Ok(\"some\")\n",
+            "\t\tResult::Ok(Option::None) => Result::Ok(\"none\")\n",
+            "\t\tResult::Err(error) => Result::Err(error)\n",
+            "\tend\n",
+            "end\n",
+        )
+    );
 }
 
 #[test]

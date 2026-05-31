@@ -48,5 +48,5 @@
 ## let value = 1
 ## ```
 pub fn main() -> ()
-  ()
+	()
 end

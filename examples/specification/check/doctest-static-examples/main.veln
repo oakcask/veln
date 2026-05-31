@@ -6,5 +6,5 @@
 ## let value: Int = "text"
 ## ```
 pub fn main() -> ()
-  ()
+	()
 end

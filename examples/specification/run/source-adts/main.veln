@@ -1,15 +1,15 @@
-type Maybe(A)
-  Missing
-  Just(A)
+type Maybe<A>
+	Missing
+	Just(A)
 end
 
-fn label(value: Maybe(Int)) -> String
-  match value
-    Missing => "missing"
-    Just(_) => "value"
-  end
+fn label(value: Maybe<Int>) -> String
+	match value
+		Missing => "missing"
+		Just(_) => "value"
+	end
 end
 
 pub fn main() -> () effects [stdio]
-  stdio::println(label(Just(1)))
+	stdio::println(label(Just(1)))
 end

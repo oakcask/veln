@@ -7,7 +7,7 @@ use veln_project::{ManifestField, Project};
 use veln_source::SourceFile;
 use veln_syntax::{
     AdrLiteAnchor, ContractClause, ContractKind, FunctionDecl, FunctionKind, SyntaxItem, TypeDecl,
-    TypeVariantDecl, Visibility, parse,
+    TypeVariantDecl, Visibility, canonical_type_text, parse,
 };
 
 use crate::diagnostics::{parse_diagnostic_to_envelope, print_human_stderr, tool_info};
@@ -291,7 +291,7 @@ fn function_signature(function: &FunctionDecl) -> String {
             .params
             .iter()
             .map(|param| match &param.ty {
-                Some(ty) => format!("{}: {ty}", param.name),
+                Some(ty) => format!("{}: {}", param.name, canonical_type_text(ty)),
                 None => param.name.clone(),
             })
             .collect::<Vec<_>>()
@@ -304,7 +304,7 @@ fn function_signature(function: &FunctionDecl) -> String {
             signature.push_str(&binding.name);
             signature.push_str(": ");
         }
-        signature.push_str(return_type);
+        signature.push_str(&canonical_type_text(return_type));
     }
     if let Some(effects) = &function.effects {
         signature.push_str(" effects [");
@@ -318,9 +318,9 @@ fn type_signature(type_decl: &TypeDecl) -> String {
     let mut signature = String::from("type ");
     signature.push_str(type_decl.name.as_deref().unwrap_or("<anonymous>"));
     if !type_decl.params.is_empty() {
-        signature.push('(');
+        signature.push('<');
         signature.push_str(&type_decl.params.join(", "));
-        signature.push(')');
+        signature.push('>');
     }
     signature
 }
@@ -334,7 +334,7 @@ fn variant_signature(variant: &TypeVariantDecl) -> String {
         let fields = variant
             .fields
             .iter()
-            .map(|field| format!("{}: {}", field.name, field.ty))
+            .map(|field| format!("{}: {}", field.name, canonical_type_text(&field.ty)))
             .collect::<Vec<_>>()
             .join(", ");
         return format!("{name} {{ {fields} }}");
@@ -342,7 +342,7 @@ fn variant_signature(variant: &TypeVariantDecl) -> String {
     let fields = variant
         .fields
         .iter()
-        .map(|field| field.ty.clone())
+        .map(|field| canonical_type_text(&field.ty))
         .collect::<Vec<_>>()
         .join(", ");
     format!("{name}({fields})")

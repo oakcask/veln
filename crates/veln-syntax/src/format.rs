@@ -1,6 +1,7 @@
 use crate::{
     BinaryOp, BodyLine, ContractKind, Expr, ExprKind, FunctionDecl, FunctionKind, Pattern,
-    PatternKind, PrefixOp, SyntaxItem, SyntaxTree, TokenKind, Visibility,
+    PatternKind, PrefixOp, SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl,
+    TypeVariantFieldDelimiter, Visibility,
 };
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
@@ -38,7 +39,7 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         }
         match item {
             SyntaxItem::Function(function) => format_function(&mut out, &comments, function),
-            SyntaxItem::Type(_) => return lossless_text(tree),
+            SyntaxItem::Type(type_decl) => format_type_decl(&mut out, &comments, type_decl),
         }
     }
 
@@ -50,6 +51,87 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         out.push('\n');
     }
     out
+}
+
+fn format_type_decl(out: &mut String, comments: &LineComments, type_decl: &TypeDecl) {
+    let mut header = String::new();
+    if type_decl.visibility == Visibility::Public {
+        header.push_str("pub ");
+    }
+    header.push_str("type ");
+    header.push_str(type_decl.name.as_deref().unwrap_or("<missing>"));
+    if !type_decl.params.is_empty() {
+        header.push('<');
+        header.push_str(&type_decl.params.join(", "));
+        header.push('>');
+    }
+    push_source_line(out, comments, type_decl.span.start.line, 0, header);
+
+    for variant in &type_decl.variants {
+        push_source_line(
+            out,
+            comments,
+            variant.span.start.line,
+            1,
+            format_type_variant(variant),
+        );
+    }
+
+    let end_line = type_end_line(type_decl);
+    comments.emit_before_first_after(type_body_end_line(type_decl), end_line, out, 1);
+    push_source_line(out, comments, end_line, 0, String::from("end"));
+}
+
+fn format_type_variant(variant: &TypeVariantDecl) -> String {
+    let mut line = String::new();
+    if variant.visibility == Visibility::Public {
+        line.push_str("pub ");
+    }
+    line.push_str(variant.name.as_deref().unwrap_or("<missing>"));
+    if variant.fields.is_empty() {
+        return line;
+    }
+
+    match variant
+        .field_delimiter
+        .unwrap_or(TypeVariantFieldDelimiter::Tuple)
+    {
+        TypeVariantFieldDelimiter::Tuple => {
+            line.push('(');
+            for (index, field) in variant.fields.iter().enumerate() {
+                if index > 0 {
+                    line.push_str(", ");
+                }
+                if !is_default_positional_field(index, &field.name) {
+                    line.push_str(&field.name);
+                    line.push_str(": ");
+                }
+                line.push_str(&canonical_type_text(&field.ty));
+            }
+            line.push(')');
+        }
+        TypeVariantFieldDelimiter::Record => {
+            line.push_str(" { ");
+            for (index, field) in variant.fields.iter().enumerate() {
+                if index > 0 {
+                    line.push_str(", ");
+                }
+                line.push_str(&field.name);
+                line.push_str(": ");
+                line.push_str(&canonical_type_text(&field.ty));
+            }
+            line.push_str(" }");
+        }
+    }
+    line
+}
+
+fn is_default_positional_field(index: usize, name: &str) -> bool {
+    if index == 0 {
+        name == "value"
+    } else {
+        name == format!("_{index}")
+    }
 }
 
 fn format_function(out: &mut String, comments: &LineComments, function: &FunctionDecl) {
@@ -284,7 +366,27 @@ fn function_end_line(function: &FunctionDecl) -> usize {
     }
 }
 
-fn canonical_type_text(text: &str) -> String {
+fn type_body_end_line(type_decl: &TypeDecl) -> usize {
+    type_decl
+        .variants
+        .last()
+        .map(|variant| variant.span.start.line)
+        .unwrap_or(type_decl.span.start.line)
+}
+
+fn type_end_line(type_decl: &TypeDecl) -> usize {
+    if type_decl.end_present && type_decl.span.end.column == 1 {
+        type_decl.span.end.line.saturating_sub(1)
+    } else {
+        type_decl.span.end.line
+    }
+}
+
+pub fn canonical_type_text(text: &str) -> String {
+    canonicalize_type_segment(text)
+}
+
+fn canonicalize_type_segment(text: &str) -> String {
     let mut out = String::new();
     let mut cursor = 0;
     while cursor < text.len() {
@@ -294,25 +396,28 @@ fn canonical_type_text(text: &str) -> String {
             .expect("cursor should stay on a char boundary");
         if ch.is_ascii_alphabetic() || ch == '_' {
             let start = cursor;
-            cursor += ch.len_utf8();
-            while cursor < text.len() {
-                let ch = text[cursor..]
-                    .chars()
-                    .next()
-                    .expect("cursor should stay on a char boundary");
-                if ch.is_ascii_alphanumeric() || ch == '_' {
-                    cursor += ch.len_utf8();
-                } else {
-                    break;
-                }
-            }
-            let ident = &text[start..cursor];
-            let namespaced_before = text[..start].ends_with("::");
-            let namespaced_after = text[cursor..].starts_with("::");
-            if ident == "Unit" && !namespaced_before && !namespaced_after {
+            cursor = consume_type_path(text, cursor);
+            let path = &text[start..cursor];
+            if path == "Unit" {
                 out.push_str("()");
             } else {
-                out.push_str(ident);
+                out.push_str(path);
+            }
+
+            if path != "fn" && text[cursor..].starts_with('(') {
+                if let Some(close) = matching_delimiter(text, cursor, '(', ')') {
+                    out.push('<');
+                    out.push_str(&canonicalize_type_segment(&text[cursor + 1..close]));
+                    out.push('>');
+                    cursor = close + 1;
+                }
+            } else if text[cursor..].starts_with('<')
+                && let Some(close) = matching_delimiter(text, cursor, '<', '>')
+            {
+                out.push('<');
+                out.push_str(&canonicalize_type_segment(&text[cursor + 1..close]));
+                out.push('>');
+                cursor = close + 1;
             }
         } else {
             out.push(ch);
@@ -320,6 +425,55 @@ fn canonical_type_text(text: &str) -> String {
         }
     }
     out
+}
+
+fn consume_type_path(text: &str, mut cursor: usize) -> usize {
+    cursor = consume_ident(text, cursor);
+    while text[cursor..].starts_with("::") {
+        let segment_start = cursor + 2;
+        let segment_end = consume_ident(text, segment_start);
+        if segment_end == segment_start {
+            break;
+        }
+        cursor = segment_end;
+    }
+    cursor
+}
+
+fn consume_ident(text: &str, mut cursor: usize) -> usize {
+    while cursor < text.len() {
+        let ch = text[cursor..]
+            .chars()
+            .next()
+            .expect("cursor should stay on a char boundary");
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            cursor += ch.len_utf8();
+        } else {
+            break;
+        }
+    }
+    cursor
+}
+
+fn matching_delimiter(text: &str, open: usize, open_ch: char, close_ch: char) -> Option<usize> {
+    let mut cursor = open;
+    let mut depth = 0usize;
+    while cursor < text.len() {
+        let ch = text[cursor..]
+            .chars()
+            .next()
+            .expect("cursor should stay on a char boundary");
+        if ch == open_ch {
+            depth += 1;
+        } else if ch == close_ch {
+            depth = depth.saturating_sub(1);
+            if depth == 0 {
+                return Some(cursor);
+            }
+        }
+        cursor += ch.len_utf8();
+    }
+    None
 }
 
 fn format_expr_at_indent(expr: &Expr, indent: usize) -> String {
@@ -360,11 +514,12 @@ fn format_expr_inner(expr: &Expr, prec: u8, indent: usize) -> String {
         ExprKind::BoolLiteral(false) => "false".to_string(),
         ExprKind::Unit => "()".to_string(),
         ExprKind::TypeApply { callee, type_args } => {
-            format!(
-                "{}[{}]",
-                format_expr_at_indent(callee, indent),
-                type_args.join(", ")
-            )
+            let type_args = type_args
+                .iter()
+                .map(|arg| canonical_type_text(arg))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{}[{}]", format_expr_at_indent(callee, indent), type_args)
         }
         ExprKind::Call { callee, args } => format_call_expr(callee, args, prec, indent),
         ExprKind::FieldAccess { base, field, .. } => {

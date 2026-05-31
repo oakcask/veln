@@ -3,6 +3,6 @@ use spec.first
 use spec.second
 
 fn ambiguous_constructor() -> Int
-  let value = Same
-  1
+	let value = Same
+	1
 end

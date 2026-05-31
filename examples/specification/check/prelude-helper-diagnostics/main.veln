@@ -1,9 +1,9 @@
 # Result-returning callbacks on vec_map report the ordinary type error and
 # attach the fallible traversal repair hint.
-fn stringify(value: Int) -> Result(String, String)
-  Ok(int_to_string(value))
+fn stringify(value: Int) -> Result<String, String>
+	Ok(int_to_string(value))
 end
 
-pub fn main() -> Vec(String)
-  vec_map([1], stringify)
+pub fn main() -> Vec<String>
+	vec_map([1], stringify)
 end

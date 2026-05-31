@@ -1,5 +1,5 @@
 # Human run mode forwards stdout and stderr from the selected program.
 pub fn main() -> () effects [stdio]
-  stdio::println("out")
-  stdio::eprintln("err")
+	stdio::println("out")
+	stdio::eprintln("err")
 end

@@ -89,7 +89,7 @@ grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
-grammar_line(110, "TypeParamList ::= \"(\" Name (\",\" Name)* \",\"? \")\"").
+grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\" | \"(\" Name (\",\" Name)* \",\"? \")\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
 grammar_line(140, "                  | \"{\" TypeVariantField (\",\" TypeVariantField)* \",\"? \"}\"").
@@ -307,6 +307,7 @@ type_decl -->
     tok(end),
     newline_opt.
 
+type_params_opt --> tok(less), ident_list_opt, tok(greater), !.
 type_params_opt --> tok(lparen), ident_list_opt, tok(rparen), !.
 type_params_opt --> [].
 ident_list_opt --> ident, ident_tail, trailing_comma_opt, !.
@@ -429,7 +430,7 @@ pattern_text_until(Stop, Tokens, S0, S) :-
     reverse(Reversed, Tokens).
 
 type_text_until(Stop, S0, S) :-
-    collect_until_stop(Stop, S0, S, 0, [], Reversed),
+    collect_type_until_stop(Stop, S0, S, 0, [], Reversed),
     Reversed \= [].
 
 collect_until_stop(Stop, S, S, 0, Acc, Acc) :-
@@ -441,6 +442,20 @@ collect_until_stop(Stop, [Token | Rest], S, Depth0, Acc0, Acc) :-
     Token = t(Kind, _),
     next_depth(Kind, Depth0, Depth),
     collect_until_stop(Stop, Rest, S, Depth, [Token | Acc0], Acc).
+
+collect_type_until_stop(Stop, S, S, 0, Acc, Acc) :-
+    S = [t(Kind, _) | _],
+    memberchk(Kind, Stop),
+    !.
+collect_type_until_stop(_, [], [], 0, Acc, Acc) :- !.
+collect_type_until_stop(Stop, [Token | Rest], S, Depth0, Acc0, Acc) :-
+    Token = t(Kind, _),
+    next_type_depth(Kind, Depth0, Depth),
+    collect_type_until_stop(Stop, Rest, S, Depth, [Token | Acc0], Acc).
+
+next_type_depth(less, Depth0, Depth) :- !, Depth is Depth0 + 1.
+next_type_depth(greater, Depth0, Depth) :- !, Depth is max(0, Depth0 - 1).
+next_type_depth(Kind, Depth0, Depth) :- next_depth(Kind, Depth0, Depth).
 
 next_depth(lparen, Depth0, Depth) :- !, Depth is Depth0 + 1.
 next_depth(lbracket, Depth0, Depth) :- !, Depth is Depth0 + 1.

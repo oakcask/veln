@@ -1,19 +1,19 @@
 # Result bindings are visible only to postconditions on the same function.
 pub fn require_cannot_read_result(value: Int) -> output: Int
-require output >= 0
-  value
+	require output >= 0
+	value
 end
 
 pub fn invariant_cannot_read_result(value: Int) -> output: Int
-invariant output >= 0
-  value
+	invariant output >= 0
+	value
 end
 
 pub fn body_cannot_read_result(value: Int) -> output: Int
-  output
+	output
 end
 
 pub fn bare_result_is_not_special(value: Int) -> Int
-ensure result >= 0
-  value
+	ensure result >= 0
+	value
 end

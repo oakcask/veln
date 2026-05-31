@@ -1,25 +1,25 @@
 # Type checking covers function values, records, Result constructors, and operators.
 fn emit(text: String) -> () effects [stdio]
-  stdio::println(text)
+	stdio::println(text)
 end
 
 fn make_emitter() -> fn(String) -> () effects [stdio]
-  emit
+	emit
 end
 
 fn is_large(value: Float) -> Bool
-  value >= 2.5 and not false
+	value >= 2.5 and not false
 end
 
-pub fn main(count: Int, ratio: Float, enabled: Bool) -> Result({count: Int, ratio: Float, enabled: Bool}, String)
-  let shifted: Float = ratio + 0.5
-  let negated: Float = -shifted
-  let accepted: Bool = match enabled
-    true => is_large(shifted)
-    false => negated < 0.0 or count == 0
-  end
-  match accepted
-    true => Result::Ok({count: count + 1, ratio: shifted / 2.0, enabled: accepted})
-    false => Result::Err("disabled")
-  end
+pub fn main(count: Int, ratio: Float, enabled: Bool) -> Result<{ count : Int, ratio : Float, enabled : Bool }, String>
+	let shifted: Float = ratio + 0.5
+	let negated: Float = -shifted
+	let accepted: Bool = match enabled
+		true => is_large(shifted)
+		false => negated < 0.0 or count == 0
+	end
+	match accepted
+		true => Result::Ok({ count: count + 1, ratio: shifted / 2.0, enabled: accepted })
+		false => Result::Err("disabled")
+	end
 end

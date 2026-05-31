@@ -1,20 +1,20 @@
 # Type boundary diagnostics cover inference, fields, paths, pipelines, and calls.
 fn inferred(value)
-  value
+	value
 end
 
-fn field(input: {present: Int}) -> Int
-  input.missing
+fn field(input: { present : Int }) -> Int
+	input.missing
 end
 
-fn path(raw: String) -> Result(String, FsError) effects [fs]
-  fs::read_to_string(raw)
+fn path(raw: String) -> Result<String, FsError> effects [fs]
+	fs::read_to_string(raw)
 end
 
 fn pipeline(value: Int) -> Int
-  value |> value
+	value |> value
 end
 
 fn method(value: String) -> Int
-  value.len()
+	value.len()
 end

@@ -143,7 +143,7 @@ reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.
 `fs::write_string` writes UTF-encoded text and returns `Ok(())` or
 `Err(FsError)`. `fs::exists` returns `Ok(Bool)` for the host existence check or
 `Err(FsError)` if the path cannot be interpreted. `fs::read_dir` returns
-`Ok(Vec(Path))` containing backend-owned path values for directory entries or
+`Ok(Vec<Path>)` containing backend-owned path values for directory entries or
 `Err(FsError)`. These operations use `Result` at the Veln boundary instead of
 exposing host exceptions.
 

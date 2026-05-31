@@ -1,7 +1,7 @@
 # Named holes are repair labels, not value declarations, so reused labels do not collide.
 fn main() -> Int
-  let fallback: Int = 1
-  let left: Int = _candidate
-  let right: Int = _candidate
-  fallback + left + right
+	let fallback: Int = 1
+	let left: Int = _candidate
+	let right: Int = _candidate
+	fallback + left + right
 end

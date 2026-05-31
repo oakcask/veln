@@ -20,4 +20,4 @@ kind = "name"
 [diagnostics.span]
 file = "main.veln"
 line = 9
-column = 3
+column = 2

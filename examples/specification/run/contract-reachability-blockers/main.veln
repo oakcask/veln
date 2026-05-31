@@ -1,13 +1,13 @@
 # Selected run reachability follows pure helpers used only by contract predicates.
 fn accepts(job: fn() -> Bool effects []) -> Bool
-  job()
+	job()
 end
 
 fn ready() -> Bool
-  _
+	_
 end
 
 pub fn main() -> ()
-require accepts(ready)
-  ()
+	require accepts(ready)
+	()
 end

@@ -25,4 +25,4 @@ message = "hole requires a `Int` value"
 [diagnostics.span]
 file = "main.veln"
 line = 4
-column = 19
+column = 18
