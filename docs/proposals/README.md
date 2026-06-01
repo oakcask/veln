@@ -9,7 +9,8 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
-No active proposals are currently cataloged here.
+- Remove legacy type delimiters:
+  [remove-legacy-type-delimiters.md](remove-legacy-type-delimiters.md).
 
 ## Update When
 
