@@ -98,6 +98,12 @@ The imported public surface is limited to declarations and aliases explicitly
 public in the target module. Private declarations remain reachable only inside
 their defining module.
 
+`use foo::bar` does not also bind a short module alias such as `bar`.
+Qualified access uses the imported module path itself, such as
+`foo::bar::name`. This keeps `use` from synthesizing extra names beyond the
+public names it imports and avoids ambiguity when multiple imported module
+paths share the same final segment.
+
 ## External Package Imports
 
 Modules from another package use a package source clause:
@@ -259,6 +265,8 @@ When implemented, update:
   `foo` and `foo::bar`.
 - `use foo::bar` resolves to the corresponding source file in the current
   package and imports public names from that module.
+- `use foo::bar` permits qualified access through `foo::bar::name` but does
+  not create a short `bar::name` alias.
 - `use foo from "github.com/oakcask/foo"` resolves module `foo` from the named
   package and imports only public names from an exported module.
 - `use sub::module from "github.com/oakcask/foo"` resolves module
@@ -273,8 +281,6 @@ When implemented, update:
 
 ## Open Questions
 
-- Should `use foo::bar` import only bare public names, or should it also bind a
-  short alias such as `bar` for qualified paths?
 - Should same-package modules require `use` before any qualified access, or
   should fully qualified same-package paths always resolve?
 - Should a package have a conventional root module such as `lib.veln`,
