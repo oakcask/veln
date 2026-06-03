@@ -104,6 +104,12 @@ Qualified access uses the imported module path itself, such as
 public names it imports and avoids ambiguity when multiple imported module
 paths share the same final segment.
 
+Same-package qualified access also requires a written `use` declaration. A
+module may not reach another same-package module solely by spelling the full
+module path at the use site. This keeps dependency edges explicit, lets source
+selection follow imports instead of arbitrary qualified references, and matches
+the rule that qualified calls do not fall back to unrelated bare names.
+
 ## External Package Imports
 
 Modules from another package use a package source clause:
@@ -177,6 +183,8 @@ manifest span:
   headers.
 - A `use` path contains `.` as a module delimiter: module paths use `::`.
 - A local `use foo::bar` has no matching source file in the current package.
+- A qualified same-package path names a module that is not imported by a
+  written `use` declaration.
 - An external `use path from "package"` names a package that is unavailable or
   a module path that the package does not export.
 - A source path segment cannot become a module identifier.
@@ -267,6 +275,9 @@ When implemented, update:
   package and imports public names from that module.
 - `use foo::bar` permits qualified access through `foo::bar::name` but does
   not create a short `bar::name` alias.
+- Same-package qualified access without a matching written `use` declaration
+  is rejected, even when the fully qualified module path maps to an existing
+  package source file.
 - `use foo from "github.com/oakcask/foo"` resolves module `foo` from the named
   package and imports only public names from an exported module.
 - `use sub::module from "github.com/oakcask/foo"` resolves module
@@ -281,8 +292,6 @@ When implemented, update:
 
 ## Open Questions
 
-- Should same-package modules require `use` before any qualified access, or
-  should fully qualified same-package paths always resolve?
 - Should a package have a conventional root module such as `lib.veln`,
   `main.veln`, or a module matching the final package-name segment?
 - Should package names be opaque strings, URL-like names, or normalized source
