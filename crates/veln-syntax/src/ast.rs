@@ -27,6 +27,13 @@ pub enum AdrLiteAnchor {
 #[derive(Clone, Debug)]
 pub struct UseDecl {
     pub name: String,
+    pub package: Option<UsePackage>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct UsePackage {
+    pub name: String,
     pub span: SourceSpan,
 }
 

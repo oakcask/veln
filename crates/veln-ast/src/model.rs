@@ -39,6 +39,8 @@ pub struct UseDecl {
     pub module_name: Option<String>,
     pub name: String,
     pub alias: String,
+    pub package: Option<String>,
+    pub package_span: Option<SourceSpan>,
     pub span: SourceSpan,
 }
 

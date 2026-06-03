@@ -119,7 +119,12 @@ fn push_imports(out: &mut String, tree: &veln_syntax::SyntaxTree) {
     if !tree.uses.is_empty() {
         push_heading(out, 4, "Imports");
         for import in &tree.uses {
-            out.push_str(&format!("- `{}`\n", import.name));
+            match &import.package {
+                Some(package) => {
+                    out.push_str(&format!("- `{} from \"{}\"`\n", import.name, package.name));
+                }
+                None => out.push_str(&format!("- `{}`\n", import.name)),
+            }
         }
         out.push('\n');
     }

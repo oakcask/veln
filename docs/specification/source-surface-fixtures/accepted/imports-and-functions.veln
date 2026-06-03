@@ -1,5 +1,6 @@
 use io
 use time
+use foo::bar from "github.com/oakcask/foo"
 
 pub fn main() -> Result<(), String> effects [stdio]
 	require ready == true

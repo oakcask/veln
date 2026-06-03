@@ -1,0 +1,7 @@
+[package]
+name = "github.com/oakcask/other"
+
+[lib]
+exports = [
+  "hidden.veln",
+]

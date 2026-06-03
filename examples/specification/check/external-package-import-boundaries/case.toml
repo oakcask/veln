@@ -1,0 +1,60 @@
+command = ["check", "--json", "app.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 4
+
+[[diagnostics]]
+id = "module.unexported_import"
+severity = "error"
+kind = "module"
+message = "external module `private` is not exported by package `github.com/oakcask/foo`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 2
+column = 1
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `foo::internal_value`"
+
+[diagnostics.span]
+file = "app.veln"
+line = 7
+column = 3
+
+[[diagnostics]]
+id = "manifest.package_name_mismatch"
+severity = "error"
+kind = "module"
+message = "dependency package name `github.com/oakcask/other` does not match `github.com/oakcask/mismatch`"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 2
+column = 9
+
+[[diagnostics]]
+id = "module.unavailable_package"
+severity = "error"
+kind = "module"
+message = "external package `github.com/oakcask/missing` is not available to this project"
+
+[diagnostics.span]
+file = "app.veln"
+line = 4
+column = 18

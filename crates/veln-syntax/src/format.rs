@@ -21,13 +21,11 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         );
     }
     for use_decl in &tree.uses {
-        push_source_line(
-            &mut out,
-            &comments,
-            use_decl.span.start.line,
-            0,
-            format!("use {}", use_decl.name),
-        );
+        let source = match &use_decl.package {
+            Some(package) => format!("use {} from \"{}\"", use_decl.name, package.name),
+            None => format!("use {}", use_decl.name),
+        };
+        push_source_line(&mut out, &comments, use_decl.span.start.line, 0, source);
     }
     if (tree.module.is_some() || !tree.uses.is_empty()) && !tree.items.is_empty() {
         out.push('\n');

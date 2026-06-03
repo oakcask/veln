@@ -349,13 +349,16 @@ impl TypeEnvironment {
         match segments {
             [name] => self.function(name),
             [_, .., name] => {
-                let module_name = imported_module_for_path(
+                let use_decl = imported_use_for_path(
                     &self.uses,
                     &segments[..segments.len() - 1],
                     current_module,
                 )?;
+                let module_name = use_decl.name.as_str();
                 self.functions.iter().find(|function| {
-                    function.name == *name && function.module_name.as_deref() == Some(module_name)
+                    function.name == *name
+                        && function.module_name.as_deref() == Some(module_name)
+                        && imported_function_is_visible(function, use_decl)
                 })
             }
             _ => None,
@@ -413,10 +416,13 @@ fn function_signature_path<'a>(
     match segments {
         [name] => functions.iter().find(|function| function.name == *name),
         [_, .., name] => {
-            let module_name =
-                imported_module_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            let use_decl =
+                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            let module_name = use_decl.name.as_str();
             functions.iter().find(|function| {
-                function.name == *name && function.module_name.as_deref() == Some(module_name)
+                function.name == *name
+                    && function.module_name.as_deref() == Some(module_name)
+                    && imported_function_is_visible(function, use_decl)
             })
         }
         _ => None,
@@ -433,7 +439,7 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
         .filter_map(|function| {
             Some((
                 (function.module_name.clone()?, function.name.clone()),
-                function.effects.clone(),
+                (function.effects.clone(), function.visibility),
             ))
         })
         .collect::<BTreeMap<_, _>>();
@@ -495,7 +501,7 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
                 if let Some(module_name) = &function.module_name {
                     effects_by_module_path.insert(
                         (module_name.clone(), name.clone()),
-                        effects_by_name[name].clone(),
+                        (effects_by_name[name].clone(), function.visibility),
                     );
                 }
                 changed = true;
@@ -538,7 +544,7 @@ fn collect_expr_effects(
     current_module: Option<&str>,
     bindings: &[Binding],
     effects_by_name: &BTreeMap<String, Vec<String>>,
-    effects_by_module_path: &BTreeMap<(String, String), Vec<String>>,
+    effects_by_module_path: &BTreeMap<(String, String), (Vec<String>, Visibility)>,
     inferred: &mut Vec<String>,
 ) {
     match &expr.kind {
@@ -716,36 +722,41 @@ fn effects_for_callee_path<'a>(
     current_module: Option<&str>,
     bindings: &'a [Binding],
     effects_by_name: &'a BTreeMap<String, Vec<String>>,
-    effects_by_module_path: &'a BTreeMap<(String, String), Vec<String>>,
+    effects_by_module_path: &'a BTreeMap<(String, String), (Vec<String>, Visibility)>,
 ) -> &'a [String] {
     match segments {
         [name] => effects_for_bare_callee(name, bindings, effects_by_name),
         [_, .., name] => {
-            let Some(module_name) =
-                imported_module_for_path(uses, &segments[..segments.len() - 1], current_module)
+            let Some(use_decl) =
+                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
             else {
                 return &[];
             };
             effects_by_module_path
-                .get(&(module_name.to_string(), name.clone()))
-                .map_or(&[], Vec::as_slice)
+                .get(&(use_decl.name.clone(), name.clone()))
+                .filter(|(_, visibility)| {
+                    use_decl.package.is_none() || *visibility == Visibility::Public
+                })
+                .map_or(&[], |(effects, _)| effects.as_slice())
         }
         _ => &[],
     }
 }
 
-fn imported_module_for_path<'a>(
+fn imported_use_for_path<'a>(
     uses: &'a [UseDecl],
     segments: &[String],
     current_module: Option<&str>,
-) -> Option<&'a str> {
+) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    uses.iter()
-        .find(|use_decl| {
-            use_decl.module_name.as_deref() == current_module
-                && (use_decl.name == module_path || use_decl.alias == module_path)
-        })
-        .map(|use_decl| use_decl.name.as_str())
+    uses.iter().find(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
+            && (use_decl.name == module_path || use_decl.alias == module_path)
+    })
+}
+
+fn imported_function_is_visible(function: &FunctionSignature, use_decl: &UseDecl) -> bool {
+    use_decl.package.is_none() || function.visibility == Visibility::Public
 }
 
 fn effects_for_bare_callee<'a>(
