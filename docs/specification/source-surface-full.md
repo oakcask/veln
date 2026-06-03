@@ -365,8 +365,7 @@ name, unqualified use is ambiguous and must use a qualifying path. The built-in
 `List<A>` descriptor recognizes `Nil`, `Cons(head, tail)`, `List::Nil`, and
 `List::Cons(head, tail)` and keeps the existing runtime list representation.
 Type declarations use `type Name<A>` for declared type parameters. Legacy
-`type Name(A)` declarations are rejected with a parse diagnostic at the opening
-delimiter and a safe repair candidate when both delimiters are present.
+`type Name(A)` declarations are rejected through ordinary parse recovery.
 
 A `satisfy` suffix is valid only on a hole expression. The suffix requires one
 candidate binding, the `=>` separator, and a predicate. The candidate binding
@@ -386,10 +385,9 @@ canonical named function-call spelling with the receiver passed explicitly.
 Angle-bracket type-applied call callees currently contribute static item-type
 information only for recognized built-in calls such as
 `channel::bounded<String>(capacity)`. Square-bracket explicit type arguments
-such as `channel::bounded[String](capacity)` are rejected with a parse
-diagnostic at the opening delimiter and a safe repair candidate when both
-delimiters are present. Type-applied callees are not a general user-defined
-generic function mechanism.
+such as `channel::bounded[String](capacity)` are rejected through ordinary
+parse recovery. Type-applied callees are not a general user-defined generic
+function mechanism.
 
 Call arguments must be separated with commas and closed with `)`. When the
 parser can identify an adjacent argument without a separator, it reports

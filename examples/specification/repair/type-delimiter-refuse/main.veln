@@ -1,0 +1,4 @@
+# Legacy type delimiters do not produce repair candidates.
+type Box(A)
+	Wrap(A)
+end

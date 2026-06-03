@@ -1,0 +1,8 @@
+command = ["repair", "--apply", "main.veln"]
+exit = 1
+
+[stdout]
+contains = ["repair refused: no safe unapplied repair candidates"]
+
+[stderr]
+format = "empty"

@@ -862,10 +862,8 @@ impl<'a> TypeParser<'a> {
             let args = self.parse_type_list('>')?;
             self.expect('>')?;
             args
-        } else if self.eat('(') {
-            let args = self.parse_type_list(')')?;
-            self.expect(')')?;
-            args
+        } else if self.at('(') {
+            return Err(format!("unexpected `{}`", &self.text[self.cursor..]));
         } else {
             Vec::new()
         };
@@ -1071,7 +1069,7 @@ mod tests {
     fn parses_empty_tuple_spelling_as_unit_type() {
         assert_eq!(parse_type_annotation("()"), Ok(Type::unit()));
         assert_eq!(
-            parse_type_annotation("Result((), AppError)"),
+            parse_type_annotation("Result<(), AppError>"),
             Ok(Type::result(
                 Type::unit(),
                 Type::named("AppError", Vec::new())
@@ -1220,7 +1218,7 @@ mod tests {
     fn parses_nested_type_annotations_with_whitespace() {
         assert_eq!(
             parse_type_annotation(
-                " fn ( Vec< Int > , platform::Request ) -> Result ( Dict ( String , Int ) , AppError ) effects [ stdio , net ] "
+                " fn ( Vec< Int > , platform::Request ) -> Result < Dict < String , Int > , AppError > effects [ stdio , net ] "
             ),
             Ok(Type::Function {
                 params: vec![
@@ -1290,6 +1288,7 @@ mod tests {
             ("fn(Int -> Int", "expected `)`"),
             ("fn() -> () effects [,]", "expected effect name"),
             ("fn() -> () effects [stdio", "expected `]`"),
+            ("Result(Int, String)", "unexpected `(Int, String)`"),
             ("Vec", "`Vec` expects 1 type argument(s), found 0"),
             ("Dict<String>", "`Dict` expects 2 type argument(s), found 1"),
             ("std::", "expected type"),

@@ -258,33 +258,6 @@ impl<'a> Parser<'a> {
             let params = self.parse_type_params_until(TokenKind::Greater);
             self.expect(TokenKind::Greater, "type_declaration", vec![">"]);
             params
-        } else if self.at(TokenKind::LParen) {
-            let open_index = self.cursor;
-            let close = self.matching_delimiter(open_index, TokenKind::LParen, TokenKind::RParen);
-            let open = self.bump();
-            let repair_candidates = delimiter_repair_candidate(
-                self.source,
-                "parse.type_parameter_delimiters",
-                "Use angle brackets for type parameters",
-                "Replace parenthesized type parameters with angle brackets",
-                (&open, "<"),
-                close.as_ref().map(|token| (token, ">")),
-            );
-            self.error_at_token(
-                &open,
-                DiagnosticRequest {
-                    id: "parse.legacy_type_parameter_delimiters",
-                    message: "parenthesized type parameters are no longer accepted for type declarations; use angle brackets".to_string(),
-                    parser_context: "type_declaration",
-                    expected: vec!["<"],
-                    strategy: RecoveryStrategy::None,
-                    anchor: None,
-                    repair_candidates,
-                },
-            );
-            let params = self.parse_type_params_until(TokenKind::RParen);
-            self.expect(TokenKind::RParen, "type_declaration", vec![")"]);
-            params
         } else {
             Vec::new()
         };
@@ -721,43 +694,14 @@ impl<'a> Parser<'a> {
         name
     }
 
-    fn collect_type_until(&mut self, context: &'static str, stop: &[TokenKind]) -> String {
+    fn collect_type_until(&mut self, _context: &'static str, stop: &[TokenKind]) -> String {
         let mut parts = Vec::new();
         let mut depth = 0usize;
-        let mut previous = None::<Token>;
         while !self.at(TokenKind::Eof) {
             if depth == 0 && stop.iter().any(|kind| self.at(*kind)) {
                 break;
             }
             let token = self.current().clone();
-            if token.kind == TokenKind::LParen
-                && previous.as_ref().is_some_and(|previous| {
-                    previous.kind == TokenKind::Ident && previous.text != "fn"
-                })
-            {
-                let close =
-                    self.matching_delimiter(self.cursor, TokenKind::LParen, TokenKind::RParen);
-                let repair_candidates = delimiter_repair_candidate(
-                    self.source,
-                    "parse.type_argument_delimiters",
-                    "Use angle brackets for type arguments",
-                    "Replace parenthesized type arguments with angle brackets",
-                    (&token, "<"),
-                    close.as_ref().map(|token| (token, ">")),
-                );
-                self.error_at_token(
-                    &token,
-                    DiagnosticRequest {
-                        id: "parse.legacy_type_argument_delimiters",
-                        message: "parenthesized type arguments are no longer accepted in type annotations; use angle brackets".to_string(),
-                        parser_context: context,
-                        expected: vec!["<"],
-                        strategy: RecoveryStrategy::None,
-                        anchor: None,
-                        repair_candidates,
-                    },
-                );
-            }
             match token.kind {
                 TokenKind::LParen | TokenKind::LBracket | TokenKind::LBrace | TokenKind::Less => {
                     depth += 1;
@@ -771,7 +715,6 @@ impl<'a> Parser<'a> {
                 _ => {}
             }
             parts.push(self.bump().text);
-            previous = Some(token);
         }
         normalize_type_text(parts)
     }
@@ -1137,31 +1080,6 @@ impl<'a> Parser<'a> {
         });
     }
 
-    fn matching_delimiter(
-        &self,
-        open_index: usize,
-        open_kind: TokenKind,
-        close_kind: TokenKind,
-    ) -> Option<Token> {
-        let mut depth = 0usize;
-        for token in self.tokens.iter().skip(open_index) {
-            if token.kind == open_kind {
-                depth += 1;
-                continue;
-            }
-            if token.kind == close_kind {
-                depth = depth.saturating_sub(1);
-                if depth == 0 {
-                    return Some(token.clone());
-                }
-            }
-            if matches!(token.kind, TokenKind::Newline | TokenKind::Eof) && depth > 0 {
-                return None;
-            }
-        }
-        None
-    }
-
     fn synchronize_to_item(&mut self) {
         let start = self.cursor;
         while !self.at(TokenKind::Eof)
@@ -1376,36 +1294,6 @@ fn is_adr_lite_marker(content: &str) -> bool {
     matches!(content, "@adr" | "@adr-lite")
 }
 
-fn delimiter_repair_candidate(
-    source: &SourceFile,
-    candidate_id: impl Into<String>,
-    name: impl Into<String>,
-    edit_summary: impl Into<String>,
-    open_edit: (&Token, &str),
-    close_edit: Option<(&Token, &str)>,
-) -> Vec<ParseRepairCandidate> {
-    let Some((close_token, close_replacement)) = close_edit else {
-        return Vec::new();
-    };
-    vec![ParseRepairCandidate {
-        candidate_id: candidate_id.into(),
-        name: name.into(),
-        application_policy: "safe_repair_candidate".to_string(),
-        application_status: "unapplied".to_string(),
-        edit_summary: edit_summary.into(),
-        edits: vec![
-            ParseRepairEdit {
-                span: source.span(open_edit.0.range),
-                replacement: open_edit.1.to_string(),
-            },
-            ParseRepairEdit {
-                span: source.span(close_token.range),
-                replacement: close_replacement.to_string(),
-            },
-        ],
-    }]
-}
-
 struct ExprParser<'a> {
     source: &'a SourceFile,
     context: &'static str,
@@ -1520,10 +1408,6 @@ impl<'a> ExprParser<'a> {
     fn parse_postfix(&mut self) -> Expr {
         let mut expr = self.parse_primary();
         loop {
-            if self.legacy_call_type_arguments_start(&expr) {
-                expr = self.parse_legacy_call_type_apply(expr);
-                continue;
-            }
             if self.call_type_arguments_start(&expr) {
                 expr = self.parse_call_type_apply(expr);
                 continue;
@@ -1545,42 +1429,10 @@ impl<'a> ExprParser<'a> {
         expr
     }
 
-    fn legacy_call_type_arguments_start(&self, expr: &Expr) -> bool {
-        self.at(TokenKind::LBracket) && matches!(expr.kind, ExprKind::NamePath(_))
-    }
-
     fn call_type_arguments_start(&self, expr: &Expr) -> bool {
         self.at(TokenKind::Less)
             && matches!(expr.kind, ExprKind::NamePath(_))
             && self.angle_type_arguments_are_followed_by_call()
-    }
-
-    fn parse_legacy_call_type_apply(&mut self, expr: Expr) -> Expr {
-        let start = lhs_range(&expr);
-        let open_index = self.cursor;
-        let open = self.current().clone();
-        let close = self.matching_delimiter(open_index, TokenKind::LBracket, TokenKind::RBracket);
-        let repair_candidates = delimiter_repair_candidate(
-            self.source,
-            "parse.call_type_argument_delimiters",
-            "Use angle brackets for call type arguments",
-            "Replace square-bracket call type arguments with angle brackets",
-            (&open, "<"),
-            close.as_ref().map(|token| (token, ">")),
-        );
-        self.error_at_token(
-            &open,
-            DiagnosticRequest {
-                id: "parse.legacy_call_type_argument_delimiters",
-                message: "square-bracket explicit type arguments are no longer accepted for calls; use angle brackets".to_string(),
-                parser_context: self.context,
-                expected: vec!["<"],
-                strategy: RecoveryStrategy::None,
-                anchor: None,
-                repair_candidates,
-            },
-        );
-        self.parse_type_apply(expr, start, TokenKind::RBracket)
     }
 
     fn parse_call_type_apply(&mut self, expr: Expr) -> Expr {
@@ -2396,28 +2248,6 @@ impl<'a> ExprParser<'a> {
             },
             repair_candidates: request.repair_candidates,
         });
-    }
-
-    fn matching_delimiter(
-        &self,
-        open_index: usize,
-        open_kind: TokenKind,
-        close_kind: TokenKind,
-    ) -> Option<Token> {
-        let mut depth = 0usize;
-        for token in self.tokens.iter().skip(open_index) {
-            if token.kind == open_kind {
-                depth += 1;
-                continue;
-            }
-            if token.kind == close_kind {
-                depth = depth.saturating_sub(1);
-                if depth == 0 {
-                    return Some(token.clone());
-                }
-            }
-        }
-        None
     }
 
     fn expect_expr_token(

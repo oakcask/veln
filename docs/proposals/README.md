@@ -11,8 +11,6 @@ compare it with `../specification/` before changing behavior.
 
 - File based modules and packages:
   [file-based-modules-and-packages.md](file-based-modules-and-packages.md).
-- Remove legacy type delimiters:
-  [remove-legacy-type-delimiters.md](remove-legacy-type-delimiters.md).
 
 ## Update When
 

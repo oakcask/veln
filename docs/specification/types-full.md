@@ -16,9 +16,8 @@ Implemented type annotations:
   the arity-checked built-ins above
 
 Angle brackets are the source spelling for type constructor arguments. Legacy
-parenthesized type constructor arguments in type positions are rejected with a
-parse diagnostic at the opening delimiter and a safe repair candidate when both
-delimiters are present.
+parenthesized type constructor arguments in type positions are invalid type
+annotations.
 
 `Option<T>` and `Result<T, E>` are compiler-owned built-in ADTs. `List<T>` and
 source-declared ADTs use descriptor entries for constructor payload typing,

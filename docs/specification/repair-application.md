@@ -35,8 +35,7 @@ write:
 
 - The target file path is source-relative.
 - The target span is still in bounds and on character boundaries.
-- Non-empty replacement targets still name holes, except parse delimiter
-  repairs may replace current `(`/`)` or `[`/`]` tokens with `<`/`>`.
+- Non-empty replacement targets still name holes.
 - Explicit empty replacements are limited to current `satisfy` suffix removal.
 - Edits in the same file do not overlap.
 
