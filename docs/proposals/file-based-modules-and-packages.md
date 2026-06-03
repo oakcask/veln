@@ -104,12 +104,18 @@ Modules from another package use a package source clause:
 
 ```veln
 use foo from "github.com/oakcask/foo"
+use sub::module from "github.com/oakcask/foo"
 ```
 
 The string identifies the external package by its globally unique package
 name. The module path before `from` is resolved inside that package, not the
 current package. The declaration imports the public names of the exported
 module into the current scope.
+
+External imports may name exported submodules. The `from` clause selects only
+the package; it does not imply a package-root prefix and does not rewrite the
+module path. For example, `use sub::module from "github.com/oakcask/foo"`
+resolves module `sub::module` inside package `github.com/oakcask/foo`.
 
 External imports must resolve only to modules listed by the dependency
 package's public export list. A package may contain private helper modules that
@@ -165,8 +171,8 @@ manifest span:
   headers.
 - A `use` path contains `.` as a module delimiter: module paths use `::`.
 - A local `use foo::bar` has no matching source file in the current package.
-- An external `use foo from "package"` names a package that is unavailable or
-  a module that the package does not export.
+- An external `use path from "package"` names a package that is unavailable or
+  a module path that the package does not export.
 - A source path segment cannot become a module identifier.
 - Multiple files derive the same module path.
 - `[modules]` appears in `veln.toml`.
@@ -255,6 +261,9 @@ When implemented, update:
   package and imports public names from that module.
 - `use foo from "github.com/oakcask/foo"` resolves module `foo` from the named
   package and imports only public names from an exported module.
+- `use sub::module from "github.com/oakcask/foo"` resolves module
+  `sub::module` from the named package and imports only public names from an
+  exported module.
 - `use foo.bar` is rejected as module-path syntax.
 - `veln.toml` rejects `[modules]`.
 - `veln.toml` accepts `[package].name` and `[lib].exports`, and validates that
@@ -272,7 +281,5 @@ When implemented, update:
   `main.veln`, or a module matching the final package-name segment?
 - Should package names be opaque strings, URL-like names, or normalized source
   identifiers with a separate registry namespace?
-- Should external imports support submodules, for example
-  `use sub::module from "github.com/oakcask/foo"`?
 - Should import conflicts be rejected at the `use` declaration or only when a
   bare reference is ambiguous?
