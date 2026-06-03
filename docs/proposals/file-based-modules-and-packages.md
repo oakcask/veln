@@ -94,6 +94,15 @@ resolution. The imported module path remains available for qualified access, so
 callers may write a fully qualified path when that is clearer or when a bare
 name would conflict.
 
+Import conflict checks are intentionally delayed until a bare reference needs
+the imported name. A `use` declaration remains valid when its public names
+overlap with another imported module, the implicit prelude, or a local
+declaration. This permits modules to import broad public surfaces for qualified
+access without requiring authors to pre-resolve every possible bare-name
+collision. The conflict becomes a diagnostic only when the current source uses
+the shared name bare and no local declaration or binding shadows the imported
+names.
+
 The imported public surface is limited to declarations and aliases explicitly
 public in the target module. Private declarations remain reachable only inside
 their defining module.
@@ -185,6 +194,8 @@ manifest span:
 - A local `use foo::bar` has no matching source file in the current package.
 - A qualified same-package path names a module that is not imported by a
   written `use` declaration.
+- A bare reference could resolve to public names from multiple imported
+  modules and is not shadowed by a local declaration or binding.
 - An external `use path from "package"` names a package that is unavailable or
   a module path that the package does not export.
 - A source path segment cannot become a module identifier.
@@ -275,6 +286,9 @@ When implemented, update:
   package and imports public names from that module.
 - `use foo::bar` permits qualified access through `foo::bar::name` but does
   not create a short `bar::name` alias.
+- `use foo::bar` and `use baz::bar` may coexist when they expose the same
+  public name, but a bare reference to that shared name is rejected as
+  ambiguous unless a local declaration or binding shadows the imported names.
 - Same-package qualified access without a matching written `use` declaration
   is rejected, even when the fully qualified module path maps to an existing
   package source file.
@@ -296,5 +310,3 @@ When implemented, update:
   `main.veln`, or a module matching the final package-name segment?
 - Should package names be opaque strings, URL-like names, or normalized source
   identifiers with a separate registry namespace?
-- Should import conflicts be rejected at the `use` declaration or only when a
-  bare reference is ambiguous?
