@@ -1,5 +1,3 @@
-mod prelude
-
 pub fn vec_fold(items: Vec<A>, initial: B, f: fn(B, A) -> B) -> B
 	prelude_builtin::vec_fold(items, initial, f)
 end

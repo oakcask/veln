@@ -46,8 +46,17 @@ fn test_human_reports_no_discovered_test_declarations() {
 #[test]
 fn test_json_blocks_duplicate_function_like_names_with_origin_note() {
     let project = TestProject::new("test-duplicate-function-like-names-json");
-    project.write("first_test.veln", "test same() -> ()\n  ()\nend\n");
-    project.write("second_test.veln", "fn same() -> ()\n  ()\nend\n");
+    project.write(
+        "main_test.veln",
+        concat!(
+            "test same() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn same() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
 
     let output = project.test(&["--json"]);
     let stdout = stdout(&output);
@@ -61,7 +70,7 @@ fn test_json_blocks_duplicate_function_like_names_with_origin_note() {
             "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":1,\"errors\":0}",
             "\"id\":\"name.duplicate\"",
             "\"message\":\"duplicate function declaration name `same`\"",
-            "\"details\":{\"phase\":\"name\",\"node_id\":\"fn-1\",\"name\":\"same\",\"namespace\":\"function\",\"first_node_id\":\"test-1\"}",
+            "\"namespace\":\"function\"",
             "\"related\":[{\"kind\":\"duplicate_origin\",\"message\":\"First function declaration with this name is here.\"",
             "\"reason\":\"static_gate\"",
         ],
@@ -71,8 +80,17 @@ fn test_json_blocks_duplicate_function_like_names_with_origin_note() {
 #[test]
 fn test_human_blocks_duplicate_function_like_names_with_origin_note() {
     let project = TestProject::new("test-duplicate-function-like-names-human");
-    project.write("first_test.veln", "test same() -> ()\n  ()\nend\n");
-    project.write("second_test.veln", "fn same() -> ()\n  ()\nend\n");
+    project.write(
+        "main_test.veln",
+        concat!(
+            "test same() -> ()\n",
+            "  ()\n",
+            "end\n",
+            "fn same() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
 
     let output = project.test(&[]);
 
@@ -81,8 +99,8 @@ fn test_human_blocks_duplicate_function_like_names_with_origin_note() {
     assert_contains_all(
         stderr(&output),
         &[
-            "second_test.veln:1:1: error[name.duplicate]: duplicate function declaration name `same`",
-            "  note: first_test.veln:1:1: First function declaration with this name is here.",
+            "main_test.veln:4:1: error[name.duplicate]: duplicate function declaration name `same`",
+            "  note: main_test.veln:1:1: First function declaration with this name is here.",
         ],
     );
 }
@@ -207,8 +225,9 @@ fn test_json_maps_explicit_source_file_to_paired_test_file() {
     project.write(
         "app_test.veln",
         concat!(
+            "use app\n",
             "test paired() -> Result<(), AppError>\n",
-            "  helper()\n",
+            "  app::helper()\n",
             "  _\n",
             "end\n",
         ),
@@ -222,7 +241,7 @@ fn test_json_maps_explicit_source_file_to_paired_test_file() {
     assert_contains_all(
         stdout,
         &[
-            "\"selection\":{\"mode\":\"explicit\",\"targets\":[\"app.veln\",\"app_test.veln\"],\"confidence\":\"unknown\",\"reason\":\"widened_dependency_graph\",\"notes\":[\"added 1 test file by source-to-test convention\",\"dependency graph is missing module identity for selected source `app.veln`\",\"selected all discovered tests because dependency graph evidence is incomplete\"]}",
+            "\"selection\":{\"mode\":\"explicit\",\"targets\":[\"app.veln\",\"app_test.veln\"],\"confidence\":\"complete\",\"reason\":\"dependency_graph\",\"notes\":[\"added 1 test file by source-to-test convention\"]}",
             "\"summary\":{\"total\":1,\"passed\":0,\"failed\":0,\"skipped\":0,\"todo\":0,\"blocked\":1,\"errors\":0}",
             "\"name\":\"paired\"",
             "\"reason\":\"static_gate\"",
@@ -437,15 +456,25 @@ fn comparison_line_item_order_summary_example_runs_when_jdk_is_available() {
     }
 
     let project = TestProject::new("comparison-line-item-order-summary");
-    let complete = repo_file("examples/comparison/line_item_order_summary.veln");
-    let hole = repo_file("examples/comparison/line_item_order_summary_hole.veln");
+    let complete = "line_item_order_summary.veln";
+    let hole = "line_item_order_summary_hole.veln";
+    let complete_text = std::fs::read_to_string(repo_file(
+        "examples/comparison/line_item_order_summary.veln",
+    ))
+    .expect("comparison example should be readable");
+    let hole_text = std::fs::read_to_string(repo_file(
+        "examples/comparison/line_item_order_summary_hole.veln",
+    ))
+    .expect("comparison hole example should be readable");
+    project.write(complete, &complete_text);
+    project.write(hole, &hole_text);
 
-    let check_output = project.veln(&["check"], &[complete.as_str()]);
+    let check_output = project.veln(&["check"], &[complete]);
     assert!(check_output.status.success(), "{}", stderr(&check_output));
     assert_eq!(stdout(&check_output), "ok\n");
     assert_eq!(stderr(&check_output), "");
 
-    let test_output = project.test(&[complete.as_str()]);
+    let test_output = project.test(&[complete]);
     assert!(test_output.status.success(), "{}", stderr(&test_output));
     assert_contains_all(
         stdout(&test_output),
@@ -458,12 +487,12 @@ fn comparison_line_item_order_summary_example_runs_when_jdk_is_available() {
     );
     assert_eq!(stderr(&test_output), "");
 
-    let run_output = project.run(&["main", complete.as_str()]);
+    let run_output = project.run(&["main", complete]);
     assert!(run_output.status.success(), "{}", stderr(&run_output));
     assert_eq!(stdout(&run_output), "900\n");
     assert_eq!(stderr(&run_output), "");
 
-    let hole_output = project.check_json(&[hole.as_str()]);
+    let hole_output = project.check_json(&[hole]);
     assert!(hole_output.status.success(), "{}", stderr(&hole_output));
     assert_contains_all(
         stdout(&hole_output),

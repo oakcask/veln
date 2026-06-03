@@ -10,10 +10,9 @@ the surrounding prose.
 
 <!-- source-surface-grammar:start -->
 ```text
-Module        ::= ModDecl? UseDecl* Item*
-ModDecl       ::= "mod" ModuleName NL
-UseDecl       ::= "use" ModuleName NL
-ModuleName    ::= Name ("." Name)*
+Module        ::= UseDecl* Item*
+UseDecl       ::= "use" ModulePath NL
+ModulePath    ::= Name ("::" Name)*
 Item          ::= Function | TestDecl | TypeDecl | PublicAlias
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
@@ -125,9 +124,17 @@ same function and to runtime `ensure` checks for tail-expression returns and
 `?` early returns, but not to `require` clauses, the function body, or callers.
 Bare `result` has no special meaning.
 
-`mod` declares the source module identity. The header is optional for a
-single-file source with no imports. A source file with one or more `use`
-declarations must declare `mod` before those imports.
+Selected package-relative `.veln` sources derive local module identity from
+their selected source path. Path separators become `::`, so `foo.veln` derives
+`foo`, and a `bar.veln` file below a `foo` directory derives `foo::bar`. Each
+path segment must be a source module identifier. Invalid segments produce
+`module.invalid_source_path`, and multiple selected source files deriving the
+same module path produce
+`module.duplicate_source_path`.
+
+Source `mod` declarations are rejected with `module.source_mod`. Module paths
+in `use` declarations use `::`; dotted module delimiters such as
+`use foo.bar` are rejected with `module.invalid_import_path`.
 
 When a project root contains `veln.toml`, the implemented manifest subset may
 list package metadata, tool metadata, and source modules:
@@ -141,7 +148,7 @@ description = "Example package."
 format = "markdown"
 
 [modules]
-"src/main.veln" = "app.main"
+"src/main.veln" = "src::main"
 ```
 
 `[package]` stores string-valued package facts such as package identity,
@@ -150,24 +157,24 @@ string-valued tool-specific facts. These fields are manifest-owned metadata
 and are used by generated documentation. They do not create source symbols and
 do not affect parsing, name resolution, type checking, lowering, or execution.
 
-The source `mod` declaration remains the compiler-visible owner of the module
-name. A manifest entry is packaging/discovery metadata and cannot rename the
-source module. If the manifest name differs from the source `mod` name, or if
-the manifest names a selected source file that has no `mod` declaration, the
-checker reports module metadata drift.
+The package-relative source path remains the compiler-visible owner of the
+module name. A manifest entry is packaging/discovery metadata and cannot rename
+the source module. If the manifest name differs from the derived module path,
+the checker reports module metadata drift.
 
-`use` declarations create module import aliases. The current alias is the final
-segment of the imported module path, so `use platform.io` declares the alias
-`io`. Calls may use that alias as a qualified function path, such as
-`io::read_line()`, when the imported module's source is part of the analyzed
-program. Public functions from imported modules are also available by bare
-name when exactly one import exposes that name and no local declaration shadows
-it. Every user module also has an implicit standard `prelude` import. Public
-prelude helpers are available by bare name under the same unambiguous import
-rule and by qualified paths such as `prelude::vec_len(items)`. The `prelude`
-module name and import alias are reserved for this standard import in user
-source. Public source ADT constructors may also use the import alias, either
-as `alias::Constructor` or `alias::Type::Constructor`.
+`use` declarations create local module imports. `use foo::bar` resolves to the
+selected source file deriving `foo::bar`; `use math` resolves to a selected
+`math.veln` module. A local import imports public functions by bare name and
+permits qualified access through the written module path, such as
+`foo::bar::double()` or `math::double()`. It does not create a short
+`bar::name` alias for `use foo::bar`. Same-package qualified access requires a
+matching written `use` declaration in the same source module. Every user
+module also has an implicit standard `prelude` import. Public prelude helpers
+are available by bare name under the same unambiguous import rule and by
+qualified paths such as `prelude::vec_len(items)`. The `prelude` module name
+and import alias are reserved for this standard import in user source. Public
+source ADT constructors may also use the import path, either as
+`module::Constructor` or `module::Type::Constructor`.
 
 Public `fn` declarations, public source `type` declarations, and public member
 aliases are the implemented public API boundary. Dedicated export lists are not
@@ -279,16 +286,18 @@ as `key: value` doc-comment lines: `id`, `status`, `scope`, `context`,
 ## status: accepted
 ## scope: module
 ## context: Module identity is compiler-visible.
-## decision: Keep the source header canonical.
+## decision: Keep the source path canonical.
 ## consequences: Manifest metadata cannot rename the module.
-mod app.core
+pub fn main() -> ()
+	()
+end
 ```
 
 The parser exposes complete ADR-lite records as structured source metadata and
-attaches each record to the nearest following `mod` declaration or `pub fn`
-declaration when one exists. ADR-lite records are ignored for runtime
-semantics: they do not affect parsing of declarations, type checking,
-lowering, execution, or generated output.
+attaches each record to the nearest following public function declaration when
+one exists. ADR-lite records are ignored for runtime semantics: they do not
+affect parsing of declarations, type checking, lowering, execution, or
+generated output.
 
 ## Expressions
 

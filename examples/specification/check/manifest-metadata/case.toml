@@ -27,7 +27,7 @@ equals = "ownerless.veln"
 id = "module.metadata_drift"
 severity = "error"
 kind = "module"
-message = "manifest module name `spec.manifest` does not match source module `spec.source`"
+message = "manifest module name `spec.manifest` does not match derived module `main`"
 
 [diagnostics.span]
 file = "veln.toml"
@@ -38,7 +38,7 @@ column = 16
 id = "module.metadata_drift"
 severity = "error"
 kind = "module"
-message = "manifest module name `spec.ownerless` has no source `mod` owner"
+message = "manifest module name `spec.ownerless` does not match derived module `ownerless`"
 
 [diagnostics.span]
 file = "veln.toml"

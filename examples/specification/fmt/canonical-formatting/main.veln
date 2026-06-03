@@ -1,5 +1,4 @@
 # Canonical formatting normalizes headers, contracts, expressions, and comments.
-mod app
 use stdio
 
 pub fn main(raw: String) -> Result<{ value : Int, tags : Vec<String> }, AppError> effects [stdio]

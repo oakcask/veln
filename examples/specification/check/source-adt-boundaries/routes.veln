@@ -1,5 +1,4 @@
-mod spec.routes
-use spec.library
+use library
 
 fn via_module() -> Signal<Int>
 	library::Emit(1)

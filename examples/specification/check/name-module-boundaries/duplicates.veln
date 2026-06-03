@@ -1,7 +1,6 @@
 # Duplicate declarations report the repeated name and original declaration.
-mod spec.duplicates
-use platform.io
-use platform.io
+use io
+use io
 
 fn same() -> ()
 	()

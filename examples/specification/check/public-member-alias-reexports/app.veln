@@ -1,5 +1,4 @@
-mod spec.app
-use spec.api
+use api
 
 pub fn main() -> Int
 	match api::Circle(api::twice(21))

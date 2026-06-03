@@ -1,6 +1,5 @@
 # Run checks only the selected reachable slice and follows imported function values.
-mod spec.app
-use spec.math
+use math
 
 fn apply(value: Int, op: fn(Int) -> Int effects []) -> Int
 	op(value)

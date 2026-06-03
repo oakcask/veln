@@ -685,9 +685,10 @@ impl<'a> Parser<'a> {
         let mut name = self
             .expect_ident(context, "module name")
             .unwrap_or_else(|| "<missing>".to_string());
-        while self.eat(TokenKind::Dot).is_some() {
+        while self.at(TokenKind::Dot) || self.at(TokenKind::DoubleColon) {
+            let delimiter = self.bump();
             if let Some(segment) = self.expect_ident(context, "module name segment") {
-                name.push('.');
+                name.push_str(&delimiter.text);
                 name.push_str(&segment);
             }
         }

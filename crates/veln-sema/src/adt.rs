@@ -150,8 +150,13 @@ impl AdtRegistry {
                 continue;
             }
             for variant in &descriptor.variants {
-                if constructor_matches_visible_path(descriptor, variant, segments, uses)
-                    && variant_visible(descriptor, variant, current_module, segments)
+                if constructor_matches_visible_path(
+                    descriptor,
+                    variant,
+                    segments,
+                    uses,
+                    current_module,
+                ) && variant_visible(descriptor, variant, current_module, segments)
                 {
                     matches.push(AdtConstructor {
                         descriptor,
@@ -178,7 +183,12 @@ fn type_alias_descriptors(
         .filter(|alias| alias.kind == PublicAliasKind::Type)
         .filter_map(|alias| {
             let name = alias.name.clone()?;
-            let target = descriptor_for_alias_target(&alias.target, &module.uses, descriptors)?;
+            let target = descriptor_for_alias_target(
+                &alias.target,
+                &module.uses,
+                descriptors,
+                alias.module_name.as_deref(),
+            )?;
             let mut descriptor = target.clone();
             descriptor.type_name = name;
             descriptor.module_name = alias.module_name.clone();
@@ -192,6 +202,7 @@ fn descriptor_for_alias_target<'a>(
     segments: &[String],
     uses: &[UseDecl],
     descriptors: &'a [AdtDescriptor],
+    current_module: Option<&str>,
 ) -> Option<&'a AdtDescriptor> {
     match segments {
         [name] => descriptors
@@ -200,7 +211,9 @@ fn descriptor_for_alias_target<'a>(
         [alias, name] => {
             let module_name = uses
                 .iter()
-                .find(|use_decl| use_decl.alias == *alias)
+                .find(|use_decl| {
+                    use_decl.module_name.as_deref() == current_module && use_decl.alias == *alias
+                })
                 .map(|use_decl| use_decl.name.as_str())?;
             descriptors.iter().find(|descriptor| {
                 descriptor.type_name == *name
@@ -555,15 +568,18 @@ fn descriptor_visible(
     };
     if let Some(module_name) = uses
         .iter()
-        .find(|use_decl| use_decl.alias == *first)
+        .find(|use_decl| {
+            use_decl.module_name.as_deref() == current_module && use_decl.alias == *first
+        })
         .map(|use_decl| use_decl.name.as_str())
     {
         return descriptor.module_name.as_deref() == Some(module_name);
     }
     segments.len() <= 2
-        && uses
-            .iter()
-            .any(|use_decl| descriptor.module_name.as_deref() == Some(use_decl.name.as_str()))
+        && uses.iter().any(|use_decl| {
+            use_decl.module_name.as_deref() == current_module
+                && descriptor.module_name.as_deref() == Some(use_decl.name.as_str())
+        })
 }
 
 fn variant_visible(
@@ -587,27 +603,37 @@ fn constructor_matches_visible_path(
     variant: &AdtVariantDescriptor,
     segments: &[String],
     uses: &[UseDecl],
+    current_module: Option<&str>,
 ) -> bool {
     match segments {
         [name] => name == &variant.name,
         [qualifier, name] if name == &variant.name => {
-            qualifier == &descriptor.type_name || import_alias_matches(descriptor, qualifier, uses)
+            qualifier == &descriptor.type_name
+                || import_alias_matches(descriptor, qualifier, uses, current_module)
         }
         [alias, type_name, name] => {
             name == &variant.name
                 && type_name == &descriptor.type_name
-                && import_alias_matches(descriptor, alias, uses)
+                && import_alias_matches(descriptor, alias, uses, current_module)
         }
         _ => false,
     }
 }
 
-fn import_alias_matches(descriptor: &AdtDescriptor, alias: &str, uses: &[UseDecl]) -> bool {
+fn import_alias_matches(
+    descriptor: &AdtDescriptor,
+    alias: &str,
+    uses: &[UseDecl],
+    current_module: Option<&str>,
+) -> bool {
     let Some(module_name) = descriptor.module_name.as_deref() else {
         return false;
     };
-    uses.iter()
-        .any(|use_decl| use_decl.alias == alias && use_decl.name == module_name)
+    uses.iter().any(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
+            && use_decl.alias == alias
+            && use_decl.name == module_name
+    })
 }
 
 fn same_descriptor(left: &AdtDescriptor, right: &AdtDescriptor) -> bool {

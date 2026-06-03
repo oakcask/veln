@@ -4,10 +4,8 @@
 ## status: accepted
 ## scope: module
 ## context: Module identity is compiler-visible.
-## decision: Keep the source header canonical.
+## decision: Keep the source path canonical.
 ## consequences: Manifest metadata cannot rename the module.
-mod spec.metadata
-
 ## @adr-lite
 ## id: function-boundary
 ## status: accepted

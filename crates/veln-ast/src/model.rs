@@ -36,6 +36,7 @@ pub struct ModuleHeader {
 #[derive(Clone, Debug)]
 pub struct UseDecl {
     pub node_id: NodeId,
+    pub module_name: Option<String>,
     pub name: String,
     pub alias: String,
     pub span: SourceSpan,

@@ -1,6 +1,4 @@
 # Public module functions are visible to tests through qualified imports.
-mod spec.math
-
 pub fn double(value: Int) -> Int
 	value * 2
 end

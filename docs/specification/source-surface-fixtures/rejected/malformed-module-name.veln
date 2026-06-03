@@ -1,4 +1,5 @@
-mod app.1
+use app.1
+
 fn main() -> ()
   ()
 end

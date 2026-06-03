@@ -331,26 +331,20 @@ fn run_blocks_holes_reachable_through_function_values_before_jdk_execution() {
 fn run_blocks_holes_reachable_through_qualified_function_values_before_jdk_execution() {
     let project = TestProject::new("run-qualified-function-value-hole");
     project.write(
-        "text.veln",
-        concat!(
-            "mod app.text\n",
-            "fn stringify(value: Int) -> String\n",
-            "  _\n",
-            "end\n",
-        ),
+        "app/text.veln",
+        concat!("fn stringify(value: Int) -> String\n", "  _\n", "end\n",),
     );
     project.write(
-        "main.veln",
+        "app/main.veln",
         concat!(
-            "mod app.main\n",
-            "use app.text\n",
+            "use app::text\n",
             "pub fn main() -> Vec<String>\n",
-            "  vec_map([1], text::stringify)\n",
+            "  vec_map([1], app::text::stringify)\n",
             "end\n",
         ),
     );
 
-    let output = project.run(&["main", "main.veln", "text.veln"]);
+    let output = project.run(&["main", "app/main.veln", "app/text.veln"]);
 
     assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
     assert_eq!(stdout(&output), "");
@@ -497,21 +491,20 @@ fn run_blocks_holes_reachable_through_contract_function_values_before_jdk_execut
 fn run_blocks_holes_reachable_through_imported_calls_before_jdk_execution() {
     let project = TestProject::new("run-imported-call-hole");
     project.write(
-        "util.veln",
-        concat!("mod app.util\n", "fn value() -> Int\n", "  _\n", "end\n",),
+        "app/util.veln",
+        concat!("fn value() -> Int\n", "  _\n", "end\n",),
     );
     project.write(
-        "main.veln",
+        "app/main.veln",
         concat!(
-            "mod app.main\n",
-            "use app.util\n",
+            "use app::util\n",
             "pub fn main() -> Int\n",
-            "  util::value()\n",
+            "  app::util::value()\n",
             "end\n",
         ),
     );
 
-    let output = project.run(&["main", "main.veln", "util.veln"]);
+    let output = project.run(&["main", "app/main.veln", "app/util.veln"]);
 
     assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
     assert_eq!(stdout(&output), "");

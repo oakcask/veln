@@ -305,9 +305,10 @@ impl TypeEnvironment {
             function.name == name
                 && function.visibility == Visibility::Public
                 && function.module_name.as_deref().is_some_and(|module_name| {
-                    self.uses
-                        .iter()
-                        .any(|use_decl| use_decl.name.as_str() == module_name)
+                    self.uses.iter().any(|use_decl| {
+                        use_decl.module_name.as_deref() == current_module
+                            && use_decl.name.as_str() == module_name
+                    })
                 })
         });
         let Some(first) = matches.next() else {
@@ -323,6 +324,7 @@ impl TypeEnvironment {
     pub(crate) fn unqualified_function_import_candidates(
         &self,
         name: &str,
+        current_module: Option<&str>,
     ) -> Vec<&FunctionSignature> {
         self.functions
             .iter()
@@ -330,23 +332,28 @@ impl TypeEnvironment {
                 function.name == name
                     && function.visibility == Visibility::Public
                     && function.module_name.as_deref().is_some_and(|module_name| {
-                        self.uses
-                            .iter()
-                            .any(|use_decl| use_decl.name.as_str() == module_name)
+                        self.uses.iter().any(|use_decl| {
+                            use_decl.module_name.as_deref() == current_module
+                                && use_decl.name.as_str() == module_name
+                        })
                     })
             })
             .collect()
     }
 
-    pub(crate) fn function_path(&self, segments: &[String]) -> Option<&FunctionSignature> {
+    pub(crate) fn function_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&FunctionSignature> {
         match segments {
             [name] => self.function(name),
-            [alias, name] => {
-                let module_name = self
-                    .uses
-                    .iter()
-                    .find(|use_decl| use_decl.alias == *alias)
-                    .map(|use_decl| use_decl.name.as_str())?;
+            [_, .., name] => {
+                let module_name = imported_module_for_path(
+                    &self.uses,
+                    &segments[..segments.len() - 1],
+                    current_module,
+                )?;
                 self.functions.iter().find(|function| {
                     function.name == *name && function.module_name.as_deref() == Some(module_name)
                 })
@@ -376,7 +383,12 @@ fn function_alias_signatures(
         .filter(|alias| alias.kind == PublicAliasKind::Function)
         .filter_map(|alias| {
             let name = alias.name.clone()?;
-            let target = function_signature_path(&alias.target, &module.uses, functions)?;
+            let target = function_signature_path(
+                &alias.target,
+                &module.uses,
+                functions,
+                alias.module_name.as_deref(),
+            )?;
             Some(FunctionSignature {
                 name,
                 target_name: target.target_name.clone(),
@@ -396,14 +408,13 @@ fn function_signature_path<'a>(
     segments: &[String],
     uses: &[UseDecl],
     functions: &'a [FunctionSignature],
+    current_module: Option<&str>,
 ) -> Option<&'a FunctionSignature> {
     match segments {
         [name] => functions.iter().find(|function| function.name == *name),
-        [alias, name] => {
-            let module_name = uses
-                .iter()
-                .find(|use_decl| use_decl.alias == *alias)
-                .map(|use_decl| use_decl.name.as_str())?;
+        [_, .., name] => {
+            let module_name =
+                imported_module_for_path(uses, &segments[..segments.len() - 1], current_module)?;
             functions.iter().find(|function| {
                 function.name == *name && function.module_name.as_deref() == Some(module_name)
             })
@@ -457,6 +468,7 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
                         collect_expr_effects(
                             expr,
                             &module.uses,
+                            function.module_name.as_deref(),
                             &bindings,
                             &effects_by_name,
                             &effects_by_module_path,
@@ -469,6 +481,7 @@ fn infer_function_body_effects(module: &SurfaceModule, functions: &mut [Function
                         collect_expr_effects(
                             expr,
                             &module.uses,
+                            function.module_name.as_deref(),
                             &bindings,
                             &effects_by_name,
                             &effects_by_module_path,
@@ -522,6 +535,7 @@ fn collect_pattern_bindings(pattern: &Pattern, ty: &Type, bindings: &mut Vec<Bin
 fn collect_expr_effects(
     expr: &Expr,
     uses: &[UseDecl],
+    current_module: Option<&str>,
     bindings: &[Binding],
     effects_by_name: &BTreeMap<String, Vec<String>>,
     effects_by_module_path: &BTreeMap<(String, String), Vec<String>>,
@@ -542,6 +556,7 @@ fn collect_expr_effects(
                     for effect in effects_for_callee_path(
                         segments,
                         uses,
+                        current_module,
                         bindings,
                         effects_by_name,
                         effects_by_module_path,
@@ -553,6 +568,7 @@ fn collect_expr_effects(
                 collect_expr_effects(
                     callee,
                     uses,
+                    current_module,
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
@@ -563,6 +579,7 @@ fn collect_expr_effects(
                 collect_expr_effects(
                     arg,
                     uses,
+                    current_module,
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
@@ -577,6 +594,7 @@ fn collect_expr_effects(
             collect_expr_effects(
                 base,
                 uses,
+                current_module,
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
@@ -588,6 +606,7 @@ fn collect_expr_effects(
                 collect_expr_effects(
                     &field.expr,
                     uses,
+                    current_module,
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
@@ -600,6 +619,7 @@ fn collect_expr_effects(
                 collect_expr_effects(
                     &entry.key,
                     uses,
+                    current_module,
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
@@ -608,6 +628,7 @@ fn collect_expr_effects(
                 collect_expr_effects(
                     &entry.value,
                     uses,
+                    current_module,
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
@@ -620,6 +641,7 @@ fn collect_expr_effects(
                 collect_expr_effects(
                     item,
                     uses,
+                    current_module,
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
@@ -631,6 +653,7 @@ fn collect_expr_effects(
             collect_expr_effects(
                 scrutinee,
                 uses,
+                current_module,
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
@@ -640,6 +663,7 @@ fn collect_expr_effects(
                 collect_expr_effects(
                     &arm.expr,
                     uses,
+                    current_module,
                     bindings,
                     effects_by_name,
                     effects_by_module_path,
@@ -651,6 +675,7 @@ fn collect_expr_effects(
             collect_expr_effects(
                 left,
                 uses,
+                current_module,
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
@@ -659,6 +684,7 @@ fn collect_expr_effects(
             collect_expr_effects(
                 right,
                 uses,
+                current_module,
                 bindings,
                 effects_by_name,
                 effects_by_module_path,
@@ -687,17 +713,16 @@ fn callee_name_path(callee: &Expr) -> Option<&Vec<String>> {
 fn effects_for_callee_path<'a>(
     segments: &[String],
     uses: &[UseDecl],
+    current_module: Option<&str>,
     bindings: &'a [Binding],
     effects_by_name: &'a BTreeMap<String, Vec<String>>,
     effects_by_module_path: &'a BTreeMap<(String, String), Vec<String>>,
 ) -> &'a [String] {
     match segments {
         [name] => effects_for_bare_callee(name, bindings, effects_by_name),
-        [alias, name] => {
-            let Some(module_name) = uses
-                .iter()
-                .find(|use_decl| use_decl.alias == *alias)
-                .map(|use_decl| use_decl.name.as_str())
+        [_, .., name] => {
+            let Some(module_name) =
+                imported_module_for_path(uses, &segments[..segments.len() - 1], current_module)
             else {
                 return &[];
             };
@@ -707,6 +732,20 @@ fn effects_for_callee_path<'a>(
         }
         _ => &[],
     }
+}
+
+fn imported_module_for_path<'a>(
+    uses: &'a [UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a str> {
+    let module_path = segments.join("::");
+    uses.iter()
+        .find(|use_decl| {
+            use_decl.module_name.as_deref() == current_module
+                && (use_decl.name == module_path || use_decl.alias == module_path)
+        })
+        .map(|use_decl| use_decl.name.as_str())
 }
 
 fn effects_for_bare_callee<'a>(

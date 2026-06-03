@@ -1,5 +1,3 @@
-mod docs.invalid
-
 pub fn broken() -> ()
   @
 end

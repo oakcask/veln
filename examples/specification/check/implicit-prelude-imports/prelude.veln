@@ -1,5 +1,3 @@
-mod prelude
-
 pub fn claimed() -> Int
 	1
 end

@@ -1,5 +1,5 @@
-# A use declaration without a module header has no source module identity.
-use platform.io
+# Dotted module delimiters are invalid in source imports.
+use foo.bar
 
 fn missing_identity() -> ()
 	()

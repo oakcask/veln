@@ -1,0 +1,6 @@
+# `use foo::bar` does not create a short `bar` module alias.
+use foo::bar
+
+pub fn main() -> Int
+	bar::double(3)
+end

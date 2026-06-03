@@ -62,11 +62,11 @@ file list is sorted and deduplicated.
 If the current project root contains `veln.toml`, the command reads the
 implemented `[modules]` manifest table after source discovery. Manifest module
 entries are validated only for selected source files; they do not add files to
-the selected set and do not override source `mod` declarations. A selected
-manifest module entry with a module name must match the selected file's source
-`mod` declaration. If the selected source has no `mod` declaration, the
-manifest name is reported as metadata drift because source owns
-compiler-visible module identity.
+the selected set and do not override path-derived source module identity. A
+selected manifest module entry with a module name must match the selected
+file's derived module path. Otherwise, the manifest name is reported as
+metadata drift because the package-relative source path owns compiler-visible
+module identity.
 
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic
@@ -83,12 +83,12 @@ file before writing any file. If any parse diagnostic is present, the whole
 format invocation exits with failure and writes nothing.
 
 For parse-clean files, formatting is deterministic for the implemented syntax:
-module and use headers, function signatures, contract clauses, let statements,
+use declarations, function signatures, contract clauses, let statements,
 tail expressions, holes with `satisfy`, records, lists, calls, literals, paths,
 prefix operators, binary operators, and postfix `?`.
 
 Canonical indentation uses one tab character per indentation level. Top-level
-module headers, imports, item signatures, and item-closing `end` lines use
+imports, item signatures, and item-closing `end` lines use
 indentation level 0. Function body lines, including contract clauses, `let`
 statements, tail expressions, and standalone comments attached to those lines,
 use indentation level 1.
@@ -105,13 +105,13 @@ idempotent formatting across multiple input files.
 
 Standalone line comments attach to the next parsed source line during
 formatting. The formatter emits hash comments with the same indentation as the
-formatted module header, import, function signature, contract clause, body
-line, or closing `end` line it documents. Comment-only lines between module
-headers, imports, function signatures, contract clauses, body lines, and
-closing `end` lines do not prevent parsing or deterministic formatting of
-those declarations. Trailing line comments after source code stay on the same
-formatted source line. `veln fmt` formats parse-clean source only; it does not
-migrate slash-prefixed comment-like text.
+formatted import, function signature, contract clause, body line, or closing
+`end` line it documents. Comment-only lines between imports, function
+signatures, contract clauses, body lines, and closing `end` lines do not
+prevent parsing or deterministic formatting of those declarations. Trailing
+line comments after source code stay on the same formatted source line.
+`veln fmt` formats parse-clean source only; it does not migrate slash-prefixed
+comment-like text.
 
 <a id="veln-doc"></a>
 
@@ -134,12 +134,17 @@ metadata from `veln.toml` when present. The generated module section states
 that no source modules were selected.
 
 The command has a parse gate. If any selected source has parse diagnostics, or
-if a selected `[modules]` manifest entry drifts from the selected source
-`mod` declaration, `doc` emits human diagnostics on stderr, writes no
+if a selected `[modules]` manifest entry drifts from the selected source path's
+derived module identity, `doc` emits human diagnostics on stderr, writes no
 documentation, and exits with failure.
 
-For each parse-clean selected source, `doc` emits the source module identity or
-`<anonymous>`, the source path, imports, public source `type` declarations,
+For `check`, `run`, `test`, and `doc`, parse-clean package-relative sources
+derive local module identity from the selected `.veln` path. Path separators
+become `::`. Invalid module path segments produce module diagnostics before
+semantic diagnostics are reported.
+
+For each parse-clean selected source, `doc` emits the path-derived source
+module identity, the source path, imports, public source `type` declarations,
 public constructors, and public `fn` declarations. Public `fn` documentation
 includes attached documentation line comments and contract clauses. Public
 `type` documentation includes attached documentation line comments.
@@ -261,14 +266,14 @@ selects a same-directory `*_test.veln` file with the same base name when that
 paired file exists. The command records this in JSON output and prints a human
 selection note.
 
-For explicit non-test source targets with module identities, `test` builds a
-source-level dependency graph from `mod` and `use` declarations. Tests whose
+For explicit non-test source targets with path-derived module identities,
+`test` builds a source-level dependency graph from `use` declarations. Tests whose
 transitive imports include the selected source are included in the selected
 test roots before semantic analysis. If the graph is incomplete, for example
-because a selected source has no module identity or an import has no discovered
-source module, `test` reports the missing evidence and widens to all discovered
-tests instead of silently under-selecting. Selected cases, static diagnostics,
-and JSON selection metadata all observe the final selected target set.
+because an import has no discovered source module, `test` reports the missing
+evidence and widens to all discovered tests instead of silently
+under-selecting. Selected cases, static diagnostics, and JSON selection
+metadata all observe the final selected target set.
 
 Static diagnostics block the suite before Java execution. In JSON output,
 already discovered cases are marked `blocked` with reason `static_gate`.

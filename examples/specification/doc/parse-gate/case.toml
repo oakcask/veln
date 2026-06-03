@@ -6,4 +6,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["main.veln:4:3: error[parse.invalid_token]: invalid token in expression"]
+contains = ["main.veln:2:3: error[parse.invalid_token]: invalid token in expression"]

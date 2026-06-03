@@ -16,9 +16,10 @@ requiring the full command reference on the first read.
   implemented command behavior. Use
   [commands-full.md#command-help](commands-full.md#command-help) when changing
   help parsing or output.
-- `check`: source discovery, parse/semantic diagnostics, checked-core
-  blockers, and check JSON output. Use [diagnostics-json.md](diagnostics-json.md)
-  first for diagnostic shape, then
+- `check`: source discovery, source path derived local module identity,
+  parse/semantic diagnostics, checked-core blockers, and check JSON output.
+  Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
+  then
   [commands-full.md](commands-full.md) for exact command rules.
 - `fmt`: whole-invocation parse gate, deterministic formatting, tab-based
   canonical indentation, `match` arm indentation, and canonical hash spelling
@@ -58,7 +59,7 @@ requiring the full command reference on the first read.
 - Use [json-output.md](json-output.md) to choose the implemented reference for
   `check --json`, `run --json`, `test --json`, or `repair --json` output.
 - Use [source-surface.md](source-surface.md) when command behavior depends on
-  source syntax, doctest fences, or module declarations.
+  source syntax, doctest fences, or path-derived module identity.
 - Use
   [../reference/implemented-proposals/formatter-stabilization.md](../reference/implemented-proposals/formatter-stabilization.md)
   only when auditing the implemented formatter stabilization proposal record.

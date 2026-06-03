@@ -1,5 +1,4 @@
-mod spec.api
-use spec.impl
+use impl
 
 fn parse() -> Int
 	1

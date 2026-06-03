@@ -1,6 +1,4 @@
-# A module header gives this public function the exported path spec.math::double.
-mod spec.math
-
+# The source path gives this public function the exported path math::double.
 pub fn double(value: Int) -> Int
 	value * 2
 end

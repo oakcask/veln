@@ -850,7 +850,9 @@ impl<'a> FunctionChecker<'a> {
                 .environment
                 .unqualified_function(name, self.function.module_name.as_deref())
                 .found(),
-            _ => self.environment.function_path(&segments),
+            _ => self
+                .environment
+                .function_path(&segments, self.function.module_name.as_deref()),
         };
         signature
             .map(|signature| {
@@ -907,7 +909,10 @@ impl<'a> FunctionChecker<'a> {
                 }
             }
             _ => {
-                if let Some(function) = self.environment.function_path(&segments) {
+                if let Some(function) = self
+                    .environment
+                    .function_path(&segments, self.function.module_name.as_deref())
+                {
                     return function.ty();
                 }
             }
@@ -1141,7 +1146,10 @@ impl<'a> FunctionChecker<'a> {
                     }
                 }
                 _ => {
-                    if let Some(function) = self.environment.function_path(segments) {
+                    if let Some(function) = self
+                        .environment
+                        .function_path(segments, self.function.module_name.as_deref())
+                    {
                         return function.ty();
                     }
                     let symbol = segments.join("::");
@@ -1462,7 +1470,7 @@ impl<'a> FunctionChecker<'a> {
                         .map(|function| self.function_call_origin(function, name.clone())),
                     _ => self
                         .environment
-                        .function_path(segments)
+                        .function_path(segments, self.function.module_name.as_deref())
                         .map(|function| self.function_call_origin(function, segments.join("::"))),
                 }
             }
@@ -1523,7 +1531,7 @@ impl<'a> FunctionChecker<'a> {
         prelude_symbol(name).is_some()
             && !self
                 .environment
-                .unqualified_function_import_candidates(name)
+                .unqualified_function_import_candidates(name, self.function.module_name.as_deref())
                 .is_empty()
     }
 
@@ -1567,7 +1575,7 @@ impl<'a> FunctionChecker<'a> {
         );
         for candidate in self
             .environment
-            .unqualified_function_import_candidates(name)
+            .unqualified_function_import_candidates(name, self.function.module_name.as_deref())
         {
             let Some(module_name) = candidate.module_name.as_deref() else {
                 continue;

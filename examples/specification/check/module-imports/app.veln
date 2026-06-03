@@ -1,6 +1,5 @@
 # Module imports make public declarations available through their module path.
-mod spec.app
-use spec.math
+use math
 
 pub fn main() -> Int
 	double(2) + (3 |> math::double())

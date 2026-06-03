@@ -1,5 +1,3 @@
-mod spec.duplicates
-
 pub type Alpha
 	pub Same
 end

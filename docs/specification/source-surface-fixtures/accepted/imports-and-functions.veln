@@ -1,6 +1,5 @@
-mod app.main
-use platform.io
-use platform.time
+use io
+use time
 
 pub fn main() -> Result<(), String> effects [stdio]
 	require ready == true

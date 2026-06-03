@@ -1,5 +1,3 @@
-mod spec.library
-
 pub type Signal<A>
 	Hidden
 	pub Idle

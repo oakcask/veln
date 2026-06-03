@@ -114,8 +114,8 @@ fn check_human_reports_missing_module_identity_for_imports() {
     assert_contains_all(
         stdout(&output),
         &[
-            "main.veln:1:1: error[module.missing_identity]: module import requires a module identity",
-            "  note: Add a `mod` declaration before `use` declarations.",
+            "main.veln:1:1: error[module.invalid_import_path]: module import `platform.io` uses `.`; source module paths use `::`",
+            "  note: Rewrite the import with `::` between module path segments.",
         ],
     );
 }
@@ -135,10 +135,10 @@ fn check_json_reports_missing_module_identity_for_imports() {
     assert_contains_all(
         stdout,
         &[
-            "\"id\":\"module.missing_identity\"",
+            "\"id\":\"module.invalid_import_path\"",
             "\"kind\":\"module\"",
-            "\"message\":\"module import requires a module identity\"",
-            "\"details\":{\"phase\":\"module\",\"node_id\":\"use-1\",\"field\":\"module_identity\",\"expected_owner\":\"source\",\"observed_owner\":\"missing\"}",
+            "\"message\":\"module import `platform.io` uses `.`; source module paths use `::`",
+            "\"details\":{\"phase\":\"module\",\"field\":\"import_path\",\"module_path\":\"platform.io\",\"expected_delimiter\":\"::\",\"observed_delimiter\":\".\"}",
             "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"module\":1}}",
         ],
     );
@@ -150,12 +150,7 @@ fn check_human_reports_manifest_module_name_drift() {
     project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
     project.write(
         "main.veln",
-        concat!(
-            "mod app.source\n",
-            "pub fn main() -> ()\n",
-            "  ()\n",
-            "end\n",
-        ),
+        concat!("pub fn main() -> ()\n", "  ()\n", "end\n",),
     );
 
     let output = project.veln(&["check"], &["main.veln"]);
@@ -165,8 +160,8 @@ fn check_human_reports_manifest_module_name_drift() {
     assert_contains_all(
         stdout(&output),
         &[
-            "veln.toml:2:16: error[module.metadata_drift]: manifest module name `app.manifest` does not match source module `app.source`",
-            "  note: main.veln:1:1: The source `mod` declaration owns the compiler-visible module name.",
+            "veln.toml:2:16: error[module.metadata_drift]: manifest module name `app.manifest` does not match derived module `main`",
+            "  note: main.veln:1:1: The package-relative source path owns the compiler-visible module name.",
             "  note: Update the manifest entry or remove the duplicated module name.",
         ],
     );
@@ -188,8 +183,9 @@ fn check_human_reports_manifest_module_without_source_owner() {
     assert_contains_all(
         stdout(&output),
         &[
-            "veln.toml:2:16: error[module.metadata_drift]: manifest module name `app.manifest` has no source `mod` owner",
-            "  note: Add a `mod` declaration to the source file or remove the manifest module name.",
+            "veln.toml:2:16: error[module.metadata_drift]: manifest module name `app.manifest` does not match derived module `main`",
+            "  note: main.veln:1:1: The package-relative source path owns the compiler-visible module name.",
+            "  note: Update the manifest entry or remove the duplicated module name.",
         ],
     );
 }
@@ -197,10 +193,10 @@ fn check_human_reports_manifest_module_without_source_owner() {
 #[test]
 fn check_human_accepts_matching_manifest_module_name() {
     let project = TestProject::new("check-human-matching-manifest-module");
-    project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.main\"\n");
+    project.write("veln.toml", "[modules]\n\"main.veln\" = \"main\"\n");
     project.write(
         "main.veln",
-        concat!("mod app.main\n", "pub fn main() -> ()\n", "  ()\n", "end\n",),
+        concat!("pub fn main() -> ()\n", "  ()\n", "end\n",),
     );
 
     let output = project.veln(&["check"], &["main.veln"]);
@@ -216,12 +212,7 @@ fn check_json_reports_manifest_module_name_drift() {
     project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
     project.write(
         "main.veln",
-        concat!(
-            "mod app.source\n",
-            "pub fn main() -> ()\n",
-            "  ()\n",
-            "end\n",
-        ),
+        concat!("pub fn main() -> ()\n", "  ()\n", "end\n",),
     );
 
     let output = project.check_json(&["main.veln"]);
@@ -233,11 +224,11 @@ fn check_json_reports_manifest_module_name_drift() {
         &[
             "\"id\":\"module.metadata_drift\"",
             "\"kind\":\"module\"",
-            "\"message\":\"manifest module name `app.manifest` does not match source module `app.source`\"",
+            "\"message\":\"manifest module name `app.manifest` does not match derived module `main`\"",
             "\"span\":{\"file\":\"veln.toml\",\"start\":{\"line\":2,\"column\":16,\"offset\":25},\"end\":{\"line\":2,\"column\":28,\"offset\":37}}",
-            "\"details\":{\"phase\":\"module\",\"field\":\"module_identity\",\"canonical_owner\":\"source\",\"derived_owner\":\"manifest\",\"expected_value\":\"app.source\",\"observed_value\":\"app.manifest\",\"manifest_path\":\"veln.toml\",\"source_path\":\"main.veln\"}",
-            "\"related\":[{\"kind\":\"canonical_owner\",\"message\":\"The source `mod` declaration owns the compiler-visible module name.\"",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":2,\"column\":1,\"offset\":15}}}",
+            "\"details\":{\"phase\":\"module\",\"field\":\"module_identity\",\"canonical_owner\":\"source_path\",\"derived_owner\":\"manifest\",\"expected_value\":\"main\",\"observed_value\":\"app.manifest\",\"manifest_path\":\"veln.toml\",\"source_path\":\"main.veln\"}",
+            "\"related\":[{\"kind\":\"canonical_owner\",\"message\":\"The package-relative source path owns the compiler-visible module name.\"",
+            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":1,\"column\":1,\"offset\":0}}}",
             "{\"message\":\"Update the manifest entry or remove the duplicated module name.\"}]",
             "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"module\":1}}",
         ],
@@ -262,10 +253,11 @@ fn check_json_reports_manifest_module_without_source_owner() {
         &[
             "\"id\":\"module.metadata_drift\"",
             "\"kind\":\"module\"",
-            "\"message\":\"manifest module name `app.manifest` has no source `mod` owner\"",
+            "\"message\":\"manifest module name `app.manifest` does not match derived module `main`\"",
             "\"span\":{\"file\":\"veln.toml\",\"start\":{\"line\":2,\"column\":16,\"offset\":25},\"end\":{\"line\":2,\"column\":28,\"offset\":37}}",
-            "\"details\":{\"phase\":\"module\",\"field\":\"module_identity\",\"canonical_owner\":\"source\",\"derived_owner\":\"manifest\",\"observed_value\":\"app.manifest\",\"manifest_path\":\"veln.toml\",\"source_path\":\"main.veln\"}",
-            "\"related\":[{\"message\":\"Add a `mod` declaration to the source file or remove the manifest module name.\"}]",
+            "\"details\":{\"phase\":\"module\",\"field\":\"module_identity\",\"canonical_owner\":\"source_path\",\"derived_owner\":\"manifest\",\"expected_value\":\"main\",\"observed_value\":\"app.manifest\",\"manifest_path\":\"veln.toml\",\"source_path\":\"main.veln\"}",
+            "\"related\":[{\"kind\":\"canonical_owner\",\"message\":\"The package-relative source path owns the compiler-visible module name.\"",
+            "{\"message\":\"Update the manifest entry or remove the duplicated module name.\"}]",
             "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"module\":1}}",
         ],
     );
@@ -626,17 +618,13 @@ fn check_json_keeps_sema_for_other_files_when_one_file_has_parse_errors() {
 #[test]
 fn check_json_resolves_imported_calls_across_selected_files() {
     let project = TestProject::new("check-shared-project-analysis");
+    project.write("app/util.veln", "pub fn value() -> Int\n  1\nend\n");
     project.write(
-        "util.veln",
-        "mod app.util\npub fn value() -> Int\n  1\nend\n",
-    );
-    project.write(
-        "main.veln",
+        "app/main.veln",
         concat!(
-            "mod app.main\n",
-            "use app.util\n",
+            "use app::util\n",
             "pub fn main() -> Int\n",
-            "  util::value()\n",
+            "  app::util::value()\n",
             "end\n",
         ),
     );

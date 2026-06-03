@@ -19,7 +19,7 @@ equals = 1
 id = "module.metadata_drift"
 severity = "error"
 kind = "module"
-message = "manifest module name `app.manifest` does not match source module `app.source`"
+message = "manifest module name `app.manifest` does not match derived module `main`"
 
 [diagnostics.span]
 file = "veln.toml"

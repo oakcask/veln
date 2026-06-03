@@ -1,4 +1,3 @@
-mod spec.api
-use spec.impl
+use impl
 
 pub fn parse = impl::parse()

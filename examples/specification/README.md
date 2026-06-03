@@ -63,8 +63,14 @@ against the built `veln` binary.
   changing static behavior.
 - `check/json-ok-envelope/`: successful `check --json` envelope fields and
   zero-diagnostic summary behavior.
-- `check/module-imports/`: `mod`, `use`, import aliases, unqualified public
+- `check/module-imports/`: path-derived modules, `use`, unqualified public
   imports, qualified calls, and qualified pipeline targets.
+- `check/local-source-imports/`: source path derived module identity,
+  `use foo::bar`, bare public imports, and full-path qualified access.
+- `check/local-source-import-boundaries/`: `use foo::bar` does not create a
+  short `bar` module alias.
+- `check/source-path-module-diagnostics/`: invalid source path segments for
+  derived local module identity.
 - `check/import-reexport-boundary/`: `use` declarations let a module consume
   another module's public API without publishing that API through the consuming
   module's own qualified path.
@@ -75,8 +81,8 @@ against the built `veln` binary.
   wrong-kind targets, unresolved targets, and duplicate exported names.
 - `check/qualified-no-fallback/`: qualified calls require a matching import
   alias and do not fall back to same-named bare functions.
-- `check/missing-module-identity/`: `use` declarations without a source module
-  identity.
+- `check/missing-module-identity/`: dotted module delimiters in `use`
+  declarations are rejected.
 - `check/name-module-boundaries/`: duplicate import aliases, functions,
   parameters, local bindings, record fields, and pattern bindings.
 - `check/parse-recovery-diagnostics/`: parse recovery diagnostics for call
@@ -105,9 +111,9 @@ against the built `veln` binary.
   boundaries.
 - `check/source-adt-exhaustiveness/`: source-declared ADT finite-domain
   matching reports unqualified missing constructor coverage labels.
-- `check/manifest-metadata/`: source `mod` ownership wins over manifest module
-  metadata, manifest module names require selected source owners, and manifest
-  entries do not add unselected source files.
+- `check/manifest-metadata/`: path-derived source module identity wins over
+  manifest module metadata, and manifest entries do not add unselected source
+  files.
 - `check/implicit-unit-return/`: omitted tail expressions returning `()` and
   the implicit-unit diagnostic detail.
 - `check/types-operators/`: primitive annotations, returned function types,
@@ -151,7 +157,7 @@ against the built `veln` binary.
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.
 - `doc/manifest-drift/`: generated documentation is blocked when selected
-  manifest module metadata disagrees with source-owned module identity.
+  manifest module metadata disagrees with path-derived module identity.
 - `doc/no-selected-sources/`: generated documentation can contain only
   package metadata and an empty module section when no source files are
   selected.
