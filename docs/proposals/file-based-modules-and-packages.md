@@ -175,6 +175,12 @@ external packages can import.
 The manifest does not rename modules. Renaming a module means moving or
 renaming the source file.
 
+Packages do not have an implicit or conventional root module. A file named
+`lib.veln`, `main.veln`, or with the same stem as the final package-name
+segment is an ordinary module unless it is listed in `[lib].exports` and
+imported by its derived module path. Authors that want a root-like public
+module should create and export the corresponding source file explicitly.
+
 File paths are the manifest format because the manifest describes the package's
 redistribution surface over concrete source files. The compiler derives module
 paths from those files using the same rule as local source discovery, which
@@ -301,12 +307,12 @@ When implemented, update:
 - `veln.toml` rejects `[modules]`.
 - `veln.toml` accepts `[package].name` and `[lib].exports`, and validates that
   exported paths derive real package modules.
+- `veln.toml` does not implicitly export or privilege `lib.veln`, `main.veln`,
+  or a module matching the final package-name segment.
 - Current package private modules are usable by other modules in the same
   package but are not importable from external packages unless exported.
 
 ## Open Questions
 
-- Should a package have a conventional root module such as `lib.veln`,
-  `main.veln`, or a module matching the final package-name segment?
 - Should package names be opaque strings, URL-like names, or normalized source
   identifiers with a separate registry namespace?
