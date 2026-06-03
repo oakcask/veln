@@ -11,7 +11,7 @@ use veln_syntax::{
 };
 
 use crate::diagnostics::{parse_diagnostic_to_envelope, print_human_stderr, tool_info};
-use crate::surface::validate_manifest_module;
+use crate::surface::{derive_source_module_path, validate_manifest_module};
 
 pub(crate) fn doc(inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
@@ -42,12 +42,21 @@ fn generate_markdown(project: &Project) -> GeneratedDocs {
         if !parsed.diagnostics.is_empty() {
             continue;
         }
-        let lowered = veln_ast::lower_surface_ast(&parsed.tree);
+        let lowered = match derive_source_module_path(source) {
+            Ok(module_name) => veln_ast::lower_surface_ast_with_module_identity(
+                &parsed.tree,
+                module_name,
+                source.span(veln_source::TextRange::new(0, 0)),
+            ),
+            Err(diagnostic) => {
+                diagnostics.push(*diagnostic);
+                veln_ast::lower_surface_ast(&parsed.tree)
+            }
+        };
         diagnostics.extend(validate_manifest_module(
             project,
             source.path().as_str(),
             &lowered,
-            parsed.tree.module.is_some(),
         ));
         sections.push(source_docs(source, &parsed.tree));
     }
@@ -100,25 +109,19 @@ fn generate_markdown(project: &Project) -> GeneratedDocs {
 
 fn source_docs(source: &SourceFile, tree: &veln_syntax::SyntaxTree) -> String {
     let mut out = String::new();
-    push_module_header(&mut out, source, tree);
+    push_module_header(&mut out, source);
     push_imports(&mut out, tree);
     push_public_api(&mut out, source, tree);
     push_adr_lite_records(&mut out, tree);
     out
 }
 
-fn push_module_header(out: &mut String, source: &SourceFile, tree: &veln_syntax::SyntaxTree) {
-    let module_name = tree
-        .module
-        .as_ref()
-        .map(|module| module.name.as_str())
-        .unwrap_or("<anonymous>");
-    push_heading(out, 3, module_name);
+fn push_module_header(out: &mut String, source: &SourceFile) {
+    let module_name = derive_source_module_path(source).unwrap_or_else(|_| "<invalid>".to_string());
+    push_heading(out, 3, &module_name);
     push_paragraph(out, &format!("Source: `{}`", source.path().as_str()));
 
-    if let Some(module) = &tree.module {
-        push_doc_block(out, doc_block_before(source, module.span.start.line));
-    }
+    push_doc_block(out, doc_block_before(source, 1));
 }
 
 fn push_imports(out: &mut String, tree: &veln_syntax::SyntaxTree) {

@@ -79,10 +79,9 @@ parse_source_text(Text) :-
 print_grammar :-
     forall(grammar_line(_, Line), writeln(Line)).
 
-grammar_line(10, "Module        ::= ModDecl? UseDecl* Item*").
-grammar_line(20, "ModDecl       ::= \"mod\" ModuleName NL").
-grammar_line(30, "UseDecl       ::= \"use\" ModuleName NL").
-grammar_line(40, "ModuleName    ::= Name (\".\" Name)*").
+grammar_line(10, "Module        ::= UseDecl* Item*").
+grammar_line(30, "UseDecl       ::= \"use\" ModulePath NL").
+grammar_line(40, "ModulePath    ::= Name (\"::\" Name)*").
 grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl | PublicAlias").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
@@ -255,15 +254,11 @@ underscore_token(t(hole, Text)) -->
     { string_chars(Text, ['_', First | Rest]) }.
 underscore_token(t(underscore, "_")) --> ['_'].
 
-source_file --> nls, optional_mod, use_decls, items, nls.
+source_file --> nls, use_decls, items, nls.
 
-optional_mod --> mod_decl, !.
-optional_mod --> [].
-
-mod_decl --> tok(mod), module_name, nl.
 use_decls --> use_decl, !, use_decls.
 use_decls --> [].
-use_decl --> tok(use), module_name, nl.
+use_decl --> tok(use), module_path, nl.
 
 items --> item, !, items.
 items --> [].
@@ -584,9 +579,9 @@ member_path --> ident, member_path_tail.
 member_path_tail --> tok(double_colon), ident, !, member_path_tail.
 member_path_tail --> [].
 
-module_name --> ident, module_name_tail.
-module_name_tail --> tok(dot), ident, !, module_name_tail.
-module_name_tail --> [].
+module_path --> ident, module_path_tail.
+module_path_tail --> tok(double_colon), ident, !, module_path_tail.
+module_path_tail --> [].
 
 binary_op --> tok(pipe_greater).
 binary_op --> tok(or).

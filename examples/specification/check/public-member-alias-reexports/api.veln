@@ -1,5 +1,4 @@
-mod spec.api
-use spec.impl
+use impl
 
 pub fn twice = impl::double
 pub type Shape = impl::Shape

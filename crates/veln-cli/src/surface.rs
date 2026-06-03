@@ -3,9 +3,8 @@ use veln_ast::{
     UseDecl, lower_surface_ast, lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
-use veln_project::ManifestModule;
 use veln_project::Project;
-use veln_source::SourceFile;
+use veln_source::{SourceFile, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
 use crate::diagnostics::parse_diagnostic_to_envelope;
@@ -23,41 +22,49 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
         if parsed.diagnostics.is_empty() {
-            let lowered = if should_derive_module_identity(source, &parsed.tree) {
-                let derived_module = derive_source_module_path(source);
-                match &derived_module {
-                    Ok(module_name) => {
-                        if let Some((_, first_source)) = derived_modules
+            if let Some(module) = &parsed.tree.module {
+                diagnostics.push(source_mod_decl_diagnostic(module));
+            }
+            for use_decl in &parsed.tree.uses {
+                if use_decl.name.contains('.') {
+                    diagnostics.push(dotted_use_decl_diagnostic(use_decl));
+                }
+            }
+
+            let derived_module = derive_source_module_path(source);
+            match &derived_module {
+                Ok(module_name) => {
+                    if module_name == "prelude" {
+                        diagnostics.push(reserved_source_module_diagnostic(source, module_name));
+                    }
+                    if !is_doctest_source(source)
+                        && let Some((_, first_source)) = derived_modules
                             .iter()
                             .find(|(known_module, _)| known_module == module_name)
-                        {
-                            diagnostics.push(duplicate_derived_module_diagnostic(
-                                module_name,
-                                source,
-                                first_source,
-                            ));
-                        } else {
-                            derived_modules.push((module_name.clone(), source.clone()));
-                        }
+                    {
+                        diagnostics.push(duplicate_derived_module_diagnostic(
+                            module_name,
+                            source,
+                            first_source,
+                        ));
+                    } else if !is_doctest_source(source) {
+                        derived_modules.push((module_name.clone(), source.clone()));
                     }
-                    Err(diagnostic) => diagnostics.push(diagnostic.clone()),
                 }
-                match derived_module {
-                    Ok(module_name) => lower_surface_ast_with_module_identity(
-                        &parsed.tree,
-                        module_name,
-                        source.span(veln_source::TextRange::new(0, 0)),
-                    ),
-                    Err(_) => lower_surface_ast(&parsed.tree),
-                }
-            } else {
-                lower_surface_ast(&parsed.tree)
+                Err(diagnostic) => diagnostics.push((**diagnostic).clone()),
+            }
+            let lowered = match derived_module {
+                Ok(module_name) => lower_surface_ast_with_module_identity(
+                    &parsed.tree,
+                    module_name,
+                    source.span(TextRange::new(0, 0)),
+                ),
+                Err(_) => lower_surface_ast(&parsed.tree),
             };
             diagnostics.extend(validate_manifest_module(
                 project,
                 source.path().as_str(),
                 &lowered,
-                parsed.tree.module.is_some(),
             ));
             module = module.or(lowered.module);
             uses.extend(lowered.uses);
@@ -66,6 +73,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
             functions.extend(lowered.functions);
         }
     }
+    diagnostics.extend(unresolved_local_import_diagnostics(&uses, &derived_modules));
 
     (
         SurfaceModule {
@@ -79,44 +87,96 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
     )
 }
 
-fn should_derive_module_identity(source: &SourceFile, tree: &veln_syntax::SyntaxTree) -> bool {
-    tree.module.is_none()
-        && !source.path().as_str().contains('#')
-        && !source.path().as_str().starts_with('/')
-        && (source.path().as_str().contains('/')
-            || !source
-                .path()
-                .as_str()
-                .strip_suffix(".veln")
-                .is_some_and(is_module_identifier)
-            || tree
-                .uses
-                .iter()
-                .any(|use_decl| use_decl.name.contains("::")))
-}
-
-fn derive_source_module_path(source: &SourceFile) -> Result<String, Diagnostic> {
+pub(crate) fn derive_source_module_path(source: &SourceFile) -> Result<String, Box<Diagnostic>> {
     let path = source.path().as_str();
+    if let Some(module_name) = derive_doctest_module_path(path) {
+        return Ok(module_name);
+    }
     let Some(without_extension) = path.strip_suffix(".veln") else {
-        return Err(invalid_source_module_path_diagnostic(
+        return Err(Box::new(invalid_source_module_path_diagnostic(
             source,
             path,
             "source module files must use the `.veln` extension",
-        ));
+        )));
     };
     let mut segments = Vec::new();
     for segment in without_extension.split('/') {
         if is_module_identifier(segment) {
             segments.push(segment);
         } else {
-            return Err(invalid_source_module_path_diagnostic(
+            return Err(Box::new(invalid_source_module_path_diagnostic(
                 source,
                 segment,
                 "source path segment cannot be used as a module identifier",
-            ));
+            )));
         }
     }
     Ok(segments.join("::"))
+}
+
+fn derive_doctest_module_path(path: &str) -> Option<String> {
+    let (source_path, _) = path.split_once("#doctest-")?;
+    let source_stem = source_path.strip_suffix(".veln")?;
+    let mut segments = Vec::new();
+    for segment in source_stem.split('/') {
+        if is_module_identifier(segment) {
+            segments.push(segment.to_string());
+        } else {
+            return None;
+        }
+    }
+    Some(segments.join("::"))
+}
+
+fn is_doctest_source(source: &SourceFile) -> bool {
+    source.path().as_str().contains("#doctest-")
+}
+
+fn source_mod_decl_diagnostic(module: &veln_syntax::ModuleDecl) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "module.source_mod",
+        Severity::Error,
+        DiagnosticKind::Module,
+        "source `mod` declarations are not supported",
+        Some(module.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("module_identity")),
+            ("module_path", JsonValue::string(module.name.clone())),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string(
+            "Move or rename the source file so its package-relative path derives the intended module path.",
+        ),
+    )]));
+    diagnostic
+}
+
+fn dotted_use_decl_diagnostic(use_decl: &veln_syntax::UseDecl) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "module.invalid_import_path",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "module import `{}` uses `.`; source module paths use `::`",
+            use_decl.name
+        ),
+        Some(use_decl.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("import_path")),
+            ("module_path", JsonValue::string(use_decl.name.clone())),
+            ("expected_delimiter", JsonValue::string("::")),
+            ("observed_delimiter", JsonValue::string(".")),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string("Rewrite the import with `::` between module path segments."),
+    )]));
+    diagnostic
 }
 
 fn is_module_identifier(segment: &str) -> bool {
@@ -200,11 +260,27 @@ fn duplicate_derived_module_diagnostic(
     diagnostic
 }
 
+fn reserved_source_module_diagnostic(source: &SourceFile, module_name: &str) -> Diagnostic {
+    Diagnostic::new(
+        "name.reserved",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("module identity `{module_name}` conflicts with the standard prelude"),
+        Some(source.span(TextRange::new(0, 0))),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::Null),
+            ("name", JsonValue::string(module_name)),
+            ("namespace", JsonValue::string("module")),
+            ("reserved_for", JsonValue::string("standard_prelude")),
+        ]),
+    )
+}
+
 pub(crate) fn validate_manifest_module(
     project: &Project,
     source_path: &str,
     module: &SurfaceModule,
-    source_has_mod: bool,
 ) -> Vec<Diagnostic> {
     let Some(manifest_module) = project.manifest.as_ref().and_then(|manifest| {
         manifest
@@ -214,10 +290,6 @@ pub(crate) fn validate_manifest_module(
     }) else {
         return Vec::new();
     };
-
-    if !source_has_mod {
-        return vec![manifest_without_source_owner(manifest_module)];
-    }
 
     let Some(source_module) = &module.module else {
         return Vec::new();
@@ -232,14 +304,14 @@ pub(crate) fn validate_manifest_module(
         Severity::Error,
         DiagnosticKind::Module,
         format!(
-            "manifest module name `{}` does not match source module `{}`",
+            "manifest module name `{}` does not match derived module `{}`",
             manifest_module.name, source_module.name
         ),
         Some(manifest_module.name_span.clone()),
         JsonValue::object([
             ("phase", JsonValue::string("module")),
             ("field", JsonValue::string("module_identity")),
-            ("canonical_owner", JsonValue::string("source")),
+            ("canonical_owner", JsonValue::string("source_path")),
             ("derived_owner", JsonValue::string("manifest")),
             (
                 "expected_value",
@@ -258,7 +330,7 @@ pub(crate) fn validate_manifest_module(
         (
             "message",
             JsonValue::string(
-                "The source `mod` declaration owns the compiler-visible module name.",
+                "The package-relative source path owns the compiler-visible module name.",
             ),
         ),
         (
@@ -309,38 +381,52 @@ pub(crate) fn validate_manifest_module(
     vec![diagnostic]
 }
 
-fn manifest_without_source_owner(manifest_module: &ManifestModule) -> Diagnostic {
+fn unresolved_local_import_diagnostics(
+    uses: &[UseDecl],
+    derived_modules: &[(String, SourceFile)],
+) -> Vec<Diagnostic> {
+    uses.iter()
+        .filter(|use_decl| {
+            use_decl.name.contains("::")
+                && !derived_modules
+                    .iter()
+                    .any(|(module_name, _)| module_name == &use_decl.name)
+        })
+        .map(|use_decl| unresolved_local_import_diagnostic(use_decl, derived_modules))
+        .collect()
+}
+
+fn unresolved_local_import_diagnostic(
+    use_decl: &UseDecl,
+    derived_modules: &[(String, SourceFile)],
+) -> Diagnostic {
     let mut diagnostic = Diagnostic::new(
-        "module.metadata_drift",
+        "module.unresolved_import",
         Severity::Error,
         DiagnosticKind::Module,
         format!(
-            "manifest module name `{}` has no source `mod` owner",
-            manifest_module.name
+            "local import `{}` has no matching selected source file",
+            use_decl.name
         ),
-        Some(manifest_module.name_span.clone()),
+        Some(use_decl.span.clone()),
         JsonValue::object([
             ("phase", JsonValue::string("module")),
-            ("field", JsonValue::string("module_identity")),
-            ("canonical_owner", JsonValue::string("source")),
-            ("derived_owner", JsonValue::string("manifest")),
-            (
-                "observed_value",
-                JsonValue::string(manifest_module.name.clone()),
-            ),
-            ("manifest_path", JsonValue::string("veln.toml")),
-            (
-                "source_path",
-                JsonValue::string(manifest_module.path.clone()),
-            ),
+            ("field", JsonValue::string("import_path")),
+            ("module_path", JsonValue::string(use_decl.name.clone())),
         ]),
     );
-    diagnostic.related.push(JsonValue::object([(
-        "message",
-        JsonValue::string(
-            "Add a `mod` declaration to the source file or remove the manifest module name.",
-        ),
-    )]));
+    for (module_name, source) in derived_modules {
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("selected_source_module")),
+            (
+                "message",
+                JsonValue::string(format!(
+                    "Selected source `{}` derives `{module_name}`.",
+                    source.path().as_str()
+                )),
+            ),
+        ]));
+    }
     diagnostic
 }
 
@@ -444,7 +530,12 @@ fn function_alias_targets(
         .filter(|alias| alias.kind == PublicAliasKind::Function)
         .filter_map(|alias| {
             let name = alias.name.clone()?;
-            let target = target_for_alias_path(&alias.target, &module.uses, function_targets)?;
+            let target = target_for_alias_path(
+                &alias.target,
+                &module.uses,
+                function_targets,
+                alias.module_name.as_deref(),
+            )?;
             Some(FunctionTarget {
                 name,
                 module_name: alias.module_name.clone(),
@@ -460,11 +551,13 @@ fn target_for_alias_path<'a>(
     segments: &[String],
     uses: &[UseDecl],
     function_targets: &'a [FunctionTarget],
+    current_module: Option<&str>,
 ) -> Option<&'a FunctionTarget> {
     match segments {
         [name] => function_targets.iter().find(|target| target.name == *name),
         [_, .., name] => {
-            let module_name = imported_module_for_path(uses, &segments[..segments.len() - 1])?;
+            let module_name =
+                imported_module_for_path(uses, &segments[..segments.len() - 1], current_module)?;
             function_targets.iter().find(|target| {
                 target.name == *name && target.module_name.as_deref() == Some(module_name)
             })
@@ -559,13 +652,13 @@ fn collect_contract_callees(
             index += 1;
             continue;
         }
-        let mut callee = name.text.clone();
+        let mut segments = vec![name.text.clone()];
         let mut next_index = index + 1;
         while next_index + 1 < tokens.len()
             && tokens[next_index].kind == TokenKind::DoubleColon
             && tokens[next_index + 1].kind == TokenKind::Ident
         {
-            callee = tokens[next_index + 1].text.clone();
+            segments.push(tokens[next_index + 1].text.clone());
             next_index += 2;
         }
         let Some(next) = tokens.get(next_index) else {
@@ -575,11 +668,6 @@ fn collect_contract_callees(
             index += 1;
             continue;
         }
-        let segments = if callee == name.text {
-            vec![callee]
-        } else {
-            vec![name.text.clone(), callee]
-        };
         for callee in resolve_function_reference(&segments, current_module, uses, function_targets)
         {
             push_reachable(callees, callee);
@@ -631,8 +719,18 @@ fn collect_contract_function_value_references(
                 .get(index + 2)
                 .is_some_and(|token| token.kind == TokenKind::Ident)
         {
-            let segments = vec![tokens[index].text.clone(), tokens[index + 2].text.clone()];
-            index += 3;
+            let mut segments = vec![tokens[index].text.clone()];
+            index += 1;
+            while tokens
+                .get(index)
+                .is_some_and(|token| token.kind == TokenKind::DoubleColon)
+                && tokens
+                    .get(index + 1)
+                    .is_some_and(|token| token.kind == TokenKind::Ident)
+            {
+                segments.push(tokens[index + 1].text.clone());
+                index += 2;
+            }
             segments
         } else {
             let segments = vec![tokens[index].text.clone()];
@@ -894,8 +992,11 @@ fn visible_from_current_module(
     if current_module.is_none() || target_module == current_module {
         return true;
     }
-    target_module
-        .is_some_and(|module_name| uses.iter().any(|use_decl| use_decl.name == module_name))
+    target_module.is_some_and(|module_name| {
+        uses.iter().any(|use_decl| {
+            use_decl.module_name.as_deref() == current_module && use_decl.name == module_name
+        })
+    })
 }
 
 fn function_type_arity(annotation: &str) -> Option<usize> {
@@ -992,7 +1093,8 @@ fn resolve_function_reference(
             })
             .collect(),
         [_, .., name] => {
-            let Some(module_name) = imported_module_for_path(uses, &segments[..segments.len() - 1])
+            let Some(module_name) =
+                imported_module_for_path(uses, &segments[..segments.len() - 1], current_module)
             else {
                 return Vec::new();
             };
@@ -1012,10 +1114,17 @@ fn resolve_function_reference(
     }
 }
 
-fn imported_module_for_path<'a>(uses: &'a [UseDecl], segments: &[String]) -> Option<&'a str> {
+fn imported_module_for_path<'a>(
+    uses: &'a [UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a str> {
     let module_path = segments.join("::");
     uses.iter()
-        .find(|use_decl| use_decl.name == module_path || use_decl.alias == module_path)
+        .find(|use_decl| {
+            use_decl.module_name.as_deref() == current_module
+                && (use_decl.name == module_path || use_decl.alias == module_path)
+        })
         .map(|use_decl| use_decl.name.as_str())
 }
 
@@ -1212,20 +1321,18 @@ mod tests {
             root: ".".into(),
             files: vec![
                 SourceFile::new(
-                    "main_test.veln",
+                    "app/main_test.veln",
                     concat!(
-                        "mod app.main\n",
-                        "use app.text\n",
+                        "use app::text\n",
                         "test foo() -> ()\n",
-                        "  vec_map([1], text::stringify)\n",
+                        "  vec_map([1], app::text::stringify)\n",
                         "  ()\n",
                         "end\n",
                     ),
                 ),
                 SourceFile::new(
-                    "text.veln",
+                    "app/text.veln",
                     concat!(
-                        "mod app.text\n",
                         "fn stringify(value: Int) -> String\n",
                         "  \"ok\"\n",
                         "end\n",
@@ -1253,8 +1360,8 @@ mod tests {
         assert_eq!(
             functions,
             vec![
-                (Some("app.main"), FunctionKind::Test, Some("foo")),
-                (Some("app.text"), FunctionKind::Function, Some("stringify")),
+                (Some("app::main_test"), FunctionKind::Test, Some("foo")),
+                (Some("app::text"), FunctionKind::Function, Some("stringify")),
             ]
         );
     }
@@ -1325,20 +1432,18 @@ mod tests {
             root: ".".into(),
             files: vec![
                 SourceFile::new(
-                    "main.veln",
+                    "app/main.veln",
                     concat!(
-                        "mod app.main\n",
-                        "use app.rules\n",
+                        "use app::rules\n",
                         "pub fn main(value: Int) -> output: Int\n",
-                        "  ensure rules::positive(output)\n",
+                        "  ensure app::rules::positive(output)\n",
                         "  value\n",
                         "end\n",
                     ),
                 ),
                 SourceFile::new(
-                    "rules.veln",
+                    "app/rules.veln",
                     concat!(
-                        "mod app.rules\n",
                         "fn positive(value: Int) -> Bool\n",
                         "  value > 0\n",
                         "end\n",
@@ -1366,8 +1471,8 @@ mod tests {
         assert_eq!(
             functions,
             vec![
-                (Some("app.main"), FunctionKind::Function, Some("main")),
-                (Some("app.rules"), FunctionKind::Function, Some("positive")),
+                (Some("app::main"), FunctionKind::Function, Some("main")),
+                (Some("app::rules"), FunctionKind::Function, Some("positive")),
             ]
         );
     }
@@ -1378,18 +1483,17 @@ mod tests {
             root: ".".into(),
             files: vec![
                 SourceFile::new(
-                    "main.veln",
+                    "app/main.veln",
                     concat!(
-                        "mod app.main\n",
-                        "use app.util\n",
+                        "use app::util\n",
                         "pub fn main() -> Int\n",
-                        "  util::value()\n",
+                        "  app::util::value()\n",
                         "end\n",
                     ),
                 ),
                 SourceFile::new(
-                    "util.veln",
-                    concat!("mod app.util\n", "fn value() -> Int\n", "  1\n", "end\n",),
+                    "app/util.veln",
+                    concat!("fn value() -> Int\n", "  1\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -1413,8 +1517,8 @@ mod tests {
         assert_eq!(
             functions,
             vec![
-                (Some("app.main"), FunctionKind::Function, Some("main")),
-                (Some("app.util"), FunctionKind::Function, Some("value")),
+                (Some("app::main"), FunctionKind::Function, Some("main")),
+                (Some("app::util"), FunctionKind::Function, Some("value")),
             ]
         );
     }
@@ -1425,27 +1529,21 @@ mod tests {
             root: ".".into(),
             files: vec![
                 SourceFile::new(
-                    "main.veln",
+                    "app/main.veln",
                     concat!(
-                        "mod app.main\n",
-                        "use app.api\n",
+                        "use app::api\n",
                         "pub fn main() -> Int\n",
-                        "  api::twice(21)\n",
+                        "  app::api::twice(21)\n",
                         "end\n",
                     ),
                 ),
                 SourceFile::new(
-                    "api.veln",
-                    concat!(
-                        "mod app.api\n",
-                        "use app.impl\n",
-                        "pub fn twice = impl::double\n",
-                    ),
+                    "app/api.veln",
+                    concat!("use app::impl\n", "pub fn twice = app::impl::double\n",),
                 ),
                 SourceFile::new(
-                    "impl.veln",
+                    "app/impl.veln",
                     concat!(
-                        "mod app.impl\n",
                         "fn double(value: Int) -> Int\n",
                         "  value + value\n",
                         "end\n",
@@ -1473,8 +1571,8 @@ mod tests {
         assert_eq!(
             functions,
             vec![
-                (Some("app.main"), FunctionKind::Function, Some("main")),
-                (Some("app.impl"), FunctionKind::Function, Some("double")),
+                (Some("app::main"), FunctionKind::Function, Some("main")),
+                (Some("app::impl"), FunctionKind::Function, Some("double")),
             ]
         );
     }
@@ -1485,27 +1583,21 @@ mod tests {
             root: ".".into(),
             files: vec![
                 SourceFile::new(
-                    "main.veln",
+                    "app/main.veln",
                     concat!(
-                        "mod app.main\n",
-                        "use app.rules\n",
+                        "use app::rules\n",
                         "fn accepts(job: fn() -> Bool) -> Bool\n",
                         "  job()\n",
                         "end\n",
                         "pub fn main() -> ()\n",
-                        "  require accepts(rules::ready)\n",
+                        "  require accepts(app::rules::ready)\n",
                         "  ()\n",
                         "end\n",
                     ),
                 ),
                 SourceFile::new(
-                    "rules.veln",
-                    concat!(
-                        "mod app.rules\n",
-                        "fn ready() -> Bool\n",
-                        "  true\n",
-                        "end\n",
-                    ),
+                    "app/rules.veln",
+                    concat!("fn ready() -> Bool\n", "  true\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -1529,9 +1621,9 @@ mod tests {
         assert_eq!(
             functions,
             vec![
-                (Some("app.main"), FunctionKind::Function, Some("accepts")),
-                (Some("app.main"), FunctionKind::Function, Some("main")),
-                (Some("app.rules"), FunctionKind::Function, Some("ready")),
+                (Some("app::main"), FunctionKind::Function, Some("accepts")),
+                (Some("app::main"), FunctionKind::Function, Some("main")),
+                (Some("app::rules"), FunctionKind::Function, Some("ready")),
             ]
         );
     }
@@ -1542,21 +1634,20 @@ mod tests {
             root: ".".into(),
             files: vec![
                 SourceFile::new(
-                    "main.veln",
+                    "app/main.veln",
                     concat!(
-                        "mod app.main\n",
-                        "use app.util\n",
+                        "use app::util\n",
                         "fn value() -> Int\n",
                         "  _\n",
                         "end\n",
                         "pub fn main() -> Int\n",
-                        "  util::value()\n",
+                        "  app::util::value()\n",
                         "end\n",
                     ),
                 ),
                 SourceFile::new(
-                    "util.veln",
-                    concat!("mod app.util\n", "fn value() -> Int\n", "  1\n", "end\n",),
+                    "app/util.veln",
+                    concat!("fn value() -> Int\n", "  1\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -1580,8 +1671,8 @@ mod tests {
         assert_eq!(
             functions,
             vec![
-                (Some("app.main"), FunctionKind::Function, Some("main")),
-                (Some("app.util"), FunctionKind::Function, Some("value")),
+                (Some("app::main"), FunctionKind::Function, Some("main")),
+                (Some("app::util"), FunctionKind::Function, Some("value")),
             ]
         );
     }
@@ -1592,9 +1683,8 @@ mod tests {
             root: ".".into(),
             files: vec![
                 SourceFile::new(
-                    "main.veln",
+                    "app/main.veln",
                     concat!(
-                        "mod app.main\n",
                         "fn value() -> Int\n",
                         "  1\n",
                         "end\n",
@@ -1604,8 +1694,8 @@ mod tests {
                     ),
                 ),
                 SourceFile::new(
-                    "other.veln",
-                    concat!("mod app.other\n", "fn value() -> Int\n", "  _\n", "end\n",),
+                    "app/other.veln",
+                    concat!("fn value() -> Int\n", "  _\n", "end\n",),
                 ),
             ],
             manifest: None,
@@ -1629,8 +1719,8 @@ mod tests {
         assert_eq!(
             functions,
             vec![
-                (Some("app.main"), FunctionKind::Function, Some("value")),
-                (Some("app.main"), FunctionKind::Function, Some("main")),
+                (Some("app::main"), FunctionKind::Function, Some("value")),
+                (Some("app::main"), FunctionKind::Function, Some("main")),
             ]
         );
     }
@@ -1684,7 +1774,6 @@ mod tests {
     #[test]
     fn run_entry_does_not_reach_qualified_call_without_import_alias() {
         let module = lower(concat!(
-            "mod app.main\n",
             "pub fn main() -> Int\n",
             "  util::value()\n",
             "end\n",
@@ -1747,40 +1836,7 @@ mod tests {
     }
 
     #[test]
-    fn manifest_module_name_cannot_override_source_mod() {
-        let source = SourceFile::new(
-            "src/main.veln",
-            "mod app.main\nfn main() -> ()\n  ()\nend\n",
-        );
-        let project = Project {
-            root: ".".into(),
-            files: vec![source],
-            manifest: Some(ProjectManifest {
-                path: SourcePath::new("veln.toml"),
-                package: Default::default(),
-                modules: vec![ManifestModule {
-                    path: "src/main.veln".to_string(),
-                    name: "manifest.main".to_string(),
-                    path_span: span("veln.toml", 2, 2, 11),
-                    name_span: span("veln.toml", 2, 20, 33),
-                }],
-                tools: Vec::new(),
-            }),
-        };
-
-        let (module, diagnostics) = load_surface_module(&project);
-
-        assert_eq!(module.module.as_ref().unwrap().name, "app.main");
-        assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].id, "module.metadata_drift");
-        assert_eq!(
-            diagnostics[0].message,
-            "manifest module name `manifest.main` does not match source module `app.main`"
-        );
-    }
-
-    #[test]
-    fn manifest_module_name_requires_source_mod_owner() {
+    fn manifest_module_name_cannot_override_derived_source_path() {
         let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
         let project = Project {
             root: ".".into(),
@@ -1798,26 +1854,42 @@ mod tests {
             }),
         };
 
-        let (_, diagnostics) = load_surface_module(&project);
+        let (module, diagnostics) = load_surface_module(&project);
 
+        assert_eq!(module.module.as_ref().unwrap().name, "src::main");
         assert_eq!(diagnostics.len(), 1);
         assert_eq!(diagnostics[0].id, "module.metadata_drift");
         assert_eq!(
             diagnostics[0].message,
-            "manifest module name `manifest.main` has no source `mod` owner"
+            "manifest module name `manifest.main` does not match derived module `src::main`"
         );
+    }
+
+    #[test]
+    fn source_mod_declaration_reports_module_diagnostic() {
+        let source = SourceFile::new(
+            "src/main.veln",
+            "mod app.main\nfn main() -> ()\n  ()\nend\n",
+        );
+        let project = Project {
+            root: ".".into(),
+            files: vec![source],
+            manifest: None,
+        };
+
+        let (_, diagnostics) = load_surface_module(&project);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].id, "module.source_mod");
         assert_eq!(
-            diagnostics[0].details.to_json(),
-            "{\"phase\":\"module\",\"field\":\"module_identity\",\"canonical_owner\":\"source\",\"derived_owner\":\"manifest\",\"observed_value\":\"manifest.main\",\"manifest_path\":\"veln.toml\",\"source_path\":\"src/main.veln\"}"
+            diagnostics[0].message,
+            "source `mod` declarations are not supported"
         );
     }
 
     #[test]
     fn matching_manifest_module_name_does_not_report_drift() {
-        let source = SourceFile::new(
-            "src/main.veln",
-            "mod app.main\nfn main() -> ()\n  ()\nend\n",
-        );
+        let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
         let project = Project {
             root: ".".into(),
             files: vec![source],
@@ -1826,7 +1898,7 @@ mod tests {
                 package: Default::default(),
                 modules: vec![ManifestModule {
                     path: "src/main.veln".to_string(),
-                    name: "app.main".to_string(),
+                    name: "src::main".to_string(),
                     path_span: span("veln.toml", 2, 2, 11),
                     name_span: span("veln.toml", 2, 20, 28),
                 }],
@@ -1836,7 +1908,7 @@ mod tests {
 
         let (module, diagnostics) = load_surface_module(&project);
 
-        assert_eq!(module.module.as_ref().unwrap().name, "app.main");
+        assert_eq!(module.module.as_ref().unwrap().name, "src::main");
         assert!(
             diagnostics
                 .iter()
@@ -1847,10 +1919,7 @@ mod tests {
 
     #[test]
     fn unselected_manifest_module_entries_do_not_report_drift() {
-        let source = SourceFile::new(
-            "src/main.veln",
-            "mod app.main\nfn main() -> ()\n  ()\nend\n",
-        );
+        let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
         let project = Project {
             root: ".".into(),
             files: vec![source],
@@ -1866,7 +1935,7 @@ mod tests {
                     },
                     ManifestModule {
                         path: "src/main.veln".to_string(),
-                        name: "app.main".to_string(),
+                        name: "src::main".to_string(),
                         path_span: span("veln.toml", 3, 2, 11),
                         name_span: span("veln.toml", 3, 20, 28),
                     },

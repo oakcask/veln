@@ -1,6 +1,4 @@
 # This case exercises the implemented surface syntax for modules and expressions.
-mod spec.source
-
 fn choose(value: Option<Int>) -> Int
 	match value
 		Some(count) => count

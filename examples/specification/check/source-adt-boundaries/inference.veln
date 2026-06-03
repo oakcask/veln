@@ -1,5 +1,3 @@
-mod spec.inference
-
 type Maybe<A>
 	Missing
 	Just(A)

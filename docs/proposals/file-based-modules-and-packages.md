@@ -7,6 +7,12 @@ Veln should derive module identity from package-relative source paths, reserve
 and make `veln.toml` describe package identity plus the modules exported to
 other packages.
 
+The local-source slice is implemented: source `mod` declarations are rejected,
+selected source paths derive same-package module identity, local `use`
+declarations use `::`, and same-package qualified access requires a matching
+written import. This proposal remains open for external package imports and
+the package manifest export surface.
+
 ## Read First
 
 - Current source syntax and module/import behavior:
@@ -284,35 +290,19 @@ exports = [
 
 ## Specification Updates
 
-When implemented, update:
+Remaining package/export work should update:
 
-- `../specification/source-surface.md` and
-  `../specification/source-surface-full.md` to remove `ModDecl`, change
-  `UseDecl` to `::` module paths, and describe file-based module identity.
 - `../specification/names-effects.md` and
-  `../specification/names-effects-full.md` to describe local and external
-  package import resolution.
+  `../specification/names-effects-full.md` to describe external package import
+  resolution.
 - `../specification/commands.md` and `../specification/commands-full.md` to
   replace `[modules]` behavior with `[lib].exports` documentation and
   validation behavior.
-- `../../examples/specification/` cases that currently contain `mod`, dotted
-  `use` paths, or `[modules]`.
+- `../../examples/specification/` cases that cover external package imports,
+  `[modules]` rejection, and `[lib].exports`.
 
 ## Acceptance Criteria
 
-- Source files with `mod` declarations are rejected.
-- The source paths shown in the module identity example derive module paths
-  `foo` and `foo::bar`.
-- `use foo::bar` resolves to the corresponding source file in the current
-  package and imports public names from that module.
-- `use foo::bar` permits qualified access through `foo::bar::name` but does
-  not create a short `bar::name` alias.
-- `use foo::bar` and `use baz::bar` may coexist when they expose the same
-  public name, but a bare reference to that shared name is rejected as
-  ambiguous unless a local declaration or binding shadows the imported names.
-- Same-package qualified access without a matching written `use` declaration
-  is rejected, even when the fully qualified module path maps to an existing
-  package source file.
 - `use foo from "github.com/oakcask/foo"` resolves module `foo` from the named
   package and imports only public names from an exported module.
 - `use sub::module from "github.com/oakcask/foo"` resolves module

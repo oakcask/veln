@@ -531,8 +531,8 @@ impl TestSelection {
 mod tests {
     use std::fs;
 
-    use veln_ast::lower_surface_ast;
-    use veln_source::SourceFile;
+    use veln_ast::{lower_surface_ast, lower_surface_ast_with_module_identity};
+    use veln_source::{SourceFile, TextRange};
     use veln_syntax::parse;
 
     use super::*;
@@ -624,8 +624,6 @@ mod tests {
             SourceFile::new(
                 "math.veln",
                 concat!(
-                    "mod spec.math\n",
-                    "\n",
                     "pub fn double(value: Int) -> Int\n",
                     "  value * 2\n",
                     "end\n",
@@ -634,8 +632,7 @@ mod tests {
             SourceFile::new(
                 "app_test.veln",
                 concat!(
-                    "mod spec.app_test\n",
-                    "use spec.math\n",
+                    "use math\n",
                     "\n",
                     "test doubles() -> Int\n",
                     "  math::double(2)\n",
@@ -676,7 +673,7 @@ mod tests {
 
     #[test]
     fn dependency_graph_widens_when_selected_source_has_no_module_identity() {
-        let (project, module) = project_module(vec![
+        let (project, module) = project_module_without_derived_identity(vec![
             SourceFile::new("math.veln", "fn value() -> Int\n  1\nend\n"),
             SourceFile::new("alpha_test.veln", "test alpha() -> ()\n  ()\nend\n"),
             SourceFile::new("beta_test.veln", "test beta() -> ()\n  ()\nend\n"),
@@ -725,8 +722,6 @@ mod tests {
             SourceFile::new(
                 "math.veln",
                 concat!(
-                    "mod spec.math\n",
-                    "\n",
                     "pub fn double(value: Int) -> Int\n",
                     "  value * 2\n",
                     "end\n",
@@ -735,8 +730,7 @@ mod tests {
             SourceFile::new(
                 "math_test.veln",
                 concat!(
-                    "mod spec.math_test\n",
-                    "use spec.math\n",
+                    "use math\n",
                     "\n",
                     "test doubles() -> Int\n",
                     "  math::double(2)\n",
@@ -943,6 +937,19 @@ mod tests {
     }
 
     fn project_module(sources: Vec<SourceFile>) -> (Project, SurfaceModule) {
+        project_module_with_lowering(sources, true)
+    }
+
+    fn project_module_without_derived_identity(
+        sources: Vec<SourceFile>,
+    ) -> (Project, SurfaceModule) {
+        project_module_with_lowering(sources, false)
+    }
+
+    fn project_module_with_lowering(
+        sources: Vec<SourceFile>,
+        derive_identity: bool,
+    ) -> (Project, SurfaceModule) {
         let mut module = None;
         let mut uses = Vec::new();
         let mut aliases = Vec::new();
@@ -955,7 +962,15 @@ mod tests {
                 "unexpected parse diagnostics: {:?}",
                 parsed.diagnostics
             );
-            let lowered = lower_surface_ast(&parsed.tree);
+            let lowered = if derive_identity {
+                lower_surface_ast_with_module_identity(
+                    &parsed.tree,
+                    derived_module_name(source),
+                    source.span(TextRange::new(0, 0)),
+                )
+            } else {
+                lower_surface_ast(&parsed.tree)
+            };
             module = module.or(lowered.module);
             uses.extend(lowered.uses);
             aliases.extend(lowered.aliases);
@@ -976,5 +991,14 @@ mod tests {
                 functions,
             },
         )
+    }
+
+    fn derived_module_name(source: &SourceFile) -> String {
+        source
+            .path()
+            .as_str()
+            .strip_suffix(".veln")
+            .expect("selection tests use .veln source paths")
+            .replace('/', "::")
     }
 }

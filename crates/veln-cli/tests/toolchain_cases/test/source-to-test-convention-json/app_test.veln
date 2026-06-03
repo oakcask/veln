@@ -1,4 +1,6 @@
+use app
+
 test paired() -> Result<(), AppError>
-  helper()
+  app::helper()
   _
 end

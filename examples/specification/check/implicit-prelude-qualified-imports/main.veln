@@ -1,7 +1,6 @@
 # Qualified names select the written import or the standard prelude when both
 # export the same bare helper name.
-mod app.main
-use app.measure
+use measure
 
 pub fn main(items: Vec<Int>) -> Int
 	measure::vec_len(items) + prelude::vec_len(items)

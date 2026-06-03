@@ -10,10 +10,10 @@ use crate::java::{
 };
 use crate::runtime::{concurrency_method, prelude_method, standard_library_method, stdio_method};
 use crate::*;
-use veln_ast::lower_surface_ast;
+use veln_ast::lower_surface_ast_with_module_identity;
 use veln_ir::TypedProgram;
 use veln_sema::lower_checked_surface_module;
-use veln_source::SourceFile;
+use veln_source::{SourceFile, TextRange};
 use veln_syntax::parse;
 
 static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
@@ -507,7 +507,9 @@ fn jvm_runtime_preserves_path_values_across_standard_calls_when_java_is_availabl
         .expect("javac should run");
     assert!(
         javac.status.success(),
-        "{}",
+        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        javac.status.code(),
+        String::from_utf8_lossy(&javac.stdout),
         String::from_utf8_lossy(&javac.stderr)
     );
 
@@ -553,7 +555,9 @@ fn jvm_runtime_list_helpers_traverse_large_lists_iteratively_when_java_is_availa
         .expect("javac should run");
     assert!(
         javac.status.success(),
-        "{}",
+        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        javac.status.code(),
+        String::from_utf8_lossy(&javac.stdout),
         String::from_utf8_lossy(&javac.stderr)
     );
 
@@ -640,7 +644,9 @@ fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_ja
         .expect("javac should run");
     assert!(
         javac.status.success(),
-        "{}",
+        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        javac.status.code(),
+        String::from_utf8_lossy(&javac.stdout),
         String::from_utf8_lossy(&javac.stderr)
     );
 
@@ -925,7 +931,11 @@ fn lower_to_ir(text: &str) -> TypedProgram {
         "parse diagnostics: {:#?}",
         parsed.diagnostics
     );
-    let module = lower_surface_ast(&parsed.tree);
+    let module = lower_surface_ast_with_module_identity(
+        &parsed.tree,
+        "main".to_string(),
+        source.span(TextRange::at(0)),
+    );
     let lowered = lower_checked_surface_module(&module);
     assert!(
         lowered.diagnostics.is_empty(),

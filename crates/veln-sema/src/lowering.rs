@@ -649,7 +649,7 @@ impl<'a> CoreLowerer<'a> {
                     }),
                 _ => self
                     .environment
-                    .function_path(segments)
+                    .function_path(segments, self.function.module_name.as_deref())
                     .map(|function| core_type(&function.ty())),
             },
             ExprKind::Call { callee, .. } => self
@@ -707,7 +707,10 @@ impl<'a> CoreLowerer<'a> {
                     }
                 }
                 _ => {
-                    if let Some(function) = self.environment.function_path(segments) {
+                    if let Some(function) = self
+                        .environment
+                        .function_path(segments, self.function.module_name.as_deref())
+                    {
                         self.core_expr(
                             expr,
                             core_type(&function.ty()),
@@ -1278,7 +1281,9 @@ impl<'a> CoreLowerer<'a> {
                 .environment
                 .unqualified_function(name, self.function.module_name.as_deref())
                 .found(),
-            _ => self.environment.function_path(segments),
+            _ => self
+                .environment
+                .function_path(segments, self.function.module_name.as_deref()),
         };
         if let Some(function) = function {
             return Some(CoreCallSignature {

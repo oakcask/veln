@@ -1,5 +1,4 @@
-mod spec.contracts
-use spec.predicates
+use predicates
 
 fn local_positive(value: Int) -> Bool
 	value > 0

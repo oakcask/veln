@@ -1,5 +1,3 @@
-mod app.main
-
 pub fn main() -> ()
   ()
 end

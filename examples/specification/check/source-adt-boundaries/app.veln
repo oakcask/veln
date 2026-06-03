@@ -1,6 +1,5 @@
-mod spec.app
-use spec.first
-use spec.second
+use first
+use second
 
 fn ambiguous_constructor() -> Int
 	let value = Same

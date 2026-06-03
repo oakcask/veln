@@ -1,5 +1,3 @@
-mod spec.math
-
 pub fn double(value: Int) -> Int
 	value * 2
 end

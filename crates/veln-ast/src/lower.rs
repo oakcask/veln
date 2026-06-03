@@ -51,7 +51,7 @@ impl AstBuilder {
         let uses = tree
             .uses
             .iter()
-            .map(|use_decl| self.lower_use_decl(use_decl))
+            .map(|use_decl| self.lower_use_decl(use_decl, module_name.clone()))
             .collect();
         let mut types = Vec::new();
         let mut functions = Vec::new();
@@ -133,9 +133,10 @@ impl AstBuilder {
         }
     }
 
-    fn lower_use_decl(&mut self, use_decl: &SyntaxUse) -> UseDecl {
+    fn lower_use_decl(&mut self, use_decl: &SyntaxUse, module_name: Option<String>) -> UseDecl {
         UseDecl {
             node_id: self.alloc(),
+            module_name,
             name: use_decl.name.clone(),
             alias: import_alias(&use_decl.name),
             span: use_decl.span.clone(),

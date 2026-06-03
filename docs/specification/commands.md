@@ -59,7 +59,7 @@ requiring the full command reference on the first read.
 - Use [json-output.md](json-output.md) to choose the implemented reference for
   `check --json`, `run --json`, `test --json`, or `repair --json` output.
 - Use [source-surface.md](source-surface.md) when command behavior depends on
-  source syntax, doctest fences, or module declarations.
+  source syntax, doctest fences, or path-derived module identity.
 - Use
   [../reference/implemented-proposals/formatter-stabilization.md](../reference/implemented-proposals/formatter-stabilization.md)
   only when auditing the implemented formatter stabilization proposal record.

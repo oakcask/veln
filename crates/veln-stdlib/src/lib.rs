@@ -7,7 +7,7 @@ pub struct StdlibSource {
     pub text: &'static str,
 }
 
-const PRELUDE_PATH: &str = "stdlib/prelude.veln";
+const PRELUDE_PATH: &str = "prelude.veln";
 const PRELUDE_TEXT: &str = include_str!("../veln/prelude.veln");
 
 pub const fn prelude_source(entry: &'static str) -> StdlibSource {
@@ -19,7 +19,7 @@ pub const fn prelude_source(entry: &'static str) -> StdlibSource {
 }
 
 pub static COMPILER_SUPPORT: StdlibSource = StdlibSource {
-    path: "stdlib/compiler_support.veln",
+    path: "compiler_support.veln",
     entry: "load_source_text",
     text: include_str!("../veln/compiler_support.veln"),
 };

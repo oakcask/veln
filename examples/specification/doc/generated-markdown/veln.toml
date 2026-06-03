@@ -7,4 +7,4 @@ description = "Generated documentation fixture."
 format = "markdown"
 
 [modules]
-"main.veln" = "docs.main"
+"main.veln" = "main"

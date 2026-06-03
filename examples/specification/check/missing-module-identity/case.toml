@@ -12,7 +12,7 @@ path = "status"
 equals = "error"
 
 [[diagnostics]]
-id = "module.missing_identity"
+id = "module.invalid_import_path"
 severity = "error"
 kind = "module"
-message = "module import requires a module identity"
+message = "module import `foo.bar` uses `.`; source module paths use `::`"

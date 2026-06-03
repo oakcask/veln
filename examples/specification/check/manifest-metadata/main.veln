@@ -1,6 +1,4 @@
 # Manifest module metadata cannot rename the source module owner.
-mod spec.source
-
 pub fn main() -> ()
 	()
 end

@@ -1,5 +1,3 @@
-mod spec.impl
-
 fn double(value: Int) -> Int
 	value + value
 end

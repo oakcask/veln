@@ -38,17 +38,16 @@ unless it adds tests by convention or dependency graph. If an explicit non-test
 `.veln` file has a same-directory `*_test.veln` peer with the same base name,
 the peer is added to the selected targets and the run records a selection note.
 
-For explicit non-test source targets with module identities, `test` also uses
-source-level `mod` and `use` declarations as a dependency graph. A discovered
-test source whose transitive imports include the selected source is included in
-the final selection. When the graph selects or confirms a test source and all
-needed graph evidence is present, the run reports
+For explicit non-test source targets with path-derived module identities,
+`test` also uses source-level `use` declarations as a dependency graph. A
+discovered test source whose transitive imports include the selected source is
+included in the final selection. When the graph selects or confirms a test
+source and all needed graph evidence is present, the run reports
 `reason: "dependency_graph"` and `confidence: "complete"`. If graph evidence
-is missing, such as a selected source with no module identity or an import with
-no discovered source module, the command widens to all discovered tests,
-reports `reason: "widened_dependency_graph"`, and reports
-`confidence: "unknown"`. The reported `targets` array is the final selected
-test roots and is sorted after duplicate removal.
+is missing, such as an import with no discovered source module, the command
+widens to all discovered tests, reports `reason: "widened_dependency_graph"`,
+and reports `confidence: "unknown"`. The reported `targets` array is the final
+selected test roots and is sorted after duplicate removal.
 
 ## Summary
 

@@ -270,20 +270,24 @@ pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
         }
         match alias.kind {
             PublicAliasKind::Function => {
-                if function_target(module, &alias.target).is_none()
-                    && type_target(module, &alias.target).is_some()
+                if function_target(module, &alias.target, alias.module_name.as_deref()).is_none()
+                    && type_target(module, &alias.target, alias.module_name.as_deref()).is_some()
                 {
                     diagnostics.push(alias_kind_mismatch_diagnostic(alias, "function", "type"));
-                } else if function_target(module, &alias.target).is_none() {
+                } else if function_target(module, &alias.target, alias.module_name.as_deref())
+                    .is_none()
+                {
                     diagnostics.push(unresolved_alias_diagnostic(alias, "function"));
                 }
             }
             PublicAliasKind::Type => {
-                if type_target(module, &alias.target).is_none()
-                    && function_target(module, &alias.target).is_some()
+                if type_target(module, &alias.target, alias.module_name.as_deref()).is_none()
+                    && function_target(module, &alias.target, alias.module_name.as_deref())
+                        .is_some()
                 {
                     diagnostics.push(alias_kind_mismatch_diagnostic(alias, "type", "function"));
-                } else if type_target(module, &alias.target).is_none() {
+                } else if type_target(module, &alias.target, alias.module_name.as_deref()).is_none()
+                {
                     diagnostics.push(unresolved_alias_diagnostic(alias, "type"));
                 }
             }
@@ -295,14 +299,18 @@ pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
 fn function_target<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
+    current_module: Option<&str>,
 ) -> Option<&'a veln_ast::Function> {
     match segments {
         [name] => module.functions.iter().find(|function| {
             function.kind == FunctionKind::Function && function.name.as_deref() == Some(name)
         }),
         [_, .., name] => {
-            let module_name =
-                imported_module_for_path(&module.uses, &segments[..segments.len() - 1])?;
+            let module_name = imported_module_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            )?;
             module.functions.iter().find(|function| {
                 function.kind == FunctionKind::Function
                     && function.name.as_deref() == Some(name)
@@ -316,6 +324,7 @@ fn function_target<'a>(
 fn type_target<'a>(
     module: &'a SurfaceModule,
     segments: &[String],
+    current_module: Option<&str>,
 ) -> Option<&'a veln_ast::TypeDecl> {
     match segments {
         [name] => module
@@ -323,8 +332,11 @@ fn type_target<'a>(
             .iter()
             .find(|type_decl| type_decl.name.as_deref() == Some(name)),
         [_, .., name] => {
-            let module_name =
-                imported_module_for_path(&module.uses, &segments[..segments.len() - 1])?;
+            let module_name = imported_module_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            )?;
             module.types.iter().find(|type_decl| {
                 type_decl.name.as_deref() == Some(name)
                     && type_decl.module_name.as_deref() == Some(module_name)
@@ -334,10 +346,17 @@ fn type_target<'a>(
     }
 }
 
-fn imported_module_for_path<'a>(uses: &'a [UseDecl], segments: &[String]) -> Option<&'a str> {
+fn imported_module_for_path<'a>(
+    uses: &'a [UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a str> {
     let module_path = segments.join("::");
     uses.iter()
-        .find(|use_decl| use_decl.name == module_path || use_decl.alias == module_path)
+        .find(|use_decl| {
+            use_decl.module_name.as_deref() == current_module
+                && (use_decl.name == module_path || use_decl.alias == module_path)
+        })
         .map(|use_decl| use_decl.name.as_str())
 }
 
@@ -443,7 +462,7 @@ pub(crate) fn check_reserved_prelude_aliases(module: &SurfaceModule) -> Vec<Diag
 }
 
 fn is_standard_prelude_source(span: &SourceSpan) -> bool {
-    span.file.as_str() == "stdlib/prelude.veln"
+    span.file.as_str() == "prelude.veln"
 }
 
 fn reserved_prelude_diagnostic(

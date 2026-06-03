@@ -358,8 +358,7 @@ mod tests {
         let source = symbol.source.expect("vec_fold source metadata");
 
         assert_eq!(symbol.kind, StandardSymbolKind::Veln);
-        assert_eq!(source.path, "stdlib/prelude.veln");
-        assert!(source.text.contains("mod prelude"));
+        assert_eq!(source.path, "prelude.veln");
         assert!(source.text.contains("fn vec_fold("));
     }
 

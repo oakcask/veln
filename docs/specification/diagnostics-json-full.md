@@ -87,27 +87,31 @@ and public alias kind mismatches:
 `name.duplicate` reports the duplicate declaration span as the primary span.
 The first declaration appears in `related` with `kind: "duplicate_origin"`.
 
-Module diagnostic `details` are stable for missing source module identity and
-module metadata drift:
+Module diagnostic `details` are stable for source path identity diagnostics,
+local import path diagnostics, and module metadata drift:
 
 - `phase`
-- `node_id`
 - `field`
-- `expected_owner`
-- `observed_owner`
 - `canonical_owner`
 - `derived_owner`
 - `expected_value`
 - `observed_value`
 - `manifest_path`
 - `source_path`
+- `segment`
+- `module_path`
+- `expected_delimiter`
+- `observed_delimiter`
 
-`module.missing_identity` reports the first `use` declaration as the primary
-span and puts the repair hint in `related`.
+`module.source_mod` reports the rejected source `mod` declaration as the
+primary span. `module.invalid_import_path` reports the rejected dotted `use`
+declaration as the primary span. `module.invalid_source_path` reports the
+source file start as the primary span and names the invalid path segment.
+`module.unresolved_import` reports the written import as the primary span when
+no selected source derives the imported module path.
 
 `module.metadata_drift` reports the manifest module name as the primary span.
-The source `mod` declaration appears in `related` with
-`kind: "canonical_owner"` when it exists.
+The derived source identity appears in `related` with `kind: "canonical_owner"`.
 
 Type diagnostic `details` are stable for public-signature, invalid-annotation,
 and type-mismatch diagnostics:

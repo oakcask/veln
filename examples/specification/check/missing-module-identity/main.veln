@@ -1,5 +1,5 @@
-# Imports require a module identity before the module boundary can be checked.
-use platform.io
+# Dotted module delimiters are rejected; source module paths use `::`.
+use foo.bar
 
 fn main() -> ()
 	()

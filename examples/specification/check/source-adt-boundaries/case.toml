@@ -23,7 +23,7 @@ message = "duplicate constructor declaration name `Repeat`"
 
 [diagnostics.span]
 file = "duplicate.veln"
-line = 21
+line = 19
 column = 2
 
 [[diagnostics]]
@@ -34,7 +34,7 @@ message = "ambiguous value `Same`"
 
 [diagnostics.span]
 file = "app.veln"
-line = 6
+line = 5
 column = 14
 
 [[diagnostics]]
@@ -45,7 +45,7 @@ message = "constructor `Missing` needs type context"
 
 [diagnostics.span]
 file = "inference.veln"
-line = 9
+line = 7
 column = 14
 
 [[diagnostics]]
@@ -56,7 +56,7 @@ message = "ambiguous call_target `Wrap`"
 
 [diagnostics.span]
 file = "duplicate.veln"
-line = 41
+line = 39
 column = 2
 
 [[diagnostics]]
@@ -67,7 +67,7 @@ message = "match is missing case Hidden"
 
 [diagnostics.span]
 file = "routes.veln"
-line = 25
+line = 24
 column = 2
 
 [[diagnostics]]
@@ -78,7 +78,7 @@ message = "unresolved value `library::Hidden`"
 
 [diagnostics.span]
 file = "routes.veln"
-line = 33
+line = 32
 column = 2
 
 [[diagnostics]]
@@ -89,7 +89,7 @@ message = "unresolved call_target `list_to_vec`"
 
 [diagnostics.span]
 file = "conversions.veln"
-line = 4
+line = 2
 column = 2
 
 [[diagnostics]]
@@ -100,5 +100,5 @@ message = "unresolved call_target `vec_to_list`"
 
 [diagnostics.span]
 file = "conversions.veln"
-line = 8
+line = 6
 column = 2

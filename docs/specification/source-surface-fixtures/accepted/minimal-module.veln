@@ -1,5 +1,3 @@
-mod app
-
 type Box<T>
 	Wrap(T)
 end

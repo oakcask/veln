@@ -45,8 +45,7 @@ binding.
 
 Current duplicate checks reject:
 
-- duplicate import aliases, where the alias is the final segment of the
-  imported module path
+- duplicate import paths within the same source module
 - duplicate top-level function, test, or public function alias names
 - duplicate top-level source type or public type alias names
 - duplicate parameter names in one function
@@ -62,23 +61,19 @@ Record type annotations also require unique field names. Duplicate record type
 fields are reported through invalid type annotation diagnostics because they are
 part of annotation parsing rather than value-name resolution.
 
-For selected package-relative sources in the implemented local `::` import
-slice, the command analysis path can derive local module identity from the
-source path before semantic checks run. Direct semantic analysis of a bare AST
-still rejects `use` declarations when no module identity is present. Dotted
-compatibility imports without a source module identity also report this
-boundary. The diagnostic is `module.missing_identity` at the first `use`
-declaration and includes a repair hint in `related`.
-User source cannot declare `mod prelude` or a written import whose final alias
-segment is `prelude`; both names are reserved for the implicit standard
-prelude import and report `name.reserved`.
+For selected package-relative sources, the command analysis path derives local
+module identity from the source path before semantic checks run. Written
+imports are scoped to the source module that declares them. Bare public imports
+and qualified module paths from another same-package module are visible only in
+that declaring source module. User source cannot derive module identity
+`prelude` or write an import path whose alias is `prelude`; both names are
+reserved for the implicit standard prelude import and report `name.reserved`.
 
 When `veln.toml` contains a `[modules]` entry for a selected source file, the
-entry is checked against that file's source `mod` declaration. The diagnostic
-is `module.metadata_drift` at the manifest module name when the manifest tries
-to supply a module name without a source owner or when the manifest name differs
-from the source `mod` name. The source declaration is canonical and is reported
-as related context when present.
+entry is checked against that file's path-derived module identity. The
+diagnostic is `module.metadata_drift` at the manifest module name when the
+manifest name differs from the derived module path. The package-relative source
+path is canonical and is reported as related context.
 
 Named holes remain repair labels, not value declarations. Reusing a hole label
 does not affect name resolution.
