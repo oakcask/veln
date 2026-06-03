@@ -1,0 +1,8 @@
+use foo from "github.com/oakcask/foo"
+use private from "github.com/oakcask/foo"
+use hidden from "github.com/oakcask/mismatch"
+use missing from "github.com/oakcask/missing"
+
+fn main() -> Int
+  foo::internal_value() + private_value()
+end

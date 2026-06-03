@@ -7,12 +7,14 @@ Veln should derive module identity from package-relative source paths, reserve
 and make `veln.toml` describe package identity plus the modules exported to
 other packages.
 
-The local-source and manifest-export slices are implemented: source `mod`
-declarations are rejected, selected source paths derive same-package module
-identity, local `use` declarations use `::`, same-package qualified access
-requires a matching written import, `[modules]` is rejected, and
-`[lib].exports` validates selected package source-file exports. This proposal
-remains open for external package imports and package-manager behavior.
+The local-source, manifest-export, and path-dependency external-import slices
+are implemented: source `mod` declarations are rejected, selected source paths
+derive same-package module identity, local `use` declarations use `::`,
+same-package qualified access requires a matching written import, `[modules]`
+is rejected, `[lib].exports` validates selected package source-file exports,
+and `use path from "package"` resolves exported modules from already available
+path dependencies. This proposal remains open for package-manager behavior
+beyond local path dependencies.
 
 ## Read First
 
@@ -36,10 +38,10 @@ metadata:
 - There is no durable package-level boundary for redistributing a set of
   modules or resolving modules outside the current package.
 
-The implemented local-source and manifest-export slices remove those local
-ambiguities. This proposal remains open for the package boundary beyond the
-current package: dependency metadata, external package imports, and package
-manager behavior.
+The implemented local-source, manifest-export, and path-dependency
+external-import slices remove those local ambiguities and establish the first
+external package boundary. This proposal remains open for package-manager
+behavior beyond already available path dependencies.
 
 ## Proposal
 
@@ -292,24 +294,11 @@ exports = [
 
 ## Specification Updates
 
-Remaining package import work should update:
-
-- `../specification/names-effects.md` and
-  `../specification/names-effects-full.md` to describe external package import
-  resolution.
-- `../specification/commands.md` and `../specification/commands-full.md` to
-  describe dependency discovery only after it exists.
-- `../../examples/specification/` cases that cover external package imports.
-
-## Acceptance Criteria
-
-- `use foo from "github.com/oakcask/foo"` resolves module `foo` from the named
-  package and imports only public names from an exported module.
-- `use sub::module from "github.com/oakcask/foo"` resolves module
-  `sub::module` from the named package and imports only public names from an
-  exported module.
-- Current package private modules are usable by other modules in the same
-  package but are not importable from external packages unless exported.
+Implemented package import behavior is specified under
+`../specification/source-surface.md`, `../specification/names-effects.md`,
+`../specification/commands.md`, and `../../examples/specification/`. Remaining
+work belongs to package-manager behavior: non-path dependency sources,
+resolution metadata, lockfile records, vendoring, and command workflows.
 
 ## Package Manager Implications
 

@@ -1,0 +1,7 @@
+pub fn add_one(value: Int) -> Int
+  value + 1
+end
+
+fn private_offset() -> Int
+  1
+end

@@ -1,0 +1,6 @@
+use foo from "github.com/oakcask/foo"
+use sub::module from "github.com/oakcask/foo"
+
+fn main() -> Int
+  add_one(nested())
+end

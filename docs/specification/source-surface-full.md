@@ -11,8 +11,10 @@ the surrounding prose.
 <!-- source-surface-grammar:start -->
 ```text
 Module        ::= UseDecl* Item*
-UseDecl       ::= "use" ModulePath NL
+UseDecl       ::= "use" ModulePath ImportSource? NL
+ImportSource  ::= "from" PackageString
 ModulePath    ::= Name ("::" Name)*
+PackageString ::= String
 Item          ::= Function | TestDecl | TypeDecl | PublicAlias
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
@@ -163,19 +165,22 @@ module-path spelling, derive a valid source module path, and match selected
 source files. Duplicate export entries for the same derived module path are
 reported. `[modules]` is rejected; manifests cannot rename source modules.
 
-`use` declarations create local module imports. `use foo::bar` resolves to the
+`use` declarations create module imports. `use foo::bar` resolves to the
 selected source file deriving `foo::bar`; `use math` resolves to a selected
-`math.veln` module. A local import imports public functions by bare name and
-permits qualified access through the written module path, such as
-`foo::bar::double()` or `math::double()`. It does not create a short
-`bar::name` alias for `use foo::bar`. Same-package qualified access requires a
-matching written `use` declaration in the same source module. Every user
-module also has an implicit standard `prelude` import. Public prelude helpers
-are available by bare name under the same unambiguous import rule and by
-qualified paths such as `prelude::vec_len(items)`. The `prelude` module name
-and import alias are reserved for this standard import in user source. Public
-source ADT constructors may also use the import path, either as
-`module::Constructor` or `module::Type::Constructor`.
+`math.veln` module. `use path from "package"` resolves `path` inside an
+already available path dependency whose manifest package name matches
+`package`, and the dependency module must be listed by that package's
+`[lib].exports`. An import imports public functions by bare name and permits
+qualified access through the written module path, such as `foo::bar::double()`
+or `math::double()`. It does not create a short `bar::name` alias for
+`use foo::bar`. Same-package qualified access requires a matching written
+`use` declaration in the same source module. Every user module also has an
+implicit standard `prelude` import. Public prelude helpers are available by
+bare name under the same unambiguous import rule and by qualified paths such
+as `prelude::vec_len(items)`. The `prelude` module name and import alias are
+reserved for this standard import in user source. Public source ADT
+constructors may also use the import path, either as `module::Constructor` or
+`module::Type::Constructor`.
 
 Public `fn` declarations, public source `type` declarations, and public member
 aliases are the implemented source-level public API boundary. `[lib].exports`

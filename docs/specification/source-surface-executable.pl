@@ -80,8 +80,10 @@ print_grammar :-
     forall(grammar_line(_, Line), writeln(Line)).
 
 grammar_line(10, "Module        ::= UseDecl* Item*").
-grammar_line(30, "UseDecl       ::= \"use\" ModulePath NL").
+grammar_line(30, "UseDecl       ::= \"use\" ModulePath ImportSource? NL").
+grammar_line(35, "ImportSource  ::= \"from\" PackageString").
 grammar_line(40, "ModulePath    ::= Name (\"::\" Name)*").
+grammar_line(45, "PackageString ::= String").
 grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl | PublicAlias").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
@@ -239,6 +241,7 @@ keyword_kind("ensure", ensure).
 keyword_kind("invariant", invariant).
 keyword_kind("mod", mod).
 keyword_kind("use", use).
+keyword_kind("from", from).
 keyword_kind("match", match).
 keyword_kind("or", or).
 keyword_kind("and", and).
@@ -258,7 +261,10 @@ source_file --> nls, use_decls, items, nls.
 
 use_decls --> use_decl, !, use_decls.
 use_decls --> [].
-use_decl --> tok(use), module_path, nl.
+use_decl --> tok(use), module_path, import_source, nl.
+
+import_source --> tok(from), tok(string), !.
+import_source --> [].
 
 items --> item, !, items.
 items --> [].

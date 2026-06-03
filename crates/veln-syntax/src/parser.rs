@@ -8,7 +8,7 @@ use crate::{
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
     SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField,
-    TypeVariantFieldDelimiter, UseDecl, Visibility, lex,
+    TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -402,7 +402,11 @@ impl<'a> Parser<'a> {
                 name: name.clone(),
                 span: span.clone(),
             },
-            UseDecl { name, span },
+            UseDecl {
+                name,
+                package: None,
+                span,
+            },
         )
     }
 
@@ -413,7 +417,29 @@ impl<'a> Parser<'a> {
             if !self.at(TokenKind::Use) {
                 return uses;
             }
-            uses.push(self.parse_named_header(TokenKind::Use, "use_declaration").1);
+            uses.push(self.parse_use_declaration());
+        }
+    }
+
+    fn parse_use_declaration(&mut self) -> UseDecl {
+        let start = self
+            .expect(TokenKind::Use, "use_declaration", vec!["use"])
+            .range;
+        let name = self.parse_module_name("use_declaration");
+        let package = if self.eat(TokenKind::From).is_some() {
+            let token = self.expect(TokenKind::String, "use_declaration", vec!["package"]);
+            Some(UsePackage {
+                name: unquote_string_token(&token.text),
+                span: self.source.span(token.range),
+            })
+        } else {
+            None
+        };
+        let end = self.expect_newline("use_declaration").range;
+        UseDecl {
+            name,
+            package,
+            span: self.source.span(start.cover(end)),
         }
     }
 
@@ -2649,4 +2675,11 @@ fn normalize_type_text(parts: Vec<String>) -> String {
         .replace(" <", "<")
         .replace("< ", "<")
         .replace(" >", ">")
+}
+
+fn unquote_string_token(text: &str) -> String {
+    text.strip_prefix('"')
+        .and_then(|text| text.strip_suffix('"'))
+        .unwrap_or(text)
+        .to_string()
 }

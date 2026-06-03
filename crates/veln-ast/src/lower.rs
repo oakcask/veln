@@ -139,6 +139,14 @@ impl AstBuilder {
             module_name,
             name: use_decl.name.clone(),
             alias: import_alias(&use_decl.name),
+            package: use_decl
+                .package
+                .as_ref()
+                .map(|package| package.name.clone()),
+            package_span: use_decl
+                .package
+                .as_ref()
+                .map(|package| package.span.clone()),
             span: use_decl.span.clone(),
         }
     }

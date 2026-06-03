@@ -1,0 +1,5 @@
+[dependencies."github.com/oakcask/foo"]
+path = "vendor/foo"
+
+[dependencies."github.com/oakcask/mismatch"]
+path = "vendor/mismatch"

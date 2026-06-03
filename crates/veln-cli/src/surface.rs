@@ -1,11 +1,12 @@
+use std::collections::BTreeSet;
 use std::path::{Component, Path};
 
 use veln_ast::{
     Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind, PublicAliasKind, SurfaceModule,
-    UseDecl, lower_surface_ast, lower_surface_ast_with_module_identity,
+    UseDecl, Visibility, lower_surface_ast, lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
-use veln_project::Project;
+use veln_project::{ManifestField, Project, ProjectManifest};
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
@@ -13,13 +14,45 @@ use crate::diagnostics::parse_diagnostic_to_envelope;
 
 pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
-    let mut module = None;
-    let mut uses = Vec::new();
-    let mut aliases = Vec::new();
-    let mut types = Vec::new();
-    let mut functions = Vec::new();
-    let mut derived_modules = Vec::<(String, SourceFile)>::new();
+    let mut parts = SurfaceParts::new();
 
+    load_project_sources(project, &mut diagnostics, &mut parts, None);
+    diagnostics.extend(validate_manifest_exports(project));
+    load_external_dependencies(project, &mut diagnostics, &mut parts);
+    diagnostics.extend(unresolved_local_import_diagnostics(
+        &parts.module.uses,
+        &parts.derived_modules,
+    ));
+
+    (parts.module, diagnostics)
+}
+
+struct SurfaceParts {
+    module: SurfaceModule,
+    derived_modules: Vec<(String, SourceFile)>,
+}
+
+impl SurfaceParts {
+    fn new() -> Self {
+        Self {
+            module: SurfaceModule {
+                module: None,
+                uses: Vec::new(),
+                aliases: Vec::new(),
+                types: Vec::new(),
+                functions: Vec::new(),
+            },
+            derived_modules: Vec::new(),
+        }
+    }
+}
+
+fn load_project_sources(
+    project: &Project,
+    diagnostics: &mut Vec<Diagnostic>,
+    parts: &mut SurfaceParts,
+    package: Option<&str>,
+) {
     for source in &project.files {
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
@@ -36,13 +69,15 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
             let derived_module = derive_source_module_path(source);
             match &derived_module {
                 Ok(module_name) => {
+                    let internal_module_name = internal_module_name(package, module_name);
                     if module_name == "prelude" {
                         diagnostics.push(reserved_source_module_diagnostic(source, module_name));
                     }
                     if !is_doctest_source(source)
-                        && let Some((_, first_source)) = derived_modules
+                        && let Some((_, first_source)) = parts
+                            .derived_modules
                             .iter()
-                            .find(|(known_module, _)| known_module == module_name)
+                            .find(|(known_module, _)| known_module == &internal_module_name)
                     {
                         diagnostics.push(duplicate_derived_module_diagnostic(
                             module_name,
@@ -50,38 +85,257 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
                             first_source,
                         ));
                     } else if !is_doctest_source(source) {
-                        derived_modules.push((module_name.clone(), source.clone()));
+                        parts
+                            .derived_modules
+                            .push((internal_module_name, source.clone()));
                     }
                 }
                 Err(diagnostic) => diagnostics.push((**diagnostic).clone()),
             }
             let lowered = match derived_module {
-                Ok(module_name) => lower_surface_ast_with_module_identity(
-                    &parsed.tree,
-                    module_name,
-                    source.span(TextRange::new(0, 0)),
-                ),
+                Ok(module_name) => {
+                    let internal_module_name = internal_module_name(package, &module_name);
+                    lower_surface_ast_with_module_identity(
+                        &parsed.tree,
+                        internal_module_name,
+                        source.span(TextRange::new(0, 0)),
+                    )
+                }
                 Err(_) => lower_surface_ast(&parsed.tree),
             };
-            module = module.or(lowered.module);
-            uses.extend(lowered.uses);
-            aliases.extend(lowered.aliases);
-            types.extend(lowered.types);
-            functions.extend(lowered.functions);
+            let mut lowered = lowered;
+            rewrite_import_targets(&mut lowered.uses, package);
+            if parts.module.module.is_none() {
+                parts.module.module = lowered.module;
+            }
+            parts.module.uses.extend(lowered.uses);
+            parts.module.aliases.extend(lowered.aliases);
+            parts.module.types.extend(lowered.types);
+            parts.module.functions.extend(lowered.functions);
         }
     }
-    diagnostics.extend(validate_manifest_exports(project));
-    diagnostics.extend(unresolved_local_import_diagnostics(&uses, &derived_modules));
+}
 
-    (
-        SurfaceModule {
-            module,
-            uses,
-            aliases,
-            types,
-            functions,
-        },
-        diagnostics,
+fn rewrite_import_targets(uses: &mut [UseDecl], package: Option<&str>) {
+    for use_decl in uses {
+        if let Some(package) = &use_decl.package {
+            use_decl.name = external_module_key(package, &use_decl.name);
+        } else if let Some(package) = package {
+            use_decl.name = external_module_key(package, &use_decl.name);
+        }
+    }
+}
+
+fn internal_module_name(package: Option<&str>, module_name: &str) -> String {
+    package.map_or_else(
+        || module_name.to_string(),
+        |package| external_module_key(package, module_name),
+    )
+}
+
+fn external_module_key(package: &str, module_name: &str) -> String {
+    format!("{package}::{module_name}")
+}
+
+fn load_external_dependencies(
+    project: &Project,
+    diagnostics: &mut Vec<Diagnostic>,
+    parts: &mut SurfaceParts,
+) {
+    let external_uses = parts
+        .module
+        .uses
+        .iter()
+        .filter(|use_decl| use_decl.package.is_some())
+        .cloned()
+        .collect::<Vec<_>>();
+    if external_uses.is_empty() {
+        return;
+    }
+
+    let mut loaded = BTreeSet::new();
+    for use_decl in external_uses {
+        let package = use_decl.package.as_deref().unwrap_or_default();
+        if loaded.contains(package) {
+            continue;
+        }
+        loaded.insert(package.to_string());
+
+        let Some(manifest) = project.manifest.as_ref() else {
+            diagnostics.push(unavailable_external_package_diagnostic(&use_decl));
+            continue;
+        };
+        let Some(dependency) = manifest
+            .dependencies
+            .iter()
+            .find(|dependency| dependency.package == package)
+        else {
+            diagnostics.push(unavailable_external_package_diagnostic(&use_decl));
+            continue;
+        };
+        let Some(path_field) = &dependency.path else {
+            diagnostics.push(unavailable_external_package_diagnostic(&use_decl));
+            continue;
+        };
+
+        let dependency_root = project.root.join(&path_field.value);
+        let dependency_project = match Project::discover(dependency_root, &[]) {
+            Ok(project) => project,
+            Err(_) => {
+                diagnostics.push(unavailable_external_package_diagnostic(&use_decl));
+                continue;
+            }
+        };
+
+        let Some(dependency_manifest) = dependency_project.manifest.as_ref() else {
+            diagnostics.push(package_name_mismatch_diagnostic(
+                package,
+                None,
+                &dependency.package_span,
+            ));
+            continue;
+        };
+        if !dependency_package_name_matches(package, dependency_manifest, diagnostics, dependency) {
+            continue;
+        }
+
+        diagnostics.extend(validate_manifest_exports(&dependency_project));
+        let exported_modules = manifest_exported_modules(dependency_manifest);
+        for external_use in parts
+            .module
+            .uses
+            .iter()
+            .filter(|candidate| candidate.package.as_deref() == Some(package))
+        {
+            if !exported_modules
+                .iter()
+                .any(|module_name| module_name == &external_import_module_path(external_use))
+            {
+                diagnostics.push(unexported_external_module_diagnostic(external_use));
+            }
+        }
+        load_project_sources(&dependency_project, diagnostics, parts, Some(package));
+    }
+}
+
+fn dependency_package_name_matches(
+    expected: &str,
+    manifest: &ProjectManifest,
+    diagnostics: &mut Vec<Diagnostic>,
+    dependency: &veln_project::ManifestDependency,
+) -> bool {
+    let Some(name_field) = manifest_package_name(manifest) else {
+        diagnostics.push(package_name_mismatch_diagnostic(
+            expected,
+            None,
+            &dependency.package_span,
+        ));
+        return false;
+    };
+    if name_field.value != expected {
+        diagnostics.push(package_name_mismatch_diagnostic(
+            expected,
+            Some(name_field),
+            &name_field.value_span,
+        ));
+        return false;
+    }
+    true
+}
+
+fn manifest_package_name(manifest: &ProjectManifest) -> Option<&ManifestField> {
+    manifest
+        .package
+        .fields
+        .iter()
+        .find(|field| field.key == "name")
+}
+
+fn manifest_exported_modules(manifest: &ProjectManifest) -> Vec<String> {
+    manifest
+        .lib
+        .exports
+        .iter()
+        .filter_map(|export| {
+            if export.path.contains("::") {
+                return None;
+            }
+            let normalized_path = SourcePath::new(export.path.clone());
+            let path = normalized_path.as_str();
+            if !is_package_relative_path(path) || !path.ends_with(".veln") {
+                return None;
+            }
+            derive_source_module_path(&SourceFile::new(path, "")).ok()
+        })
+        .collect()
+}
+
+fn unavailable_external_package_diagnostic(use_decl: &UseDecl) -> Diagnostic {
+    let package = use_decl.package.as_deref().unwrap_or_default();
+    let span = use_decl
+        .package_span
+        .clone()
+        .unwrap_or_else(|| use_decl.span.clone());
+    Diagnostic::new(
+        "module.unavailable_package",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("external package `{package}` is not available to this project"),
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("import_package")),
+            ("package", JsonValue::string(package)),
+            (
+                "module_path",
+                JsonValue::string(external_import_module_path(use_decl)),
+            ),
+        ]),
+    )
+}
+
+fn unexported_external_module_diagnostic(use_decl: &UseDecl) -> Diagnostic {
+    let package = use_decl.package.as_deref().unwrap_or_default();
+    let module_path = external_import_module_path(use_decl);
+    Diagnostic::new(
+        "module.unexported_import",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("external module `{module_path}` is not exported by package `{package}`"),
+        Some(use_decl.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("lib.exports")),
+            ("package", JsonValue::string(package)),
+            ("module_path", JsonValue::string(module_path)),
+        ]),
+    )
+}
+
+fn external_import_module_path(use_decl: &UseDecl) -> String {
+    use_decl.alias.clone()
+}
+
+fn package_name_mismatch_diagnostic(
+    expected: &str,
+    actual: Option<&ManifestField>,
+    span: &SourceSpan,
+) -> Diagnostic {
+    let actual_name = actual
+        .map(|field| field.value.as_str())
+        .unwrap_or("<missing>");
+    Diagnostic::new(
+        "manifest.package_name_mismatch",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("dependency package name `{actual_name}` does not match `{expected}`"),
+        Some(span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("package.name")),
+            ("expected_package", JsonValue::string(expected)),
+            ("actual_package", JsonValue::string(actual_name)),
+        ]),
     )
 }
 
@@ -500,7 +754,8 @@ fn unresolved_local_import_diagnostics(
 ) -> Vec<Diagnostic> {
     uses.iter()
         .filter(|use_decl| {
-            use_decl.name.contains("::")
+            use_decl.package.is_none()
+                && use_decl.name.contains("::")
                 && !derived_modules
                     .iter()
                     .any(|(module_name, _)| module_name == &use_decl.name)
@@ -559,6 +814,7 @@ pub(crate) fn reachable_entry_module(
                 module_name: function.module_name.clone(),
                 target_name: name,
                 target_module_name: function.module_name.clone(),
+                visibility: function.visibility,
                 arity: function.params.len(),
             })
         })
@@ -630,6 +886,7 @@ struct FunctionTarget {
     module_name: Option<String>,
     target_name: String,
     target_module_name: Option<String>,
+    visibility: Visibility,
     arity: usize,
 }
 
@@ -654,6 +911,7 @@ fn function_alias_targets(
                 module_name: alias.module_name.clone(),
                 target_name: target.target_name.clone(),
                 target_module_name: target.target_module_name.clone(),
+                visibility: Visibility::Public,
                 arity: target.arity,
             })
         })
@@ -669,10 +927,13 @@ fn target_for_alias_path<'a>(
     match segments {
         [name] => function_targets.iter().find(|target| target.name == *name),
         [_, .., name] => {
-            let module_name =
-                imported_module_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            let use_decl =
+                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)?;
+            let module_name = use_decl.name.as_str();
             function_targets.iter().find(|target| {
-                target.name == *name && target.module_name.as_deref() == Some(module_name)
+                target.name == *name
+                    && target.module_name.as_deref() == Some(module_name)
+                    && imported_target_is_visible(target, use_decl)
             })
         }
         _ => None,
@@ -1083,8 +1344,7 @@ fn collect_opaque_function_value_callees(
     callees: &mut Vec<ReachableFunction>,
 ) {
     for target in function_targets.iter().filter(|target| {
-        target.arity == arity
-            && visible_from_current_module(target.module_name.as_deref(), current_module, uses)
+        target.arity == arity && target_visible_from_current_module(target, current_module, uses)
     }) {
         push_reachable(
             callees,
@@ -1097,17 +1357,20 @@ fn collect_opaque_function_value_callees(
     }
 }
 
-fn visible_from_current_module(
-    target_module: Option<&str>,
+fn target_visible_from_current_module(
+    target: &FunctionTarget,
     current_module: Option<&str>,
     uses: &[UseDecl],
 ) -> bool {
+    let target_module = target.module_name.as_deref();
     if current_module.is_none() || target_module == current_module {
         return true;
     }
     target_module.is_some_and(|module_name| {
         uses.iter().any(|use_decl| {
-            use_decl.module_name.as_deref() == current_module && use_decl.name == module_name
+            use_decl.module_name.as_deref() == current_module
+                && use_decl.name == module_name
+                && imported_target_is_visible(target, use_decl)
         })
     })
 }
@@ -1206,15 +1469,18 @@ fn resolve_function_reference(
             })
             .collect(),
         [_, .., name] => {
-            let Some(module_name) =
-                imported_module_for_path(uses, &segments[..segments.len() - 1], current_module)
+            let Some(use_decl) =
+                imported_use_for_path(uses, &segments[..segments.len() - 1], current_module)
             else {
                 return Vec::new();
             };
+            let module_name = use_decl.name.as_str();
             function_targets
                 .iter()
                 .filter(|target| {
-                    target.name == *name && target.module_name.as_deref() == Some(module_name)
+                    target.name == *name
+                        && target.module_name.as_deref() == Some(module_name)
+                        && imported_target_is_visible(target, use_decl)
                 })
                 .map(|target| ReachableFunction {
                     kind: FunctionKind::Function,
@@ -1227,18 +1493,20 @@ fn resolve_function_reference(
     }
 }
 
-fn imported_module_for_path<'a>(
+fn imported_use_for_path<'a>(
     uses: &'a [UseDecl],
     segments: &[String],
     current_module: Option<&str>,
-) -> Option<&'a str> {
+) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    uses.iter()
-        .find(|use_decl| {
-            use_decl.module_name.as_deref() == current_module
-                && (use_decl.name == module_path || use_decl.alias == module_path)
-        })
-        .map(|use_decl| use_decl.name.as_str())
+    uses.iter().find(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
+            && (use_decl.name == module_path || use_decl.alias == module_path)
+    })
+}
+
+fn imported_target_is_visible(target: &FunctionTarget, use_decl: &UseDecl) -> bool {
+    use_decl.package.is_none() || target.visibility == Visibility::Public
 }
 
 fn push_reachable(callees: &mut Vec<ReachableFunction>, callee: ReachableFunction) {
@@ -1964,6 +2232,7 @@ mod tests {
                 lib: ManifestLib {
                     exports: Vec::new(),
                 },
+                dependencies: Vec::new(),
                 unsupported_sections: vec![ManifestUnsupportedSection {
                     name: "modules".to_string(),
                     span: span("veln.toml", 1, 2, 9),
@@ -2020,6 +2289,7 @@ mod tests {
                         path_span: span("veln.toml", 2, 13, 26),
                     }],
                 },
+                dependencies: Vec::new(),
                 unsupported_sections: Vec::new(),
                 tools: Vec::new(),
             }),
@@ -2051,6 +2321,7 @@ mod tests {
                         path_span: span("veln.toml", 2, 13, 22),
                     }],
                 },
+                dependencies: Vec::new(),
                 unsupported_sections: Vec::new(),
                 tools: Vec::new(),
             }),
@@ -2089,6 +2360,7 @@ mod tests {
                         path_span: span("veln.toml", 2, 13, 27),
                     }],
                 },
+                dependencies: Vec::new(),
                 unsupported_sections: Vec::new(),
                 tools: Vec::new(),
             }),

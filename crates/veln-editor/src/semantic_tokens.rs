@@ -463,6 +463,7 @@ impl<'a> Classifier<'a> {
             | TokenKind::Invariant
             | TokenKind::Mod
             | TokenKind::Use
+            | TokenKind::From
             | TokenKind::Match
             | TokenKind::Or
             | TokenKind::And

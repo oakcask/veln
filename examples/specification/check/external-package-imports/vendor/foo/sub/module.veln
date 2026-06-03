@@ -1,0 +1,3 @@
+pub fn nested() -> Int
+  41
+end

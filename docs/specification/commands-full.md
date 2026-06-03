@@ -60,12 +60,24 @@ selects `.veln` files below the current project root, skipping `.git` and
 file list is sorted and deduplicated.
 
 If the current project root contains `veln.toml`, the command reads package
-and tool metadata plus the implemented `[lib].exports` manifest list after
-source discovery. Export entries do not add files to the selected set. Each
-export must be a package-relative `.veln` source path, must use file-path
-spelling instead of module-path spelling, must derive a valid source module
-path, must match a selected source file, and must not duplicate another export
-for the same derived module path. `[modules]` is rejected.
+and tool metadata, path dependency entries from
+`[dependencies."package"]`, plus the implemented `[lib].exports` manifest list
+after source discovery. Current dependency discovery only reads local path
+dependencies that are already available on disk; source imports do not fetch
+packages, resolve git metadata, write lockfiles, or vendor sources. Current
+package export entries do not add files to the selected set. Each export must
+be a package-relative `.veln` source path, must use file-path spelling instead
+of module-path spelling, must derive a valid source module path, must match a
+selected source file, and must not duplicate another export for the same
+derived module path. `[modules]` is rejected.
+
+When a parse-clean source contains `use path from "package"`, the command
+looks for a matching path dependency table in the current project manifest,
+loads that dependency's discovered `.veln` sources, checks that the dependency
+manifest's `[package].name` matches the requested package identity, and
+requires the imported module path to be listed by the dependency package's
+`[lib].exports`. The external import contributes only public declarations and
+public aliases from the exported dependency module to the importing source.
 
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic

@@ -1,0 +1,7 @@
+pub fn public_value() -> Int
+  1
+end
+
+fn internal_value() -> Int
+  4
+end

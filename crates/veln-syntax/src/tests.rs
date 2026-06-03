@@ -831,6 +831,7 @@ fn token_kind_labels_cover_every_surface_token() {
         (TokenKind::Invariant, "invariant"),
         (TokenKind::Mod, "mod"),
         (TokenKind::Use, "use"),
+        (TokenKind::From, "from"),
         (TokenKind::Match, "match"),
         (TokenKind::Or, "or"),
         (TokenKind::And, "and"),
@@ -959,6 +960,31 @@ fn parses_module_use_nested_types_and_multiple_effects() {
         function.effects.as_ref().unwrap(),
         &vec!["fs".to_string(), "net".to_string()]
     );
+}
+
+#[test]
+fn parses_external_package_use_declaration() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "use sub::module from \"github.com/oakcask/foo\"\n",
+            "fn main() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty());
+    assert_eq!(output.tree.uses[0].name, "sub::module");
+    let package = output.tree.uses[0]
+        .package
+        .as_ref()
+        .expect("use declaration should keep package source");
+    assert_eq!(package.name, "github.com/oakcask/foo");
+    assert_eq!(package.span.start.line, 1);
+    assert_eq!(package.span.start.column, 22);
 }
 
 #[test]

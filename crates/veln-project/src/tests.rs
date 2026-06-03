@@ -349,6 +349,47 @@ fn read_manifest_tracks_package_and_tool_string_fields() {
 }
 
 #[test]
+fn read_manifest_tracks_path_dependencies() {
+    let temp = TempProject::new("manifest-path-dependencies");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/foo\"]\n",
+            "path = \"vendor/foo\"\n",
+            "[dependencies.\"github.com/oakcask/bar\"]\n",
+            "git = \"https://example.invalid/bar.git\"\n",
+            "path = \"vendor/bar\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    assert_eq!(manifest.dependencies.len(), 2);
+    assert_eq!(manifest.dependencies[0].package, "github.com/oakcask/foo");
+    assert_eq!(manifest.dependencies[0].package_span.start.line, 1);
+    assert_eq!(manifest.dependencies[0].package_span.start.column, 16);
+    let foo_path = manifest.dependencies[0]
+        .path
+        .as_ref()
+        .expect("foo dependency should have a path");
+    assert_eq!(foo_path.key, "path");
+    assert_eq!(foo_path.value, "vendor/foo");
+    assert_eq!(foo_path.value_span.start.line, 2);
+    assert_eq!(foo_path.value_span.start.column, 9);
+    assert_eq!(manifest.dependencies[1].package, "github.com/oakcask/bar");
+    assert_eq!(
+        manifest.dependencies[1]
+            .path
+            .as_ref()
+            .expect("bar dependency should have a path")
+            .value,
+        "vendor/bar"
+    );
+}
+
+#[test]
 fn read_manifest_accepts_crlf_export_arrays_and_trailing_text() {
     let temp = TempProject::new("manifest-export-crlf");
     temp.write(

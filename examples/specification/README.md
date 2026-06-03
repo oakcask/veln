@@ -69,6 +69,11 @@ against the built `veln` binary.
   `use foo::bar`, bare public imports, and full-path qualified access.
 - `check/local-source-import-boundaries/`: `use foo::bar` does not create a
   short `bar` module alias.
+- `check/external-package-imports/`: `use path from "package"` imports public
+  names from exported modules in a path dependency.
+- `check/external-package-import-boundaries/`: external package imports reject
+  private declarations, unexported modules, unavailable packages, and
+  dependency manifest package name mismatches.
 - `check/source-path-module-diagnostics/`: invalid source path segments for
   derived local module identity.
 - `check/import-reexport-boundary/`: `use` declarations let a module consume

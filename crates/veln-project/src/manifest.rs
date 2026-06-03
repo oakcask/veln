@@ -8,6 +8,7 @@ pub struct ProjectManifest {
     pub path: SourcePath,
     pub package: ManifestPackage,
     pub lib: ManifestLib,
+    pub dependencies: Vec<ManifestDependency>,
     pub unsupported_sections: Vec<ManifestUnsupportedSection>,
     pub tools: Vec<ManifestTool>,
 }
@@ -26,6 +27,13 @@ pub struct ManifestLib {
 pub struct ManifestExport {
     pub path: String,
     pub path_span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct ManifestDependency {
+    pub package: String,
+    pub package_span: SourceSpan,
+    pub path: Option<ManifestField>,
 }
 
 #[derive(Clone, Debug)]
@@ -62,6 +70,7 @@ fn parse_manifest(source: &SourceFile) -> ProjectManifest {
     let mut lib = ManifestLib {
         exports: Vec::new(),
     };
+    let mut dependencies = Vec::<ManifestDependency>::new();
     let mut unsupported_sections = Vec::new();
     let mut tools = Vec::<ManifestTool>::new();
     let mut section = ManifestSection::Other;
@@ -77,7 +86,8 @@ fn parse_manifest(source: &SourceFile) -> ProjectManifest {
         } else if let Some((section_name, name_start, name_end)) =
             section_header(line_without_newline, offset)
         {
-            section = ManifestSection::from_name(section_name);
+            section =
+                ManifestSection::from_name(section_name, source, name_start, &mut dependencies);
             if matches!(section, ManifestSection::Modules) {
                 unsupported_sections.push(ManifestUnsupportedSection {
                     name: section_name.to_string(),
@@ -90,6 +100,11 @@ fn parse_manifest(source: &SourceFile) -> ProjectManifest {
             && let Some(field) = parse_string_field(source, offset, line_without_newline)
         {
             package.fields.push(field);
+        } else if let ManifestSection::Dependency(index) = &section
+            && let Some(field) = parse_string_field(source, offset, line_without_newline)
+            && field.key == "path"
+        {
+            dependencies[*index].path = Some(field);
         } else if let ManifestSection::Tool(tool_name) = &section
             && let Some(field) = parse_string_field(source, offset, line_without_newline)
         {
@@ -113,6 +128,7 @@ fn parse_manifest(source: &SourceFile) -> ProjectManifest {
         path: source.path().clone(),
         package,
         lib,
+        dependencies,
         unsupported_sections,
         tools,
     }
@@ -123,24 +139,49 @@ enum ManifestSection {
     Package,
     Lib,
     Modules,
+    Dependency(usize),
     Tool(String),
     Other,
 }
 
 impl ManifestSection {
-    fn from_name(name: &str) -> Self {
+    fn from_name(
+        name: &str,
+        source: &SourceFile,
+        name_start: usize,
+        dependencies: &mut Vec<ManifestDependency>,
+    ) -> Self {
         if name == "package" {
             Self::Package
         } else if name == "lib" {
             Self::Lib
         } else if name == "modules" {
             Self::Modules
+        } else if let Some((package, package_start, package_end)) =
+            dependency_section_name(name, name_start)
+        {
+            dependencies.push(ManifestDependency {
+                package,
+                package_span: source.span(TextRange::new(package_start, package_end)),
+                path: None,
+            });
+            Self::Dependency(dependencies.len() - 1)
         } else if let Some(tool_name) = name.strip_prefix("tool.") {
             Self::Tool(tool_name.to_string())
         } else {
             Self::Other
         }
     }
+}
+
+fn dependency_section_name(name: &str, name_start: usize) -> Option<(String, usize, usize)> {
+    let package = name.strip_prefix("dependencies.\"")?.strip_suffix('"')?;
+    let package_start = name_start + "dependencies.\"".len();
+    Some((
+        package.to_string(),
+        package_start,
+        package_start + package.len(),
+    ))
 }
 
 #[derive(Clone, Copy)]

@@ -158,6 +158,7 @@ fn keyword_kind(text: &str) -> Option<TokenKind> {
         "invariant" => TokenKind::Invariant,
         "mod" => TokenKind::Mod,
         "use" => TokenKind::Use,
+        "from" => TokenKind::From,
         "match" => TokenKind::Match,
         "or" => TokenKind::Or,
         "and" => TokenKind::And,
