@@ -146,6 +146,12 @@ This proposal defines the source-level and manifest-level shape only. Version
 selection, package fetching, lockfiles, registry behavior, vendoring, and
 authentication are separate package manager design questions.
 
+Package names are URL-like globally unique identity strings. The identity is
+stable source-level metadata, not necessarily a direct fetch URL. A package
+manager may resolve a package name through git remotes, dependency metadata,
+mirrors, lockfiles, or vendored sources, but source imports continue to name the
+package identity.
+
 ## Package Manifest
 
 `veln.toml` declares package identity and public module exports:
@@ -164,6 +170,13 @@ exports = [
 `[package].name` is the globally unique package identity used by external
 imports. The value is a string and must be present for a multi-module package
 that is intended to be redistributed.
+
+The package name should be URL-like so authors can create decentralized names
+without a central package registry. For example, a package may use a name such
+as `github.com/oakcask/foo` or `codeberg.org/team/lib` while the package
+manager records the concrete git remote, selected revision, and verification
+data separately. A fetched package's manifest name must match the identity that
+requested it.
 
 `[lib].exports` lists package-relative `.veln` source paths that are public to
 other packages. It does not accept module paths, and a manifest must not mix
@@ -312,7 +325,21 @@ When implemented, update:
 - Current package private modules are usable by other modules in the same
   package but are not importable from external packages unless exported.
 
+## Package Manager Implications
+
+External imports do not authorize network fetching by themselves. Package
+manager commands should require dependency metadata that maps a package
+identity to a concrete source, such as a git remote, version selector,
+revision, checksum, vendored directory, or mirror. A lockfile should record the
+resolved source separately from the package identity so the source-level import
+path remains stable when the retrieval route changes.
+
+This keeps Veln packages decentralized: a project can depend on git-hosted
+packages without publishing through a crate-style central registry, while still
+letting package manager tooling verify that the resolved package declares the
+expected `[package].name`.
+
 ## Open Questions
 
-- Should package names be opaque strings, URL-like names, or normalized source
-  identifiers with a separate registry namespace?
+- What dependency table and lockfile keys should the package manager use for
+  git remotes, revisions, mirrors, vendored sources, and verification data?
