@@ -1,0 +1,9 @@
+command = ["doc", "main.veln"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["veln.toml:1:2: error[manifest.unsupported_section]: `[modules]` is not supported; use `[lib].exports` for public source files", "note: Replace `[modules]` entries with `[lib].exports` file paths."]

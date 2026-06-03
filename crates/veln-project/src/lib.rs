@@ -8,5 +8,8 @@ mod project;
 mod tests;
 
 pub use discovery::discover_source_paths;
-pub use manifest::{ManifestField, ManifestModule, ManifestPackage, ManifestTool, ProjectManifest};
+pub use manifest::{
+    ManifestExport, ManifestField, ManifestLib, ManifestPackage, ManifestTool,
+    ManifestUnsupportedSection, ProjectManifest,
+};
 pub use project::Project;

@@ -16,11 +16,12 @@ documentation target. Use the specification pages for current behavior.
 
 ## Outcome
 
-The implemented manifest surface now keeps package metadata and tool metadata
-in `veln.toml`. String-valued `[package]` fields describe package-scale facts,
-and string-valued `[tool.<name>]` fields describe tool-specific facts. Source
-`mod` declarations still own compiler-visible module identity, and selected
-manifest module entries are still checked for drift against source.
+The target implemented package metadata and tool metadata in `veln.toml`.
+String-valued `[package]` fields describe package-scale facts, and
+string-valued `[tool.<name>]` fields describe tool-specific facts. Later
+module and manifest work superseded the original source `mod` and manifest
+module metadata boundary; use the current specification for source module
+identity and manifest export behavior.
 
 `veln doc` generates Markdown from selected source files and the manifest. The
 output includes package and tool metadata, source modules, imports, public
@@ -28,15 +29,15 @@ types, public constructors, public functions, contracts, documentation line
 comments, executable doctest fences, expected-output fences, and ADR-lite
 records. Hidden doctest setup lines are omitted from generated examples.
 
-Dedicated export lists were not added. Public `fn` declarations and public
-source `type` declarations remain the implemented public API boundary.
+Dedicated export lists were not added by this target. Later manifest work
+added the current `[lib].exports` package export surface.
 
 ## Completion Evidence
 
 - Manifest package and tool fields are parsed and preserved independently from
   source declarations.
-- `veln doc` has a parse gate and refuses documentation output when selected
-  manifest module metadata drifts from source-owned module identity.
+- `veln doc` has a parse gate and refuses documentation output when manifest
+  validation reports errors.
 - Generated documentation is covered by
   `../../../examples/specification/doc/generated-markdown/`.
 - Public API documentation derives from declarations and attached source

@@ -1,10 +1,12 @@
+use std::path::{Component, Path};
+
 use veln_ast::{
     Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind, PublicAliasKind, SurfaceModule,
     UseDecl, lower_surface_ast, lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_project::Project;
-use veln_source::{SourceFile, TextRange};
+use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
 use crate::diagnostics::parse_diagnostic_to_envelope;
@@ -61,11 +63,6 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
                 ),
                 Err(_) => lower_surface_ast(&parsed.tree),
             };
-            diagnostics.extend(validate_manifest_module(
-                project,
-                source.path().as_str(),
-                &lowered,
-            ));
             module = module.or(lowered.module);
             uses.extend(lowered.uses);
             aliases.extend(lowered.aliases);
@@ -73,6 +70,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
             functions.extend(lowered.functions);
         }
     }
+    diagnostics.extend(validate_manifest_exports(project));
     diagnostics.extend(unresolved_local_import_diagnostics(&uses, &derived_modules));
 
     (
@@ -277,108 +275,223 @@ fn reserved_source_module_diagnostic(source: &SourceFile, module_name: &str) -> 
     )
 }
 
-pub(crate) fn validate_manifest_module(
-    project: &Project,
-    source_path: &str,
-    module: &SurfaceModule,
-) -> Vec<Diagnostic> {
-    let Some(manifest_module) = project.manifest.as_ref().and_then(|manifest| {
-        manifest
-            .modules
-            .iter()
-            .find(|entry| entry.path == source_path)
-    }) else {
+pub(crate) fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
+    let Some(manifest) = project.manifest.as_ref() else {
         return Vec::new();
     };
-
-    let Some(source_module) = &module.module else {
-        return Vec::new();
-    };
-
-    if manifest_module.name == source_module.name {
-        return Vec::new();
+    let mut diagnostics = Vec::new();
+    for section in &manifest.unsupported_sections {
+        if section.name == "modules" {
+            diagnostics.push(unsupported_modules_section_diagnostic(section.span.clone()));
+        }
     }
 
+    let mut exported_modules = Vec::<(String, SourceSpan)>::new();
+    for export in &manifest.lib.exports {
+        let normalized_path = SourcePath::new(export.path.clone());
+        let path = normalized_path.as_str();
+        if export.path.contains("::") {
+            diagnostics.push(invalid_manifest_export_path_diagnostic(
+                &export.path_span,
+                &export.path,
+                "module paths are not valid manifest exports; use a package-relative source file path",
+            ));
+            continue;
+        }
+        if !is_package_relative_path(path) {
+            diagnostics.push(invalid_manifest_export_path_diagnostic(
+                &export.path_span,
+                &export.path,
+                "manifest exports must stay inside the package",
+            ));
+            continue;
+        }
+        if !path.ends_with(".veln") {
+            diagnostics.push(invalid_manifest_export_path_diagnostic(
+                &export.path_span,
+                &export.path,
+                "manifest exports must name `.veln` source files",
+            ));
+            continue;
+        }
+        let export_source = SourceFile::new(path, "");
+        let module_name = match derive_source_module_path(&export_source) {
+            Ok(module_name) => module_name,
+            Err(_) => {
+                diagnostics.push(invalid_manifest_export_path_diagnostic(
+                    &export.path_span,
+                    &export.path,
+                    "manifest export path does not derive a valid module path",
+                ));
+                continue;
+            }
+        };
+        if !project
+            .files
+            .iter()
+            .any(|source| source.path().as_str() == path)
+        {
+            if project.root.join(path).is_file() {
+                diagnostics.push(unselected_manifest_export_diagnostic(
+                    &export.path_span,
+                    &export.path,
+                ));
+            } else {
+                diagnostics.push(missing_manifest_export_diagnostic(
+                    &export.path_span,
+                    &export.path,
+                ));
+            }
+            continue;
+        }
+        if let Some((_, first_span)) = exported_modules
+            .iter()
+            .find(|(known_module, _)| known_module == &module_name)
+        {
+            diagnostics.push(duplicate_manifest_export_diagnostic(
+                &export.path_span,
+                &export.path,
+                &module_name,
+                first_span,
+            ));
+            continue;
+        }
+        exported_modules.push((module_name, export.path_span.clone()));
+    }
+    diagnostics
+}
+
+fn unsupported_modules_section_diagnostic(span: SourceSpan) -> Diagnostic {
     let mut diagnostic = Diagnostic::new(
-        "module.metadata_drift",
+        "manifest.unsupported_section",
         Severity::Error,
         DiagnosticKind::Module,
-        format!(
-            "manifest module name `{}` does not match derived module `{}`",
-            manifest_module.name, source_module.name
-        ),
-        Some(manifest_module.name_span.clone()),
+        "`[modules]` is not supported; use `[lib].exports` for public source files",
+        Some(span),
         JsonValue::object([
             ("phase", JsonValue::string("module")),
-            ("field", JsonValue::string("module_identity")),
-            ("canonical_owner", JsonValue::string("source_path")),
-            ("derived_owner", JsonValue::string("manifest")),
-            (
-                "expected_value",
-                JsonValue::string(source_module.name.clone()),
-            ),
-            (
-                "observed_value",
-                JsonValue::string(manifest_module.name.clone()),
-            ),
-            ("manifest_path", JsonValue::string("veln.toml")),
-            ("source_path", JsonValue::string(source_path)),
+            ("field", JsonValue::string("manifest_section")),
+            ("section", JsonValue::string("modules")),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([(
+        "message",
+        JsonValue::string("Replace `[modules]` entries with `[lib].exports` file paths."),
+    )]));
+    diagnostic
+}
+
+fn invalid_manifest_export_path_diagnostic(
+    span: &SourceSpan,
+    path: &str,
+    reason: &'static str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "manifest.invalid_export",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("manifest export `{path}` is invalid: {reason}"),
+        Some(span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("lib.exports")),
+            ("source_path", JsonValue::string(path)),
+            ("reason", JsonValue::string(reason)),
+        ]),
+    )
+}
+
+fn unselected_manifest_export_diagnostic(span: &SourceSpan, path: &str) -> Diagnostic {
+    Diagnostic::new(
+        "manifest.unselected_export",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("manifest export `{path}` has no matching selected source file"),
+        Some(span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("lib.exports")),
+            ("source_path", JsonValue::string(path)),
+        ]),
+    )
+}
+
+fn missing_manifest_export_diagnostic(span: &SourceSpan, path: &str) -> Diagnostic {
+    Diagnostic::new(
+        "manifest.missing_export",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("manifest export `{path}` does not exist"),
+        Some(span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("lib.exports")),
+            ("source_path", JsonValue::string(path)),
+        ]),
+    )
+}
+
+fn duplicate_manifest_export_diagnostic(
+    span: &SourceSpan,
+    path: &str,
+    module_name: &str,
+    first_span: &SourceSpan,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "manifest.duplicate_export",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("manifest export `{path}` duplicates module export `{module_name}`"),
+        Some(span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("lib.exports")),
+            ("source_path", JsonValue::string(path)),
+            ("module_path", JsonValue::string(module_name)),
         ]),
     );
     diagnostic.related.push(JsonValue::object([
-        ("kind", JsonValue::string("canonical_owner")),
+        ("kind", JsonValue::string("duplicate_origin")),
         (
             "message",
-            JsonValue::string(
-                "The package-relative source path owns the compiler-visible module name.",
-            ),
+            JsonValue::string(format!("The first export for `{module_name}` is here.")),
         ),
+        ("span", source_span_json(first_span)),
+    ]));
+    diagnostic
+}
+
+fn is_package_relative_path(path: &str) -> bool {
+    let path = Path::new(path);
+    !path.is_absolute()
+        && !path.components().any(|component| {
+            matches!(
+                component,
+                Component::ParentDir | Component::RootDir | Component::Prefix(_)
+            )
+        })
+}
+
+fn source_span_json(span: &SourceSpan) -> JsonValue {
+    JsonValue::object([
+        ("file", JsonValue::string(span.file.as_str())),
         (
-            "span",
+            "start",
             JsonValue::object([
-                ("file", JsonValue::string(source_module.span.file.as_str())),
-                (
-                    "start",
-                    JsonValue::object([
-                        (
-                            "line",
-                            JsonValue::Number(source_module.span.start.line as i64),
-                        ),
-                        (
-                            "column",
-                            JsonValue::Number(source_module.span.start.column as i64),
-                        ),
-                        (
-                            "offset",
-                            JsonValue::Number(source_module.span.start.offset as i64),
-                        ),
-                    ]),
-                ),
-                (
-                    "end",
-                    JsonValue::object([
-                        (
-                            "line",
-                            JsonValue::Number(source_module.span.end.line as i64),
-                        ),
-                        (
-                            "column",
-                            JsonValue::Number(source_module.span.end.column as i64),
-                        ),
-                        (
-                            "offset",
-                            JsonValue::Number(source_module.span.end.offset as i64),
-                        ),
-                    ]),
-                ),
+                ("line", JsonValue::Number(span.start.line as i64)),
+                ("column", JsonValue::Number(span.start.column as i64)),
+                ("offset", JsonValue::Number(span.start.offset as i64)),
             ]),
         ),
-    ]));
-    diagnostic.related.push(JsonValue::object([(
-        "message",
-        JsonValue::string("Update the manifest entry or remove the duplicated module name."),
-    )]));
-    vec![diagnostic]
+        (
+            "end",
+            JsonValue::object([
+                ("line", JsonValue::Number(span.end.line as i64)),
+                ("column", JsonValue::Number(span.end.column as i64)),
+                ("offset", JsonValue::Number(span.end.offset as i64)),
+            ]),
+        ),
+    ])
 }
 
 fn unresolved_local_import_diagnostics(
@@ -1136,8 +1249,12 @@ fn push_reachable(callees: &mut Vec<ReachableFunction>, callee: ReachableFunctio
 
 #[cfg(test)]
 mod tests {
+    use std::{env, fs};
+
     use veln_ast::{FunctionKind, SurfaceModule, lower_surface_ast};
-    use veln_project::{ManifestModule, Project, ProjectManifest};
+    use veln_project::{
+        ManifestExport, ManifestLib, ManifestUnsupportedSection, Project, ProjectManifest,
+    };
     use veln_source::{LineCol, SourceFile, SourcePath, SourceSpan};
     use veln_syntax::parse;
 
@@ -1836,7 +1953,7 @@ mod tests {
     }
 
     #[test]
-    fn manifest_module_name_cannot_override_derived_source_path() {
+    fn modules_manifest_section_is_rejected() {
         let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
         let project = Project {
             root: ".".into(),
@@ -1844,11 +1961,12 @@ mod tests {
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
                 package: Default::default(),
-                modules: vec![ManifestModule {
-                    path: "src/main.veln".to_string(),
-                    name: "manifest.main".to_string(),
-                    path_span: span("veln.toml", 2, 2, 11),
-                    name_span: span("veln.toml", 2, 20, 33),
+                lib: ManifestLib {
+                    exports: Vec::new(),
+                },
+                unsupported_sections: vec![ManifestUnsupportedSection {
+                    name: "modules".to_string(),
+                    span: span("veln.toml", 1, 2, 9),
                 }],
                 tools: Vec::new(),
             }),
@@ -1858,10 +1976,10 @@ mod tests {
 
         assert_eq!(module.module.as_ref().unwrap().name, "src::main");
         assert_eq!(diagnostics.len(), 1);
-        assert_eq!(diagnostics[0].id, "module.metadata_drift");
+        assert_eq!(diagnostics[0].id, "manifest.unsupported_section");
         assert_eq!(
             diagnostics[0].message,
-            "manifest module name `manifest.main` does not match derived module `src::main`"
+            "`[modules]` is not supported; use `[lib].exports` for public source files"
         );
     }
 
@@ -1888,7 +2006,7 @@ mod tests {
     }
 
     #[test]
-    fn matching_manifest_module_name_does_not_report_drift() {
+    fn selected_manifest_export_is_accepted() {
         let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
         let project = Project {
             root: ".".into(),
@@ -1896,12 +2014,13 @@ mod tests {
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
                 package: Default::default(),
-                modules: vec![ManifestModule {
-                    path: "src/main.veln".to_string(),
-                    name: "src::main".to_string(),
-                    path_span: span("veln.toml", 2, 2, 11),
-                    name_span: span("veln.toml", 2, 20, 28),
-                }],
+                lib: ManifestLib {
+                    exports: vec![ManifestExport {
+                        path: "src/main.veln".to_string(),
+                        path_span: span("veln.toml", 2, 13, 26),
+                    }],
+                },
+                unsupported_sections: Vec::new(),
                 tools: Vec::new(),
             }),
         };
@@ -1912,34 +2031,27 @@ mod tests {
         assert!(
             diagnostics
                 .iter()
-                .all(|diagnostic| diagnostic.id != "module.metadata_drift"),
+                .all(|diagnostic| diagnostic.id != "manifest.invalid_export"),
             "{diagnostics:#?}"
         );
     }
 
     #[test]
-    fn unselected_manifest_module_entries_do_not_report_drift() {
-        let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
+    fn selected_manifest_export_with_parse_errors_is_still_selected() {
+        let source = SourceFile::new("main.veln", "fn main() -> ()\n");
         let project = Project {
             root: ".".into(),
             files: vec![source],
             manifest: Some(ProjectManifest {
                 path: SourcePath::new("veln.toml"),
                 package: Default::default(),
-                modules: vec![
-                    ManifestModule {
-                        path: "src/other.veln".to_string(),
-                        name: "manifest.other".to_string(),
-                        path_span: span("veln.toml", 2, 2, 12),
-                        name_span: span("veln.toml", 2, 21, 35),
-                    },
-                    ManifestModule {
-                        path: "src/main.veln".to_string(),
-                        name: "src::main".to_string(),
-                        path_span: span("veln.toml", 3, 2, 11),
-                        name_span: span("veln.toml", 3, 20, 28),
-                    },
-                ],
+                lib: ManifestLib {
+                    exports: vec![ManifestExport {
+                        path: "main.veln".to_string(),
+                        path_span: span("veln.toml", 2, 13, 22),
+                    }],
+                },
+                unsupported_sections: Vec::new(),
                 tools: Vec::new(),
             }),
         };
@@ -1949,8 +2061,47 @@ mod tests {
         assert!(
             diagnostics
                 .iter()
-                .all(|diagnostic| diagnostic.id != "module.metadata_drift"),
+                .all(|diagnostic| diagnostic.id != "manifest.unselected_export"),
             "{diagnostics:#?}"
+        );
+    }
+
+    #[test]
+    fn unselected_manifest_export_reports_diagnostic() {
+        let root = env::temp_dir().join(format!(
+            "veln-surface-unselected-export-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("src")).expect("test root should be created");
+        fs::write(root.join("src/other.veln"), "fn other() -> ()\n  ()\nend\n")
+            .expect("unselected source should be written");
+        let source = SourceFile::new("src/main.veln", "fn main() -> ()\n  ()\nend\n");
+        let project = Project {
+            root: root.clone(),
+            files: vec![source],
+            manifest: Some(ProjectManifest {
+                path: SourcePath::new("veln.toml"),
+                package: Default::default(),
+                lib: ManifestLib {
+                    exports: vec![ManifestExport {
+                        path: "src/other.veln".to_string(),
+                        path_span: span("veln.toml", 2, 13, 27),
+                    }],
+                },
+                unsupported_sections: Vec::new(),
+                tools: Vec::new(),
+            }),
+        };
+
+        let (_, diagnostics) = load_surface_module(&project);
+        let _ = fs::remove_dir_all(&root);
+
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].id, "manifest.unselected_export");
+        assert_eq!(
+            diagnostics[0].message,
+            "manifest export `src/other.veln` has no matching selected source file"
         );
     }
 

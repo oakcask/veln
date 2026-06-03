@@ -1,4 +1,0 @@
-# Manifest entries for unselected files do not add source files to a check.
-pub fn ignored() -> ()
-	()
-end

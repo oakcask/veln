@@ -1,0 +1,117 @@
+command = ["check", "--json", "main.veln", "ownerless.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 7
+
+[[json_assert]]
+path = "diagnostics.0.details.source_path"
+equals = "spec::module"
+
+[[json_assert]]
+path = "diagnostics.1.details.source_path"
+equals = "../outside.veln"
+
+[[json_assert]]
+path = "diagnostics.3.details.source_path"
+equals = "missing.veln"
+
+[[json_assert]]
+path = "diagnostics.4.details.reason"
+equals = "manifest exports must name `.veln` source files"
+
+[[json_assert]]
+path = "diagnostics.5.details.reason"
+equals = "manifest export path does not derive a valid module path"
+
+[[json_assert]]
+path = "diagnostics.6.details.module_path"
+equals = "main"
+
+[[diagnostics]]
+id = "manifest.invalid_export"
+severity = "error"
+kind = "module"
+message = "manifest export `spec::module` is invalid: module paths are not valid manifest exports; use a package-relative source file path"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 5
+column = 4
+
+[[diagnostics]]
+id = "manifest.invalid_export"
+severity = "error"
+kind = "module"
+message = "manifest export `../outside.veln` is invalid: manifest exports must stay inside the package"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 6
+column = 4
+
+[[diagnostics]]
+id = "manifest.unselected_export"
+severity = "error"
+kind = "module"
+message = "manifest export `unselected.veln` has no matching selected source file"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 7
+column = 4
+
+[[diagnostics]]
+id = "manifest.missing_export"
+severity = "error"
+kind = "module"
+message = "manifest export `missing.veln` does not exist"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 8
+column = 4
+
+[[diagnostics]]
+id = "manifest.invalid_export"
+severity = "error"
+kind = "module"
+message = "manifest export `notes.txt` is invalid: manifest exports must name `.veln` source files"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 9
+column = 4
+
+[[diagnostics]]
+id = "manifest.invalid_export"
+severity = "error"
+kind = "module"
+message = "manifest export `bad-name.veln` is invalid: manifest export path does not derive a valid module path"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 10
+column = 4
+
+[[diagnostics]]
+id = "manifest.duplicate_export"
+severity = "error"
+kind = "module"
+message = "manifest export `./main.veln` duplicates module export `main`"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 11
+column = 4

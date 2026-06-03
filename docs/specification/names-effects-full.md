@@ -69,11 +69,11 @@ that declaring source module. User source cannot derive module identity
 `prelude` or write an import path whose alias is `prelude`; both names are
 reserved for the implicit standard prelude import and report `name.reserved`.
 
-When `veln.toml` contains a `[modules]` entry for a selected source file, the
-entry is checked against that file's path-derived module identity. The
-diagnostic is `module.metadata_drift` at the manifest module name when the
-manifest name differs from the derived module path. The package-relative source
-path is canonical and is reported as related context.
+When `veln.toml` contains manifest export data, `[modules]` is rejected and
+`[lib].exports` is checked as a list of public package-relative source files.
+Export entries must be selected source files, must use `.veln` file-path
+spelling instead of module paths, must stay inside the package, and must derive
+unique source module paths.
 
 Named holes remain repair labels, not value declarations. Reusing a hole label
 does not affect name resolution.

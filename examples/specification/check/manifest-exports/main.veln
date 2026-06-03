@@ -1,0 +1,4 @@
+# Selected sources can be listed in lib exports.
+pub fn main() -> ()
+	()
+end

@@ -7,7 +7,8 @@ smallest section to read before opening the full grammar notes.
 
 - Source path derived local module identity, imports, functions, tests, source
   ADT type declarations, public member aliases, canonical
-  `#` comments, `##` documentation comments, doctests, and ADR-lite metadata:
+  `#` comments, `##` documentation comments, doctests, ADR-lite metadata, and
+  `[lib].exports` manifest source-file exports:
   [source-surface-full.md](source-surface-full.md).
   Use [commands.md](commands.md) for formatter layout and canonical comment
   spelling behavior.

@@ -1,5 +1,5 @@
 command = ["check", "--json", "main.veln"]
-exit = 0
+exit = 1
 
 [stdout]
 format = "json"
@@ -9,8 +9,30 @@ format = "empty"
 
 [[json_assert]]
 path = "status"
-equals = "ok"
+equals = "error"
 
 [[json_assert]]
 path = "summary.diagnostic_count"
-equals = 0
+equals = 2
+
+[[diagnostics]]
+id = "manifest.unselected_export"
+severity = "error"
+kind = "module"
+message = "manifest export `unselected.veln` has no matching selected source file"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 4
+column = 4
+
+[[diagnostics]]
+id = "manifest.missing_export"
+severity = "error"
+kind = "module"
+message = "manifest export `missing.veln` does not exist"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 5
+column = 4

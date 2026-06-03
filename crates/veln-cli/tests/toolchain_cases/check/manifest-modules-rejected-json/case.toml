@@ -16,12 +16,12 @@ path = "summary.diagnostic_count"
 equals = 1
 
 [[diagnostics]]
-id = "module.metadata_drift"
+id = "manifest.unsupported_section"
 severity = "error"
 kind = "module"
-message = "manifest module name `app.manifest` does not match derived module `main`"
+message = "`[modules]` is not supported; use `[lib].exports` for public source files"
 
 [diagnostics.span]
 file = "veln.toml"
-line = 2
-column = 16
+line = 1
+column = 2

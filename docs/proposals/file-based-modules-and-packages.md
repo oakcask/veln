@@ -7,11 +7,12 @@ Veln should derive module identity from package-relative source paths, reserve
 and make `veln.toml` describe package identity plus the modules exported to
 other packages.
 
-The local-source slice is implemented: source `mod` declarations are rejected,
-selected source paths derive same-package module identity, local `use`
-declarations use `::`, and same-package qualified access requires a matching
-written import. This proposal remains open for external package imports and
-the package manifest export surface.
+The local-source and manifest-export slices are implemented: source `mod`
+declarations are rejected, selected source paths derive same-package module
+identity, local `use` declarations use `::`, same-package qualified access
+requires a matching written import, `[modules]` is rejected, and
+`[lib].exports` validates selected package source-file exports. This proposal
+remains open for external package imports and package-manager behavior.
 
 ## Read First
 
@@ -24,20 +25,21 @@ the package manifest export surface.
 
 ## Problem
 
-The current module surface splits ownership across source headers and package
+Earlier module work split ownership across source headers and package
 metadata:
 
 - Source files may declare `mod` to set the compiler-visible module identity.
 - Imported module names use `.` in `use` declarations, while qualified calls
   and public aliases use `::`.
-- `veln.toml` may contain `[modules]`, but those entries are metadata and
-  cannot rename the source module.
+- `veln.toml` could contain `[modules]`, but those entries were metadata and
+  could not rename the source module.
 - There is no durable package-level boundary for redistributing a set of
   modules or resolving modules outside the current package.
 
-That makes the authoring model hard to explain. The source file says one
-thing, the manifest may list another, and import syntax differs from the path
-syntax used elsewhere in source.
+The implemented local-source and manifest-export slices remove those local
+ambiguities. This proposal remains open for the package boundary beyond the
+current package: dependency metadata, external package imports, and package
+manager behavior.
 
 ## Proposal
 
@@ -246,7 +248,7 @@ The migration path is mechanical:
   outside the package.
 - Keep private helper modules out of `[lib].exports`.
 
-For example, this current shape:
+For example, this earlier shape:
 
 ```text
 src/foo.veln
@@ -290,16 +292,14 @@ exports = [
 
 ## Specification Updates
 
-Remaining package/export work should update:
+Remaining package import work should update:
 
 - `../specification/names-effects.md` and
   `../specification/names-effects-full.md` to describe external package import
   resolution.
 - `../specification/commands.md` and `../specification/commands-full.md` to
-  replace `[modules]` behavior with `[lib].exports` documentation and
-  validation behavior.
-- `../../examples/specification/` cases that cover external package imports,
-  `[modules]` rejection, and `[lib].exports`.
+  describe dependency discovery only after it exists.
+- `../../examples/specification/` cases that cover external package imports.
 
 ## Acceptance Criteria
 
@@ -308,12 +308,6 @@ Remaining package/export work should update:
 - `use sub::module from "github.com/oakcask/foo"` resolves module
   `sub::module` from the named package and imports only public names from an
   exported module.
-- `use foo.bar` is rejected as module-path syntax.
-- `veln.toml` rejects `[modules]`.
-- `veln.toml` accepts `[package].name` and `[lib].exports`, and validates that
-  exported paths derive real package modules.
-- `veln.toml` does not implicitly export or privilege `lib.veln`, `main.veln`,
-  or a module matching the final package-name segment.
 - Current package private modules are usable by other modules in the same
   package but are not importable from external packages unless exported.
 

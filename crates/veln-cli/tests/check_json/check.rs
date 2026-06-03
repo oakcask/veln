@@ -145,8 +145,8 @@ fn check_json_reports_missing_module_identity_for_imports() {
 }
 
 #[test]
-fn check_human_reports_manifest_module_name_drift() {
-    let project = TestProject::new("check-human-manifest-name-drift");
+fn check_human_reports_modules_manifest_section() {
+    let project = TestProject::new("check-human-modules-manifest-section");
     project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
     project.write(
         "main.veln",
@@ -160,17 +160,17 @@ fn check_human_reports_manifest_module_name_drift() {
     assert_contains_all(
         stdout(&output),
         &[
-            "veln.toml:2:16: error[module.metadata_drift]: manifest module name `app.manifest` does not match derived module `main`",
-            "  note: main.veln:1:1: The package-relative source path owns the compiler-visible module name.",
-            "  note: Update the manifest entry or remove the duplicated module name.",
+            "veln.toml:1:2: error[manifest.unsupported_section]: `[modules]` is not supported; use `[lib].exports` for public source files",
+            "  note: Replace `[modules]` entries with `[lib].exports` file paths.",
         ],
     );
 }
 
 #[test]
-fn check_human_reports_manifest_module_without_source_owner() {
-    let project = TestProject::new("check-human-manifest-without-source-owner");
-    project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
+fn check_human_reports_unselected_manifest_export() {
+    let project = TestProject::new("check-human-unselected-manifest-export");
+    project.write("veln.toml", "[lib]\nexports = [\"other.veln\"]\n");
+    project.write("other.veln", "pub fn other() -> ()\n  ()\nend\n");
     project.write(
         "main.veln",
         concat!("pub fn main() -> ()\n", "  ()\n", "end\n"),
@@ -183,17 +183,15 @@ fn check_human_reports_manifest_module_without_source_owner() {
     assert_contains_all(
         stdout(&output),
         &[
-            "veln.toml:2:16: error[module.metadata_drift]: manifest module name `app.manifest` does not match derived module `main`",
-            "  note: main.veln:1:1: The package-relative source path owns the compiler-visible module name.",
-            "  note: Update the manifest entry or remove the duplicated module name.",
+            "veln.toml:2:13: error[manifest.unselected_export]: manifest export `other.veln` has no matching selected source file",
         ],
     );
 }
 
 #[test]
-fn check_human_accepts_matching_manifest_module_name() {
-    let project = TestProject::new("check-human-matching-manifest-module");
-    project.write("veln.toml", "[modules]\n\"main.veln\" = \"main\"\n");
+fn check_human_accepts_selected_manifest_export() {
+    let project = TestProject::new("check-human-selected-manifest-export");
+    project.write("veln.toml", "[lib]\nexports = [\"main.veln\"]\n");
     project.write(
         "main.veln",
         concat!("pub fn main() -> ()\n", "  ()\n", "end\n",),
@@ -207,8 +205,8 @@ fn check_human_accepts_matching_manifest_module_name() {
 }
 
 #[test]
-fn check_json_reports_manifest_module_name_drift() {
-    let project = TestProject::new("check-json-manifest-name-drift");
+fn check_json_reports_modules_manifest_section() {
+    let project = TestProject::new("check-json-modules-manifest-section");
     project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
     project.write(
         "main.veln",
@@ -222,23 +220,37 @@ fn check_json_reports_manifest_module_name_drift() {
     assert_contains_all(
         stdout,
         &[
-            "\"id\":\"module.metadata_drift\"",
+            "\"id\":\"manifest.unsupported_section\"",
             "\"kind\":\"module\"",
-            "\"message\":\"manifest module name `app.manifest` does not match derived module `main`\"",
-            "\"span\":{\"file\":\"veln.toml\",\"start\":{\"line\":2,\"column\":16,\"offset\":25},\"end\":{\"line\":2,\"column\":28,\"offset\":37}}",
-            "\"details\":{\"phase\":\"module\",\"field\":\"module_identity\",\"canonical_owner\":\"source_path\",\"derived_owner\":\"manifest\",\"expected_value\":\"main\",\"observed_value\":\"app.manifest\",\"manifest_path\":\"veln.toml\",\"source_path\":\"main.veln\"}",
-            "\"related\":[{\"kind\":\"canonical_owner\",\"message\":\"The package-relative source path owns the compiler-visible module name.\"",
-            "\"span\":{\"file\":\"main.veln\",\"start\":{\"line\":1,\"column\":1,\"offset\":0},\"end\":{\"line\":1,\"column\":1,\"offset\":0}}}",
-            "{\"message\":\"Update the manifest entry or remove the duplicated module name.\"}]",
+            "\"message\":\"`[modules]` is not supported; use `[lib].exports` for public source files\"",
+            "\"span\":{\"file\":\"veln.toml\",\"start\":{\"line\":1,\"column\":2,\"offset\":1},\"end\":{\"line\":1,\"column\":9,\"offset\":8}}",
+            "\"details\":{\"phase\":\"module\",\"field\":\"manifest_section\",\"section\":\"modules\"}",
+            "\"related\":[{\"message\":\"Replace `[modules]` entries with `[lib].exports` file paths.\"}]",
             "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"module\":1}}",
         ],
     );
 }
 
 #[test]
-fn check_json_reports_manifest_module_without_source_owner() {
-    let project = TestProject::new("check-json-manifest-without-source-owner");
-    project.write("veln.toml", "[modules]\n\"main.veln\" = \"app.manifest\"\n");
+fn check_json_reports_manifest_export_validation() {
+    let project = TestProject::new("check-json-manifest-export-validation");
+    project.write(
+        "veln.toml",
+        concat!(
+            "[lib]\n",
+            "exports = [\n",
+            "  \"other.veln\",\n",
+            "  \"main::helper\",\n",
+            "  \"main.veln\",\n",
+            "  \"./main.veln\",\n",
+            "  \"../outside.veln\",\n",
+            "]\n",
+        ),
+    );
+    project.write(
+        "other.veln",
+        concat!("pub fn other() -> ()\n", "  ()\n", "end\n"),
+    );
     project.write(
         "main.veln",
         concat!("pub fn main() -> ()\n", "  ()\n", "end\n"),
@@ -251,14 +263,16 @@ fn check_json_reports_manifest_module_without_source_owner() {
     assert_contains_all(
         stdout,
         &[
-            "\"id\":\"module.metadata_drift\"",
+            "\"id\":\"manifest.unselected_export\"",
+            "\"message\":\"manifest export `other.veln` has no matching selected source file\"",
+            "\"id\":\"manifest.invalid_export\"",
+            "\"message\":\"manifest export `main::helper` is invalid: module paths are not valid manifest exports; use a package-relative source file path\"",
+            "\"message\":\"manifest export `./main.veln` duplicates module export `main`\"",
+            "\"id\":\"manifest.duplicate_export\"",
+            "\"related\":[{\"kind\":\"duplicate_origin\",\"message\":\"The first export for `main` is here.\"",
+            "\"message\":\"manifest export `../outside.veln` is invalid: manifest exports must stay inside the package\"",
             "\"kind\":\"module\"",
-            "\"message\":\"manifest module name `app.manifest` does not match derived module `main`\"",
-            "\"span\":{\"file\":\"veln.toml\",\"start\":{\"line\":2,\"column\":16,\"offset\":25},\"end\":{\"line\":2,\"column\":28,\"offset\":37}}",
-            "\"details\":{\"phase\":\"module\",\"field\":\"module_identity\",\"canonical_owner\":\"source_path\",\"derived_owner\":\"manifest\",\"expected_value\":\"main\",\"observed_value\":\"app.manifest\",\"manifest_path\":\"veln.toml\",\"source_path\":\"main.veln\"}",
-            "\"related\":[{\"kind\":\"canonical_owner\",\"message\":\"The package-relative source path owns the compiler-visible module name.\"",
-            "{\"message\":\"Update the manifest entry or remove the duplicated module name.\"}]",
-            "\"summary\":{\"diagnostic_count\":1,\"by_severity\":{\"error\":1},\"by_kind\":{\"module\":1}}",
+            "\"summary\":{\"diagnostic_count\":4,\"by_severity\":{\"error\":4},\"by_kind\":{\"module\":4}}",
         ],
     );
 }

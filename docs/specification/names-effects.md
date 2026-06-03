@@ -5,8 +5,8 @@ compiler-known calls.
 
 ## Read First
 
-- Namespaces, shadowing, duplicate checks, module ownership, and metadata
-  drift: [names-effects-full.md](names-effects-full.md#name-resolution).
+- Namespaces, shadowing, duplicate checks, module ownership, and manifest
+  export checks: [names-effects-full.md](names-effects-full.md#name-resolution).
 - Declaration effect spelling, effect labels, and effect inference:
   [names-effects-full.md](names-effects-full.md#effect-labels) and
   [names-effects-full.md](names-effects-full.md#concurrency-calls).

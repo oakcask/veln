@@ -1,4 +1,6 @@
-[modules]
-"main.veln" = "main"
-"unselected.veln" = "app.unselected_manifest"
-"missing.veln" = "app.missing_manifest"
+[lib]
+exports = [
+  "main.veln",
+  "unselected.veln",
+  "missing.veln",
+]

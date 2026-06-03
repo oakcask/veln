@@ -88,16 +88,13 @@ and public alias kind mismatches:
 The first declaration appears in `related` with `kind: "duplicate_origin"`.
 
 Module diagnostic `details` are stable for source path identity diagnostics,
-local import path diagnostics, and module metadata drift:
+local import path diagnostics, and manifest export diagnostics:
 
 - `phase`
 - `field`
-- `canonical_owner`
-- `derived_owner`
-- `expected_value`
-- `observed_value`
-- `manifest_path`
+- `section`
 - `source_path`
+- `reason`
 - `segment`
 - `module_path`
 - `expected_delimiter`
@@ -110,8 +107,11 @@ source file start as the primary span and names the invalid path segment.
 `module.unresolved_import` reports the written import as the primary span when
 no selected source derives the imported module path.
 
-`module.metadata_drift` reports the manifest module name as the primary span.
-The derived source identity appears in `related` with `kind: "canonical_owner"`.
+`manifest.unsupported_section` reports the rejected manifest section name as
+the primary span. `manifest.invalid_export`, `manifest.missing_export`,
+`manifest.unselected_export`, and `manifest.duplicate_export` report the
+manifest export path as the primary span. Duplicate exports include the first
+export entry in `related` with `kind: "duplicate_origin"`.
 
 Type diagnostic `details` are stable for public-signature, invalid-annotation,
 and type-mismatch diagnostics:
