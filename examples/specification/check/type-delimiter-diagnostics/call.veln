@@ -1,0 +1,4 @@
+# Legacy square-bracket call type arguments use ordinary parse recovery.
+fn main() -> ()
+	channel::bounded[String](1)
+end

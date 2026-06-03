@@ -1,9 +1,9 @@
-command = ["check", "--json", "main.veln"]
+command = ["check", "--json", "main.veln", "type-position.veln", "call.veln"]
 exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"parse.legacy_type_parameter_delimiters\"", "\"id\":\"parse.legacy_type_argument_delimiters\"", "\"id\":\"parse.legacy_call_type_argument_delimiters\"", "\"candidate_queries\"", "\"replacement\":\"<\"", "\"replacement\":\">\""]
+contains = ["\"id\":\"parse.expected_newline\"", "\"id\":\"type.invalid_annotation\"", "unexpected `(Int, String)`"]
 
 [stderr]
 format = "empty"

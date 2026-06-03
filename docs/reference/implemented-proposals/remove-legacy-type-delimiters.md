@@ -1,23 +1,23 @@
 # Remove Legacy Type Delimiters
 
-Status: proposed
+Status: implemented
 
-Veln should stop treating old type delimiter spellings as migration-specific
-syntax. Angle brackets remain the only spelling for declared type parameters,
+Veln no longer treats old type delimiter spellings as migration-specific
+syntax. Angle brackets are the only spelling for declared type parameters,
 type constructor arguments, and expression-level explicit type arguments.
 
 ## Read First
 
 - Current source syntax:
-  [../specification/source-surface.md](../specification/source-surface.md).
+  [../../specification/source-surface.md](../../specification/source-surface.md).
 - Current type annotation behavior:
-  [../specification/types.md](../specification/types.md).
+  [../../specification/types.md](../../specification/types.md).
 - Current parse repair behavior:
-  [../specification/repair-candidates.md](../specification/repair-candidates.md).
+  [../../specification/repair-candidates.md](../../specification/repair-candidates.md).
 - Historical delimiter migration:
-  [../reference/implemented-proposals/type-parameter-angle-brackets.md](../reference/implemented-proposals/type-parameter-angle-brackets.md)
+  [type-parameter-angle-brackets.md](type-parameter-angle-brackets.md)
   and
-  [../reference/implemented-proposals/canonical-type-argument-delimiters.md](../reference/implemented-proposals/canonical-type-argument-delimiters.md).
+  [canonical-type-argument-delimiters.md](canonical-type-argument-delimiters.md).
 
 ## Problem
 
@@ -34,24 +34,25 @@ end
 ```
 
 Legacy delimiter spellings such as `type Box(A)`, `Box(Int)`, and
-`callee[T](value)` are no longer accepted source syntax. The parser still has
-migration-specific diagnostic and repair paths that recognize those old forms
-and emit dedicated replacement candidates. That keeps old spelling alive as a
-special case in the grammar, diagnostics, JSON output, tests, and repair
-surface after the migration window has closed.
+`callee[T](value)` are no longer accepted source syntax. Before this cleanup,
+the parser still had migration-specific diagnostic and repair paths that
+recognized those old forms and emitted dedicated replacement candidates. That
+kept old spelling alive as a special case in the grammar, diagnostics, JSON
+output, tests, and repair surface after the migration window had closed.
 
-## Proposal
+## Implemented Behavior
 
-Remove the legacy delimiter special case from source parsing and diagnostics.
+The legacy delimiter special case is removed from source parsing and
+diagnostics.
 
 - Keep `type Name<A>` as the only declared type-parameter spelling.
 - Keep `Name<A>` as the only type constructor argument spelling in type
   positions.
 - Keep `callee<T>(args...)` as the only implemented expression-level explicit
   type argument spelling for supported callees.
-- Parse `type Name(A)`, `Name(A)` in type positions, and `callee[T](args...)`
-  through the ordinary syntax error paths instead of legacy-delimiter-specific
-  diagnostics.
+- Parse or check `type Name(A)`, `Name(A)` in type positions, and
+  `callee[T](args...)` through ordinary error paths instead of
+  legacy-delimiter-specific diagnostics.
 - Stop emitting legacy delimiter safe repair candidates that replace `(`/`)` or
   `[`/`]` with `<`/`>`.
 - Keep ordinary parser recovery good enough to report the next useful source
@@ -91,22 +92,23 @@ Out of scope:
   function types, or patterns.
 - Changing square brackets for list literals or effect lists.
 
-## Specification Updates
+## Completion Evidence
 
-When implemented, update:
-
-- `../specification/source-surface.md` and
-  `../specification/source-surface-full.md` to describe only canonical
-  delimiters and ordinary errors for old spellings.
-- `../specification/types.md` and `../specification/types-full.md` to remove
-  legacy delimiter repair wording.
-- `../specification/diagnostics-json.md` and
-  `../specification/diagnostics-json-full.md` to remove the legacy diagnostic
-  ids and replacement candidate guarantees.
-- `../specification/repair-candidates.md` to remove parse delimiter repair as a
-  safe repair class.
-- `../../examples/specification/` cases that currently assert legacy delimiter
-  diagnostics or applied delimiter repairs.
+- Source-surface syntax:
+  [../../specification/source-surface.md](../../specification/source-surface.md)
+  and
+  [../../specification/source-surface-full.md](../../specification/source-surface-full.md).
+- Type annotation behavior:
+  [../../specification/types.md](../../specification/types.md) and
+  [../../specification/types-full.md](../../specification/types-full.md).
+- Diagnostic JSON and repair boundaries:
+  [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md),
+  [../../specification/diagnostics-json-full.md](../../specification/diagnostics-json-full.md),
+  and
+  [../../specification/repair-candidates.md](../../specification/repair-candidates.md).
+- Executable examples:
+  `examples/specification/check/type-delimiter-diagnostics` and
+  `examples/specification/repair/type-delimiter-refuse`.
 
 ## Acceptance Criteria
 

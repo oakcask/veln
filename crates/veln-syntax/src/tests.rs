@@ -652,10 +652,9 @@ fn rejects_legacy_square_type_argument_call_callees() {
 
     assert_eq!(output.diagnostics.len(), 1);
     let diagnostic = &output.diagnostics[0];
-    assert_eq!(diagnostic.id, "parse.legacy_call_type_argument_delimiters");
+    assert_eq!(diagnostic.id, "parse.expected_newline");
     assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 19);
-    assert_eq!(diagnostic.repair_candidates.len(), 1);
-    assert_eq!(diagnostic.repair_candidates[0].edits.len(), 2);
+    assert!(diagnostic.repair_candidates.is_empty());
 }
 
 #[test]
@@ -666,9 +665,9 @@ fn rejects_legacy_parenthesized_type_parameters() {
 
     assert_eq!(output.diagnostics.len(), 1);
     let diagnostic = &output.diagnostics[0];
-    assert_eq!(diagnostic.id, "parse.legacy_type_parameter_delimiters");
+    assert_eq!(diagnostic.id, "parse.expected_newline");
     assert_eq!(diagnostic.span.as_ref().unwrap().start.column, 9);
-    assert_eq!(diagnostic.repair_candidates[0].edits.len(), 2);
+    assert!(diagnostic.repair_candidates.is_empty());
 }
 
 #[test]
@@ -680,18 +679,14 @@ fn rejects_legacy_parenthesized_type_arguments() {
 
     let output = parse(&source);
 
-    assert_eq!(output.diagnostics.len(), 3, "{:#?}", output.diagnostics);
-    assert!(
-        output
-            .diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.id == "parse.legacy_type_argument_delimiters")
-    );
-    assert!(
-        output
-            .diagnostics
-            .iter()
-            .all(|diagnostic| !diagnostic.repair_candidates.is_empty())
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Function(make) = &output.tree.items[0] else {
+        panic!("expected function declaration");
+    };
+    assert_eq!(make.params[0].ty.as_deref(), Some("Result(Int, String)"));
+    assert_eq!(
+        make.return_type.as_deref(),
+        Some("Box(Result(Int, String))")
     );
 }
 

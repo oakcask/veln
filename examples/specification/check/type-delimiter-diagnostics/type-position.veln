@@ -1,0 +1,4 @@
+# Legacy type constructor arguments are invalid annotations, not repairable parse delimiters.
+fn make(value: Result(Int, String)) -> ()
+	()
+end

@@ -30,12 +30,12 @@ and completion evidence.
   [../../specification/types.md](../../specification/types.md).
 - Standard concurrency call spelling:
   [../../specification/names-effects.md](../../specification/names-effects.md).
-- Parse diagnostics and repair candidates:
+- Parse diagnostics and repair candidate boundaries:
   [../../specification/diagnostics-json.md](../../specification/diagnostics-json.md)
   and
   [../../specification/repair-candidates.md](../../specification/repair-candidates.md).
-- Executable examples cover type-delimiter diagnostics, type-delimiter repair,
-  and concurrency run calls in the specification example suite.
+- Executable examples cover type-delimiter diagnostics, repair refusal, and
+  concurrency run calls in the specification example suite.
 
 ## Notes
 

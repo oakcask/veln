@@ -1,4 +1,0 @@
-# Safe parse delimiter repairs replace a complete type parameter list.
-type Box(A)
-	Wrap(A)
-end

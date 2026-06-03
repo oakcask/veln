@@ -64,11 +64,10 @@ detail uses `strategy: "insert_token"` with `anchor: "newline"`.
 Malformed `let` patterns report `parse.pattern` when the pattern parser leaves
 extra tokens before the `=`. The recovery detail uses
 `strategy: "insert_token"` and expects `pattern end`.
-Legacy type parameter delimiters, type-position argument delimiters, and
-call-level square-bracket explicit type arguments report parse diagnostics at
-the rejected opening delimiter. When the matching closing delimiter is present,
-the parse details include one safe candidate with replacement edits for both
-delimiters.
+Legacy type parameter delimiters and call-level square-bracket explicit type
+arguments report ordinary parse diagnostics. Legacy parenthesized type
+constructor arguments in type positions report invalid type annotations after
+syntax parsing. These cases do not include delimiter replacement candidates.
 
 Name diagnostic `details` are stable for unresolved names, duplicate names,
 and public alias kind mismatches:

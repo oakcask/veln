@@ -1,8 +1,4 @@
-# Legacy type delimiters produce parse diagnostics with safe replacements.
+# Legacy type parameter delimiters use ordinary parse recovery.
 type Box(A)
 	Wrap(A)
-end
-
-fn make(value: Result(Int, String)) -> ()
-	channel::bounded[String](1)
 end
