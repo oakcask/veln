@@ -46,8 +46,8 @@ package manifests as the redistribution boundary.
 - Introduce packages as the unit that redistributes multiple modules.
 - Require each package manifest to declare a globally unique package name.
 - Remove `[modules]` from `veln.toml`.
-- Add `[lib].exports` as the manifest list of source modules exported outside
-  the package.
+- Add `[lib].exports` as the manifest list of package-relative source files
+  exported outside the package.
 
 ## Module Identity
 
@@ -94,9 +94,30 @@ resolution. The imported module path remains available for qualified access, so
 callers may write a fully qualified path when that is clearer or when a bare
 name would conflict.
 
+Import conflict checks are intentionally delayed until a bare reference needs
+the imported name. A `use` declaration remains valid when its public names
+overlap with another imported module, the implicit prelude, or a local
+declaration. This permits modules to import broad public surfaces for qualified
+access without requiring authors to pre-resolve every possible bare-name
+collision. The conflict becomes a diagnostic only when the current source uses
+the shared name bare and no local declaration or binding shadows the imported
+names.
+
 The imported public surface is limited to declarations and aliases explicitly
 public in the target module. Private declarations remain reachable only inside
 their defining module.
+
+`use foo::bar` does not also bind a short module alias such as `bar`.
+Qualified access uses the imported module path itself, such as
+`foo::bar::name`. This keeps `use` from synthesizing extra names beyond the
+public names it imports and avoids ambiguity when multiple imported module
+paths share the same final segment.
+
+Same-package qualified access also requires a written `use` declaration. A
+module may not reach another same-package module solely by spelling the full
+module path at the use site. This keeps dependency edges explicit, lets source
+selection follow imports instead of arbitrary qualified references, and matches
+the rule that qualified calls do not fall back to unrelated bare names.
 
 ## External Package Imports
 
@@ -104,6 +125,7 @@ Modules from another package use a package source clause:
 
 ```veln
 use foo from "github.com/oakcask/foo"
+use sub::module from "github.com/oakcask/foo"
 ```
 
 The string identifies the external package by its globally unique package
@@ -111,13 +133,26 @@ name. The module path before `from` is resolved inside that package, not the
 current package. The declaration imports the public names of the exported
 module into the current scope.
 
+External imports may name exported submodules. The `from` clause selects only
+the package; it does not imply a package-root prefix and does not rewrite the
+module path. For example, `use sub::module from "github.com/oakcask/foo"`
+resolves module `sub::module` inside package `github.com/oakcask/foo`.
+
 External imports must resolve only to modules listed by the dependency
 package's public export list. A package may contain private helper modules that
 are importable from within the same package but unavailable to other packages.
 
-This proposal defines the source-level and manifest-level shape only. Version
-selection, package fetching, lockfiles, registry behavior, vendoring, and
-authentication are separate package manager design questions.
+External imports are source-level references to already declared package
+dependencies. They do not choose versions, fetch packages, authorize network
+access, or bypass dependency metadata. Package manager metadata supplies the
+source and lockfile facts described in
+[Package Manager Implications](#package-manager-implications).
+
+Package names are URL-like globally unique identity strings. The identity is
+stable source-level metadata, not necessarily a direct fetch URL. A package
+manager may resolve a package name through git remotes, dependency metadata,
+mirrors, lockfiles, or vendored sources, but source imports continue to name the
+package identity.
 
 ## Package Manifest
 
@@ -138,14 +173,36 @@ exports = [
 imports. The value is a string and must be present for a multi-module package
 that is intended to be redistributed.
 
+The package name should be URL-like so authors can create decentralized names
+without a central package registry. For example, a package may use a name such
+as `github.com/oakcask/foo` or `codeberg.org/team/lib` while the package
+manager records the concrete git remote, selected revision, and verification
+data separately. A fetched package's manifest name must match the identity that
+requested it.
+
 `[lib].exports` lists package-relative `.veln` source paths that are public to
-other packages. Each listed file must exist, derive a valid module path, and be
-inside the package source tree. The list exports modules, not individual names;
-the module's own `pub` declarations define the names external packages can
-import.
+other packages. It does not accept module paths, and a manifest must not mix
+file paths with module paths. Each listed file must exist, derive a valid
+module path, and be inside the package source tree. The list exports modules,
+not individual names; the module's own `pub` declarations define the names
+external packages can import.
 
 The manifest does not rename modules. Renaming a module means moving or
 renaming the source file.
+
+Packages do not have an implicit or conventional root module. A file named
+`lib.veln`, `main.veln`, or with the same stem as the final package-name
+segment is an ordinary module unless it is listed in `[lib].exports` and
+imported by its derived module path. Authors that want a root-like public
+module should create and export the corresponding source file explicitly.
+
+File paths are the manifest format because the manifest describes the package's
+redistribution surface over concrete source files. The compiler derives module
+paths from those files using the same rule as local source discovery, which
+keeps export validation tied to existence, path containment, duplicate module
+derivation, and invalid path segments. Accepting module paths in the manifest
+would create a second spelling for the same export surface without adding a
+rename mechanism.
 
 ## Diagnostics
 
@@ -156,13 +213,17 @@ manifest span:
   headers.
 - A `use` path contains `.` as a module delimiter: module paths use `::`.
 - A local `use foo::bar` has no matching source file in the current package.
-- An external `use foo from "package"` names a package that is unavailable or
-  a module that the package does not export.
+- A qualified same-package path names a module that is not imported by a
+  written `use` declaration.
+- A bare reference could resolve to public names from multiple imported
+  modules and is not shadowed by a local declaration or binding.
+- An external `use path from "package"` names a package that is unavailable or
+  a module path that the package does not export.
 - A source path segment cannot become a module identifier.
 - Multiple files derive the same module path.
 - `[modules]` appears in `veln.toml`.
-- `[lib].exports` lists a missing file, a non-source file, a duplicate module,
-  or a path outside the package source tree.
+- `[lib].exports` lists a missing file, a non-source file, a module path, a
+  duplicate module, or a path outside the package source tree.
 
 Related notes should point to the conflicting source file, manifest entry,
 export list, or imported module when that context is available.
@@ -244,28 +305,103 @@ When implemented, update:
   `foo` and `foo::bar`.
 - `use foo::bar` resolves to the corresponding source file in the current
   package and imports public names from that module.
+- `use foo::bar` permits qualified access through `foo::bar::name` but does
+  not create a short `bar::name` alias.
+- `use foo::bar` and `use baz::bar` may coexist when they expose the same
+  public name, but a bare reference to that shared name is rejected as
+  ambiguous unless a local declaration or binding shadows the imported names.
+- Same-package qualified access without a matching written `use` declaration
+  is rejected, even when the fully qualified module path maps to an existing
+  package source file.
 - `use foo from "github.com/oakcask/foo"` resolves module `foo` from the named
   package and imports only public names from an exported module.
+- `use sub::module from "github.com/oakcask/foo"` resolves module
+  `sub::module` from the named package and imports only public names from an
+  exported module.
 - `use foo.bar` is rejected as module-path syntax.
 - `veln.toml` rejects `[modules]`.
 - `veln.toml` accepts `[package].name` and `[lib].exports`, and validates that
   exported paths derive real package modules.
+- `veln.toml` does not implicitly export or privilege `lib.veln`, `main.veln`,
+  or a module matching the final package-name segment.
 - Current package private modules are usable by other modules in the same
   package but are not importable from external packages unless exported.
 
-## Open Questions
+## Package Manager Implications
 
-- Should `use foo::bar` import only bare public names, or should it also bind a
-  short alias such as `bar` for qualified paths?
-- Should same-package modules require `use` before any qualified access, or
-  should fully qualified same-package paths always resolve?
-- Should a package have a conventional root module such as `lib.veln`,
-  `main.veln`, or a module matching the final package-name segment?
-- Should `[lib].exports` list file paths, module paths, or both? File paths
-  make export validation direct, while module paths align with source syntax.
-- Should package names be opaque strings, URL-like names, or normalized source
-  identifiers with a separate registry namespace?
-- Should external imports support submodules, for example
-  `use sub::module from "github.com/oakcask/foo"`?
-- Should import conflicts be rejected at the `use` declaration or only when a
-  bare reference is ambiguous?
+External imports do not authorize network fetching by themselves. Package
+manager commands should require dependency metadata that maps a package
+identity to a concrete source, such as a git remote, version selector,
+revision, checksum, vendored directory, or mirror. A lockfile should record the
+resolved source separately from the package identity so the source-level import
+path remains stable when the retrieval route changes.
+
+This keeps Veln packages decentralized: a project can depend on git-hosted
+packages without publishing through a crate-style central registry, while still
+letting package manager tooling verify that the resolved package declares the
+expected `[package].name`.
+
+Dependency table keys are package identities. The key must be the same string
+that source imports name in `from "package"` clauses, and the resolved
+package's `[package].name` must match that key. Source locations are not
+identities: a git remote, mirror, vendored directory, or local path only
+describes where the package manager finds the package with that identity.
+
+```toml
+[dependencies."github.com/oakcask/foo"]
+git = "https://github.com/oakcask/foo.git"
+tag = "v1.2.0"
+
+[dependencies."github.com/oakcask/bar"]
+git = "https://github.com/oakcask/mono.git"
+branch = "main"
+subdir = "packages/bar"
+
+[dependencies."github.com/oakcask/baz"]
+path = "../baz"
+```
+
+A git dependency must name a git remote and exactly one selector: `rev`, `tag`,
+or `branch`. The selector is the requested source. The lockfile records the
+resolved revision used for builds, so mutable selectors such as branches do not
+make a checked-in build depend on the current remote state.
+
+`subdir` is an optional package root inside the fetched repository. It lets a
+single repository publish multiple Veln packages while preserving each
+package's own identity and manifest. The package manager validates
+`[package].name` inside the selected subdirectory, not at the repository root
+unless `subdir` is absent.
+
+Path dependencies are first-class package sources, not local-only aliases. A
+path dependency points at a package root in the current workspace or checkout,
+and the target manifest's `[package].name` must match the dependency key. This
+supports publishable monorepo layouts: the package identity remains stable,
+while the path records how this checkout locates that package.
+
+The lockfile uses package identities as primary keys and stores the resolved
+source separately:
+
+```toml
+[[package]]
+name = "github.com/oakcask/bar"
+source = {
+  kind = "git",
+  url = "https://github.com/oakcask/mono.git",
+  selector = { branch = "main" },
+  rev = "...",
+  subdir = "packages/bar",
+}
+checksum = "sha256:..."
+```
+
+Every lockfile entry update generates a checksum for the package source tree
+that Veln will compile. The checksum verifies the package contents after source
+selection, including any `subdir`; it does not replace the resolved git
+revision. A package manager may use mirrors or vendored storage to obtain the
+source, but the lockfile entry must still preserve the package identity,
+resolved source, and checksum needed to verify the materialized package.
+
+The initial resolver should select at most one package instance for a package
+identity. If the dependency graph requires incompatible revisions for the same
+identity, resolution fails instead of loading multiple copies under one source
+import name.
