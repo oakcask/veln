@@ -142,9 +142,11 @@ External imports must resolve only to modules listed by the dependency
 package's public export list. A package may contain private helper modules that
 are importable from within the same package but unavailable to other packages.
 
-This proposal defines the source-level and manifest-level shape only. Version
-selection, package fetching, lockfiles, registry behavior, vendoring, and
-authentication are separate package manager design questions.
+External imports are source-level references to already declared package
+dependencies. They do not choose versions, fetch packages, authorize network
+access, or bypass dependency metadata. Package manager metadata supplies the
+source and lockfile facts described in
+[Package Manager Implications](#package-manager-implications).
 
 Package names are URL-like globally unique identity strings. The identity is
 stable source-level metadata, not necessarily a direct fetch URL. A package
@@ -339,7 +341,67 @@ packages without publishing through a crate-style central registry, while still
 letting package manager tooling verify that the resolved package declares the
 expected `[package].name`.
 
-## Open Questions
+Dependency table keys are package identities. The key must be the same string
+that source imports name in `from "package"` clauses, and the resolved
+package's `[package].name` must match that key. Source locations are not
+identities: a git remote, mirror, vendored directory, or local path only
+describes where the package manager finds the package with that identity.
 
-- What dependency table and lockfile keys should the package manager use for
-  git remotes, revisions, mirrors, vendored sources, and verification data?
+```toml
+[dependencies."github.com/oakcask/foo"]
+git = "https://github.com/oakcask/foo.git"
+tag = "v1.2.0"
+
+[dependencies."github.com/oakcask/bar"]
+git = "https://github.com/oakcask/mono.git"
+branch = "main"
+subdir = "packages/bar"
+
+[dependencies."github.com/oakcask/baz"]
+path = "../baz"
+```
+
+A git dependency must name a git remote and exactly one selector: `rev`, `tag`,
+or `branch`. The selector is the requested source. The lockfile records the
+resolved revision used for builds, so mutable selectors such as branches do not
+make a checked-in build depend on the current remote state.
+
+`subdir` is an optional package root inside the fetched repository. It lets a
+single repository publish multiple Veln packages while preserving each
+package's own identity and manifest. The package manager validates
+`[package].name` inside the selected subdirectory, not at the repository root
+unless `subdir` is absent.
+
+Path dependencies are first-class package sources, not local-only aliases. A
+path dependency points at a package root in the current workspace or checkout,
+and the target manifest's `[package].name` must match the dependency key. This
+supports publishable monorepo layouts: the package identity remains stable,
+while the path records how this checkout locates that package.
+
+The lockfile uses package identities as primary keys and stores the resolved
+source separately:
+
+```toml
+[[package]]
+name = "github.com/oakcask/bar"
+source = {
+  kind = "git",
+  url = "https://github.com/oakcask/mono.git",
+  selector = { branch = "main" },
+  rev = "...",
+  subdir = "packages/bar",
+}
+checksum = "sha256:..."
+```
+
+Every lockfile entry update generates a checksum for the package source tree
+that Veln will compile. The checksum verifies the package contents after source
+selection, including any `subdir`; it does not replace the resolved git
+revision. A package manager may use mirrors or vendored storage to obtain the
+source, but the lockfile entry must still preserve the package identity,
+resolved source, and checksum needed to verify the materialized package.
+
+The initial resolver should select at most one package instance for a package
+identity. If the dependency graph requires incompatible revisions for the same
+identity, resolution fails instead of loading multiple copies under one source
+import name.
