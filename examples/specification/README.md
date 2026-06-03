@@ -65,6 +65,12 @@ against the built `veln` binary.
   zero-diagnostic summary behavior.
 - `check/module-imports/`: `mod`, `use`, import aliases, unqualified public
   imports, qualified calls, and qualified pipeline targets.
+- `check/local-source-imports/`: source path derived module identity,
+  `use foo::bar`, bare public imports, and full-path qualified access.
+- `check/local-source-import-boundaries/`: `use foo::bar` does not create a
+  short `bar` module alias.
+- `check/source-path-module-diagnostics/`: invalid source path segments for
+  derived local module identity.
 - `check/import-reexport-boundary/`: `use` declarations let a module consume
   another module's public API without publishing that API through the consuming
   module's own qualified path.

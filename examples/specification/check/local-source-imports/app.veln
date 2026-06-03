@@ -1,0 +1,6 @@
+# Source file paths derive module identity, and local imports use module paths.
+use foo::bar
+
+pub fn main() -> Int
+	double(2) + foo::bar::double(3)
+end

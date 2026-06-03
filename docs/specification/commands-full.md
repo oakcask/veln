@@ -138,6 +138,11 @@ if a selected `[modules]` manifest entry drifts from the selected source
 `mod` declaration, `doc` emits human diagnostics on stderr, writes no
 documentation, and exits with failure.
 
+For `check`, `run`, and `test`, parse-clean package-relative sources in the
+implemented local `::` import slice derive local module identity from the
+selected `.veln` path. Path separators become `::`. Invalid module path
+segments produce module diagnostics before semantic diagnostics are reported.
+
 For each parse-clean selected source, `doc` emits the source module identity or
 `<anonymous>`, the source path, imports, public source `type` declarations,
 public constructors, and public `fn` declarations. Public `fn` documentation

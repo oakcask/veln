@@ -1,0 +1,13 @@
+command = ["check", "--json", "bad-name.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["source path segment cannot be used as a module identifier: `bad-name`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

@@ -6,8 +6,8 @@ smallest section to read before opening the full grammar notes.
 ## Read First
 
 - Module headers, imports, functions, tests, source ADT type declarations,
-  public member aliases, canonical `#` comments, `##` documentation comments,
-  doctests, and ADR-lite metadata:
+  source path derived local module identity, public member aliases, canonical
+  `#` comments, `##` documentation comments, doctests, and ADR-lite metadata:
   [source-surface-full.md](source-surface-full.md).
   Use [commands.md](commands.md) for formatter layout and canonical comment
   spelling behavior.

@@ -4,7 +4,7 @@ mod lower;
 mod model;
 mod satisfy;
 
-pub use lower::lower_surface_ast;
+pub use lower::{lower_surface_ast, lower_surface_ast_with_module_identity};
 pub use model::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,

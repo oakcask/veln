@@ -125,9 +125,17 @@ same function and to runtime `ensure` checks for tail-expression returns and
 `?` early returns, but not to `require` clauses, the function body, or callers.
 Bare `result` has no special meaning.
 
-`mod` declares the source module identity. The header is optional for a
-single-file source with no imports. A source file with one or more `use`
-declarations must declare `mod` before those imports.
+When a selected package-relative source has no `mod` declaration and
+participates in the implemented local `::` import slice, `check`, `run`, and
+`test` derive its local module identity from the selected `.veln` path. Path
+separators become `::`, so `foo/bar.veln` derives `foo::bar`. Each path segment
+must be a source module identifier. Invalid segments produce
+`module.invalid_source_path`.
+
+`mod` still declares source module identity for compatibility. With a source
+`mod` declaration, dotted module names and dotted imports remain accepted. A
+dotted compatibility import without a source module identity still reports
+`module.missing_identity`.
 
 When a project root contains `veln.toml`, the implemented manifest subset may
 list package metadata, tool metadata, and source modules:
@@ -156,18 +164,19 @@ source module. If the manifest name differs from the source `mod` name, or if
 the manifest names a selected source file that has no `mod` declaration, the
 checker reports module metadata drift.
 
-`use` declarations create module import aliases. The current alias is the final
-segment of the imported module path, so `use platform.io` declares the alias
-`io`. Calls may use that alias as a qualified function path, such as
-`io::read_line()`, when the imported module's source is part of the analyzed
-program. Public functions from imported modules are also available by bare
-name when exactly one import exposes that name and no local declaration shadows
-it. Every user module also has an implicit standard `prelude` import. Public
-prelude helpers are available by bare name under the same unambiguous import
-rule and by qualified paths such as `prelude::vec_len(items)`. The `prelude`
-module name and import alias are reserved for this standard import in user
-source. Public source ADT constructors may also use the import alias, either
-as `alias::Constructor` or `alias::Type::Constructor`.
+`use` declarations create local module imports. For source path derived
+modules, `use foo::bar` resolves to the selected source file deriving
+`foo::bar`. It imports public functions by bare name and permits qualified
+access through the written module path, such as `foo::bar::double()`. It does
+not create a short `bar` alias. Dotted compatibility imports still create an
+alias from the final segment of the imported module path, so
+`use platform.io` declares the alias `io`. Every user module also has an
+implicit standard `prelude` import. Public prelude helpers are available by
+bare name under the same unambiguous import rule and by qualified paths such
+as `prelude::vec_len(items)`. The `prelude` module name and import alias are
+reserved for this standard import in user source. Public source ADT
+constructors may also use the import alias, either as `alias::Constructor` or
+`alias::Type::Constructor`.
 
 Public `fn` declarations, public source `type` declarations, and public member
 aliases are the implemented public API boundary. Dedicated export lists are not

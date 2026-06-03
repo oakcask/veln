@@ -47,6 +47,7 @@ fn generate_markdown(project: &Project) -> GeneratedDocs {
             project,
             source.path().as_str(),
             &lowered,
+            parsed.tree.module.is_some(),
         ));
         sections.push(source_docs(source, &parsed.tree));
     }

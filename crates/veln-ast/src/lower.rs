@@ -1,3 +1,4 @@
+use veln_source::SourceSpan;
 use veln_syntax::{
     BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, ContractKind as SyntaxContractKind,
     DictEntry as SyntaxDictEntry, Expr as SyntaxExpr, ExprKind as SyntaxExprKind,
@@ -21,36 +22,62 @@ pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
         .module
         .as_ref()
         .map(|module| builder.lower_module_header(module));
-    let uses = tree
-        .uses
-        .iter()
-        .map(|use_decl| builder.lower_use_decl(use_decl))
-        .collect();
-    let mut types = Vec::new();
-    let mut functions = Vec::new();
-    let mut aliases = Vec::new();
-
     let module_name = module.as_ref().map(|module| module.name.clone());
-    for item in &tree.items {
-        match item {
-            SyntaxItem::Function(function) => {
-                functions.push(builder.lower_function(function, module_name.clone()));
-            }
-            SyntaxItem::Type(type_decl) => {
-                types.push(builder.lower_type_decl(type_decl, module_name.clone()));
-            }
-            SyntaxItem::PublicAlias(alias) => {
-                aliases.push(builder.lower_public_alias(alias, module_name.clone()));
+    builder.lower_surface_ast_with_module(tree, module, module_name)
+}
+
+pub fn lower_surface_ast_with_module_identity(
+    tree: &SyntaxTree,
+    name: String,
+    span: SourceSpan,
+) -> SurfaceModule {
+    let mut builder = AstBuilder { next_node_id: 1 };
+    let mut module = builder.lower_surface_ast_with_module(tree, None, Some(name.clone()));
+    module.module = Some(ModuleHeader {
+        node_id: builder.alloc(),
+        name,
+        span,
+    });
+    module
+}
+
+impl AstBuilder {
+    fn lower_surface_ast_with_module(
+        &mut self,
+        tree: &SyntaxTree,
+        module: Option<ModuleHeader>,
+        module_name: Option<String>,
+    ) -> SurfaceModule {
+        let uses = tree
+            .uses
+            .iter()
+            .map(|use_decl| self.lower_use_decl(use_decl))
+            .collect();
+        let mut types = Vec::new();
+        let mut functions = Vec::new();
+        let mut aliases = Vec::new();
+
+        for item in &tree.items {
+            match item {
+                SyntaxItem::Function(function) => {
+                    functions.push(self.lower_function(function, module_name.clone()));
+                }
+                SyntaxItem::Type(type_decl) => {
+                    types.push(self.lower_type_decl(type_decl, module_name.clone()));
+                }
+                SyntaxItem::PublicAlias(alias) => {
+                    aliases.push(self.lower_public_alias(alias, module_name.clone()));
+                }
             }
         }
-    }
 
-    SurfaceModule {
-        module,
-        uses,
-        aliases,
-        types,
-        functions,
+        SurfaceModule {
+            module,
+            uses,
+            aliases,
+            types,
+            functions,
+        }
     }
 }
 
@@ -58,6 +85,14 @@ fn lower_prefix_op(op: SyntaxPrefixOp) -> PrefixOp {
     match op {
         SyntaxPrefixOp::Not => PrefixOp::Not,
         SyntaxPrefixOp::Negate => PrefixOp::Negate,
+    }
+}
+
+fn import_alias(name: &str) -> String {
+    if name.contains("::") {
+        name.to_string()
+    } else {
+        name.split('.').next_back().unwrap_or(name).to_string()
     }
 }
 
@@ -102,12 +137,7 @@ impl AstBuilder {
         UseDecl {
             node_id: self.alloc(),
             name: use_decl.name.clone(),
-            alias: use_decl
-                .name
-                .split('.')
-                .next_back()
-                .unwrap_or(use_decl.name.as_str())
-                .to_string(),
+            alias: import_alias(&use_decl.name),
             span: use_decl.span.clone(),
         }
     }

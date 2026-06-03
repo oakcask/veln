@@ -1,6 +1,6 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
-use veln_ast::PublicAliasKind;
+use veln_ast::{PublicAliasKind, UseDecl};
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -300,12 +300,9 @@ fn function_target<'a>(
         [name] => module.functions.iter().find(|function| {
             function.kind == FunctionKind::Function && function.name.as_deref() == Some(name)
         }),
-        [alias, name] => {
-            let module_name = module
-                .uses
-                .iter()
-                .find(|use_decl| use_decl.alias == *alias)
-                .map(|use_decl| use_decl.name.as_str())?;
+        [_, .., name] => {
+            let module_name =
+                imported_module_for_path(&module.uses, &segments[..segments.len() - 1])?;
             module.functions.iter().find(|function| {
                 function.kind == FunctionKind::Function
                     && function.name.as_deref() == Some(name)
@@ -325,12 +322,9 @@ fn type_target<'a>(
             .types
             .iter()
             .find(|type_decl| type_decl.name.as_deref() == Some(name)),
-        [alias, name] => {
-            let module_name = module
-                .uses
-                .iter()
-                .find(|use_decl| use_decl.alias == *alias)
-                .map(|use_decl| use_decl.name.as_str())?;
+        [_, .., name] => {
+            let module_name =
+                imported_module_for_path(&module.uses, &segments[..segments.len() - 1])?;
             module.types.iter().find(|type_decl| {
                 type_decl.name.as_deref() == Some(name)
                     && type_decl.module_name.as_deref() == Some(module_name)
@@ -338,6 +332,13 @@ fn type_target<'a>(
         }
         _ => None,
     }
+}
+
+fn imported_module_for_path<'a>(uses: &'a [UseDecl], segments: &[String]) -> Option<&'a str> {
+    let module_path = segments.join("::");
+    uses.iter()
+        .find(|use_decl| use_decl.name == module_path || use_decl.alias == module_path)
+        .map(|use_decl| use_decl.name.as_str())
 }
 
 fn unresolved_alias_diagnostic(

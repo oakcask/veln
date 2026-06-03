@@ -18,6 +18,8 @@ Bare names resolve to local bindings. Function calls resolve to:
 - unambiguous public function exports from written imports by bare name
 - discovered function signatures through a `use` alias in `alias::function`
   form
+- source path derived local imports through their full written module path in
+  `module::path::function` form
 - public function aliases through the declaring module path
 - implicit standard prelude helper imports by bare name or `prelude::function`
   form
@@ -60,9 +62,13 @@ Record type annotations also require unique field names. Duplicate record type
 fields are reported through invalid type annotation diagnostics because they are
 part of annotation parsing rather than value-name resolution.
 
-Module boundary checks reject `use` declarations when the source file has no
-`mod` declaration. The diagnostic is `module.missing_identity` at the first
-`use` declaration and includes a repair hint in `related`.
+For selected package-relative sources in the implemented local `::` import
+slice, the command analysis path can derive local module identity from the
+source path before semantic checks run. Direct semantic analysis of a bare AST
+still rejects `use` declarations when no module identity is present. Dotted
+compatibility imports without a source module identity also report this
+boundary. The diagnostic is `module.missing_identity` at the first `use`
+declaration and includes a repair hint in `related`.
 User source cannot declare `mod prelude` or a written import whose final alias
 segment is `prelude`; both names are reserved for the implicit standard
 prelude import and report `name.reserved`.

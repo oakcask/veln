@@ -341,12 +341,9 @@ impl TypeEnvironment {
     pub(crate) fn function_path(&self, segments: &[String]) -> Option<&FunctionSignature> {
         match segments {
             [name] => self.function(name),
-            [alias, name] => {
-                let module_name = self
-                    .uses
-                    .iter()
-                    .find(|use_decl| use_decl.alias == *alias)
-                    .map(|use_decl| use_decl.name.as_str())?;
+            [_, .., name] => {
+                let module_name =
+                    imported_module_for_path(&self.uses, &segments[..segments.len() - 1])?;
                 self.functions.iter().find(|function| {
                     function.name == *name && function.module_name.as_deref() == Some(module_name)
                 })
@@ -399,11 +396,8 @@ fn function_signature_path<'a>(
 ) -> Option<&'a FunctionSignature> {
     match segments {
         [name] => functions.iter().find(|function| function.name == *name),
-        [alias, name] => {
-            let module_name = uses
-                .iter()
-                .find(|use_decl| use_decl.alias == *alias)
-                .map(|use_decl| use_decl.name.as_str())?;
+        [_, .., name] => {
+            let module_name = imported_module_for_path(uses, &segments[..segments.len() - 1])?;
             functions.iter().find(|function| {
                 function.name == *name && function.module_name.as_deref() == Some(module_name)
             })
@@ -693,11 +687,8 @@ fn effects_for_callee_path<'a>(
 ) -> &'a [String] {
     match segments {
         [name] => effects_for_bare_callee(name, bindings, effects_by_name),
-        [alias, name] => {
-            let Some(module_name) = uses
-                .iter()
-                .find(|use_decl| use_decl.alias == *alias)
-                .map(|use_decl| use_decl.name.as_str())
+        [_, .., name] => {
+            let Some(module_name) = imported_module_for_path(uses, &segments[..segments.len() - 1])
             else {
                 return &[];
             };
@@ -707,6 +698,13 @@ fn effects_for_callee_path<'a>(
         }
         _ => &[],
     }
+}
+
+fn imported_module_for_path<'a>(uses: &'a [UseDecl], segments: &[String]) -> Option<&'a str> {
+    let module_path = segments.join("::");
+    uses.iter()
+        .find(|use_decl| use_decl.name == module_path || use_decl.alias == module_path)
+        .map(|use_decl| use_decl.name.as_str())
 }
 
 fn effects_for_bare_callee<'a>(

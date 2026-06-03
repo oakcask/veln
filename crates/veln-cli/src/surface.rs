@@ -1,6 +1,6 @@
 use veln_ast::{
     Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind, PublicAliasKind, SurfaceModule,
-    UseDecl, lower_surface_ast,
+    UseDecl, lower_surface_ast, lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_project::ManifestModule;
@@ -17,16 +17,47 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
     let mut aliases = Vec::new();
     let mut types = Vec::new();
     let mut functions = Vec::new();
+    let mut derived_modules = Vec::<(String, SourceFile)>::new();
 
     for source in &project.files {
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
         if parsed.diagnostics.is_empty() {
-            let lowered = lower_surface_ast(&parsed.tree);
+            let lowered = if should_derive_module_identity(source, &parsed.tree) {
+                let derived_module = derive_source_module_path(source);
+                match &derived_module {
+                    Ok(module_name) => {
+                        if let Some((_, first_source)) = derived_modules
+                            .iter()
+                            .find(|(known_module, _)| known_module == module_name)
+                        {
+                            diagnostics.push(duplicate_derived_module_diagnostic(
+                                module_name,
+                                source,
+                                first_source,
+                            ));
+                        } else {
+                            derived_modules.push((module_name.clone(), source.clone()));
+                        }
+                    }
+                    Err(diagnostic) => diagnostics.push(diagnostic.clone()),
+                }
+                match derived_module {
+                    Ok(module_name) => lower_surface_ast_with_module_identity(
+                        &parsed.tree,
+                        module_name,
+                        source.span(veln_source::TextRange::new(0, 0)),
+                    ),
+                    Err(_) => lower_surface_ast(&parsed.tree),
+                }
+            } else {
+                lower_surface_ast(&parsed.tree)
+            };
             diagnostics.extend(validate_manifest_module(
                 project,
                 source.path().as_str(),
                 &lowered,
+                parsed.tree.module.is_some(),
             ));
             module = module.or(lowered.module);
             uses.extend(lowered.uses);
@@ -48,10 +79,132 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
     )
 }
 
+fn should_derive_module_identity(source: &SourceFile, tree: &veln_syntax::SyntaxTree) -> bool {
+    tree.module.is_none()
+        && !source.path().as_str().contains('#')
+        && !source.path().as_str().starts_with('/')
+        && (source.path().as_str().contains('/')
+            || !source
+                .path()
+                .as_str()
+                .strip_suffix(".veln")
+                .is_some_and(is_module_identifier)
+            || tree
+                .uses
+                .iter()
+                .any(|use_decl| use_decl.name.contains("::")))
+}
+
+fn derive_source_module_path(source: &SourceFile) -> Result<String, Diagnostic> {
+    let path = source.path().as_str();
+    let Some(without_extension) = path.strip_suffix(".veln") else {
+        return Err(invalid_source_module_path_diagnostic(
+            source,
+            path,
+            "source module files must use the `.veln` extension",
+        ));
+    };
+    let mut segments = Vec::new();
+    for segment in without_extension.split('/') {
+        if is_module_identifier(segment) {
+            segments.push(segment);
+        } else {
+            return Err(invalid_source_module_path_diagnostic(
+                source,
+                segment,
+                "source path segment cannot be used as a module identifier",
+            ));
+        }
+    }
+    Ok(segments.join("::"))
+}
+
+fn is_module_identifier(segment: &str) -> bool {
+    let mut chars = segment.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+}
+
+fn invalid_source_module_path_diagnostic(
+    source: &SourceFile,
+    segment: &str,
+    message: &'static str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "module.invalid_source_path",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("{message}: `{segment}`"),
+        Some(source.span(veln_source::TextRange::new(0, 0))),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("module_identity")),
+            ("source_path", JsonValue::string(source.path().as_str())),
+            ("segment", JsonValue::string(segment)),
+        ]),
+    )
+}
+
+fn duplicate_derived_module_diagnostic(
+    module_name: &str,
+    source: &SourceFile,
+    first_source: &SourceFile,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "module.duplicate_source_path",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!("multiple source files derive module path `{module_name}`"),
+        Some(source.span(veln_source::TextRange::new(0, 0))),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("module_identity")),
+            ("module_path", JsonValue::string(module_name)),
+            ("source_path", JsonValue::string(source.path().as_str())),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("duplicate_origin")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "The first source file deriving `{module_name}` is here."
+            )),
+        ),
+        (
+            "span",
+            JsonValue::object([
+                ("file", JsonValue::string(first_source.path().as_str())),
+                (
+                    "start",
+                    JsonValue::object([
+                        ("line", JsonValue::Number(1)),
+                        ("column", JsonValue::Number(1)),
+                        ("offset", JsonValue::Number(0)),
+                    ]),
+                ),
+                (
+                    "end",
+                    JsonValue::object([
+                        ("line", JsonValue::Number(1)),
+                        ("column", JsonValue::Number(1)),
+                        ("offset", JsonValue::Number(0)),
+                    ]),
+                ),
+            ]),
+        ),
+    ]));
+    diagnostic
+}
+
 pub(crate) fn validate_manifest_module(
     project: &Project,
     source_path: &str,
     module: &SurfaceModule,
+    source_has_mod: bool,
 ) -> Vec<Diagnostic> {
     let Some(manifest_module) = project.manifest.as_ref().and_then(|manifest| {
         manifest
@@ -62,8 +215,12 @@ pub(crate) fn validate_manifest_module(
         return Vec::new();
     };
 
-    let Some(source_module) = &module.module else {
+    if !source_has_mod {
         return vec![manifest_without_source_owner(manifest_module)];
+    }
+
+    let Some(source_module) = &module.module else {
+        return Vec::new();
     };
 
     if manifest_module.name == source_module.name {
@@ -306,11 +463,8 @@ fn target_for_alias_path<'a>(
 ) -> Option<&'a FunctionTarget> {
     match segments {
         [name] => function_targets.iter().find(|target| target.name == *name),
-        [alias, name] => {
-            let module_name = uses
-                .iter()
-                .find(|use_decl| use_decl.alias == *alias)
-                .map(|use_decl| use_decl.name.as_str())?;
+        [_, .., name] => {
+            let module_name = imported_module_for_path(uses, &segments[..segments.len() - 1])?;
             function_targets.iter().find(|target| {
                 target.name == *name && target.module_name.as_deref() == Some(module_name)
             })
@@ -837,11 +991,8 @@ fn resolve_function_reference(
                 module_name: target.target_module_name.clone(),
             })
             .collect(),
-        [alias, name] => {
-            let Some(module_name) = uses
-                .iter()
-                .find(|use_decl| use_decl.alias == *alias)
-                .map(|use_decl| use_decl.name.as_str())
+        [_, .., name] => {
+            let Some(module_name) = imported_module_for_path(uses, &segments[..segments.len() - 1])
             else {
                 return Vec::new();
             };
@@ -859,6 +1010,13 @@ fn resolve_function_reference(
         }
         _ => Vec::new(),
     }
+}
+
+fn imported_module_for_path<'a>(uses: &'a [UseDecl], segments: &[String]) -> Option<&'a str> {
+    let module_path = segments.join("::");
+    uses.iter()
+        .find(|use_decl| use_decl.name == module_path || use_decl.alias == module_path)
+        .map(|use_decl| use_decl.name.as_str())
 }
 
 fn push_reachable(callees: &mut Vec<ReachableFunction>, callee: ReachableFunction) {
