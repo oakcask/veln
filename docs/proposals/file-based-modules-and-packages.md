@@ -46,8 +46,8 @@ package manifests as the redistribution boundary.
 - Introduce packages as the unit that redistributes multiple modules.
 - Require each package manifest to declare a globally unique package name.
 - Remove `[modules]` from `veln.toml`.
-- Add `[lib].exports` as the manifest list of source modules exported outside
-  the package.
+- Add `[lib].exports` as the manifest list of package-relative source files
+  exported outside the package.
 
 ## Module Identity
 
@@ -139,13 +139,22 @@ imports. The value is a string and must be present for a multi-module package
 that is intended to be redistributed.
 
 `[lib].exports` lists package-relative `.veln` source paths that are public to
-other packages. Each listed file must exist, derive a valid module path, and be
-inside the package source tree. The list exports modules, not individual names;
-the module's own `pub` declarations define the names external packages can
-import.
+other packages. It does not accept module paths, and a manifest must not mix
+file paths with module paths. Each listed file must exist, derive a valid
+module path, and be inside the package source tree. The list exports modules,
+not individual names; the module's own `pub` declarations define the names
+external packages can import.
 
 The manifest does not rename modules. Renaming a module means moving or
 renaming the source file.
+
+File paths are the manifest format because the manifest describes the package's
+redistribution surface over concrete source files. The compiler derives module
+paths from those files using the same rule as local source discovery, which
+keeps export validation tied to existence, path containment, duplicate module
+derivation, and invalid path segments. Accepting module paths in the manifest
+would create a second spelling for the same export surface without adding a
+rename mechanism.
 
 ## Diagnostics
 
@@ -161,8 +170,8 @@ manifest span:
 - A source path segment cannot become a module identifier.
 - Multiple files derive the same module path.
 - `[modules]` appears in `veln.toml`.
-- `[lib].exports` lists a missing file, a non-source file, a duplicate module,
-  or a path outside the package source tree.
+- `[lib].exports` lists a missing file, a non-source file, a module path, a
+  duplicate module, or a path outside the package source tree.
 
 Related notes should point to the conflicting source file, manifest entry,
 export list, or imported module when that context is available.
@@ -261,8 +270,6 @@ When implemented, update:
   should fully qualified same-package paths always resolve?
 - Should a package have a conventional root module such as `lib.veln`,
   `main.veln`, or a module matching the final package-name segment?
-- Should `[lib].exports` list file paths, module paths, or both? File paths
-  make export validation direct, while module paths align with source syntax.
 - Should package names be opaque strings, URL-like names, or normalized source
   identifiers with a separate registry namespace?
 - Should external imports support submodules, for example
