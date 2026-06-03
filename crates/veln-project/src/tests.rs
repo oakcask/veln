@@ -210,7 +210,7 @@ fn project_discover_reads_manifest_with_explicit_inputs() {
     let temp = TempProject::new("project-discover-explicit-manifest");
     temp.write("src/main.veln", "mod app.main\n");
     temp.write("src/extra.veln", "mod app.extra\n");
-    temp.write("veln.toml", "[modules]\n\"src/main.veln\" = \"app.main\"\n");
+    temp.write("veln.toml", "[lib]\nexports = [\"src/main.veln\"]\n");
 
     let project = Project::discover(
         temp.root().to_path_buf(),
@@ -225,9 +225,8 @@ fn project_discover_reads_manifest_with_explicit_inputs() {
         .collect::<Vec<_>>();
     let manifest = project.manifest.expect("manifest should be loaded");
     assert_eq!(files, vec!["src/extra.veln".to_string()]);
-    assert_eq!(manifest.modules.len(), 1);
-    assert_eq!(manifest.modules[0].path, "src/main.veln");
-    assert_eq!(manifest.modules[0].name, "app.main");
+    assert_eq!(manifest.lib.exports.len(), 1);
+    assert_eq!(manifest.lib.exports[0].path, "src/main.veln");
 }
 
 #[test]
@@ -251,20 +250,19 @@ fn project_discover_reports_missing_absolute_explicit_file() {
 }
 
 #[test]
-fn project_discover_reads_manifest_module_entries() {
-    let temp = TempProject::new("manifest-modules");
+fn project_discover_reads_manifest_lib_exports() {
+    let temp = TempProject::new("manifest-lib-exports");
     temp.write("src/main.veln", "mod app.main\n");
-    temp.write("veln.toml", "[modules]\n\"src/main.veln\" = \"app.main\"\n");
+    temp.write("veln.toml", "[lib]\nexports = [\"src/main.veln\"]\n");
 
     let project = Project::discover(temp.root().to_path_buf(), &[]).unwrap();
     let manifest = project.manifest.expect("manifest should be loaded");
 
     assert_eq!(manifest.path.as_str(), "veln.toml");
-    assert_eq!(manifest.modules.len(), 1);
-    assert_eq!(manifest.modules[0].path, "src/main.veln");
-    assert_eq!(manifest.modules[0].name, "app.main");
-    assert_eq!(manifest.modules[0].path_span.start.line, 2);
-    assert_eq!(manifest.modules[0].name_span.start.column, 20);
+    assert_eq!(manifest.lib.exports.len(), 1);
+    assert_eq!(manifest.lib.exports[0].path, "src/main.veln");
+    assert_eq!(manifest.lib.exports[0].path_span.start.line, 2);
+    assert_eq!(manifest.lib.exports[0].path_span.start.column, 13);
 }
 
 #[test]
@@ -277,21 +275,23 @@ fn read_manifest_returns_none_when_manifest_is_absent() {
 }
 
 #[test]
-fn read_manifest_tracks_modules_sections_and_ignores_non_entries() {
-    let temp = TempProject::new("manifest-sections");
+fn read_manifest_tracks_lib_exports_and_ignores_other_sections() {
+    let temp = TempProject::new("manifest-lib-sections");
     temp.write(
         "veln.toml",
         concat!(
             "[package]\n",
             "\"ignored.veln\" = \"ignored.module\"\n",
-            "[modules]\n",
+            "[lib]\n",
             "# comment\n",
             "not-an-entry\n",
-            "\"src/main.veln\" = \"app.main\"\n",
+            "exports = [\"src/main.veln\"]\n",
             "[other]\n",
             "\"ignored-again.veln\" = \"ignored.again\"\n",
-            "[modules]\n",
-            "  \"src/lib.veln\"   =   \"app.lib\"\n",
+            "[lib]\n",
+            "exports = [\n",
+            "  \"src/lib.veln\",\n",
+            "]\n",
         ),
     );
 
@@ -300,17 +300,13 @@ fn read_manifest_tracks_modules_sections_and_ignores_non_entries() {
         .expect("manifest should be loaded");
 
     assert_eq!(manifest.path.as_str(), "veln.toml");
-    assert_eq!(manifest.modules.len(), 2);
-    assert_eq!(manifest.modules[0].path, "src/main.veln");
-    assert_eq!(manifest.modules[0].name, "app.main");
-    assert_eq!(manifest.modules[0].path_span.start.line, 6);
-    assert_eq!(manifest.modules[0].path_span.start.column, 2);
-    assert_eq!(manifest.modules[0].name_span.start.column, 20);
-    assert_eq!(manifest.modules[1].path, "src/lib.veln");
-    assert_eq!(manifest.modules[1].name, "app.lib");
-    assert_eq!(manifest.modules[1].path_span.start.line, 10);
-    assert_eq!(manifest.modules[1].path_span.start.column, 4);
-    assert_eq!(manifest.modules[1].name_span.start.column, 25);
+    assert_eq!(manifest.lib.exports.len(), 2);
+    assert_eq!(manifest.lib.exports[0].path, "src/main.veln");
+    assert_eq!(manifest.lib.exports[0].path_span.start.line, 6);
+    assert_eq!(manifest.lib.exports[0].path_span.start.column, 13);
+    assert_eq!(manifest.lib.exports[1].path, "src/lib.veln");
+    assert_eq!(manifest.lib.exports[1].path_span.start.line, 11);
+    assert_eq!(manifest.lib.exports[1].path_span.start.column, 4);
 }
 
 #[test]
@@ -327,8 +323,8 @@ fn read_manifest_tracks_package_and_tool_string_fields() {
             "template = \"reference\"\n",
             "[tool.docs]\n",
             "output = \"docs/api.md\"\n",
-            "[modules]\n",
-            "\"src/main.veln\" = \"demo.main\"\n",
+            "[lib]\n",
+            "exports = [\"src/main.veln\"]\n",
         ),
     );
 
@@ -349,134 +345,114 @@ fn read_manifest_tracks_package_and_tool_string_fields() {
     assert_eq!(manifest.tools[0].fields[0].value, "reference");
     assert_eq!(manifest.tools[0].fields[1].key, "output");
     assert_eq!(manifest.tools[0].fields[1].value, "docs/api.md");
-    assert_eq!(manifest.modules.len(), 1);
+    assert_eq!(manifest.lib.exports.len(), 1);
 }
 
 #[test]
-fn read_manifest_accepts_crlf_lines_and_trailing_entry_text() {
-    let temp = TempProject::new("manifest-crlf");
+fn read_manifest_accepts_crlf_export_arrays_and_trailing_text() {
+    let temp = TempProject::new("manifest-export-crlf");
     temp.write(
         "veln.toml",
-        "[modules]\r\n  \"src/main.veln\" = \"app.main\" # owner note\r\n",
+        "[lib]\r\n  exports = [\"src/main.veln\"] # owner note\r\n",
     );
 
     let manifest = read_manifest(temp.root())
         .unwrap()
         .expect("manifest should be loaded");
 
-    assert_eq!(manifest.modules.len(), 1);
-    assert_eq!(manifest.modules[0].path, "src/main.veln");
-    assert_eq!(manifest.modules[0].name, "app.main");
-    assert_eq!(manifest.modules[0].path_span.start.line, 2);
-    assert_eq!(manifest.modules[0].path_span.start.column, 4);
-    assert_eq!(manifest.modules[0].name_span.start.line, 2);
-    assert_eq!(manifest.modules[0].name_span.start.column, 22);
+    assert_eq!(manifest.lib.exports.len(), 1);
+    assert_eq!(manifest.lib.exports[0].path, "src/main.veln");
+    assert_eq!(manifest.lib.exports[0].path_span.start.line, 2);
+    assert_eq!(manifest.lib.exports[0].path_span.start.column, 15);
 }
 
 #[test]
-fn read_manifest_accepts_final_entry_without_newline() {
-    let temp = TempProject::new("manifest-final-entry");
-    temp.write("veln.toml", "[modules]\n\"src/main.veln\" = \"app.main\"");
+fn read_manifest_accepts_final_export_without_newline() {
+    let temp = TempProject::new("manifest-final-export");
+    temp.write("veln.toml", "[lib]\nexports = [\"src/main.veln\"]");
 
     let manifest = read_manifest(temp.root())
         .unwrap()
         .expect("manifest should be loaded");
 
-    assert_eq!(manifest.modules.len(), 1);
-    assert_eq!(manifest.modules[0].path, "src/main.veln");
-    assert_eq!(manifest.modules[0].name, "app.main");
-    assert_eq!(manifest.modules[0].path_span.start.line, 2);
-    assert_eq!(manifest.modules[0].name_span.start.column, 20);
+    assert_eq!(manifest.lib.exports.len(), 1);
+    assert_eq!(manifest.lib.exports[0].path, "src/main.veln");
+    assert_eq!(manifest.lib.exports[0].path_span.start.line, 2);
+    assert_eq!(manifest.lib.exports[0].path_span.start.column, 13);
 }
 
 #[test]
-fn read_manifest_tracks_module_entry_value_span_ends() {
-    let temp = TempProject::new("manifest-value-span-ends");
-    temp.write(
-        "veln.toml",
-        "[modules]\n  \"src/main.veln\" = \"app.main\"\n",
-    );
+fn read_manifest_tracks_export_path_span_ends() {
+    let temp = TempProject::new("manifest-export-span-ends");
+    temp.write("veln.toml", "[lib]\n  exports = [\"src/main.veln\"]\n");
 
     let manifest = read_manifest(temp.root())
         .unwrap()
         .expect("manifest should be loaded");
 
-    let module = &manifest.modules[0];
-    assert_eq!(module.path_span.start.line, 2);
-    assert_eq!(module.path_span.start.column, 4);
-    assert_eq!(module.path_span.end.line, 2);
-    assert_eq!(module.path_span.end.column, 17);
-    assert_eq!(module.name_span.start.line, 2);
-    assert_eq!(module.name_span.start.column, 22);
-    assert_eq!(module.name_span.end.line, 2);
-    assert_eq!(module.name_span.end.column, 30);
+    let export = &manifest.lib.exports[0];
+    assert_eq!(export.path_span.start.line, 2);
+    assert_eq!(export.path_span.start.column, 15);
+    assert_eq!(export.path_span.end.line, 2);
+    assert_eq!(export.path_span.end.column, 28);
 }
 
 #[test]
-fn read_manifest_tracks_empty_module_name_span() {
-    let temp = TempProject::new("manifest-empty-module-name");
-    temp.write("veln.toml", "[modules]\n\"src/main.veln\" = \"\"\n");
+fn read_manifest_tracks_empty_export_path_span() {
+    let temp = TempProject::new("manifest-empty-export-path");
+    temp.write("veln.toml", "[lib]\nexports = [\"\"]\n");
 
     let manifest = read_manifest(temp.root())
         .unwrap()
         .expect("manifest should be loaded");
 
-    let module = &manifest.modules[0];
-    assert_eq!(module.name, "");
-    assert_eq!(module.name_span.start.line, 2);
-    assert_eq!(module.name_span.start.column, 20);
-    assert_eq!(module.name_span.end.line, 2);
-    assert_eq!(module.name_span.end.column, 20);
+    let export = &manifest.lib.exports[0];
+    assert_eq!(export.path, "");
+    assert_eq!(export.path_span.start.line, 2);
+    assert_eq!(export.path_span.start.column, 13);
+    assert_eq!(export.path_span.end.line, 2);
+    assert_eq!(export.path_span.end.column, 13);
 }
 
 #[test]
-fn read_manifest_tracks_empty_module_path_span() {
-    let temp = TempProject::new("manifest-empty-module-path");
-    temp.write("veln.toml", "[modules]\n\"\" = \"app.main\"\n");
+fn read_manifest_accepts_empty_exports_array() {
+    let temp = TempProject::new("manifest-empty-exports");
+    temp.write("veln.toml", "[lib]\nexports = []\n");
 
     let manifest = read_manifest(temp.root())
         .unwrap()
         .expect("manifest should be loaded");
 
-    let module = &manifest.modules[0];
-    assert_eq!(module.path, "");
-    assert_eq!(module.path_span.start.line, 2);
-    assert_eq!(module.path_span.start.column, 2);
-    assert_eq!(module.path_span.end.line, 2);
-    assert_eq!(module.path_span.end.column, 2);
-    assert_eq!(module.name, "app.main");
+    assert!(manifest.lib.exports.is_empty());
 }
 
 #[test]
-fn read_manifest_tracks_indented_empty_module_path_span() {
-    let temp = TempProject::new("manifest-indented-empty-module-path");
-    temp.write("veln.toml", "[modules]\n  \"\" = \"app.main\"\n");
+fn read_manifest_tracks_modules_as_unsupported_section() {
+    let temp = TempProject::new("manifest-unsupported-modules");
+    temp.write("veln.toml", "[modules]\n\"main.veln\" = \"app.main\"\n");
 
     let manifest = read_manifest(temp.root())
         .unwrap()
         .expect("manifest should be loaded");
 
-    let module = &manifest.modules[0];
-    assert_eq!(module.path, "");
-    assert_eq!(module.path_span.start.line, 2);
-    assert_eq!(module.path_span.start.column, 4);
-    assert_eq!(module.path_span.end.line, 2);
-    assert_eq!(module.path_span.end.column, 4);
-    assert_eq!(module.name, "app.main");
-    assert_eq!(module.name_span.start.line, 2);
-    assert_eq!(module.name_span.start.column, 9);
+    assert!(manifest.lib.exports.is_empty());
+    assert_eq!(manifest.unsupported_sections.len(), 1);
+    assert_eq!(manifest.unsupported_sections[0].name, "modules");
+    assert_eq!(manifest.unsupported_sections[0].span.start.line, 1);
+    assert_eq!(manifest.unsupported_sections[0].span.start.column, 2);
 }
 
 #[test]
-fn read_manifest_accepts_modules_header_without_entries() {
-    let temp = TempProject::new("manifest-empty-modules");
+fn read_manifest_accepts_modules_header_without_entries_as_unsupported() {
+    let temp = TempProject::new("manifest-empty-unsupported-modules");
     temp.write("veln.toml", "[modules]");
 
     let manifest = read_manifest(temp.root())
         .unwrap()
         .expect("manifest should be loaded");
 
-    assert!(manifest.modules.is_empty());
+    assert!(manifest.lib.exports.is_empty());
+    assert_eq!(manifest.unsupported_sections.len(), 1);
 }
 
 #[test]
@@ -487,8 +463,8 @@ fn read_manifest_accepts_trailing_text_after_section_headers() {
         concat!(
             "[package] # ignored section\n",
             "\"ignored.veln\" = \"ignored.module\"\n",
-            "[modules] # source modules\n",
-            "\"src/main.veln\" = \"app.main\"\n",
+            "[lib] # source exports\n",
+            "exports = [\"src/main.veln\"]\n",
             "[other] # ignored again\n",
             "\"ignored-again.veln\" = \"ignored.again\"\n",
         ),
@@ -498,25 +474,23 @@ fn read_manifest_accepts_trailing_text_after_section_headers() {
         .unwrap()
         .expect("manifest should be loaded");
 
-    assert_eq!(manifest.modules.len(), 1);
-    assert_eq!(manifest.modules[0].path, "src/main.veln");
-    assert_eq!(manifest.modules[0].name, "app.main");
-    assert_eq!(manifest.modules[0].path_span.start.line, 4);
-    assert_eq!(manifest.modules[0].name_span.start.column, 20);
+    assert_eq!(manifest.lib.exports.len(), 1);
+    assert_eq!(manifest.lib.exports[0].path, "src/main.veln");
+    assert_eq!(manifest.lib.exports[0].path_span.start.line, 4);
 }
 
 #[test]
-fn read_manifest_ignores_malformed_module_entries() {
-    let temp = TempProject::new("manifest-malformed-entries");
+fn read_manifest_ignores_malformed_export_entries() {
+    let temp = TempProject::new("manifest-malformed-exports");
     temp.write(
         "veln.toml",
         concat!(
-            "[modules]\n",
-            "src/main.veln = \"app.main\"\n",
-            "\"src/missing-equals.veln\" \"app.missing_equals\"\n",
-            "\"src/missing-name.veln\" = app.missing_name\n",
-            "\"src/unclosed.veln = \"app.unclosed\"\n",
-            "\"src/lib.veln\" = \"app.lib\"\n",
+            "[lib]\n",
+            "exports = [\n",
+            "src/main.veln,\n",
+            "\"src/unclosed.veln,\n",
+            "\"src/lib.veln\",\n",
+            "]\n",
         ),
     );
 
@@ -524,10 +498,9 @@ fn read_manifest_ignores_malformed_module_entries() {
         .unwrap()
         .expect("manifest should be loaded");
 
-    assert_eq!(manifest.modules.len(), 1);
-    assert_eq!(manifest.modules[0].path, "src/lib.veln");
-    assert_eq!(manifest.modules[0].name, "app.lib");
-    assert_eq!(manifest.modules[0].path_span.start.line, 6);
+    assert_eq!(manifest.lib.exports.len(), 1);
+    assert_eq!(manifest.lib.exports[0].path, "src/lib.veln");
+    assert_eq!(manifest.lib.exports[0].path_span.start.line, 5);
 }
 
 struct TempProject {

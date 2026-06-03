@@ -1,4 +1,0 @@
-[modules]
-"main.veln" = "spec.manifest"
-"ownerless.veln" = "spec.ownerless"
-"unselected.veln" = "spec.unselected_manifest"

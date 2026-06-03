@@ -1,4 +1,0 @@
-# Manifest module metadata cannot rename the source module owner.
-pub fn main() -> ()
-	()
-end

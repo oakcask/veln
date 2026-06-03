@@ -58,6 +58,8 @@ behavior.
   [public-member-alias-reexports.md](public-member-alias-reexports.md).
 - Implicit prelude and unqualified imports:
   [implicit-prelude-and-unqualified-imports.md](implicit-prelude-and-unqualified-imports.md).
+- Package export manifest surface:
+  [package-export-manifest-surface.md](package-export-manifest-surface.md).
 
 ## Skip Unless Needed
 

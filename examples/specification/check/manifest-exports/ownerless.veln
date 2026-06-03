@@ -1,0 +1,4 @@
+# A selected helper source can also be exported by file path.
+pub fn helper() -> ()
+	()
+end

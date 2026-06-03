@@ -30,6 +30,6 @@ The following behavior is not fixed by this reference:
 - Source-decision history that predates the categorized reference files.
 - The exact shape of kind-specific diagnostic `details` fields not listed in
   [diagnostics-json.md](diagnostics-json.md).
-- Package manifests beyond implemented package fields, tool fields, module
-  validation, imports, modules beyond source discovery, and the exact on-disk
-  layout of build caches.
+- Package manifests beyond implemented package fields, tool fields,
+  `[lib].exports` validation, imports, modules beyond source discovery, and
+  the exact on-disk layout of build caches.

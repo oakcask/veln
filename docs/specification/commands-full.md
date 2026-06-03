@@ -59,14 +59,13 @@ selects `.veln` files below the current project root, skipping `.git` and
 `target`. Explicit directories are searched recursively. The final discovered
 file list is sorted and deduplicated.
 
-If the current project root contains `veln.toml`, the command reads the
-implemented `[modules]` manifest table after source discovery. Manifest module
-entries are validated only for selected source files; they do not add files to
-the selected set and do not override path-derived source module identity. A
-selected manifest module entry with a module name must match the selected
-file's derived module path. Otherwise, the manifest name is reported as
-metadata drift because the package-relative source path owns compiler-visible
-module identity.
+If the current project root contains `veln.toml`, the command reads package
+and tool metadata plus the implemented `[lib].exports` manifest list after
+source discovery. Export entries do not add files to the selected set. Each
+export must be a package-relative `.veln` source path, must use file-path
+spelling instead of module-path spelling, must derive a valid source module
+path, must match a selected source file, and must not duplicate another export
+for the same derived module path. `[modules]` is rejected.
 
 Semantic diagnostics are suppressed for a file that has parse diagnostics.
 Other parse-clean files in the same invocation may still produce semantic
@@ -134,9 +133,8 @@ metadata from `veln.toml` when present. The generated module section states
 that no source modules were selected.
 
 The command has a parse gate. If any selected source has parse diagnostics, or
-if a selected `[modules]` manifest entry drifts from the selected source path's
-derived module identity, `doc` emits human diagnostics on stderr, writes no
-documentation, and exits with failure.
+if manifest validation reports errors, `doc` emits human diagnostics on
+stderr, writes no documentation, and exits with failure.
 
 For `check`, `run`, `test`, and `doc`, parse-clean package-relative sources
 derive local module identity from the selected `.veln` path. Path separators

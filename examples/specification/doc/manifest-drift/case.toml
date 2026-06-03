@@ -1,9 +1,0 @@
-command = ["doc", "main.veln"]
-exit = 1
-
-[stdout]
-format = "empty"
-
-[stderr]
-format = "text"
-contains = ["veln.toml:2:16: error[module.metadata_drift]: manifest module name `docs.manifest` does not match derived module `main`", "note: main.veln:1:1: The package-relative source path owns the compiler-visible module name.", "note: Update the manifest entry or remove the duplicated module name."]

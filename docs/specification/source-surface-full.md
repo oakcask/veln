@@ -137,7 +137,7 @@ in `use` declarations use `::`; dotted module delimiters such as
 `use foo.bar` are rejected with `module.invalid_import_path`.
 
 When a project root contains `veln.toml`, the implemented manifest subset may
-list package metadata, tool metadata, and source modules:
+list package metadata, tool metadata, and public source-file exports:
 
 ```toml
 [package]
@@ -147,8 +147,8 @@ description = "Example package."
 [tool.docs]
 format = "markdown"
 
-[modules]
-"src/main.veln" = "src::main"
+[lib]
+exports = ["src/main.veln"]
 ```
 
 `[package]` stores string-valued package facts such as package identity,
@@ -157,10 +157,11 @@ string-valued tool-specific facts. These fields are manifest-owned metadata
 and are used by generated documentation. They do not create source symbols and
 do not affect parsing, name resolution, type checking, lowering, or execution.
 
-The package-relative source path remains the compiler-visible owner of the
-module name. A manifest entry is packaging/discovery metadata and cannot rename
-the source module. If the manifest name differs from the derived module path,
-the checker reports module metadata drift.
+`[lib].exports` lists package-relative `.veln` source file paths. Export
+entries must stay inside the package, use source-file spelling rather than
+module-path spelling, derive a valid source module path, and match selected
+source files. Duplicate export entries for the same derived module path are
+reported. `[modules]` is rejected; manifests cannot rename source modules.
 
 `use` declarations create local module imports. `use foo::bar` resolves to the
 selected source file deriving `foo::bar`; `use math` resolves to a selected
@@ -177,8 +178,9 @@ source ADT constructors may also use the import path, either as
 `module::Constructor` or `module::Type::Constructor`.
 
 Public `fn` declarations, public source `type` declarations, and public member
-aliases are the implemented public API boundary. Dedicated export lists are not
-implemented.
+aliases are the implemented source-level public API boundary. `[lib].exports`
+is the implemented manifest-level package export list for public source
+modules.
 Function declarations can be referenced by bare name or by a `use`
 alias-qualified path as callable values where a function-typed expression is
 expected. When a selected `run` or `test` entry uses a function declaration as a
@@ -462,7 +464,7 @@ same visible bindings as `require` and cannot read an explicit result binding.
 Implemented lowering and execution do not include method calls, loops,
 mutation, classes, traits, macros, comprehensions, anonymous functions, custom
 operators, task selection, manifest fields beyond the implemented `[package]`,
-`[tool.<name>]`, and `[modules]` string tables, foreign declarations, or
+`[tool.<name>]`, and `[lib].exports` subset, foreign declarations, or
 doctest metadata other than `error`, `ignore`, `fail`, `runtime=contract`,
 runtime contract detail attributes, `runtime=ensure`, runtime ensure detail
 attributes, `runtime=result`, runtime result value matching, and

@@ -111,9 +111,10 @@ against the built `veln` binary.
   boundaries.
 - `check/source-adt-exhaustiveness/`: source-declared ADT finite-domain
   matching reports unqualified missing constructor coverage labels.
-- `check/manifest-metadata/`: path-derived source module identity wins over
-  manifest module metadata, and manifest entries do not add unselected source
-  files.
+- `check/manifest-exports/`: `[lib].exports` accepts selected source-file
+  paths and rejects module-path spelling, paths outside the package, missing
+  files, non-source files, invalid path-derived modules, duplicate module
+  exports, and unselected source files.
 - `check/implicit-unit-return/`: omitted tail expressions returning `()` and
   the implicit-unit diagnostic detail.
 - `check/types-operators/`: primitive annotations, returned function types,
@@ -156,8 +157,8 @@ against the built `veln` binary.
 - `doc/generated-markdown/`: generated documentation from package and tool
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.
-- `doc/manifest-drift/`: generated documentation is blocked when selected
-  manifest module metadata disagrees with path-derived module identity.
+- `doc/manifest-modules-rejected/`: generated documentation is blocked when a
+  manifest uses the rejected `[modules]` table.
 - `doc/no-selected-sources/`: generated documentation can contain only
   package metadata and an empty module section when no source files are
   selected.

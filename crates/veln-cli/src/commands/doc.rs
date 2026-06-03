@@ -11,7 +11,7 @@ use veln_syntax::{
 };
 
 use crate::diagnostics::{parse_diagnostic_to_envelope, print_human_stderr, tool_info};
-use crate::surface::{derive_source_module_path, validate_manifest_module};
+use crate::surface::{derive_source_module_path, validate_manifest_exports};
 
 pub(crate) fn doc(inputs: Vec<PathBuf>) -> Result<ExitCode, String> {
     let root = env::current_dir().map_err(|error| error.to_string())?;
@@ -42,24 +42,15 @@ fn generate_markdown(project: &Project) -> GeneratedDocs {
         if !parsed.diagnostics.is_empty() {
             continue;
         }
-        let lowered = match derive_source_module_path(source) {
-            Ok(module_name) => veln_ast::lower_surface_ast_with_module_identity(
-                &parsed.tree,
-                module_name,
-                source.span(veln_source::TextRange::new(0, 0)),
-            ),
+        match derive_source_module_path(source) {
+            Ok(_) => {}
             Err(diagnostic) => {
                 diagnostics.push(*diagnostic);
-                veln_ast::lower_surface_ast(&parsed.tree)
             }
-        };
-        diagnostics.extend(validate_manifest_module(
-            project,
-            source.path().as_str(),
-            &lowered,
-        ));
+        }
         sections.push(source_docs(source, &parsed.tree));
     }
+    diagnostics.extend(validate_manifest_exports(project));
 
     if !diagnostics.is_empty() {
         return GeneratedDocs {

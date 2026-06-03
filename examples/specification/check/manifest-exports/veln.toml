@@ -1,0 +1,12 @@
+[lib]
+exports = [
+  "main.veln",
+  "ownerless.veln",
+  "spec::module",
+  "../outside.veln",
+  "unselected.veln",
+  "missing.veln",
+  "notes.txt",
+  "bad-name.veln",
+  "./main.veln",
+]
