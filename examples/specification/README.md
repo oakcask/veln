@@ -165,9 +165,15 @@ against the built `veln` binary.
 - `package/lock-incompatible-transitive-path-source/`: `veln package lock`
   rejects a dependency graph that selects different path sources for one
   package identity.
+- `package/lock-incompatible-transitive-source-kind/`: `veln package lock`
+  rejects a dependency graph that selects the same source location through
+  incompatible source kinds for one package identity.
 - `package/lock-incompatible-transitive-git-selector/`: `veln package lock`
   rejects a dependency graph that selects incompatible git selectors for one
   package identity.
+- `package/lock-incompatible-transitive-git-subdir/`: `veln package lock`
+  rejects a dependency graph that selects incompatible git subdirectories for
+  one package identity.
 - `check/implicit-unit-return/`: omitted tail expressions returning `()` and
   the implicit-unit diagnostic detail.
 - `check/types-operators/`: primitive annotations, returned function types,

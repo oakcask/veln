@@ -1490,6 +1490,65 @@ mod tests {
     }
 
     #[test]
+    fn package_lock_rejects_incompatible_transitive_source_kinds() {
+        let project = TempProject::new("lock-incompatible-transitive-source-kind");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/alpha\"]\n",
+                "path = \"vendor/alpha\"\n",
+                "[dependencies.\"github.com/oakcask/zeta\"]\n",
+                "path = \"vendor/zeta\"\n",
+            ),
+        );
+        project.write(
+            "vendor/alpha/veln.toml",
+            concat!(
+                "[package]\n",
+                "name = \"github.com/oakcask/alpha\"\n",
+                "[dependencies.\"github.com/oakcask/shared\"]\n",
+                "path = \"../shared\"\n",
+            ),
+        );
+        project.write(
+            "vendor/zeta/veln.toml",
+            concat!(
+                "[package]\n",
+                "name = \"github.com/oakcask/zeta\"\n",
+                "[dependencies.\"github.com/oakcask/shared\"]\n",
+                "vendor = \"../shared\"\n",
+            ),
+        );
+        project.write(
+            "vendor/shared/veln.toml",
+            "[package]\nname = \"github.com/oakcask/shared\"\n",
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let mut resolver = PackageLockResolver::new(project.root());
+        resolver.lock_manifest_dependencies(project.root(), "", &manifest);
+
+        assert_eq!(resolver.diagnostics.len(), 1);
+        let diagnostic = &resolver.diagnostics[0];
+        assert_eq!(diagnostic.id, "package.incompatible_dependency_source");
+        assert_eq!(
+            diagnostic.message,
+            "dependency `github.com/oakcask/shared` selects vendor `vendor/shared`, but that package identity is already selected as path `vendor/shared`"
+        );
+        assert_eq!(
+            diagnostic
+                .span
+                .as_ref()
+                .expect("diagnostic should have a span")
+                .file
+                .as_str(),
+            "vendor/zeta/veln.toml"
+        );
+    }
+
+    #[test]
     fn package_lock_reuses_compatible_transitive_sources() {
         let project = TempProject::new("lock-compatible-transitive-source");
         project.write(
