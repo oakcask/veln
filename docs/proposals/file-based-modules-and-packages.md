@@ -7,14 +7,18 @@ Veln should derive module identity from package-relative source paths, reserve
 and make `veln.toml` describe package identity plus the modules exported to
 other packages.
 
-The local-source, manifest-export, and path-dependency external-import slices
-are implemented: source `mod` declarations are rejected, selected source paths
-derive same-package module identity, local `use` declarations use `::`,
-same-package qualified access requires a matching written import, `[modules]`
-is rejected, `[lib].exports` validates selected package source-file exports,
-and `use path from "package"` resolves exported modules from already available
-path dependencies. This proposal remains open for package-manager behavior
-beyond local path dependencies.
+The local-source, manifest-export, path-dependency external-import, and first
+package-manager metadata slices are implemented: source `mod` declarations are
+rejected, selected source paths derive same-package module identity, local
+`use` declarations use `::`, same-package qualified access requires a matching
+written import, `[modules]` is rejected, `[lib].exports` validates selected
+package source-file exports, `use path from "package"` resolves exported
+modules from already available path dependencies, git dependency metadata
+records one `rev`, `tag`, or `branch` selector plus optional `subdir`, and the
+project model has lockfile records that keep package identity separate from
+resolved source, revision, and checksum facts. This proposal remains open for
+package-manager behavior beyond local path dependencies and metadata
+validation.
 
 ## Read First
 
@@ -38,10 +42,11 @@ metadata:
 - There is no durable package-level boundary for redistributing a set of
   modules or resolving modules outside the current package.
 
-The implemented local-source, manifest-export, and path-dependency
-external-import slices remove those local ambiguities and establish the first
-external package boundary. This proposal remains open for package-manager
-behavior beyond already available path dependencies.
+The implemented local-source, manifest-export, path-dependency
+external-import, and first package-manager metadata slices remove those local
+ambiguities and establish the first external package boundary. This proposal
+remains open for fetching, vendoring, checksum computation, mirror support,
+lockfile write workflows, and graph-wide incompatible-source resolution.
 
 ## Proposal
 
@@ -294,11 +299,12 @@ exports = [
 
 ## Specification Updates
 
-Implemented package import behavior is specified under
+Implemented package import and dependency-metadata behavior is specified under
 `../specification/source-surface.md`, `../specification/names-effects.md`,
 `../specification/commands.md`, and `../../examples/specification/`. Remaining
-work belongs to package-manager behavior: non-path dependency sources,
-resolution metadata, lockfile records, vendoring, and command workflows.
+work belongs to package-manager behavior: non-path dependency source
+materialization, revision resolution, checksum computation, vendoring, mirror
+support, graph-wide incompatible-source resolution, and command workflows.
 
 ## Package Manager Implications
 

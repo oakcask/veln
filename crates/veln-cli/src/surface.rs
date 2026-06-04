@@ -6,7 +6,7 @@ use veln_ast::{
     UseDecl, Visibility, lower_surface_ast, lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
-use veln_project::{ManifestField, Project, ProjectManifest};
+use veln_project::{ManifestDependencySelectorKind, ManifestField, Project, ProjectManifest};
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
@@ -18,6 +18,7 @@ pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diag
 
     load_project_sources(project, &mut diagnostics, &mut parts, None);
     diagnostics.extend(validate_manifest_exports(project));
+    diagnostics.extend(validate_manifest_dependencies(project));
     load_external_dependencies(project, &mut diagnostics, &mut parts);
     diagnostics.extend(unresolved_local_import_diagnostics(
         &parts.module.uses,
@@ -615,6 +616,36 @@ pub(crate) fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
     diagnostics
 }
 
+pub(crate) fn validate_manifest_dependencies(project: &Project) -> Vec<Diagnostic> {
+    let Some(manifest) = project.manifest.as_ref() else {
+        return Vec::new();
+    };
+    let mut diagnostics = Vec::new();
+    for dependency in &manifest.dependencies {
+        if dependency.git.is_some() && dependency.selectors.is_empty() {
+            diagnostics.push(missing_git_dependency_selector_diagnostic(
+                &dependency.package_span,
+                &dependency.package,
+            ));
+        }
+        if dependency.git.is_some() && dependency.selectors.len() > 1 {
+            let selectors = dependency
+                .selectors
+                .iter()
+                .map(|selector| selector.kind)
+                .collect::<Vec<_>>();
+            for selector in dependency.selectors.iter().skip(1) {
+                diagnostics.push(multiple_git_dependency_selectors_diagnostic(
+                    &selector.field.key_span,
+                    &dependency.package,
+                    &selectors,
+                ));
+            }
+        }
+    }
+    diagnostics
+}
+
 fn unsupported_modules_section_diagnostic(span: SourceSpan) -> Diagnostic {
     let mut diagnostic = Diagnostic::new(
         "manifest.unsupported_section",
@@ -713,6 +744,56 @@ fn duplicate_manifest_export_diagnostic(
         ("span", source_span_json(first_span)),
     ]));
     diagnostic
+}
+
+fn missing_git_dependency_selector_diagnostic(span: &SourceSpan, package: &str) -> Diagnostic {
+    Diagnostic::new(
+        "manifest.missing_git_selector",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "git dependency `{package}` must specify exactly one selector: `rev`, `tag`, or `branch`"
+        ),
+        Some(span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("dependencies")),
+            ("package", JsonValue::string(package)),
+            ("source_kind", JsonValue::string("git")),
+            ("reason", JsonValue::string("missing_selector")),
+        ]),
+    )
+}
+
+fn multiple_git_dependency_selectors_diagnostic(
+    span: &SourceSpan,
+    package: &str,
+    selectors: &[ManifestDependencySelectorKind],
+) -> Diagnostic {
+    Diagnostic::new(
+        "manifest.multiple_git_selectors",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "git dependency `{package}` specifies multiple selectors; use exactly one of `rev`, `tag`, or `branch`"
+        ),
+        Some(span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("module")),
+            ("field", JsonValue::string("dependencies")),
+            ("package", JsonValue::string(package)),
+            ("source_kind", JsonValue::string("git")),
+            (
+                "selectors",
+                JsonValue::array(
+                    selectors
+                        .iter()
+                        .map(|selector| JsonValue::string(selector.as_str())),
+                ),
+            ),
+            ("reason", JsonValue::string("multiple_selectors")),
+        ]),
+    )
 }
 
 fn is_package_relative_path(path: &str) -> bool {

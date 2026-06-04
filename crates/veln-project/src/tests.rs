@@ -390,6 +390,89 @@ fn read_manifest_tracks_path_dependencies() {
 }
 
 #[test]
+fn read_manifest_tracks_git_dependency_metadata() {
+    let temp = TempProject::new("manifest-git-dependencies");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/foo\"]\n",
+            "git = \"https://example.invalid/foo.git\"\n",
+            "tag = \"v1.2.0\"\n",
+            "[dependencies.\"github.com/oakcask/bar\"]\n",
+            "git = \"https://example.invalid/mono.git\"\n",
+            "branch = \"main\"\n",
+            "subdir = \"packages/bar\"\n",
+            "[dependencies.\"github.com/oakcask/baz\"]\n",
+            "git = \"https://example.invalid/baz.git\"\n",
+            "rev = \"0123456789abcdef\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    let foo = &manifest.dependencies[0];
+    assert_eq!(foo.package, "github.com/oakcask/foo");
+    assert_eq!(
+        foo.git
+            .as_ref()
+            .expect("foo should have a git source")
+            .value,
+        "https://example.invalid/foo.git"
+    );
+    assert_eq!(foo.selectors.len(), 1);
+    assert_eq!(foo.selectors[0].kind, ManifestDependencySelectorKind::Tag);
+    assert_eq!(foo.selectors[0].field.value, "v1.2.0");
+    assert_eq!(foo.selectors[0].field.key_span.start.line, 3);
+    assert!(foo.subdir.is_none());
+
+    let bar = &manifest.dependencies[1];
+    assert_eq!(
+        bar.selectors[0].kind,
+        ManifestDependencySelectorKind::Branch
+    );
+    assert_eq!(bar.selectors[0].field.value, "main");
+    assert_eq!(
+        bar.subdir.as_ref().expect("bar should have a subdir").value,
+        "packages/bar"
+    );
+
+    let baz = &manifest.dependencies[2];
+    assert_eq!(baz.selectors[0].kind, ManifestDependencySelectorKind::Rev);
+    assert_eq!(baz.selectors[0].field.value, "0123456789abcdef");
+}
+
+#[test]
+fn lockfile_package_records_identity_separately_from_git_source() {
+    let lockfile = ProjectLockfile {
+        packages: vec![LockfilePackage {
+            name: "github.com/oakcask/bar".to_string(),
+            source: LockfileSource::Git {
+                url: "https://example.invalid/mono.git".to_string(),
+                selector: LockfileGitSelector::Branch("main".to_string()),
+                rev: "0123456789abcdef".to_string(),
+                subdir: Some("packages/bar".to_string()),
+            },
+            checksum: "sha256:source-tree".to_string(),
+        }],
+    };
+
+    let package = &lockfile.packages[0];
+    assert_eq!(package.name, "github.com/oakcask/bar");
+    assert_eq!(package.checksum, "sha256:source-tree");
+    assert_eq!(
+        package.source,
+        LockfileSource::Git {
+            url: "https://example.invalid/mono.git".to_string(),
+            selector: LockfileGitSelector::Branch("main".to_string()),
+            rev: "0123456789abcdef".to_string(),
+            subdir: Some("packages/bar".to_string()),
+        }
+    );
+}
+
+#[test]
 fn read_manifest_accepts_crlf_export_arrays_and_trailing_text() {
     let temp = TempProject::new("manifest-export-crlf");
     temp.write(

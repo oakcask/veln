@@ -120,6 +120,8 @@ against the built `veln` binary.
   paths and rejects module-path spelling, paths outside the package, missing
   files, non-source files, invalid path-derived modules, duplicate module
   exports, and unselected source files.
+- `check/manifest-dependencies/`: git dependency metadata requires exactly
+  one selector among `rev`, `tag`, and `branch`.
 - `check/implicit-unit-return/`: omitted tail expressions returning `()` and
   the implicit-unit diagnostic detail.
 - `check/types-operators/`: primitive annotations, returned function types,
