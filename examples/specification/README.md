@@ -134,6 +134,11 @@ against the built `veln` binary.
 - `package/lock-vendor-package-name-mismatch/`: `veln package lock` rejects a
   vendor dependency whose manifest `[package].name` does not match the
   dependency table key.
+- `package/lock-mirror-dependency/`: `veln package lock` writes a mirror
+  source record for an already materialized mirror source tree while preserving
+  the dependency table key as the package identity.
+- `package/lock-mirror-unavailable/`: `veln package lock` requires explicit
+  mirror metadata to name an already materialized package source tree.
 - `package/lock-git-rev-dependency/`: `veln package lock` writes a `rev`
   git source record for an already available local repository, validates a
   dependency `subdir` package root, records the resolved commit, and checksums
@@ -153,6 +158,10 @@ against the built `veln` binary.
 - `package/lock-package-name-mismatch/`: `veln package lock` rejects a path
   dependency whose manifest `[package].name` does not match the dependency
   table key.
+- `package/lock-mirror-package-name-mismatch/`: `veln package lock` rejects a
+  mirror dependency whose manifest `[package].name` does not match the
+  dependency table key and reports the dependency manifest name as related
+  context.
 - `check/implicit-unit-return/`: omitted tail expressions returning `()` and
   the implicit-unit diagnostic detail.
 - `check/types-operators/`: primitive annotations, returned function types,

@@ -45,7 +45,8 @@ fn lock_dependency(
 ) -> Result<LockfilePackage, Box<Diagnostic>> {
     let source_count = usize::from(dependency.path.is_some())
         + usize::from(dependency.git.is_some())
-        + usize::from(dependency.vendor.is_some());
+        + usize::from(dependency.vendor.is_some())
+        + usize::from(dependency.mirror.is_some());
     if source_count > 1 {
         return Err(Box::new(unsupported_dependency_source_diagnostic(
             dependency,
@@ -57,6 +58,9 @@ fn lock_dependency(
     }
     if dependency.vendor.is_some() {
         return lock_vendor_dependency(root, dependency);
+    }
+    if dependency.mirror.is_some() {
+        return lock_mirror_dependency(root, dependency);
     }
     lock_path_dependency(root, dependency)
 }
@@ -146,6 +150,48 @@ fn lock_vendor_dependency(
         name: dependency.package.clone(),
         source: LockfileSource::Vendor {
             path: normalize_lockfile_path(&vendor_field.value),
+        },
+        checksum,
+    })
+}
+
+fn lock_mirror_dependency(
+    root: &Path,
+    dependency: &ManifestDependency,
+) -> Result<LockfilePackage, Box<Diagnostic>> {
+    let mirror_field = dependency
+        .mirror
+        .as_ref()
+        .expect("mirror source should exist");
+
+    let dependency_root = dependency_root(root, &mirror_field.value);
+    if !dependency_root.is_dir() {
+        return Err(Box::new(unavailable_mirror_dependency_diagnostic(
+            dependency,
+            mirror_field,
+        )));
+    }
+
+    let manifest = read_manifest(&dependency_root)
+        .map_err(|error| Box::new(dependency_io_diagnostic(dependency, mirror_field, error)))?
+        .ok_or_else(|| {
+            Box::new(dependency_missing_manifest_diagnostic(
+                dependency,
+                mirror_field,
+            ))
+        })?;
+    validate_package_name(
+        dependency,
+        &manifest,
+        &normalize_lockfile_path(&mirror_field.value),
+    )?;
+
+    let checksum = source_tree_checksum(&dependency_root)
+        .map_err(|error| Box::new(dependency_io_diagnostic(dependency, mirror_field, error)))?;
+    Ok(LockfilePackage {
+        name: dependency.package.clone(),
+        source: LockfileSource::Mirror {
+            path: normalize_lockfile_path(&mirror_field.value),
         },
         checksum,
     })
@@ -584,7 +630,7 @@ fn unsupported_dependency_source_diagnostic(
         Severity::Error,
         DiagnosticKind::Module,
         format!(
-            "package lock supports only path, git, or vendor dependencies for `{}`",
+            "package lock supports only one of path, git, vendor, or mirror dependencies for `{}`",
             dependency.package
         ),
         Some(dependency.package_span.clone()),
@@ -615,6 +661,28 @@ fn unavailable_path_dependency_diagnostic(
             ("field", JsonValue::string("dependencies.path")),
             ("package", JsonValue::string(dependency.package.clone())),
             ("path", JsonValue::string(path_field.value.clone())),
+        ]),
+    )
+}
+
+fn unavailable_mirror_dependency_diagnostic(
+    dependency: &ManifestDependency,
+    mirror_field: &ManifestField,
+) -> Diagnostic {
+    Diagnostic::new(
+        "package.mirror_unavailable",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "mirror dependency `{}` is not available at `{}`",
+            dependency.package, mirror_field.value
+        ),
+        Some(mirror_field.value_span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("package_lock")),
+            ("field", JsonValue::string("dependencies.mirror")),
+            ("package", JsonValue::string(dependency.package.clone())),
+            ("path", JsonValue::string(mirror_field.value.clone())),
         ]),
     )
 }
@@ -944,7 +1012,46 @@ mod tests {
         assert_eq!(diagnostic.id, "package.unsupported_dependency_source");
         assert_eq!(
             diagnostic.message,
-            "package lock supports only path, git, or vendor dependencies for `github.com/oakcask/mixed`"
+            "package lock supports only one of path, git, vendor, or mirror dependencies for `github.com/oakcask/mixed`"
+        );
+    }
+
+    #[test]
+    fn locks_mirror_dependency() {
+        let project = TempProject::new("lock-mirror");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/mirror-lib\"]\n",
+                "mirror = \"mirror/github.com/oakcask/mirror-lib\"\n",
+            ),
+        );
+        project.write(
+            "mirror/github.com/oakcask/mirror-lib/veln.toml",
+            "[package]\nname = \"github.com/oakcask/mirror-lib\"\n",
+        );
+        project.write(
+            "mirror/github.com/oakcask/mirror-lib/lib.veln",
+            "pub fn value() -> Int\n\t5\nend\n",
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let package = lock_mirror_dependency(project.root(), &manifest.dependencies[0])
+            .expect("mirror dependency should lock");
+
+        assert_eq!(package.name, "github.com/oakcask/mirror-lib");
+        assert_eq!(
+            package.source,
+            LockfileSource::Mirror {
+                path: "mirror/github.com/oakcask/mirror-lib".to_string(),
+            }
+        );
+        assert_eq!(
+            package.checksum,
+            source_tree_checksum(&project.path("mirror/github.com/oakcask/mirror-lib"))
+                .expect("checksum should be computed")
         );
     }
 

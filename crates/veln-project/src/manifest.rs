@@ -36,6 +36,7 @@ pub struct ManifestDependency {
     pub path: Option<ManifestField>,
     pub git: Option<ManifestField>,
     pub vendor: Option<ManifestField>,
+    pub mirror: Option<ManifestField>,
     pub selectors: Vec<ManifestDependencySelector>,
     pub subdir: Option<ManifestField>,
 }
@@ -192,6 +193,7 @@ impl ManifestSection {
                 path: None,
                 git: None,
                 vendor: None,
+                mirror: None,
                 selectors: Vec::new(),
                 subdir: None,
             });
@@ -209,6 +211,7 @@ fn record_dependency_field(dependency: &mut ManifestDependency, field: ManifestF
         "path" => dependency.path = Some(field),
         "git" => dependency.git = Some(field),
         "vendor" => dependency.vendor = Some(field),
+        "mirror" => dependency.mirror = Some(field),
         "subdir" => dependency.subdir = Some(field),
         "rev" => dependency.selectors.push(ManifestDependencySelector {
             kind: ManifestDependencySelectorKind::Rev,

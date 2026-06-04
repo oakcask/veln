@@ -49,6 +49,9 @@ pub enum LockfileSource {
     Vendor {
         path: String,
     },
+    Mirror {
+        path: String,
+    },
     Git {
         url: String,
         selector: LockfileGitSelector,
@@ -69,6 +72,12 @@ impl LockfileSource {
             Self::Vendor { path } => {
                 format!(
                     "{{ kind = \"vendor\", path = \"{}\" }}",
+                    escape_toml_string(path)
+                )
+            }
+            Self::Mirror { path } => {
+                format!(
+                    "{{ kind = \"mirror\", path = \"{}\" }}",
                     escape_toml_string(path)
                 )
             }
