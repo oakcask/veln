@@ -60,6 +60,8 @@ behavior.
   [implicit-prelude-and-unqualified-imports.md](implicit-prelude-and-unqualified-imports.md).
 - Package export manifest surface:
   [package-export-manifest-surface.md](package-export-manifest-surface.md).
+- Package lockfile sources:
+  [package-lockfile-sources.md](package-lockfile-sources.md).
 
 ## Skip Unless Needed
 
