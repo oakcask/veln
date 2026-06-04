@@ -10,5 +10,5 @@ format = "empty"
 [help]
 summary = "Manage package dependencies"
 usage = "veln package <COMMAND>"
-commands = ["  lock  Write veln.lock for path and exact-rev git dependencies", "  help  Print this message or the help of the given subcommand(s)"]
+commands = ["  lock  Write veln.lock for path and local git dependencies", "  help  Print this message or the help of the given subcommand(s)"]
 options = ["  -h, --help  Print help"]

@@ -106,7 +106,7 @@ fn lock_git_dependency(
     root: &Path,
     dependency: &ManifestDependency,
 ) -> Result<LockfilePackage, Box<Diagnostic>> {
-    lock_git_dependency_with(root, dependency, resolve_git_rev)
+    lock_git_dependency_with(root, dependency, resolve_git_selector)
 }
 
 fn lock_git_dependency_with<F>(
@@ -115,10 +115,10 @@ fn lock_git_dependency_with<F>(
     resolve_rev: F,
 ) -> Result<LockfilePackage, Box<Diagnostic>>
 where
-    F: Fn(&Path, &ManifestField) -> Result<String, String>,
+    F: Fn(&Path, &ManifestDependencySelector) -> Result<String, String>,
 {
     let git_field = dependency.git.as_ref().expect("git source should exist");
-    let selector = git_rev_selector(dependency)?;
+    let selector = git_selector(dependency)?;
     let repository_root = git_source_root(root, &git_field.value).map_err(|reason| {
         Box::new(unavailable_git_dependency_diagnostic(
             dependency, git_field, reason,
@@ -146,11 +146,9 @@ where
         &git_dependency_display_path(git_field, dependency.subdir.as_ref()),
     )?;
 
-    let resolved_rev = resolve_rev(&repository_root, &selector.field).map_err(|reason| {
-        Box::new(git_rev_resolution_diagnostic(
-            dependency,
-            &selector.field,
-            &reason,
+    let resolved_rev = resolve_rev(&repository_root, selector).map_err(|reason| {
+        Box::new(git_selector_resolution_diagnostic(
+            dependency, selector, &reason,
         ))
     })?;
     let checksum = source_tree_checksum(&package_root)
@@ -160,7 +158,7 @@ where
         name: dependency.package.clone(),
         source: LockfileSource::Git {
             url: normalize_lockfile_path(&git_field.value),
-            selector: LockfileGitSelector::Rev(selector.field.value.clone()),
+            selector: lockfile_git_selector(selector),
             rev: resolved_rev,
             subdir: dependency
                 .subdir
@@ -251,7 +249,7 @@ fn is_relative_package_subdir(path: &str) -> bool {
         })
 }
 
-fn git_rev_selector(
+fn git_selector(
     dependency: &ManifestDependency,
 ) -> Result<&ManifestDependencySelector, Box<Diagnostic>> {
     if dependency.selectors.len() != 1 {
@@ -265,24 +263,33 @@ fn git_rev_selector(
             },
         )));
     }
-    let selector = &dependency.selectors[0];
-    if selector.kind != ManifestDependencySelectorKind::Rev {
-        return Err(Box::new(unsupported_git_selector_diagnostic(
-            dependency,
-            Some(selector),
-            "unsupported_selector",
-        )));
-    }
-    Ok(selector)
+    Ok(&dependency.selectors[0])
 }
 
-fn resolve_git_rev(repository_root: &Path, rev_field: &ManifestField) -> Result<String, String> {
+fn lockfile_git_selector(selector: &ManifestDependencySelector) -> LockfileGitSelector {
+    match selector.kind {
+        ManifestDependencySelectorKind::Rev => {
+            LockfileGitSelector::Rev(selector.field.value.clone())
+        }
+        ManifestDependencySelectorKind::Tag => {
+            LockfileGitSelector::Tag(selector.field.value.clone())
+        }
+        ManifestDependencySelectorKind::Branch => {
+            LockfileGitSelector::Branch(selector.field.value.clone())
+        }
+    }
+}
+
+fn resolve_git_selector(
+    repository_root: &Path,
+    selector: &ManifestDependencySelector,
+) -> Result<String, String> {
     let output = Command::new("git")
         .arg("-C")
         .arg(repository_root)
         .arg("rev-parse")
         .arg("--verify")
-        .arg(format!("{}^{{commit}}", rev_field.value))
+        .arg(git_selector_revspec(selector))
         .output()
         .map_err(|error| error.to_string())?;
     if output.status.success() {
@@ -296,6 +303,20 @@ fn resolve_git_rev(repository_root: &Path, rev_field: &ManifestField) -> Result<
         Err("git rev-parse did not resolve a commit".to_string())
     } else {
         Err(stderr)
+    }
+}
+
+fn git_selector_revspec(selector: &ManifestDependencySelector) -> String {
+    match selector.kind {
+        ManifestDependencySelectorKind::Rev => {
+            format!("{}^{{commit}}", selector.field.value)
+        }
+        ManifestDependencySelectorKind::Tag => {
+            format!("refs/tags/{}^{{commit}}", selector.field.value)
+        }
+        ManifestDependencySelectorKind::Branch => {
+            format!("refs/heads/{}^{{commit}}", selector.field.value)
+        }
     }
 }
 
@@ -374,7 +395,7 @@ fn unsupported_dependency_source_diagnostic(
         Severity::Error,
         DiagnosticKind::Module,
         format!(
-            "package lock supports only path dependencies or exact-rev git dependencies for `{}`",
+            "package lock supports only path dependencies or local git dependencies for `{}`",
             dependency.package
         ),
         Some(dependency.package_span.clone()),
@@ -491,7 +512,7 @@ fn unsupported_git_selector_diagnostic(
         Severity::Error,
         DiagnosticKind::Module,
         format!(
-            "package lock supports git dependency `{}` only with exactly one `rev` selector",
+            "package lock requires git dependency `{}` to specify exactly one selector: `rev`, `tag`, or `branch`",
             dependency.package
         ),
         Some(span),
@@ -528,25 +549,27 @@ fn invalid_git_subdir_diagnostic(
     )
 }
 
-fn git_rev_resolution_diagnostic(
+fn git_selector_resolution_diagnostic(
     dependency: &ManifestDependency,
-    rev_field: &ManifestField,
+    selector: &ManifestDependencySelector,
     reason: &str,
 ) -> Diagnostic {
+    let kind = selector.kind.as_str();
     Diagnostic::new(
-        "package.git_rev_unresolved",
+        "package.git_selector_unresolved",
         Severity::Error,
         DiagnosticKind::Module,
         format!(
-            "git dependency `{}` rev `{}` could not be resolved",
-            dependency.package, rev_field.value
+            "git dependency `{}` {} `{}` could not be resolved",
+            dependency.package, kind, selector.field.value
         ),
-        Some(rev_field.value_span.clone()),
+        Some(selector.field.value_span.clone()),
         JsonValue::object([
             ("phase", JsonValue::string("package_lock")),
-            ("field", JsonValue::string("dependencies.rev")),
+            ("field", JsonValue::string(format!("dependencies.{kind}"))),
             ("package", JsonValue::string(dependency.package.clone())),
-            ("rev", JsonValue::string(rev_field.value.clone())),
+            ("selector_kind", JsonValue::string(kind)),
+            ("selector", JsonValue::string(selector.field.value.clone())),
             ("reason", JsonValue::string(reason)),
         ]),
     )
@@ -653,13 +676,17 @@ mod tests {
         let manifest = read_manifest(project.root())
             .expect("manifest read should succeed")
             .expect("manifest should exist");
-        let package =
-            lock_git_dependency_with(project.root(), &manifest.dependencies[0], |repo, field| {
+        let package = lock_git_dependency_with(
+            project.root(),
+            &manifest.dependencies[0],
+            |repo, selector| {
                 assert_eq!(repo, project.path("vendor/mono").as_path());
-                assert_eq!(field.value, "abc123");
+                assert_eq!(selector.kind, ManifestDependencySelectorKind::Rev);
+                assert_eq!(selector.field.value, "abc123");
                 Ok("0123456789abcdef0123456789abcdef01234567".to_string())
-            })
-            .expect("git dependency should lock");
+            },
+        )
+        .expect("git dependency should lock");
 
         assert_eq!(package.name, "github.com/oakcask/bar");
         assert_eq!(
@@ -722,8 +749,8 @@ mod tests {
     }
 
     #[test]
-    fn package_lock_rejects_git_tag_selector() {
-        let project = TempProject::new("lock-git-tag-rejected");
+    fn locks_git_tag_dependency() {
+        let project = TempProject::new("lock-git-tag");
         project.write(
             "veln.toml",
             concat!(
@@ -736,20 +763,146 @@ mod tests {
             "vendor/tagged/veln.toml",
             "[package]\nname = \"github.com/oakcask/tagged\"\n",
         );
+        project.write(
+            "vendor/tagged/tagged.veln",
+            "pub fn tagged() -> Int\n\t2\nend\n",
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let package = lock_git_dependency_with(
+            project.root(),
+            &manifest.dependencies[0],
+            |repo, selector| {
+                assert_eq!(repo, project.path("vendor/tagged").as_path());
+                assert_eq!(selector.kind, ManifestDependencySelectorKind::Tag);
+                assert_eq!(selector.field.value, "v1");
+                Ok("1111111111111111111111111111111111111111".to_string())
+            },
+        )
+        .expect("tag selector should lock");
+
+        assert_eq!(
+            package.source,
+            LockfileSource::Git {
+                url: "vendor/tagged".to_string(),
+                selector: LockfileGitSelector::Tag("v1".to_string()),
+                rev: "1111111111111111111111111111111111111111".to_string(),
+                subdir: None,
+            }
+        );
+    }
+
+    #[test]
+    fn locks_git_branch_dependency() {
+        let project = TempProject::new("lock-git-branch");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/branchy\"]\n",
+                "git = \"vendor/branchy\"\n",
+                "branch = \"main\"\n",
+            ),
+        );
+        project.write(
+            "vendor/branchy/veln.toml",
+            "[package]\nname = \"github.com/oakcask/branchy\"\n",
+        );
+        project.write(
+            "vendor/branchy/branchy.veln",
+            "pub fn branchy() -> Int\n\t3\nend\n",
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let package = lock_git_dependency_with(
+            project.root(),
+            &manifest.dependencies[0],
+            |repo, selector| {
+                assert_eq!(repo, project.path("vendor/branchy").as_path());
+                assert_eq!(selector.kind, ManifestDependencySelectorKind::Branch);
+                assert_eq!(selector.field.value, "main");
+                Ok("2222222222222222222222222222222222222222".to_string())
+            },
+        )
+        .expect("branch selector should lock");
+
+        assert_eq!(
+            package.source,
+            LockfileSource::Git {
+                url: "vendor/branchy".to_string(),
+                selector: LockfileGitSelector::Branch("main".to_string()),
+                rev: "2222222222222222222222222222222222222222".to_string(),
+                subdir: None,
+            }
+        );
+    }
+
+    #[test]
+    fn package_lock_rejects_multiple_git_selectors_before_resolving() {
+        let project = TempProject::new("lock-git-multiple-selectors");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/multiple\"]\n",
+                "git = \"vendor/multiple\"\n",
+                "tag = \"v1\"\n",
+                "branch = \"main\"\n",
+            ),
+        );
 
         let manifest = read_manifest(project.root())
             .expect("manifest read should succeed")
             .expect("manifest should exist");
         let diagnostic =
             lock_git_dependency_with(project.root(), &manifest.dependencies[0], |_, _| {
-                panic!("unsupported selector should not resolve git")
+                panic!("multiple selectors should not resolve git")
             })
-            .expect_err("tag selector should fail");
+            .expect_err("multiple selectors should fail");
 
         assert_eq!(diagnostic.id, "package.unsupported_git_selector");
         assert_eq!(
             diagnostic.message,
-            "package lock supports git dependency `github.com/oakcask/tagged` only with exactly one `rev` selector"
+            "package lock requires git dependency `github.com/oakcask/multiple` to specify exactly one selector: `rev`, `tag`, or `branch`"
+        );
+    }
+
+    #[test]
+    fn git_selector_resolution_uses_selector_ref_namespace() {
+        let project = TempProject::new("git-selector-revspec");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/rev\"]\n",
+                "git = \"vendor/rev\"\n",
+                "rev = \"abc123\"\n",
+                "\n",
+                "[dependencies.\"github.com/oakcask/tagged\"]\n",
+                "git = \"vendor/tagged\"\n",
+                "tag = \"v1\"\n",
+                "\n",
+                "[dependencies.\"github.com/oakcask/branchy\"]\n",
+                "git = \"vendor/branchy\"\n",
+                "branch = \"main\"\n",
+            ),
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        assert_eq!(
+            git_selector_revspec(&manifest.dependencies[0].selectors[0]),
+            "abc123^{commit}"
+        );
+        assert_eq!(
+            git_selector_revspec(&manifest.dependencies[1].selectors[0]),
+            "refs/tags/v1^{commit}"
+        );
+        assert_eq!(
+            git_selector_revspec(&manifest.dependencies[2].selectors[0]),
+            "refs/heads/main^{commit}"
         );
     }
 
