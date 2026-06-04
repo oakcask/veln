@@ -156,6 +156,9 @@ exports = ["src/main.veln"]
 git = "https://example.invalid/lib.git"
 tag = "v1.2.0"
 subdir = "packages/lib"
+
+[dependencies."github.com/oakcask/vendor-lib"]
+vendor = "vendor/vendor-lib"
 ```
 
 `[package]` stores string-valued package facts such as package identity,
@@ -166,12 +169,14 @@ do not affect parsing, name resolution, type checking, lowering, or execution.
 
 Dependency table keys are package identities used by
 `use path from "package"` declarations. Path dependencies use a string-valued
-`path` field. Git dependencies use a string-valued `git` field and exactly one
-selector field: `rev`, `tag`, or `branch`. `subdir` is optional package-root
-metadata inside the selected source. Source analysis commands validate this
-metadata but do not fetch git sources, resolve revisions, vendor packages, or
-update lockfiles. `veln package lock` writes lockfiles for already available
-path dependencies and git dependencies with one `rev`, `tag`, or `branch`
+`path` field. Vendor dependencies use a string-valued `vendor` field naming an
+already available vendored package directory. Git dependencies use a
+string-valued `git` field and exactly one selector field: `rev`, `tag`, or
+`branch`. `subdir` is optional package-root metadata inside the selected git
+source. Source analysis commands validate this metadata but do not fetch git
+sources, resolve revisions, load vendored dependencies, or update lockfiles.
+`veln package lock` writes lockfiles for already available path dependencies,
+vendor dependencies, and git dependencies with one `rev`, `tag`, or `branch`
 selector, materializing non-local git URLs through git when needed.
 
 `[lib].exports` lists package-relative `.veln` source file paths. Export

@@ -62,14 +62,16 @@ file list is sorted and deduplicated.
 
 If the current project root contains `veln.toml`, the command reads package
 and tool metadata, path dependency entries from
-`[dependencies."package"]`, git dependency metadata from the same dependency
-tables, plus the implemented `[lib].exports` manifest list after source
-discovery. Git dependency metadata must name a `git` remote plus exactly one
-selector: `rev`, `tag`, or `branch`; `subdir` is optional package-root
-metadata inside the selected source. Current dependency discovery only reads
-local path dependencies that are already available on disk; source imports do
-not fetch packages, resolve git revisions, update dependency checksums, write
-lockfiles, or vendor sources. Current package export entries do not add files
+`[dependencies."package"]`, git and vendor dependency metadata from the same
+dependency tables, plus the implemented `[lib].exports` manifest list after
+source discovery. Git dependency metadata must name a `git` remote plus
+exactly one selector: `rev`, `tag`, or `branch`; `subdir` is optional
+package-root metadata inside the selected source. Vendor dependency metadata
+uses a string-valued `vendor` field naming an already available vendored
+package directory. Current dependency discovery only reads local path
+dependencies that are already available on disk; source imports do not fetch
+packages, resolve git revisions, load vendored dependencies, update dependency
+checksums, or write lockfiles. Current package export entries do not add files
 to the selected set. Each export must be a package-relative `.veln` source
 path, must use file-path spelling instead of module-path spelling, must derive
 a valid source module path, must match a selected source file, and must not
@@ -383,11 +385,12 @@ in the typed-hole and predicate repair loop:
 ## `veln package lock`
 
 `package lock` reads the current project `veln.toml` and writes `veln.lock`.
-The implemented package-manager slice supports dependency tables with either a
-string-valued `path` field or a string-valued `git` field plus exactly one
-selector: `rev`, `tag`, or `branch`. The command materializes non-local git
-URLs through git before lockfile generation. It does not vendor packages or
-resolve registry sources.
+The implemented package-manager slice supports dependency tables with exactly
+one source field: a string-valued `path` field, a string-valued `vendor` field,
+or a string-valued `git` field plus exactly one selector: `rev`, `tag`, or
+`branch`. The command materializes non-local git URLs through git before
+lockfile generation. It does not resolve registry sources, mirrors, or
+graph-wide incompatible source selections.
 
 For each path dependency, the dependency table key is the package identity.
 The command requires the path to name an existing package root, reads that
@@ -409,6 +412,22 @@ Serialized source paths use `/` separators. The checksum is computed from the
 sorted `.veln` source files discovered under the dependency package root after
 the same ignored-directory rule as source discovery, so `.git` and `target`
 contents do not affect the lockfile.
+
+For each vendor dependency, the dependency table key is the package identity
+and `vendor` names an already available vendored package directory. The
+command reads that directory's `veln.toml`, requires its `[package].name` to
+match the dependency table key, and writes a distinct vendor source record:
+
+```toml
+[[package]]
+name = "github.com/oakcask/lib"
+source = { kind = "vendor", path = "vendor/lib" }
+checksum = "sha256:..."
+```
+
+Vendor lockfile entries use the same source-tree checksum rule as path
+dependencies. The distinct source kind preserves that the source came from
+vendored package storage rather than an ordinary local path dependency.
 
 For each git dependency, the `git` value may name an already available local
 repository path, a local `file:` URL, or a non-local git URL. Non-local URLs are

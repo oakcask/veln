@@ -46,6 +46,9 @@ pub enum LockfileSource {
     Path {
         path: String,
     },
+    Vendor {
+        path: String,
+    },
     Git {
         url: String,
         selector: LockfileGitSelector,
@@ -60,6 +63,12 @@ impl LockfileSource {
             Self::Path { path } => {
                 format!(
                     "{{ kind = \"path\", path = \"{}\" }}",
+                    escape_toml_string(path)
+                )
+            }
+            Self::Vendor { path } => {
+                format!(
+                    "{{ kind = \"vendor\", path = \"{}\" }}",
                     escape_toml_string(path)
                 )
             }

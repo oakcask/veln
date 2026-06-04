@@ -1,0 +1,5 @@
+[package]
+name = "github.com/oakcask/vendor-lib"
+
+[lib]
+exports = ["vendor.veln"]
