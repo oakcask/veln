@@ -9,7 +9,7 @@ smallest section to read before opening the full grammar notes.
   imports, functions, tests, source ADT type declarations, public member
   aliases, canonical
   `#` comments, `##` documentation comments, doctests, ADR-lite metadata, and
-  `[lib].exports` manifest source-file exports:
+  manifest dependency metadata plus `[lib].exports` source-file exports:
   [source-surface-full.md](source-surface-full.md).
   Use [commands.md](commands.md) for formatter layout and canonical comment
   spelling behavior.

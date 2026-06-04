@@ -278,6 +278,75 @@ fn check_json_reports_manifest_export_validation() {
 }
 
 #[test]
+fn check_human_reports_git_dependency_selector_validation() {
+    let project = TestProject::new("check-human-git-dependency-selectors");
+    project.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/missing\"]\n",
+            "git = \"https://example.invalid/missing.git\"\n",
+            "[dependencies.\"github.com/oakcask/multiple\"]\n",
+            "git = \"https://example.invalid/multiple.git\"\n",
+            "tag = \"v1.2.0\"\n",
+            "branch = \"main\"\n",
+        ),
+    );
+    project.write(
+        "main.veln",
+        concat!("pub fn main() -> ()\n", "  ()\n", "end\n"),
+    );
+
+    let output = project.veln(&["check"], &["main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_eq!(stderr(&output), "");
+    assert_contains_all(
+        stdout(&output),
+        &[
+            "veln.toml:1:16: error[manifest.missing_git_selector]: git dependency `github.com/oakcask/missing` must specify exactly one selector: `rev`, `tag`, or `branch`",
+            "veln.toml:6:1: error[manifest.multiple_git_selectors]: git dependency `github.com/oakcask/multiple` specifies multiple selectors; use exactly one of `rev`, `tag`, or `branch`",
+        ],
+    );
+}
+
+#[test]
+fn check_json_reports_git_dependency_selector_validation() {
+    let project = TestProject::new("check-json-git-dependency-selectors");
+    project.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/missing\"]\n",
+            "git = \"https://example.invalid/missing.git\"\n",
+            "[dependencies.\"github.com/oakcask/multiple\"]\n",
+            "git = \"https://example.invalid/multiple.git\"\n",
+            "tag = \"v1.2.0\"\n",
+            "branch = \"main\"\n",
+        ),
+    );
+    project.write(
+        "main.veln",
+        concat!("pub fn main() -> ()\n", "  ()\n", "end\n"),
+    );
+
+    let output = project.check_json(&["main.veln"]);
+    let stdout = stdout(&output);
+
+    assert_eq!(output.status.code(), Some(1), "{}", stderr(&output));
+    assert_contains_all(
+        stdout,
+        &[
+            "\"id\":\"manifest.missing_git_selector\"",
+            "\"message\":\"git dependency `github.com/oakcask/missing` must specify exactly one selector: `rev`, `tag`, or `branch`\"",
+            "\"details\":{\"phase\":\"module\",\"field\":\"dependencies\",\"package\":\"github.com/oakcask/missing\",\"source_kind\":\"git\",\"reason\":\"missing_selector\"}",
+            "\"id\":\"manifest.multiple_git_selectors\"",
+            "\"message\":\"git dependency `github.com/oakcask/multiple` specifies multiple selectors; use exactly one of `rev`, `tag`, or `branch`\"",
+            "\"selectors\":[\"tag\",\"branch\"]",
+            "\"summary\":{\"diagnostic_count\":2,\"by_severity\":{\"error\":2},\"by_kind\":{\"module\":2}}",
+        ],
+    );
+}
+
+#[test]
 fn check_json_reports_checked_core_call_arity_blockers() {
     let project = TestProject::new("check-json-core-call-arity");
     project.write(

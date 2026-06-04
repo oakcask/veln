@@ -1,0 +1,7 @@
+[dependencies."github.com/oakcask/missing"]
+git = "https://example.invalid/missing.git"
+
+[dependencies."github.com/oakcask/multiple"]
+git = "https://example.invalid/multiple.git"
+tag = "v1.2.0"
+branch = "main"

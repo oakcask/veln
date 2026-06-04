@@ -17,8 +17,9 @@ requiring the full command reference on the first read.
   [commands-full.md#command-help](commands-full.md#command-help) when changing
   help parsing or output.
 - `check`: source discovery, source path derived local module identity,
-  path dependency source loading for external imports, parse/semantic
-  diagnostics, checked-core blockers, and check JSON output.
+  manifest dependency metadata validation, path dependency source loading for
+  external imports, parse/semantic diagnostics, checked-core blockers, and
+  check JSON output.
   Use [diagnostics-json.md](diagnostics-json.md) first for diagnostic shape,
   then
   [commands-full.md](commands-full.md) for exact command rules.

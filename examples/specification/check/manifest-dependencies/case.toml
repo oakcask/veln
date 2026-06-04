@@ -1,0 +1,50 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 2
+
+[[json_assert]]
+path = "diagnostics.0.details.reason"
+equals = "missing_selector"
+
+[[json_assert]]
+path = "diagnostics.1.details.selectors.0"
+equals = "tag"
+
+[[json_assert]]
+path = "diagnostics.1.details.selectors.1"
+equals = "branch"
+
+[[diagnostics]]
+id = "manifest.missing_git_selector"
+severity = "error"
+kind = "module"
+message = "git dependency `github.com/oakcask/missing` must specify exactly one selector: `rev`, `tag`, or `branch`"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 1
+column = 16
+
+[[diagnostics]]
+id = "manifest.multiple_git_selectors"
+severity = "error"
+kind = "module"
+message = "git dependency `github.com/oakcask/multiple` specifies multiple selectors; use exactly one of `rev`, `tag`, or `branch`"
+
+[diagnostics.span]
+file = "veln.toml"
+line = 7
+column = 1

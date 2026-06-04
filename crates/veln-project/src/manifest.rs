@@ -34,6 +34,32 @@ pub struct ManifestDependency {
     pub package: String,
     pub package_span: SourceSpan,
     pub path: Option<ManifestField>,
+    pub git: Option<ManifestField>,
+    pub selectors: Vec<ManifestDependencySelector>,
+    pub subdir: Option<ManifestField>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ManifestDependencySelector {
+    pub kind: ManifestDependencySelectorKind,
+    pub field: ManifestField,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ManifestDependencySelectorKind {
+    Rev,
+    Tag,
+    Branch,
+}
+
+impl ManifestDependencySelectorKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Rev => "rev",
+            Self::Tag => "tag",
+            Self::Branch => "branch",
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -102,9 +128,8 @@ fn parse_manifest(source: &SourceFile) -> ProjectManifest {
             package.fields.push(field);
         } else if let ManifestSection::Dependency(index) = &section
             && let Some(field) = parse_string_field(source, offset, line_without_newline)
-            && field.key == "path"
         {
-            dependencies[*index].path = Some(field);
+            record_dependency_field(&mut dependencies[*index], field);
         } else if let ManifestSection::Tool(tool_name) = &section
             && let Some(field) = parse_string_field(source, offset, line_without_newline)
         {
@@ -164,6 +189,9 @@ impl ManifestSection {
                 package,
                 package_span: source.span(TextRange::new(package_start, package_end)),
                 path: None,
+                git: None,
+                selectors: Vec::new(),
+                subdir: None,
             });
             Self::Dependency(dependencies.len() - 1)
         } else if let Some(tool_name) = name.strip_prefix("tool.") {
@@ -171,6 +199,27 @@ impl ManifestSection {
         } else {
             Self::Other
         }
+    }
+}
+
+fn record_dependency_field(dependency: &mut ManifestDependency, field: ManifestField) {
+    match field.key.as_str() {
+        "path" => dependency.path = Some(field),
+        "git" => dependency.git = Some(field),
+        "subdir" => dependency.subdir = Some(field),
+        "rev" => dependency.selectors.push(ManifestDependencySelector {
+            kind: ManifestDependencySelectorKind::Rev,
+            field,
+        }),
+        "tag" => dependency.selectors.push(ManifestDependencySelector {
+            kind: ManifestDependencySelectorKind::Tag,
+            field,
+        }),
+        "branch" => dependency.selectors.push(ManifestDependencySelector {
+            kind: ManifestDependencySelectorKind::Branch,
+            field,
+        }),
+        _ => {}
     }
 }
 

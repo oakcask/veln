@@ -151,6 +151,11 @@ format = "markdown"
 
 [lib]
 exports = ["src/main.veln"]
+
+[dependencies."github.com/oakcask/lib"]
+git = "https://example.invalid/lib.git"
+tag = "v1.2.0"
+subdir = "packages/lib"
 ```
 
 `[package]` stores string-valued package facts such as package identity,
@@ -158,6 +163,14 @@ version, description, or documentation pointers. `[tool.<name>]` stores
 string-valued tool-specific facts. These fields are manifest-owned metadata
 and are used by generated documentation. They do not create source symbols and
 do not affect parsing, name resolution, type checking, lowering, or execution.
+
+Dependency table keys are package identities used by
+`use path from "package"` declarations. Path dependencies use a string-valued
+`path` field. Git dependencies use a string-valued `git` field and exactly one
+selector field: `rev`, `tag`, or `branch`. `subdir` is optional package-root
+metadata inside the selected source. The implemented commands validate this
+metadata but do not fetch git sources, resolve revisions, compute source
+checksums, vendor packages, or write lockfiles.
 
 `[lib].exports` lists package-relative `.veln` source file paths. Export
 entries must stay inside the package, use source-file spelling rather than

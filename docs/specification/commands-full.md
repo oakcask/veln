@@ -61,15 +61,18 @@ file list is sorted and deduplicated.
 
 If the current project root contains `veln.toml`, the command reads package
 and tool metadata, path dependency entries from
-`[dependencies."package"]`, plus the implemented `[lib].exports` manifest list
-after source discovery. Current dependency discovery only reads local path
-dependencies that are already available on disk; source imports do not fetch
-packages, resolve git metadata, write lockfiles, or vendor sources. Current
-package export entries do not add files to the selected set. Each export must
-be a package-relative `.veln` source path, must use file-path spelling instead
-of module-path spelling, must derive a valid source module path, must match a
-selected source file, and must not duplicate another export for the same
-derived module path. `[modules]` is rejected.
+`[dependencies."package"]`, git dependency metadata from the same dependency
+tables, plus the implemented `[lib].exports` manifest list after source
+discovery. Git dependency metadata must name a `git` remote plus exactly one
+selector: `rev`, `tag`, or `branch`; `subdir` is optional package-root
+metadata inside the selected source. Current dependency discovery only reads
+local path dependencies that are already available on disk; source imports do
+not fetch packages, resolve git revisions, compute checksums, write lockfiles,
+or vendor sources. Current package export entries do not add files to the
+selected set. Each export must be a package-relative `.veln` source path, must
+use file-path spelling instead of module-path spelling, must derive a valid
+source module path, must match a selected source file, and must not duplicate
+another export for the same derived module path. `[modules]` is rejected.
 
 When a parse-clean source contains `use path from "package"`, the command
 looks for a matching path dependency table in the current project manifest,
