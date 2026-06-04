@@ -8,6 +8,6 @@ format = "text"
 format = "empty"
 
 [help]
-summary = "Write veln.lock for path and local git dependencies"
+summary = "Write veln.lock for path and git dependencies"
 usage = "veln package lock"
 options = ["  -h, --help  Print help"]

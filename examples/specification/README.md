@@ -131,6 +131,14 @@ against the built `veln` binary.
   git source record for an already available local repository, validates a
   dependency `subdir` package root, records the resolved commit, and checksums
   only the selected package source tree.
+- `package/lock-git-remote-rev-dependency/`: `veln package lock` materializes
+  a non-local git URL before writing a `rev` git source record that preserves
+  the original URL, resolved commit, `subdir`, and selected source-tree
+  checksum.
+- `package/lock-git-remote-tag-dependency/`: `veln package lock`
+  materializes a non-local git URL before writing a `tag` git source record.
+- `package/lock-git-remote-branch-dependency/`: `veln package lock`
+  materializes a non-local git URL before writing a `branch` git source record.
 - `package/lock-git-tag-dependency/`: `veln package lock` preserves a
   requested `tag` selector while recording the resolved commit separately.
 - `package/lock-git-branch-dependency/`: `veln package lock` preserves a

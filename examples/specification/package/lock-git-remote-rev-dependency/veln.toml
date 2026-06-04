@@ -1,0 +1,4 @@
+[dependencies."github.com/oakcask/bar"]
+git = "https://example.invalid/remote.git"
+rev = "abc123"
+subdir = "packages/bar"

@@ -1,0 +1,3 @@
+pub fn tagged() -> Int
+	2
+end

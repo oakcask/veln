@@ -1,0 +1,3 @@
+[dependencies."github.com/oakcask/branchy"]
+git = "https://example.invalid/branchy.git"
+branch = "main"
