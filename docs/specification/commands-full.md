@@ -62,21 +62,22 @@ file list is sorted and deduplicated.
 
 If the current project root contains `veln.toml`, the command reads package
 and tool metadata, path dependency entries from
-`[dependencies."package"]`, git and vendor dependency metadata from the same
-dependency tables, plus the implemented `[lib].exports` manifest list after
-source discovery. Git dependency metadata must name a `git` remote plus
+`[dependencies."package"]`, git, vendor, and mirror dependency metadata from
+the same dependency tables, plus the implemented `[lib].exports` manifest list
+after source discovery. Git dependency metadata must name a `git` remote plus
 exactly one selector: `rev`, `tag`, or `branch`; `subdir` is optional
 package-root metadata inside the selected source. Vendor dependency metadata
 uses a string-valued `vendor` field naming an already available vendored
-package directory. Current dependency discovery only reads local path
-dependencies that are already available on disk; source imports do not fetch
-packages, resolve git revisions, load vendored dependencies, update dependency
-checksums, or write lockfiles. Current package export entries do not add files
-to the selected set. Each export must be a package-relative `.veln` source
-path, must use file-path spelling instead of module-path spelling, must derive
-a valid source module path, must match a selected source file, and must not
-duplicate another export for the same derived module path. `[modules]` is
-rejected.
+package directory. Mirror dependency metadata uses a string-valued `mirror`
+field naming an already materialized source tree. Current dependency discovery
+only reads local path dependencies that are already available on disk; source
+imports do not fetch packages, resolve git revisions, load vendor or mirror
+dependencies, update dependency checksums, or write lockfiles. Current package
+export entries do not add files to the selected set. Each export must be a
+package-relative `.veln` source path, must use file-path spelling instead of
+module-path spelling, must derive a valid source module path, must match a
+selected source file, and must not duplicate another export for the same
+derived module path. `[modules]` is rejected.
 
 When a parse-clean source contains `use path from "package"`, the command
 looks for a matching path dependency table in the current project manifest,
@@ -387,10 +388,11 @@ in the typed-hole and predicate repair loop:
 `package lock` reads the current project `veln.toml` and writes `veln.lock`.
 The implemented package-manager slice supports dependency tables with exactly
 one source field: a string-valued `path` field, a string-valued `vendor` field,
-or a string-valued `git` field plus exactly one selector: `rev`, `tag`, or
-`branch`. The command materializes non-local git URLs through git before
-lockfile generation. It does not resolve registry sources, mirrors, or
-graph-wide incompatible source selections.
+string-valued `mirror` field naming an already materialized source tree, or a
+string-valued `git` field plus exactly one selector: `rev`, `tag`, or `branch`.
+The command materializes non-local git URLs through git before lockfile
+generation. It does not resolve registry sources or graph-wide incompatible
+source selections.
 
 For each path dependency, the dependency table key is the package identity.
 The command requires the path to name an existing package root, reads that
@@ -428,6 +430,20 @@ checksum = "sha256:..."
 Vendor lockfile entries use the same source-tree checksum rule as path
 dependencies. The distinct source kind preserves that the source came from
 vendored package storage rather than an ordinary local path dependency.
+
+For each mirror dependency, the dependency table key is the package identity.
+The command requires `mirror` to name an already materialized package source
+tree, reads that tree's `veln.toml`, and requires its `[package].name` to match
+the dependency table key before writing an entry. The written mirror source
+record preserves the package identity separately from the mirror source path
+and checksum:
+
+```toml
+[[package]]
+name = "github.com/oakcask/lib"
+source = { kind = "mirror", path = "mirror/github.com/oakcask/lib" }
+checksum = "sha256:..."
+```
 
 For each git dependency, the `git` value may name an already available local
 repository path, a local `file:` URL, or a non-local git URL. Non-local URLs are

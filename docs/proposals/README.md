@@ -10,7 +10,7 @@ compare it with `../specification/` before changing behavior.
 ## Catalog
 
 - File based modules and packages, remaining package-manager work for
-  mirrors and incompatible-source resolution:
+  incompatible-source resolution:
   [file-based-modules-and-packages.md](file-based-modules-and-packages.md).
 
 ## Update When

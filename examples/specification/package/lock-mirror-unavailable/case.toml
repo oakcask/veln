@@ -1,0 +1,8 @@
+command = ["package", "lock"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["veln.toml:2:11: error[package.mirror_unavailable]: mirror dependency `github.com/oakcask/missing` is not available at `mirror/missing`"]

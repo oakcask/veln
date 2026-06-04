@@ -471,6 +471,33 @@ fn read_manifest_tracks_vendor_dependency_metadata() {
 }
 
 #[test]
+fn read_manifest_tracks_mirror_dependency_metadata() {
+    let temp = TempProject::new("manifest-mirror-dependencies");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/mirror-lib\"]\n",
+            "mirror = \"mirror/github.com/oakcask/mirror-lib\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    let dependency = &manifest.dependencies[0];
+    assert_eq!(dependency.package, "github.com/oakcask/mirror-lib");
+    let mirror = dependency
+        .mirror
+        .as_ref()
+        .expect("dependency should have a mirror source");
+    assert_eq!(mirror.key, "mirror");
+    assert_eq!(mirror.value, "mirror/github.com/oakcask/mirror-lib");
+    assert_eq!(mirror.key_span.start.line, 2);
+    assert_eq!(mirror.value_span.start.column, 11);
+}
+
+#[test]
 fn lockfile_package_records_identity_separately_from_git_source() {
     let lockfile = ProjectLockfile {
         packages: vec![LockfilePackage {
@@ -496,6 +523,52 @@ fn lockfile_package_records_identity_separately_from_git_source() {
             rev: "0123456789abcdef".to_string(),
             subdir: Some("packages/bar".to_string()),
         }
+    );
+}
+
+#[test]
+fn lockfile_package_records_identity_separately_from_vendor_source() {
+    let lockfile = ProjectLockfile {
+        packages: vec![LockfilePackage {
+            name: "github.com/oakcask/vendor-lib".to_string(),
+            source: LockfileSource::Vendor {
+                path: "vendor/vendor-lib".to_string(),
+            },
+            checksum: "sha256:source-tree".to_string(),
+        }],
+    };
+
+    assert_eq!(
+        lockfile.render(),
+        concat!(
+            "[[package]]\n",
+            "name = \"github.com/oakcask/vendor-lib\"\n",
+            "source = { kind = \"vendor\", path = \"vendor/vendor-lib\" }\n",
+            "checksum = \"sha256:source-tree\"\n",
+        )
+    );
+}
+
+#[test]
+fn lockfile_package_records_identity_separately_from_mirror_source() {
+    let lockfile = ProjectLockfile {
+        packages: vec![LockfilePackage {
+            name: "github.com/oakcask/mirror-lib".to_string(),
+            source: LockfileSource::Mirror {
+                path: "mirror/github.com/oakcask/mirror-lib".to_string(),
+            },
+            checksum: "sha256:source-tree".to_string(),
+        }],
+    };
+
+    assert_eq!(
+        lockfile.render(),
+        concat!(
+            "[[package]]\n",
+            "name = \"github.com/oakcask/mirror-lib\"\n",
+            "source = { kind = \"mirror\", path = \"mirror/github.com/oakcask/mirror-lib\" }\n",
+            "checksum = \"sha256:source-tree\"\n",
+        )
     );
 }
 

@@ -1,0 +1,8 @@
+command = ["package", "lock"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["veln.toml:1:16: error[manifest.package_name_mismatch]: dependency package name `github.com/oakcask/other` does not match `github.com/oakcask/mismatch`", "note: mirror/mismatch/veln.toml:2:9: The dependency manifest declares this package name."]

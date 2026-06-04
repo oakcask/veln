@@ -174,10 +174,13 @@ already available vendored package directory. Git dependencies use a
 string-valued `git` field and exactly one selector field: `rev`, `tag`, or
 `branch`. `subdir` is optional package-root metadata inside the selected git
 source. Source analysis commands validate this metadata but do not fetch git
-sources, resolve revisions, load vendored dependencies, or update lockfiles.
+sources, resolve revisions, load vendor or mirror dependencies, or update
+lockfiles. Mirror dependencies use a string-valued `mirror` field naming an
+already materialized source tree.
 `veln package lock` writes lockfiles for already available path dependencies,
-vendor dependencies, and git dependencies with one `rev`, `tag`, or `branch`
-selector, materializing non-local git URLs through git when needed.
+vendor dependencies, mirror dependencies, and git dependencies with one
+`rev`, `tag`, or `branch` selector, materializing non-local git URLs through
+git when needed.
 
 `[lib].exports` lists package-relative `.veln` source file paths. Export
 entries must stay inside the package, use source-file spelling rather than
