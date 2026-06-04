@@ -1,0 +1,4 @@
+[package]
+name = "github.com/oakcask/zeta"
+[dependencies."github.com/oakcask/shared"]
+path = "vendor/shared-two"

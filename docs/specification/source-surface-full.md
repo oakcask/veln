@@ -180,7 +180,9 @@ already materialized source tree.
 `veln package lock` writes lockfiles for already available path dependencies,
 vendor dependencies, mirror dependencies, and git dependencies with one
 `rev`, `tag`, or `branch` selector, materializing non-local git URLs through
-git when needed.
+git when needed. Lockfile generation follows dependency manifests across the
+graph and rejects incompatible source selections for repeated package
+identities.
 
 `[lib].exports` lists package-relative `.veln` source file paths. Export
 entries must stay inside the package, use source-file spelling rather than

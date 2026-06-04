@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -19,30 +20,142 @@ pub(crate) fn lock() -> Result<ExitCode, String> {
         return report_package_diagnostics(vec![missing_manifest_diagnostic()]);
     };
 
-    let mut diagnostics = Vec::new();
-    let mut packages = Vec::new();
-    for dependency in &manifest.dependencies {
-        match lock_dependency(&root, dependency) {
-            Ok(package) => packages.push(package),
-            Err(diagnostic) => diagnostics.push(*diagnostic),
-        }
+    let mut resolver = PackageLockResolver::new(&root);
+    resolver.lock_manifest_dependencies(&root, "", &manifest);
+
+    if has_error(&resolver.diagnostics) {
+        return report_package_diagnostics(resolver.diagnostics);
     }
 
-    if has_error(&diagnostics) {
-        return report_package_diagnostics(diagnostics);
-    }
-
-    packages.sort_by(|left, right| left.name.cmp(&right.name));
+    let packages = resolver.packages();
     let lockfile = ProjectLockfile { packages };
     write_lockfile(&root, &lockfile).map_err(|error| error.to_string())?;
     println!("wrote veln.lock");
     Ok(ExitCode::SUCCESS)
 }
 
+struct PackageLockResolver<'a> {
+    lockfile_root: &'a Path,
+    locked: BTreeMap<String, LockedDependency>,
+    diagnostics: Vec<Diagnostic>,
+}
+
+#[derive(Clone)]
+struct LockedDependency {
+    selection: DependencySelection,
+    package: LockfilePackage,
+    manifest: ProjectManifest,
+    package_root: PathBuf,
+    manifest_display_path: String,
+    package_span: SourceSpan,
+}
+
+impl<'a> PackageLockResolver<'a> {
+    fn new(lockfile_root: &'a Path) -> Self {
+        Self {
+            lockfile_root,
+            locked: BTreeMap::new(),
+            diagnostics: Vec::new(),
+        }
+    }
+
+    fn lock_manifest_dependencies(
+        &mut self,
+        owner_root: &Path,
+        owner_display_path: &str,
+        manifest: &ProjectManifest,
+    ) {
+        for dependency in &manifest.dependencies {
+            self.lock_manifest_dependency(owner_root, owner_display_path, dependency);
+        }
+    }
+
+    fn lock_manifest_dependency(
+        &mut self,
+        owner_root: &Path,
+        owner_display_path: &str,
+        dependency: &ManifestDependency,
+    ) {
+        let dependency = dependency_in_context(dependency, owner_display_path);
+        let selection = dependency_selection(self.lockfile_root, owner_root, &dependency);
+        if let Some(selection) = &selection
+            && let Some(existing) = self.locked.get(&dependency.package)
+        {
+            if existing.selection != *selection {
+                self.diagnostics
+                    .push(incompatible_dependency_source_diagnostic(
+                        &dependency,
+                        selection,
+                        existing,
+                    ));
+            }
+            return;
+        }
+
+        let locked =
+            match lock_dependency_with_manifest(self.lockfile_root, owner_root, &dependency) {
+                Ok(locked) => locked,
+                Err(diagnostic) => {
+                    self.diagnostics.push(*diagnostic);
+                    return;
+                }
+            };
+
+        self.locked
+            .insert(dependency.package.clone(), locked.clone());
+        self.lock_manifest_dependencies(
+            &locked.package_root,
+            &locked.manifest_display_path,
+            &locked.manifest,
+        );
+    }
+
+    fn packages(&self) -> Vec<LockfilePackage> {
+        self.locked
+            .values()
+            .map(|locked| locked.package.clone())
+            .collect()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum DependencySelection {
+    Path {
+        path: String,
+    },
+    Vendor {
+        path: String,
+    },
+    Mirror {
+        path: String,
+    },
+    Git {
+        url: String,
+        selector: DependencyGitSelector,
+        subdir: Option<String>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum DependencyGitSelector {
+    Rev(String),
+    Tag(String),
+    Branch(String),
+}
+
+#[cfg(test)]
 fn lock_dependency(
     root: &Path,
     dependency: &ManifestDependency,
 ) -> Result<LockfilePackage, Box<Diagnostic>> {
+    Ok(lock_dependency_with_manifest(root, root, dependency)?.package)
+}
+
+fn lock_dependency_with_manifest(
+    lockfile_root: &Path,
+    owner_root: &Path,
+    dependency: &ManifestDependency,
+) -> Result<LockedDependency, Box<Diagnostic>> {
     let source_count = usize::from(dependency.path.is_some())
         + usize::from(dependency.git.is_some())
         + usize::from(dependency.vendor.is_some())
@@ -54,15 +167,15 @@ fn lock_dependency(
         )));
     }
     if dependency.git.is_some() {
-        return lock_git_dependency(root, dependency);
+        return lock_git_dependency_with_manifest(lockfile_root, owner_root, dependency);
     }
     if dependency.vendor.is_some() {
-        return lock_vendor_dependency(root, dependency);
+        return lock_vendor_dependency_with_manifest(lockfile_root, owner_root, dependency);
     }
     if dependency.mirror.is_some() {
-        return lock_mirror_dependency(root, dependency);
+        return lock_mirror_dependency_with_manifest(lockfile_root, owner_root, dependency);
     }
-    lock_path_dependency(root, dependency)
+    lock_path_dependency_with_manifest(lockfile_root, owner_root, dependency)
 }
 
 fn report_package_diagnostics(diagnostics: Vec<Diagnostic>) -> Result<ExitCode, String> {
@@ -71,10 +184,11 @@ fn report_package_diagnostics(diagnostics: Vec<Diagnostic>) -> Result<ExitCode, 
     Ok(ExitCode::from(1))
 }
 
-fn lock_path_dependency(
-    root: &Path,
+fn lock_path_dependency_with_manifest(
+    lockfile_root: &Path,
+    owner_root: &Path,
     dependency: &ManifestDependency,
-) -> Result<LockfilePackage, Box<Diagnostic>> {
+) -> Result<LockedDependency, Box<Diagnostic>> {
     let Some(path_field) = &dependency.path else {
         return Err(Box::new(unsupported_dependency_source_diagnostic(
             dependency,
@@ -82,7 +196,8 @@ fn lock_path_dependency(
         )));
     };
 
-    let dependency_root = dependency_root(root, &path_field.value);
+    let dependency_root = dependency_root(owner_root, &path_field.value);
+    let display_path = source_path_for_lockfile(lockfile_root, owner_root, &path_field.value);
     if !dependency_root.is_dir() {
         return Err(Box::new(unavailable_path_dependency_diagnostic(
             dependency, path_field,
@@ -96,33 +211,49 @@ fn lock_path_dependency(
                 dependency, path_field,
             ))
         })?;
-    validate_package_name(
-        dependency,
-        &manifest,
-        &normalize_lockfile_path(&path_field.value),
-    )?;
+    validate_package_name(dependency, &manifest, &display_path)?;
 
     let checksum = source_tree_checksum(&dependency_root)
         .map_err(|error| Box::new(dependency_io_diagnostic(dependency, path_field, error)))?;
-    Ok(LockfilePackage {
+    let package = LockfilePackage {
         name: dependency.package.clone(),
         source: LockfileSource::Path {
-            path: normalize_lockfile_path(&path_field.value),
+            path: display_path.clone(),
         },
         checksum,
+    };
+    Ok(LockedDependency {
+        selection: DependencySelection::Path {
+            path: display_path.clone(),
+        },
+        package,
+        manifest,
+        package_root: dependency_root,
+        manifest_display_path: display_path,
+        package_span: dependency.package_span.clone(),
     })
 }
 
+#[cfg(test)]
 fn lock_vendor_dependency(
     root: &Path,
     dependency: &ManifestDependency,
 ) -> Result<LockfilePackage, Box<Diagnostic>> {
+    Ok(lock_vendor_dependency_with_manifest(root, root, dependency)?.package)
+}
+
+fn lock_vendor_dependency_with_manifest(
+    lockfile_root: &Path,
+    owner_root: &Path,
+    dependency: &ManifestDependency,
+) -> Result<LockedDependency, Box<Diagnostic>> {
     let vendor_field = dependency
         .vendor
         .as_ref()
         .expect("vendor source should exist");
 
-    let dependency_root = dependency_root(root, &vendor_field.value);
+    let dependency_root = dependency_root(owner_root, &vendor_field.value);
+    let display_path = source_path_for_lockfile(lockfile_root, owner_root, &vendor_field.value);
     if !dependency_root.is_dir() {
         return Err(Box::new(unavailable_vendor_dependency_diagnostic(
             dependency,
@@ -138,33 +269,49 @@ fn lock_vendor_dependency(
                 vendor_field,
             ))
         })?;
-    validate_package_name(
-        dependency,
-        &manifest,
-        &normalize_lockfile_path(&vendor_field.value),
-    )?;
+    validate_package_name(dependency, &manifest, &display_path)?;
 
     let checksum = source_tree_checksum(&dependency_root)
         .map_err(|error| Box::new(dependency_io_diagnostic(dependency, vendor_field, error)))?;
-    Ok(LockfilePackage {
+    let package = LockfilePackage {
         name: dependency.package.clone(),
         source: LockfileSource::Vendor {
-            path: normalize_lockfile_path(&vendor_field.value),
+            path: display_path.clone(),
         },
         checksum,
+    };
+    Ok(LockedDependency {
+        selection: DependencySelection::Vendor {
+            path: display_path.clone(),
+        },
+        package,
+        manifest,
+        package_root: dependency_root,
+        manifest_display_path: display_path,
+        package_span: dependency.package_span.clone(),
     })
 }
 
+#[cfg(test)]
 fn lock_mirror_dependency(
     root: &Path,
     dependency: &ManifestDependency,
 ) -> Result<LockfilePackage, Box<Diagnostic>> {
+    Ok(lock_mirror_dependency_with_manifest(root, root, dependency)?.package)
+}
+
+fn lock_mirror_dependency_with_manifest(
+    lockfile_root: &Path,
+    owner_root: &Path,
+    dependency: &ManifestDependency,
+) -> Result<LockedDependency, Box<Diagnostic>> {
     let mirror_field = dependency
         .mirror
         .as_ref()
         .expect("mirror source should exist");
 
-    let dependency_root = dependency_root(root, &mirror_field.value);
+    let dependency_root = dependency_root(owner_root, &mirror_field.value);
+    let display_path = source_path_for_lockfile(lockfile_root, owner_root, &mirror_field.value);
     if !dependency_root.is_dir() {
         return Err(Box::new(unavailable_mirror_dependency_diagnostic(
             dependency,
@@ -180,30 +327,30 @@ fn lock_mirror_dependency(
                 mirror_field,
             ))
         })?;
-    validate_package_name(
-        dependency,
-        &manifest,
-        &normalize_lockfile_path(&mirror_field.value),
-    )?;
+    validate_package_name(dependency, &manifest, &display_path)?;
 
     let checksum = source_tree_checksum(&dependency_root)
         .map_err(|error| Box::new(dependency_io_diagnostic(dependency, mirror_field, error)))?;
-    Ok(LockfilePackage {
+    let package = LockfilePackage {
         name: dependency.package.clone(),
         source: LockfileSource::Mirror {
-            path: normalize_lockfile_path(&mirror_field.value),
+            path: display_path.clone(),
         },
         checksum,
+    };
+    Ok(LockedDependency {
+        selection: DependencySelection::Mirror {
+            path: display_path.clone(),
+        },
+        package,
+        manifest,
+        package_root: dependency_root,
+        manifest_display_path: display_path,
+        package_span: dependency.package_span.clone(),
     })
 }
 
-fn lock_git_dependency(
-    root: &Path,
-    dependency: &ManifestDependency,
-) -> Result<LockfilePackage, Box<Diagnostic>> {
-    lock_git_dependency_with(root, dependency, resolve_git_selector)
-}
-
+#[cfg(test)]
 fn lock_git_dependency_with<F>(
     root: &Path,
     dependency: &ManifestDependency,
@@ -212,9 +359,17 @@ fn lock_git_dependency_with<F>(
 where
     F: Fn(&Path, &ManifestDependencySelector) -> Result<String, String>,
 {
-    lock_git_dependency_with_materializer(root, dependency, resolve_rev, materialize_git_source)
+    Ok(lock_git_dependency_with_materializer_and_manifest(
+        root,
+        root,
+        dependency,
+        resolve_rev,
+        materialize_git_source,
+    )?
+    .package)
 }
 
+#[cfg(test)]
 fn lock_git_dependency_with_materializer<F, M>(
     root: &Path,
     dependency: &ManifestDependency,
@@ -225,15 +380,50 @@ where
     F: Fn(&Path, &ManifestDependencySelector) -> Result<String, String>,
     M: Fn(&Path, &ManifestField, &ManifestDependencySelector) -> Result<PathBuf, String>,
 {
+    Ok(lock_git_dependency_with_materializer_and_manifest(
+        root,
+        root,
+        dependency,
+        resolve_rev,
+        materialize_source,
+    )?
+    .package)
+}
+
+fn lock_git_dependency_with_manifest(
+    lockfile_root: &Path,
+    owner_root: &Path,
+    dependency: &ManifestDependency,
+) -> Result<LockedDependency, Box<Diagnostic>> {
+    lock_git_dependency_with_materializer_and_manifest(
+        lockfile_root,
+        owner_root,
+        dependency,
+        resolve_git_selector,
+        materialize_git_source,
+    )
+}
+
+fn lock_git_dependency_with_materializer_and_manifest<F, M>(
+    lockfile_root: &Path,
+    owner_root: &Path,
+    dependency: &ManifestDependency,
+    resolve_rev: F,
+    materialize_source: M,
+) -> Result<LockedDependency, Box<Diagnostic>>
+where
+    F: Fn(&Path, &ManifestDependencySelector) -> Result<String, String>,
+    M: Fn(&Path, &ManifestField, &ManifestDependencySelector) -> Result<PathBuf, String>,
+{
     let git_field = dependency.git.as_ref().expect("git source should exist");
     let selector = git_selector(dependency)?;
-    let repository_root = match git_source_root(root, &git_field.value).map_err(|reason| {
+    let repository_root = match git_source_root(owner_root, &git_field.value).map_err(|reason| {
         Box::new(unavailable_git_dependency_diagnostic(
             dependency, git_field, reason,
         ))
     })? {
         Some(repository_root) => repository_root,
-        None => materialize_source(root, git_field, selector).map_err(|reason| {
+        None => materialize_source(lockfile_root, git_field, selector).map_err(|reason| {
             Box::new(git_materialization_diagnostic(
                 dependency, git_field, &reason,
             ))
@@ -248,6 +438,8 @@ where
     }
 
     let package_root = git_package_root(&repository_root, dependency)?;
+    let lockfile_url = git_lockfile_url(lockfile_root, owner_root, git_field);
+    let display_path = git_dependency_display_path(&lockfile_url, dependency.subdir.as_ref());
     let manifest = read_manifest(&package_root)
         .map_err(|error| Box::new(dependency_io_diagnostic(dependency, git_field, error)))?
         .ok_or_else(|| {
@@ -255,11 +447,7 @@ where
                 dependency, git_field,
             ))
         })?;
-    validate_package_name(
-        dependency,
-        &manifest,
-        &git_dependency_display_path(git_field, dependency.subdir.as_ref()),
-    )?;
+    validate_package_name(dependency, &manifest, &display_path)?;
 
     let resolved_rev = resolve_rev(&repository_root, selector).map_err(|reason| {
         Box::new(git_selector_resolution_diagnostic(
@@ -269,10 +457,10 @@ where
     let checksum = source_tree_checksum(&package_root)
         .map_err(|error| Box::new(dependency_io_diagnostic(dependency, git_field, error)))?;
 
-    Ok(LockfilePackage {
+    let package = LockfilePackage {
         name: dependency.package.clone(),
         source: LockfileSource::Git {
-            url: normalize_lockfile_path(&git_field.value),
+            url: lockfile_url,
             selector: lockfile_git_selector(selector),
             rev: resolved_rev,
             subdir: dependency
@@ -281,6 +469,24 @@ where
                 .map(|subdir| normalize_lockfile_path(&subdir.value)),
         },
         checksum,
+    };
+    Ok(LockedDependency {
+        selection: DependencySelection::Git {
+            url: match &package.source {
+                LockfileSource::Git { url, .. } => url.clone(),
+                _ => unreachable!("git dependency should produce a git lockfile source"),
+            },
+            selector: dependency_git_selector(selector),
+            subdir: dependency
+                .subdir
+                .as_ref()
+                .map(|subdir| normalize_lockfile_path(&subdir.value)),
+        },
+        package,
+        manifest,
+        package_root,
+        manifest_display_path: display_path,
+        package_span: dependency.package_span.clone(),
     })
 }
 
@@ -290,6 +496,99 @@ fn dependency_root(root: &Path, path: &str) -> PathBuf {
         path
     } else {
         root.join(path)
+    }
+}
+
+fn dependency_selection(
+    lockfile_root: &Path,
+    owner_root: &Path,
+    dependency: &ManifestDependency,
+) -> Option<DependencySelection> {
+    let source_count = usize::from(dependency.path.is_some())
+        + usize::from(dependency.git.is_some())
+        + usize::from(dependency.vendor.is_some())
+        + usize::from(dependency.mirror.is_some());
+    if source_count != 1 {
+        return None;
+    }
+    if let Some(path) = &dependency.path {
+        return Some(DependencySelection::Path {
+            path: source_path_for_lockfile(lockfile_root, owner_root, &path.value),
+        });
+    }
+    if let Some(vendor) = &dependency.vendor {
+        return Some(DependencySelection::Vendor {
+            path: source_path_for_lockfile(lockfile_root, owner_root, &vendor.value),
+        });
+    }
+    if let Some(mirror) = &dependency.mirror {
+        return Some(DependencySelection::Mirror {
+            path: source_path_for_lockfile(lockfile_root, owner_root, &mirror.value),
+        });
+    }
+    let selector = dependency.selectors.first()?;
+    if dependency.selectors.len() != 1 {
+        return None;
+    }
+    let git = dependency.git.as_ref()?;
+    Some(DependencySelection::Git {
+        url: git_lockfile_url(lockfile_root, owner_root, git),
+        selector: dependency_git_selector(selector),
+        subdir: dependency
+            .subdir
+            .as_ref()
+            .map(|subdir| normalize_lockfile_path(&subdir.value)),
+    })
+}
+
+fn dependency_git_selector(selector: &ManifestDependencySelector) -> DependencyGitSelector {
+    match selector.kind {
+        ManifestDependencySelectorKind::Rev => {
+            DependencyGitSelector::Rev(selector.field.value.clone())
+        }
+        ManifestDependencySelectorKind::Tag => {
+            DependencyGitSelector::Tag(selector.field.value.clone())
+        }
+        ManifestDependencySelectorKind::Branch => {
+            DependencyGitSelector::Branch(selector.field.value.clone())
+        }
+    }
+}
+
+fn source_path_for_lockfile(lockfile_root: &Path, owner_root: &Path, path: &str) -> String {
+    let resolved = dependency_root(owner_root, path);
+    let lockfile_path = resolved.strip_prefix(lockfile_root).unwrap_or(&resolved);
+    path_to_lockfile_string(lockfile_path)
+}
+
+fn path_to_lockfile_string(path: &Path) -> String {
+    let mut parts = Vec::<String>::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                if parts
+                    .last()
+                    .is_some_and(|part| part != ".." && part != "/" && !part.ends_with(':'))
+                {
+                    parts.pop();
+                } else {
+                    parts.push("..".to_string());
+                }
+            }
+            component => parts.push(component.as_os_str().to_string_lossy().into_owned()),
+        }
+    }
+    parts.join("/")
+}
+
+fn git_lockfile_url(lockfile_root: &Path, owner_root: &Path, git_field: &ManifestField) -> String {
+    if local_file_url_path(&git_field.value).is_ok_and(|path| path.is_some())
+        || is_non_local_git_source(&git_field.value)
+    {
+        normalize_lockfile_path(&git_field.value)
+    } else {
+        source_path_for_lockfile(lockfile_root, owner_root, &git_field.value)
     }
 }
 
@@ -587,11 +886,8 @@ fn dependency_manifest_span(dependency_path: &str, span: &SourceSpan) -> SourceS
     span
 }
 
-fn git_dependency_display_path(
-    git_field: &ManifestField,
-    subdir: Option<&ManifestField>,
-) -> String {
-    let mut path = normalize_lockfile_path(&git_field.value);
+fn git_dependency_display_path(lockfile_url: &str, subdir: Option<&ManifestField>) -> String {
+    let mut path = lockfile_url.to_string();
     if let Some(subdir) = subdir {
         path.push('/');
         path.push_str(&normalize_lockfile_path(&subdir.value));
@@ -619,6 +915,119 @@ fn missing_manifest_diagnostic() -> Diagnostic {
             ("field", JsonValue::string("manifest")),
         ]),
     )
+}
+
+fn dependency_in_context(
+    dependency: &ManifestDependency,
+    manifest_display_path: &str,
+) -> ManifestDependency {
+    let mut dependency = dependency.clone();
+    dependency.package_span = span_in_context(&dependency.package_span, manifest_display_path);
+    dependency.path = dependency
+        .path
+        .map(|field| field_in_context(field, manifest_display_path));
+    dependency.git = dependency
+        .git
+        .map(|field| field_in_context(field, manifest_display_path));
+    dependency.vendor = dependency
+        .vendor
+        .map(|field| field_in_context(field, manifest_display_path));
+    dependency.mirror = dependency
+        .mirror
+        .map(|field| field_in_context(field, manifest_display_path));
+    dependency.subdir = dependency
+        .subdir
+        .map(|field| field_in_context(field, manifest_display_path));
+    dependency.selectors = dependency
+        .selectors
+        .into_iter()
+        .map(|selector| ManifestDependencySelector {
+            kind: selector.kind,
+            field: field_in_context(selector.field, manifest_display_path),
+        })
+        .collect();
+    dependency
+}
+
+fn field_in_context(field: ManifestField, manifest_display_path: &str) -> ManifestField {
+    ManifestField {
+        key_span: span_in_context(&field.key_span, manifest_display_path),
+        value_span: span_in_context(&field.value_span, manifest_display_path),
+        ..field
+    }
+}
+
+fn span_in_context(span: &SourceSpan, manifest_display_path: &str) -> SourceSpan {
+    if manifest_display_path.is_empty() {
+        return span.clone();
+    }
+    let mut span = span.clone();
+    span.file = SourcePath::new(format!("{manifest_display_path}/{}", span.file.as_str()));
+    span
+}
+
+fn incompatible_dependency_source_diagnostic(
+    dependency: &ManifestDependency,
+    selection: &DependencySelection,
+    existing: &LockedDependency,
+) -> Diagnostic {
+    let requested = selection_summary(selection);
+    let existing_source = selection_summary(&existing.selection);
+    let mut diagnostic = Diagnostic::new(
+        "package.incompatible_dependency_source",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "dependency `{}` selects {requested}, but that package identity is already selected as {existing_source}",
+            dependency.package
+        ),
+        Some(dependency.package_span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("package_lock")),
+            ("field", JsonValue::string("dependencies")),
+            ("package", JsonValue::string(dependency.package.clone())),
+            ("requested_source", JsonValue::string(requested)),
+            ("existing_source", JsonValue::string(existing_source)),
+            ("reason", JsonValue::string("incompatible_source")),
+        ]),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("kind", JsonValue::string("previous_dependency_source")),
+        (
+            "message",
+            JsonValue::string("This dependency selected the package identity first."),
+        ),
+        ("span", span_json(&existing.package_span)),
+    ]));
+    diagnostic
+}
+
+fn selection_summary(selection: &DependencySelection) -> String {
+    match selection {
+        DependencySelection::Path { path } => format!("path `{path}`"),
+        DependencySelection::Vendor { path } => format!("vendor `{path}`"),
+        DependencySelection::Mirror { path } => format!("mirror `{path}`"),
+        DependencySelection::Git {
+            url,
+            selector,
+            subdir,
+        } => {
+            let selector = git_selector_summary(selector);
+            let mut summary = format!("git `{url}` with {selector}");
+            if let Some(subdir) = subdir {
+                summary.push_str(&format!(" in subdir `{subdir}`"));
+            }
+            summary
+        }
+    }
+}
+
+fn git_selector_summary(selector: &DependencyGitSelector) -> String {
+    match selector {
+        DependencyGitSelector::Rev(value) => format!("rev `{value}`"),
+        DependencyGitSelector::Tag(value) => format!("tag `{value}`"),
+        DependencyGitSelector::Branch(value) => format!("branch `{value}`"),
+    }
 }
 
 fn unsupported_dependency_source_diagnostic(
@@ -1013,6 +1422,185 @@ mod tests {
         assert_eq!(
             diagnostic.message,
             "package lock supports only one of path, git, vendor, or mirror dependencies for `github.com/oakcask/mixed`"
+        );
+    }
+
+    #[test]
+    fn package_lock_rejects_incompatible_transitive_sources() {
+        let project = TempProject::new("lock-incompatible-transitive-source");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/alpha\"]\n",
+                "path = \"vendor/alpha\"\n",
+                "[dependencies.\"github.com/oakcask/zeta\"]\n",
+                "path = \"vendor/zeta\"\n",
+            ),
+        );
+        project.write(
+            "vendor/alpha/veln.toml",
+            concat!(
+                "[package]\n",
+                "name = \"github.com/oakcask/alpha\"\n",
+                "[dependencies.\"github.com/oakcask/shared\"]\n",
+                "path = \"vendor/shared-one\"\n",
+            ),
+        );
+        project.write(
+            "vendor/zeta/veln.toml",
+            concat!(
+                "[package]\n",
+                "name = \"github.com/oakcask/zeta\"\n",
+                "[dependencies.\"github.com/oakcask/shared\"]\n",
+                "path = \"vendor/shared-two\"\n",
+            ),
+        );
+        project.write(
+            "vendor/alpha/vendor/shared-one/veln.toml",
+            "[package]\nname = \"github.com/oakcask/shared\"\n",
+        );
+        project.write(
+            "vendor/zeta/vendor/shared-two/veln.toml",
+            "[package]\nname = \"github.com/oakcask/shared\"\n",
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let mut resolver = PackageLockResolver::new(project.root());
+        resolver.lock_manifest_dependencies(project.root(), "", &manifest);
+
+        assert_eq!(resolver.diagnostics.len(), 1);
+        let diagnostic = &resolver.diagnostics[0];
+        assert_eq!(diagnostic.id, "package.incompatible_dependency_source");
+        assert_eq!(
+            diagnostic.message,
+            "dependency `github.com/oakcask/shared` selects path `vendor/zeta/vendor/shared-two`, but that package identity is already selected as path `vendor/alpha/vendor/shared-one`"
+        );
+        assert_eq!(
+            diagnostic
+                .span
+                .as_ref()
+                .expect("diagnostic should have a span")
+                .file
+                .as_str(),
+            "vendor/zeta/veln.toml"
+        );
+        assert_eq!(resolver.packages().len(), 3);
+    }
+
+    #[test]
+    fn package_lock_rejects_incompatible_transitive_source_kinds() {
+        let project = TempProject::new("lock-incompatible-transitive-source-kind");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/alpha\"]\n",
+                "path = \"vendor/alpha\"\n",
+                "[dependencies.\"github.com/oakcask/zeta\"]\n",
+                "path = \"vendor/zeta\"\n",
+            ),
+        );
+        project.write(
+            "vendor/alpha/veln.toml",
+            concat!(
+                "[package]\n",
+                "name = \"github.com/oakcask/alpha\"\n",
+                "[dependencies.\"github.com/oakcask/shared\"]\n",
+                "path = \"../shared\"\n",
+            ),
+        );
+        project.write(
+            "vendor/zeta/veln.toml",
+            concat!(
+                "[package]\n",
+                "name = \"github.com/oakcask/zeta\"\n",
+                "[dependencies.\"github.com/oakcask/shared\"]\n",
+                "vendor = \"../shared\"\n",
+            ),
+        );
+        project.write(
+            "vendor/shared/veln.toml",
+            "[package]\nname = \"github.com/oakcask/shared\"\n",
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let mut resolver = PackageLockResolver::new(project.root());
+        resolver.lock_manifest_dependencies(project.root(), "", &manifest);
+
+        assert_eq!(resolver.diagnostics.len(), 1);
+        let diagnostic = &resolver.diagnostics[0];
+        assert_eq!(diagnostic.id, "package.incompatible_dependency_source");
+        assert_eq!(
+            diagnostic.message,
+            "dependency `github.com/oakcask/shared` selects vendor `vendor/shared`, but that package identity is already selected as path `vendor/shared`"
+        );
+        assert_eq!(
+            diagnostic
+                .span
+                .as_ref()
+                .expect("diagnostic should have a span")
+                .file
+                .as_str(),
+            "vendor/zeta/veln.toml"
+        );
+    }
+
+    #[test]
+    fn package_lock_reuses_compatible_transitive_sources() {
+        let project = TempProject::new("lock-compatible-transitive-source");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/alpha\"]\n",
+                "path = \"vendor/alpha\"\n",
+                "[dependencies.\"github.com/oakcask/zeta\"]\n",
+                "path = \"vendor/zeta\"\n",
+            ),
+        );
+        project.write(
+            "vendor/alpha/veln.toml",
+            concat!(
+                "[package]\n",
+                "name = \"github.com/oakcask/alpha\"\n",
+                "[dependencies.\"github.com/oakcask/shared\"]\n",
+                "path = \"../shared\"\n",
+            ),
+        );
+        project.write(
+            "vendor/zeta/veln.toml",
+            concat!(
+                "[package]\n",
+                "name = \"github.com/oakcask/zeta\"\n",
+                "[dependencies.\"github.com/oakcask/shared\"]\n",
+                "path = \"../shared\"\n",
+            ),
+        );
+        project.write(
+            "vendor/shared/veln.toml",
+            "[package]\nname = \"github.com/oakcask/shared\"\n",
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let mut resolver = PackageLockResolver::new(project.root());
+        resolver.lock_manifest_dependencies(project.root(), "", &manifest);
+
+        assert!(resolver.diagnostics.is_empty());
+        assert_eq!(
+            resolver
+                .packages()
+                .into_iter()
+                .map(|package| package.name)
+                .collect::<Vec<_>>(),
+            vec![
+                "github.com/oakcask/alpha".to_string(),
+                "github.com/oakcask/shared".to_string(),
+                "github.com/oakcask/zeta".to_string(),
+            ]
         );
     }
 
