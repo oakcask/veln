@@ -19,6 +19,9 @@ file-based modules and packages. Current behavior lives in
   requested package identity.
 - Non-local git dependencies are materialized through git before lockfile
   generation and record the resolved revision.
+- Lockfile generation follows dependency manifests across the graph and rejects
+  incompatible source selections for repeated package identities before
+  writing `veln.lock`.
 
 ## Current Specification
 
@@ -44,11 +47,13 @@ file-based modules and packages. Current behavior lives in
 - `../../../examples/specification/package/lock-vendor-package-name-mismatch/`.
 - `../../../examples/specification/package/lock-mirror-package-name-mismatch/`.
 - `../../../examples/specification/package/lock-mirror-unavailable/`.
+- `../../../examples/specification/package/lock-incompatible-transitive-path-source/`.
+- `../../../examples/specification/package/lock-incompatible-transitive-git-selector/`.
+- `../../../examples/specification/package/lock-incompatible-transitive-source-kind/`.
+- `../../../examples/specification/package/lock-incompatible-transitive-git-subdir/`.
 
 ## Boundary
 
-- Graph-wide incompatible-source resolution remains unimplemented proposal
-  work.
 - Multiple versions of the same package identity are not loaded.
 - Registry or network policy beyond explicit git metadata is outside this
   slice.

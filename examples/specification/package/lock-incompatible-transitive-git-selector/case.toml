@@ -1,0 +1,11 @@
+command = ["package", "lock"]
+exit = 1
+
+[tools]
+git = "fake-git-rev-parse"
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["vendor/zeta/veln.toml:3:16: error[package.incompatible_dependency_source]: dependency `github.com/oakcask/shared` selects git `vendor/shared` with tag `v1`, but that package identity is already selected as git `vendor/shared` with rev `abc123`", "note: vendor/alpha/veln.toml:3:16: This dependency selected the package identity first."]

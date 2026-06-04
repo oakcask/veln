@@ -1,0 +1,4 @@
+[package]
+name = "github.com/oakcask/alpha"
+[dependencies."github.com/oakcask/shared"]
+vendor = "vendor/shared"
