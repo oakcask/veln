@@ -1,0 +1,19 @@
+command = ["package", "lock"]
+exit = 0
+
+[skip]
+platforms = ["windows"]
+reason = "fake git materialization uses the Unix harness script"
+
+[tools]
+git = "fake-git-rev-parse"
+
+[stdout]
+contains = ["wrote veln.lock"]
+
+[stderr]
+format = "empty"
+
+[[file_assert]]
+path = "veln.lock"
+equals = "[[package]]\nname = \"github.com/oakcask/branchy\"\nsource = { kind = \"git\", url = \"https://example.invalid/branchy.git\", selector = { branch = \"main\" }, rev = \"0123456789abcdef0123456789abcdef01234567\" }\nchecksum = \"sha256:78a3b364827a89414f1275e75697f0b0efd055f2b53546318fcc759a80a45509\"\n"

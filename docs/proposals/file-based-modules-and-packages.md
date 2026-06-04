@@ -16,9 +16,10 @@ package source-file exports, `use path from "package"` resolves exported
 modules from already available path dependencies, git dependency metadata
 records one `rev`, `tag`, or `branch` selector plus optional `subdir`, and
 `veln package lock` writes deterministic lockfile entries for already
-available path dependencies and local git dependencies with `rev`, `tag`, or
-`branch` selectors. This proposal remains open for package-manager behavior
-beyond local path and local git lockfile slices.
+available path dependencies, local git dependencies, and materialized
+non-local git dependencies with `rev`, `tag`, or `branch` selectors. This
+proposal remains open for remaining package-manager behavior beyond git
+lockfile source materialization.
 
 ## Read First
 
@@ -45,8 +46,8 @@ metadata:
 The implemented local-source, manifest-export, path-dependency
 external-import, and first package-manager metadata slices remove those local
 ambiguities and establish the first external package boundary. This proposal
-remains open for fetching, vendoring, non-local source materialization, mirror
-support, and graph-wide incompatible-source resolution.
+remains open for vendoring, mirror support, and graph-wide incompatible-source
+resolution.
 
 ## Proposal
 
@@ -299,19 +300,20 @@ exports = [
 
 ## Specification Updates
 
-Implemented package import, dependency-metadata, and local lockfile behavior is
+Implemented package import, dependency-metadata, and lockfile behavior is
 specified under `../specification/source-surface.md`,
 `../specification/names-effects.md`, `../specification/commands.md`, and
 `../../examples/specification/`. Remaining work belongs to package-manager
-behavior: non-local dependency source materialization, vendoring, mirror
-support, and graph-wide incompatible-source resolution.
+behavior: vendoring, mirror support, and graph-wide incompatible-source
+resolution.
 
 ## Package Manager Implications
 
-The implemented path-dependency and local git lockfile workflows are
+The implemented path-dependency, local git, and non-local git lockfile
+workflows are
 specified under `../specification/commands.md` and executable cases under
 `../../examples/specification/package/`. The remaining package-manager work is
-non-local source materialization.
+vendoring, mirror support, and graph-wide incompatible-source resolution.
 
 External imports do not authorize network fetching by themselves. Future
 non-path package manager commands should require dependency metadata that maps
@@ -347,7 +349,7 @@ path = "../baz"
 ```
 
 A git dependency must name a git remote and exactly one selector: `rev`, `tag`,
-or `branch`. The selector is the requested source. The implemented local git
+or `branch`. The selector is the requested source. The implemented git
 lockfile slice resolves the selector to the revision used for builds, so
 mutable selectors such as branches do not make a checked-in build depend on
 the current remote state.

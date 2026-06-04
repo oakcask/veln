@@ -1,4 +1,5 @@
 use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
@@ -117,13 +118,33 @@ fn lock_git_dependency_with<F>(
 where
     F: Fn(&Path, &ManifestDependencySelector) -> Result<String, String>,
 {
+    lock_git_dependency_with_materializer(root, dependency, resolve_rev, materialize_git_source)
+}
+
+fn lock_git_dependency_with_materializer<F, M>(
+    root: &Path,
+    dependency: &ManifestDependency,
+    resolve_rev: F,
+    materialize_source: M,
+) -> Result<LockfilePackage, Box<Diagnostic>>
+where
+    F: Fn(&Path, &ManifestDependencySelector) -> Result<String, String>,
+    M: Fn(&Path, &ManifestField, &ManifestDependencySelector) -> Result<PathBuf, String>,
+{
     let git_field = dependency.git.as_ref().expect("git source should exist");
     let selector = git_selector(dependency)?;
-    let repository_root = git_source_root(root, &git_field.value).map_err(|reason| {
+    let repository_root = match git_source_root(root, &git_field.value).map_err(|reason| {
         Box::new(unavailable_git_dependency_diagnostic(
             dependency, git_field, reason,
         ))
-    })?;
+    })? {
+        Some(repository_root) => repository_root,
+        None => materialize_source(root, git_field, selector).map_err(|reason| {
+            Box::new(git_materialization_diagnostic(
+                dependency, git_field, &reason,
+            ))
+        })?,
+    };
     if !repository_root.is_dir() {
         return Err(Box::new(unavailable_git_dependency_diagnostic(
             dependency,
@@ -178,14 +199,134 @@ fn dependency_root(root: &Path, path: &str) -> PathBuf {
     }
 }
 
-fn git_source_root(root: &Path, source: &str) -> Result<PathBuf, &'static str> {
+fn git_source_root(root: &Path, source: &str) -> Result<Option<PathBuf>, &'static str> {
     if let Some(path) = local_file_url_path(source)? {
-        return Ok(path);
+        return Ok(Some(path));
     }
-    if source.contains("://") {
-        return Err("non_local_git_url");
+    if is_non_local_git_source(source) {
+        return Ok(None);
     }
-    Ok(dependency_root(root, source))
+    Ok(Some(dependency_root(root, source)))
+}
+
+fn is_non_local_git_source(source: &str) -> bool {
+    source.contains("://") || looks_like_scp_git_source(source)
+}
+
+fn looks_like_scp_git_source(source: &str) -> bool {
+    let Some(colon) = source.find(':') else {
+        return false;
+    };
+    let slash = source.find('/').unwrap_or(usize::MAX);
+    colon < slash && source[..colon].contains('@')
+}
+
+fn materialize_git_source(
+    root: &Path,
+    git_field: &ManifestField,
+    selector: &ManifestDependencySelector,
+) -> Result<PathBuf, String> {
+    let repository_root = materialized_git_repository_root(root, &git_field.value);
+    if repository_root.exists() {
+        if !repository_root.is_dir() {
+            return Err("materialized source path is not a directory".to_string());
+        }
+        run_git_in(
+            &repository_root,
+            &["fetch", "--tags", "--force", "--prune", "origin"],
+        )?;
+    } else {
+        if let Some(parent) = repository_root.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        run_git_clone(&git_field.value, &repository_root)?;
+    }
+
+    checkout_materialized_git_source(&repository_root, selector)?;
+    run_git_in(&repository_root, &["clean", "-fdx"])?;
+    Ok(repository_root)
+}
+
+fn materialized_git_repository_root(root: &Path, source: &str) -> PathBuf {
+    root.join(".veln")
+        .join("package")
+        .join("git")
+        .join(git_source_storage_key(source))
+}
+
+fn git_source_storage_key(source: &str) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in source.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}
+
+fn checkout_materialized_git_source(
+    repository_root: &Path,
+    selector: &ManifestDependencySelector,
+) -> Result<(), String> {
+    match selector.kind {
+        ManifestDependencySelectorKind::Rev => run_git_in(
+            repository_root,
+            &["checkout", "--force", &selector.field.value],
+        ),
+        ManifestDependencySelectorKind::Tag => {
+            let tag_ref = format!("refs/tags/{}", selector.field.value);
+            run_git_in(repository_root, &["checkout", "--force", &tag_ref])
+        }
+        ManifestDependencySelectorKind::Branch => {
+            let remote_ref = format!("refs/remotes/origin/{}", selector.field.value);
+            run_git_in(
+                repository_root,
+                &[
+                    "checkout",
+                    "--force",
+                    "-B",
+                    &selector.field.value,
+                    &remote_ref,
+                ],
+            )
+        }
+    }
+}
+
+fn run_git_clone(source: &str, destination: &Path) -> Result<(), String> {
+    let output = Command::new("git")
+        .arg("clone")
+        .arg("--no-checkout")
+        .arg(source)
+        .arg(destination)
+        .output()
+        .map_err(|error| error.to_string())?;
+    git_command_result(output)
+}
+
+fn run_git_in(repository_root: &Path, args: &[&str]) -> Result<(), String> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(repository_root)
+        .args(args)
+        .output()
+        .map_err(|error| error.to_string())?;
+    git_command_result(output)
+}
+
+fn git_command_result(output: std::process::Output) -> Result<(), String> {
+    if output.status.success() {
+        return Ok(());
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !stderr.is_empty() {
+        return Err(stderr);
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if stdout.is_empty() {
+        Err("git command failed".to_string())
+    } else {
+        Err(stdout)
+    }
 }
 
 fn local_file_url_path(source: &str) -> Result<Option<PathBuf>, &'static str> {
@@ -395,7 +536,7 @@ fn unsupported_dependency_source_diagnostic(
         Severity::Error,
         DiagnosticKind::Module,
         format!(
-            "package lock supports only path dependencies or local git dependencies for `{}`",
+            "package lock supports only path dependencies or git dependencies for `{}`",
             dependency.package
         ),
         Some(dependency.package_span.clone()),
@@ -433,7 +574,7 @@ fn unavailable_path_dependency_diagnostic(
 fn unavailable_git_dependency_diagnostic(
     dependency: &ManifestDependency,
     git_field: &ManifestField,
-    reason: &'static str,
+    reason: &str,
 ) -> Diagnostic {
     Diagnostic::new(
         "package.git_unavailable",
@@ -441,6 +582,30 @@ fn unavailable_git_dependency_diagnostic(
         DiagnosticKind::Module,
         format!(
             "git dependency `{}` is not available at `{}`",
+            dependency.package, git_field.value
+        ),
+        Some(git_field.value_span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("package_lock")),
+            ("field", JsonValue::string("dependencies.git")),
+            ("package", JsonValue::string(dependency.package.clone())),
+            ("url", JsonValue::string(git_field.value.clone())),
+            ("reason", JsonValue::string(reason)),
+        ]),
+    )
+}
+
+fn git_materialization_diagnostic(
+    dependency: &ManifestDependency,
+    git_field: &ManifestField,
+    reason: &str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "package.git_materialization_failed",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "git dependency `{}` could not be materialized from `{}`",
             dependency.package, git_field.value
         ),
         Some(git_field.value_span.clone()),
@@ -907,30 +1072,61 @@ mod tests {
     }
 
     #[test]
-    fn package_lock_rejects_non_local_git_url_before_resolving_rev() {
+    fn locks_non_local_git_url_by_materializing_source() {
         let project = TempProject::new("lock-git-non-local-url");
         project.write(
             "veln.toml",
             concat!(
-                "[dependencies.\"github.com/oakcask/remote\"]\n",
-                "git = \"https://example.invalid/remote.git\"\n",
+                "[dependencies.\"github.com/oakcask/bar\"]\n",
+                "git = \"https://example.invalid/mono.git\"\n",
                 "rev = \"abc123\"\n",
+                "subdir = \"packages/bar\"\n",
             ),
         );
 
         let manifest = read_manifest(project.root())
             .expect("manifest read should succeed")
             .expect("manifest should exist");
-        let diagnostic =
-            lock_git_dependency_with(project.root(), &manifest.dependencies[0], |_, _| {
-                panic!("non-local git URL should not resolve git")
-            })
-            .expect_err("non-local git URL should fail");
+        let materialized_root = project.path(".veln/package/git/materialized");
+        let package = lock_git_dependency_with_materializer(
+            project.root(),
+            &manifest.dependencies[0],
+            |repo, selector| {
+                assert_eq!(repo, materialized_root.as_path());
+                assert_eq!(selector.kind, ManifestDependencySelectorKind::Rev);
+                Ok("3333333333333333333333333333333333333333".to_string())
+            },
+            |root, git_field, selector| {
+                assert_eq!(root, project.root());
+                assert_eq!(git_field.value, "https://example.invalid/mono.git");
+                assert_eq!(selector.field.value, "abc123");
+                project.write(
+                    ".veln/package/git/materialized/packages/bar/veln.toml",
+                    "[package]\nname = \"github.com/oakcask/bar\"\n",
+                );
+                project.write(
+                    ".veln/package/git/materialized/packages/bar/bar.veln",
+                    "pub fn bar() -> Int\n\t7\nend\n",
+                );
+                Ok(materialized_root.clone())
+            },
+        )
+        .expect("non-local git dependency should lock");
 
-        assert_eq!(diagnostic.id, "package.git_unavailable");
+        assert_eq!(package.name, "github.com/oakcask/bar");
         assert_eq!(
-            diagnostic.message,
-            "git dependency `github.com/oakcask/remote` is not available at `https://example.invalid/remote.git`"
+            package.source,
+            LockfileSource::Git {
+                url: "https://example.invalid/mono.git".to_string(),
+                selector: LockfileGitSelector::Rev("abc123".to_string()),
+                rev: "3333333333333333333333333333333333333333".to_string(),
+                subdir: Some("packages/bar".to_string()),
+            }
+        );
+        assert_eq!(
+            package.checksum,
+            source_tree_checksum(&project.path(".veln/package/git/materialized/packages/bar"))
+                .expect("checksum should be computed")
         );
     }
 

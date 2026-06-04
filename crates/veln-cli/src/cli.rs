@@ -225,9 +225,7 @@ fn package_command() -> ClapCommand {
         .about("Manage package dependencies")
         .subcommand_required(true)
         .arg_required_else_help(true)
-        .subcommand(
-            ClapCommand::new("lock").about("Write veln.lock for path and local git dependencies"),
-        )
+        .subcommand(ClapCommand::new("lock").about("Write veln.lock for path and git dependencies"))
 }
 
 fn lsp_command() -> ClapCommand {
