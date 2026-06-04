@@ -14,6 +14,7 @@ behavior, gates, or output boundaries.
 - [`veln test`](#veln-test)
 - [`veln repair`](#veln-repair)
 - [`veln explain`](#veln-explain)
+- [`veln package lock`](#veln-package-lock)
 - [`veln lsp`](#veln-lsp)
 
 <a id="shared-command-analysis"></a>
@@ -67,12 +68,13 @@ discovery. Git dependency metadata must name a `git` remote plus exactly one
 selector: `rev`, `tag`, or `branch`; `subdir` is optional package-root
 metadata inside the selected source. Current dependency discovery only reads
 local path dependencies that are already available on disk; source imports do
-not fetch packages, resolve git revisions, compute checksums, write lockfiles,
-or vendor sources. Current package export entries do not add files to the
-selected set. Each export must be a package-relative `.veln` source path, must
-use file-path spelling instead of module-path spelling, must derive a valid
-source module path, must match a selected source file, and must not duplicate
-another export for the same derived module path. `[modules]` is rejected.
+not fetch packages, resolve git revisions, update dependency checksums, write
+lockfiles, or vendor sources. Current package export entries do not add files
+to the selected set. Each export must be a package-relative `.veln` source
+path, must use file-path spelling instead of module-path spelling, must derive
+a valid source module path, must match a selected source file, and must not
+duplicate another export for the same derived module path. `[modules]` is
+rejected.
 
 When a parse-clean source contains `use path from "package"`, the command
 looks for a matching path dependency table in the current project manifest,
@@ -375,6 +377,36 @@ in the typed-hole and predicate repair loop:
 - `parse.satisfy_candidate`
 - `parse.satisfy_arrow`
 - `parse.satisfy_predicate`
+
+<a id="veln-package-lock"></a>
+
+## `veln package lock`
+
+`package lock` reads the current project `veln.toml` and writes `veln.lock`.
+The implemented package-manager slice is limited to dependency tables with a
+string-valued `path` field and no `git` field. The command does not fetch git
+sources, resolve git revisions, vendor packages, or contact the network.
+
+For each path dependency, the dependency table key is the package identity.
+The command requires the path to name an existing package root, reads that
+root's `veln.toml`, and requires its `[package].name` to match the dependency
+table key before writing an entry. A mismatch is reported at the dependency
+table key with a related note on the dependency manifest name when available.
+
+The written lockfile uses sorted `[[package]]` entries. Each entry records the
+package `name`, a path `source` object, and a `sha256:` checksum:
+
+```toml
+[[package]]
+name = "github.com/oakcask/lib"
+source = { kind = "path", path = "vendor/lib" }
+checksum = "sha256:..."
+```
+
+Serialized source paths use `/` separators. The checksum is computed from the
+sorted `.veln` source files discovered under the dependency package root after
+the same ignored-directory rule as source discovery, so `.git` and `target`
+contents do not affect the lockfile.
 
 <a id="veln-lsp"></a>
 

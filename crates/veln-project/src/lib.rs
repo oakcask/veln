@@ -9,10 +9,13 @@ mod project;
 mod tests;
 
 pub use discovery::discover_source_paths;
-pub use lockfile::{LockfileGitSelector, LockfilePackage, LockfileSource, ProjectLockfile};
+pub use lockfile::{
+    LockfileGitSelector, LockfilePackage, LockfileSource, ProjectLockfile, normalize_lockfile_path,
+    source_tree_checksum, write_lockfile,
+};
 pub use manifest::{
     ManifestDependency, ManifestDependencySelector, ManifestDependencySelectorKind, ManifestExport,
     ManifestField, ManifestLib, ManifestPackage, ManifestTool, ManifestUnsupportedSection,
-    ProjectManifest,
+    ProjectManifest, read_manifest,
 };
 pub use project::Project;

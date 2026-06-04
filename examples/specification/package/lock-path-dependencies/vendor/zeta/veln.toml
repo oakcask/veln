@@ -1,0 +1,4 @@
+[package]
+name = "github.com/oakcask/zeta"
+[lib]
+exports = ["zeta.veln"]
