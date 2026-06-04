@@ -14,7 +14,7 @@ used by editor integrations.
 - TextMate fallback highlighting is contributed by
   `editors/vscode/syntaxes/veln.tmLanguage.json`.
 - VSCode starts the language server when a `.veln` document opens and requests
-  full-document semantic tokens and document diagnostics.
+  full-document semantic tokens and workspace diagnostics.
 
 ## Semantic Token Records
 
@@ -77,13 +77,23 @@ stream remains valid for LSP clients.
 
 ## LSP Diagnostics
 
-The stdio server publishes diagnostics after `textDocument/didOpen` and
-`textDocument/didChange`. It clears diagnostics after `textDocument/didClose`.
+The stdio server resolves the workspace root from `initialize.rootUri`, then
+from the first `initialize.workspaceFolders` entry, and otherwise from the
+server process working directory.
 
-Diagnostics are computed from the in-editor document text. Parse diagnostics are
-reported first. When parsing succeeds, the server lowers the document into the
-surface module model and publishes semantic diagnostics from the checked surface
-module.
+For files inside that workspace, the server discovers project `.veln` files the
+same way `check` and `run` do, excludes doctest-generated sources, overlays
+open unsaved editor text onto the discovered source set, and includes open new
+`.veln` buffers that do not exist on disk yet. It publishes
+`textDocument/publishDiagnostics` for every discovered or open workspace source
+file, including unopened files. It also publishes empty diagnostic lists for
+previously reported files that become clean or leave discovery.
+
+For documents outside the resolved workspace, diagnostics remain
+document-scoped and are computed from the in-editor document text. Parse
+diagnostics are reported first. When parsing succeeds, the server lowers the
+document into the surface module model and publishes semantic diagnostics from
+the checked surface module.
 
 Published diagnostics use standard LSP severity numbers and zero-based ranges.
 The diagnostic `code` is the Veln diagnostic id, and the diagnostic `source` is
@@ -119,7 +129,10 @@ Implemented:
 - Editor-neutral semantic token records.
 - Full semantic-token legend and integer data generation for LSP clients.
 - Stdio JSON-RPC lifecycle for semantic highlighting requests.
-- Stdio diagnostic publication for open Veln documents.
+- Stdio diagnostic publication for discovered workspace Veln files, including
+  unopened files, with unsaved open document overlays.
+- Document-scoped diagnostic publication for Veln documents outside the
+  resolved workspace.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.
@@ -129,5 +142,4 @@ Implemented:
 Not implemented:
 
 - LSP range and delta semantic token requests.
-- Workspace-wide background diagnostics for unopened files.
 - Completion, hover, rename, and go to definition.

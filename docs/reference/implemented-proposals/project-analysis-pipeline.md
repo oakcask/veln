@@ -3,12 +3,15 @@
 Status: implemented
 
 This page records the implemented shared-analysis target from the historical
-first-slice review. Use the specification pages for current command behavior.
+first-slice review. Use the specification pages for current command and editor
+behavior.
 
 ## Read First
 
 - Current command behavior:
   [../../specification/commands.md](../../specification/commands.md).
+- Current editor and LSP behavior:
+  [../../specification/editor-support.md](../../specification/editor-support.md).
 - Current execution gates:
   [../../specification/execution.md](../../specification/execution.md).
 - Current JSON output boundaries:
@@ -21,8 +24,16 @@ The shared project-analysis entry point owns source discovery results, parse
 diagnostics, generated doctest sources, surface module loading, semantic
 diagnostics, checked-core readiness, and typed-IR readiness.
 
+The reusable implementation lives in the internal `veln-analysis` crate so
+tooling can call the same analysis path without depending on `veln-cli`.
+
 `check`, `run`, `test`, and `repair` call that entry point and then apply only
 command-specific selection, output, execution, or write policy.
+
+`veln lsp` also uses that entry point for workspace diagnostics. It excludes
+doctest-generated sources, overlays unsaved editor buffers, and keeps semantic
+token requests document-scoped as specified by
+`../../specification/editor-support.md`.
 
 This record is now history and routing. New shared-analysis work should use a
 new proposal page unless it is already stated by `../../specification/`.
@@ -34,15 +45,21 @@ new proposal page unless it is already stated by `../../specification/`.
   wording unless a behavioral mismatch is found during implementation.
 - Do not expand module loading, import syntax, test discovery, repair
   application, or backend behavior as part of this target.
+- Do not use this historical record as the source for current LSP behavior;
+  route to `../../specification/editor-support.md`.
 
 ## Completion Evidence
 
 - `check`, `run`, `test`, and `repair` use the same project-analysis API for
   parse-clean source loading and semantic analysis.
+- `veln lsp` uses the same project-analysis API for discovered workspace file
+  diagnostics while preserving document-scoped semantic tokens.
 - Parse errors in one selected file still allow semantic diagnostics from other
   parse-clean selected files.
 - Cross-file imports and imported qualified calls use the same facts for
   `check`, `run`, and `test`.
+- Cross-file workspace diagnostics in LSP use the same checked-project facts as
+  `check`.
 - Checked-core blockers reported by `check` are the same blockers that would
   prevent `run` or `test` from lowering the reachable entry.
 - Generated doctests and expected-error doctest reconciliation stay observable

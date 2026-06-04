@@ -62,9 +62,9 @@ class VelnLanguageServer {
       }
       this.pending.clear();
     });
-    this.sendRequest("initialize", {
-      capabilities: {},
-    }).then(() => this.sendNotification("initialized", {}));
+    this.sendRequest("initialize", initializeParams(cwd)).then(() =>
+      this.sendNotification("initialized", {}),
+    );
   }
 
   dispose() {
@@ -265,6 +265,27 @@ function workspaceFolderPath() {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
+function initializeParams(cwd) {
+  const params = { capabilities: {} };
+  if (!cwd) {
+    return params;
+  }
+  const uri = vscode.Uri.file(cwd).toString();
+  params.rootUri = uri;
+  params.workspaceFolders = [
+    {
+      uri,
+      name: workspaceFolderName(cwd),
+    },
+  ];
+  return params;
+}
+
+function workspaceFolderName(cwd) {
+  const parts = cwd.split(/[\\/]/).filter((part) => part.length > 0);
+  return parts.at(-1) ?? cwd;
+}
+
 function resolveServerCommand(command) {
   const workspaceFolder = workspaceFolderPath();
   if (!workspaceFolder) {
@@ -398,5 +419,6 @@ module.exports = {
     summarizeMessage,
     summarizeJson,
     toDiagnosticSeverity,
+    initializeParams,
   },
 };

@@ -1,9 +1,9 @@
 use std::fs;
 use std::path::PathBuf;
 
+use veln_analysis::{DoctestMode, checked_project_diagnostics};
 use veln_project::Project;
 
-use crate::analysis::{DoctestMode, checked_project_diagnostics};
 use crate::diagnostics::has_error;
 
 use super::candidates::{

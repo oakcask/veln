@@ -145,6 +145,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
+name = "veln-analysis"
+version = "0.1.0"
+dependencies = [
+ "veln-ast",
+ "veln-diagnostics",
+ "veln-ir",
+ "veln-project",
+ "veln-sema",
+ "veln-source",
+ "veln-syntax",
+ "veln-test",
+]
+
+[[package]]
 name = "veln-ast"
 version = "0.1.0"
 dependencies = [
@@ -169,6 +183,7 @@ name = "veln-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "veln-analysis",
  "veln-ast",
  "veln-backend-jvm",
  "veln-core",
@@ -227,9 +242,11 @@ dependencies = [
 name = "veln-lsp"
 version = "0.1.0"
 dependencies = [
+ "veln-analysis",
  "veln-ast",
  "veln-diagnostics",
  "veln-editor",
+ "veln-project",
  "veln-sema",
  "veln-source",
  "veln-syntax",

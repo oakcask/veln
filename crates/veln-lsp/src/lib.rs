@@ -1,13 +1,16 @@
 //! LSP-facing semantic token helpers for Veln editors.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::env;
 use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
+use veln_analysis::{DoctestMode, checked_project_diagnostics};
 use veln_ast::{SurfaceModule, lower_surface_ast};
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 use veln_editor::{encode_lsp_semantic_tokens, semantic_token_legend};
+use veln_project::Project;
 use veln_source::{SourceFile, SourceSpan};
 use veln_syntax::{ParseDiagnostic, parse};
 
@@ -76,6 +79,8 @@ pub fn run_stdio() -> io::Result<()> {
 #[derive(Default)]
 struct Server {
     documents: BTreeMap<String, String>,
+    workspace_root: Option<PathBuf>,
+    published_diagnostic_uris: BTreeSet<String>,
     should_exit: bool,
 }
 
@@ -101,7 +106,7 @@ impl Server {
         };
 
         match method {
-            "initialize" => self.handle_initialize(id),
+            "initialize" => self.handle_initialize(message, id),
             "initialized" => Vec::new(),
             "shutdown" => self.handle_shutdown(id),
             "exit" => self.handle_exit(),
@@ -114,10 +119,14 @@ impl Server {
         }
     }
 
-    fn handle_initialize(&self, id: Option<String>) -> Vec<String> {
-        id.map(|id| response(&id, &initialize_result()))
+    fn handle_initialize(&mut self, message: &str, id: Option<String>) -> Vec<String> {
+        self.workspace_root = resolve_workspace_root(message);
+        let mut responses = id
+            .map(|id| response(&id, &initialize_result()))
             .into_iter()
-            .collect()
+            .collect::<Vec<_>>();
+        responses.extend(self.publish_workspace_diagnostics());
+        responses
     }
 
     fn handle_shutdown(&self, id: Option<String>) -> Vec<String> {
@@ -134,7 +143,11 @@ impl Server {
             return Vec::new();
         };
         self.documents.insert(uri.clone(), text);
-        vec![publish_diagnostics(&uri, self.document_text(&uri))]
+        if self.workspace_source_path(&uri).is_some() {
+            self.publish_workspace_diagnostics()
+        } else {
+            vec![publish_diagnostics(&uri, self.document_text(&uri))]
+        }
     }
 
     fn handle_document_close(&mut self, message: &str) -> Vec<String> {
@@ -142,7 +155,11 @@ impl Server {
             return Vec::new();
         };
         self.documents.remove(&uri);
-        vec![empty_publish_diagnostics(&uri)]
+        if self.workspace_source_path(&uri).is_some() {
+            self.publish_workspace_diagnostics()
+        } else {
+            vec![empty_publish_diagnostics(&uri)]
+        }
     }
 
     fn handle_semantic_tokens(&self, message: &str, id: Option<String>) -> Vec<String> {
@@ -167,6 +184,67 @@ impl Server {
         uri_to_path(uri)
             .and_then(|path| fs::read_to_string(path).ok())
             .unwrap_or_default()
+    }
+
+    fn publish_workspace_diagnostics(&mut self) -> Vec<String> {
+        let Some(root) = self.workspace_root.clone() else {
+            return Vec::new();
+        };
+        let Ok(mut project) = Project::discover(root.clone(), &[]) else {
+            return Vec::new();
+        };
+        self.overlay_open_workspace_documents(&root, &mut project);
+        let diagnostics = checked_project_diagnostics(project.clone(), DoctestMode::Exclude);
+        let mut diagnostics_by_path = diagnostics_by_path(diagnostics);
+        for source in &project.files {
+            diagnostics_by_path
+                .entry(source.path().as_str().to_string())
+                .or_default();
+        }
+
+        let mut next_uris = BTreeSet::new();
+        let mut responses = Vec::new();
+        for (source_path, diagnostics) in diagnostics_by_path {
+            let uri = path_to_uri(&root.join(&source_path));
+            next_uris.insert(uri.clone());
+            responses.push(publish_diagnostics_for_uri(&uri, &diagnostics));
+        }
+        for uri in self
+            .published_diagnostic_uris
+            .difference(&next_uris)
+            .cloned()
+            .collect::<Vec<_>>()
+        {
+            responses.push(empty_publish_diagnostics(&uri));
+        }
+        self.published_diagnostic_uris = next_uris;
+        responses
+    }
+
+    fn overlay_open_workspace_documents(&self, root: &Path, project: &mut Project) {
+        for (uri, text) in &self.documents {
+            let Some(source) = workspace_source_file(root, uri, text) else {
+                continue;
+            };
+            let source_path = source.path().as_str().to_string();
+            if let Some(existing) = project
+                .files
+                .iter_mut()
+                .find(|file| file.path().as_str() == source_path)
+            {
+                *existing = source;
+            } else {
+                project.files.push(source);
+            }
+        }
+        project
+            .files
+            .sort_by(|left, right| left.path().as_str().cmp(right.path().as_str()));
+    }
+
+    fn workspace_source_path(&self, uri: &str) -> Option<String> {
+        let root = self.workspace_root.as_ref()?;
+        workspace_relative_source_path(root, uri)
     }
 }
 
@@ -202,7 +280,14 @@ fn publish_diagnostics(uri: &str, text: String) -> String {
     let diagnostics = diagnostics(&source)
         .into_iter()
         .filter(|diagnostic| diagnostic_applies_to_uri(diagnostic, uri))
-        .map(|diagnostic| lsp_diagnostic_json(&diagnostic))
+        .collect::<Vec<_>>();
+    publish_diagnostics_for_uri(uri, &diagnostics)
+}
+
+fn publish_diagnostics_for_uri(uri: &str, diagnostics: &[Diagnostic]) -> String {
+    let diagnostics = diagnostics
+        .iter()
+        .map(lsp_diagnostic_json)
         .collect::<Vec<_>>()
         .join(",");
     format!(
@@ -328,6 +413,70 @@ fn parse_diagnostic_to_envelope(diagnostic: &ParseDiagnostic) -> Diagnostic {
             ),
         ]),
     )
+}
+
+fn diagnostics_by_path(diagnostics: Vec<Diagnostic>) -> BTreeMap<String, Vec<Diagnostic>> {
+    let mut by_path = BTreeMap::<String, Vec<Diagnostic>>::new();
+    for diagnostic in diagnostics {
+        if let Some(span) = &diagnostic.span {
+            by_path
+                .entry(span.file.as_str().to_string())
+                .or_default()
+                .push(diagnostic);
+        }
+    }
+    by_path
+}
+
+fn resolve_workspace_root(message: &str) -> Option<PathBuf> {
+    extract_string_field(message, "rootUri")
+        .or_else(|| extract_workspace_folder_uri(message))
+        .and_then(|uri| uri_to_path(&uri))
+        .or_else(|| env::current_dir().ok())
+}
+
+fn extract_workspace_folder_uri(message: &str) -> Option<String> {
+    let index = message.find("\"workspaceFolders\"")?;
+    extract_string_field(&message[index..], "uri")
+}
+
+fn workspace_source_file(root: &Path, uri: &str, text: &str) -> Option<SourceFile> {
+    workspace_relative_source_path(root, uri).map(|path| SourceFile::new(path, text.to_string()))
+}
+
+fn workspace_relative_source_path(root: &Path, uri: &str) -> Option<String> {
+    let uri_path = uri_to_path(uri)?;
+    let absolute = if uri_path.is_absolute() {
+        uri_path
+    } else {
+        root.join(uri_path)
+    };
+    if absolute
+        .extension()
+        .is_none_or(|extension| extension != "veln")
+    {
+        return None;
+    }
+    let relative = absolute.strip_prefix(root).ok()?;
+    Some(relative.to_string_lossy().replace('\\', "/"))
+}
+
+fn path_to_uri(path: &Path) -> String {
+    let path = path.to_string_lossy().replace('\\', "/");
+    format!("file://{}", percent_encode_uri_path(&path))
+}
+
+fn percent_encode_uri_path(path: &str) -> String {
+    let mut encoded = String::new();
+    for byte in path.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' | b'/' => {
+                encoded.push(byte as char)
+            }
+            byte => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    encoded
 }
 
 fn read_message(input: &mut impl BufRead) -> io::Result<Option<String>> {
@@ -512,13 +661,136 @@ mod tests {
     #[test]
     fn server_initializes_with_semantic_token_capability() {
         let mut server = Server::default();
+        let project = TempProject::new("initialize-empty-root");
+        let root_uri = path_to_uri(&project.root);
 
-        let responses =
-            server.handle_message(r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}"#);
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"{root_uri}"}}}}"#
+        ));
 
-        assert_eq!(responses.len(), 1);
         assert!(responses[0].contains(r#""semanticTokensProvider""#));
         assert!(responses[0].contains(r#""tokenTypes":["namespace","type""#));
+        assert_eq!(
+            server.workspace_root.as_deref(),
+            Some(project.root.as_path())
+        );
+    }
+
+    #[test]
+    fn server_initializes_workspace_root_from_workspace_folders() {
+        let mut server = Server::default();
+        let project = TempProject::new("initialize-workspace-folder");
+        let root_uri = path_to_uri(&project.root);
+
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"fixture"}}]}}}}"#
+        ));
+
+        assert_eq!(
+            server.workspace_root.as_deref(),
+            Some(project.root.as_path())
+        );
+    }
+
+    #[test]
+    fn server_publishes_unopened_workspace_file_diagnostics() {
+        let mut server = Server::default();
+        let project = TempProject::new("unopened-workspace-diagnostics");
+        project.write("broken.veln", "fn broken() -> Int\n  missing\nend\n");
+        let root_uri = path_to_uri(&project.root);
+        let broken_uri = path_to_uri(&project.root.join("broken.veln"));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"{root_uri}"}}}}"#
+        ));
+
+        let publish = publish_for_uri(&responses, &broken_uri);
+        assert!(publish.contains(r#""code":"name.unresolved""#), "{publish}");
+    }
+
+    #[test]
+    fn server_uses_unsaved_workspace_text_over_disk_text() {
+        let mut server = Server::default();
+        let project = TempProject::new("unsaved-workspace-overlay");
+        project.write("main.veln", "fn main() -> Int\n  missing\nend\n");
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"{root_uri}"}}}}"#
+        ));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"fn main() -> Int\n  1\nend\n"}}}}}}"#
+        ));
+
+        let publish = publish_for_uri(&responses, &main_uri);
+        assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
+        assert!(!publish.contains("name.unresolved"), "{publish}");
+    }
+
+    #[test]
+    fn server_clears_stale_workspace_diagnostics_after_change() {
+        let mut server = Server::default();
+        let project = TempProject::new("workspace-diagnostics-change-clear");
+        let root_uri = path_to_uri(&project.root);
+        let main_uri = path_to_uri(&project.root.join("main.veln"));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"{root_uri}"}}}}"#
+        ));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{main_uri}","text":"fn main() -> Int\n  missing\nend\n"}}}}}}"#
+        ));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didChange","params":{{"textDocument":{{"uri":"{main_uri}","version":2}},"contentChanges":[{{"text":"fn main() -> Int\n  1\nend\n"}}]}}}}"#
+        ));
+
+        let publish = publish_for_uri(&responses, &main_uri);
+        assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
+    }
+
+    #[test]
+    fn server_clears_workspace_diagnostics_when_file_leaves_discovery() {
+        let mut server = Server::default();
+        let project = TempProject::new("workspace-diagnostics-left-discovery");
+        project.write("main.veln", "fn main() -> Int\n  missing\nend\n");
+        let root_uri = path_to_uri(&project.root);
+        let main_path = project.root.join("main.veln");
+        let main_uri = path_to_uri(&main_path);
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"{root_uri}"}}}}"#
+        ));
+        fs::remove_file(main_path).expect("fixture source should be removable");
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didClose","params":{{"textDocument":{{"uri":"{main_uri}"}}}}}}"#
+        ));
+
+        let publish = publish_for_uri(&responses, &main_uri);
+        assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
+    }
+
+    #[test]
+    fn server_reports_cross_file_workspace_diagnostics() {
+        let mut server = Server::default();
+        let project = TempProject::new("cross-file-workspace-diagnostics");
+        project.write(
+            "app.veln",
+            "use math\n\nfn main() -> Int\n  double(\"bad\")\nend\n",
+        );
+        project.write(
+            "math.veln",
+            "pub fn double(value: Int) -> Int\n  value * 2\nend\n",
+        );
+        let root_uri = path_to_uri(&project.root);
+        let app_uri = path_to_uri(&project.root.join("app.veln"));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"{root_uri}"}}}}"#
+        ));
+
+        let publish = publish_for_uri(&responses, &app_uri);
+        assert!(publish.contains(r#""code":"type.mismatch""#), "{publish}");
     }
 
     #[test]
@@ -591,5 +863,53 @@ mod tests {
         let output = String::from_utf8(output).unwrap();
         assert!(output.starts_with("Content-Length: "));
         assert!(output.contains(r#""id":1"#));
+    }
+
+    fn publish_for_uri<'a>(responses: &'a [String], uri: &str) -> &'a str {
+        responses
+            .iter()
+            .find(|response| {
+                response.contains(r#""method":"textDocument/publishDiagnostics""#)
+                    && response.contains(&format!(r#""uri":"{}""#, escape_json(uri)))
+            })
+            .map(String::as_str)
+            .unwrap_or_else(|| panic!("expected publish diagnostics for {uri}: {responses:#?}"))
+    }
+
+    struct TempProject {
+        root: PathBuf,
+    }
+
+    impl TempProject {
+        fn new(name: &str) -> Self {
+            let root = env::temp_dir().join(format!(
+                "veln-lsp-{name}-{}-{}",
+                std::process::id(),
+                unique_suffix()
+            ));
+            fs::create_dir_all(&root).expect("temp project should be created");
+            Self { root }
+        }
+
+        fn write(&self, path: &str, contents: &str) {
+            let path = self.root.join(path);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).expect("fixture parent should be created");
+            }
+            fs::write(path, contents).expect("fixture source should be written");
+        }
+    }
+
+    impl Drop for TempProject {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.root);
+        }
+    }
+
+    fn unique_suffix() -> u128 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system clock should produce a temp suffix")
+            .as_nanos()
     }
 }

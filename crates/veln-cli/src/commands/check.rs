@@ -2,10 +2,10 @@ use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use veln_analysis::{DoctestMode, checked_project_diagnostics};
 use veln_diagnostics::DiagnosticEnvelope;
 use veln_project::Project;
 
-use crate::analysis::{DoctestMode, checked_project_diagnostics};
 use crate::diagnostics::{has_error, print_human, tool_info};
 
 pub(crate) fn check(json: bool, inputs: Vec<PathBuf>) -> Result<ExitCode, String> {

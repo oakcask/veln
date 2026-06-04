@@ -10,9 +10,9 @@ use veln_project::{ManifestDependencySelectorKind, ManifestField, Project, Proje
 use veln_source::{SourceFile, SourcePath, SourceSpan, TextRange};
 use veln_syntax::{TokenKind, lex, parse};
 
-use crate::diagnostics::parse_diagnostic_to_envelope;
+use crate::parse_diagnostic_to_envelope;
 
-pub(crate) fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>) {
+pub fn load_surface_module(project: &Project) -> (SurfaceModule, Vec<Diagnostic>) {
     let mut diagnostics = Vec::new();
     let mut parts = SurfaceParts::new();
 
@@ -340,7 +340,7 @@ fn package_name_mismatch_diagnostic(
     )
 }
 
-pub(crate) fn derive_source_module_path(source: &SourceFile) -> Result<String, Box<Diagnostic>> {
+pub fn derive_source_module_path(source: &SourceFile) -> Result<String, Box<Diagnostic>> {
     let path = source.path().as_str();
     if let Some(module_name) = derive_doctest_module_path(path) {
         return Ok(module_name);
@@ -530,7 +530,7 @@ fn reserved_source_module_diagnostic(source: &SourceFile, module_name: &str) -> 
     )
 }
 
-pub(crate) fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
+pub fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
     let Some(manifest) = project.manifest.as_ref() else {
         return Vec::new();
     };
@@ -616,7 +616,7 @@ pub(crate) fn validate_manifest_exports(project: &Project) -> Vec<Diagnostic> {
     diagnostics
 }
 
-pub(crate) fn validate_manifest_dependencies(project: &Project) -> Vec<Diagnostic> {
+pub fn validate_manifest_dependencies(project: &Project) -> Vec<Diagnostic> {
     let Some(manifest) = project.manifest.as_ref() else {
         return Vec::new();
     };
