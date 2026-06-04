@@ -1,0 +1,5 @@
+[package]
+name = "github.com/oakcask/alpha"
+[dependencies."github.com/oakcask/shared"]
+git = "../shared"
+rev = "abc123"

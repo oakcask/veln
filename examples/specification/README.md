@@ -162,6 +162,12 @@ against the built `veln` binary.
   mirror dependency whose manifest `[package].name` does not match the
   dependency table key and reports the dependency manifest name as related
   context.
+- `package/lock-incompatible-transitive-path-source/`: `veln package lock`
+  rejects a dependency graph that selects different path sources for one
+  package identity.
+- `package/lock-incompatible-transitive-git-selector/`: `veln package lock`
+  rejects a dependency graph that selects incompatible git selectors for one
+  package identity.
 - `check/implicit-unit-return/`: omitted tail expressions returning `()` and
   the implicit-unit diagnostic detail.
 - `check/types-operators/`: primitive annotations, returned function types,

@@ -9,9 +9,7 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
-- File based modules and packages, remaining package-manager work for
-  incompatible-source resolution:
-  [file-based-modules-and-packages.md](file-based-modules-and-packages.md).
+No active proposals are cataloged.
 
 ## Update When
 

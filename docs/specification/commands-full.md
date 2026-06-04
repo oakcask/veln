@@ -385,14 +385,24 @@ in the typed-hole and predicate repair loop:
 
 ## `veln package lock`
 
-`package lock` reads the current project `veln.toml` and writes `veln.lock`.
-The implemented package-manager slice supports dependency tables with exactly
-one source field: a string-valued `path` field, a string-valued `vendor` field,
+`package lock` reads the current project `veln.toml`, follows dependency
+tables in resolved dependency manifests, and writes `veln.lock`. The
+implemented package-manager slice supports dependency tables with exactly one
+source field: a string-valued `path` field, a string-valued `vendor` field,
 string-valued `mirror` field naming an already materialized source tree, or a
 string-valued `git` field plus exactly one selector: `rev`, `tag`, or `branch`.
 The command materializes non-local git URLs through git before lockfile
-generation. It does not resolve registry sources or graph-wide incompatible
-source selections.
+generation. It does not resolve registry sources.
+
+Dependency table keys are package identities. Across the graph, a package
+identity may resolve to only one source selection. Repeated dependencies on
+the same identity are compatible when the source kind, source location,
+requested git selector, and git `subdir` match after lockfile path
+normalization. If a later dependency table selects a different source
+location, source kind, git selector, or git `subdir` for an identity that was
+already selected, `package lock` reports
+`package.incompatible_dependency_source` at the later dependency key, adds a
+related note for the first dependency key, and refuses to write `veln.lock`.
 
 For each path dependency, the dependency table key is the package identity.
 The command requires the path to name an existing package root, reads that
@@ -400,8 +410,9 @@ root's `veln.toml`, and requires its `[package].name` to match the dependency
 table key before writing an entry. A mismatch is reported at the dependency
 table key with a related note on the dependency manifest name when available.
 
-The written lockfile uses sorted `[[package]]` entries. Each entry records the
-package `name`, a path `source` object, and a `sha256:` checksum:
+The written lockfile uses sorted `[[package]]` entries for the resolved
+dependency graph. Each entry records the package `name`, a path `source`
+object, and a `sha256:` checksum:
 
 ```toml
 [[package]]

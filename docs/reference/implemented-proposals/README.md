@@ -62,6 +62,8 @@ behavior.
   [package-export-manifest-surface.md](package-export-manifest-surface.md).
 - Package lockfile sources:
   [package-lockfile-sources.md](package-lockfile-sources.md).
+- File based modules and packages:
+  [file-based-modules-and-packages.md](file-based-modules-and-packages.md).
 
 ## Skip Unless Needed
 

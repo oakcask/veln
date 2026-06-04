@@ -1,0 +1,8 @@
+command = ["package", "lock"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["vendor/zeta/veln.toml:3:16: error[package.incompatible_dependency_source]: dependency `github.com/oakcask/shared` selects path `vendor/zeta/vendor/shared-two`, but that package identity is already selected as path `vendor/alpha/vendor/shared-one`", "note: vendor/alpha/veln.toml:3:16: This dependency selected the package identity first."]
