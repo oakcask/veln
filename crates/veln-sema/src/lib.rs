@@ -2,6 +2,7 @@
 
 mod adt;
 mod analysis;
+mod call_resolution;
 mod contracts;
 mod diagnostics;
 mod effects;

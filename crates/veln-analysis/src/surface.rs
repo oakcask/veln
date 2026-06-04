@@ -57,63 +57,112 @@ fn load_project_sources(
     for source in &project.files {
         let parsed = parse(source);
         diagnostics.extend(parsed.diagnostics.iter().map(parse_diagnostic_to_envelope));
-        if parsed.diagnostics.is_empty() {
-            if let Some(module) = &parsed.tree.module {
-                diagnostics.push(source_mod_decl_diagnostic(module));
-            }
-            for use_decl in &parsed.tree.uses {
-                if use_decl.name.contains('.') {
-                    diagnostics.push(dotted_use_decl_diagnostic(use_decl));
-                }
-            }
-
-            let derived_module = derive_source_module_path(source);
-            match &derived_module {
-                Ok(module_name) => {
-                    let internal_module_name = internal_module_name(package, module_name);
-                    if module_name == "prelude" {
-                        diagnostics.push(reserved_source_module_diagnostic(source, module_name));
-                    }
-                    if !is_doctest_source(source)
-                        && let Some((_, first_source)) = parts
-                            .derived_modules
-                            .iter()
-                            .find(|(known_module, _)| known_module == &internal_module_name)
-                    {
-                        diagnostics.push(duplicate_derived_module_diagnostic(
-                            module_name,
-                            source,
-                            first_source,
-                        ));
-                    } else if !is_doctest_source(source) {
-                        parts
-                            .derived_modules
-                            .push((internal_module_name, source.clone()));
-                    }
-                }
-                Err(diagnostic) => diagnostics.push((**diagnostic).clone()),
-            }
-            let lowered = match derived_module {
-                Ok(module_name) => {
-                    let internal_module_name = internal_module_name(package, &module_name);
-                    lower_surface_ast_with_module_identity(
-                        &parsed.tree,
-                        internal_module_name,
-                        source.span(TextRange::new(0, 0)),
-                    )
-                }
-                Err(_) => lower_surface_ast(&parsed.tree),
-            };
-            let mut lowered = lowered;
-            rewrite_import_targets(&mut lowered.uses, package);
-            if parts.module.module.is_none() {
-                parts.module.module = lowered.module;
-            }
-            parts.module.uses.extend(lowered.uses);
-            parts.module.aliases.extend(lowered.aliases);
-            parts.module.types.extend(lowered.types);
-            parts.module.functions.extend(lowered.functions);
+        if !parsed.diagnostics.is_empty() {
+            continue;
         }
+        process_parsed_source(source, &parsed.tree, diagnostics, parts, package);
+    }
+}
+
+fn process_parsed_source(
+    source: &SourceFile,
+    tree: &veln_syntax::SyntaxTree,
+    diagnostics: &mut Vec<Diagnostic>,
+    parts: &mut SurfaceParts,
+    package: Option<&str>,
+) {
+    push_source_parse_semantic_diagnostics(tree, diagnostics);
+    let derived_module = derive_and_record_source_module(source, diagnostics, parts, package);
+    let mut lowered = lower_source_tree(source, tree, derived_module, package);
+    rewrite_import_targets(&mut lowered.uses, package);
+    if parts.module.module.is_none() {
+        parts.module.module = lowered.module;
+    }
+    parts.module.uses.extend(lowered.uses);
+    parts.module.aliases.extend(lowered.aliases);
+    parts.module.types.extend(lowered.types);
+    parts.module.functions.extend(lowered.functions);
+}
+
+fn push_source_parse_semantic_diagnostics(
+    tree: &veln_syntax::SyntaxTree,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if let Some(module) = &tree.module {
+        diagnostics.push(source_mod_decl_diagnostic(module));
+    }
+    for use_decl in &tree.uses {
+        if use_decl.name.contains('.') {
+            diagnostics.push(dotted_use_decl_diagnostic(use_decl));
+        }
+    }
+}
+
+fn derive_and_record_source_module(
+    source: &SourceFile,
+    diagnostics: &mut Vec<Diagnostic>,
+    parts: &mut SurfaceParts,
+    package: Option<&str>,
+) -> Option<String> {
+    match derive_source_module_path(source) {
+        Ok(module_name) => {
+            record_derived_source_module(source, &module_name, diagnostics, parts, package);
+            Some(module_name)
+        }
+        Err(diagnostic) => {
+            diagnostics.push((*diagnostic).clone());
+            None
+        }
+    }
+}
+
+fn record_derived_source_module(
+    source: &SourceFile,
+    module_name: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+    parts: &mut SurfaceParts,
+    package: Option<&str>,
+) {
+    let internal_module_name = internal_module_name(package, module_name);
+    if module_name == "prelude" {
+        diagnostics.push(reserved_source_module_diagnostic(source, module_name));
+    }
+    if is_doctest_source(source) {
+        return;
+    }
+    if let Some((_, first_source)) = parts
+        .derived_modules
+        .iter()
+        .find(|(known_module, _)| known_module == &internal_module_name)
+    {
+        diagnostics.push(duplicate_derived_module_diagnostic(
+            module_name,
+            source,
+            first_source,
+        ));
+    } else {
+        parts
+            .derived_modules
+            .push((internal_module_name, source.clone()));
+    }
+}
+
+fn lower_source_tree(
+    source: &SourceFile,
+    tree: &veln_syntax::SyntaxTree,
+    derived_module: Option<String>,
+    package: Option<&str>,
+) -> SurfaceModule {
+    match derived_module {
+        Some(module_name) => {
+            let internal_module_name = internal_module_name(package, &module_name);
+            lower_surface_ast_with_module_identity(
+                tree,
+                internal_module_name,
+                source.span(TextRange::new(0, 0)),
+            )
+        }
+        None => lower_surface_ast(tree),
     }
 }
 
@@ -161,62 +210,89 @@ fn load_external_dependencies(
             continue;
         }
         loaded.insert(package.to_string());
-
-        let Some(manifest) = project.manifest.as_ref() else {
-            diagnostics.push(unavailable_external_package_diagnostic(&use_decl));
-            continue;
-        };
-        let Some(dependency) = manifest
-            .dependencies
-            .iter()
-            .find(|dependency| dependency.package == package)
-        else {
-            diagnostics.push(unavailable_external_package_diagnostic(&use_decl));
-            continue;
-        };
-        let Some(path_field) = &dependency.path else {
-            diagnostics.push(unavailable_external_package_diagnostic(&use_decl));
-            continue;
-        };
-
-        let dependency_root = project.root.join(&path_field.value);
-        let dependency_project = match Project::discover(dependency_root, &[]) {
-            Ok(project) => project,
-            Err(_) => {
-                diagnostics.push(unavailable_external_package_diagnostic(&use_decl));
-                continue;
-            }
-        };
-
-        let Some(dependency_manifest) = dependency_project.manifest.as_ref() else {
-            diagnostics.push(package_name_mismatch_diagnostic(
-                package,
-                None,
-                &dependency.package_span,
-            ));
-            continue;
-        };
-        if !dependency_package_name_matches(package, dependency_manifest, diagnostics, dependency) {
-            continue;
-        }
-
-        diagnostics.extend(validate_manifest_exports(&dependency_project));
-        let exported_modules = manifest_exported_modules(dependency_manifest);
-        for external_use in parts
-            .module
-            .uses
-            .iter()
-            .filter(|candidate| candidate.package.as_deref() == Some(package))
-        {
-            if !exported_modules
-                .iter()
-                .any(|module_name| module_name == &external_import_module_path(external_use))
-            {
-                diagnostics.push(unexported_external_module_diagnostic(external_use));
-            }
-        }
-        load_project_sources(&dependency_project, diagnostics, parts, Some(package));
+        load_external_dependency_package(project, package, &use_decl, diagnostics, parts);
     }
+}
+
+fn load_external_dependency_package(
+    project: &Project,
+    package: &str,
+    use_decl: &UseDecl,
+    diagnostics: &mut Vec<Diagnostic>,
+    parts: &mut SurfaceParts,
+) {
+    let Some((dependency_project, dependency)) =
+        load_external_dependency_project(project, package, use_decl, diagnostics)
+    else {
+        return;
+    };
+    let dependency_manifest = dependency_project
+        .manifest
+        .as_ref()
+        .expect("load_external_dependency_project only returns projects with manifests");
+    if !dependency_package_name_matches(package, dependency_manifest, diagnostics, dependency) {
+        return;
+    }
+
+    diagnostics.extend(validate_manifest_exports(&dependency_project));
+    let exported_modules = manifest_exported_modules(dependency_manifest);
+    for external_use in parts
+        .module
+        .uses
+        .iter()
+        .filter(|candidate| candidate.package.as_deref() == Some(package))
+    {
+        if !exported_modules
+            .iter()
+            .any(|module_name| module_name == &external_import_module_path(external_use))
+        {
+            diagnostics.push(unexported_external_module_diagnostic(external_use));
+        }
+    }
+    load_project_sources(&dependency_project, diagnostics, parts, Some(package));
+}
+
+fn load_external_dependency_project<'a>(
+    project: &'a Project,
+    package: &str,
+    use_decl: &UseDecl,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<(Project, &'a veln_project::ManifestDependency)> {
+    let Some(manifest) = project.manifest.as_ref() else {
+        diagnostics.push(unavailable_external_package_diagnostic(use_decl));
+        return None;
+    };
+    let Some(dependency) = manifest
+        .dependencies
+        .iter()
+        .find(|dependency| dependency.package == package)
+    else {
+        diagnostics.push(unavailable_external_package_diagnostic(use_decl));
+        return None;
+    };
+    let Some(path_field) = &dependency.path else {
+        diagnostics.push(unavailable_external_package_diagnostic(use_decl));
+        return None;
+    };
+
+    let dependency_root = project.root.join(&path_field.value);
+    let dependency_project = match Project::discover(dependency_root, &[]) {
+        Ok(project) => project,
+        Err(_) => {
+            diagnostics.push(unavailable_external_package_diagnostic(use_decl));
+            return None;
+        }
+    };
+
+    if dependency_project.manifest.is_none() {
+        diagnostics.push(package_name_mismatch_diagnostic(
+            package,
+            None,
+            &dependency.package_span,
+        ));
+        return None;
+    }
+    Some((dependency_project, dependency))
 }
 
 fn dependency_package_name_matches(
@@ -884,24 +960,44 @@ pub(crate) fn reachable_entry_module(
     entry: &str,
     entry_kind: FunctionKind,
 ) -> SurfaceModule {
-    let mut function_targets = module
+    let function_targets = reachable_function_targets(module);
+    let reachable = reachable_functions(module, entry, entry_kind, &function_targets);
+    module_with_reachable_functions(module, &reachable)
+}
+
+fn reachable_function_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
+    let mut function_targets = function_targets(module);
+    function_targets.extend(function_alias_targets(module, &function_targets));
+    function_targets
+}
+
+fn function_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
+    module
         .functions
         .iter()
         .filter(|function| function.kind == FunctionKind::Function)
-        .filter_map(|function| {
-            let name = function.name.clone()?;
-            Some(FunctionTarget {
-                name: name.clone(),
-                module_name: function.module_name.clone(),
-                target_name: name,
-                target_module_name: function.module_name.clone(),
-                visibility: function.visibility,
-                arity: function.params.len(),
-            })
-        })
-        .collect::<Vec<_>>();
-    let aliases = function_alias_targets(module, &function_targets);
-    function_targets.extend(aliases);
+        .filter_map(function_target)
+        .collect()
+}
+
+fn function_target(function: &Function) -> Option<FunctionTarget> {
+    let name = function.name.clone()?;
+    Some(FunctionTarget {
+        name: name.clone(),
+        module_name: function.module_name.clone(),
+        target_name: name,
+        target_module_name: function.module_name.clone(),
+        visibility: function.visibility,
+        arity: function.params.len(),
+    })
+}
+
+fn reachable_functions(
+    module: &SurfaceModule,
+    entry: &str,
+    entry_kind: FunctionKind,
+    function_targets: &[FunctionTarget],
+) -> Vec<ReachableFunction> {
     let mut reachable = Vec::<ReachableFunction>::new();
     let mut stack = vec![ReachableFunction {
         kind: entry_kind,
@@ -922,14 +1018,20 @@ pub(crate) fn reachable_entry_module(
                     .as_ref()
                     .is_none_or(|module_name| function.module_name.as_ref() == Some(module_name))
         }) {
-            for callee in direct_function_callees(function, &module.uses, &function_targets) {
+            for callee in direct_function_callees(function, &module.uses, function_targets) {
                 if !reachable.iter().any(|known| known == &callee) {
                     stack.push(callee);
                 }
             }
         }
     }
+    reachable
+}
 
+fn module_with_reachable_functions(
+    module: &SurfaceModule,
+    reachable: &[ReachableFunction],
+) -> SurfaceModule {
     SurfaceModule {
         module: module.module.clone(),
         uses: module.uses.clone(),

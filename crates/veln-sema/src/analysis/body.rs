@@ -1428,70 +1428,23 @@ impl<'a> FunctionChecker<'a> {
         expected: Option<&Type>,
         handle_type: Option<&Type>,
     ) -> Option<(Vec<Type>, Type, CallOrigin)> {
-        match &callee.kind {
-            ExprKind::NamePath(segments) => {
-                if let Some(origin) = stdio_signature(segments, callee) {
-                    return Some((vec![Type::string()], Type::unit(), origin));
-                }
-                if let Some(origin) = concurrency_origin(segments, callee) {
-                    let (params, return_type) =
-                        concurrency_signature(segments, expected, handle_type, None)?;
-                    return Some((params, return_type, origin));
-                }
-                if let Some(origin) = standard_library_origin(segments, callee) {
-                    let (params, return_type) = standard_library_signature(segments)?;
-                    return Some((params, return_type, origin));
-                }
-                if let [name] = segments.as_slice()
-                    && let Some(binding) = self
-                        .bindings
-                        .iter()
-                        .rev()
-                        .find(|binding| binding.name == *name)
-                {
-                    let (params, return_type) = binding.ty.function_parts()?;
-                    let effects = binding.ty.function_effects().unwrap_or_default().to_vec();
-                    return Some((
-                        params.to_vec(),
-                        return_type.clone(),
-                        CallOrigin {
-                            node_id: callee.node_id,
-                            span: callee.span.clone(),
-                            symbol: name.clone(),
-                            effects,
-                        },
-                    ));
-                }
-                match segments.as_slice() {
-                    [name] => self
-                        .environment
-                        .unqualified_function(name, self.function.module_name.as_deref())
-                        .found()
-                        .map(|function| self.function_call_origin(function, name.clone())),
-                    _ => self
-                        .environment
-                        .function_path(segments, self.function.module_name.as_deref())
-                        .map(|function| self.function_call_origin(function, segments.join("::"))),
-                }
-            }
-            ExprKind::TypeApply { .. } => {
-                let (segments, type_args) = type_applied_name_path(callee)?;
-                if let Some(origin) = concurrency_origin(segments, callee) {
-                    let explicit_item = type_args
-                        .first()
-                        .and_then(|type_arg| parse_type_annotation(type_arg).ok());
-                    let (params, return_type) = concurrency_signature(
-                        segments,
-                        expected,
-                        handle_type,
-                        explicit_item.as_ref(),
-                    )?;
-                    return Some((params, return_type, origin));
-                }
-                None
-            }
-            _ => None,
-        }
+        let bindings = self
+            .bindings
+            .iter()
+            .map(|binding| crate::call_resolution::TypeBinding {
+                name: &binding.name,
+                ty: &binding.ty,
+            })
+            .collect::<Vec<_>>();
+        let signature = crate::call_resolution::type_call_signature(
+            callee,
+            expected,
+            handle_type,
+            &bindings,
+            self.environment,
+            self.function.module_name.as_deref(),
+        )?;
+        Some((signature.params, signature.return_type, signature.origin))
     }
 
     fn bare_call_is_ambiguous(&self, callee: &Expr) -> bool {
@@ -1533,23 +1486,6 @@ impl<'a> FunctionChecker<'a> {
                 .environment
                 .unqualified_function_import_candidates(name, self.function.module_name.as_deref())
                 .is_empty()
-    }
-
-    fn function_call_origin(
-        &self,
-        function: &crate::types::FunctionSignature,
-        symbol: String,
-    ) -> (Vec<Type>, Type, CallOrigin) {
-        (
-            function.params.clone(),
-            function.return_type.clone(),
-            CallOrigin {
-                node_id: function.node_id,
-                span: function.span.clone(),
-                symbol,
-                effects: function.effects.clone(),
-            },
-        )
     }
 
     fn push_ambiguous_unqualified_function_import(

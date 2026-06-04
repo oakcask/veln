@@ -22,10 +22,7 @@ use crate::diagnostics::{
     contract_details, effect_details, effect_missing_public_details, module_details, span_json,
     type_details,
 };
-use crate::effects::{
-    KNOWN_EFFECT_LABELS, concurrency_origin, concurrency_signature, standard_library_origin,
-    standard_library_signature, stdio_signature,
-};
+use crate::effects::KNOWN_EFFECT_LABELS;
 use crate::prelude::{
     float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
     prelude_signature, qualified_prelude_builtin_signature, qualified_prelude_signature,
