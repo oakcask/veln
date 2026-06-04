@@ -1,0 +1,2 @@
+[dependencies."github.com/oakcask/vendor-lib"]
+vendor = "vendor/vendor-lib"

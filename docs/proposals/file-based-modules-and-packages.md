@@ -7,8 +7,8 @@ Veln should derive module identity from package-relative source paths, reserve
 and make `veln.toml` describe package identity plus the modules exported to
 other packages.
 
-The local-source, manifest-export, path-dependency external-import, and first
-package-manager slices are implemented: source `mod` declarations are
+The local-source, manifest-export, path-dependency external-import, and
+package-manager lockfile slices are implemented: source `mod` declarations are
 rejected, selected source paths derive same-package module identity, local
 `use` declarations use `::`, same-package qualified access requires a matching
 written import, `[modules]` is rejected, `[lib].exports` validates selected
@@ -17,9 +17,9 @@ modules from already available path dependencies, git dependency metadata
 records one `rev`, `tag`, or `branch` selector plus optional `subdir`, and
 `veln package lock` writes deterministic lockfile entries for already
 available path dependencies, local git dependencies, and materialized
-non-local git dependencies with `rev`, `tag`, or `branch` selectors. This
-proposal remains open for remaining package-manager behavior beyond git
-lockfile source materialization.
+non-local git dependencies with `rev`, `tag`, or `branch` selectors, plus
+already available vendored package directories. This proposal remains open for
+remaining package-manager behavior beyond implemented source materialization.
 
 ## Read First
 
@@ -44,10 +44,9 @@ metadata:
   modules or resolving modules outside the current package.
 
 The implemented local-source, manifest-export, path-dependency
-external-import, and first package-manager metadata slices remove those local
+external-import, and package-manager metadata slices remove those local
 ambiguities and establish the first external package boundary. This proposal
-remains open for vendoring, mirror support, and graph-wide incompatible-source
-resolution.
+remains open for mirror support and graph-wide incompatible-source resolution.
 
 ## Proposal
 
@@ -304,16 +303,15 @@ Implemented package import, dependency-metadata, and lockfile behavior is
 specified under `../specification/source-surface.md`,
 `../specification/names-effects.md`, `../specification/commands.md`, and
 `../../examples/specification/`. Remaining work belongs to package-manager
-behavior: vendoring, mirror support, and graph-wide incompatible-source
-resolution.
+behavior: mirror support and graph-wide incompatible-source resolution.
 
 ## Package Manager Implications
 
-The implemented path-dependency, local git, and non-local git lockfile
-workflows are
+The implemented path-dependency, vendor-dependency, local git, and non-local
+git lockfile workflows are
 specified under `../specification/commands.md` and executable cases under
 `../../examples/specification/package/`. The remaining package-manager work is
-vendoring, mirror support, and graph-wide incompatible-source resolution.
+mirror support and graph-wide incompatible-source resolution.
 
 External imports do not authorize network fetching by themselves. Future
 non-path package manager commands should require dependency metadata that maps
@@ -346,7 +344,15 @@ subdir = "packages/bar"
 
 [dependencies."github.com/oakcask/baz"]
 path = "../baz"
+
+[dependencies."github.com/oakcask/vendor-lib"]
+vendor = "vendor/vendor-lib"
 ```
+
+A vendor dependency names an already available vendored package directory. The
+package manager validates the package manifest inside that directory, requires
+`[package].name` to match the dependency table key, and records a distinct
+vendor source in `veln.lock`.
 
 A git dependency must name a git remote and exactly one selector: `rev`, `tag`,
 or `branch`. The selector is the requested source. The implemented git

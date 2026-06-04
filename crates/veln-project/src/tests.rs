@@ -444,6 +444,33 @@ fn read_manifest_tracks_git_dependency_metadata() {
 }
 
 #[test]
+fn read_manifest_tracks_vendor_dependency_metadata() {
+    let temp = TempProject::new("manifest-vendor-dependencies");
+    temp.write(
+        "veln.toml",
+        concat!(
+            "[dependencies.\"github.com/oakcask/vendor-lib\"]\n",
+            "vendor = \"vendor/vendor-lib\"\n",
+        ),
+    );
+
+    let manifest = read_manifest(temp.root())
+        .unwrap()
+        .expect("manifest should be loaded");
+
+    let dependency = &manifest.dependencies[0];
+    assert_eq!(dependency.package, "github.com/oakcask/vendor-lib");
+    let vendor = dependency
+        .vendor
+        .as_ref()
+        .expect("dependency should have a vendor source");
+    assert_eq!(vendor.key, "vendor");
+    assert_eq!(vendor.value, "vendor/vendor-lib");
+    assert_eq!(vendor.value_span.start.line, 2);
+    assert_eq!(vendor.value_span.start.column, 11);
+}
+
+#[test]
 fn lockfile_package_records_identity_separately_from_git_source() {
     let lockfile = ProjectLockfile {
         packages: vec![LockfilePackage {
@@ -490,6 +517,13 @@ fn lockfile_render_sorts_packages_and_normalizes_path_source_records() {
                 },
                 checksum: "sha256:alpha".to_string(),
             },
+            LockfilePackage {
+                name: "github.com/oakcask/vendor-lib".to_string(),
+                source: LockfileSource::Vendor {
+                    path: normalize_lockfile_path("vendor\\vendor-lib"),
+                },
+                checksum: "sha256:vendor".to_string(),
+            },
         ],
     };
 
@@ -500,6 +534,11 @@ fn lockfile_render_sorts_packages_and_normalizes_path_source_records() {
             "name = \"github.com/oakcask/alpha\"\n",
             "source = { kind = \"path\", path = \"vendor/alpha\" }\n",
             "checksum = \"sha256:alpha\"\n",
+            "\n",
+            "[[package]]\n",
+            "name = \"github.com/oakcask/vendor-lib\"\n",
+            "source = { kind = \"vendor\", path = \"vendor/vendor-lib\" }\n",
+            "checksum = \"sha256:vendor\"\n",
             "\n",
             "[[package]]\n",
             "name = \"github.com/oakcask/zeta\"\n",

@@ -1,0 +1,2 @@
+[dependencies."github.com/oakcask/vendor-mismatch"]
+vendor = "vendor/vendor-mismatch"

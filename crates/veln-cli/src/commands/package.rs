@@ -43,7 +43,10 @@ fn lock_dependency(
     root: &Path,
     dependency: &ManifestDependency,
 ) -> Result<LockfilePackage, Box<Diagnostic>> {
-    if dependency.path.is_some() && dependency.git.is_some() {
+    let source_count = usize::from(dependency.path.is_some())
+        + usize::from(dependency.git.is_some())
+        + usize::from(dependency.vendor.is_some());
+    if source_count > 1 {
         return Err(Box::new(unsupported_dependency_source_diagnostic(
             dependency,
             "mixed_sources",
@@ -51,6 +54,9 @@ fn lock_dependency(
     }
     if dependency.git.is_some() {
         return lock_git_dependency(root, dependency);
+    }
+    if dependency.vendor.is_some() {
+        return lock_vendor_dependency(root, dependency);
     }
     lock_path_dependency(root, dependency)
 }
@@ -98,6 +104,48 @@ fn lock_path_dependency(
         name: dependency.package.clone(),
         source: LockfileSource::Path {
             path: normalize_lockfile_path(&path_field.value),
+        },
+        checksum,
+    })
+}
+
+fn lock_vendor_dependency(
+    root: &Path,
+    dependency: &ManifestDependency,
+) -> Result<LockfilePackage, Box<Diagnostic>> {
+    let vendor_field = dependency
+        .vendor
+        .as_ref()
+        .expect("vendor source should exist");
+
+    let dependency_root = dependency_root(root, &vendor_field.value);
+    if !dependency_root.is_dir() {
+        return Err(Box::new(unavailable_vendor_dependency_diagnostic(
+            dependency,
+            vendor_field,
+        )));
+    }
+
+    let manifest = read_manifest(&dependency_root)
+        .map_err(|error| Box::new(dependency_io_diagnostic(dependency, vendor_field, error)))?
+        .ok_or_else(|| {
+            Box::new(dependency_missing_manifest_diagnostic(
+                dependency,
+                vendor_field,
+            ))
+        })?;
+    validate_package_name(
+        dependency,
+        &manifest,
+        &normalize_lockfile_path(&vendor_field.value),
+    )?;
+
+    let checksum = source_tree_checksum(&dependency_root)
+        .map_err(|error| Box::new(dependency_io_diagnostic(dependency, vendor_field, error)))?;
+    Ok(LockfilePackage {
+        name: dependency.package.clone(),
+        source: LockfileSource::Vendor {
+            path: normalize_lockfile_path(&vendor_field.value),
         },
         checksum,
     })
@@ -536,7 +584,7 @@ fn unsupported_dependency_source_diagnostic(
         Severity::Error,
         DiagnosticKind::Module,
         format!(
-            "package lock supports only path dependencies or git dependencies for `{}`",
+            "package lock supports only path, git, or vendor dependencies for `{}`",
             dependency.package
         ),
         Some(dependency.package_span.clone()),
@@ -591,6 +639,28 @@ fn unavailable_git_dependency_diagnostic(
             ("package", JsonValue::string(dependency.package.clone())),
             ("url", JsonValue::string(git_field.value.clone())),
             ("reason", JsonValue::string(reason)),
+        ]),
+    )
+}
+
+fn unavailable_vendor_dependency_diagnostic(
+    dependency: &ManifestDependency,
+    vendor_field: &ManifestField,
+) -> Diagnostic {
+    Diagnostic::new(
+        "package.vendor_unavailable",
+        Severity::Error,
+        DiagnosticKind::Module,
+        format!(
+            "vendor dependency `{}` is not available at `{}`",
+            dependency.package, vendor_field.value
+        ),
+        Some(vendor_field.value_span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("package_lock")),
+            ("field", JsonValue::string("dependencies.vendor")),
+            ("package", JsonValue::string(dependency.package.clone())),
+            ("path", JsonValue::string(vendor_field.value.clone())),
         ]),
     )
 }
@@ -812,6 +882,71 @@ mod tests {
     use super::*;
 
     static NEXT_TEST_DIR: AtomicUsize = AtomicUsize::new(0);
+
+    #[test]
+    fn locks_vendor_dependency_package_root() {
+        let project = TempProject::new("lock-vendor");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/vendor-lib\"]\n",
+                "vendor = \"vendor/vendor-lib\"\n",
+            ),
+        );
+        project.write(
+            "vendor/vendor-lib/veln.toml",
+            "[package]\nname = \"github.com/oakcask/vendor-lib\"\n",
+        );
+        project.write(
+            "vendor/vendor-lib/vendor.veln",
+            "pub fn vendor() -> Int\n\t4\nend\n",
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let package = lock_vendor_dependency(project.root(), &manifest.dependencies[0])
+            .expect("vendor dependency should lock");
+
+        assert_eq!(package.name, "github.com/oakcask/vendor-lib");
+        assert_eq!(
+            package.source,
+            LockfileSource::Vendor {
+                path: "vendor/vendor-lib".to_string(),
+            }
+        );
+        assert_eq!(
+            package.checksum,
+            source_tree_checksum(&project.path("vendor/vendor-lib"))
+                .expect("checksum should be computed")
+        );
+    }
+
+    #[test]
+    fn package_lock_rejects_mixed_vendor_and_git_sources() {
+        let project = TempProject::new("lock-mixed-vendor-git");
+        project.write(
+            "veln.toml",
+            concat!(
+                "[dependencies.\"github.com/oakcask/mixed\"]\n",
+                "vendor = \"vendor/mixed\"\n",
+                "git = \"vendor/mixed.git\"\n",
+                "rev = \"abc123\"\n",
+            ),
+        );
+
+        let manifest = read_manifest(project.root())
+            .expect("manifest read should succeed")
+            .expect("manifest should exist");
+        let diagnostic = lock_dependency(project.root(), &manifest.dependencies[0])
+            .expect_err("mixed sources should fail");
+
+        assert_eq!(diagnostic.id, "package.unsupported_dependency_source");
+        assert_eq!(
+            diagnostic.message,
+            "package lock supports only path, git, or vendor dependencies for `github.com/oakcask/mixed`"
+        );
+    }
 
     #[test]
     fn locks_git_rev_dependency_with_subdir_package_root() {
