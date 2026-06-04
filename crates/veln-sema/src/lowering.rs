@@ -11,15 +11,11 @@ use veln_core::{
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
 
 use crate::adt::{self, AdtVariantKind, ConstructorLookup};
+use crate::call_resolution::CoreCallSignature;
 use crate::contracts::contract_predicate_is_statically_true;
-use crate::effects::{
-    core_concurrency_signature, core_standard_library_signature, is_concurrency_call,
-    standard_library_origin, stdio_signature,
-};
+use crate::effects::{core_concurrency_signature, is_concurrency_call};
 use crate::prelude::{
-    core_prelude_signature, float_arithmetic_prelude_name, float_comparison_prelude_name,
-    float_prefix_prelude_name, qualified_core_prelude_builtin_signature,
-    qualified_core_prelude_signature,
+    float_arithmetic_prelude_name, float_comparison_prelude_name, float_prefix_prelude_name,
 };
 use crate::types::{
     FunctionLookup, TypeEnvironment, core_type, parse_type_annotation, parse_type_or_unknown,
@@ -1211,97 +1207,21 @@ impl<'a> CoreLowerer<'a> {
         callee: &Expr,
         expected: Option<&CoreType>,
     ) -> Option<CoreCallSignature> {
-        let ExprKind::NamePath(segments) = &callee.kind else {
-            return None;
-        };
-        if stdio_signature(segments, callee).is_some() {
-            return Some(CoreCallSignature {
-                target: CoreCallTarget::StdioBuiltin(segments.join("::")),
-                params: vec![CoreType::string()],
-                return_type: CoreType::unit(),
-            });
-        }
-        if is_concurrency_call(segments) {
-            let (params, return_type) = core_concurrency_signature(segments, expected, None, None)?;
-            return Some(CoreCallSignature {
-                target: CoreCallTarget::ConcurrencyBuiltin(segments.join("::")),
-                params,
-                return_type,
-            });
-        }
-        if standard_library_origin(segments, callee).is_some() {
-            let (params, return_type) = core_standard_library_signature(segments)?;
-            return Some(CoreCallSignature {
-                target: CoreCallTarget::StandardLibraryBuiltin(segments.join("::")),
-                params,
-                return_type,
-            });
-        }
-        if let Some((target, params, return_type)) =
-            qualified_core_prelude_builtin_signature(segments, expected)
-        {
-            return Some(CoreCallSignature {
-                target,
-                params,
-                return_type,
-            });
-        }
-        if let Some((target, params, return_type)) =
-            qualified_core_prelude_signature(segments, expected)
-        {
-            return Some(CoreCallSignature {
-                target,
-                params,
-                return_type,
-            });
-        }
-        if let [name] = segments.as_slice()
-            && let Some(binding) = self
-                .bindings
-                .iter()
-                .rev()
-                .find(|binding| binding.name == *name)
-        {
-            if let CoreType::Function {
-                params,
-                return_type,
-                ..
-            } = &binding.ty
-            {
-                return Some(CoreCallSignature {
-                    target: CoreCallTarget::Value(name.clone()),
-                    params: params.clone(),
-                    return_type: return_type.as_ref().clone(),
-                });
-            }
-            return None;
-        }
-        let function = match segments.as_slice() {
-            [name] => self
-                .environment
-                .unqualified_function(name, self.function.module_name.as_deref())
-                .found(),
-            _ => self
-                .environment
-                .function_path(segments, self.function.module_name.as_deref()),
-        };
-        if let Some(function) = function {
-            return Some(CoreCallSignature {
-                target: CoreCallTarget::Function(function.target_name.clone()),
-                params: function.params.iter().map(core_type).collect(),
-                return_type: core_type(&function.return_type),
-            });
-        }
-        if let [name] = segments.as_slice()
-            && let Some((target, params, return_type)) = core_prelude_signature(name, expected)
-        {
-            return Some(CoreCallSignature {
-                target,
-                params,
-                return_type,
-            });
-        }
-        None
+        let bindings = self
+            .bindings
+            .iter()
+            .map(|binding| crate::call_resolution::CoreBinding {
+                name: &binding.name,
+                ty: &binding.ty,
+            })
+            .collect::<Vec<_>>();
+        crate::call_resolution::core_call_signature(
+            callee,
+            expected,
+            &bindings,
+            self.environment,
+            self.function.module_name.as_deref(),
+        )
     }
 
     fn core_expr(&self, expr: &Expr, ty: CoreType, kind: CoreExprKind) -> CoreExpr {
@@ -1312,12 +1232,6 @@ impl<'a> CoreLowerer<'a> {
             span: expr.span.clone(),
         }
     }
-}
-
-struct CoreCallSignature {
-    target: CoreCallTarget,
-    params: Vec<CoreType>,
-    return_type: CoreType,
 }
 
 fn callee_symbol(callee: &Expr) -> Option<String> {
