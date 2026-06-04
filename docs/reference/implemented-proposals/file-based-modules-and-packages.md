@@ -39,10 +39,9 @@ covered by executable examples under `../../../examples/specification/`.
 
 ## Executable Evidence
 
-- Source surface and manifest behavior:
-  [../../../examples/specification/check/](../../../examples/specification/check/).
-- Package lock behavior:
-  [../../../examples/specification/package/](../../../examples/specification/package/).
+- Source surface and manifest behavior is covered under
+  `examples/specification/check/`.
+- Package lock behavior is covered under `examples/specification/package/`.
 
 ## Completion Notes
 
