@@ -1,0 +1,8 @@
+command = ["package", "lock"]
+exit = 1
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["veln.toml:3:1: error[package.unsupported_git_selector]: package lock supports git dependency `github.com/oakcask/tagged` only with exactly one `rev` selector"]
