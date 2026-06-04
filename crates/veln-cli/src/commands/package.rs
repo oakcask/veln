@@ -22,7 +22,7 @@ pub(crate) fn lock() -> Result<ExitCode, String> {
     for dependency in &manifest.dependencies {
         match lock_path_dependency(&root, dependency) {
             Ok(package) => packages.push(package),
-            Err(diagnostic) => diagnostics.push(diagnostic),
+            Err(diagnostic) => diagnostics.push(*diagnostic),
         }
     }
 
@@ -46,24 +46,32 @@ fn report_package_diagnostics(diagnostics: Vec<Diagnostic>) -> Result<ExitCode, 
 fn lock_path_dependency(
     root: &Path,
     dependency: &ManifestDependency,
-) -> Result<LockfilePackage, Diagnostic> {
+) -> Result<LockfilePackage, Box<Diagnostic>> {
     let Some(path_field) = &dependency.path else {
-        return Err(unsupported_dependency_source_diagnostic(dependency));
+        return Err(Box::new(unsupported_dependency_source_diagnostic(
+            dependency,
+        )));
     };
     if dependency.git.is_some() {
-        return Err(unsupported_dependency_source_diagnostic(dependency));
+        return Err(Box::new(unsupported_dependency_source_diagnostic(
+            dependency,
+        )));
     }
 
     let dependency_root = dependency_root(root, &path_field.value);
     if !dependency_root.is_dir() {
-        return Err(unavailable_path_dependency_diagnostic(
+        return Err(Box::new(unavailable_path_dependency_diagnostic(
             dependency, path_field,
-        ));
+        )));
     }
 
     let manifest = read_manifest(&dependency_root)
-        .map_err(|error| dependency_io_diagnostic(dependency, path_field, error))?
-        .ok_or_else(|| dependency_missing_manifest_diagnostic(dependency, path_field))?;
+        .map_err(|error| Box::new(dependency_io_diagnostic(dependency, path_field, error)))?
+        .ok_or_else(|| {
+            Box::new(dependency_missing_manifest_diagnostic(
+                dependency, path_field,
+            ))
+        })?;
     validate_package_name(
         dependency,
         &manifest,
@@ -71,7 +79,7 @@ fn lock_path_dependency(
     )?;
 
     let checksum = source_tree_checksum(&dependency_root)
-        .map_err(|error| dependency_io_diagnostic(dependency, path_field, error))?;
+        .map_err(|error| Box::new(dependency_io_diagnostic(dependency, path_field, error)))?;
     Ok(LockfilePackage {
         name: dependency.package.clone(),
         source: LockfileSource::Path {
@@ -94,17 +102,19 @@ fn validate_package_name(
     dependency: &ManifestDependency,
     manifest: &ProjectManifest,
     dependency_path: &str,
-) -> Result<(), Diagnostic> {
+) -> Result<(), Box<Diagnostic>> {
     let Some(name_field) = manifest_package_name(manifest) else {
-        return Err(package_name_mismatch_diagnostic(dependency, None, None));
+        return Err(Box::new(package_name_mismatch_diagnostic(
+            dependency, None, None,
+        )));
     };
     if name_field.value != dependency.package {
         let actual_span = dependency_manifest_span(dependency_path, &name_field.value_span);
-        return Err(package_name_mismatch_diagnostic(
+        return Err(Box::new(package_name_mismatch_diagnostic(
             dependency,
             Some(&name_field.value),
             Some(&actual_span),
-        ));
+        )));
     }
     Ok(())
 }

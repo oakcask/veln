@@ -308,12 +308,18 @@ incompatible-source resolution, and non-path dependency command workflows.
 
 ## Package Manager Implications
 
-External imports do not authorize network fetching by themselves. Package
-manager commands should require dependency metadata that maps a package
-identity to a concrete source, such as a git remote, version selector,
-revision, checksum, vendored directory, or mirror. A lockfile should record the
-resolved source separately from the package identity so the source-level import
-path remains stable when the retrieval route changes.
+The implemented path-dependency lockfile workflow is specified under
+`../specification/commands.md` and executable cases under
+`../../examples/specification/package/`. The remaining package-manager work is
+non-path source materialization and resolution.
+
+External imports do not authorize network fetching by themselves. Future
+non-path package manager commands should require dependency metadata that maps
+a package identity to a concrete source, such as a git remote, version
+selector, revision, checksum, vendored directory, or mirror. Lockfile entries
+for those sources should record the resolved source separately from the
+package identity so the source-level import path remains stable when the
+retrieval route changes.
 
 This keeps Veln packages decentralized: a project can depend on git-hosted
 packages without publishing through a crate-style central registry, while still
@@ -351,14 +357,8 @@ package's own identity and manifest. The package manager validates
 `[package].name` inside the selected subdirectory, not at the repository root
 unless `subdir` is absent.
 
-Path dependencies are first-class package sources, not local-only aliases. A
-path dependency points at a package root in the current workspace or checkout,
-and the target manifest's `[package].name` must match the dependency key. This
-supports publishable monorepo layouts: the package identity remains stable,
-while the path records how this checkout locates that package.
-
-The lockfile uses package identities as primary keys and stores the resolved
-source separately:
+Future non-path lockfile entries use package identities as primary keys and
+store the resolved source separately:
 
 ```toml
 [[package]]
@@ -373,12 +373,13 @@ source = {
 checksum = "sha256:..."
 ```
 
-Every lockfile entry update generates a checksum for the package source tree
-that Veln will compile. The checksum verifies the package contents after source
-selection, including any `subdir`; it does not replace the resolved git
-revision. A package manager may use mirrors or vendored storage to obtain the
-source, but the lockfile entry must still preserve the package identity,
-resolved source, and checksum needed to verify the materialized package.
+Every non-path lockfile entry update generates a checksum for the package
+source tree that Veln will compile. The checksum verifies the package contents
+after source selection, including any `subdir`; it does not replace the
+resolved git revision. A package manager may use mirrors or vendored storage
+to obtain the source, but the lockfile entry must still preserve the package
+identity, resolved source, and checksum needed to verify the materialized
+package.
 
 The initial resolver should select at most one package instance for a package
 identity. If the dependency graph requires incompatible revisions for the same
