@@ -226,8 +226,7 @@ fn package_command() -> ClapCommand {
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(
-            ClapCommand::new("lock")
-                .about("Write veln.lock for path and exact-rev git dependencies"),
+            ClapCommand::new("lock").about("Write veln.lock for path and local git dependencies"),
         )
 }
 

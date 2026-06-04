@@ -1,0 +1,3 @@
+pub fn branchy() -> Int
+	3
+end
