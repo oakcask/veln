@@ -170,8 +170,8 @@ Dependency table keys are package identities used by
 selector field: `rev`, `tag`, or `branch`. `subdir` is optional package-root
 metadata inside the selected source. Source analysis commands validate this
 metadata but do not fetch git sources, resolve revisions, vendor packages, or
-update lockfiles. `veln package lock` writes the implemented path-dependency
-lockfile slice for already available path dependencies.
+update lockfiles. `veln package lock` writes lockfiles for already available
+path dependencies and local git dependencies with exact `rev` selectors.
 
 `[lib].exports` lists package-relative `.veln` source file paths. Export
 entries must stay inside the package, use source-file spelling rather than

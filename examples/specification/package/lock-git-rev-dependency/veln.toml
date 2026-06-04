@@ -1,0 +1,4 @@
+[dependencies."github.com/oakcask/bar"]
+git = "vendor/mono"
+rev = "abc123"
+subdir = "packages/bar"

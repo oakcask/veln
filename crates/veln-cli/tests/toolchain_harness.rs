@@ -212,6 +212,7 @@ fn setup_tool(tool_path: &Path, name: &str, availability: ToolAvailability) {
     match availability {
         ToolAvailability::Missing => {}
         ToolAvailability::FakeSuccess => write_fake_success_tool(tool_path, name),
+        ToolAvailability::FakeGitRevParse => write_fake_git_rev_parse_tool(tool_path, name),
         ToolAvailability::Real => {
             let host_tool = find_host_tool(name)
                 .unwrap_or_else(|| panic!("host tool `{name}` should be available"));
@@ -219,6 +220,8 @@ fn setup_tool(tool_path: &Path, name: &str, availability: ToolAvailability) {
         }
     }
 }
+
+const FAKE_GIT_RESOLVED_REV: &str = "0123456789abcdef0123456789abcdef01234567";
 
 #[cfg(unix)]
 fn write_fake_success_tool(tool_path: &Path, name: &str) {
@@ -242,6 +245,44 @@ fn write_fake_success_tool(tool_path: &Path, name: &str) {
 #[cfg(not(any(unix, windows)))]
 fn write_fake_success_tool(_tool_path: &Path, name: &str) {
     panic!("fake tool `{name}` is not supported on this platform");
+}
+
+#[cfg(unix)]
+fn write_fake_git_rev_parse_tool(tool_path: &Path, name: &str) {
+    assert_eq!(name, "git", "fake git rev-parse is only valid for git");
+    let tool = tool_path.join(name);
+    fs::write(
+        &tool,
+        format!(
+            "#!/bin/sh\nif [ \"$1\" = \"-C\" ] && [ \"$3\" = \"rev-parse\" ] && [ \"$4\" = \"--verify\" ]; then\n  echo \"{FAKE_GIT_RESOLVED_REV}\"\n  exit 0\nfi\nexit 1\n"
+        ),
+    )
+    .expect("fake git should be written");
+    let mut permissions = fs::metadata(&tool)
+        .expect("fake git metadata should be available")
+        .permissions();
+    permissions.set_mode(0o755);
+    fs::set_permissions(&tool, permissions).expect("fake git should be executable");
+}
+
+#[cfg(windows)]
+fn write_fake_git_rev_parse_tool(tool_path: &Path, name: &str) {
+    assert_eq!(name, "git", "fake git rev-parse is only valid for git");
+    for extension in ["bat", "cmd"] {
+        let tool = tool_path.join(format!("{name}.{extension}"));
+        fs::write(
+            &tool,
+            format!(
+                "@echo off\r\nif \"%1\"==\"-C\" if \"%3\"==\"rev-parse\" if \"%4\"==\"--verify\" (\r\n  echo {FAKE_GIT_RESOLVED_REV}\r\n  exit /b 0\r\n)\r\nexit /b 1\r\n"
+            ),
+        )
+        .expect("fake git should be written");
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
+fn write_fake_git_rev_parse_tool(_tool_path: &Path, name: &str) {
+    panic!("fake git `{name}` is not supported on this platform");
 }
 
 fn find_host_tool(name: &str) -> Option<PathBuf> {
@@ -592,6 +633,7 @@ struct Requirements {
 #[derive(Debug, Default)]
 struct ToolSetup {
     java: Option<ToolAvailability>,
+    git: Option<ToolAvailability>,
 }
 
 impl ToolSetup {
@@ -604,14 +646,20 @@ impl ToolSetup {
     }
 
     fn configured(&self) -> impl Iterator<Item = ToolConfig> {
-        self.java
-            .map(|availability| ToolName::Java.config(availability))
-            .into_iter()
+        [
+            self.java
+                .map(|availability| ToolName::Java.config(availability)),
+            self.git
+                .map(|availability| ToolName::Git.config(availability)),
+        ]
+        .into_iter()
+        .flatten()
     }
 
     fn set(&mut self, name: ToolName, availability: ToolAvailability) {
         match name {
             ToolName::Java => self.java = Some(availability),
+            ToolName::Git => self.git = Some(availability),
         }
     }
 }
@@ -635,12 +683,14 @@ impl ToolConfig {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ToolName {
     Java,
+    Git,
 }
 
 impl ToolName {
     fn as_str(self) -> &'static str {
         match self {
             Self::Java => "java",
+            Self::Git => "git",
         }
     }
 
@@ -656,6 +706,7 @@ impl ToolName {
 enum ToolAvailability {
     Missing,
     FakeSuccess,
+    FakeGitRevParse,
     Real,
 }
 
@@ -909,6 +960,12 @@ impl<'a> ManifestParser<'a> {
                     parse_tool_availability(self.path, line_number, value),
                 );
             }
+            "git" => {
+                self.tools.set(
+                    ToolName::Git,
+                    parse_tool_availability(self.path, line_number, value),
+                );
+            }
             _ => manifest_error(self.path, line_number, format!("unknown tools key `{key}`")),
         }
     }
@@ -1157,6 +1214,7 @@ fn parse_tool_availability(path: &Path, line_number: usize, value: &str) -> Tool
     match value.as_str() {
         "missing" => ToolAvailability::Missing,
         "fake-success" => ToolAvailability::FakeSuccess,
+        "fake-git-rev-parse" => ToolAvailability::FakeGitRevParse,
         "real" => ToolAvailability::Real,
         _ => manifest_error(
             path,
@@ -1345,12 +1403,14 @@ exit = 0
 
 [tools]
 java = "fake-success"
+git = "fake-git-rev-parse"
 "#,
     );
 
     assert!(manifest.tools.needs_path());
     assert!(!manifest.tools.requires_jdk());
     assert_eq!(manifest.tools.java, Some(ToolAvailability::FakeSuccess));
+    assert_eq!(manifest.tools.git, Some(ToolAvailability::FakeGitRevParse));
 
     let manifest = parse_manifest(
         Path::new("case.toml"),

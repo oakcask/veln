@@ -10,8 +10,8 @@ compare it with `../specification/` before changing behavior.
 ## Catalog
 
 - File based modules and packages, remaining package-manager work for
-  non-path source materialization, revision resolution, vendoring, mirrors,
-  and incompatible-source resolution:
+  non-local source materialization, branch and tag resolution, vendoring,
+  mirrors, and incompatible-source resolution:
   [file-based-modules-and-packages.md](file-based-modules-and-packages.md).
 
 ## Update When

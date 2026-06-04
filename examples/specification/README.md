@@ -127,6 +127,12 @@ against the built `veln` binary.
   `veln.lock` for available path dependencies, records identity separately
   from path source, computes `sha256:` source-tree checksums, and ignores
   build output.
+- `package/lock-git-rev-dependency/`: `veln package lock` writes an exact-rev
+  git source record for an already available local repository, validates a
+  dependency `subdir` package root, records the resolved commit, and checksums
+  only the selected package source tree.
+- `package/lock-git-tag-rejected/`: `veln package lock` rejects git
+  dependencies that use selectors other than `rev`.
 - `package/lock-package-name-mismatch/`: `veln package lock` rejects a path
   dependency whose manifest `[package].name` does not match the dependency
   table key.

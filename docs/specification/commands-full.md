@@ -383,9 +383,10 @@ in the typed-hole and predicate repair loop:
 ## `veln package lock`
 
 `package lock` reads the current project `veln.toml` and writes `veln.lock`.
-The implemented package-manager slice is limited to dependency tables with a
-string-valued `path` field and no `git` field. The command does not fetch git
-sources, resolve git revisions, vendor packages, or contact the network.
+The implemented package-manager slice supports dependency tables with either a
+string-valued `path` field or a string-valued `git` field plus exactly one
+`rev` selector. The command does not fetch git sources, resolve branches or
+tags, vendor packages, or contact the network.
 
 For each path dependency, the dependency table key is the package identity.
 The command requires the path to name an existing package root, reads that
@@ -407,6 +408,30 @@ Serialized source paths use `/` separators. The checksum is computed from the
 sorted `.veln` source files discovered under the dependency package root after
 the same ignored-directory rule as source discovery, so `.git` and `target`
 contents do not affect the lockfile.
+
+For each git dependency, the `git` value must name an already available local
+repository path or local `file:` URL. The `rev` selector is resolved against
+that repository to a concrete commit. If `subdir` is present, the command
+uses that repository-relative package root for manifest validation and checksum
+generation. The dependency package root must contain `veln.toml`, and its
+`[package].name` must match the dependency table key.
+
+The written git source record stores the package identity separately from the
+source URL, requested selector, resolved commit, optional subdirectory, and
+source-tree checksum:
+
+```toml
+[[package]]
+name = "github.com/oakcask/lib"
+source = {
+  kind = "git",
+  url = "vendor/mono",
+  selector = { rev = "abc123" },
+  rev = "0123456789abcdef0123456789abcdef01234567",
+  subdir = "packages/lib",
+}
+checksum = "sha256:..."
+```
 
 <a id="veln-lsp"></a>
 

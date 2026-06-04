@@ -16,8 +16,9 @@ package source-file exports, `use path from "package"` resolves exported
 modules from already available path dependencies, git dependency metadata
 records one `rev`, `tag`, or `branch` selector plus optional `subdir`, and
 `veln package lock` writes deterministic lockfile entries for already
-available path dependencies. This proposal remains open for package-manager
-behavior beyond local path dependency lockfiles.
+available path dependencies and local exact-rev git dependencies. This
+proposal remains open for package-manager behavior beyond local path and
+exact-rev git lockfile slices.
 
 ## Read First
 
@@ -44,9 +45,9 @@ metadata:
 The implemented local-source, manifest-export, path-dependency
 external-import, and first package-manager metadata slices remove those local
 ambiguities and establish the first external package boundary. This proposal
-remains open for fetching, vendoring, non-path source checksum computation,
-mirror support, non-path source lockfile workflows, and graph-wide
-incompatible-source resolution.
+remains open for fetching, vendoring, non-local source materialization, branch
+and tag resolution, mirror support, and graph-wide incompatible-source
+resolution.
 
 ## Proposal
 
@@ -299,19 +300,20 @@ exports = [
 
 ## Specification Updates
 
-Implemented package import and dependency-metadata behavior is specified under
-`../specification/source-surface.md`, `../specification/names-effects.md`,
-`../specification/commands.md`, and `../../examples/specification/`. Remaining
-work belongs to package-manager behavior: non-path dependency source
-materialization, revision resolution, vendoring, mirror support, graph-wide
-incompatible-source resolution, and non-path dependency command workflows.
+Implemented package import, dependency-metadata, and local lockfile behavior is
+specified under `../specification/source-surface.md`,
+`../specification/names-effects.md`, `../specification/commands.md`, and
+`../../examples/specification/`. Remaining work belongs to package-manager
+behavior: non-local dependency source materialization, branch and tag
+resolution, vendoring, mirror support, and graph-wide incompatible-source
+resolution.
 
 ## Package Manager Implications
 
-The implemented path-dependency lockfile workflow is specified under
-`../specification/commands.md` and executable cases under
+The implemented path-dependency and local exact-rev git lockfile workflows are
+specified under `../specification/commands.md` and executable cases under
 `../../examples/specification/package/`. The remaining package-manager work is
-non-path source materialization and resolution.
+non-local source materialization plus branch and tag resolution.
 
 External imports do not authorize network fetching by themselves. Future
 non-path package manager commands should require dependency metadata that maps
@@ -347,9 +349,10 @@ path = "../baz"
 ```
 
 A git dependency must name a git remote and exactly one selector: `rev`, `tag`,
-or `branch`. The selector is the requested source. The lockfile records the
-resolved revision used for builds, so mutable selectors such as branches do not
-make a checked-in build depend on the current remote state.
+or `branch`. The selector is the requested source. The implemented local git
+lockfile slice accepts exact `rev` selectors. Future branch and tag resolution
+records the resolved revision used for builds, so mutable selectors such as
+branches do not make a checked-in build depend on the current remote state.
 
 `subdir` is an optional package root inside the fetched repository. It lets a
 single repository publish multiple Veln packages while preserving each
@@ -357,8 +360,8 @@ package's own identity and manifest. The package manager validates
 `[package].name` inside the selected subdirectory, not at the repository root
 unless `subdir` is absent.
 
-Future non-path lockfile entries use package identities as primary keys and
-store the resolved source separately:
+Git lockfile entries use package identities as primary keys and store the
+resolved source separately:
 
 ```toml
 [[package]]
@@ -366,20 +369,19 @@ name = "github.com/oakcask/bar"
 source = {
   kind = "git",
   url = "https://github.com/oakcask/mono.git",
-  selector = { branch = "main" },
+  selector = { rev = "abc123" },
   rev = "...",
   subdir = "packages/bar",
 }
 checksum = "sha256:..."
 ```
 
-Every non-path lockfile entry update generates a checksum for the package
-source tree that Veln will compile. The checksum verifies the package contents
-after source selection, including any `subdir`; it does not replace the
-resolved git revision. A package manager may use mirrors or vendored storage
-to obtain the source, but the lockfile entry must still preserve the package
-identity, resolved source, and checksum needed to verify the materialized
-package.
+Every git lockfile entry update generates a checksum for the package source
+tree that Veln will compile. The checksum verifies the package contents after
+source selection, including any `subdir`; it does not replace the resolved git
+revision. A package manager may use mirrors or vendored storage to obtain the
+source, but the lockfile entry must still preserve the package identity,
+resolved source, and checksum needed to verify the materialized package.
 
 The initial resolver should select at most one package instance for a package
 identity. If the dependency graph requires incompatible revisions for the same
