@@ -1,4 +1,6 @@
 const childProcess = require("child_process");
+const fs = require("fs");
+const path = require("path");
 const vscode = require("vscode");
 
 const tokenTypes = [
@@ -26,7 +28,16 @@ const tokenModifiers = [
 ];
 
 class VelnLanguageServer {
-  constructor(command, args, cwd, output, trace, onDiagnostics, onClearDiagnostics) {
+  constructor(
+    command,
+    args,
+    cwd,
+    output,
+    trace,
+    onDiagnostics,
+    onClearDiagnostics,
+    workspaceFolders,
+  ) {
     this.nextId = 1;
     this.pending = new Map();
     this.buffer = Buffer.alloc(0);
@@ -62,7 +73,7 @@ class VelnLanguageServer {
       }
       this.pending.clear();
     });
-    this.sendRequest("initialize", initializeParams(cwd)).then(() =>
+    this.sendRequest("initialize", initializeParams(cwd, workspaceFolders)).then(() =>
       this.sendNotification("initialized", {}),
     );
   }
@@ -265,19 +276,88 @@ function workspaceFolderPath() {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-function initializeParams(cwd) {
+function workspaceFolderPaths() {
+  return vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) ?? [];
+}
+
+function velnWorkspaceFolderPaths() {
+  return workspaceFolderPaths().flatMap((folder) => {
+    if (fs.existsSync(path.join(folder, "veln.toml"))) {
+      return [folder];
+    }
+    const manifestRoots = manifestWorkspaceFolderPaths(folder);
+    if (manifestRoots.length > 0) {
+      return manifestRoots;
+    }
+    const source = firstVelnSource(folder);
+    return source ? [path.dirname(source)] : [];
+  });
+}
+
+function manifestWorkspaceFolderPaths(folder) {
+  let entries;
+  try {
+    entries = fs.readdirSync(folder, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const roots = [];
+  entries.sort((left, right) => left.name.localeCompare(right.name));
+  for (const entry of entries) {
+    if (entry.name === ".git" || entry.name === "target" || !entry.isDirectory()) {
+      continue;
+    }
+    const child = path.join(folder, entry.name);
+    if (fs.existsSync(path.join(child, "veln.toml"))) {
+      roots.push(child);
+    } else {
+      roots.push(...manifestWorkspaceFolderPaths(child));
+    }
+  }
+  return roots;
+}
+
+function firstVelnSource(folder) {
+  let entries;
+  try {
+    entries = fs.readdirSync(folder, { withFileTypes: true });
+  } catch {
+    return undefined;
+  }
+  entries.sort((left, right) => left.name.localeCompare(right.name));
+  for (const entry of entries) {
+    if (entry.name === ".git" || entry.name === "target") {
+      continue;
+    }
+    const child = path.join(folder, entry.name);
+    if (entry.isFile() && entry.name.endsWith(".veln")) {
+      return child;
+    }
+    if (entry.isDirectory()) {
+      const source = firstVelnSource(child);
+      if (source) {
+        return source;
+      }
+    }
+  }
+  return undefined;
+}
+
+function initializeParams(cwd, workspaceFolders) {
   const params = { capabilities: {} };
-  if (!cwd) {
+  const folders = Array.isArray(workspaceFolders)
+    ? workspaceFolders
+    : (cwd ? [cwd] : []);
+  if (folders.length === 0) {
     return params;
   }
-  const uri = vscode.Uri.file(cwd).toString();
+  const root = Array.isArray(workspaceFolders) ? folders[0] : cwd;
+  const uri = vscode.Uri.file(root).toString();
   params.rootUri = uri;
-  params.workspaceFolders = [
-    {
-      uri,
-      name: workspaceFolderName(cwd),
-    },
-  ];
+  params.workspaceFolders = folders.map((folder) => ({
+    uri: vscode.Uri.file(folder).toString(),
+    name: workspaceFolderName(folder),
+  }));
   return params;
 }
 
@@ -363,6 +443,7 @@ function activate(context) {
     trace,
     (params) => applyDiagnostics(diagnostics, params),
     () => diagnostics.clear(),
+    velnWorkspaceFolderPaths(),
   );
   const legend = new vscode.SemanticTokensLegend(tokenTypes, tokenModifiers);
   const provider = {
@@ -420,5 +501,7 @@ module.exports = {
     summarizeJson,
     toDiagnosticSeverity,
     initializeParams,
+    workspaceFolderPaths,
+    velnWorkspaceFolderPaths,
   },
 };
