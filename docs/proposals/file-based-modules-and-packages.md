@@ -19,8 +19,6 @@ implemented slices.
   [../specification/names-effects.md](../specification/names-effects.md).
 - Current `veln package lock` behavior:
   [../specification/commands.md](../specification/commands.md).
-- Executable examples for package lock behavior:
-  [../../examples/specification/README.md](../../examples/specification/README.md).
 
 ## Implemented Boundary
 
