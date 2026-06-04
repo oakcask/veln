@@ -14,7 +14,8 @@ used by editor integrations.
 - TextMate fallback highlighting is contributed by
   `editors/vscode/syntaxes/veln.tmLanguage.json`.
 - VSCode starts the language server when a `.veln` document opens and requests
-  full-document semantic tokens and workspace diagnostics.
+  full-document semantic tokens. It enables workspace diagnostics for Veln
+  project folders.
 
 ## Semantic Token Records
 
@@ -77,19 +78,23 @@ stream remains valid for LSP clients.
 
 ## LSP Diagnostics
 
-The stdio server resolves the workspace root from `initialize.rootUri`, then
-from the first `initialize.workspaceFolders` entry, and otherwise from the
-server process working directory.
+The stdio server resolves workspace roots from `initialize.workspaceFolders`.
+When a resolved folder has no `veln.toml`, nested manifest directories become
+workspace roots; if no nested manifests are found, the original folder remains
+the workspace root. When no workspace folders are present, it falls back to
+`initialize.rootUri`. When the client sends no workspace identity, the server
+leaves workspace roots empty and publishes document-scoped diagnostics for open
+documents only.
 
-For files inside that workspace, the server discovers project `.veln` files the
-same way `check` and `run` do, excludes doctest-generated sources, overlays
-open unsaved editor text onto the discovered source set, and includes open new
-`.veln` buffers that do not exist on disk yet. It publishes
+For files inside a resolved workspace root, the server discovers project
+`.veln` files the same way `check` and `run` do, excludes doctest-generated
+sources, overlays open unsaved editor text onto the discovered source set, and
+includes open new `.veln` buffers that do not exist on disk yet. It publishes
 `textDocument/publishDiagnostics` for every discovered or open workspace source
 file, including unopened files. It also publishes empty diagnostic lists for
 previously reported files that become clean or leave discovery.
 
-For documents outside the resolved workspace, diagnostics remain
+For documents outside resolved workspace roots, diagnostics remain
 document-scoped and are computed from the in-editor document text. Parse
 diagnostics are reported first. When parsing succeeds, the server lowers the
 document into the surface module model and publishes semantic diagnostics from
@@ -110,10 +115,18 @@ The extension registers a document semantic token provider. Before requesting
 tokens, it sends the current document text to the server, so highlighting follows
 unsaved editor content.
 
-The extension also registers a `veln` diagnostic collection. It listens for
-`textDocument/publishDiagnostics` messages from the language server and mirrors
-them into VSCode diagnostics so syntax and checker diagnostics appear in the
-Problems pane.
+The extension also registers a `veln` diagnostic collection. It starts
+workspace diagnostics for VSCode workspace folders that contain `veln.toml`, or
+for nested manifest directories when the VSCode workspace folder is a larger
+repository. Manifest roots stop nested discovery so vendored dependencies are
+not initialized as separate workspace roots. If a workspace folder has no
+package manifest and no nested manifest roots, the extension searches that
+folder in name order, ignores `.git` and `target`, and uses the parent
+directory of the first discovered `.veln` source as an anonymous package root.
+Open Veln documents outside resolved roots still receive document-scoped
+diagnostics. The extension listens for `textDocument/publishDiagnostics`
+messages from the language server and mirrors them into VSCode diagnostics so
+syntax and checker diagnostics appear in the Problems pane.
 
 The `veln.server.trace` setting controls protocol tracing in the Veln output
 channel. `messages` logs compact request, notification, and response summaries.
@@ -129,10 +142,11 @@ Implemented:
 - Editor-neutral semantic token records.
 - Full semantic-token legend and integer data generation for LSP clients.
 - Stdio JSON-RPC lifecycle for semantic highlighting requests.
-- Stdio diagnostic publication for discovered workspace Veln files, including
-  unopened files, with unsaved open document overlays.
-- Document-scoped diagnostic publication for Veln documents outside the
-  resolved workspace.
+- Stdio diagnostic publication for discovered workspace Veln files across
+  resolved workspace roots, including unopened files, with unsaved open
+  document overlays.
+- Document-scoped diagnostic publication for Veln documents outside resolved
+  workspaces or when no workspace identity is initialized.
 - VSCode startup for `.veln` files using the configured language-server
   command.
 - VSCode Problems pane integration for Veln diagnostics.

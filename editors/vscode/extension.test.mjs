@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -139,12 +140,102 @@ test("initializes the language server with workspace identity", () => {
   ]);
 });
 
+test("initializes the language server with all workspace folders", () => {
+  const { exports, spawnedProcesses } = loadExtension();
+  new exports._test.VelnLanguageServer(
+    "veln",
+    ["lsp"],
+    "alpha",
+    new FakeOutputChannel(),
+    "off",
+    () => {},
+    () => {},
+    ["alpha", "beta"],
+  );
+
+  const [message] = spawnedProcesses[0].stdin.messages.map(parseRpcMessage);
+  assert.equal(message.method, "initialize");
+  assert.equal(message.params.rootUri, "file://alpha");
+  assert.deepEqual(message.params.workspaceFolders, [
+    { uri: "file://alpha", name: "alpha" },
+    { uri: "file://beta", name: "beta" },
+  ]);
+});
+
+test("uses explicit language roots for rootUri", () => {
+  const { exports } = loadExtension();
+
+  const params = exports._test.initializeParams("repo", ["project"]);
+
+  assert.equal(params.rootUri, "file://project");
+  assert.deepEqual(JSON.parse(JSON.stringify(params.workspaceFolders)), [
+    { uri: "file://project", name: "project" },
+  ]);
+});
+
 test("omits workspace identity when no workspace folder is active", () => {
   const { exports } = loadExtension();
 
   assert.deepEqual(JSON.parse(JSON.stringify(exports._test.initializeParams(undefined))), {
     capabilities: {},
   });
+});
+
+test("omits workspace identity when workspace folders are explicitly empty", () => {
+  const { exports } = loadExtension();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(exports._test.initializeParams("repo", []))), {
+    capabilities: {},
+  });
+});
+
+test("uses workspace folders with veln manifests as language roots", (t) => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "veln-vscode-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const alpha = path.join(temp, "alpha");
+  const beta = path.join(temp, "beta");
+  fs.mkdirSync(alpha);
+  fs.mkdirSync(beta);
+  fs.writeFileSync(path.join(alpha, "veln.toml"), "[package]\nname = \"alpha\"\n");
+  const { exports } = loadExtension({
+    workspaceFolders: [alpha, beta],
+  });
+
+  assert.deepEqual(exports._test.velnWorkspaceFolderPaths(), [alpha]);
+});
+
+test("uses nested manifest folders as language roots", (t) => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "veln-vscode-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const repo = path.join(temp, "repo");
+  const alpha = path.join(repo, "examples", "alpha");
+  const beta = path.join(repo, "examples", "beta");
+  const vendor = path.join(beta, "vendor", "foo");
+  fs.mkdirSync(alpha, { recursive: true });
+  fs.mkdirSync(vendor, { recursive: true });
+  fs.writeFileSync(path.join(alpha, "veln.toml"), "[package]\nname = \"alpha\"\n");
+  fs.writeFileSync(path.join(beta, "veln.toml"), "[package]\nname = \"beta\"\n");
+  fs.writeFileSync(path.join(vendor, "veln.toml"), "[package]\nname = \"foo\"\n");
+  const { exports } = loadExtension({
+    workspaceFolders: [repo],
+  });
+
+  assert.deepEqual(exports._test.velnWorkspaceFolderPaths(), [alpha, beta]);
+});
+
+test("uses first manifestless source subtree as an anonymous language root", (t) => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "veln-vscode-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const alpha = path.join(temp, "alpha");
+  const beta = path.join(temp, "beta");
+  fs.mkdirSync(alpha);
+  fs.mkdirSync(path.join(beta, "src"), { recursive: true });
+  fs.writeFileSync(path.join(beta, "src", "main.veln"), "fn main() -> Int\n  1\nend\n");
+  const { exports } = loadExtension({
+    workspaceFolders: [alpha, beta],
+  });
+
+  assert.deepEqual(exports._test.velnWorkspaceFolderPaths(), [path.join(beta, "src")]);
 });
 
 test("closes synced documents and publishes server diagnostics callbacks", () => {
@@ -288,8 +379,8 @@ test("clears diagnostics when the server exits", () => {
   assert.equal(cleared, true);
 });
 
-function loadExtension() {
-  const vscode = fakeVscode();
+function loadExtension(options = {}) {
+  const vscode = fakeVscode(options);
   const spawnedProcesses = [];
   const module = { exports: {} };
   const sandbox = {
@@ -310,6 +401,12 @@ function loadExtension() {
           },
         };
       }
+      if (specifier === "fs") {
+        return fs;
+      }
+      if (specifier === "path") {
+        return path;
+      }
       throw new Error(`unexpected require: ${specifier}`);
     },
   };
@@ -320,7 +417,7 @@ function loadExtension() {
   return { exports: module.exports, spawnedProcesses, vscode };
 }
 
-function fakeVscode() {
+function fakeVscode(options = {}) {
   class Position {
     constructor(line, character) {
       this.line = line;
@@ -364,6 +461,11 @@ function fakeVscode() {
       parse(value) {
         return { value, toString: () => value };
       },
+    },
+    workspace: {
+      workspaceFolders: (options.workspaceFolders ?? []).map((folder) => ({
+        uri: { fsPath: folder },
+      })),
     },
   };
 }

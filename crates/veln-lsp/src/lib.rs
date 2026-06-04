@@ -79,7 +79,7 @@ pub fn run_stdio() -> io::Result<()> {
 #[derive(Default)]
 struct Server {
     documents: BTreeMap<String, String>,
-    workspace_root: Option<PathBuf>,
+    workspace_roots: Vec<PathBuf>,
     published_diagnostic_uris: BTreeSet<String>,
     should_exit: bool,
 }
@@ -120,7 +120,7 @@ impl Server {
     }
 
     fn handle_initialize(&mut self, message: &str, id: Option<String>) -> Vec<String> {
-        self.workspace_root = resolve_workspace_root(message);
+        self.workspace_roots = resolve_workspace_roots(message);
         let mut responses = id
             .map(|id| response(&id, &initialize_result()))
             .into_iter()
@@ -187,27 +187,26 @@ impl Server {
     }
 
     fn publish_workspace_diagnostics(&mut self) -> Vec<String> {
-        let Some(root) = self.workspace_root.clone() else {
-            return Vec::new();
-        };
-        let Ok(mut project) = Project::discover(root.clone(), &[]) else {
-            return Vec::new();
-        };
-        self.overlay_open_workspace_documents(&root, &mut project);
-        let diagnostics = checked_project_diagnostics(project.clone(), DoctestMode::Exclude);
-        let mut diagnostics_by_path = diagnostics_by_path(diagnostics);
-        for source in &project.files {
-            diagnostics_by_path
-                .entry(source.path().as_str().to_string())
-                .or_default();
-        }
-
         let mut next_uris = BTreeSet::new();
         let mut responses = Vec::new();
-        for (source_path, diagnostics) in diagnostics_by_path {
-            let uri = path_to_uri(&root.join(&source_path));
-            next_uris.insert(uri.clone());
-            responses.push(publish_diagnostics_for_uri(&uri, &diagnostics));
+        for root in self.workspace_roots.clone() {
+            let Ok(mut project) = Project::discover(root.clone(), &[]) else {
+                continue;
+            };
+            self.overlay_open_workspace_documents(&root, &mut project);
+            let diagnostics = checked_project_diagnostics(project.clone(), DoctestMode::Exclude);
+            let mut diagnostics_by_path = diagnostics_by_path(diagnostics);
+            for source in &project.files {
+                diagnostics_by_path
+                    .entry(source.path().as_str().to_string())
+                    .or_default();
+            }
+
+            for (source_path, diagnostics) in diagnostics_by_path {
+                let uri = path_to_uri(&root.join(&source_path));
+                next_uris.insert(uri.clone());
+                responses.push(publish_diagnostics_for_uri(&uri, &diagnostics));
+            }
         }
         for uri in self
             .published_diagnostic_uris
@@ -243,7 +242,7 @@ impl Server {
     }
 
     fn workspace_source_path(&self, uri: &str) -> Option<String> {
-        let root = self.workspace_root.as_ref()?;
+        let root = workspace_root_for_uri(&self.workspace_roots, uri)?;
         workspace_relative_source_path(root, uri)
     }
 }
@@ -428,16 +427,87 @@ fn diagnostics_by_path(diagnostics: Vec<Diagnostic>) -> BTreeMap<String, Vec<Dia
     by_path
 }
 
-fn resolve_workspace_root(message: &str) -> Option<PathBuf> {
-    extract_string_field(message, "rootUri")
-        .or_else(|| extract_workspace_folder_uri(message))
-        .and_then(|uri| uri_to_path(&uri))
-        .or_else(|| env::current_dir().ok())
+fn resolve_workspace_roots(message: &str) -> Vec<PathBuf> {
+    let client_roots = extract_workspace_folder_uris(message)
+        .into_iter()
+        .filter_map(|uri| uri_to_path(&uri))
+        .collect::<Vec<_>>();
+    let mut roots = Vec::new();
+    for root in client_roots {
+        roots.extend(resolve_workspace_project_roots(&root));
+    }
+    if roots.is_empty()
+        && let Some(root) =
+            extract_string_field(message, "rootUri").and_then(|uri| uri_to_path(&uri))
+    {
+        roots.extend(resolve_workspace_project_roots(&root));
+    }
+    roots.sort();
+    roots.dedup();
+    roots
 }
 
-fn extract_workspace_folder_uri(message: &str) -> Option<String> {
-    let index = message.find("\"workspaceFolders\"")?;
-    extract_string_field(&message[index..], "uri")
+fn resolve_workspace_project_roots(root: &Path) -> Vec<PathBuf> {
+    if root.join("veln.toml").is_file() {
+        return vec![root.to_path_buf()];
+    }
+    let mut roots = Vec::new();
+    collect_manifest_project_roots(root, &mut roots);
+    if roots.is_empty() {
+        roots.push(root.to_path_buf());
+    }
+    roots
+}
+
+fn collect_manifest_project_roots(dir: &Path, roots: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    let mut entries = entries.filter_map(Result::ok).collect::<Vec<_>>();
+    entries.sort_by_key(|entry| entry.file_name());
+    for entry in entries {
+        let path = entry.path();
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        if file_name == ".git" || file_name == "target" || !path.is_dir() {
+            continue;
+        }
+        if path.join("veln.toml").is_file() {
+            roots.push(path);
+        } else {
+            collect_manifest_project_roots(&path, roots);
+        }
+    }
+}
+
+fn extract_workspace_folder_uris(message: &str) -> Vec<String> {
+    let Some(index) = message.find("\"workspaceFolders\"") else {
+        return Vec::new();
+    };
+    let mut rest = &message[index..];
+    let mut uris = Vec::new();
+    while let Some(uri_index) = rest.find("\"uri\"") {
+        rest = &rest[uri_index..];
+        if let Some(uri) = extract_string_field(rest, "uri") {
+            uris.push(uri);
+        }
+        rest = &rest["\"uri\"".len()..];
+    }
+    uris
+}
+
+fn workspace_root_for_uri<'a>(roots: &'a [PathBuf], uri: &str) -> Option<&'a Path> {
+    let uri_path = uri_to_path(uri)?;
+    let absolute = if uri_path.is_absolute() {
+        uri_path
+    } else {
+        env::current_dir().ok()?.join(uri_path)
+    };
+    roots
+        .iter()
+        .filter(|root| absolute.starts_with(root))
+        .max_by_key(|root| root.components().count())
+        .map(PathBuf::as_path)
 }
 
 fn workspace_source_file(root: &Path, uri: &str, text: &str) -> Option<SourceFile> {
@@ -671,8 +741,8 @@ mod tests {
         assert!(responses[0].contains(r#""semanticTokensProvider""#));
         assert!(responses[0].contains(r#""tokenTypes":["namespace","type""#));
         assert_eq!(
-            server.workspace_root.as_deref(),
-            Some(project.root.as_path())
+            server.workspace_roots.as_slice(),
+            std::slice::from_ref(&project.root)
         );
     }
 
@@ -687,9 +757,83 @@ mod tests {
         ));
 
         assert_eq!(
-            server.workspace_root.as_deref(),
-            Some(project.root.as_path())
+            server.workspace_roots.as_slice(),
+            std::slice::from_ref(&project.root)
         );
+    }
+
+    #[test]
+    fn server_initializes_all_workspace_roots_from_workspace_folders() {
+        let mut server = Server::default();
+        let alpha = TempProject::new("initialize-alpha-workspace-folder");
+        let beta = TempProject::new("initialize-beta-workspace-folder");
+        let alpha_uri = path_to_uri(&alpha.root);
+        let beta_uri = path_to_uri(&beta.root);
+
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{alpha_uri}","name":"alpha"}},{{"uri":"{beta_uri}","name":"beta"}}]}}}}"#
+        ));
+
+        let mut expected = vec![alpha.root.clone(), beta.root.clone()];
+        expected.sort();
+        assert_eq!(server.workspace_roots, expected);
+    }
+
+    #[test]
+    fn server_uses_nested_manifest_roots_from_workspace_folders() {
+        let mut server = Server::default();
+        let workspace = TempProject::new("nested-manifest-workspace-folder");
+        workspace.write(
+            "examples/specification/check/external-package-imports/veln.toml",
+            "[dependencies.\"github.com/oakcask/foo\"]\npath = \"vendor/foo\"\n",
+        );
+        workspace.write(
+            "examples/specification/check/external-package-imports/app.veln",
+            "use foo from \"github.com/oakcask/foo\"\n\nfn main() -> Int\n  add_one(1)\nend\n",
+        );
+        workspace.write(
+            "examples/specification/check/external-package-imports/vendor/foo/veln.toml",
+            "[package]\nname = \"github.com/oakcask/foo\"\n\n[lib]\nexports = [\"foo.veln\"]\n",
+        );
+        workspace.write(
+            "examples/specification/check/external-package-imports/vendor/foo/foo.veln",
+            "pub fn add_one(value: Int) -> Int\n  value + 1\nend\n",
+        );
+        let root_uri = path_to_uri(&workspace.root);
+        let app_uri = path_to_uri(
+            &workspace
+                .root
+                .join("examples/specification/check/external-package-imports/app.veln"),
+        );
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{root_uri}","name":"repo"}}]}}}}"#
+        ));
+
+        assert_eq!(
+            server.workspace_roots,
+            vec![
+                workspace
+                    .root
+                    .join("examples/specification/check/external-package-imports")
+            ]
+        );
+        let publish = publish_for_uri(&responses, &app_uri);
+        assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
+        assert!(!publish.contains("module.missing_identity"), "{publish}");
+    }
+
+    #[test]
+    fn server_does_not_infer_workspace_root_without_client_identity() {
+        let mut server = Server::default();
+
+        let responses = server.handle_message(
+            r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
+        );
+
+        assert_eq!(server.workspace_roots, Vec::<PathBuf>::new());
+        assert_eq!(responses.len(), 1);
+        assert!(responses[0].contains(r#""semanticTokensProvider""#));
     }
 
     #[test]
@@ -791,6 +935,96 @@ mod tests {
 
         let publish = publish_for_uri(&responses, &app_uri);
         assert!(publish.contains(r#""code":"type.mismatch""#), "{publish}");
+    }
+
+    #[test]
+    fn server_publishes_same_leaf_files_from_multiple_roots_separately() {
+        let mut server = Server::default();
+        let alpha = TempProject::new("same-leaf-alpha-root");
+        let beta = TempProject::new("same-leaf-beta-root");
+        alpha.write("main.veln", "pub fn main() -> Int\n  1\nend\n");
+        beta.write("main.veln", "pub fn main() -> Int\n  \"bad\"\nend\n");
+        let alpha_root_uri = path_to_uri(&alpha.root);
+        let beta_root_uri = path_to_uri(&beta.root);
+        let alpha_main_uri = path_to_uri(&alpha.root.join("main.veln"));
+        let beta_main_uri = path_to_uri(&beta.root.join("main.veln"));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"workspaceFolders":[{{"uri":"{alpha_root_uri}","name":"alpha"}},{{"uri":"{beta_root_uri}","name":"beta"}}]}}}}"#
+        ));
+
+        let alpha_publish = publish_for_uri(&responses, &alpha_main_uri);
+        let beta_publish = publish_for_uri(&responses, &beta_main_uri);
+        assert!(
+            alpha_publish.contains(r#""diagnostics":[]"#),
+            "{alpha_publish}"
+        );
+        assert!(
+            beta_publish.contains(r#""code":"type.mismatch""#),
+            "{beta_publish}"
+        );
+    }
+
+    #[test]
+    fn server_keeps_same_leaf_workspace_files_in_distinct_modules() {
+        let mut server = Server::default();
+        let project = TempProject::new("same-leaf-workspace-diagnostics");
+        project.write(
+            "app.veln",
+            "use alpha::item\nuse beta::item\n\npub fn main() -> Int\n  alpha::item::value() + beta::item::value()\nend\n",
+        );
+        project.write("alpha/item.veln", "pub fn value() -> Int\n  1\nend\n");
+        project.write("beta/item.veln", "pub fn value() -> Int\n  2\nend\n");
+        let root_uri = path_to_uri(&project.root);
+        let app_uri = path_to_uri(&project.root.join("app.veln"));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"{root_uri}"}}}}"#
+        ));
+
+        let publish = publish_for_uri(&responses, &app_uri);
+        assert!(publish.contains(r#""diagnostics":[]"#), "{publish}");
+        assert!(
+            !publish.contains("module.duplicate_source_path"),
+            "{publish}"
+        );
+    }
+
+    #[test]
+    fn server_overlays_same_leaf_workspace_files_by_relative_path() {
+        let mut server = Server::default();
+        let project = TempProject::new("same-leaf-workspace-overlay");
+        project.write(
+            "app.veln",
+            "use alpha::item\nuse beta::item\n\npub fn main() -> Int\n  alpha::item::value() + beta::item::value()\nend\n",
+        );
+        project.write("alpha/item.veln", "pub fn value() -> Int\n  1\nend\n");
+        project.write("beta/item.veln", "pub fn value() -> Int\n  2\nend\n");
+        let root_uri = path_to_uri(&project.root);
+        let app_uri = path_to_uri(&project.root.join("app.veln"));
+        let beta_uri = path_to_uri(&project.root.join("beta/item.veln"));
+        server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","id":1,"method":"initialize","params":{{"rootUri":"{root_uri}"}}}}"#
+        ));
+
+        let responses = server.handle_message(&format!(
+            r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"uri":"{beta_uri}","text":"pub fn value() -> String\n  \"two\"\nend\n"}}}}}}"#
+        ));
+
+        let app_publish = publish_for_uri(&responses, &app_uri);
+        let beta_publish = publish_for_uri(&responses, &beta_uri);
+        assert!(
+            app_publish.contains(r#""code":"type.mismatch""#),
+            "{app_publish}"
+        );
+        assert!(
+            beta_publish.contains(r#""diagnostics":[]"#),
+            "{beta_publish}"
+        );
+        assert!(
+            !app_publish.contains("module.duplicate_source_path"),
+            "{app_publish}"
+        );
     }
 
     #[test]

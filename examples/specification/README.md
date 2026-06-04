@@ -239,8 +239,9 @@ against the built `veln` binary.
   text and cleared after didClose.
 - `lsp/unopened-missing-file/`: semantic-token requests for unopened,
   unreadable documents return an empty token data array.
-- `lsp/workspace-diagnostics/`: LSP initialize publishes workspace diagnostics
-  for discovered unopened files using cross-file checker behavior.
+- `lsp/workspace-diagnostics/`: LSP initialize with `rootUri` publishes
+  workspace diagnostics for discovered unopened files using cross-file checker
+  behavior.
 - `run/stdio-streams/`: `stdio::print`, `stdio::println`, `stdio::eprint`,
   and `stdio::eprintln` stream behavior.
 - `run/prelude-helpers/`: result-bearing prelude traversal helpers and
