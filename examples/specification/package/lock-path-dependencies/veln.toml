@@ -1,0 +1,4 @@
+[dependencies."github.com/oakcask/zeta"]
+path = "vendor/zeta"
+[dependencies."github.com/oakcask/alpha"]
+path = "vendor/alpha"

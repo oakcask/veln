@@ -35,6 +35,7 @@ pub(crate) enum Command {
         list: bool,
         diagnostic_id: Option<String>,
     },
+    PackageLock,
     Lsp,
     Help {
         text: String,
@@ -74,6 +75,7 @@ fn app() -> ClapCommand {
         .subcommand(test_command())
         .subcommand(repair_command())
         .subcommand(explain_command())
+        .subcommand(package_command())
         .subcommand(lsp_command())
 }
 
@@ -218,6 +220,14 @@ fn explain_command() -> ClapCommand {
         )
 }
 
+fn package_command() -> ClapCommand {
+    ClapCommand::new("package")
+        .about("Manage package dependencies")
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .subcommand(ClapCommand::new("lock").about("Write veln.lock for path dependencies"))
+}
+
 fn lsp_command() -> ClapCommand {
     ClapCommand::new("lsp").about("Run the language server on stdio")
 }
@@ -248,6 +258,9 @@ fn parse_help_or_version(args: &[String]) -> Result<Option<Command>, String> {
         .first()
         .expect("empty arguments are handled before reading the first argument");
     match first.as_str() {
+        "package" if has_help_flag(args.iter().skip(1)) => Ok(Some(Command::Help {
+            text: render_help(package_help_path(args)),
+        })),
         "check" | "doc" | "fmt" | "test" | "repair" | "explain" | "lsp"
             if has_help_flag(args.iter().skip(1)) =>
         {
@@ -287,6 +300,7 @@ fn validate_command_args(args: &[String]) -> Result<(), String> {
         "test" => reject_unknown_test_flags(args.iter().skip(1)),
         "repair" => reject_unknown_repair_flags(args.iter().skip(1)),
         "explain" => reject_unknown_explain_flags(args.iter().skip(1)),
+        "package" => reject_unknown_package_args(args.iter().skip(1)),
         "lsp" => reject_lsp_arguments(args.iter().skip(1)),
         command => Err(format!("unknown command `{command}`")),
     }
@@ -320,6 +334,12 @@ fn command_from_matches(matches: &clap::ArgMatches) -> Command {
         Some(("explain", matches)) => Command::Explain {
             list: matches.get_flag("list"),
             diagnostic_id: matches.get_one::<String>("diagnostic_id").cloned(),
+        },
+        Some(("package", matches)) => match matches.subcommand() {
+            Some(("lock", _)) => Command::PackageLock,
+            _ => Command::Help {
+                text: render_help(&["package".to_string()]),
+            },
         },
         Some(("lsp", _)) => Command::Lsp,
         _ => Command::Help {
@@ -384,6 +404,14 @@ fn has_help_flag_before_separator<'a>(args: impl Iterator<Item = &'a String>) ->
         }
     }
     false
+}
+
+fn package_help_path(args: &[String]) -> &[String] {
+    if args.get(1).is_some_and(|arg| arg == "lock") {
+        &args[..2]
+    } else {
+        &args[..1]
+    }
 }
 
 fn reject_unknown_check_flags<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
@@ -488,6 +516,32 @@ fn reject_unknown_explain_flags<'a>(args: impl Iterator<Item = &'a String>) -> R
     Ok(())
 }
 
+fn reject_unknown_package_args<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
+    let args = args.collect::<Vec<_>>();
+    let Some(first) = args.first() else {
+        return Err("package requires a subcommand".to_string());
+    };
+    match first.as_str() {
+        "lock" => {
+            for arg in args.iter().skip(1) {
+                match arg.as_str() {
+                    "--help" | "-h" => {}
+                    flag if flag.starts_with('-') => {
+                        return Err(format!("unknown package lock flag `{flag}`"));
+                    }
+                    value => return Err(format!("unexpected package lock argument `{value}`")),
+                }
+            }
+            Ok(())
+        }
+        "--help" | "-h" => Ok(()),
+        subcommand if subcommand.starts_with('-') => {
+            Err(format!("unknown package flag `{subcommand}`"))
+        }
+        subcommand => Err(format!("unknown package subcommand `{subcommand}`")),
+    }
+}
+
 fn reject_lsp_arguments<'a>(args: impl Iterator<Item = &'a String>) -> Result<(), String> {
     for arg in args {
         match arg.as_str() {
@@ -504,13 +558,29 @@ fn reject_unknown_help_topic(path: &[String]) -> Result<(), String> {
         return Ok(());
     }
 
+    if path.first().is_some_and(|command| command == "package") {
+        return reject_package_help_topic(path);
+    }
+
     if path.len() > 1 {
         return Err(format!("unexpected help argument `{}`", path[1]));
     }
 
     match path[0].as_str() {
-        "check" | "fmt" | "run" | "test" | "repair" | "explain" | "lsp" | "help" => Ok(()),
+        "check" | "fmt" | "run" | "test" | "repair" | "explain" | "package" | "lsp" | "help" => {
+            Ok(())
+        }
         command => Err(format!("unknown command `{command}`")),
+    }
+}
+
+fn reject_package_help_topic(path: &[String]) -> Result<(), String> {
+    if path.len() > 2 {
+        return Err(format!("unexpected help argument `{}`", path[2]));
+    }
+    match path.get(1).map(String::as_str) {
+        None | Some("lock") => Ok(()),
+        Some(subcommand) => Err(format!("unknown package subcommand `{subcommand}`")),
     }
 }
 
@@ -552,6 +622,14 @@ mod tests {
         };
 
         assert_eq!(error, "unknown command `build`");
+    }
+
+    #[test]
+    fn help_parser_accepts_package_lock_topic() {
+        assert!(matches!(
+            parse(&["help", "package", "lock"]).unwrap(),
+            Command::Help { .. }
+        ));
     }
 
     #[test]
@@ -727,6 +805,14 @@ mod tests {
             Command::Help { .. }
         ));
         assert!(matches!(
+            parse(&["package", "--help"]).unwrap(),
+            Command::Help { .. }
+        ));
+        assert!(matches!(
+            parse(&["package", "lock", "--help"]).unwrap(),
+            Command::Help { .. }
+        ));
+        assert!(matches!(
             parse(&["lsp", "--help"]).unwrap(),
             Command::Help { .. }
         ));
@@ -866,6 +952,34 @@ mod tests {
         };
 
         assert_eq!(error, "unknown explain flag `--json`");
+    }
+
+    #[test]
+    fn package_parser_accepts_lock_subcommand() {
+        assert!(matches!(
+            parse(&["package", "lock"]).unwrap(),
+            Command::PackageLock
+        ));
+    }
+
+    #[test]
+    fn package_parser_reports_unknown_lock_flags() {
+        let error = match parse(&["package", "lock", "--json"]) {
+            Ok(_) => panic!("unknown package lock flag should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown package lock flag `--json`");
+    }
+
+    #[test]
+    fn package_parser_reports_unknown_subcommands() {
+        let error = match parse(&["package", "fetch"]) {
+            Ok(_) => panic!("unknown package subcommand should fail"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error, "unknown package subcommand `fetch`");
     }
 
     #[test]

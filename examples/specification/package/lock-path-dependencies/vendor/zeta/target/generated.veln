@@ -1,0 +1,3 @@
+fn ignored() -> Int
+	99
+end

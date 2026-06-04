@@ -1,0 +1,13 @@
+command = ["package", "lock", "--help"]
+exit = 0
+
+[stdout]
+format = "text"
+
+[stderr]
+format = "empty"
+
+[help]
+summary = "Write veln.lock for path dependencies"
+usage = "veln package lock"
+options = ["  -h, --help  Print help"]

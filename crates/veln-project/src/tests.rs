@@ -473,6 +473,79 @@ fn lockfile_package_records_identity_separately_from_git_source() {
 }
 
 #[test]
+fn lockfile_render_sorts_packages_and_normalizes_path_source_records() {
+    let lockfile = ProjectLockfile {
+        packages: vec![
+            LockfilePackage {
+                name: "github.com/oakcask/zeta".to_string(),
+                source: LockfileSource::Path {
+                    path: "vendor/zeta".to_string(),
+                },
+                checksum: "sha256:zeta".to_string(),
+            },
+            LockfilePackage {
+                name: "github.com/oakcask/alpha".to_string(),
+                source: LockfileSource::Path {
+                    path: normalize_lockfile_path("vendor\\alpha"),
+                },
+                checksum: "sha256:alpha".to_string(),
+            },
+        ],
+    };
+
+    assert_eq!(
+        lockfile.render(),
+        concat!(
+            "[[package]]\n",
+            "name = \"github.com/oakcask/alpha\"\n",
+            "source = { kind = \"path\", path = \"vendor/alpha\" }\n",
+            "checksum = \"sha256:alpha\"\n",
+            "\n",
+            "[[package]]\n",
+            "name = \"github.com/oakcask/zeta\"\n",
+            "source = { kind = \"path\", path = \"vendor/zeta\" }\n",
+            "checksum = \"sha256:zeta\"\n",
+        )
+    );
+}
+
+#[test]
+fn source_tree_checksum_tracks_source_paths_and_ignores_build_output() {
+    let base = TempProject::new("lockfile-checksum-base");
+    base.write("alpha.veln", "fn alpha() -> Int\n\t1\nend\n");
+    base.write("nested/beta.veln", "fn beta() -> Int\n\t2\nend\n");
+    base.write("target/generated.veln", "ignored");
+
+    let same_without_build_output = TempProject::new("lockfile-checksum-same");
+    same_without_build_output.write("alpha.veln", "fn alpha() -> Int\n\t1\nend\n");
+    same_without_build_output.write("nested/beta.veln", "fn beta() -> Int\n\t2\nend\n");
+
+    let changed_contents = TempProject::new("lockfile-checksum-contents");
+    changed_contents.write("alpha.veln", "fn alpha() -> Int\n\t9\nend\n");
+    changed_contents.write("nested/beta.veln", "fn beta() -> Int\n\t2\nend\n");
+
+    let changed_path = TempProject::new("lockfile-checksum-path");
+    changed_path.write("alpha.veln", "fn alpha() -> Int\n\t1\nend\n");
+    changed_path.write("renamed/beta.veln", "fn beta() -> Int\n\t2\nend\n");
+
+    let base_checksum = source_tree_checksum(base.root()).expect("checksum should be computed");
+    assert_eq!(
+        base_checksum,
+        source_tree_checksum(same_without_build_output.root()).expect("checksum should match")
+    );
+    assert_ne!(
+        base_checksum,
+        source_tree_checksum(changed_contents.root()).expect("checksum should change")
+    );
+    assert_ne!(
+        base_checksum,
+        source_tree_checksum(changed_path.root()).expect("checksum should change")
+    );
+    assert!(base_checksum.starts_with("sha256:"));
+    assert_eq!(base_checksum.len(), "sha256:".len() + 64);
+}
+
+#[test]
 fn read_manifest_accepts_crlf_export_arrays_and_trailing_text() {
     let temp = TempProject::new("manifest-export-crlf");
     temp.write(

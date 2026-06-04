@@ -42,6 +42,7 @@ against the built `veln` binary.
 - `run/`: executable entry points, runtime behavior, and runtime failures.
 - `test/`: discovered tests, doctests, captured stdio, and test JSON behavior.
 - `repair/`: advisory repair preview and repair JSON behavior.
+- `package/`: package-manager command workflows and lockfile writes.
 
 ## Coverage Map
 
@@ -122,6 +123,13 @@ against the built `veln` binary.
   exports, and unselected source files.
 - `check/manifest-dependencies/`: git dependency metadata requires exactly
   one selector among `rev`, `tag`, and `branch`.
+- `package/lock-path-dependencies/`: `veln package lock` writes a sorted
+  `veln.lock` for available path dependencies, records identity separately
+  from path source, computes `sha256:` source-tree checksums, and ignores
+  build output.
+- `package/lock-package-name-mismatch/`: `veln package lock` rejects a path
+  dependency whose manifest `[package].name` does not match the dependency
+  table key.
 - `check/implicit-unit-return/`: omitted tail expressions returning `()` and
   the implicit-unit diagnostic detail.
 - `check/types-operators/`: primitive annotations, returned function types,

@@ -52,6 +52,7 @@ fn run(args: Vec<String>) -> Result<ExitCode, String> {
             list,
             diagnostic_id,
         } => commands::explain::explain(list, diagnostic_id),
+        Command::PackageLock => commands::package::lock(),
         Command::Lsp => {
             veln_lsp::run_stdio().map_err(|error| format!("lsp failed: {error}"))?;
             Ok(ExitCode::SUCCESS)

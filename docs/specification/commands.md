@@ -53,6 +53,9 @@ requiring the full command reference on the first read.
 - `explain`: diagnostic catalog lookup. Use
   [commands-full.md](commands-full.md) when diagnostic catalog behavior is the
   task.
+- `package lock`: path dependency lockfile writes. Use
+  [commands-full.md#veln-package-lock](commands-full.md#veln-package-lock)
+  when changing package-manager command behavior.
 - `lsp`: stdio language-server startup for editor semantic highlighting. Use
   [editor-support.md](editor-support.md) first for semantic-token behavior.
 
