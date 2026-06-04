@@ -1,9 +1,7 @@
-mod analysis;
 mod cli;
 mod commands;
 mod diagnostics;
 mod java;
-mod surface;
 
 use std::env;
 use std::process::ExitCode;

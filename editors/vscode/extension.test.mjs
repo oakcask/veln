@@ -119,6 +119,34 @@ test("syncs open documents with didOpen and later didChange", () => {
   assert.deepEqual(messages[2].params.contentChanges, [{ text: "fn\n" }]);
 });
 
+test("initializes the language server with workspace identity", () => {
+  const { exports, spawnedProcesses } = loadExtension();
+  new exports._test.VelnLanguageServer(
+    "veln",
+    ["lsp"],
+    "project-root",
+    new FakeOutputChannel(),
+    "off",
+    () => {},
+    () => {},
+  );
+
+  const [message] = spawnedProcesses[0].stdin.messages.map(parseRpcMessage);
+  assert.equal(message.method, "initialize");
+  assert.equal(message.params.rootUri, "file://project-root");
+  assert.deepEqual(message.params.workspaceFolders, [
+    { uri: "file://project-root", name: "project-root" },
+  ]);
+});
+
+test("omits workspace identity when no workspace folder is active", () => {
+  const { exports } = loadExtension();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(exports._test.initializeParams(undefined))), {
+    capabilities: {},
+  });
+});
+
 test("closes synced documents and publishes server diagnostics callbacks", () => {
   const diagnostics = [];
   let cleared = false;
@@ -326,6 +354,13 @@ function fakeVscode() {
     Position,
     Range,
     Uri: {
+      file(value) {
+        const normalized = value.replaceAll("\\", "/");
+        const uri = normalized.startsWith("/")
+          ? `file://${normalized}`
+          : `file://${normalized}`;
+        return { value: uri, fsPath: value, toString: () => uri };
+      },
       parse(value) {
         return { value, toString: () => value };
       },

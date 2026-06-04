@@ -12,27 +12,27 @@ use veln_test::{DoctestExpectation, doctest_sources, reconcile_expected_doctest_
 
 use crate::surface::{load_surface_module, reachable_entry_module};
 
-pub(crate) enum DoctestMode {
+pub enum DoctestMode {
     Include,
     Exclude,
 }
 
-pub(crate) struct ProjectAnalysis {
-    pub(crate) project: Project,
-    pub(crate) module: SurfaceModule,
-    pub(crate) doctest_expectations: BTreeMap<String, DoctestExpectation>,
+pub struct ProjectAnalysis {
+    pub project: Project,
+    pub module: SurfaceModule,
+    pub doctest_expectations: BTreeMap<String, DoctestExpectation>,
     source_diagnostics: Vec<Diagnostic>,
     semantic_diagnostics: Vec<Diagnostic>,
     checked: LoweredSurfaceModule,
     expected_doctest_failures: BTreeMap<String, SourceSpan>,
 }
 
-pub(crate) struct ReachableEntryAnalysis {
-    pub(crate) module: SurfaceModule,
-    pub(crate) lowered: LoweredSurfaceModule,
+pub struct ReachableEntryAnalysis {
+    pub module: SurfaceModule,
+    pub lowered: LoweredSurfaceModule,
 }
 
-pub(crate) fn analyze_project(mut project: Project, doctest_mode: DoctestMode) -> ProjectAnalysis {
+pub fn analyze_project(mut project: Project, doctest_mode: DoctestMode) -> ProjectAnalysis {
     let doctests = match doctest_mode {
         DoctestMode::Include => Some(doctest_sources(&project.files)),
         DoctestMode::Exclude => None,
@@ -64,31 +64,28 @@ pub(crate) fn analyze_project(mut project: Project, doctest_mode: DoctestMode) -
     }
 }
 
-pub(crate) fn checked_project_diagnostics(
-    project: Project,
-    doctest_mode: DoctestMode,
-) -> Vec<Diagnostic> {
+pub fn checked_project_diagnostics(project: Project, doctest_mode: DoctestMode) -> Vec<Diagnostic> {
     analyze_project(project, doctest_mode).checked_diagnostics()
 }
 
 impl ProjectAnalysis {
-    pub(crate) fn source_diagnostics(&self) -> Vec<Diagnostic> {
+    pub fn source_diagnostics(&self) -> Vec<Diagnostic> {
         self.reconcile_doctest_failures(self.source_diagnostics.clone())
     }
 
-    pub(crate) fn semantic_diagnostics(&self) -> Vec<Diagnostic> {
+    pub fn semantic_diagnostics(&self) -> Vec<Diagnostic> {
         let mut diagnostics = self.source_diagnostics.clone();
         diagnostics.extend(self.semantic_diagnostics.clone());
         self.reconcile_doctest_failures(diagnostics)
     }
 
-    pub(crate) fn checked_diagnostics(&self) -> Vec<Diagnostic> {
+    pub fn checked_diagnostics(&self) -> Vec<Diagnostic> {
         let mut diagnostics = self.source_diagnostics.clone();
         diagnostics.extend(self.checked.diagnostics.clone());
         self.reconcile_doctest_failures(diagnostics)
     }
 
-    pub(crate) fn lower_reachable_entry(
+    pub fn lower_reachable_entry(
         &self,
         entry: &str,
         entry_kind: FunctionKind,

@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use veln_ast::Function;
 use veln_ast::FunctionKind;
 use veln_backend_jvm::{EntryArgType, generate_classfiles_with_entry_arg_types};
@@ -10,8 +11,6 @@ use veln_diagnostics::{DiagnosticEnvelope, JsonValue};
 use veln_project::Project;
 use veln_test::{TestFailure, contract_failure_from_trace};
 
-use crate::analysis::ProjectAnalysis;
-use crate::analysis::{DoctestMode, analyze_project};
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{
     JvmRunResult, create_build_dir, prepare_and_run_jvm, prepare_and_run_jvm_capture_with_env,

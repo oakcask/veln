@@ -2,9 +2,8 @@ use std::env;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use veln_analysis::{DoctestMode, checked_project_diagnostics};
 use veln_project::Project;
-
-use crate::analysis::{DoctestMode, checked_project_diagnostics};
 
 mod application;
 mod candidates;

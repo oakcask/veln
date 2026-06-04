@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{ExitCode, Output};
 
+use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use veln_ast::{FunctionKind, SurfaceModule};
 use veln_backend_jvm::{JvmProgram, generate_classfiles_with_entry};
 use veln_diagnostics::DiagnosticEnvelope;
@@ -15,7 +16,6 @@ use veln_test::{
     stdio_events_from_output, stdio_events_from_trace,
 };
 
-use crate::analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{JvmRunResult, create_build_dir, prepare_and_run_jvm_capture_with_env};
 
