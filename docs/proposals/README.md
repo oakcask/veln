@@ -9,7 +9,9 @@ compare it with `../specification/` before changing behavior.
 
 ## Catalog
 
-No active proposals are cataloged.
+- [HTTP/2 Binary Schema Design Driver](http2-binary-schema-design-driver.md):
+  use an HTTP/2 sans-I/O server core to drive binary schema, codec, and
+  standard-library design.
 
 ## Update When
 
