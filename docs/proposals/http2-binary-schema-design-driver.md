@@ -52,8 +52,8 @@ contracts.
 ## Goals
 
 - Define the minimum binary data vocabulary needed for protocol work:
-  `Byte`, `Bytes`, slices, cursors, builders, byte-order reads, and checked
-  integer conversion.
+  `Byte`, immutable byte chunks and views, input positions, output chunks,
+  stream-input events, byte-order reads, and checked integer conversion.
 - Explore binary schema support for bit widths, endian-aware integers,
   length-prefixed payloads, tagged dispatch, reserved bits, and validation
   diagnostics.
@@ -77,9 +77,10 @@ contracts.
 
 ## Target Slice
 
-The first target is a sans-I/O core that accepts incoming bytes and emits
-outgoing bytes without opening sockets. A host or later network library can
-feed it transport chunks.
+The first target is a sans-I/O core that accepts an open-ended stream of
+incoming byte chunks and emits outgoing byte chunks without opening sockets. A
+host or later network library can feed it transport chunks from a socket or
+another source whose total length is not known in advance.
 
 The core should cover:
 
@@ -100,27 +101,24 @@ header compression has independent state and security limits.
 
 ## Illustrative Shape
 
-The following examples are design sketches, not accepted Veln syntax.
+The following examples are design sketches. The Veln code blocks use current
+source syntax where they model ordinary Veln values and functions. The schema
+block remains proposed schema notation because `schema` is not accepted source
+syntax.
 
 ```veln
-type FrameKind =
-  | Data
-  | Headers
-  | Settings
-  | Ping
-  | Goaway
-  | Continuation
-  | Unknown(code: Int)
-
-type FrameHeader = {
-  length: Int,
-  kind: FrameKind,
-  flags: Int,
-  stream_id: StreamId,
-}
+type FrameKind
+	Data
+	Headers
+	Settings
+	Ping
+	Goaway
+	Continuation
+	Unknown(code: Int)
+end
 ```
 
-```veln
+```text
 schema Http2FrameHeader
   length: UInt24be where length <= max_frame_size
   kind: UInt8 as FrameKind
@@ -129,20 +127,54 @@ schema Http2FrameHeader
 end
 ```
 
-```veln
-fn decode_frame(input: Bytes, settings: PeerSettings)
-  -> Result<{frame: Frame, rest: Bytes}, DecodeError>
+```text
+type DecodeState
+  phase: DecodePhase
+  pending: ByteView
+  absolute_position: ByteOffset
+  settings: PeerSettings
+end
 
-  header = codec.decode<Http2FrameHeader>(input)?
-  payload = input.slice(frame_header_size, header.length)?
-  frame = decode_payload(header, payload, settings)?
-  Ok({frame: frame, rest: input.drop(frame_header_size + header.length)})
+type StreamInput
+  Chunk(bytes: ByteChunk)
+  End
+end
+
+type DecodeReadiness
+  Ready
+  NeedMore
+end
+
+type DecodeTransition
+  Step(state: DecodeState, output: List<FrameEvent>, readiness: DecodeReadiness)
+  Fail(error: DecodeError)
+end
+```
+
+```text
+fn decode_step(state: DecodeState, input: StreamInput) -> DecodeTransition
+	let pending: ByteView = append_chunk(state.pending, input)?
+	let header: FrameHeader = decode_http2_frame_header(pending, 0)?
+	let payload: ByteView = bytes_view(pending, frame_header_size, header.length)?
+	let frame: Frame = decode_payload(header, payload, state.settings)?
+	let consumed: ByteCount = frame_header_size + header.length
+	let next_pending: ByteView = bytes_drop(pending, consumed)
+	let next_state: DecodeState = { state with pending: next_pending, absolute_position: state.absolute_position + consumed }
+	DecodeTransition::Step(next_state, [FrameEvent::Received(frame)], DecodeReadiness::Ready)
 end
 ```
 
 The schema describes the byte-level frame header boundary. The function
 contract and implementation handle payload dispatch, input completeness, and
-settings-dependent limits.
+settings-dependent limits. The parser is modeled as a state-transition
+function: it receives an immutable state value and one stream-input event, then
+returns the next state together with any intermediate output and whether more
+input is needed, or returns a structured error. The parser must not assume it
+can observe the total length of the stream. It can only inspect the bytes
+currently buffered in the state plus the newly received chunk. End-of-stream is
+an explicit input event, not a missing length. After a frame is decoded, the
+next state keeps only the undecoded suffix so the core can handle long-lived
+connections without retaining the entire byte history.
 
 ## Schema Boundary
 
@@ -171,12 +203,23 @@ partial input, and format-specific libraries.
 
 The codec layer needs at least:
 
-- decode from `Bytes` or a cursor
-- encode into a builder
+- decode from immutable byte chunks held in parser state plus an explicit input
+  position
+- encode into immutable output chunks
 - report consumed byte count
-- preserve undecoded tail bytes
+- preserve undecoded buffered bytes across calls
 - distinguish incomplete input from invalid input
 - produce structured diagnostics usable by tests and agents
+
+Cursor-like behavior should be vocabulary for state values, not a mutable data
+structure. Advancing input means returning a new state with a later byte offset.
+Likewise, encoding should return output chunks or an updated encoder state
+rather than mutate a byte builder in place.
+
+Because stream length is unknown, codecs should separate absolute byte offsets
+used for diagnostics from the bounded buffer of undecoded bytes. Consumed input
+can be dropped from the next state once no pending schema or protocol rule
+needs it.
 
 ## Protocol State
 
@@ -217,9 +260,10 @@ which owns frame ordering, flow control, and transport writes.
 
 This proposal should produce concrete requirements for:
 
-- `Bytes` and immutable byte slices
-- byte cursors with checked reads
-- byte builders for encoding
+- immutable byte chunks and byte views
+- explicit byte positions with checked reads
+- immutable output chunks for encoding
+- stream-input events for chunk arrival and end-of-stream
 - integer conversions with overflow diagnostics
 - bounded buffers for flow control
 - parser or codec combinators
@@ -274,9 +318,9 @@ This proposal is complete enough to promote only when:
 - How much dependent structure should schema support before the design becomes
   a parser language?
 - Should incomplete input be represented as `Result<T, DecodeError>`, a
-  separate `DecodeStep<T>`, or another incremental parsing type?
-- Should `Bytes` be only immutable, or should Veln also expose a mutable
-  byte-builder type?
+  separate transition type, or another incremental parsing type?
+- What should the canonical names be for immutable byte chunks, byte views,
+  input positions, stream-input events, and output chunks?
 - How should byte slices interact with value freezing across task and channel
   boundaries?
 - Should effect labels distinguish `net: listen`, `net: accept`, `net: read`,
