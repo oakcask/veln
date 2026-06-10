@@ -65,6 +65,35 @@ contracts.
 - Identify which effect labels are needed for a future network runtime, while
   keeping the first protocol core sans-I/O.
 
+## Required Proposal Elements
+
+The design driver is not directly implementable as one code change. It depends
+on smaller proposals that define the language and library elements the driver
+needs:
+
+- [Schema Declaration Surface](schema-declaration-surface.md): top-level
+  schema syntax, ownership, imports, validation clauses, and mapping into Veln
+  values.
+- [Binary Data Standard Library](binary-data-standard-library.md):
+  source-visible byte chunks, views, offsets, counts, checked reads, writes,
+  and conversions.
+- [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
+  exact-width fields, endian-aware fields, reserved bits, length-dependent
+  payloads, tag dispatch, and unknown tag preservation.
+- [Codec Execution Boundary](codec-execution-boundary.md): decode and encode
+  APIs, consumed byte counts, incremental readiness, and immutable codec state.
+- [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
+  byte offsets, field paths, incomplete-input reports, invalid-input reports,
+  and protocol-state context.
+- [Binary Fixture Helpers](binary-fixture-helpers.md): compact binary fixtures
+  for executable examples and stable diagnostic assertions.
+- [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): the
+  concrete frame and state-machine slice that exercises the preceding design
+  elements.
+- [Network Effect Integration Boundary](network-effect-integration-boundary.md):
+  the later route from the pure protocol core to host transport effects,
+  deadlines, channels, and stream tasks.
+
 ## Non-Goals
 
 - Do not implement TLS, ALPN, socket listeners, or platform networking in this
