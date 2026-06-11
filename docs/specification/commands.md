@@ -34,7 +34,8 @@ requiring the full command reference on the first read.
   [commands-full.md](commands-full.md) when changing generated documentation
   output.
 - `run`: entry resolution, argument conversion, static gates, direct JVM
-  classfile execution without an ordinary Java source compiler requirement, and
+  classfile execution without an ordinary Java source compiler requirement,
+  human runtime diagnostics for closed-input `ByteView` read truncation, and
   run JSON. Use [run-json.md](run-json.md) first for machine-readable output,
   then [commands-full.md](commands-full.md) for exact command rules.
 - `test`: test and doctest selection, static gates, direct JVM classfile

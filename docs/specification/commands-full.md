@@ -203,9 +203,14 @@ The command caches generated JVM classfile artifacts by backend content below
 the project-local build output area. On a cache miss it writes the emitted
 classfiles into the cache; on a cache hit it validates the manifest and cached
 classfiles before invoking `java`. Invalid or incomplete cache entries are
-replaced instead of executed. Runtime trace files for JSON output remain
+replaced instead of executed. Runtime trace files for command output remain
 isolated to the individual command invocation. Human mode forwards process
-stdout and stderr and returns the Java process status for runtime failures.
+stdout and stderr and returns the Java process status for ordinary runtime
+failures. When a closed-input fixed-width `ByteView` read returns
+`codec.incomplete_input`, human mode reports the missing byte at the decoded
+byte offset as the primary diagnostic fact and puts pending readiness,
+expected byte count, available byte count, and any available field path in
+related notes.
 
 With `--json`, `run` captures process stdout and stderr into the run JSON
 record instead of forwarding them separately. Runtime contract failures are

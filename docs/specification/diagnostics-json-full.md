@@ -29,8 +29,8 @@ Every diagnostic has:
 
 - `id`
 - `severity`: `error`, `warning`, `info`, or `hint`
-- `kind`: `parse`, `module`, `name`, `type`, `contract`, `effect`, `lint`,
-  `hole`, or `doc`
+- `kind`: `parse`, `module`, `name`, `type`, `contract`, `effect`,
+  `runtime`, `lint`, `hole`, or `doc`
 - `message`
 - `span`, or `null`
 - `details`

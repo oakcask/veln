@@ -9,9 +9,11 @@ from stream-state protocol errors.
 
 Implemented behavior for closed-input fixed-width `ByteView` read truncation,
 including `codec.incomplete_input` byte offset, field path, byte counts, and
-readiness details in `run --json`, is specified under
-`../specification/run-json.md` and checked by
-`../../examples/specification/run/binary-byteview-read-failure-json/`. The
+readiness details in `run --json` and stable human `run` output, is specified
+under `../specification/run-json.md` and `../specification/commands.md` and
+checked by
+`../../examples/specification/run/binary-byteview-read-failure-json/` and
+`../../examples/specification/run/binary-byteview-read-failure-human/`. The
 remaining proposal work covers schema-owned failures, broader codec
 diagnostics, and protocol-state diagnostic projection.
 
@@ -254,10 +256,11 @@ to stable human and JSON diagnostics.
 
 ## Completion Criteria
 
-The implemented first slice is complete when `run --json` examples cover
-closed-input `ByteView` read truncation as `codec.incomplete_input` and assert
-the stable byte diagnostic detail fields documented in
-`../specification/run-json.md`.
+The implemented first slice covers closed-input `ByteView` read truncation as
+`codec.incomplete_input`. `run --json` examples assert the stable byte
+diagnostic detail fields documented in `../specification/run-json.md`; human
+`run` examples assert the primary missing-byte message and related readiness
+and byte-count notes documented in `../specification/commands.md`.
 
 The remaining proposal work is complete when:
 

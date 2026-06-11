@@ -303,6 +303,10 @@ against the built `veln` binary.
   as a runtime `Result` failure through `run --json` with
   `codec.incomplete_input` byte diagnostic details, including byte offset,
   field path, byte counts, and readiness.
+- `run/binary-byteview-read-failure-human/`: ByteView read truncation
+  propagates through human `run` stderr as a `codec.incomplete_input`
+  diagnostic with the missing byte offset and related readiness and byte count
+  context.
 - `run/binary-byteview-range-failure-human/`: ByteView range failures propagate
   stable error text through human `run` stderr.
 - `run/binary-byteview-write-failure-human/`: unsigned big-endian write

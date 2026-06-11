@@ -18,32 +18,6 @@ pub(crate) enum JvmRunResult {
     ToolError(String),
 }
 
-pub(crate) fn prepare_and_run_jvm(
-    build_dir: &Path,
-    program: &veln_backend_jvm::JvmProgram,
-    java_args: &[String],
-) -> Result<ExitCode, String> {
-    let result = prepare_and_run_jvm_capture(build_dir, program, "veln run", java_args)?;
-    let output = match result {
-        JvmRunResult::Ran(output) => output,
-        JvmRunResult::ToolError(message) => {
-            eprintln!("{message}");
-            return Ok(ExitCode::from(1));
-        }
-    };
-    forward_process_output(&output)?;
-    Ok(exit_code_from_status(output.status))
-}
-
-pub(crate) fn prepare_and_run_jvm_capture(
-    build_dir: &Path,
-    program: &veln_backend_jvm::JvmProgram,
-    command_name: &str,
-    java_args: &[String],
-) -> Result<JvmRunResult, String> {
-    prepare_and_run_jvm_capture_with_env(build_dir, program, command_name, &[], java_args)
-}
-
 pub(crate) fn prepare_and_run_jvm_capture_with_env(
     _build_dir: &Path,
     program: &veln_backend_jvm::JvmProgram,
@@ -573,7 +547,7 @@ pub(crate) fn create_build_dir(prefix: &str) -> io::Result<PathBuf> {
     ))
 }
 
-fn forward_process_output(output: &Output) -> Result<(), String> {
+pub(crate) fn forward_process_output(output: &Output) -> Result<(), String> {
     io::stdout()
         .write_all(&output.stdout)
         .map_err(|error| error.to_string())?;
@@ -583,7 +557,7 @@ fn forward_process_output(output: &Output) -> Result<(), String> {
     Ok(())
 }
 
-fn exit_code_from_status(status: ExitStatus) -> ExitCode {
+pub(crate) fn exit_code_from_status(status: ExitStatus) -> ExitCode {
     match status.code() {
         Some(code) if (0..=255).contains(&code) => ExitCode::from(code as u8),
         Some(_) | None => ExitCode::from(1),

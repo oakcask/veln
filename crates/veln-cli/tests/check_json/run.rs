@@ -124,6 +124,44 @@ fn run_executes_function_typed_value_calls_when_jdk_is_available() {
 }
 
 #[test]
+fn run_reports_byteview_read_truncation_human_when_jdk_is_available() {
+    if !jdk_is_available() {
+        return;
+    }
+
+    let project = TestProject::new("run-byteview-read-truncation-human");
+    project.write(
+        "main.veln",
+        concat!(
+            "use stdio\n",
+            "pub fn main() -> Result<(), String> effects [stdio]\n",
+            "  stdio::eprintln(\"before truncation\")\n",
+            "  let chunk: ByteChunk = byte_chunk_from_hex(\"0001\")?\n",
+            "  let offset: ByteOffset = byte_offset(0)?\n",
+            "  let count: ByteCount = byte_count(2)?\n",
+            "  let view: ByteView = byte_view(chunk, offset, count)?\n",
+            "  let ignored: Int = byte_read_u24_be(view)?\n",
+            "  Ok(())\n",
+            "end\n",
+        ),
+    );
+
+    let output = project.run(&["main", "main.veln"]);
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(stdout(&output), "");
+    assert_contains_all(
+        stderr(&output),
+        &[
+            "before truncation\n",
+            "error[codec.incomplete_input]: missing byte at byte offset 2",
+            "note: pending readiness is `need_bytes` because input is closed.",
+            "note: Fixed-width read expected 3 byte(s); 2 byte(s) were available.",
+        ],
+    );
+}
+
+#[test]
 fn run_executes_bounded_channel_send_and_receive_when_jdk_is_available() {
     if !jdk_is_available() {
         return;

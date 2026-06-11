@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[codec.incomplete_input]: missing byte at byte offset 2", "note: pending readiness is `need_bytes` because input is closed.", "note: Fixed-width read expected 3 byte(s); 2 byte(s) were available."]
