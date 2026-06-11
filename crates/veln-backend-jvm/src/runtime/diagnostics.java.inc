@@ -35,6 +35,7 @@
         String value = format(asResult(result).value());
         FixtureHexDiagnostic fixtureHex = fixtureHexDiagnostics.get().remove(value);
         ByteDiagnostic byteDiagnostic = byteDiagnostics.get().remove(value);
+        ProtocolDiagnostic protocolDiagnostic = protocolDiagnostics.get().remove(value);
         String line = "result"
             + "\t" + hex(value);
         if (fixtureHex != null) {
@@ -57,7 +58,15 @@
                 + "\t" + Integer.toString(byteDiagnostic.fieldPath.size())
                 + formatByteDiagnosticFieldPath(byteDiagnostic.fieldPath)
                 + "\t" + Integer.toString(byteDiagnostic.details.size())
-                + formatByteDiagnosticDetails(byteDiagnostic.details);
+                + formatDiagnosticDetails(byteDiagnostic.details);
+        }
+        if (protocolDiagnostic != null) {
+            line = line
+                + "\tprotocol_diagnostic"
+                + "\t" + protocolDiagnostic.id
+                + "\t" + Long.toString(protocolDiagnostic.byteOffset)
+                + "\t" + Integer.toString(protocolDiagnostic.details.size())
+                + formatDiagnosticDetails(protocolDiagnostic.details);
         }
         line = line + System.lineSeparator();
         try {
@@ -78,6 +87,56 @@
     private static final ThreadLocal<java.util.Map<String, ByteDiagnostic>> byteDiagnostics =
         ThreadLocal.withInitial(java.util.HashMap::new);
 
+    private static final ThreadLocal<java.util.Map<String, ProtocolDiagnostic>> protocolDiagnostics =
+        ThreadLocal.withInitial(java.util.HashMap::new);
+
+    private static void registerHttp2ProtocolClosedWithPendingDiagnostic(
+        String message,
+        long byteOffset,
+        long pendingCount,
+        String activeContinuation
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.closed_with_pending",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("pending_count", pendingCount),
+                    DiagnosticDetail.string("input_event", "end"),
+                    DiagnosticDetail.string("active_continuation", activeContinuation)
+                )
+            )
+        );
+    }
+
+    private static void registerHttp2ProtocolContinuationExpectedDiagnostic(
+        String message,
+        long byteOffset,
+        long actualKind,
+        long actualStream,
+        long expectedStream,
+        long startedKind,
+        long startedOffset,
+        String activeContinuation
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.continuation_expected",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("actual_frame_kind", actualKind),
+                    DiagnosticDetail.number("actual_stream_id", actualStream),
+                    DiagnosticDetail.number("expected_stream_id", expectedStream),
+                    DiagnosticDetail.number("started_frame_kind", startedKind),
+                    DiagnosticDetail.number("started_byte_offset", startedOffset),
+                    DiagnosticDetail.string("active_continuation", activeContinuation)
+                )
+            )
+        );
+    }
+
     private static void registerCodecIncompleteInputDiagnostic(
         String message,
         long byteOffset,
@@ -91,9 +150,9 @@
                 byteOffset,
                 java.util.Collections.emptyList(),
                 java.util.Arrays.asList(
-                    ByteDiagnosticDetail.number("expected_count", expectedCount),
-                    ByteDiagnosticDetail.number("available_count", availableCount),
-                    ByteDiagnosticDetail.string("readiness", "need_bytes")
+                    DiagnosticDetail.number("expected_count", expectedCount),
+                    DiagnosticDetail.number("available_count", availableCount),
+                    DiagnosticDetail.string("readiness", "need_bytes")
                 )
             )
         );
@@ -118,10 +177,10 @@
                     new ByteDiagnosticFieldPathSegment("field", fieldName)
                 ),
                 java.util.Arrays.asList(
-                    ByteDiagnosticDetail.number("expected_count", expectedCount),
-                    ByteDiagnosticDetail.number("available_count", availableCount),
-                    ByteDiagnosticDetail.string("readiness", "need_bytes"),
-                    ByteDiagnosticDetail.string("nearby_context", nearbyContext)
+                    DiagnosticDetail.number("expected_count", expectedCount),
+                    DiagnosticDetail.number("available_count", availableCount),
+                    DiagnosticDetail.string("readiness", "need_bytes"),
+                    DiagnosticDetail.string("nearby_context", nearbyContext)
                 )
             )
         );
@@ -146,9 +205,9 @@
                     new ByteDiagnosticFieldPathSegment("field", fieldName)
                 ),
                 java.util.Arrays.asList(
-                    ByteDiagnosticDetail.number("expected_value", expectedValue),
-                    ByteDiagnosticDetail.number("actual_value", actualValue),
-                    ByteDiagnosticDetail.string("nearby_context", nearbyContext)
+                    DiagnosticDetail.number("expected_value", expectedValue),
+                    DiagnosticDetail.number("actual_value", actualValue),
+                    DiagnosticDetail.string("nearby_context", nearbyContext)
                 )
             )
         );
@@ -174,10 +233,10 @@
                     new ByteDiagnosticFieldPathSegment("field", fieldName)
                 ),
                 java.util.Arrays.asList(
-                    ByteDiagnosticDetail.number("bit_width", bitWidth),
-                    ByteDiagnosticDetail.number("expected_value", expectedValue),
-                    ByteDiagnosticDetail.number("actual_value", actualValue),
-                    ByteDiagnosticDetail.string("nearby_context", nearbyContext)
+                    DiagnosticDetail.number("bit_width", bitWidth),
+                    DiagnosticDetail.number("expected_value", expectedValue),
+                    DiagnosticDetail.number("actual_value", actualValue),
+                    DiagnosticDetail.string("nearby_context", nearbyContext)
                 )
             )
         );
@@ -193,11 +252,11 @@
         return out;
     }
 
-    private static String formatByteDiagnosticDetails(
-        java.util.List<ByteDiagnosticDetail> details
+    private static String formatDiagnosticDetails(
+        java.util.List<DiagnosticDetail> details
     ) {
         String out = "";
-        for (ByteDiagnosticDetail detail : details) {
+        for (DiagnosticDetail detail : details) {
             out = out + "\t" + detail.key + "\t" + detail.valueKind + "\t" + detail.encodedValue;
         }
         return out;
@@ -264,13 +323,13 @@
         final String id;
         final long byteOffset;
         final java.util.List<ByteDiagnosticFieldPathSegment> fieldPath;
-        final java.util.List<ByteDiagnosticDetail> details;
+        final java.util.List<DiagnosticDetail> details;
 
         ByteDiagnostic(
             String id,
             long byteOffset,
             java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
-            java.util.List<ByteDiagnosticDetail> details
+            java.util.List<DiagnosticDetail> details
         ) {
             this.id = id;
             this.byteOffset = byteOffset;
@@ -279,20 +338,36 @@
         }
     }
 
-    private static final class ByteDiagnosticDetail {
+    private static final class ProtocolDiagnostic {
+        final String id;
+        final long byteOffset;
+        final java.util.List<DiagnosticDetail> details;
+
+        ProtocolDiagnostic(
+            String id,
+            long byteOffset,
+            java.util.List<DiagnosticDetail> details
+        ) {
+            this.id = id;
+            this.byteOffset = byteOffset;
+            this.details = details;
+        }
+    }
+
+    private static final class DiagnosticDetail {
         final String key;
         final String valueKind;
         final String encodedValue;
 
-        static ByteDiagnosticDetail number(String key, long value) {
-            return new ByteDiagnosticDetail(key, "number", Long.toString(value));
+        static DiagnosticDetail number(String key, long value) {
+            return new DiagnosticDetail(key, "number", Long.toString(value));
         }
 
-        static ByteDiagnosticDetail string(String key, String value) {
-            return new ByteDiagnosticDetail(key, "string", hex(value));
+        static DiagnosticDetail string(String key, String value) {
+            return new DiagnosticDetail(key, "string", hex(value));
         }
 
-        ByteDiagnosticDetail(String key, String valueKind, String encodedValue) {
+        DiagnosticDetail(String key, String valueKind, String encodedValue) {
             this.key = key;
             this.valueKind = valueKind;
             this.encodedValue = encodedValue;

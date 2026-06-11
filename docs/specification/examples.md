@@ -127,3 +127,10 @@ and a continuation ordering failure. Protocol failures stay as ordinary ADT
 values and are projected by source code into stable diagnostic ids and related
 context fields for byte offset, frame kind, stream id, and active
 continuation state.
+
+`../../examples/specification/run/http2-protocol-core-closed-human/` and
+`../../examples/specification/run/http2-protocol-core-continuation-json/` pin
+the command-facing projection path for those typed failures. The human case
+checks the closed-input primary message and related context, while the JSON
+case checks `protocol_diagnostic` details for byte offset, frame kind, stream
+id, and active continuation state.

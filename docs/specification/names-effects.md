@@ -22,7 +22,8 @@ compiler-known calls.
 - Source-visible `StreamInput` ADT and pure byte vocabulary helpers for
   `Byte`, `ByteChunk`, `ByteView`, `ByteCount`, `ByteOffset`, compact hex
   fixture decoding, fixed-width unsigned big-endian reads and writes, and
-  fixed U8 field checks:
+  fixed U8 field checks. HTTP/2 frame-header decoding and protocol diagnostic
+  projection helpers are listed with those signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).
 - Descriptor-backed standard symbols, source metadata, and the

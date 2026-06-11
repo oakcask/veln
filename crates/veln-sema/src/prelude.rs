@@ -151,6 +151,22 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             vec![byte_view.clone()],
             adt::result_type(http2_frame_header_type(), Type::string()),
         )),
+        "http2_protocol_closed_with_pending" => Some((
+            vec![Type::int(), Type::int(), Type::string()],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
+        "http2_protocol_continuation_expected" => Some((
+            vec![
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::string(),
+            ],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
         "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
         | "byte_read_u32_be" => Some((
             vec![byte_view.clone()],
@@ -731,6 +747,22 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
         "byte_decode_http2_frame_header" => Some((
             vec![byte_view.clone()],
             adt::core_result_type(core_http2_frame_header_type(), CoreType::string()),
+        )),
+        "http2_protocol_closed_with_pending" => Some((
+            vec![CoreType::int(), CoreType::int(), CoreType::string()],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
+        )),
+        "http2_protocol_continuation_expected" => Some((
+            vec![
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::string(),
+            ],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
         )),
         "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
         | "byte_read_u32_be" => Some((

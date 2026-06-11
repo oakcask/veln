@@ -361,6 +361,55 @@
         ));
     }
 
+    public static Object http2ProtocolClosedWithPending(
+        Object offset,
+        Object pendingCount,
+        Object activeContinuation
+    ) {
+        long byteOffset = asLong(offset);
+        long pending = asLong(pendingCount);
+        String continuation = asString(activeContinuation);
+        String message = "HTTP/2 input ended with " + pending
+            + " pending byte(s) at byte offset " + byteOffset;
+        registerHttp2ProtocolClosedWithPendingDiagnostic(
+            message,
+            byteOffset,
+            pending,
+            continuation
+        );
+        return err(message);
+    }
+
+    public static Object http2ProtocolContinuationExpected(
+        Object offset,
+        Object actualKind,
+        Object actualStream,
+        Object expectedStream,
+        Object startedKind,
+        Object startedOffset,
+        Object activeContinuation
+    ) {
+        long byteOffset = asLong(offset);
+        long frameKind = asLong(actualKind);
+        long streamId = asLong(actualStream);
+        long expectedStreamId = asLong(expectedStream);
+        long startedFrameKind = asLong(startedKind);
+        long startedByteOffset = asLong(startedOffset);
+        String continuation = asString(activeContinuation);
+        String message = "HTTP/2 expected CONTINUATION frame at byte offset " + byteOffset;
+        registerHttp2ProtocolContinuationExpectedDiagnostic(
+            message,
+            byteOffset,
+            frameKind,
+            streamId,
+            expectedStreamId,
+            startedFrameKind,
+            startedByteOffset,
+            continuation
+        );
+        return err(message);
+    }
+
     public static Object byteReadU16Be(Object view) {
         return byteReadUnsignedBe(view, 2, 0xffffL, "byte_read_u16_be");
     }

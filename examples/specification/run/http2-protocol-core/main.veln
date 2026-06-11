@@ -256,6 +256,7 @@ end
 
 fn print_failure(label: String, step: Http2Step) -> () effects [stdio]
 	let failure: Http2ProtocolFailure = step_failure(step)
+	let state: Http2DecodeState = step_state(step)
 	stdio::print(label)
 	stdio::print(" id ")
 	stdio::print(failure_id(failure))
@@ -272,7 +273,9 @@ fn print_failure(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::print(" started_kind ")
 	stdio::print(int_to_string(failure_started_kind(failure)))
 	stdio::print(" started_offset ")
-	stdio::println(int_to_string(failure_started_offset(failure)))
+	stdio::print(int_to_string(failure_started_offset(failure)))
+	stdio::print(" continuation ")
+	stdio::println(state_continuation_label(state))
 end
 
 pub fn main() -> Result<(), String> effects [stdio]

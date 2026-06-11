@@ -51,7 +51,8 @@ execution reference.
   undecoded suffix bytes and the next absolute byte offset, reuses the
   frame-header primitive for available headers, and represents closed-input
   truncation and continuation ordering failures as typed protocol values before
-  projecting stable diagnostic ids and related context into fixture output.
+  projecting stable diagnostic ids and related context into fixture output,
+  human runtime diagnostics, and `run --json` `protocol_diagnostic` details.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior

@@ -1,0 +1,15 @@
+# HTTP/2 continuation ordering failures project structured runtime details.
+
+type Http2ProtocolFailure
+	ContinuationExpected(Int, Int, Int, Int, Int, Int, String)
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		ContinuationExpected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation) => http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	project(ContinuationExpected(9, 0, 1, 1, 1, 0, "headers"))
+end

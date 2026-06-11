@@ -334,6 +334,13 @@ against the built `veln` binary.
   handles chunk arrival, incomplete input, end-of-stream truncation, and a
   continuation ordering failure while projecting typed protocol failures into
   stable ids and related context.
+- `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
+  pending bytes reports `http2.protocol.closed_with_pending` through human
+  `run` stderr with byte offset, pending byte count, and active continuation
+  context.
+- `run/http2-protocol-core-continuation-json/`: a continuation ordering
+  failure reports `http2.protocol.continuation_expected` through `run --json`
+  with byte offset, frame kind, stream id, and active continuation details.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.
