@@ -16,8 +16,9 @@ full type reference.
   bindings, result propagation where applicable, and finite-domain
   exhaustiveness use descriptor facts.
 - The standard prelude exposes source-visible `Byte`, `ByteChunk`,
-  `ByteOffset`, and `ByteCount` named types for small immutable byte values
-  and byte-counted helper APIs.
+  `ByteOffset`, `ByteCount`, and `StreamInput` named types for small
+  immutable byte values, byte-counted helper APIs, and incremental input
+  events.
 - `match` expressions over `Bool`, `Option<T>`, `Result<T, E>`, `List<T>`, and
   source-declared ADTs must be exhaustive unless a catch-all arm is present.
 - Assignment compatibility treats `unknown` as compatible with any type and

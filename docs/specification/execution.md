@@ -20,7 +20,8 @@ execution reference.
   growing the host call stack for large helper traversals.
 - Standard byte chunk helpers execute as pure prelude runtime operations and
   return immutable chunk values or `Result` failures for invalid values,
-  invalid compact hex fixture text, and out-of-bounds counts.
+  invalid compact hex fixture text, and out-of-bounds counts. Standard
+  `StreamInput` values execute as ordinary immutable ADT values.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior

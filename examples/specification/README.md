@@ -255,6 +255,9 @@ against the built `veln` binary.
   prefixes, or separators fail with stable fixture hex error text.
 - `run/byte-fixture-hex-odd/`: dangling compact hex fixture nibbles fail with
   stable fixture hex error text.
+- `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
+  chunk arrivals, empty chunks, explicit end events, and qualified prelude
+  constructor paths.
 - `run/implicit-prelude-imports/`: qualified `prelude::` fallback and local
   declaration shadowing over implicit prelude imports.
 - `run/tail-recursion-trampoline/`: stack-safe direct tail recursion, nested

@@ -14,6 +14,11 @@ pub type ByteCount
 	ByteCount(value: Int)
 end
 
+pub type StreamInput
+	Chunk(bytes: ByteChunk)
+	End
+end
+
 pub fn byte(value: Int) -> Result<Byte, String>
 	match value < 0
 		true => Err("byte value must be between 0 and 255")

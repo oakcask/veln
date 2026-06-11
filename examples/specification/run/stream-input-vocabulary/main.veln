@@ -1,0 +1,22 @@
+# StreamInput distinguishes byte arrival from explicit stream end.
+use stdio
+
+fn describe(input: StreamInput) -> Int
+	match input
+		prelude::StreamInput::Chunk(bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		prelude::End => -1
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let empty: ByteChunk = byte_chunk([])
+	let one: Byte = byte(1)?
+	let non_empty: ByteChunk = byte_chunk([one])
+	let empty_arrival: StreamInput = Chunk(empty)
+	let byte_arrival: StreamInput = prelude::StreamInput::Chunk(non_empty)
+	let ended: StreamInput = End
+	stdio::println(int_to_string(describe(empty_arrival)))
+	stdio::println(int_to_string(describe(byte_arrival)))
+	stdio::println(int_to_string(describe(ended)))
+	Ok(())
+end

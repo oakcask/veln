@@ -215,6 +215,100 @@ fn lowers_qualified_standard_prelude_calls() {
 }
 
 #[test]
+fn stream_input_constructors_resolve_through_standard_prelude_paths() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn bare(chunk: ByteChunk) -> StreamInput\n",
+            "  Chunk(chunk)\n",
+            "end\n",
+            "fn type_qualified(chunk: ByteChunk) -> StreamInput\n",
+            "  StreamInput::Chunk(chunk)\n",
+            "end\n",
+            "fn prelude_qualified(chunk: ByteChunk) -> StreamInput\n",
+            "  prelude::Chunk(chunk)\n",
+            "end\n",
+            "fn prelude_type_qualified(chunk: ByteChunk) -> StreamInput\n",
+            "  prelude::StreamInput::Chunk(chunk)\n",
+            "end\n",
+            "fn done() -> StreamInput\n",
+            "  prelude::End\n",
+            "end\n",
+            "fn label(input: StreamInput) -> String\n",
+            "  match input\n",
+            "    prelude::StreamInput::Chunk(bytes) => int_to_string(byte_count_to_int(byte_chunk_count(bytes)))\n",
+            "    prelude::End => \"end\"\n",
+            "  end\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    for function_name in [
+        "bare",
+        "type_qualified",
+        "prelude_qualified",
+        "prelude_type_qualified",
+    ] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("{function_name} should return a constructor");
+        };
+        assert_eq!(expr.ty, CoreType::named("StreamInput", Vec::new()));
+        assert!(
+            matches!(&expr.kind, CoreExprKind::AdtVariant { name, payloads }
+                if name == &vec!["StreamInput".to_string(), "Chunk".to_string()]
+                    && payloads.len() == 1),
+            "{function_name} should lower to StreamInput::Chunk"
+        );
+    }
+    let done = core
+        .functions
+        .iter()
+        .find(|function| function.name == "done")
+        .expect("done should be lowered");
+    let CoreStmtKind::Return { expr } = &done.body[0].kind else {
+        panic!("done should return a constructor");
+    };
+    assert_eq!(expr.ty, CoreType::named("StreamInput", Vec::new()));
+    assert!(
+        matches!(&expr.kind, CoreExprKind::AdtVariant { name, payloads }
+            if name == &vec!["StreamInput".to_string(), "End".to_string()]
+                && payloads.is_empty())
+    );
+    let label = core
+        .functions
+        .iter()
+        .find(|function| function.name == "label")
+        .expect("label should be lowered");
+    let CoreStmtKind::Return { expr } = &label.body[0].kind else {
+        panic!("label should return a match");
+    };
+    let CoreExprKind::Match { arms, .. } = &expr.kind else {
+        panic!("label should lower to a match");
+    };
+    assert!(
+        matches!(&arms[0].pattern.kind, CorePatternKind::Constructor { name, args }
+            if name == &vec!["StreamInput".to_string(), "Chunk".to_string()]
+                && args.len() == 1)
+    );
+    assert!(
+        matches!(&arms[1].pattern.kind, CorePatternKind::Constructor { name, args }
+            if name == &vec!["StreamInput".to_string(), "End".to_string()]
+                && args.is_empty())
+    );
+}
+
+#[test]
 fn source_backed_prelude_helper_source_is_embedded_and_checkable() {
     let mut entries = Vec::new();
 
