@@ -210,7 +210,10 @@ failures. When a closed-input fixed-width `ByteView` read returns
 `codec.incomplete_input`, human mode reports the missing byte at the decoded
 byte offset as the primary diagnostic fact and puts pending readiness,
 expected byte count, available byte count, and any available field path in
-related notes.
+related notes. When a schema fixed-field check returns
+`schema.fixed_field_mismatch`, human mode reports the fixed-field mismatch at
+the decoded byte offset as the primary diagnostic fact and puts expected
+value, actual value, nearby byte context, and field path in related notes.
 
 With `--json`, `run` captures process stdout and stderr into the run JSON
 record instead of forwarding them separately. Runtime contract failures are

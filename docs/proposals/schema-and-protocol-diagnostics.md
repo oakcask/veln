@@ -14,8 +14,15 @@ under `../specification/run-json.md` and `../specification/commands.md` and
 checked by
 `../../examples/specification/run/binary-byteview-read-failure-json/` and
 `../../examples/specification/run/binary-byteview-read-failure-human/`. The
-remaining proposal work covers schema-owned failures, broader codec
-diagnostics, and protocol-state diagnostic projection.
+implemented first schema-owned fixed-field mismatch slice, including
+`schema.fixed_field_mismatch`, byte offset, field path, expected and actual
+values, and nearby context in `run --json` and stable human `run` output, is
+specified under `../specification/run-json.md` and
+`../specification/commands.md` and checked by
+`../../examples/specification/run/binary-fixed-field-mismatch-json/` and
+`../../examples/specification/run/binary-fixed-field-mismatch-human/`. The
+remaining proposal work covers broader schema and codec diagnostics plus
+protocol-state diagnostic projection.
 
 ## Problem
 
@@ -264,7 +271,6 @@ and byte-count notes documented in `../specification/commands.md`.
 
 The remaining proposal work is complete when:
 
-- Human and JSON examples cover invalid fixed fields.
 - Protocol-state examples cover invalid frame kind for a connection or stream
   state.
 - Schema and protocol diagnostics keep the primary message focused on the

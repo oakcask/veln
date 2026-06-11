@@ -185,28 +185,54 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
     let byte_diagnostic = json_field(details, "byte_diagnostic")?;
     let byte_entries = json_object(byte_diagnostic)?;
     let id = json_string(byte_entries, "id")?;
-    if id != "codec.incomplete_input" {
-        return None;
-    }
-
     let byte_offset = byte_offset_value(byte_entries)?;
-    let expected_count = json_number(byte_entries, "expected_count")?;
-    let available_count = json_number(byte_entries, "available_count")?;
-    let readiness = json_string(byte_entries, "readiness")?;
-    let mut diagnostic = Diagnostic::new(
-        id,
-        Severity::Error,
-        DiagnosticKind::Runtime,
-        format!("missing byte at byte offset {byte_offset}"),
-        None,
-        byte_diagnostic.clone(),
-    );
-    diagnostic.related.push(note_json(format!(
-        "pending readiness is `{readiness}` because input is closed."
-    )));
-    diagnostic.related.push(note_json(format!(
-        "Fixed-width read expected {expected_count} byte(s); {available_count} byte(s) were available."
-    )));
+
+    let mut diagnostic = match id.as_str() {
+        "codec.incomplete_input" => {
+            let expected_count = json_number(byte_entries, "expected_count")?;
+            let available_count = json_number(byte_entries, "available_count")?;
+            let readiness = json_string(byte_entries, "readiness")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("missing byte at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "pending readiness is `{readiness}` because input is closed."
+            )));
+            diagnostic.related.push(note_json(format!(
+                "Fixed-width read expected {expected_count} byte(s); {available_count} byte(s) were available."
+            )));
+            diagnostic
+        }
+        "schema.fixed_field_mismatch" => {
+            let expected_value = json_number(byte_entries, "expected_value")?;
+            let actual_value = json_number(byte_entries, "actual_value")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("fixed field mismatch at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Fixed field expected value {expected_value}; actual value was {actual_value}."
+            )));
+            if let Some(context) = json_string(byte_entries, "nearby_context")
+                && !context.is_empty()
+            {
+                diagnostic
+                    .related
+                    .push(note_json(format!("Nearby bytes: {context}.")));
+            }
+            diagnostic
+        }
+        _ => return None,
+    };
     if let Some(field_path) = field_path_text(byte_entries) {
         diagnostic
             .related
@@ -521,6 +547,60 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("schema `DemoPacket` / field `payload`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_fixed_field_mismatch_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.fixed_field_mismatch")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("DemoPacket")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("kind")),
+                    ]),
+                ]),
+            ),
+            ("expected_value", JsonValue::Number(1)),
+            ("actual_value", JsonValue::Number(255)),
+            ("nearby_context", JsonValue::string("ff0001")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "fixed field mismatch at byte offset 0".to_string(),
+            None,
+            Some(byte_diagnostic),
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "schema.fixed_field_mismatch");
+        assert_eq!(diagnostic.message, "fixed field mismatch at byte offset 0");
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("expected value 1; actual value was 255")
+        );
+        assert!(diagnostic.related[1].to_json().contains("ff0001"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("schema `DemoPacket` / field `kind`")
         );
     }
 

@@ -241,6 +241,41 @@
         return byteReadUnsignedBe(view, 1, 0xffL, "byte_read_u8_be");
     }
 
+    public static Object byteExpectFixedU8Be(
+        Object view,
+        Object expected,
+        Object schemaName,
+        Object fieldName
+    ) {
+        long expectedValue = asLong(expected);
+        if (expectedValue < 0 || expectedValue > 0xffL) {
+            return err("byte_expect_fixed_u8_be expected value must be between 0 and 255");
+        }
+        Object read = byteReadUnsignedBe(view, 1, 0xffL, "byte_read_u8_be");
+        if (isErr(read)) {
+            return read;
+        }
+        long actualValue = asLong(unwrapOk(read));
+        if (actualValue == expectedValue) {
+            return read;
+        }
+
+        long offset = byteViewOffset(view);
+        String schema = asString(schemaName);
+        String field = asString(fieldName);
+        String message = "fixed field mismatch at byte offset " + offset;
+        registerSchemaFixedFieldMismatchDiagnostic(
+            message,
+            offset,
+            schema,
+            field,
+            expectedValue,
+            actualValue,
+            byteViewContextHex(view, 8)
+        );
+        return err(message);
+    }
+
     public static Object byteReadU16Be(Object view) {
         return byteReadUnsignedBe(view, 2, 0xffffL, "byte_read_u16_be");
     }
@@ -278,6 +313,26 @@
             return err(name + " value exceeds maximum " + maxValue);
         }
         return ok(Long.valueOf(value));
+    }
+
+    private static String byteViewContextHex(Object view, int radius) {
+        java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
+        long offset = byteViewOffset(view);
+        long count = byteViewCount(view);
+        Object boundsError = byteViewBoundsError(bytes, offset, count);
+        if (boundsError != null) {
+            return "";
+        }
+        long start = Math.max(0, offset - radius);
+        long end = Math.min(bytes.size(), offset + Math.max(1, count) + radius);
+        StringBuilder out = new StringBuilder((int) ((end - start) * 2));
+        char[] digits = "0123456789abcdef".toCharArray();
+        for (long index = start; index < end; index += 1) {
+            int value = (int) byteValueLong(bytes.get((int) index));
+            out.append(digits[value >>> 4]);
+            out.append(digits[value & 0x0f]);
+        }
+        return out.toString();
     }
 
     private static Object byteViewBoundsError(

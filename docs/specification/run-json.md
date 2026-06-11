@@ -45,6 +45,17 @@ truncation, `details.byte_diagnostic` includes:
 - `available_count`: the byte count available in the view
 - `readiness: "need_bytes"`
 
+When the result value is a schema fixed-field mismatch,
+`details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "schema.fixed_field_mismatch"`
+- `byte_offset`: the decoded-stream `ByteOffset` of the mismatched field
+- `field_path`: schema-local path segment objects with `kind` and `name`
+- `expected_value`: the fixed byte value required by the schema field
+- `actual_value`: the decoded byte value that was present
+- `nearby_context`: bounded lowercase hex bytes around the reported offset
+
 Named binary fixture cases can assert the same byte-stream facts after a
 fixture record decodes successfully. Invalid compact hex remains a
 `details.fixture_hex` failure. Valid fixture bytes that are too short for a

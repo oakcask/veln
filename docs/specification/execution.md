@@ -21,8 +21,9 @@ execution reference.
 - Standard byte chunk and byte view helpers execute as pure prelude runtime
   operations and return immutable byte values or `Result` failures for invalid
   values, invalid compact hex fixture text, out-of-bounds counts and ranges,
-  truncation, and fixed-width unsigned conversion overflow. Standard
-  `StreamInput` values execute as ordinary immutable ADT values.
+  truncation, schema fixed-field mismatches, and fixed-width unsigned
+  conversion overflow. Standard `StreamInput` values execute as ordinary
+  immutable ADT values.
 - Executable specification cases may keep named binary fixture records in the
   example tree; the harness checks complete lowercase hex output without
   promoting a production fixture API. Named fixture records can also represent

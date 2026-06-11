@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[schema.fixed_field_mismatch]: fixed field mismatch at byte offset 0", "note: Fixed field expected value 1; actual value was 255.", "note: Nearby bytes: ff0001.", "note: Field path: schema `DemoPacket` / field `kind`."]
