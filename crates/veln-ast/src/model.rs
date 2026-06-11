@@ -112,6 +112,14 @@ pub struct SchemaField {
     pub node_id: NodeId,
     pub name: String,
     pub ty: String,
+    pub where_clause: Option<SchemaFieldWhereClause>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaFieldWhereClause {
+    pub node_id: NodeId,
+    pub predicate: String,
     pub span: SourceSpan,
 }
 

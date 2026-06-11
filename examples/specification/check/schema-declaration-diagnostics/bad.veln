@@ -3,6 +3,7 @@ schema BadHeader
   format binary
   format binary
   _reserved: UInt8
+  broken: UInt8 where
 end
 
 schema

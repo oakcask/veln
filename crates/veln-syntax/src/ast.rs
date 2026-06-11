@@ -111,6 +111,13 @@ pub struct SchemaFormatClause {
 pub struct SchemaField {
     pub name: String,
     pub ty: String,
+    pub where_clause: Option<SchemaFieldWhereClause>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaFieldWhereClause {
+    pub predicate: String,
     pub span: SourceSpan,
 }
 

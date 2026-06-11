@@ -84,13 +84,16 @@ fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &Schema
         out.push('\n');
     }
     for field in &schema.fields {
-        push_source_line(
-            out,
-            comments,
-            field.span.start.line,
-            1,
-            format!("{}: {}", field.name, canonical_type_text(&field.ty)),
+        let mut line = format!(
+            "{}: {}",
+            field.name,
+            canonical_schema_field_type_text(&field.ty)
         );
+        if let Some(where_clause) = &field.where_clause {
+            line.push_str(" where ");
+            line.push_str(&canonical_predicate_text(&where_clause.predicate));
+        }
+        push_source_line(out, comments, field.span.start.line, 1, line);
     }
 
     push_source_line(
@@ -486,6 +489,24 @@ fn type_end_line(type_decl: &TypeDecl) -> usize {
 
 pub fn canonical_type_text(text: &str) -> String {
     canonicalize_type_segment(text)
+}
+
+fn canonical_schema_field_type_text(text: &str) -> String {
+    canonical_predicate_text(text)
+}
+
+fn canonical_predicate_text(text: &str) -> String {
+    text.split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .replace(" :: ", "::")
+        .replace(" (", "(")
+        .replace("( ", "(")
+        .replace(" )", ")")
+        .replace(" . ", ".")
+        .replace("[ ", "[")
+        .replace(" ]", "]")
+        .replace(" ,", ",")
 }
 
 fn canonicalize_type_segment(text: &str) -> String {

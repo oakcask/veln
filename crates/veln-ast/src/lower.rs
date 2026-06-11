@@ -13,8 +13,8 @@ use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
     PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField,
-    SchemaFormatClause, SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl,
-    Visibility,
+    SchemaFieldWhereClause, SchemaFormatClause, SurfaceModule, TypeDecl, TypeVariantDecl,
+    TypeVariantField, UseDecl, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -241,6 +241,13 @@ impl AstBuilder {
                     node_id: self.alloc(),
                     name: field.name.clone(),
                     ty: field.ty.clone(),
+                    where_clause: field.where_clause.as_ref().map(|where_clause| {
+                        SchemaFieldWhereClause {
+                            node_id: self.alloc(),
+                            predicate: where_clause.predicate.clone(),
+                            span: where_clause.span.clone(),
+                        }
+                    }),
                     span: field.span.clone(),
                 })
                 .collect(),

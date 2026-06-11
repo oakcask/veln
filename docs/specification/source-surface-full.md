@@ -23,7 +23,8 @@ TestDecl      ::= "test" Name "(" ")" Return Effects? NL
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat NL SchemaField+ "end" NL?
 SchemaFormat  ::= "format" "binary" NL
-SchemaField   ::= Name ":" TypeText NL
+SchemaField   ::= Name ":" TypeText SchemaFieldWhere? NL
+SchemaFieldWhere ::= "where" ContractPredicate
 PublicAlias   ::= "pub" ("fn" | "type") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
@@ -76,7 +77,11 @@ Schema declarations are top-level source module items. `schema Name` is
 private to its source module, and `pub schema Name` records public schema
 ownership for the declaring module. The implemented schema body slice requires
 one `format binary` clause before any schema fields, followed by one or more
-`name: TypeText` field lines. Field names must be ordinary identifiers; names
+`name: TypeText` field lines. A field line may end with a field-local `where`
+predicate after the type text, such as `padding_length: UInt8 where
+padding_length <= length`. The parser preserves that predicate with the owning
+field for diagnostics and editor support, but schema decode and encode
+execution is not implemented. Field names must be ordinary identifiers; names
 beginning with `_` remain hole tokens and are rejected as schema field names.
 Schema declarations do not create ordinary value bindings, ordinary source ADT
 types, constructors, or executable decode or encode functions.

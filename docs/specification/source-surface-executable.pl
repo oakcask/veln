@@ -92,8 +92,9 @@ grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat NL SchemaField+ \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
-grammar_line(104, "SchemaField   ::= Name \":\" TypeText NL").
-grammar_line(105, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\") Name \"=\" MemberPath NL").
+grammar_line(104, "SchemaField   ::= Name \":\" TypeText SchemaFieldWhere? NL").
+grammar_line(105, "SchemaFieldWhere ::= \"where\" ContractPredicate").
+grammar_line(106, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
@@ -237,6 +238,7 @@ keyword_kind("fn", fn).
 keyword_kind("type", type).
 keyword_kind("schema", schema).
 keyword_kind("format", format).
+keyword_kind("where", where).
 keyword_kind("test", test).
 keyword_kind("effects", effects).
 keyword_kind("let", let).
@@ -340,8 +342,16 @@ schema_fields_tail --> [].
 schema_field -->
     ident,
     tok(colon),
-    type_text_until([nl]),
+    type_text_until([where, nl]),
+    schema_field_where_opt,
     nl.
+
+schema_field_where_opt -->
+    tok(where),
+    line_tokens(Tokens),
+    { Tokens \= [], valid_contract_tokens(Tokens) },
+    !.
+schema_field_where_opt --> [].
 
 public_alias -->
     tok(pub),

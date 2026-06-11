@@ -151,6 +151,7 @@ fn keyword_kind(text: &str) -> Option<TokenKind> {
         "type" => TokenKind::Type,
         "schema" => TokenKind::Schema,
         "format" => TokenKind::Format,
+        "where" => TokenKind::Where,
         "test" => TokenKind::Test,
         "effects" => TokenKind::Effects,
         "let" => TokenKind::Let,
