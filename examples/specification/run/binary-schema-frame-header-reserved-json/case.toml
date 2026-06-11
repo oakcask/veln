@@ -45,3 +45,7 @@ equals = 0
 [[json_assert]]
 path = "error.details.byte_diagnostic.actual_value"
 equals = 1
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.nearby_context"
+equals = "000005010480000001"
