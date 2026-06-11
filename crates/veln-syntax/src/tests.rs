@@ -6,7 +6,9 @@ use veln_source::SourceFile;
 fn first_function(output: &ParseOutput) -> &FunctionDecl {
     match &output.tree.items[0] {
         SyntaxItem::Function(function) => function,
-        SyntaxItem::Type(_) | SyntaxItem::PublicAlias(_) => panic!("expected function item"),
+        SyntaxItem::Type(_) | SyntaxItem::Schema(_) | SyntaxItem::PublicAlias(_) => {
+            panic!("expected function item")
+        }
     }
 }
 
@@ -244,6 +246,92 @@ fn parses_public_type_declaration_with_public_record_variant() {
     assert_eq!(shape.variants[0].fields[0].ty, "Int");
     assert_eq!(shape.variants[1].visibility, Visibility::Private);
     assert_eq!(shape.variants[1].fields[1].name, "height");
+}
+
+#[test]
+fn parses_schema_declarations_and_formats_canonical_layout() {
+    let source = SourceFile::new(
+        "schema.veln",
+        concat!(
+            "pub schema Http2FrameHeader\n",
+            "  format binary\n",
+            "  length: UInt24be\n",
+            "  kind: UInt8\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Schema(schema) = &output.tree.items[0] else {
+        panic!("expected schema declaration");
+    };
+    assert_eq!(schema.visibility, Visibility::Public);
+    assert_eq!(schema.name.as_deref(), Some("Http2FrameHeader"));
+    assert_eq!(
+        schema.format.as_ref().map(|format| format.name.as_str()),
+        Some("binary")
+    );
+    assert_eq!(schema.fields.len(), 2);
+    assert_eq!(schema.fields[0].name, "length");
+    assert_eq!(schema.fields[0].ty, "UInt24be");
+    assert_eq!(schema.fields[1].name, "kind");
+    assert_eq!(schema.fields[1].ty, "UInt8");
+    assert!(schema.end_present);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "pub schema Http2FrameHeader\n",
+            "\tformat binary\n",
+            "\n",
+            "\tlength: UInt24be\n",
+            "\tkind: UInt8\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn reports_schema_declaration_syntax_diagnostics() {
+    let source = SourceFile::new(
+        "bad.veln",
+        concat!(
+            "schema BadHeader\n",
+            "  length: UInt24be\n",
+            "  format binary\n",
+            "  format binary\n",
+            "  _reserved: UInt8\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.schema_field_before_format"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.schema_multiple_format"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.schema_field_name"),
+        "{:#?}",
+        output.diagnostics
+    );
 }
 
 #[test]
@@ -822,6 +910,9 @@ fn token_kind_labels_cover_every_surface_token() {
         (TokenKind::Invalid, "invalid token"),
         (TokenKind::Pub, "pub"),
         (TokenKind::Fn, "fn"),
+        (TokenKind::Type, "type"),
+        (TokenKind::Schema, "schema"),
+        (TokenKind::Format, "format"),
         (TokenKind::Test, "test"),
         (TokenKind::Effects, "effects"),
         (TokenKind::Let, "let"),

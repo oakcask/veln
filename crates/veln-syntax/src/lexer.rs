@@ -149,6 +149,8 @@ fn keyword_kind(text: &str) -> Option<TokenKind> {
         "pub" => TokenKind::Pub,
         "fn" => TokenKind::Fn,
         "type" => TokenKind::Type,
+        "schema" => TokenKind::Schema,
+        "format" => TokenKind::Format,
         "test" => TokenKind::Test,
         "effects" => TokenKind::Effects,
         "let" => TokenKind::Let,

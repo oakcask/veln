@@ -364,6 +364,7 @@ fn resolves_qualified_calls_through_import_aliases() {
         module: main.module,
         uses: main.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
     };
@@ -413,6 +414,7 @@ fn resolves_qualified_function_values_through_import_aliases() {
         module: main.module,
         uses: main.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: main.types.into_iter().chain(text.types).collect(),
         functions: main.functions.into_iter().chain(text.functions).collect(),
     };
@@ -465,6 +467,7 @@ fn resolves_unqualified_public_function_imports() {
         module: main.module,
         uses: main.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
     };
@@ -514,6 +517,7 @@ fn resolves_unqualified_imported_function_values() {
         module: main.module,
         uses: main.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: main.types.into_iter().chain(text.types).collect(),
         functions: main.functions.into_iter().chain(text.functions).collect(),
     };
@@ -569,6 +573,7 @@ fn local_functions_shadow_unqualified_function_imports() {
         module: main.module,
         uses: main.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: main.types.into_iter().chain(math.types).collect(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
     };
@@ -611,6 +616,7 @@ fn ambiguous_unqualified_public_function_imports_are_rejected() {
         module: main.module,
         uses: main.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: Vec::new(),
         functions: main
             .functions
@@ -674,6 +680,7 @@ fn private_functions_are_hidden_from_unqualified_imports() {
         module: main.module,
         uses: main.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: Vec::new(),
         functions: main.functions.into_iter().chain(math.functions).collect(),
     };
@@ -722,6 +729,7 @@ fn public_function_alias_reexports_imported_target() {
         module: app.module,
         uses: app.uses.into_iter().chain(api.uses).collect(),
         aliases: api.aliases,
+        schemas: Vec::new(),
         types: Vec::new(),
         functions: app
             .functions

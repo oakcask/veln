@@ -377,6 +377,7 @@ fn imported_public_function_conflicts_with_implicit_prelude_bare_call() {
         module: main.module,
         uses: main.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: Vec::new(),
         functions: main
             .functions

@@ -5,15 +5,16 @@ use veln_syntax::{
     FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule, Pattern as SyntaxPattern,
     PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
     PublicAliasDecl as SyntaxPublicAlias, PublicAliasKind as SyntaxPublicAliasKind,
-    RecordField as SyntaxRecordField, SyntaxItem, SyntaxTree, TypeDecl as SyntaxTypeDecl,
-    UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
+    RecordField as SyntaxRecordField, SchemaDecl as SyntaxSchemaDecl, SyntaxItem, SyntaxTree,
+    TypeDecl as SyntaxTypeDecl, UseDecl as SyntaxUse, Visibility as SyntaxVisibility,
 };
 
 use crate::{
     BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
-    PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SurfaceModule, TypeDecl,
-    TypeVariantDecl, TypeVariantField, UseDecl, Visibility,
+    PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField,
+    SchemaFormatClause, SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl,
+    Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -54,6 +55,7 @@ impl AstBuilder {
             .map(|use_decl| self.lower_use_decl(use_decl, module_name.clone()))
             .collect();
         let mut types = Vec::new();
+        let mut schemas = Vec::new();
         let mut functions = Vec::new();
         let mut aliases = Vec::new();
 
@@ -64,6 +66,9 @@ impl AstBuilder {
                 }
                 SyntaxItem::Type(type_decl) => {
                     types.push(self.lower_type_decl(type_decl, module_name.clone()));
+                }
+                SyntaxItem::Schema(schema) => {
+                    schemas.push(self.lower_schema_decl(schema, module_name.clone()));
                 }
                 SyntaxItem::PublicAlias(alias) => {
                     aliases.push(self.lower_public_alias(alias, module_name.clone()));
@@ -76,6 +81,7 @@ impl AstBuilder {
             uses,
             aliases,
             types,
+            schemas,
             functions,
         }
     }
@@ -207,6 +213,38 @@ impl AstBuilder {
                 })
                 .collect(),
             span: type_decl.span.clone(),
+        }
+    }
+
+    fn lower_schema_decl(
+        &mut self,
+        schema: &SyntaxSchemaDecl,
+        module_name: Option<String>,
+    ) -> SchemaDecl {
+        SchemaDecl {
+            node_id: self.alloc(),
+            module_name,
+            visibility: match schema.visibility {
+                SyntaxVisibility::Public => Visibility::Public,
+                SyntaxVisibility::Private => Visibility::Private,
+            },
+            name: schema.name.clone(),
+            format: schema.format.as_ref().map(|format| SchemaFormatClause {
+                node_id: self.alloc(),
+                name: format.name.clone(),
+                span: format.span.clone(),
+            }),
+            fields: schema
+                .fields
+                .iter()
+                .map(|field| SchemaField {
+                    node_id: self.alloc(),
+                    name: field.name.clone(),
+                    ty: field.ty.clone(),
+                    span: field.span.clone(),
+                })
+                .collect(),
+            span: schema.span.clone(),
         }
     }
 

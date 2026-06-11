@@ -41,6 +41,7 @@ pub struct UsePackage {
 pub enum SyntaxItem {
     Function(FunctionDecl),
     Type(TypeDecl),
+    Schema(SchemaDecl),
     PublicAlias(PublicAliasDecl),
 }
 
@@ -85,6 +86,29 @@ pub enum TypeVariantFieldDelimiter {
 
 #[derive(Clone, Debug)]
 pub struct TypeVariantField {
+    pub name: String,
+    pub ty: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaDecl {
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub format: Option<SchemaFormatClause>,
+    pub fields: Vec<SchemaField>,
+    pub span: SourceSpan,
+    pub end_present: bool,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaFormatClause {
+    pub name: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaField {
     pub name: String,
     pub ty: String,
     pub span: SourceSpan,

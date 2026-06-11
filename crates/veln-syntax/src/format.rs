@@ -1,7 +1,7 @@
 use crate::{
     BinaryOp, BodyLine, ContractKind, Expr, ExprKind, FunctionDecl, FunctionKind, Pattern,
-    PatternKind, PrefixOp, SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl,
-    TypeVariantFieldDelimiter, Visibility,
+    PatternKind, PrefixOp, SchemaDecl, SyntaxItem, SyntaxTree, TokenKind, TypeDecl,
+    TypeVariantDecl, TypeVariantFieldDelimiter, Visibility,
 };
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
@@ -38,6 +38,7 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         match item {
             SyntaxItem::Function(function) => format_function(&mut out, &comments, function),
             SyntaxItem::Type(type_decl) => format_type_decl(&mut out, &comments, type_decl),
+            SyntaxItem::Schema(schema) => format_schema_decl(&mut out, &comments, schema),
             SyntaxItem::PublicAlias(alias) => {
                 push_source_line(
                     &mut out,
@@ -58,6 +59,47 @@ pub fn format_tree(tree: &SyntaxTree) -> String {
         out.push('\n');
     }
     out
+}
+
+fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &SchemaDecl) {
+    let mut header = String::new();
+    if schema.visibility == Visibility::Public {
+        header.push_str("pub ");
+    }
+    header.push_str("schema ");
+    header.push_str(schema.name.as_deref().unwrap_or("<missing>"));
+    push_source_line(out, comments, schema.span.start.line, 0, header);
+
+    if let Some(format) = &schema.format {
+        push_source_line(
+            out,
+            comments,
+            format.span.start.line,
+            1,
+            format!("format {}", format.name),
+        );
+    }
+
+    if !schema.fields.is_empty() {
+        out.push('\n');
+    }
+    for field in &schema.fields {
+        push_source_line(
+            out,
+            comments,
+            field.span.start.line,
+            1,
+            format!("{}: {}", field.name, canonical_type_text(&field.ty)),
+        );
+    }
+
+    push_source_line(
+        out,
+        comments,
+        schema_end_line(schema),
+        0,
+        String::from("end"),
+    );
 }
 
 fn format_alias(alias: &crate::PublicAliasDecl) -> String {
@@ -151,6 +193,23 @@ fn is_default_positional_field(index: usize, name: &str) -> bool {
     } else {
         name == format!("_{index}")
     }
+}
+
+fn schema_end_line(schema: &SchemaDecl) -> usize {
+    if schema.end_present {
+        schema.span.end.line
+    } else {
+        schema.span.start.line.max(schema_body_end_line(schema))
+    }
+}
+
+fn schema_body_end_line(schema: &SchemaDecl) -> usize {
+    schema
+        .fields
+        .last()
+        .map(|field| field.span.end.line)
+        .or_else(|| schema.format.as_ref().map(|format| format.span.end.line))
+        .unwrap_or(schema.span.start.line)
 }
 
 fn format_function(out: &mut String, comments: &LineComments, function: &FunctionDecl) {

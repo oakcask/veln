@@ -1,8 +1,8 @@
 use veln_source::{SourceSpan, TextRange};
 
 use crate::{
-    BodyLine, FunctionDecl, ModuleDecl, PublicAliasDecl, SyntaxItem, Token, TokenKind, TypeDecl,
-    UseDecl,
+    BodyLine, FunctionDecl, ModuleDecl, PublicAliasDecl, SchemaDecl, SyntaxItem, Token, TokenKind,
+    TypeDecl, UseDecl,
 };
 
 #[derive(Clone, Debug)]
@@ -68,6 +68,7 @@ pub enum SyntaxNodeKind {
     UseDecl,
     FunctionDecl,
     TypeDecl,
+    SchemaDecl,
     PublicAliasDecl,
     FunctionSignature,
     ContractClause,
@@ -141,6 +142,7 @@ pub(crate) fn build_lossless_root(
     top_level.extend(items.iter().map(|item| match item {
         SyntaxItem::Function(function) => TopLevelNode::Function(function),
         SyntaxItem::Type(type_decl) => TopLevelNode::Type(type_decl),
+        SyntaxItem::Schema(schema) => TopLevelNode::Schema(schema),
         SyntaxItem::PublicAlias(alias) => TopLevelNode::PublicAlias(alias),
     }));
     top_level.sort_by_key(|node| node.range().start);
@@ -157,6 +159,11 @@ pub(crate) fn build_lossless_root(
             TopLevelNode::Type(type_decl) => token_node(
                 SyntaxNodeKind::TypeDecl,
                 span_range(&type_decl.span),
+                node_tokens,
+            ),
+            TopLevelNode::Schema(schema) => token_node(
+                SyntaxNodeKind::SchemaDecl,
+                span_range(&schema.span),
                 node_tokens,
             ),
             TopLevelNode::PublicAlias(alias) => token_node(
@@ -176,6 +183,7 @@ enum TopLevelNode<'a> {
     Use(TextRange),
     Function(&'a FunctionDecl),
     Type(&'a TypeDecl),
+    Schema(&'a SchemaDecl),
     PublicAlias(&'a PublicAliasDecl),
 }
 
@@ -185,6 +193,7 @@ impl TopLevelNode<'_> {
             Self::Module(range) | Self::Use(range) => *range,
             Self::Function(function) => span_range(&function.span),
             Self::Type(type_decl) => span_range(&type_decl.span),
+            Self::Schema(schema) => span_range(&schema.span),
             Self::PublicAlias(alias) => span_range(&alias.span),
         }
     }

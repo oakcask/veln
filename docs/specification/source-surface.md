@@ -6,8 +6,8 @@ smallest section to read before opening the full grammar notes.
 ## Read First
 
 - Source path derived local module identity, local and external package
-  imports, functions, tests, source ADT type declarations, public member
-  aliases, canonical
+  imports, functions, tests, source ADT type declarations, schema
+  declarations, public member aliases, canonical
   `#` comments, `##` documentation comments, doctests, ADR-lite metadata, and
   manifest dependency metadata plus `[lib].exports` source-file exports:
   [source-surface-full.md](source-surface-full.md).
@@ -41,6 +41,12 @@ smallest section to read before opening the full grammar notes.
 ## Grammar
 
 See [source-surface-full.md#grammar](source-surface-full.md#grammar).
+
+Top-level `schema Name` and `pub schema Name` declarations are implemented as
+source module items. The implemented schema body slice requires a single
+`format binary` clause before schema fields. Schema field lines contain a field
+name, `:`, and type text. Schema declarations do not create ordinary value
+bindings or ordinary type declarations.
 
 ## Expressions
 

@@ -7,8 +7,9 @@ use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
-    SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField,
-    TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
+    SchemaDecl, SchemaField, SchemaFormatClause, SyntaxItem, SyntaxTree, Token, TokenKind,
+    TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage,
+    Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -151,12 +152,16 @@ impl<'a> Parser<'a> {
                 items.push(SyntaxItem::PublicAlias(self.parse_public_alias()));
             } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Type) {
                 items.push(SyntaxItem::Type(self.parse_type_decl()));
+            } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Schema) {
+                items.push(SyntaxItem::Schema(self.parse_schema_decl()));
             } else if self.at(TokenKind::Pub) || self.at(TokenKind::Fn) {
                 items.push(SyntaxItem::Function(
                     self.parse_function_like(FunctionKind::Function),
                 ));
             } else if self.at(TokenKind::Type) {
                 items.push(SyntaxItem::Type(self.parse_type_decl()));
+            } else if self.at(TokenKind::Schema) {
+                items.push(SyntaxItem::Schema(self.parse_schema_decl()));
             } else if self.at(TokenKind::Test) {
                 items.push(SyntaxItem::Function(
                     self.parse_function_like(FunctionKind::Test),
@@ -164,9 +169,9 @@ impl<'a> Parser<'a> {
             } else {
                 self.error_current(
                     "parse.expected_item",
-                    "expected a function, test, or type declaration",
+                    "expected a function, test, type, or schema declaration",
                     "module",
-                    vec!["pub", "fn", "test", "type"],
+                    vec!["pub", "fn", "test", "type", "schema"],
                     RecoveryStrategy::SynchronizeToAnchor,
                     Some("fn"),
                 );
@@ -318,6 +323,147 @@ impl<'a> Parser<'a> {
             }
         }
         params
+    }
+
+    fn parse_schema_decl(&mut self) -> SchemaDecl {
+        let visibility = if self.eat(TokenKind::Pub).is_some() {
+            Visibility::Public
+        } else {
+            Visibility::Private
+        };
+        let start = self
+            .expect(TokenKind::Schema, "schema_declaration", vec!["schema"])
+            .range;
+        let name = self.expect_ident("schema_declaration", "schema name");
+        let header_cursor = self.cursor;
+        let header_end = self.expect_newline("schema_declaration").range;
+        if self.cursor == header_cursor {
+            self.skip_to_next_line();
+        }
+
+        let mut format = None;
+        let mut fields = Vec::new();
+        let mut end_present = false;
+        while !self.at(TokenKind::Eof) {
+            self.eat_newlines();
+            if self.at(TokenKind::End) {
+                self.bump();
+                end_present = true;
+                if self.at(TokenKind::Newline) {
+                    self.bump();
+                }
+                break;
+            }
+            if self.at(TokenKind::Eof) {
+                break;
+            }
+            if self.at(TokenKind::Format) {
+                let clause = self.parse_schema_format_clause(format.is_some());
+                if format.is_none() {
+                    format = Some(clause);
+                }
+            } else {
+                fields.push(self.parse_schema_field(format.is_some()));
+            }
+        }
+
+        if !end_present {
+            self.error_current(
+                "parse.expected_end",
+                "expected `end` to close schema declaration",
+                "schema_declaration",
+                vec!["end"],
+                RecoveryStrategy::CloseBlock,
+                Some("end"),
+            );
+        }
+
+        let end = self.previous().map_or(header_end, |token| token.range);
+        SchemaDecl {
+            visibility,
+            name,
+            format,
+            fields,
+            span: self.source.span(start.cover(end)),
+            end_present,
+        }
+    }
+
+    fn parse_schema_format_clause(&mut self, duplicate: bool) -> SchemaFormatClause {
+        let start = self
+            .expect(TokenKind::Format, "schema_format", vec!["format"])
+            .range;
+        if duplicate {
+            self.error_current(
+                "parse.schema_multiple_format",
+                "schema declaration has multiple format clauses",
+                "schema_format",
+                vec!["field", "end"],
+                RecoveryStrategy::SkipToken,
+                Some("end"),
+            );
+        }
+        let name_token = self.expect(TokenKind::Ident, "schema_format", vec!["binary"]);
+        if name_token.text != "binary" {
+            self.error_at_token(
+                &name_token,
+                DiagnosticRequest {
+                    id: "parse.schema_format_name",
+                    message: "schema format must be `binary`".to_string(),
+                    parser_context: "schema_format",
+                    expected: vec!["binary"],
+                    strategy: RecoveryStrategy::SkipToken,
+                    anchor: Some("newline"),
+                    repair_candidates: Vec::new(),
+                },
+            );
+        }
+        let end = self.expect_newline("schema_format").range;
+        SchemaFormatClause {
+            name: name_token.text,
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_schema_field(&mut self, has_format: bool) -> SchemaField {
+        let start = self.current().range;
+        if !has_format {
+            self.error_current(
+                "parse.schema_field_before_format",
+                "schema field appears before a format clause",
+                "schema_field",
+                vec!["format"],
+                RecoveryStrategy::InsertToken,
+                Some("format"),
+            );
+        }
+        let name = if self.at(TokenKind::Hole) {
+            let token = self.bump();
+            self.error_at_token(
+                &token,
+                DiagnosticRequest {
+                    id: "parse.schema_field_name",
+                    message: "schema field name cannot start with `_`".to_string(),
+                    parser_context: "schema_field",
+                    expected: vec!["field name"],
+                    strategy: RecoveryStrategy::SkipToken,
+                    anchor: Some(":"),
+                    repair_candidates: Vec::new(),
+                },
+            );
+            token.text
+        } else {
+            self.expect_ident("schema_field", "schema field name")
+                .unwrap_or_else(|| "<missing>".to_string())
+        };
+        self.expect(TokenKind::Colon, "schema_field", vec![":"]);
+        let ty = self.collect_type_until("schema_field", &[TokenKind::Newline, TokenKind::Eof]);
+        let end = self.expect_newline("schema_field").range;
+        SchemaField {
+            name,
+            ty,
+            span: self.source.span(start.cover(end)),
+        }
     }
 
     fn parse_type_variant(&mut self) -> TypeVariantDecl {
@@ -1113,6 +1259,7 @@ impl<'a> Parser<'a> {
             && !self.at(TokenKind::Pub)
             && !self.at(TokenKind::Fn)
             && !self.at(TokenKind::Type)
+            && !self.at(TokenKind::Schema)
             && !self.at(TokenKind::Test)
             && !self.at(TokenKind::End)
         {
@@ -1123,6 +1270,7 @@ impl<'a> Parser<'a> {
             TokenKind::Pub => Some("pub".to_string()),
             TokenKind::Fn => Some("fn".to_string()),
             TokenKind::Type => Some("type".to_string()),
+            TokenKind::Schema => Some("schema".to_string()),
             TokenKind::Test => Some("test".to_string()),
             TokenKind::End => Some("end".to_string()),
             TokenKind::Eof => None,

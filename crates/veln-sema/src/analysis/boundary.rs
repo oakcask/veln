@@ -1,6 +1,6 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
-use veln_ast::{PublicAliasKind, UseDecl};
+use veln_ast::{PublicAliasKind, SchemaDecl, UseDecl};
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -294,6 +294,180 @@ pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
         }
     }
     diagnostics
+}
+
+pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
+    for function in &module.functions {
+        let current_module = function.module_name.as_deref();
+        for param in &function.params {
+            if let Some(annotation) = &param.ty {
+                push_schema_type_reference_diagnostics(
+                    module,
+                    current_module,
+                    annotation,
+                    param.node_id.display("param"),
+                    param.span.clone(),
+                    "parameter_type",
+                    &mut diagnostics,
+                );
+            }
+        }
+        if let Some(return_type) = &function.return_type {
+            push_schema_type_reference_diagnostics(
+                module,
+                current_module,
+                return_type,
+                function.node_id.display(function.kind.node_prefix()),
+                function.span.clone(),
+                "return_type",
+                &mut diagnostics,
+            );
+        }
+        for line in &function.body {
+            let BodyLineKind::Let {
+                annotation: Some(annotation),
+                ..
+            } = &line.kind
+            else {
+                continue;
+            };
+            push_schema_type_reference_diagnostics(
+                module,
+                current_module,
+                annotation,
+                line.node_id.display("let"),
+                line.span.clone(),
+                "local_annotation",
+                &mut diagnostics,
+            );
+        }
+    }
+
+    for type_decl in &module.types {
+        let current_module = type_decl.module_name.as_deref();
+        for variant in &type_decl.variants {
+            for field in &variant.fields {
+                push_schema_type_reference_diagnostics(
+                    module,
+                    current_module,
+                    &field.ty,
+                    field.node_id.display("field"),
+                    field.span.clone(),
+                    "type_variant_field",
+                    &mut diagnostics,
+                );
+            }
+        }
+    }
+
+    diagnostics
+}
+
+fn push_schema_type_reference_diagnostics(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    annotation: &str,
+    node_id: String,
+    span: SourceSpan,
+    use_kind: &'static str,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let Ok(ty) = parse_type_annotation(annotation) else {
+        return;
+    };
+    let mut schemas = Vec::new();
+    collect_schema_type_references(module, current_module, &ty, &mut schemas);
+    for schema in schemas {
+        diagnostics.push(schema_type_reference_diagnostic(
+            schema,
+            node_id.clone(),
+            span.clone(),
+            use_kind,
+        ));
+    }
+}
+
+fn collect_schema_type_references<'a>(
+    module: &'a SurfaceModule,
+    current_module: Option<&str>,
+    ty: &Type,
+    schemas: &mut Vec<&'a SchemaDecl>,
+) {
+    match ty {
+        Type::Named { name, args } => {
+            if let Some(schema) = schema_for_type_name(module, current_module, name) {
+                schemas.push(schema);
+            }
+            for arg in args {
+                collect_schema_type_references(module, current_module, arg, schemas);
+            }
+        }
+        Type::Record(fields) => {
+            for (_, field_ty) in fields {
+                collect_schema_type_references(module, current_module, field_ty, schemas);
+            }
+        }
+        Type::Function {
+            params,
+            return_type,
+            ..
+        } => {
+            for param in params {
+                collect_schema_type_references(module, current_module, param, schemas);
+            }
+            collect_schema_type_references(module, current_module, return_type, schemas);
+        }
+        Type::Unknown => {}
+    }
+}
+
+fn schema_for_type_name<'a>(
+    module: &'a SurfaceModule,
+    current_module: Option<&str>,
+    name: &str,
+) -> Option<&'a SchemaDecl> {
+    let segments = name.split("::").map(str::to_string).collect::<Vec<_>>();
+    match segments.as_slice() {
+        [name] => module.schemas.iter().find(|schema| {
+            schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == current_module
+        }),
+        [_, .., name] => {
+            let module_name = imported_module_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            )?;
+            module.schemas.iter().find(|schema| {
+                schema.name.as_deref() == Some(name)
+                    && schema.module_name.as_deref() == Some(module_name)
+            })
+        }
+        _ => None,
+    }
+}
+
+fn schema_type_reference_diagnostic(
+    schema: &SchemaDecl,
+    node_id: String,
+    span: SourceSpan,
+    use_kind: &'static str,
+) -> Diagnostic {
+    let schema_name = schema.name.as_deref().unwrap_or("<missing>");
+    Diagnostic::new(
+        "type.schema_reference",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!("schema `{schema_name}` cannot be used as an ordinary type"),
+        Some(span),
+        JsonValue::object([
+            ("phase", JsonValue::string("type")),
+            ("node_id", JsonValue::string(node_id)),
+            ("schema", JsonValue::string(schema_name)),
+            ("use_kind", JsonValue::string(use_kind)),
+        ]),
+    )
 }
 
 fn function_target<'a>(

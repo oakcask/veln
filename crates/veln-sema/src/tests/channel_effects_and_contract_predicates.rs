@@ -292,6 +292,7 @@ fn infers_import_alias_call_effects_from_function_body() {
         module: main.module,
         uses: main.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: main.types.into_iter().chain(console.types).collect(),
         functions: main
             .functions
@@ -530,6 +531,7 @@ fn contract_predicate_accepts_qualified_pure_function_calls() {
         module: main.module,
         uses: main.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: main.types.into_iter().chain(rules.types).collect(),
         functions: main.functions.into_iter().chain(rules.functions).collect(),
     };
