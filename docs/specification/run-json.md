@@ -45,10 +45,13 @@ truncation, `details.byte_diagnostic` includes:
 - `available_count`: the byte count available in the view
 - `readiness: "need_bytes"`
 
-Named binary fixture cases can assert the same `byte_diagnostic` shape after a
+Named binary fixture cases can assert the same byte-stream facts after a
 fixture record decodes successfully. Invalid compact hex remains a
-`details.fixture_hex` failure; valid but short fixture bytes remain ordinary
-codec truncation without fixture hex details.
+`details.fixture_hex` failure. Valid fixture bytes that are too short for a
+closed-input read remain ordinary codec truncation without fixture hex details.
+Valid fixture bytes that fail a test-owned codec or protocol field check use
+fixture metadata for the diagnostic id, byte offset, structured field path,
+and consumed count where applicable.
 
 Other non-zero Java process exits use `error.kind: "runtime"` with
 `details.phase: "runtime"`. JDK setup failures use `error.kind: "runner"` with

@@ -74,4 +74,4 @@ byte_offset = 2
 expected_count = 3
 available_count = 2
 readiness = "need_bytes"
-field_path = "[]"
+field_path = []

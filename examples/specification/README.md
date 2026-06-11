@@ -287,6 +287,9 @@ against the built `veln` binary.
   decodes valid compact hex bytes that are intentionally too short for a
   fixed-width `ByteView` read; `case.toml` checks fixture-owned truncation
   facts separately from the `codec.incomplete_input` JSON details.
+- `run/binary-fixture-invalid-field/`: a named binary fixture record decodes
+  valid compact hex bytes and records a test-owned invalid field check with a
+  diagnostic id, byte offset, structured field path, and consumed count.
 - `run/binary-byteview/`: `ByteView` slices, fixed-width unsigned big-endian
   reads and writes, truncation failures, range failures, and conversion
   overflow failures, plus channel freeze preservation for bounded views.

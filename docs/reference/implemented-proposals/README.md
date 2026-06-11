@@ -64,6 +64,8 @@ behavior.
   [package-lockfile-sources.md](package-lockfile-sources.md).
 - File based modules and packages:
   [file-based-modules-and-packages.md](file-based-modules-and-packages.md).
+- Binary fixture helpers:
+  [binary-fixture-helpers.md](binary-fixture-helpers.md).
 
 ## Skip Unless Needed
 

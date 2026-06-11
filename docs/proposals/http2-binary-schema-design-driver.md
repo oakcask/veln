@@ -387,8 +387,9 @@ needs:
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   byte offsets, field paths, incomplete-input reports, invalid-input reports,
   and protocol-state context.
-- [Binary Fixture Helpers](binary-fixture-helpers.md): compact binary fixtures
-  for executable examples and stable diagnostic assertions.
+- [Binary Fixture Helpers](../reference/implemented-proposals/binary-fixture-helpers.md):
+  compact binary fixtures for executable examples and stable diagnostic
+  assertions.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): the
   concrete frame and state-machine slice that exercises the preceding design
   elements.

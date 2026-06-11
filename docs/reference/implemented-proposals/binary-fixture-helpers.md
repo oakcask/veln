@@ -1,12 +1,13 @@
 # Binary Fixture Helpers
 
-Status: proposed
+Status: implemented
 
-This proposal defines fixture helpers for binary examples and tests. It is a
-prerequisite for the HTTP/2 binary schema design driver because frame fixtures
-need compact, reviewable source data and stable expected output.
+This record preserves the completed proposal for binary example and test
+fixture helpers. Current behavior is specified by
+`../../specification/execution.md`, `../../specification/run-json.md`, and the
+checked cases under `../../../examples/specification/run/`.
 
-Implemented slices: `byte_chunk_from_hex(text)` decodes compact ASCII hex
+Implemented behavior: `byte_chunk_from_hex(text)` decodes compact ASCII hex
 fixture text into ordinary `ByteChunk` values and reports stable
 `fixture.hex.invalid_character` and `fixture.hex.odd_length` `Err(String)`
 values. When those fixture text validation failures propagate out of
@@ -18,9 +19,10 @@ counts, optional consumed counts, invalid fixture error text, and valid
 fixture bytes that are intentionally too short for a closed-input read.
 Executable specification case metadata can also assert named expected output
 `ByteChunk` lists as complete lowercase hex chunks, including multi-chunk
-order, zero-length chunks, and empty lists. The remaining proposal work covers
-invalid field cases and structured field paths for codec and protocol
-diagnostics.
+order, zero-length chunks, and empty lists. Named fixture metadata also covers
+valid decoded bytes that fail a codec or protocol field check, including the
+diagnostic id, byte offset, structured field path, and consumed count where the
+case has one.
 
 ## Problem
 
@@ -157,9 +159,9 @@ a separate implemented surface.
 - Do not require external test data.
 - Do not treat fixture helpers as general-purpose binary serialization APIs.
 
-## Completion Criteria
+## Completion Evidence
 
-- Remaining examples include named valid and invalid binary fixtures beyond
+- Examples include named valid and invalid binary fixtures beyond
   compact source text.
 - Codec and protocol fixture diagnostics with structured field paths are
   distinct from fixture text validation diagnostics.

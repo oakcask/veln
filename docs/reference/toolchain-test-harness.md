@@ -60,9 +60,10 @@ point behavior questions to the command specification.
 Use `[[binary_fixture]]` and `[[output_chunk_list]]` only for test-owned binary
 fixture evidence. Binary fixture records compare named program-output lines
 against complete lowercase hex, decoded counts, optional consumed counts,
-stable fixture errors, and truncation metadata. Output chunk lists compare a
-named, ordered sequence of complete lowercase hex chunks against consecutive
-program-output lines, including empty lists and zero-length chunks.
+stable fixture errors, and byte diagnostic metadata for truncation or invalid
+field checks. Output chunk lists compare a named, ordered sequence of complete
+lowercase hex chunks against consecutive program-output lines, including empty
+lists and zero-length chunks.
 
 ## Manifest Policy
 
