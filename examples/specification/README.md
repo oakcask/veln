@@ -283,6 +283,12 @@ against the built `veln` binary.
 - `run/binary-byteview/`: `ByteView` slices, fixed-width unsigned big-endian
   reads and writes, truncation failures, range failures, and conversion
   overflow failures, plus channel freeze preservation for bounded views.
+- `run/binary-byteview-read-failure-json/`: ByteView read truncation propagates
+  as a runtime `Result` failure through `run --json`.
+- `run/binary-byteview-range-failure-human/`: ByteView range failures propagate
+  stable error text through human `run` stderr.
+- `run/binary-byteview-write-failure-human/`: unsigned big-endian write
+  overflow propagates stable error text through human `run` stderr.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.

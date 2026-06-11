@@ -59,3 +59,8 @@ big-endian writes, truncation failures, range failures, and conversion
 overflow failures without relying on HTTP/2 or codec declarations. It also
 passes a `ByteView` through a channel and reads the received view to cover the
 ordinary immutable freeze boundary.
+
+The sibling failure cases under `../../examples/specification/run/` pin the
+runtime `Result` propagation shape for ByteView read truncation, ByteView range
+failure, and unsigned write conversion overflow in JSON and human command
+output.
