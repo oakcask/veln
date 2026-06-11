@@ -330,6 +330,9 @@ against the built `veln` binary.
   validation reports `schema.reserved_bits_mismatch` through `run --json`
   with byte offset, field path, bit width, expected value, actual value, and
   nearby bytes.
+- `run/codec-decode-step-vocabulary/`: ordinary source constructs and matches
+  `DecodeStep<T>`, `DecodeReadiness`, and `DecodeError` values for decoded,
+  need-more-input, and invalid-input decoder outcomes.
 - `run/http2-protocol-core/`: an ordinary-source HTTP/2 sans-I/O decode state
   handles chunk arrival, incomplete input, end-of-stream truncation, and a
   continuation ordering failure while projecting typed protocol failures into

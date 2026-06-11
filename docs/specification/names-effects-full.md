@@ -315,11 +315,32 @@ type StreamInput
 	Chunk(bytes: ByteChunk)
 	End
 end
+
+type DecodeError
+	DecodeError(id: String, offset: ByteOffset, field_path: String)
+end
+
+type DecodeReadiness
+	NeedBytes(count: ByteCount)
+	NeedEnd
+end
+
+type DecodeStep<T>
+	Decoded(value: T, consumed: ByteCount)
+	NeedMore(readiness: DecodeReadiness)
+	Invalid(error: DecodeError)
+end
 ```
 
 `StreamInput` is the source-visible incremental input event type. `Chunk`
 carries an ordinary immutable `ByteChunk`, including empty chunks, and `End`
 is the explicit end-of-stream event.
+
+`DecodeStep<T>` is the source-visible incremental decode transition type.
+`Decoded` carries the decoded value and consumed `ByteCount`, `NeedMore`
+carries `DecodeReadiness`, and `Invalid` carries a structured `DecodeError`.
+`NeedBytes` names the minimum buffered byte count required before retrying, and
+`NeedEnd` represents decoders that need an explicit end-of-stream event.
 
 `ByteView` is the source-visible bounded immutable byte view. Programs create
 checked views with `byte_view(chunk, offset, count)` and inspect the bounded

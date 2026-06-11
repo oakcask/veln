@@ -59,8 +59,12 @@ API needs the transition shape so it can remain restartable after every chunk.
 
 ## Discussion Result: Decode Transition Names
 
-Incremental decoders should return `DecodeStep<T>`. The public transition
-variants are `Decoded`, `NeedMore`, and `Invalid`.
+The initial source-visible vocabulary is implemented in
+`../specification/names-effects.md`: ordinary source can construct and match
+`DecodeStep<T>`, `DecodeReadiness`, and `DecodeError`. Remaining codec
+execution work should use `DecodeStep<T>` as the incremental decoder return
+shape. The public transition variants are `Decoded`, `NeedMore`, and
+`Invalid`.
 
 `Decoded` carries the decoded value and the consumed `ByteCount`. It does not
 mean the surrounding stream is complete; it only means this decoder accepted
