@@ -43,7 +43,9 @@ expected invalid-fixture error text without adding production standard-library
 API beyond `byte_chunk_from_hex`.
 
 The toolchain harness checks each named fixture through complete lowercase hex
-in `case.toml`, plus decoded byte count and optional consumed count. Invalid
-fixture records are checked by their stable error text. This is executable
-specification evidence for fixture ownership and expected-output comparison,
-not a public serialization surface.
+in `case.toml`, plus decoded byte count and optional consumed count. Valid
+fixture records keep the source-owned `ByteChunk` separate from the lowercase
+hex expectation used for machine comparison. Invalid fixture records are
+checked by their stable error text. This is executable specification evidence
+for fixture ownership and expected-output comparison, not a public
+serialization surface.

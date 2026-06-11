@@ -1,7 +1,7 @@
 use stdio
 
 fn valid_preface() -> Result<{ name : String, bytes : ByteChunk, expected_hex : String, expected_consumed : Option<ByteCount> }, String>
-	let bytes: ByteChunk = byte_chunk_from_hex("0001ff")?
+	let bytes: ByteChunk = byte_chunk([byte(0)?, byte(1)?, byte(255)?])
 	let consumed: ByteCount = byte_count(3)?
 	Ok({ name: "valid-preface", bytes: bytes, expected_hex: "0001ff", expected_consumed: Some(consumed) })
 end
