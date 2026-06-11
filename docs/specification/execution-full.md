@@ -112,7 +112,9 @@ still be intentionally too short for a closed-input `ByteView` read; in that
 case, `run --json` reports `codec.incomplete_input` rather than a fixture text
 validation failure. This fixture support is limited to executable
 specification evidence and does not add a production binary serialization or
-fixture API.
+fixture API. The same harness support can assert named output `ByteChunk`
+lists through complete lowercase hex chunks in `case.toml`, preserving chunk
+order and distinguishing empty lists from zero-length chunks.
 
 User-defined `fn` declarations are stack-safe for direct self-recursive chains
 when every direct self call appears in tail position and the function has no

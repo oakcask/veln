@@ -31,7 +31,8 @@ compare it with `../specification/` before changing behavior.
 - [Binary Fixture Helpers](binary-fixture-helpers.md): define remaining binary
   fixture helper work beyond compact hex byte chunks, structured fixture text
   validation details, and the implemented executable-specification named
-  fixture records with named truncated-input coverage.
+  fixture records, named truncated-input coverage, and expected output chunk
+  list checks.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   concrete pure protocol-core slice that exercises the binary schema work.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):

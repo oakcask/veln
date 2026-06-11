@@ -30,3 +30,15 @@ hex = "00040000000f000001"
 [[binary_fixture]]
 name = "bad-separator"
 error = "fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble"
+
+[[output_chunk_list]]
+name = "protocol-output"
+chunks = ["0001ff", "00040000000f000001"]
+
+[[output_chunk_list]]
+name = "empty-chunk"
+chunks = [""]
+
+[[output_chunk_list]]
+name = "no-output"
+chunks = []

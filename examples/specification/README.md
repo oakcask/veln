@@ -281,7 +281,8 @@ against the built `veln` binary.
 - `run/binary-fixture-records/`: test-owned named binary fixture records carry
   decoded byte chunks built in fixture source, optional consumed counts, and
   invalid fixture expectations; `case.toml` checks exact complete lowercase
-  hex output.
+  hex output plus named output chunk lists, including multi-chunk order,
+  zero-length chunks, and empty lists.
 - `run/binary-fixture-truncated-input-json/`: a named binary fixture record
   decodes valid compact hex bytes that are intentionally too short for a
   fixed-width `ByteView` read; `case.toml` checks fixture-owned truncation

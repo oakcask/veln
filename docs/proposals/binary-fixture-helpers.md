@@ -15,9 +15,12 @@ values. When those fixture text validation failures propagate out of
 specification cases can also own named binary fixture records in the example
 tree, with harness checks for complete lowercase hex output, decoded byte
 counts, optional consumed counts, invalid fixture error text, and valid
-fixture bytes that are intentionally too short for a closed-input read. The
-remaining proposal work covers invalid field cases, structured field paths for
-codec and protocol diagnostics, and protocol-facing fixture harness support.
+fixture bytes that are intentionally too short for a closed-input read.
+Executable specification case metadata can also assert named expected output
+`ByteChunk` lists as complete lowercase hex chunks, including multi-chunk
+order, zero-length chunks, and empty lists. The remaining proposal work covers
+invalid field cases and structured field paths for codec and protocol
+diagnostics.
 
 ## Problem
 
@@ -33,7 +36,6 @@ fixture support.
 
 Define remaining support for:
 
-- protocol-facing expected output chunk lists
 - invalid field cases
 - fixture diagnostics that can match codec and protocol field paths
 
@@ -161,7 +163,6 @@ a separate implemented surface.
   compact source text.
 - Codec and protocol fixture diagnostics with structured field paths are
   distinct from fixture text validation diagnostics.
-- Test cases can assert byte offsets, field paths, consumed counts, and output
-  chunks.
+- Test cases can assert byte offsets, field paths, and consumed counts.
 - The HTTP/2 design driver can add frame fixtures without unreadable byte-array
   noise.
