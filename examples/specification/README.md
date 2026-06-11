@@ -228,6 +228,12 @@ against the built `veln` binary.
   or values.
 - `check/schema-ordinary-use-diagnostics/`: schema declarations do not create
   ordinary value bindings.
+- `check/codec-declarations/`: accepted private and public top-level `codec`
+  declarations with explicit `decode` and `encode` directions, `derive`
+  clauses, and `with` clauses.
+- `check/codec-declaration-diagnostics/`: parser diagnostics for empty,
+  duplicate, and unknown codec direction lists plus missing, unlisted, and
+  duplicate implementation clauses.
 - `doc/generated-markdown/`: generated documentation from package and tool
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.
@@ -243,6 +249,8 @@ against the built `veln` binary.
   records, and idempotence.
 - `fmt/schema-declarations/`: canonical layout for schema headers,
   `format binary`, fields, field-local `where` predicates, and idempotence.
+- `fmt/codec-declarations/`: canonical layout for codec headers, direction
+  lists, implementation clauses, and idempotence.
 - `fmt/all-or-nothing/`: parse-failure write gate across multiple files.
 - `explain/known-diagnostic/`: known diagnostic explanation output.
 - `explain/list-catalog/`: implemented diagnostic catalog listing.
@@ -311,6 +319,17 @@ against the built `veln` binary.
   stable error text through human `run` stderr.
 - `run/binary-byteview-write-failure-human/`: unsigned big-endian write
   overflow propagates stable error text through human `run` stderr.
+- `run/binary-schema-frame-header-decode/`: the implemented binary schema
+  primitive decode slice consumes a frame-header `ByteView`, returns visible
+  exact-width fields as ordinary `Int` values, and omits the reserved field
+  from the mapped record.
+- `run/binary-schema-frame-header-truncated-json/`: frame-header schema decode
+  truncation reports `schema.truncated_field` through `run --json` with byte
+  offset, field path, byte counts, readiness, and nearby bytes.
+- `run/binary-schema-frame-header-reserved-json/`: frame-header reserved-bit
+  validation reports `schema.reserved_bits_mismatch` through `run --json`
+  with byte offset, field path, bit width, expected value, actual value, and
+  nearby bytes.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.

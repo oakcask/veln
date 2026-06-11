@@ -24,6 +24,11 @@ larger and less consistent with Veln's immutable value style.
 
 ## Scope
 
+The source-surface declaration slice is implemented in
+`../specification/source-surface.md`: top-level `codec` and `pub codec`
+items preserve explicit `decode` and `encode` directions plus `derive` and
+`with` body clauses, but do not execute codecs.
+
 Define codec support for:
 
 - decoding from `ByteView` plus an explicit input position
@@ -127,62 +132,30 @@ than references to the old buffer prefix.
 
 ## Discussion Result: Explicit Codec Directions
 
-Codec declarations should name exactly one schema and include a required
-direction list in the declaration head. The first direction keywords should be
-`decode` and `encode`; a declaration may list either one or both.
-
-```text
-codec Http2FrameHeaderCodec for Http2FrameHeader decode encode
-  derive decode
-  derive encode
-end
-```
+The source-surface direction list is implemented in
+`../specification/source-surface.md`. Codec declarations name exactly one
+schema and list `decode`, `encode`, or both in the declaration head.
 
 The direction list is the source-visible opt-in boundary. A `decode` direction
-authorizes the codec to expose a decoder for values produced from that schema,
-with `DecodeStep<T>` readiness and consumed-count behavior. An `encode`
-direction authorizes the codec to expose an encoder from the mapped Veln value
-back into immutable byte chunks. A declaration that lists both directions may
-share schema-derived checks and mapping facts, but each direction still has
-its own result shape and diagnostics.
+will authorize the executable codec layer to expose a decoder for values
+produced from that schema, with `DecodeStep<T>` readiness and consumed-count
+behavior. An `encode` direction will authorize the executable codec layer to
+expose an encoder from the mapped Veln value back into immutable byte chunks.
+A declaration that lists both directions may share schema-derived checks and
+mapping facts, but each direction still has its own result shape and
+diagnostics.
 
-The checker should reject an empty direction list, duplicate direction
-keywords, unknown directions, and directions that the named schema cannot
+Remaining checker work should reject directions that the named schema cannot
 support. For example, encoding is unavailable when schema mapping is not total
 or when a field can be decoded but cannot be reconstructed from the mapped
-value without an explicit encoder body.
-
-Generated codec bodies and hand-written codec bodies use the same declaration
-boundary. The declaration body states how each listed direction is implemented;
-importing or exporting the codec declaration must not silently add directions
-that are missing from its head.
+value without an explicit encoder body. Importing or exporting the codec
+declaration must not silently add directions that are missing from its head.
 
 ## Discussion Result: Codec Body Form
 
-Codec declaration bodies should contain one implementation clause for each
-direction listed in the declaration head. The first clause forms are
-`derive decode`, `derive encode`, `decode with <function>`, and
-`encode with <function>`.
-
-```text
-codec Http2FrameHeaderCodec for Http2FrameHeader decode encode
-  derive decode
-  derive encode
-end
-
-fn decode_http2_frame(input: ByteView, base: ByteOffset) -> DecodeStep<Frame>
-  ...
-end
-
-fn encode_http2_frame(frame: Frame) -> EncodeStep
-  ...
-end
-
-codec Http2FrameCodec for Http2Frame decode encode
-  decode with decode_http2_frame
-  encode with encode_http2_frame
-end
-```
+The source-surface body clause forms are implemented in
+`../specification/source-surface.md`: `derive decode`, `derive encode`,
+`decode with <function>`, and `encode with <function>`.
 
 `derive` asks the checker to generate that direction from the named schema,
 using the schema mapping and validation rules. A derived direction is accepted
@@ -199,25 +172,27 @@ bounded `ByteView` plus base `ByteOffset` and return `DecodeStep<T>`, while
 encoders consume the mapped Veln value and return the encode result shape
 accepted by this proposal.
 
-The checker should reject a missing implementation clause for a listed
-direction, a body clause for a direction absent from the declaration head,
-duplicate implementation clauses, and a derived or bound function whose result
-type does not match the schema mapping. Keeping hand-written logic in ordinary
-functions avoids nested function syntax inside `codec` while still giving
-modules one named codec item for imports, exports, fixtures, and diagnostics.
+The implemented parser rejects a missing implementation clause for a listed
+direction, a body clause for a direction absent from the declaration head, and
+duplicate implementation clauses. Remaining checker work should reject a
+derived or bound function whose result type does not match the schema mapping.
+Keeping hand-written logic in ordinary functions avoids nested function syntax
+inside `codec` while still giving modules one named codec item for imports,
+exports, fixtures, and diagnostics.
 
 ## Discussion Result: Codec Names And Imports
 
-Codec declarations should be named top-level items. The declaration name owns
-the executable codec boundary for one schema plus its explicit direction list;
-it is not derived from the schema name, and it does not synthesize separate
-top-level decoder or encoder functions.
+The source model now preserves named top-level codec items and their
+visibility. The declaration name owns the future executable codec boundary for
+one schema plus its explicit direction list; it is not derived from the schema
+name, and it does not synthesize separate top-level decoder or encoder
+functions.
 
-Visibility should follow the ordinary module item boundary. A private codec is
-usable only in its declaring module. A public codec is exposed through the
-declaring module path when that source module is exported by the package
-manifest. A `use` declaration lets an importing module reference the public
-codec item through the imported module path, without re-exporting it from the
+Remaining import and execution work should make a private codec usable only in
+its declaring module. A public codec should be exposed through the declaring
+module path when that source module is exported by the package manifest. A
+`use` declaration should let an importing module reference the public codec
+item through the imported module path, without re-exporting it from the
 importing module.
 
 Importing a codec imports the codec item only. It does not import the schema as
@@ -264,6 +239,8 @@ encoder state owns only the remaining encode work.
 
 ## Completion Criteria
 
+- Remaining proposal work starts after the implemented source-surface
+  declaration slice.
 - Examples show decode, encode, consumed byte counts, and `NeedMore` behavior.
 - Codec failures include structured diagnostic data.
 - Incremental examples keep only undecoded suffix bytes in parser state.

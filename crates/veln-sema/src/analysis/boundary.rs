@@ -1,6 +1,6 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
-use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, UseDecl};
+use veln_ast::{CodecDecl, PublicAliasKind, SchemaDecl, SchemaField, UseDecl};
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -262,6 +262,49 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
     diagnostics
 }
 
+pub(crate) fn check_duplicate_codec_names(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+
+    for codec in &module.codecs {
+        let Some(name) = &codec.name else {
+            continue;
+        };
+        let key = (codec.module_name.clone(), name.clone());
+        let node_id = codec.node_id.display("codec");
+        if let Some((first_node_id, first_span)) = seen.get(&key) {
+            diagnostics.push(duplicate_name_diagnostic(
+                name,
+                "codec",
+                "codec declaration",
+                node_id,
+                codec.span.clone(),
+                first_node_id.clone(),
+                first_span,
+            ));
+        } else {
+            seen.insert(key, (node_id, codec.span.clone()));
+        }
+    }
+
+    diagnostics
+}
+
+pub(crate) fn check_codec_schema_references(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
+    for codec in &module.codecs {
+        let Some(schema_name) = &codec.schema else {
+            continue;
+        };
+        if schema_for_type_name(module, codec.module_name.as_deref(), schema_name).is_none() {
+            diagnostics.push(unresolved_codec_schema_diagnostic(codec, schema_name));
+        }
+    }
+
+    diagnostics
+}
+
 pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     for alias in &module.aliases {
@@ -294,6 +337,22 @@ pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
         }
     }
     diagnostics
+}
+
+fn unresolved_codec_schema_diagnostic(codec: &CodecDecl, schema_name: &str) -> Diagnostic {
+    Diagnostic::new(
+        "name.unresolved",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("unresolved codec schema `{schema_name}`"),
+        Some(codec.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::string(codec.node_id.display("codec"))),
+            ("expected_kind", JsonValue::string("schema")),
+            ("target", JsonValue::string(schema_name.to_string())),
+        ]),
+    )
 }
 
 pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagnostic> {

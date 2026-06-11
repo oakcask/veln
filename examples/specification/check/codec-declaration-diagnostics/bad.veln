@@ -1,0 +1,34 @@
+schema Header
+  format binary
+
+  length: UInt8
+end
+
+codec Empty for Header
+end
+
+codec DuplicateDirection for Header decode decode
+  derive decode
+end
+
+codec UnknownDirection for Header decode inspect
+  derive decode
+end
+
+codec MissingImplementation for Header decode encode
+  derive decode
+end
+
+codec UnlistedImplementation for Header decode
+  derive decode
+  derive encode
+end
+
+codec DuplicateImplementation for Header decode
+  derive decode
+  decode with decode_header
+end
+
+fn decode_header() -> ()
+  ()
+end

@@ -226,12 +226,17 @@ impl<'a> Classifier<'a> {
                 TokenKind::Schema => {
                     self.collect_schema_header(&mut semantic_tokens);
                 }
+                TokenKind::Codec => {
+                    self.collect_codec_header(&mut semantic_tokens);
+                }
                 TokenKind::Fn | TokenKind::Test => {
                     self.collect_function_header(&mut semantic_tokens);
                 }
                 TokenKind::Pub => {
                     if self.next_significant_kind() == Some(TokenKind::Schema) {
                         self.collect_schema_header(&mut semantic_tokens);
+                    } else if self.next_significant_kind() == Some(TokenKind::Codec) {
+                        self.collect_codec_header(&mut semantic_tokens);
                     } else {
                         self.collect_function_header(&mut semantic_tokens);
                     }
@@ -283,6 +288,35 @@ impl<'a> Classifier<'a> {
                 SemanticTokenType::Type,
                 &[SemanticTokenModifier::Declaration],
             ));
+            self.cursor += 1;
+        }
+    }
+
+    fn collect_codec_header(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        self.params.clear();
+        self.locals.clear();
+        while self.at(TokenKind::Pub) || self.at(TokenKind::Codec) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
+            self.cursor += 1;
+            self.skip_trivia();
+        }
+        if self.at(TokenKind::Ident) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.modified(
+                token,
+                SemanticTokenType::Function,
+                &[SemanticTokenModifier::Declaration],
+            ));
+            self.cursor += 1;
+        }
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            let token = &self.tokens[self.cursor];
+            if matches!(token.kind, TokenKind::Decode | TokenKind::Encode) {
+                semantic_tokens.push(self.simple(token, SemanticTokenType::EnumMember));
+            } else if let Some(classified) = self.classify_current_token() {
+                semantic_tokens.push(classified);
+            }
             self.cursor += 1;
         }
     }
@@ -495,6 +529,12 @@ impl<'a> Classifier<'a> {
             | TokenKind::Fn
             | TokenKind::Type
             | TokenKind::Schema
+            | TokenKind::Codec
+            | TokenKind::For
+            | TokenKind::Decode
+            | TokenKind::Encode
+            | TokenKind::Derive
+            | TokenKind::With
             | TokenKind::Format
             | TokenKind::Where
             | TokenKind::Test

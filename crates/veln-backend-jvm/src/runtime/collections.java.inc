@@ -276,6 +276,91 @@
         return err(message);
     }
 
+    public static Object byteDecodeHttp2FrameHeader(Object view) {
+        Object boundsError = byteViewBoundsError(
+            byteChunkBytes(byteViewChunk(view)),
+            byteViewOffset(view),
+            byteViewCount(view)
+        );
+        if (boundsError != null) {
+            return boundsError;
+        }
+
+        Object lengthRead = schemaReadUnsignedBe(
+            view,
+            0,
+            3,
+            0xffffffL,
+            "Http2FrameHeader",
+            "length"
+        );
+        if (isErr(lengthRead)) {
+            return lengthRead;
+        }
+        Object kindRead = schemaReadUnsignedBe(
+            view,
+            3,
+            1,
+            0xffL,
+            "Http2FrameHeader",
+            "kind"
+        );
+        if (isErr(kindRead)) {
+            return kindRead;
+        }
+        Object flagsRead = schemaReadUnsignedBe(
+            view,
+            4,
+            1,
+            0xffL,
+            "Http2FrameHeader",
+            "flags"
+        );
+        if (isErr(flagsRead)) {
+            return flagsRead;
+        }
+        Object streamRead = schemaReadUnsignedBe(
+            view,
+            5,
+            4,
+            0xffffffffL,
+            "Http2FrameHeader",
+            "stream_id"
+        );
+        if (isErr(streamRead)) {
+            return streamRead;
+        }
+
+        long rawStream = asLong(unwrapOk(streamRead));
+        long actualReserved = (rawStream >>> 31) & 0x01L;
+        if (actualReserved != 0L) {
+            long offset = byteViewOffset(view) + 5L;
+            String message = "reserved bits mismatch at byte offset " + offset;
+            registerSchemaReservedBitsMismatchDiagnostic(
+                message,
+                offset,
+                "Http2FrameHeader",
+                "stream_reserved",
+                1L,
+                0L,
+                actualReserved,
+                byteViewContextHex(view, 8)
+            );
+            return err(message);
+        }
+
+        return ok(record(
+            "length",
+            unwrapOk(lengthRead),
+            "kind",
+            unwrapOk(kindRead),
+            "flags",
+            unwrapOk(flagsRead),
+            "stream_id",
+            Long.valueOf(rawStream & 0x7fffffffL)
+        ));
+    }
+
     public static Object byteReadU16Be(Object view) {
         return byteReadUnsignedBe(view, 2, 0xffffL, "byte_read_u16_be");
     }
@@ -311,6 +396,47 @@
         }
         if (value > maxValue) {
             return err(name + " value exceeds maximum " + maxValue);
+        }
+        return ok(Long.valueOf(value));
+    }
+
+    private static Object schemaReadUnsignedBe(
+        Object view,
+        int relativeOffset,
+        int width,
+        long maxValue,
+        String schemaName,
+        String fieldName
+    ) {
+        java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
+        long baseOffset = byteViewOffset(view);
+        long count = byteViewCount(view);
+        Object boundsError = byteViewBoundsError(bytes, baseOffset, count);
+        if (boundsError != null) {
+            return boundsError;
+        }
+        long available = Math.max(0L, count - relativeOffset);
+        if (available < width) {
+            long byteOffset = baseOffset + count;
+            String message = "truncated schema field `" + fieldName + "` at byte offset " + byteOffset;
+            registerSchemaTruncatedFieldDiagnostic(
+                message,
+                byteOffset,
+                schemaName,
+                fieldName,
+                width,
+                available,
+                byteViewContextHex(view, 8)
+            );
+            return err(message);
+        }
+
+        long value = 0;
+        for (int index = 0; index < width; index += 1) {
+            value = (value << 8) | byteValueLong(bytes.get((int) baseOffset + relativeOffset + index));
+        }
+        if (value > maxValue) {
+            return err("schema field `" + fieldName + "` value exceeds maximum " + maxValue);
         }
         return ok(Long.valueOf(value));
     }

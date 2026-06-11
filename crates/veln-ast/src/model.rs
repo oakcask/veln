@@ -24,6 +24,7 @@ pub struct SurfaceModule {
     pub aliases: Vec<PublicAlias>,
     pub types: Vec<TypeDecl>,
     pub schemas: Vec<SchemaDecl>,
+    pub codecs: Vec<CodecDecl>,
     pub functions: Vec<Function>,
 }
 
@@ -121,6 +122,47 @@ pub struct SchemaFieldWhereClause {
     pub node_id: NodeId,
     pub predicate: String,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct CodecDecl {
+    pub node_id: NodeId,
+    pub module_name: Option<String>,
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub schema: Option<String>,
+    pub directions: Vec<CodecDirection>,
+    pub implementations: Vec<CodecImplementationClause>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CodecDirection {
+    Decode,
+    Encode,
+}
+
+impl CodecDirection {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Decode => "decode",
+            Self::Encode => "encode",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CodecImplementationClause {
+    pub node_id: NodeId,
+    pub direction: CodecDirection,
+    pub kind: CodecImplementationKind,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub enum CodecImplementationKind {
+    Derive,
+    With { function: Option<String> },
 }
 
 #[derive(Clone, Debug)]

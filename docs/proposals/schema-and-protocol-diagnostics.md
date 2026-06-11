@@ -157,7 +157,11 @@ that name the failed representation fact. The first canonical ids are:
 - `schema.fixed_field_mismatch` for fixed fields whose decoded value differs
   from the schema requirement
 - `schema.reserved_bits_mismatch` for reserved bit fields whose actual bit
-  pattern differs from the required pattern
+  pattern differs from the required pattern; the frame-header
+  `ReservedBits(1, 0)` slice is implemented under `../specification/run-json.md`
+- `schema.truncated_field` for a schema field whose representation bytes are
+  unavailable; the frame-header primitive decode slice is implemented under
+  `../specification/run-json.md`
 - `schema.validation_failed` for a field-local schema `where` predicate that
   evaluates to false
 - `schema.dispatch_unknown_tag` for an unknown tag in a closed dispatch

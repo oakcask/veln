@@ -1,0 +1,10 @@
+schema Header
+  format binary
+
+  length: UInt8
+end
+
+codec HeaderDecode for Header decode
+  derive decode
+  decode with decode_header
+end

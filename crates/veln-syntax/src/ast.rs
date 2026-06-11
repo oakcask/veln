@@ -42,6 +42,7 @@ pub enum SyntaxItem {
     Function(FunctionDecl),
     Type(TypeDecl),
     Schema(SchemaDecl),
+    Codec(CodecDecl),
     PublicAlias(PublicAliasDecl),
 }
 
@@ -119,6 +120,45 @@ pub struct SchemaField {
 pub struct SchemaFieldWhereClause {
     pub predicate: String,
     pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct CodecDecl {
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub schema: Option<String>,
+    pub directions: Vec<CodecDirection>,
+    pub implementations: Vec<CodecImplementationClause>,
+    pub span: SourceSpan,
+    pub end_present: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CodecDirection {
+    Decode,
+    Encode,
+}
+
+impl CodecDirection {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Decode => "decode",
+            Self::Encode => "encode",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct CodecImplementationClause {
+    pub direction: CodecDirection,
+    pub kind: CodecImplementationKind,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub enum CodecImplementationKind {
+    Derive,
+    With { function: Option<String> },
 }
 
 #[derive(Clone, Debug)]

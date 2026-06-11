@@ -6,7 +6,7 @@ smallest section to read before opening the full grammar notes.
 ## Read First
 
 - Source path derived local module identity, local and external package
-  imports, functions, tests, source ADT type declarations, schema
+  imports, functions, tests, source ADT type declarations, schema and codec
   declarations, public member aliases, canonical
   `#` comments, `##` documentation comments, doctests, ADR-lite metadata, and
   manifest dependency metadata plus `[lib].exports` source-file exports:
@@ -50,9 +50,24 @@ schemas, `UInt8`, `UInt24be`, `UInt31be`, and `ReservedBits(width, value)` are
 accepted as schema primitives. `ReservedBits` arguments must be literal
 non-negative integers. These primitive names are representation-local field
 vocabulary, not ordinary source types or values. The predicate and primitive
-text are parsed and preserved as source-surface syntax; schema decode and
-encode execution is not implemented. Schema declarations do not create ordinary
-value bindings or ordinary type declarations.
+text are parsed and preserved as source-surface syntax. The implemented
+execution slice for these primitive names is limited to the frame-header
+decode behavior routed from [execution.md](execution.md). General schema
+decode, encode, dispatch, and value mapping are not implemented. Schema
+declarations do not create ordinary value bindings or ordinary type
+declarations.
+
+Top-level `codec Name for SchemaName ...` and
+`pub codec Name for SchemaName ...` declarations are implemented as source
+module items. A codec head lists one or both explicit directions, `decode` and
+`encode`. The body contains one implementation clause for each listed
+direction: `derive decode`, `derive encode`, `decode with function_name`, or
+`encode with function_name`. The parser reports declaration-shape errors for
+empty, unknown, or duplicate directions, missing clauses, clauses for unlisted
+directions, and duplicate clauses. The source model preserves codec visibility,
+schema ownership, directions, and body clauses for metadata, formatting, and
+editor support. Codec execution, generated decode or encode functions, and
+function signature checking for `with` clauses are not implemented.
 
 ## Expressions
 

@@ -147,6 +147,10 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             ],
             adt::result_type(Type::int(), Type::string()),
         )),
+        "byte_decode_http2_frame_header" => Some((
+            vec![byte_view.clone()],
+            adt::result_type(http2_frame_header_type(), Type::string()),
+        )),
         "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
         | "byte_read_u32_be" => Some((
             vec![byte_view.clone()],
@@ -169,6 +173,15 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
         "byte_offset_to_int" => Some((vec![byte_offset], Type::int())),
         _ => None,
     }
+}
+
+fn http2_frame_header_type() -> Type {
+    Type::Record(vec![
+        ("length".to_string(), Type::int()),
+        ("kind".to_string(), Type::int()),
+        ("flags".to_string(), Type::int()),
+        ("stream_id".to_string(), Type::int()),
+    ])
 }
 
 fn prelude_string_signature(name: &str) -> Option<(Vec<Type>, Type)> {
@@ -715,6 +728,10 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             ],
             adt::core_result_type(CoreType::int(), CoreType::string()),
         )),
+        "byte_decode_http2_frame_header" => Some((
+            vec![byte_view.clone()],
+            adt::core_result_type(core_http2_frame_header_type(), CoreType::string()),
+        )),
         "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
         | "byte_read_u32_be" => Some((
             vec![byte_view.clone()],
@@ -737,6 +754,15 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
         "byte_offset_to_int" => Some((vec![byte_offset], CoreType::int())),
         _ => None,
     }
+}
+
+fn core_http2_frame_header_type() -> CoreType {
+    CoreType::Record(vec![
+        ("length".to_string(), CoreType::int()),
+        ("kind".to_string(), CoreType::int()),
+        ("flags".to_string(), CoreType::int()),
+        ("stream_id".to_string(), CoreType::int()),
+    ])
 }
 
 fn core_prelude_string_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {

@@ -4,7 +4,8 @@ use veln_source::{SourceFile, SourceSpan, TextRange};
 
 use crate::tree::build_lossless_root;
 use crate::{
-    AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
+    AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, CodecDecl, CodecDirection,
+    CodecImplementationClause, CodecImplementationKind, ContractClause, ContractKind, DictEntry,
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
     SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SyntaxItem, SyntaxTree,
@@ -154,6 +155,8 @@ impl<'a> Parser<'a> {
                 items.push(SyntaxItem::Type(self.parse_type_decl()));
             } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Schema) {
                 items.push(SyntaxItem::Schema(self.parse_schema_decl()));
+            } else if self.at(TokenKind::Pub) && self.peek_at(TokenKind::Codec) {
+                items.push(SyntaxItem::Codec(self.parse_codec_decl()));
             } else if self.at(TokenKind::Pub) || self.at(TokenKind::Fn) {
                 items.push(SyntaxItem::Function(
                     self.parse_function_like(FunctionKind::Function),
@@ -162,6 +165,8 @@ impl<'a> Parser<'a> {
                 items.push(SyntaxItem::Type(self.parse_type_decl()));
             } else if self.at(TokenKind::Schema) {
                 items.push(SyntaxItem::Schema(self.parse_schema_decl()));
+            } else if self.at(TokenKind::Codec) {
+                items.push(SyntaxItem::Codec(self.parse_codec_decl()));
             } else if self.at(TokenKind::Test) {
                 items.push(SyntaxItem::Function(
                     self.parse_function_like(FunctionKind::Test),
@@ -169,9 +174,9 @@ impl<'a> Parser<'a> {
             } else {
                 self.error_current(
                     "parse.expected_item",
-                    "expected a function, test, type, or schema declaration",
+                    "expected a function, test, type, schema, or codec declaration",
                     "module",
-                    vec!["pub", "fn", "test", "type", "schema"],
+                    vec!["pub", "fn", "test", "type", "schema", "codec"],
                     RecoveryStrategy::SynchronizeToAnchor,
                     Some("fn"),
                 );
@@ -507,6 +512,249 @@ impl<'a> Parser<'a> {
         SchemaFieldWhereClause {
             predicate: normalize_collected_text(parts),
             span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_codec_decl(&mut self) -> CodecDecl {
+        let visibility = if self.eat(TokenKind::Pub).is_some() {
+            Visibility::Public
+        } else {
+            Visibility::Private
+        };
+        let start = self
+            .expect(TokenKind::Codec, "codec_declaration", vec!["codec"])
+            .range;
+        let name = self.expect_ident("codec_declaration", "codec name");
+        self.expect(TokenKind::For, "codec_declaration", vec!["for"]);
+        let schema = self.expect_ident("codec_declaration", "schema name");
+        let directions = self.parse_codec_direction_list();
+        let header_cursor = self.cursor;
+        let header_end = self.expect_newline("codec_declaration").range;
+        if self.cursor == header_cursor {
+            self.skip_to_next_line();
+        }
+
+        let mut implementations = Vec::new();
+        let mut implemented_directions = Vec::new();
+        let mut end_present = false;
+        while !self.at(TokenKind::Eof) {
+            self.eat_newlines();
+            if self.at(TokenKind::End) {
+                self.bump();
+                end_present = true;
+                if self.at(TokenKind::Newline) {
+                    self.bump();
+                }
+                break;
+            }
+            if self.at(TokenKind::Eof) {
+                break;
+            }
+            if let Some(clause) =
+                self.parse_codec_implementation_clause(&directions, &mut implemented_directions)
+            {
+                implementations.push(clause);
+            }
+        }
+
+        for direction in &directions {
+            if !implemented_directions.contains(direction) {
+                self.error_current(
+                    "parse.codec_missing_implementation",
+                    format!(
+                        "codec declaration lists `{}` but has no implementation clause",
+                        direction.as_str()
+                    ),
+                    "codec_declaration",
+                    vec!["derive", "decode", "encode"],
+                    RecoveryStrategy::InsertToken,
+                    Some("end"),
+                );
+            }
+        }
+
+        if !end_present {
+            self.error_current(
+                "parse.expected_end",
+                "expected `end` to close codec declaration",
+                "codec_declaration",
+                vec!["end"],
+                RecoveryStrategy::CloseBlock,
+                Some("end"),
+            );
+        }
+
+        let end = self.previous().map_or(header_end, |token| token.range);
+        CodecDecl {
+            visibility,
+            name,
+            schema,
+            directions,
+            implementations,
+            span: self.source.span(start.cover(end)),
+            end_present,
+        }
+    }
+
+    fn parse_codec_direction_list(&mut self) -> Vec<CodecDirection> {
+        let mut directions = Vec::new();
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            let token = self.current().clone();
+            if let Some(direction) = self.codec_direction_from_current() {
+                self.bump();
+                if directions.contains(&direction) {
+                    self.error_at_token(
+                        &token,
+                        DiagnosticRequest {
+                            id: "parse.codec_duplicate_direction",
+                            message: format!(
+                                "codec direction `{}` is listed more than once",
+                                direction.as_str()
+                            ),
+                            parser_context: "codec_declaration",
+                            expected: vec!["decode", "encode", "newline"],
+                            strategy: RecoveryStrategy::SkipToken,
+                            anchor: Some("newline"),
+                            repair_candidates: Vec::new(),
+                        },
+                    );
+                } else {
+                    directions.push(direction);
+                }
+            } else {
+                self.bump();
+                self.error_at_token(
+                    &token,
+                    DiagnosticRequest {
+                        id: "parse.codec_unknown_direction",
+                        message: "codec direction must be `decode` or `encode`".to_string(),
+                        parser_context: "codec_declaration",
+                        expected: vec!["decode", "encode", "newline"],
+                        strategy: RecoveryStrategy::SkipToken,
+                        anchor: Some("newline"),
+                        repair_candidates: Vec::new(),
+                    },
+                );
+            }
+        }
+        if directions.is_empty() {
+            self.error_current(
+                "parse.codec_empty_directions",
+                "codec declaration lists no directions",
+                "codec_declaration",
+                vec!["decode", "encode"],
+                RecoveryStrategy::InsertToken,
+                Some("newline"),
+            );
+        }
+        directions
+    }
+
+    fn parse_codec_implementation_clause(
+        &mut self,
+        declared_directions: &[CodecDirection],
+        implemented_directions: &mut Vec<CodecDirection>,
+    ) -> Option<CodecImplementationClause> {
+        let start = self.current().range;
+        let (direction, direction_token, kind) = if self.eat(TokenKind::Derive).is_some() {
+            let Some((direction, direction_token)) =
+                self.parse_codec_clause_direction("derive direction")
+            else {
+                self.skip_to_next_line();
+                return None;
+            };
+            (direction, direction_token, CodecImplementationKind::Derive)
+        } else if let Some(direction) = self.codec_direction_from_current() {
+            let direction_token = self.bump();
+            self.expect(TokenKind::With, "codec_implementation", vec!["with"]);
+            let function = self.expect_ident("codec_implementation", "implementation function");
+            (
+                direction,
+                direction_token,
+                CodecImplementationKind::With { function },
+            )
+        } else {
+            self.error_current(
+                "parse.codec_implementation_clause",
+                "expected a codec implementation clause",
+                "codec_implementation",
+                vec!["derive", "decode", "encode", "end"],
+                RecoveryStrategy::SynchronizeToAnchor,
+                Some("newline"),
+            );
+            self.skip_to_next_line();
+            return None;
+        };
+
+        let end = self.expect_newline("codec_implementation").range;
+        if !declared_directions.contains(&direction) {
+            self.error_at_token(
+                &direction_token,
+                DiagnosticRequest {
+                    id: "parse.codec_unlisted_implementation",
+                    message: format!(
+                        "codec implementation clause uses `{}` but the declaration head does not list it",
+                        direction.as_str()
+                    ),
+                    parser_context: "codec_implementation",
+                    expected: vec![direction.as_str()],
+                    strategy: RecoveryStrategy::SkipToken,
+                    anchor: Some("newline"),
+                    repair_candidates: Vec::new(),
+                },
+            );
+        }
+        if implemented_directions.contains(&direction) {
+            self.error_at_token(
+                &direction_token,
+                DiagnosticRequest {
+                    id: "parse.codec_duplicate_implementation",
+                    message: format!(
+                        "codec implementation for `{}` is listed more than once",
+                        direction.as_str()
+                    ),
+                    parser_context: "codec_implementation",
+                    expected: vec!["end"],
+                    strategy: RecoveryStrategy::SkipToken,
+                    anchor: Some("newline"),
+                    repair_candidates: Vec::new(),
+                },
+            );
+        } else {
+            implemented_directions.push(direction);
+        }
+
+        Some(CodecImplementationClause {
+            direction,
+            kind,
+            span: self.source.span(start.cover(end)),
+        })
+    }
+
+    fn parse_codec_clause_direction(
+        &mut self,
+        expected: &'static str,
+    ) -> Option<(CodecDirection, Token)> {
+        if let Some(direction) = self.codec_direction_from_current() {
+            let token = self.bump();
+            return Some((direction, token));
+        }
+        self.error_current(
+            "parse.codec_unknown_direction",
+            format!("expected {expected} `decode` or `encode`"),
+            "codec_implementation",
+            vec!["decode", "encode"],
+            RecoveryStrategy::InsertToken,
+            Some("newline"),
+        );
+        None
+    }
+
+    fn codec_direction_from_current(&self) -> Option<CodecDirection> {
+        match self.current().kind {
+            TokenKind::Decode => Some(CodecDirection::Decode),
+            TokenKind::Encode => Some(CodecDirection::Encode),
+            _ => None,
         }
     }
 
@@ -1304,6 +1552,7 @@ impl<'a> Parser<'a> {
             && !self.at(TokenKind::Fn)
             && !self.at(TokenKind::Type)
             && !self.at(TokenKind::Schema)
+            && !self.at(TokenKind::Codec)
             && !self.at(TokenKind::Test)
             && !self.at(TokenKind::End)
         {
@@ -1315,6 +1564,7 @@ impl<'a> Parser<'a> {
             TokenKind::Fn => Some("fn".to_string()),
             TokenKind::Type => Some("type".to_string()),
             TokenKind::Schema => Some("schema".to_string()),
+            TokenKind::Codec => Some("codec".to_string()),
             TokenKind::Test => Some("test".to_string()),
             TokenKind::End => Some("end".to_string()),
             TokenKind::Eof => None,

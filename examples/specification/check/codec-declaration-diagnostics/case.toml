@@ -1,0 +1,13 @@
+command = ["check", "--json", "bad.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"parse.codec_empty_directions\"", "\"id\":\"parse.codec_duplicate_direction\"", "\"id\":\"parse.codec_unknown_direction\"", "\"id\":\"parse.codec_missing_implementation\"", "\"id\":\"parse.codec_unlisted_implementation\"", "\"id\":\"parse.codec_duplicate_implementation\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"

@@ -1,6 +1,8 @@
 use veln_source::SourceSpan;
 use veln_syntax::{
-    BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, ContractKind as SyntaxContractKind,
+    BinaryOp as SyntaxBinaryOp, BodyLine as SyntaxBodyLine, CodecDecl as SyntaxCodecDecl,
+    CodecDirection as SyntaxCodecDirection,
+    CodecImplementationKind as SyntaxCodecImplementationKind, ContractKind as SyntaxContractKind,
     DictEntry as SyntaxDictEntry, Expr as SyntaxExpr, ExprKind as SyntaxExprKind,
     FunctionDecl as SyntaxFunction, ModuleDecl as SyntaxModule, Pattern as SyntaxPattern,
     PatternKind as SyntaxPatternKind, PrefixOp as SyntaxPrefixOp,
@@ -10,7 +12,8 @@ use veln_syntax::{
 };
 
 use crate::{
-    BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
+    BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
+    CodecImplementationKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
     PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField,
     SchemaFieldWhereClause, SchemaFormatClause, SurfaceModule, TypeDecl, TypeVariantDecl,
@@ -56,6 +59,7 @@ impl AstBuilder {
             .collect();
         let mut types = Vec::new();
         let mut schemas = Vec::new();
+        let mut codecs = Vec::new();
         let mut functions = Vec::new();
         let mut aliases = Vec::new();
 
@@ -70,6 +74,9 @@ impl AstBuilder {
                 SyntaxItem::Schema(schema) => {
                     schemas.push(self.lower_schema_decl(schema, module_name.clone()));
                 }
+                SyntaxItem::Codec(codec) => {
+                    codecs.push(self.lower_codec_decl(codec, module_name.clone()));
+                }
                 SyntaxItem::PublicAlias(alias) => {
                     aliases.push(self.lower_public_alias(alias, module_name.clone()));
                 }
@@ -82,6 +89,7 @@ impl AstBuilder {
             aliases,
             types,
             schemas,
+            codecs,
             functions,
         }
     }
@@ -117,6 +125,13 @@ fn lower_binary_op(op: SyntaxBinaryOp) -> BinaryOp {
         SyntaxBinaryOp::Subtract => BinaryOp::Subtract,
         SyntaxBinaryOp::Multiply => BinaryOp::Multiply,
         SyntaxBinaryOp::Divide => BinaryOp::Divide,
+    }
+}
+
+fn lower_codec_direction(direction: SyntaxCodecDirection) -> CodecDirection {
+    match direction {
+        SyntaxCodecDirection::Decode => CodecDirection::Decode,
+        SyntaxCodecDirection::Encode => CodecDirection::Encode,
     }
 }
 
@@ -252,6 +267,47 @@ impl AstBuilder {
                 })
                 .collect(),
             span: schema.span.clone(),
+        }
+    }
+
+    fn lower_codec_decl(
+        &mut self,
+        codec: &SyntaxCodecDecl,
+        module_name: Option<String>,
+    ) -> CodecDecl {
+        CodecDecl {
+            node_id: self.alloc(),
+            module_name,
+            visibility: match codec.visibility {
+                SyntaxVisibility::Public => Visibility::Public,
+                SyntaxVisibility::Private => Visibility::Private,
+            },
+            name: codec.name.clone(),
+            schema: codec.schema.clone(),
+            directions: codec
+                .directions
+                .iter()
+                .copied()
+                .map(lower_codec_direction)
+                .collect(),
+            implementations: codec
+                .implementations
+                .iter()
+                .map(|implementation| CodecImplementationClause {
+                    node_id: self.alloc(),
+                    direction: lower_codec_direction(implementation.direction),
+                    kind: match &implementation.kind {
+                        SyntaxCodecImplementationKind::Derive => CodecImplementationKind::Derive,
+                        SyntaxCodecImplementationKind::With { function } => {
+                            CodecImplementationKind::With {
+                                function: function.clone(),
+                            }
+                        }
+                    },
+                    span: implementation.span.clone(),
+                })
+                .collect(),
+            span: codec.span.clone(),
         }
     }
 

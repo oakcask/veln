@@ -6,7 +6,8 @@ mod satisfy;
 
 pub use lower::{lower_surface_ast, lower_surface_ast_with_module_identity};
 pub use model::{
-    BinaryOp, BodyLine, BodyLineKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
+    BinaryOp, BodyLine, BodyLineKind, CodecDecl, CodecDirection, CodecImplementationClause,
+    CodecImplementationKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
     PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SatisfyClause, SchemaDecl,
     SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SurfaceModule, TypeDecl,

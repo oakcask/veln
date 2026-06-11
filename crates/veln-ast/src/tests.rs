@@ -263,6 +263,45 @@ fn lowers_schema_declarations_as_distinct_module_items() {
 }
 
 #[test]
+fn lowers_codec_declarations_as_distinct_module_items() {
+    let module = lower_source(concat!(
+        "pub codec Http2FrameHeaderCodec for Http2FrameHeader decode encode\n",
+        "  derive decode\n",
+        "  encode with encode_header\n",
+        "end\n",
+    ));
+
+    assert!(module.functions.is_empty());
+    assert!(module.types.is_empty());
+    assert!(module.schemas.is_empty());
+    assert_eq!(module.codecs.len(), 1);
+    let codec = &module.codecs[0];
+    assert_eq!(codec.node_id.display("codec"), "codec-1");
+    assert_eq!(codec.visibility, Visibility::Public);
+    assert_eq!(codec.name.as_deref(), Some("Http2FrameHeaderCodec"));
+    assert_eq!(codec.schema.as_deref(), Some("Http2FrameHeader"));
+    assert_eq!(
+        codec.directions,
+        vec![CodecDirection::Decode, CodecDirection::Encode]
+    );
+    assert_eq!(codec.implementations.len(), 2);
+    assert_eq!(
+        codec.implementations[0].node_id.display("codec_impl"),
+        "codec_impl-2"
+    );
+    assert_eq!(codec.implementations[0].direction, CodecDirection::Decode);
+    assert!(matches!(
+        codec.implementations[0].kind,
+        CodecImplementationKind::Derive
+    ));
+    assert_eq!(codec.implementations[1].direction, CodecDirection::Encode);
+    assert!(matches!(
+        &codec.implementations[1].kind,
+        CodecImplementationKind::With { function: Some(function) } if function == "encode_header"
+    ));
+}
+
+#[test]
 fn lowers_holes_to_node_id_backed_expression_nodes() {
     let module = lower_source("fn todo() -> ()\n  _answer\nend\n");
 

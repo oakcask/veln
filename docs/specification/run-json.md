@@ -56,6 +56,30 @@ When the result value is a schema fixed-field mismatch,
 - `actual_value`: the decoded byte value that was present
 - `nearby_context`: bounded lowercase hex bytes around the reported offset
 
+When the result value is a binary schema frame-header truncation,
+`details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "schema.truncated_field"`
+- `byte_offset`: the first missing decoded-stream `ByteOffset`
+- `field_path`: schema-local path segment objects with `kind` and `name`
+- `expected_count`: the required field byte count
+- `available_count`: the byte count available for that field
+- `readiness: "need_bytes"`
+- `nearby_context`: bounded lowercase hex bytes around the reported offset
+
+When the result value is a binary schema reserved-bit mismatch,
+`details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "schema.reserved_bits_mismatch"`
+- `byte_offset`: the decoded-stream `ByteOffset` of the reserved field
+- `field_path`: schema-local path segment objects with `kind` and `name`
+- `bit_width`: the reserved bit width
+- `expected_value`: the fixed bit pattern required by the schema field
+- `actual_value`: the decoded bit pattern that was present
+- `nearby_context`: bounded lowercase hex bytes around the reported offset
+
 Named binary fixture cases can assert the same byte-stream facts after a
 fixture record decodes successfully. Invalid compact hex remains a
 `details.fixture_hex` failure. Valid fixture bytes that are too short for a

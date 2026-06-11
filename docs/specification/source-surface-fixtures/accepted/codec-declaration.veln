@@ -1,0 +1,14 @@
+schema Header
+  format binary
+
+  length: UInt8
+end
+
+codec HeaderDecode for Header decode
+  derive decode
+end
+
+pub codec HeaderRoundTrip for Header decode encode
+  decode with decode_header
+  derive encode
+end
