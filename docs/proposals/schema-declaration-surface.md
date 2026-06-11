@@ -2,16 +2,17 @@
 
 Status: proposed
 
-This proposal defines the source syntax needed to declare schemas as external
-representation boundaries. It is a prerequisite for the HTTP/2 binary schema
-design driver because that driver needs a source-visible way to describe frame
-header layout before codec execution or protocol state rules can be tested.
+This proposal tracks remaining source syntax needed to declare schemas as
+external representation boundaries. The first top-level declaration slice is
+implemented as current behavior under `../specification/source-surface.md` and
+checked examples under `../../examples/specification/`.
 
 ## Problem
 
-Current source syntax has functions, tests, ADT type declarations, records,
-contracts, effects, imports, and public aliases. It does not have a top-level
-declaration for an external representation boundary.
+Current source syntax has a first top-level `schema` declaration slice with a
+single `format binary` clause and plain field declarations. It does not yet
+have schema-local validation, mapping, complete binary primitive semantics, or
+executable codec bindings.
 
 The HTTP/2 design driver needs a declaration that can say:
 
@@ -27,15 +28,22 @@ exercise.
 
 ## Scope
 
-Define source support for:
+The implemented first slice covers:
 
 - top-level `schema` declarations
 - named schema fields
 - field type annotations that may name schema primitives
+- schema visibility and module ownership rules for `schema` and `pub schema`
+- parser, AST, formatter, editor token, and documentation behavior for the
+  implemented source surface
+
+This proposal remains open for:
+
 - field-local validation clauses
 - mapping from schema fields to Veln values
-- schema visibility and module ownership rules
-- parser, AST, formatter, editor token, and documentation behavior
+- complete binary primitive semantics
+- schema references from executable codec declarations
+- schema-aware imports and references beyond ordinary public item ownership
 
 ## Discussion Result: Codec Binding Direction
 
@@ -206,10 +214,19 @@ the selected schema format.
 
 ## Completion Criteria
 
-- The accepted grammar includes schema declarations.
-- Parser, AST, formatter, and editor support understand schema declarations.
+Implemented:
+
+- The accepted grammar includes top-level `schema` and `pub schema`
+  declarations.
+- Parser, AST, formatter, and editor support understand the first declaration
+  slice.
 - Examples show schema declarations as boundary contracts, not ordinary types.
-- Diagnostics distinguish malformed schema syntax from failed schema
-  validation.
-- The HTTP/2 design driver can express its frame header boundary without using
+- Parser diagnostics distinguish malformed schema syntax from ordinary type and
+  value use.
+
+Remaining:
+
+- Schema validation diagnostics distinguish malformed schema syntax from failed
+  schema validation.
+- The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

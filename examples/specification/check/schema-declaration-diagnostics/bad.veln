@@ -4,3 +4,12 @@ schema BadHeader
   format binary
   _reserved: UInt8
 end
+
+schema
+  format binary
+  length: UInt24be
+end
+
+schema MissingEnd
+  format binary
+  length: UInt24be

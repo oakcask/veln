@@ -215,8 +215,9 @@ against the built `veln` binary.
   duplicate output fences, and missing expected failures.
 - `check/schema-declarations/`: accepted top-level `schema` and `pub schema`
   declarations with `format binary` fields.
-- `check/schema-declaration-diagnostics/`: parser diagnostics for schema
-  fields before `format`, multiple `format` clauses, and `_`-prefixed fields.
+- `check/schema-declaration-diagnostics/`: parser diagnostics for malformed
+  schema headers, missing `end`, fields before `format`, multiple `format`
+  clauses, and `_`-prefixed fields.
 - `check/schema-ordinary-use-diagnostics/`: schema declarations do not create
   ordinary value bindings.
 - `doc/generated-markdown/`: generated documentation from package and tool
