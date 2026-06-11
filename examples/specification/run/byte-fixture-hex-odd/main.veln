@@ -1,0 +1,14 @@
+# Compact hex fixtures reject a dangling final nibble.
+use stdio
+
+fn error_text(result: Result<ByteChunk, String>) -> String
+	match result
+		Ok(_) => "unexpected success"
+		Err(error) => error
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	stdio::println(error_text(byte_chunk_from_hex("001")))
+	Ok(())
+end

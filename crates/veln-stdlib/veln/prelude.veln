@@ -48,6 +48,10 @@ pub fn byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
 	end
 end
 
+pub fn byte_chunk_from_hex(text: String) -> Result<ByteChunk, String>
+	prelude_builtin::byte_chunk_from_hex(text)
+end
+
 pub fn byte_take(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 	prelude_builtin::byte_take(chunk, count)
 end

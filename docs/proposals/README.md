@@ -24,8 +24,9 @@ compare it with `../specification/` before changing behavior.
   declarations from executable decode and encode behavior.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define structured diagnostics for schema, codec, and protocol-state failures.
-- [Binary Fixture Helpers](binary-fixture-helpers.md): define compact binary
-  fixtures and stable expected-output support.
+- [Binary Fixture Helpers](binary-fixture-helpers.md): define remaining named
+  binary fixture records and stable expected-output support beyond compact hex
+  byte chunks.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   concrete pure protocol-core slice that exercises the binary schema work.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):

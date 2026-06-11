@@ -81,9 +81,13 @@ tail-call optimization guarantee.
 
 Standard byte chunk helpers are pure prelude runtime operations. The runtime
 constructs immutable `ByteChunk` values, computes `ByteCount`, appends chunks
-without mutating inputs, and returns `Result` failures for invalid byte values,
-negative counts or offsets, and slice or drop counts that exceed the chunk
-length. The exact host representation of byte chunks, counts, offsets, and
+without mutating inputs, decodes compact ASCII hex fixture text, and returns
+`Result` failures for invalid byte values, invalid hex fixture text, negative
+counts or offsets, and slice or drop counts that exceed the chunk length. Hex
+fixture decoding accepts ASCII hex byte pairs with ASCII whitespace between
+complete bytes only; invalid characters and dangling nibbles return stable
+fixture hex error ids with decoded byte offset and nibble position in the
+error text. The exact host representation of byte chunks, counts, offsets, and
 bytes is backend-owned.
 
 User-defined `fn` declarations are stack-safe for direct self-recursive chains
