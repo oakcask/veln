@@ -371,6 +371,19 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
     for schema in &module.schemas {
         let format_name = schema.format.as_ref().map(|format| format.name.as_str());
         for field in &schema.fields {
+            if let Some(primitive) = exact_width_binary_primitive_name(&field.ty) {
+                if format_name != Some("binary") {
+                    diagnostics.push(exact_width_schema_primitive_diagnostic(
+                        primitive,
+                        Some(schema),
+                        Some(field),
+                        field.node_id.display("schema-field"),
+                        field.span.clone(),
+                        "non_binary_format",
+                    ));
+                }
+                continue;
+            }
             let Some(primitive) = reserved_bits_primitive(&field.ty) else {
                 continue;
             };
@@ -409,6 +422,18 @@ fn push_schema_type_reference_diagnostics(
             use_kind,
         ));
     }
+    let mut primitives = Vec::new();
+    collect_exact_width_schema_primitive_references(&ty, &mut primitives);
+    for primitive in primitives {
+        diagnostics.push(exact_width_schema_primitive_diagnostic(
+            primitive,
+            None,
+            None,
+            node_id.clone(),
+            span.clone(),
+            use_kind,
+        ));
+    }
 }
 
 fn collect_schema_type_references<'a>(
@@ -440,6 +465,38 @@ fn collect_schema_type_references<'a>(
                 collect_schema_type_references(module, current_module, param, schemas);
             }
             collect_schema_type_references(module, current_module, return_type, schemas);
+        }
+        Type::Unknown => {}
+    }
+}
+
+fn collect_exact_width_schema_primitive_references<'a>(
+    ty: &'a Type,
+    primitives: &mut Vec<&'a str>,
+) {
+    match ty {
+        Type::Named { name, args } => {
+            if let Some(primitive) = exact_width_binary_primitive_name(name) {
+                primitives.push(primitive);
+            }
+            for arg in args {
+                collect_exact_width_schema_primitive_references(arg, primitives);
+            }
+        }
+        Type::Record(fields) => {
+            for (_, field_ty) in fields {
+                collect_exact_width_schema_primitive_references(field_ty, primitives);
+            }
+        }
+        Type::Function {
+            params,
+            return_type,
+            ..
+        } => {
+            for param in params {
+                collect_exact_width_schema_primitive_references(param, primitives);
+            }
+            collect_exact_width_schema_primitive_references(return_type, primitives);
         }
         Type::Unknown => {}
     }
@@ -489,6 +546,50 @@ fn schema_type_reference_diagnostic(
             ("schema", JsonValue::string(schema_name)),
             ("use_kind", JsonValue::string(use_kind)),
         ]),
+    )
+}
+
+pub(in crate::analysis) fn exact_width_binary_primitive_name(name: &str) -> Option<&'static str> {
+    match name {
+        "UInt8" => Some("UInt8"),
+        "UInt24be" => Some("UInt24be"),
+        "UInt31be" => Some("UInt31be"),
+        _ => None,
+    }
+}
+
+pub(in crate::analysis) fn exact_width_schema_primitive_diagnostic(
+    primitive: &str,
+    schema: Option<&SchemaDecl>,
+    field: Option<&SchemaField>,
+    node_id: String,
+    span: SourceSpan,
+    reason: &'static str,
+) -> Diagnostic {
+    let mut details = vec![
+        ("phase", JsonValue::string("schema")),
+        ("node_id", JsonValue::string(node_id)),
+        ("primitive", JsonValue::string(primitive.to_string())),
+        ("reason", JsonValue::string(reason)),
+    ];
+    if let Some(schema) = schema {
+        details.push((
+            "schema",
+            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
+        ));
+    }
+    if let Some(field) = field {
+        details.push(("field", JsonValue::string(field.name.clone())));
+    }
+    Diagnostic::new(
+        "schema.exact_width_primitive",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "binary schema primitive `{primitive}` can only be used in a `format binary` schema field"
+        ),
+        Some(span),
+        JsonValue::object(details),
     )
 }
 

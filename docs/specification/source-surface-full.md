@@ -82,16 +82,21 @@ ownership for the declaring module. The implemented schema body slice requires
 one `format binary` clause before any schema fields, followed by one or more
 `name: TypeText` field lines. A field line may end with a field-local `where`
 predicate after the type text, such as `padding_length: UInt8 where
-padding_length <= length`. Binary schema fields also accept the
-`ReservedBits(width, value)` primitive spelling when `width` and `value` are
-literal non-negative integers, such as `ReservedBits(1, 0)`. Missing arguments
-or non-literal arguments report `schema.reserved_bits_primitive`. The parser
-preserves the predicate and primitive text with the owning field for
-diagnostics and editor support, but schema decode and encode execution is not
-implemented. Field names must be ordinary identifiers; names beginning with
-`_` remain hole tokens and are rejected as schema field names. Schema
-declarations do not create ordinary value bindings, ordinary source ADT types,
-constructors, or executable decode or encode functions.
+padding_length <= length`. Binary schema fields also accept exact-width
+unsigned primitive names `UInt8`, `UInt24be`, and `UInt31be`; those names are
+schema-local representation vocabulary, not ordinary source types or values.
+Binary schema fields also accept the `ReservedBits(width, value)` primitive
+spelling when `width` and `value` are literal non-negative integers, such as
+`ReservedBits(1, 0)`. Exact-width primitive names used outside `format binary`
+schema field type positions report `schema.exact_width_primitive`. Missing
+`ReservedBits` arguments or non-literal arguments report
+`schema.reserved_bits_primitive`. The parser preserves the predicate and
+primitive text with the owning field for diagnostics and editor support, but
+schema decode and encode execution is not implemented. Field names must be
+ordinary identifiers; names beginning with `_` remain hole tokens and are
+rejected as schema field names. Schema declarations do not create ordinary
+value bindings, ordinary source ADT types, constructors, or executable decode
+or encode functions.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`

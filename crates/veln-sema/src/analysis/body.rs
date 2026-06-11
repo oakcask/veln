@@ -1,4 +1,7 @@
-use super::boundary::{duplicate_name_diagnostic, type_contains_unknown};
+use super::boundary::{
+    duplicate_name_diagnostic, exact_width_binary_primitive_name,
+    exact_width_schema_primitive_diagnostic, type_contains_unknown,
+};
 use super::repair_reasoning::*;
 use super::*;
 
@@ -2357,6 +2360,20 @@ impl<'a> FunctionChecker<'a> {
         symbol: &str,
         namespace: &'static str,
     ) {
+        if namespace == "value"
+            && let Some(primitive) = exact_width_binary_primitive_name(symbol)
+        {
+            self.diagnostics
+                .push(exact_width_schema_primitive_diagnostic(
+                    primitive,
+                    None,
+                    None,
+                    node_id.display("name"),
+                    span,
+                    "value_position",
+                ));
+            return;
+        }
         self.diagnostics.push(Diagnostic::new(
             "name.unresolved",
             Severity::Error,
