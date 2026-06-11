@@ -10,8 +10,8 @@ Implemented type annotations:
 - primitives: `Bool`, `Int`, `Float`, `String`, and `()`
 - built-in and descriptor-backed type constructors: `Option<T>`,
   `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`
-- standard prelude byte vocabulary names: `Byte`, `ByteChunk`, `ByteOffset`,
-  `ByteCount`, and `StreamInput`
+- standard prelude byte vocabulary names: `Byte`, `ByteChunk`, `ByteView`,
+  `ByteOffset`, `ByteCount`, and `StreamInput`
 - records: `{name: Type, ...}`
 - function types: `fn(T, ...) -> U` with optional `effects [name, ...]`
 - other named type paths with optional type arguments, unless they are one of
@@ -32,9 +32,10 @@ assignment, return, call, match, or other expected type determines the omitted
 parameter, inference reports an ambiguous constructor type.
 
 The standard prelude byte vocabulary uses `Byte` for one byte value,
-`ByteChunk` for an immutable owned byte sequence, `ByteCount` for byte lengths
-and consumed counts, `ByteOffset` for absolute byte offsets, and
-`StreamInput` for incremental input events. `StreamInput` is a public ADT with
+`ByteChunk` for an immutable owned byte sequence, `ByteView` for a bounded
+immutable view into byte data, `ByteCount` for byte lengths and consumed
+counts, `ByteOffset` for absolute byte offsets, and `StreamInput` for
+incremental input events. `StreamInput` is a public ADT with
 `Chunk(bytes: ByteChunk)` and `End` variants. A zero-length `ByteChunk` inside
 `Chunk` remains a chunk arrival and is not equivalent to `End`. The
 constructor layout of the other byte vocabulary types is not a public source

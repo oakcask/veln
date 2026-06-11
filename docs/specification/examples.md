@@ -49,3 +49,13 @@ hex expectation used for machine comparison. Invalid fixture records are
 checked by their stable error text. This is executable specification evidence
 for fixture ownership and expected-output comparison, not a public
 serialization surface.
+
+## Binary Byte Views
+
+The executable specification case
+`../../examples/specification/run/binary-byteview/` covers source-visible
+`ByteView` slices, checked unsigned big-endian reads, checked unsigned
+big-endian writes, truncation failures, range failures, and conversion
+overflow failures without relying on HTTP/2 or codec declarations. It also
+passes a `ByteView` through a channel and reads the received view to cover the
+ordinary immutable freeze boundary.
