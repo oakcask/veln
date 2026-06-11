@@ -1,0 +1,44 @@
+# Named binary fixtures can own valid bytes that are too short for a read.
+use stdio
+
+fn emit_consumed(consumed: Option<ByteCount>) -> () effects [stdio]
+	match consumed
+		Some(count) => stdio::print(int_to_string(byte_count_to_int(count)))
+		None => stdio::print("none")
+	end
+end
+
+fn emit_truncated_fixture(fixture: { name : String, bytes : ByteChunk, expected_hex : String, expected_consumed : Option<ByteCount>, byte_offset : ByteOffset, expected_count : ByteCount, available_count : ByteCount, readiness : String, field_path : String }) -> () effects [stdio]
+	stdio::print("fixture ")
+	stdio::print(fixture.name)
+	stdio::print(" hex ")
+	stdio::print(fixture.expected_hex)
+	stdio::print(" count ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(fixture.bytes))))
+	stdio::print(" consumed ")
+	emit_consumed(fixture.expected_consumed)
+	stdio::print(" offset ")
+	stdio::print(int_to_string(byte_offset_to_int(fixture.byte_offset)))
+	stdio::print(" expected ")
+	stdio::print(int_to_string(byte_count_to_int(fixture.expected_count)))
+	stdio::print(" available ")
+	stdio::print(int_to_string(byte_count_to_int(fixture.available_count)))
+	stdio::print(" readiness ")
+	stdio::print(fixture.readiness)
+	stdio::print(" field_path ")
+	stdio::println(fixture.field_path)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("0001")?
+	let consumed: ByteCount = byte_count(2)?
+	let offset: ByteOffset = byte_offset(0)?
+	let available: ByteCount = byte_count(2)?
+	let expected: ByteCount = byte_count(3)?
+	let diagnostic_offset: ByteOffset = byte_offset(2)?
+	let fixture = { name: "short-u24", bytes: bytes, expected_hex: "0001", expected_consumed: Some(consumed), byte_offset: diagnostic_offset, expected_count: expected, available_count: available, readiness: "need_bytes", field_path: "[]" }
+	emit_truncated_fixture(fixture)
+	let view: ByteView = byte_view(bytes, offset, available)?
+	let ignored: Int = byte_read_u24_be(view)?
+	Ok(())
+end

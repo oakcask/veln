@@ -14,10 +14,10 @@ values. When those fixture text validation failures propagate out of
 `ByteOffset`, nibble position, and nearby fixture text context. Executable
 specification cases can also own named binary fixture records in the example
 tree, with harness checks for complete lowercase hex output, decoded byte
-counts, optional consumed counts, and invalid fixture error text. The remaining
-proposal work covers truncated input cases, invalid field cases, structured
-field paths for codec and protocol diagnostics, and protocol-facing fixture
-harness support.
+counts, optional consumed counts, invalid fixture error text, and valid
+fixture bytes that are intentionally too short for a closed-input read. The
+remaining proposal work covers invalid field cases, structured field paths for
+codec and protocol diagnostics, and protocol-facing fixture harness support.
 
 ## Problem
 
@@ -34,7 +34,6 @@ fixture support.
 Define remaining support for:
 
 - protocol-facing expected output chunk lists
-- truncated input cases
 - invalid field cases
 - fixture diagnostics that can match codec and protocol field paths
 

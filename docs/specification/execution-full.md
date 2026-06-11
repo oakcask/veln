@@ -106,9 +106,13 @@ Executable specification cases may define named binary fixture records inside
 their example source or helper files. These test-owned records can carry the
 fixture name, decoded `ByteChunk`, optional consumed `ByteCount`, and expected
 invalid-fixture error text. The CLI toolchain harness compares their observable
-output with complete lowercase hex strings and stable error text from
-`case.toml`. This fixture support is limited to executable specification
-evidence and does not add a production binary serialization or fixture API.
+output with complete lowercase hex strings, stable truncation metadata, and
+stable error text from `case.toml`. A named fixture can decode successfully and
+still be intentionally too short for a closed-input `ByteView` read; in that
+case, `run --json` reports `codec.incomplete_input` rather than a fixture text
+validation failure. This fixture support is limited to executable
+specification evidence and does not add a production binary serialization or
+fixture API.
 
 User-defined `fn` declarations are stack-safe for direct self-recursive chains
 when every direct self call appears in tail position and the function has no

@@ -25,7 +25,10 @@ execution reference.
   `StreamInput` values execute as ordinary immutable ADT values.
 - Executable specification cases may keep named binary fixture records in the
   example tree; the harness checks complete lowercase hex output without
-  promoting a production fixture API.
+  promoting a production fixture API. Named fixture records can also represent
+  valid decoded bytes that are intentionally too short for a closed-input
+  `ByteView` read; those cases keep fixture-owned truncation facts in
+  metadata while `run --json` reports `codec.incomplete_input`.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior

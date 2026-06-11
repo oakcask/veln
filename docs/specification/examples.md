@@ -50,6 +50,13 @@ checked by their stable error text. This is executable specification evidence
 for fixture ownership and expected-output comparison, not a public
 serialization surface.
 
+`../../examples/specification/run/binary-fixture-truncated-input-json/` shows a
+named fixture record whose valid decoded bytes are intentionally too short for
+the read under test. The case metadata keeps the fixture name, complete
+lowercase hex, decoded byte count, expected consumed count, byte offset,
+expected byte count, available byte count, readiness, and empty direct-read
+field path separate from the `codec.incomplete_input` JSON assertion.
+
 ## Binary Byte Views
 
 The executable specification case
@@ -64,4 +71,6 @@ The sibling failure cases under `../../examples/specification/run/` pin the
 runtime `Result` propagation shape for ByteView read truncation, ByteView range
 failure, and unsigned write conversion overflow in JSON and human command
 output. The read-truncation JSON case also pins the `codec.incomplete_input`
-byte diagnostic details.
+byte diagnostic details. The named-fixture truncation case pins the same
+diagnostic shape while proving that valid fixture bytes fail as codec
+truncation, not as fixture text validation.

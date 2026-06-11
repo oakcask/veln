@@ -1,0 +1,77 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.phase"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.details.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "byte read requires 3 bytes but view has 2"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.kind"
+equals = "byte_diagnostic"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "codec.incomplete_input"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.kind"
+equals = "ByteOffset"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = []
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.expected_count"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.available_count"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.readiness"
+equals = "need_bytes"
+
+[[json_assert]]
+path = "stderr"
+equals = "Err(byte read requires 3 bytes but view has 2)\n"
+
+[[binary_fixture]]
+name = "short-u24"
+hex = "0001"
+consumed = 2
+byte_offset = 2
+expected_count = 3
+available_count = 2
+readiness = "need_bytes"
+field_path = "[]"
