@@ -165,7 +165,7 @@ fn run_human(
     let result_failure = result_failure_from_trace(&result_error_trace);
     let diagnostic = result_failure
         .as_ref()
-        .and_then(byte_result_failure_diagnostic);
+        .and_then(runtime_result_failure_diagnostic);
     if let (Some(failure), Some(diagnostic)) = (result_failure.as_ref(), diagnostic) {
         io::stdout()
             .write_all(&output.stdout)
@@ -178,6 +178,10 @@ fn run_human(
         forward_process_output(&output)?;
     }
     Ok(exit_code_from_status(output.status))
+}
+
+fn runtime_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
+    byte_result_failure_diagnostic(failure).or_else(|| protocol_result_failure_diagnostic(failure))
 }
 
 fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
@@ -290,6 +294,60 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             .push(note_json(format!("Field path: {field_path}.")));
     }
     Some(diagnostic)
+}
+
+fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
+    let details = json_object(&failure.details)?;
+    let protocol_diagnostic = json_field(details, "protocol_diagnostic")?;
+    let protocol_entries = json_object(protocol_diagnostic)?;
+    let id = json_string(protocol_entries, "id")?;
+    let byte_offset = byte_offset_value(protocol_entries)?;
+
+    match id.as_str() {
+        "http2.protocol.closed_with_pending" => {
+            let pending_count = json_number(protocol_entries, "pending_count")?;
+            let active_continuation = json_string(protocol_entries, "active_continuation")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("input ended with pending bytes at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Input end arrived while {pending_count} byte(s) remained undecoded."
+            )));
+            diagnostic.related.push(note_json(format!(
+                "Active continuation state: {active_continuation}."
+            )));
+            Some(diagnostic)
+        }
+        "http2.protocol.continuation_expected" => {
+            let actual_kind = json_number(protocol_entries, "actual_frame_kind")?;
+            let actual_stream = json_number(protocol_entries, "actual_stream_id")?;
+            let expected_stream = json_number(protocol_entries, "expected_stream_id")?;
+            let started_kind = json_number(protocol_entries, "started_frame_kind")?;
+            let started_offset = json_number(protocol_entries, "started_byte_offset")?;
+            let active_continuation = json_string(protocol_entries, "active_continuation")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("expected CONTINUATION frame at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Incoming frame kind {actual_kind} on stream {actual_stream} violated active continuation state `{active_continuation}`."
+            )));
+            diagnostic.related.push(note_json(format!(
+                "Pending header block started with frame kind {started_kind} at byte offset {started_offset} for stream {expected_stream}."
+            )));
+            Some(diagnostic)
+        }
+        _ => None,
+    }
 }
 
 fn byte_offset_value(entries: &[(String, JsonValue)]) -> Option<i64> {
@@ -579,6 +637,7 @@ mod tests {
             "short input".to_string(),
             None,
             Some(byte_diagnostic),
+            None,
         );
 
         let diagnostic =
@@ -634,6 +693,7 @@ mod tests {
             "fixed field mismatch at byte offset 0".to_string(),
             None,
             Some(byte_diagnostic),
+            None,
         );
 
         let diagnostic =
@@ -689,6 +749,7 @@ mod tests {
             "truncated schema field `stream_id` at byte offset 6".to_string(),
             None,
             Some(byte_diagnostic),
+            None,
         );
 
         let diagnostic =
@@ -747,6 +808,7 @@ mod tests {
             "reserved bits mismatch at byte offset 5".to_string(),
             None,
             Some(byte_diagnostic),
+            None,
         );
 
         let diagnostic =
@@ -771,8 +833,101 @@ mod tests {
     }
 
     #[test]
+    fn protocol_result_failure_diagnostic_projects_closed_input_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.closed_with_pending"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("pending_count", JsonValue::Number(4)),
+            ("input_event", JsonValue::string("end")),
+            ("active_continuation", JsonValue::string("none")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 input ended with 4 pending byte(s) at byte offset 0".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.closed_with_pending");
+        assert_eq!(
+            diagnostic.message,
+            "input ended with pending bytes at byte offset 0"
+        );
+        assert_eq!(diagnostic.related.len(), 2);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("4 byte(s) remained undecoded")
+        );
+        assert!(diagnostic.related[1].to_json().contains("none"));
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_continuation_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.continuation_expected"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("actual_frame_kind", JsonValue::Number(0)),
+            ("actual_stream_id", JsonValue::Number(1)),
+            ("expected_stream_id", JsonValue::Number(1)),
+            ("started_frame_kind", JsonValue::Number(1)),
+            ("started_byte_offset", JsonValue::Number(0)),
+            ("active_continuation", JsonValue::string("headers")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 expected CONTINUATION frame at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.continuation_expected");
+        assert_eq!(
+            diagnostic.message,
+            "expected CONTINUATION frame at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 2);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("frame kind 0 on stream 1")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("frame kind 1 at byte offset 0")
+        );
+    }
+
+    #[test]
     fn stderr_without_result_failure_line_keeps_user_stderr() {
-        let failure = TestFailure::result_with_details("short input".to_string(), None, None);
+        let failure = TestFailure::result_with_details("short input".to_string(), None, None, None);
         let stderr = b"user warning\nErr(short input)\n";
 
         assert_eq!(

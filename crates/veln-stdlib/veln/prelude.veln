@@ -89,6 +89,14 @@ pub fn byte_decode_http2_frame_header(view: ByteView) -> Result<{length: Int, ki
 	prelude_builtin::byte_decode_http2_frame_header(view)
 end
 
+pub fn http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String) -> Result<(), String>
+	prelude_builtin::http2_protocol_closed_with_pending(offset, pending_count, active_continuation)
+end
+
+pub fn http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String) -> Result<(), String>
+	prelude_builtin::http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation)
+end
+
 pub fn byte_read_u16_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u16_be(view)
 end

@@ -228,6 +228,20 @@ All design decisions listed for this proposal have discussion results above.
 Later implementation may split new follow-up proposals if source syntax or
 public API questions appear.
 
+## Implemented Slice
+
+The first ordinary-source executable slice is current behavior under
+`../specification/` and `../../examples/specification/run/http2-protocol-core/`,
+with command-facing diagnostic projection fixtures beside that case. It covers
+chunk arrival, incomplete input that waits for more bytes, end-of-stream
+truncation with pending bytes, and one continuation ordering failure. It keeps
+parser state as undecoded suffix bytes plus the next absolute byte offset after
+each consumed frame header, reuses the implemented frame-header primitive, and
+projects typed protocol failures into stable fixture output ids,
+`protocol_diagnostic` JSON details, and human related context.
+
+The remaining scope below is still planned work for the full protocol core.
+
 ## Non-Goals
 
 - Do not implement TLS, ALPN, socket listeners, or platform networking.
