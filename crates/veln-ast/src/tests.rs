@@ -222,7 +222,8 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         "  format binary\n",
         "\n",
         "  length: UInt24be\n",
-        "  kind: UInt8\n",
+        "  padding_length: UInt8 where padding_length <= length\n",
+        "  payload: ByteView(length - padding_length)\n",
         "end\n",
     ));
 
@@ -237,11 +238,22 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
-    assert_eq!(schema.fields.len(), 2);
+    assert_eq!(schema.fields.len(), 3);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
-    assert_eq!(schema.fields[1].name, "kind");
+    assert_eq!(schema.fields[1].name, "padding_length");
     assert_eq!(schema.fields[1].ty, "UInt8");
+    let where_clause = schema.fields[1]
+        .where_clause
+        .as_ref()
+        .expect("field should lower where clause");
+    assert_eq!(
+        where_clause.node_id.display("schema_field_where"),
+        "schema_field_where-5"
+    );
+    assert_eq!(where_clause.predicate, "padding_length <= length");
+    assert_eq!(schema.fields[2].name, "payload");
+    assert_eq!(schema.fields[2].ty, "ByteView(length - padding_length)");
 }
 
 #[test]

@@ -7,9 +7,9 @@ use crate::{
     AdrLiteAnchor, AdrLiteRecord, BinaryOp, BodyLine, ContractClause, ContractKind, DictEntry,
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
-    SchemaDecl, SchemaField, SchemaFormatClause, SyntaxItem, SyntaxTree, Token, TokenKind,
-    TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage,
-    Visibility, lex,
+    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SyntaxItem, SyntaxTree,
+    Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter,
+    UseDecl, UsePackage, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -457,11 +457,55 @@ impl<'a> Parser<'a> {
                 .unwrap_or_else(|| "<missing>".to_string())
         };
         self.expect(TokenKind::Colon, "schema_field", vec![":"]);
-        let ty = self.collect_type_until("schema_field", &[TokenKind::Newline, TokenKind::Eof]);
+        let ty = self.collect_type_until(
+            "schema_field",
+            &[TokenKind::Where, TokenKind::Newline, TokenKind::Eof],
+        );
+        let where_clause = self
+            .eat(TokenKind::Where)
+            .map(|where_token| self.parse_schema_field_where_clause(where_token));
         let end = self.expect_newline("schema_field").range;
         SchemaField {
             name,
             ty,
+            where_clause,
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_schema_field_where_clause(&mut self, where_token: Token) -> SchemaFieldWhereClause {
+        let start = where_token.range;
+        let mut end = start;
+        let mut parts = Vec::new();
+        let mut predicate_tokens = Vec::new();
+        while !self.at(TokenKind::Newline) && !self.at(TokenKind::Eof) {
+            let token = self.bump();
+            end = token.range;
+            parts.push(token.text.clone());
+            predicate_tokens.push(token);
+        }
+        if predicate_tokens.is_empty() {
+            self.error_current(
+                "parse.schema_field_where",
+                "expected schema field where predicate",
+                "schema_field",
+                vec!["predicate"],
+                RecoveryStrategy::InsertToken,
+                Some("newline"),
+            );
+        } else {
+            self.diagnostics.extend(
+                ContractPredicateParser::new(
+                    self.source,
+                    "schema_field_where",
+                    "parse.schema_field_where",
+                    &predicate_tokens,
+                )
+                .parse(),
+            );
+        }
+        SchemaFieldWhereClause {
+            predicate: normalize_collected_text(parts),
             span: self.source.span(start.cover(end)),
         }
     }

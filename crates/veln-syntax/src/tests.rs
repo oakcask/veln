@@ -256,7 +256,8 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "pub schema Http2FrameHeader\n",
             "  format binary\n",
             "  length: UInt24be\n",
-            "  kind: UInt8\n",
+            "  padding_length: UInt8 where padding_length <= length\n",
+            "  payload: ByteView(length - padding_length)\n",
             "end\n",
         ),
     );
@@ -273,11 +274,18 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
-    assert_eq!(schema.fields.len(), 2);
+    assert_eq!(schema.fields.len(), 3);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
-    assert_eq!(schema.fields[1].name, "kind");
+    assert_eq!(schema.fields[1].name, "padding_length");
     assert_eq!(schema.fields[1].ty, "UInt8");
+    let where_clause = schema.fields[1]
+        .where_clause
+        .as_ref()
+        .expect("field should carry where clause");
+    assert_eq!(where_clause.predicate, "padding_length <= length");
+    assert_eq!(schema.fields[2].name, "payload");
+    assert_eq!(schema.fields[2].ty, "ByteView(length - padding_length)");
     assert!(schema.end_present);
     assert_eq!(
         format_tree(&output.tree),
@@ -286,7 +294,8 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "\tformat binary\n",
             "\n",
             "\tlength: UInt24be\n",
-            "\tkind: UInt8\n",
+            "\tpadding_length: UInt8 where padding_length <= length\n",
+            "\tpayload: ByteView(length - padding_length)\n",
             "end\n",
         )
     );
@@ -302,6 +311,7 @@ fn reports_schema_declaration_syntax_diagnostics() {
             "  format binary\n",
             "  format binary\n",
             "  _reserved: UInt8\n",
+            "  broken: UInt8 where\n",
             "end\n",
         ),
     );
@@ -329,6 +339,14 @@ fn reports_schema_declaration_syntax_diagnostics() {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.id == "parse.schema_field_name"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.schema_field_where"),
         "{:#?}",
         output.diagnostics
     );
@@ -864,7 +882,7 @@ fn reports_extra_tokens_after_let_pattern() {
 fn lexes_number_string_hole_and_invalid_boundaries() {
     let source = SourceFile::new(
         "tokens.veln",
-        r#"1 1.5 1.foo "a\"b" @ test _ _name
+        r#"1 1.5 1.foo "a\"b" @ test where _ _name
 "#,
     );
 
@@ -887,6 +905,7 @@ fn lexes_number_string_hole_and_invalid_boundaries() {
             (TokenKind::String, r#""a\"b""#.to_string()),
             (TokenKind::Invalid, "@".to_string()),
             (TokenKind::Test, "test".to_string()),
+            (TokenKind::Where, "where".to_string()),
             (TokenKind::Underscore, "_".to_string()),
             (TokenKind::Hole, "_name".to_string()),
             (TokenKind::Newline, "\n".to_string()),
@@ -913,6 +932,7 @@ fn token_kind_labels_cover_every_surface_token() {
         (TokenKind::Type, "type"),
         (TokenKind::Schema, "schema"),
         (TokenKind::Format, "format"),
+        (TokenKind::Where, "where"),
         (TokenKind::Test, "test"),
         (TokenKind::Effects, "effects"),
         (TokenKind::Let, "let"),

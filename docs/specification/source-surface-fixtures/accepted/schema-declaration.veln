@@ -2,12 +2,14 @@ schema Http2FrameHeader
 	format binary
 
 	length: UInt24be
-	kind: UInt8
+	padding_length: UInt8 where padding_length <= length
+	payload: ByteView(length - padding_length)
 end
 
 pub schema PublicFrameHeader
 	format binary
 
 	length: UInt24be
-	kind: UInt8
+	padding_length: UInt8 where padding_length <= length
+	payload: ByteView(length - padding_length)
 end

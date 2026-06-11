@@ -214,10 +214,12 @@ against the built `veln` binary.
 - `check/doctest-metadata-diagnostics/`: unknown and invalid doctest metadata,
   duplicate output fences, and missing expected failures.
 - `check/schema-declarations/`: accepted top-level `schema` and `pub schema`
-  declarations with `format binary` fields.
+  declarations with `format binary` fields and field-local `where`
+  predicates.
 - `check/schema-declaration-diagnostics/`: parser diagnostics for malformed
   schema headers, missing `end`, fields before `format`, multiple `format`
-  clauses, and `_`-prefixed fields.
+  clauses, `_`-prefixed fields, and malformed field-local `where`
+  predicates.
 - `check/schema-ordinary-use-diagnostics/`: schema declarations do not create
   ordinary value bindings.
 - `doc/generated-markdown/`: generated documentation from package and tool
@@ -234,7 +236,7 @@ against the built `veln` binary.
   comments, contracts, match indentation, operators, postfix `?`, lists,
   records, and idempotence.
 - `fmt/schema-declarations/`: canonical layout for schema headers,
-  `format binary`, fields, and idempotence.
+  `format binary`, fields, field-local `where` predicates, and idempotence.
 - `fmt/all-or-nothing/`: parse-failure write gate across multiple files.
 - `explain/known-diagnostic/`: known diagnostic explanation output.
 - `explain/list-catalog/`: implemented diagnostic catalog listing.

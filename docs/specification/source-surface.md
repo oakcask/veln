@@ -45,8 +45,10 @@ See [source-surface-full.md#grammar](source-surface-full.md#grammar).
 Top-level `schema Name` and `pub schema Name` declarations are implemented as
 source module items. The implemented schema body slice requires a single
 `format binary` clause before schema fields. Schema field lines contain a field
-name, `:`, and type text. Schema declarations do not create ordinary value
-bindings or ordinary type declarations.
+name, `:`, type text, and an optional field-local `where` predicate. The
+predicate is parsed and preserved as source-surface syntax; schema decode and
+encode execution is not implemented. Schema declarations do not create ordinary
+value bindings or ordinary type declarations.
 
 ## Expressions
 

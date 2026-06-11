@@ -10,9 +10,9 @@ checked examples under `../../examples/specification/`.
 ## Problem
 
 Current source syntax has a first top-level `schema` declaration slice with a
-single `format binary` clause and plain field declarations. It does not yet
-have schema-local validation, mapping, complete binary primitive semantics, or
-executable codec bindings.
+single `format binary` clause, field declarations, and field-local `where`
+predicate syntax. It does not yet have runtime schema validation, mapping,
+complete binary primitive semantics, or executable codec bindings.
 
 The HTTP/2 design driver needs a declaration that can say:
 
@@ -39,7 +39,7 @@ The implemented first slice covers:
 
 This proposal remains open for:
 
-- field-local validation clauses
+- runtime evaluation of field-local validation clauses
 - mapping from schema fields to Veln values
 - complete binary primitive semantics
 - schema references from executable codec declarations
@@ -137,9 +137,10 @@ publish selected executable codecs, and a later alias proposal can add schema
 aliases with explicit wrong-kind diagnostics if real packages need that API
 shape.
 
-## Discussion Result: Field Validation Spelling
+## Discussion Result: Field Validation Semantics
 
-Schema field validation should be spelled as field-local `where` clauses:
+The implemented source surface accepts field-local `where` clauses on schema
+fields and preserves the predicate with the owning field:
 
 ```text
 schema PaddedPayload
@@ -151,11 +152,12 @@ schema PaddedPayload
 end
 ```
 
-A `where` clause belongs to the field it follows. It is checked after that
-field has been decoded and before later fields may reference the validated
-value. The predicate may name the current field and fields decoded earlier in
-the same schema. It must not name later fields, ordinary source bindings,
-runtime settings, connection state, stream state, or imported functions.
+The remaining validation semantics are not implemented. At decode time, a
+`where` clause should be checked after its field has been decoded and before
+later fields may reference the validated value. The predicate may name the
+current field and fields decoded earlier in the same schema. It must not name
+later fields, ordinary source bindings, runtime settings, connection state,
+stream state, or imported functions.
 
 The predicate language should reuse the familiar comparison, boolean, literal,
 field-reference, and arithmetic operators from contract predicates, but with a
@@ -218,8 +220,9 @@ Implemented:
 
 - The accepted grammar includes top-level `schema` and `pub schema`
   declarations.
+- Schema fields may carry field-local `where` predicates in source syntax.
 - Parser, AST, formatter, and editor support understand the first declaration
-  slice.
+  slices.
 - Examples show schema declarations as boundary contracts, not ordinary types.
 - Parser diagnostics distinguish malformed schema syntax from ordinary type and
   value use.
@@ -228,5 +231,6 @@ Remaining:
 
 - Schema validation diagnostics distinguish malformed schema syntax from failed
   schema validation.
+- Field-local `where` predicates are evaluated during schema decode.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

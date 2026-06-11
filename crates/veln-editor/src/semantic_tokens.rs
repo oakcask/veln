@@ -496,6 +496,7 @@ impl<'a> Classifier<'a> {
             | TokenKind::Type
             | TokenKind::Schema
             | TokenKind::Format
+            | TokenKind::Where
             | TokenKind::Test
             | TokenKind::Effects
             | TokenKind::Let
@@ -879,6 +880,7 @@ mod tests {
                 "  format binary\n",
                 "\n",
                 "  length: UInt24be\n",
+                "  padding_length: UInt8 where padding_length <= length\n",
                 "end\n",
             ),
         );
@@ -907,6 +909,11 @@ mod tests {
         assert!(tokens.contains(&(
             "binary".to_string(),
             SemanticTokenType::EnumMember,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "where".to_string(),
+            SemanticTokenType::Keyword,
             SemanticTokenModifiers::empty().bits()
         )));
     }

@@ -14,7 +14,8 @@ compare it with `../specification/` before changing behavior.
   standard-library design.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
-  `schema` and `pub schema` source-surface slice.
+  `schema` and `pub schema` declarations and field-local `where`
+  source-surface slice.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
