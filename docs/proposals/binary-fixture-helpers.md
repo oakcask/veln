@@ -6,13 +6,15 @@ This proposal defines fixture helpers for binary examples and tests. It is a
 prerequisite for the HTTP/2 binary schema design driver because frame fixtures
 need compact, reviewable source data and stable expected output.
 
-Implemented slice: `byte_chunk_from_hex(text)` decodes compact ASCII hex
+Implemented slices: `byte_chunk_from_hex(text)` decodes compact ASCII hex
 fixture text into ordinary `ByteChunk` values and reports stable
 `fixture.hex.invalid_character` and `fixture.hex.odd_length` `Err(String)`
-values. The remaining proposal work covers named binary fixture records,
-expected consumed byte counts, expected output chunks, truncated input cases,
-invalid field cases, fixture diagnostics with structured byte offsets and
-field paths, and protocol-facing fixture harness support.
+values. Executable specification cases can also own named binary fixture
+records in the example tree, with harness checks for complete lowercase hex
+output, decoded byte counts, optional consumed counts, and invalid fixture
+error text. The remaining proposal work covers truncated input cases, invalid
+field cases, fixture diagnostics with structured byte offsets and field paths,
+and protocol-facing fixture harness support.
 
 ## Problem
 
@@ -28,9 +30,7 @@ fixture support.
 
 Define remaining support for:
 
-- named binary fixture records
-- expected consumed byte counts
-- expected output chunks
+- protocol-facing expected output chunk lists
 - truncated input cases
 - invalid field cases
 - fixture diagnostics that can match byte offsets and field paths

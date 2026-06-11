@@ -94,6 +94,14 @@ Standard `StreamInput` values execute as ordinary immutable source ADT values:
 `Chunk(bytes)` preserves the supplied `ByteChunk`, including an empty chunk,
 and `End` is a separate nullary variant.
 
+Executable specification cases may define named binary fixture records inside
+their example source or helper files. These test-owned records can carry the
+fixture name, decoded `ByteChunk`, optional consumed `ByteCount`, and expected
+invalid-fixture error text. The CLI toolchain harness compares their observable
+output with complete lowercase hex strings and stable error text from
+`case.toml`. This fixture support is limited to executable specification
+evidence and does not add a production binary serialization or fixture API.
+
 User-defined `fn` declarations are stack-safe for direct self-recursive chains
 when every direct self call appears in tail position and the function has no
 runtime `ensure` or `invariant` clauses. The final expression of a

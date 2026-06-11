@@ -1,0 +1,32 @@
+command = ["run", "--json", "main", "main.veln", "fixtures.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[binary_fixture]]
+name = "valid-preface"
+hex = "0001ff"
+consumed = 3
+
+[[binary_fixture]]
+name = "valid-window-update"
+hex = "00040000000f000001"
+
+[[binary_fixture]]
+name = "bad-separator"
+error = "fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble"

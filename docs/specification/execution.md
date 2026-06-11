@@ -22,6 +22,9 @@ execution reference.
   return immutable chunk values or `Result` failures for invalid values,
   invalid compact hex fixture text, and out-of-bounds counts. Standard
   `StreamInput` values execute as ordinary immutable ADT values.
+- Executable specification cases may keep named binary fixture records in the
+  example tree; the harness checks complete lowercase hex output without
+  promoting a production fixture API.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior

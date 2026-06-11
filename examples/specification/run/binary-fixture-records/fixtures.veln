@@ -1,0 +1,57 @@
+use stdio
+
+fn valid_preface() -> Result<{ name : String, bytes : ByteChunk, expected_hex : String, expected_consumed : Option<ByteCount> }, String>
+	let bytes: ByteChunk = byte_chunk([byte(0)?, byte(1)?, byte(255)?])
+	let consumed: ByteCount = byte_count(3)?
+	Ok({ name: "valid-preface", bytes: bytes, expected_hex: "0001ff", expected_consumed: Some(consumed) })
+end
+
+fn valid_window_update() -> Result<{ name : String, bytes : ByteChunk, expected_hex : String, expected_consumed : Option<ByteCount> }, String>
+	let bytes: ByteChunk = byte_chunk_from_hex("00040000000f000001")?
+	Ok({ name: "valid-window-update", bytes: bytes, expected_hex: "00040000000f000001", expected_consumed: None })
+end
+
+fn bad_separator() -> { name : String, source : String, expected_error : String }
+	{ name: "bad-separator", source: "00_01", expected_error: "fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble" }
+end
+
+fn emit_consumed(consumed: Option<ByteCount>) -> () effects [stdio]
+	match consumed
+		Some(count) => stdio::print(int_to_string(byte_count_to_int(count)))
+		None => stdio::print("none")
+	end
+end
+
+fn emit_valid_fixture(fixture: { name : String, bytes : ByteChunk, expected_hex : String, expected_consumed : Option<ByteCount> }) -> () effects [stdio]
+	stdio::print("fixture ")
+	stdio::print(fixture.name)
+	stdio::print(" hex ")
+	stdio::print(fixture.expected_hex)
+	stdio::print(" count ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(fixture.bytes))))
+	stdio::print(" consumed ")
+	emit_consumed(fixture.expected_consumed)
+	stdio::println("")
+end
+
+fn emit_invalid_fixture(fixture: { name : String, source : String, expected_error : String }) -> () effects [stdio]
+	let actual: String = match byte_chunk_from_hex(fixture.source)
+		Ok(_) => "unexpected_ok"
+		Err(error) => error
+	end
+	let checked: String = match actual == fixture.expected_error
+		true => actual
+		false => "unexpected_error"
+	end
+	stdio::print("fixture ")
+	stdio::print(fixture.name)
+	stdio::print(" error ")
+	stdio::println(checked)
+end
+
+pub fn emit_binary_fixtures() -> Result<(), String> effects [stdio]
+	emit_valid_fixture(valid_preface()?)
+	emit_valid_fixture(valid_window_update()?)
+	emit_invalid_fixture(bad_separator())
+	Ok(())
+end

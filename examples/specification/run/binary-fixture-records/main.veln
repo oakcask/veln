@@ -1,0 +1,7 @@
+# Named binary fixtures stay owned by this executable specification case.
+use fixtures
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let ignored: () = fixtures::emit_binary_fixtures()?
+	Ok(())
+end

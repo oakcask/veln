@@ -351,6 +351,7 @@ struct CaseExpectations {
     json_assertions: Vec<JsonAssertion>,
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
+    binary_fixtures: Vec<BinaryFixtureExpectation>,
 }
 
 #[derive(Debug)]
@@ -433,12 +434,24 @@ impl CaseExpectations {
                 assert_diagnostic(context, json, diagnostic);
             }
         }
+
+        if !self.binary_fixtures.is_empty() {
+            let program_stdout = json
+                .as_ref()
+                .and_then(|json| json_path(json, "stdout"))
+                .and_then(JsonValue::as_str)
+                .unwrap_or(&output.stdout);
+            for fixture in &self.binary_fixtures {
+                assert_binary_fixture(context, program_stdout, fixture);
+            }
+        }
     }
 
     fn needs_stdout_json(&self) -> bool {
         self.stdout.format == Some(StreamFormat::Json)
             || !self.json_assertions.is_empty()
             || !self.diagnostics.is_empty()
+            || !self.binary_fixtures.is_empty()
     }
 
     fn assert_files_match(&self, context: &CaseRunContext<'_>, project_root: &Path) {
@@ -618,6 +631,20 @@ struct DiagnosticExpectation {
     span: Option<SpanExpectation>,
 }
 
+#[derive(Debug)]
+struct BinaryFixtureExpectation {
+    name: String,
+    bytes: Option<BinaryFixtureBytes>,
+    consumed: Option<usize>,
+    error: Option<String>,
+}
+
+#[derive(Debug)]
+struct BinaryFixtureBytes {
+    hex: String,
+    bytes: Vec<u8>,
+}
+
 #[derive(Debug, Default)]
 struct SpanExpectation {
     file: Option<String>,
@@ -745,6 +772,7 @@ enum Section {
     FileAssert(usize),
     Diagnostic(usize),
     DiagnosticSpan(usize),
+    BinaryFixture(usize),
     Requires,
     Skip,
     Env,
@@ -772,6 +800,7 @@ struct ManifestParser<'a> {
     json_assertions: Vec<JsonAssertion>,
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
+    binary_fixtures: Vec<BinaryFixtureExpectation>,
     tools: ToolSetup,
     requires: Requirements,
     skip: SkipRules,
@@ -793,6 +822,7 @@ impl<'a> ManifestParser<'a> {
             json_assertions: Vec::new(),
             file_assertions: Vec::new(),
             diagnostics: Vec::new(),
+            binary_fixtures: Vec::new(),
             tools: ToolSetup::default(),
             requires: Requirements::default(),
             skip: SkipRules::default(),
@@ -830,6 +860,7 @@ impl<'a> ManifestParser<'a> {
             "[[file_assert]]" => self.parse_file_assert_header(),
             "[[diagnostics]]" => self.parse_diagnostic_header(),
             "[diagnostics.span]" => self.parse_diagnostic_span_header(line_number),
+            "[[binary_fixture]]" => self.parse_binary_fixture_header(),
             _ => manifest_error(self.path, line_number, format!("unknown section `{line}`")),
         };
     }
@@ -883,6 +914,16 @@ impl<'a> ManifestParser<'a> {
         Section::DiagnosticSpan(index)
     }
 
+    fn parse_binary_fixture_header(&mut self) -> Section {
+        self.binary_fixtures.push(BinaryFixtureExpectation {
+            name: String::new(),
+            bytes: None,
+            consumed: None,
+            error: None,
+        });
+        Section::BinaryFixture(self.binary_fixtures.len() - 1)
+    }
+
     fn parse_section_key(&mut self, line_number: usize, key: &str, value: &str) {
         match self.section {
             Section::Root => self.parse_root_key(line_number, key, value),
@@ -914,6 +955,9 @@ impl<'a> ManifestParser<'a> {
             Section::Diagnostic(index) => self.parse_diagnostic_key(index, line_number, key, value),
             Section::DiagnosticSpan(index) => {
                 self.parse_diagnostic_span_key(index, line_number, key, value);
+            }
+            Section::BinaryFixture(index) => {
+                self.parse_binary_fixture_key(index, line_number, key, value)
             }
         }
     }
@@ -1047,6 +1091,31 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
+    fn parse_binary_fixture_key(
+        &mut self,
+        index: usize,
+        line_number: usize,
+        key: &str,
+        value: &str,
+    ) {
+        let fixture = &mut self.binary_fixtures[index];
+        match key {
+            "name" => fixture.name = parse_string(self.path, line_number, value),
+            "hex" => {
+                fixture.bytes = Some(parse_binary_fixture_hex(self.path, line_number, value));
+            }
+            "consumed" => {
+                fixture.consumed = Some(parse_nonnegative_usize(self.path, line_number, value));
+            }
+            "error" => fixture.error = Some(parse_string(self.path, line_number, value)),
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown binary_fixture key `{key}`"),
+            ),
+        }
+    }
+
     fn finish(self) -> CaseManifest {
         let manifest = CaseManifest {
             invocation: CaseInvocation {
@@ -1067,6 +1136,7 @@ impl<'a> ManifestParser<'a> {
                 json_assertions: self.json_assertions,
                 file_assertions: self.file_assertions,
                 diagnostics: self.diagnostics,
+                binary_fixtures: self.binary_fixtures,
             },
             tools: self.tools,
             requires: self.requires,
@@ -1099,6 +1169,43 @@ impl<'a> ManifestParser<'a> {
         for (index, diagnostic) in manifest.expectations.diagnostics.iter().enumerate() {
             if diagnostic.id.is_empty() {
                 manifest_error(self.path, 0, format!("diagnostics {index} is missing `id`"));
+            }
+        }
+        for (index, fixture) in manifest.expectations.binary_fixtures.iter().enumerate() {
+            if fixture.name.is_empty() {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!("binary_fixture {index} is missing `name`"),
+                );
+            }
+            match (&fixture.bytes, &fixture.error) {
+                (Some(_), None) => {}
+                (None, Some(_)) if fixture.consumed.is_none() => {}
+                (Some(_), Some(_)) => manifest_error(
+                    self.path,
+                    0,
+                    format!("binary_fixture {index} cannot specify both `hex` and `error`"),
+                ),
+                (None, Some(_)) => manifest_error(
+                    self.path,
+                    0,
+                    format!("binary_fixture {index} with `error` cannot specify `consumed`"),
+                ),
+                (None, None) => manifest_error(
+                    self.path,
+                    0,
+                    format!("binary_fixture {index} needs `hex` or `error`"),
+                ),
+            }
+            if let (Some(bytes), Some(consumed)) = (&fixture.bytes, fixture.consumed)
+                && consumed > bytes.bytes.len()
+            {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!("binary_fixture {index} `consumed` exceeds decoded byte count"),
+                );
             }
         }
 
@@ -1184,6 +1291,41 @@ fn parse_manifest_json_value(path: &Path, line_number: usize, value: &str) -> Js
         JsonValue::Null
     } else {
         JsonValue::Number(parse_i64(path, line_number, value))
+    }
+}
+
+fn parse_binary_fixture_hex(path: &Path, line_number: usize, value: &str) -> BinaryFixtureBytes {
+    let hex = parse_string(path, line_number, value);
+    let bytes = decode_lowercase_hex(path, line_number, &hex);
+    BinaryFixtureBytes { hex, bytes }
+}
+
+fn decode_lowercase_hex(path: &Path, line_number: usize, hex: &str) -> Vec<u8> {
+    let bytes = hex.as_bytes();
+    if !bytes.len().is_multiple_of(2) {
+        manifest_error(
+            path,
+            line_number,
+            "expected complete lowercase hex byte pairs",
+        );
+    }
+
+    let mut decoded = Vec::with_capacity(bytes.len() / 2);
+    for pair in bytes.chunks_exact(2) {
+        let high = lowercase_hex_nibble(pair[0])
+            .unwrap_or_else(|| manifest_error(path, line_number, "expected lowercase hex"));
+        let low = lowercase_hex_nibble(pair[1])
+            .unwrap_or_else(|| manifest_error(path, line_number, "expected lowercase hex"));
+        decoded.push((high << 4) | low);
+    }
+    decoded
+}
+
+fn lowercase_hex_nibble(byte: u8) -> Option<u8> {
+    match byte {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte - b'a' + 10),
+        _ => None,
     }
 }
 
@@ -1323,6 +1465,20 @@ fn parse_positive_usize(path: &Path, line_number: usize, value: &str) -> usize {
     parsed
 }
 
+fn parse_nonnegative_usize(path: &Path, line_number: usize, value: &str) -> usize {
+    let parsed = parse_i64(path, line_number, value);
+    if parsed < 0 {
+        manifest_error(path, line_number, "expected non-negative integer");
+    }
+    usize::try_from(parsed).unwrap_or_else(|_| {
+        manifest_error(
+            path,
+            line_number,
+            "expected non-negative integer within range",
+        )
+    })
+}
+
 fn manifest_error(path: &Path, line_number: usize, message: impl std::fmt::Display) -> ! {
     if line_number == 0 {
         panic!("{}: {message}", path.display());
@@ -1385,6 +1541,43 @@ fn assert_contains_fragment(
     );
 }
 
+fn assert_binary_fixture(
+    context: &CaseRunContext<'_>,
+    stdout: &str,
+    fixture: &BinaryFixtureExpectation,
+) {
+    let expected = expected_binary_fixture_line(fixture);
+    assert!(
+        stdout.lines().any(|line| line == expected),
+        "{}: expected binary fixture line `{expected}`, got:\n{stdout}",
+        context.label()
+    );
+}
+
+fn expected_binary_fixture_line(fixture: &BinaryFixtureExpectation) -> String {
+    if let Some(bytes) = &fixture.bytes {
+        let consumed = fixture
+            .consumed
+            .map_or_else(|| "none".to_string(), |value| value.to_string());
+        return format!(
+            "fixture {} hex {} count {} consumed {}",
+            fixture.name,
+            bytes.hex,
+            bytes.bytes.len(),
+            consumed
+        );
+    }
+
+    format!(
+        "fixture {} error {}",
+        fixture.name,
+        fixture
+            .error
+            .as_deref()
+            .expect("binary fixture error should be present")
+    )
+}
+
 fn jdk_is_available() -> bool {
     Command::new("java").arg("-version").output().is_ok()
         && Command::new("java")
@@ -1426,6 +1619,47 @@ java = "real"
     assert!(manifest.tools.needs_path());
     assert!(manifest.tools.requires_jdk());
     assert_eq!(manifest.tools.java, Some(ToolAvailability::Real));
+}
+
+#[test]
+fn manifest_binary_fixtures_parse_named_bytes_and_errors() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[binary_fixture]]
+name = "valid-preface"
+hex = "0001ff"
+consumed = 3
+
+[[binary_fixture]]
+name = "bad-separator"
+error = "fixture.hex.invalid_character"
+"#,
+    );
+
+    assert!(manifest.expectations.needs_stdout_json());
+    let fixtures = &manifest.expectations.binary_fixtures;
+    assert_eq!(fixtures.len(), 2);
+    assert_eq!(fixtures[0].name, "valid-preface");
+    assert_eq!(fixtures[0].bytes.as_ref().unwrap().hex, "0001ff");
+    assert_eq!(fixtures[0].bytes.as_ref().unwrap().bytes, [0, 1, 255]);
+    assert_eq!(fixtures[0].consumed, Some(3));
+    assert_eq!(
+        expected_binary_fixture_line(&fixtures[0]),
+        "fixture valid-preface hex 0001ff count 3 consumed 3"
+    );
+    assert_eq!(fixtures[1].name, "bad-separator");
+    assert_eq!(
+        fixtures[1].error.as_deref(),
+        Some("fixture.hex.invalid_character")
+    );
+    assert_eq!(
+        expected_binary_fixture_line(&fixtures[1]),
+        "fixture bad-separator error fixture.hex.invalid_character"
+    );
 }
 
 #[test]
