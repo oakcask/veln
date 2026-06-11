@@ -39,8 +39,8 @@ truncation, `details.byte_diagnostic` includes:
 - `kind: "byte_diagnostic"`
 - `id: "codec.incomplete_input"`
 - `byte_offset`: the first missing decoded-stream `ByteOffset`
-- `field_path`: the schema-local field path, empty when no schema owns the
-  read
+- `field_path`: schema-local path segment objects with `kind` and `name`;
+  empty when no schema owns the read
 - `expected_count`: the required byte count
 - `available_count`: the byte count available in the view
 - `readiness: "need_bytes"`

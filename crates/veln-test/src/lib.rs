@@ -498,6 +498,16 @@ fn fixture_hex_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option
 fn byte_diagnostic_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<JsonValue> {
     let id = fields.next()?.to_string();
     let byte_offset = fields.next()?.parse::<i64>().ok()?;
+    let field_path_count = fields.next()?.parse::<usize>().ok()?;
+    let mut field_path = Vec::with_capacity(field_path_count);
+    for _ in 0..field_path_count {
+        let kind = fields.next()?.to_string();
+        let name = decode_hex_text(fields.next()?)?;
+        field_path.push(JsonValue::object([
+            ("kind", JsonValue::string(kind)),
+            ("name", JsonValue::string(name)),
+        ]));
+    }
     let expected_count = fields.next()?.parse::<i64>().ok()?;
     let available_count = fields.next()?.parse::<i64>().ok()?;
     let readiness = fields.next()?.to_string();
@@ -511,7 +521,7 @@ fn byte_diagnostic_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Op
                 ("value", JsonValue::Number(byte_offset)),
             ]),
         ),
-        ("field_path", JsonValue::array(Vec::<JsonValue>::new())),
+        ("field_path", JsonValue::array(field_path)),
         ("expected_count", JsonValue::Number(expected_count)),
         ("available_count", JsonValue::Number(available_count)),
         ("readiness", JsonValue::string(readiness)),
@@ -3588,7 +3598,7 @@ mod tests {
         let trace = concat!(
             "result\t",
             "6279746520726561642072657175697265732033206279746573206275742076696577206861732032",
-            "\tbyte_diagnostic\tcodec.incomplete_input\t2\t3\t2\tneed_bytes\n",
+            "\tbyte_diagnostic\tcodec.incomplete_input\t2\t0\t3\t2\tneed_bytes\n",
         );
 
         let failure = result_failure_from_trace(trace).expect("trace should decode");
@@ -3607,6 +3617,35 @@ mod tests {
                 "\"id\":\"codec.incomplete_input\",",
                 "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":2},",
                 "\"field_path\":[],",
+                "\"expected_count\":3,",
+                "\"available_count\":2,",
+                "\"readiness\":\"need_bytes\"}}"
+            )
+        );
+    }
+
+    #[test]
+    fn byte_diagnostic_result_trace_keeps_field_path_segments() {
+        let trace = concat!(
+            "result\t",
+            "6279746520726561642072657175697265732033206279746573206275742076696577206861732032",
+            "\tbyte_diagnostic\tcodec.incomplete_input\t2",
+            "\t2\tschema\t48747470324672616d65486561646572\tfield\t6c656e677468",
+            "\t3\t2\tneed_bytes\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"byte read requires 3 bytes but view has 2\",",
+                "\"byte_diagnostic\":{\"kind\":\"byte_diagnostic\",",
+                "\"id\":\"codec.incomplete_input\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":2},",
+                "\"field_path\":[{\"kind\":\"schema\",\"name\":\"Http2FrameHeader\"},",
+                "{\"kind\":\"field\",\"name\":\"length\"}],",
                 "\"expected_count\":3,",
                 "\"available_count\":2,",
                 "\"readiness\":\"need_bytes\"}}"

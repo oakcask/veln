@@ -47,6 +47,10 @@ path = "error.details.byte_diagnostic.byte_offset.value"
 equals = 2
 
 [[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = []
+
+[[json_assert]]
 path = "error.details.byte_diagnostic.expected_count"
 equals = 3
 

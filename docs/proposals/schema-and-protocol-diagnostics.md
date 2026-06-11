@@ -7,10 +7,13 @@ failures. It is a prerequisite for the HTTP/2 binary schema design driver
 because byte-level failures must be repairable by agents and distinguishable
 from stream-state protocol errors.
 
-Implemented behavior for closed-input fixed-width `ByteView` read truncation
-is specified under `../specification/run-json.md`. The remaining proposal work
-covers schema-owned failures, broader codec diagnostics, and protocol-state
-diagnostic projection.
+Implemented behavior for closed-input fixed-width `ByteView` read truncation,
+including `codec.incomplete_input` byte offset, field path, byte counts, and
+readiness details in `run --json`, is specified under
+`../specification/run-json.md` and checked by
+`../../examples/specification/run/binary-byteview-read-failure-json/`. The
+remaining proposal work covers schema-owned failures, broader codec
+diagnostics, and protocol-state diagnostic projection.
 
 ## Problem
 
@@ -251,12 +254,19 @@ to stable human and JSON diagnostics.
 
 ## Completion Criteria
 
-- Human and JSON examples cover truncated input and invalid fixed fields.
+The implemented first slice is complete when `run --json` examples cover
+closed-input `ByteView` read truncation as `codec.incomplete_input` and assert
+the stable byte diagnostic detail fields documented in
+`../specification/run-json.md`.
+
+The remaining proposal work is complete when:
+
+- Human and JSON examples cover invalid fixed fields.
 - Protocol-state examples cover invalid frame kind for a connection or stream
   state.
-- Diagnostics keep the primary message focused on the failed fact at the
-  reported span or byte position.
+- Schema and protocol diagnostics keep the primary message focused on the
+  failed fact at the reported span or byte position.
 - Related notes carry provenance, settings, limits, and state-transition
-  context.
+  context where those surfaces are implemented.
 - The HTTP/2 design driver can test valid and invalid binary fixtures with
   stable diagnostic assertions.

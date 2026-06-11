@@ -54,6 +54,8 @@
                 + "\tbyte_diagnostic"
                 + "\t" + byteDiagnostic.id
                 + "\t" + Long.toString(byteDiagnostic.byteOffset)
+                + "\t" + Integer.toString(byteDiagnostic.fieldPath.size())
+                + formatByteDiagnosticFieldPath(byteDiagnostic.fieldPath)
                 + "\t" + Long.toString(byteDiagnostic.expectedCount)
                 + "\t" + Long.toString(byteDiagnostic.availableCount)
                 + "\t" + byteDiagnostic.readiness;
@@ -88,11 +90,22 @@
             new ByteDiagnostic(
                 "codec.incomplete_input",
                 byteOffset,
+                java.util.Collections.emptyList(),
                 expectedCount,
                 availableCount,
                 "need_bytes"
             )
         );
+    }
+
+    private static String formatByteDiagnosticFieldPath(
+        java.util.List<ByteDiagnosticFieldPathSegment> fieldPath
+    ) {
+        String out = "";
+        for (ByteDiagnosticFieldPathSegment segment : fieldPath) {
+            out = out + "\t" + segment.kind + "\t" + hex(segment.name);
+        }
+        return out;
     }
 
     private static void registerFixtureHexDiagnostic(
@@ -155,6 +168,7 @@
     private static final class ByteDiagnostic {
         final String id;
         final long byteOffset;
+        final java.util.List<ByteDiagnosticFieldPathSegment> fieldPath;
         final long expectedCount;
         final long availableCount;
         final String readiness;
@@ -162,14 +176,26 @@
         ByteDiagnostic(
             String id,
             long byteOffset,
+            java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
             long expectedCount,
             long availableCount,
             String readiness
         ) {
             this.id = id;
             this.byteOffset = byteOffset;
+            this.fieldPath = fieldPath;
             this.expectedCount = expectedCount;
             this.availableCount = availableCount;
             this.readiness = readiness;
+        }
+    }
+
+    private static final class ByteDiagnosticFieldPathSegment {
+        final String kind;
+        final String name;
+
+        ByteDiagnosticFieldPathSegment(String kind, String name) {
+            this.kind = kind;
+            this.name = name;
         }
     }
