@@ -95,7 +95,13 @@ checks `UInt24be`, two `UInt8` fields, `ReservedBits(1, 0)`, and `UInt31be`
 over one `ByteView`, and its expected record omits the reserved field. The
 failure cases pin structured `schema.truncated_field` and
 `schema.reserved_bits_mismatch` details, including byte offsets and schema
-field paths.
+field paths. The sibling human-output cases
+`../../examples/specification/run/binary-schema-frame-header-truncated-human/`
+and
+`../../examples/specification/run/binary-schema-frame-header-reserved-human/`
+pin the focused primary messages and related notes for readiness, expected
+versus available bytes, reserved-bit values, nearby bytes, and schema field
+paths.
 
 `../../examples/specification/run/binary-fixed-field-mismatch-json/` and
 `../../examples/specification/run/binary-fixed-field-mismatch-human/` pin the
