@@ -881,6 +881,7 @@ mod tests {
                 "\n",
                 "  length: UInt24be\n",
                 "  padding_length: UInt8 where padding_length <= length\n",
+                "  stream_reserved: ReservedBits(1, 0)\n",
                 "end\n",
             ),
         );
@@ -914,6 +915,11 @@ mod tests {
         assert!(tokens.contains(&(
             "where".to_string(),
             SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "ReservedBits".to_string(),
+            SemanticTokenType::Type,
             SemanticTokenModifiers::empty().bits()
         )));
     }

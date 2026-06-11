@@ -15,6 +15,7 @@ UseDecl       ::= "use" ModulePath ImportSource? NL
 ImportSource  ::= "from" PackageString
 ModulePath    ::= Name ("::" Name)*
 PackageString ::= String
+IntLiteral    ::= ASCII decimal digit+
 Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
@@ -23,7 +24,9 @@ TestDecl      ::= "test" Name "(" ")" Return Effects? NL
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat NL SchemaField+ "end" NL?
 SchemaFormat  ::= "format" "binary" NL
-SchemaField   ::= Name ":" TypeText SchemaFieldWhere? NL
+SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
+SchemaFieldType ::= TypeText | ReservedBitsPrimitive
+ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 SchemaFieldWhere ::= "where" ContractPredicate
 PublicAlias   ::= "pub" ("fn" | "type") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
@@ -79,12 +82,16 @@ ownership for the declaring module. The implemented schema body slice requires
 one `format binary` clause before any schema fields, followed by one or more
 `name: TypeText` field lines. A field line may end with a field-local `where`
 predicate after the type text, such as `padding_length: UInt8 where
-padding_length <= length`. The parser preserves that predicate with the owning
-field for diagnostics and editor support, but schema decode and encode
-execution is not implemented. Field names must be ordinary identifiers; names
-beginning with `_` remain hole tokens and are rejected as schema field names.
-Schema declarations do not create ordinary value bindings, ordinary source ADT
-types, constructors, or executable decode or encode functions.
+padding_length <= length`. Binary schema fields also accept the
+`ReservedBits(width, value)` primitive spelling when `width` and `value` are
+literal non-negative integers, such as `ReservedBits(1, 0)`. Missing arguments
+or non-literal arguments report `schema.reserved_bits_primitive`. The parser
+preserves the predicate and primitive text with the owning field for
+diagnostics and editor support, but schema decode and encode execution is not
+implemented. Field names must be ordinary identifiers; names beginning with
+`_` remain hole tokens and are rejected as schema field names. Schema
+declarations do not create ordinary value bindings, ordinary source ADT types,
+constructors, or executable decode or encode functions.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`

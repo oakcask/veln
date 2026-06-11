@@ -33,6 +33,8 @@ The implemented first slice covers:
 - top-level `schema` declarations
 - named schema fields
 - field type annotations that may name schema primitives
+- source-surface `ReservedBits(width, value)` declaration checking for literal
+  integer arguments in `format binary` schemas
 - schema visibility and module ownership rules for `schema` and `pub schema`
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface
@@ -41,7 +43,8 @@ This proposal remains open for:
 
 - runtime evaluation of field-local validation clauses
 - mapping from schema fields to Veln values
-- complete binary primitive semantics
+- complete binary primitive semantics beyond the implemented
+  `ReservedBits(width, value)` declaration slice
 - schema references from executable codec declarations
 - schema-aware imports and references beyond ordinary public item ownership
 

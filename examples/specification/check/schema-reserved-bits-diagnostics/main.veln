@@ -1,0 +1,6 @@
+schema BadHeader
+  format binary
+
+  missing: ReservedBits()
+  named_width: ReservedBits(width, 0)
+end

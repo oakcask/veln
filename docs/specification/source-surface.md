@@ -45,8 +45,10 @@ See [source-surface-full.md#grammar](source-surface-full.md#grammar).
 Top-level `schema Name` and `pub schema Name` declarations are implemented as
 source module items. The implemented schema body slice requires a single
 `format binary` clause before schema fields. Schema field lines contain a field
-name, `:`, type text, and an optional field-local `where` predicate. The
-predicate is parsed and preserved as source-surface syntax; schema decode and
+name, `:`, type text, and an optional field-local `where` predicate. In binary
+schemas, `ReservedBits(width, value)` is accepted as a schema primitive when
+both arguments are literal non-negative integers. The predicate and primitive
+text are parsed and preserved as source-surface syntax; schema decode and
 encode execution is not implemented. Schema declarations do not create ordinary
 value bindings or ordinary type declarations.
 

@@ -2,9 +2,12 @@
 
 Status: proposed
 
-This proposal defines the binary-schema field vocabulary needed for frame
-headers and frame-specific payload dispatch. It depends on a schema declaration
-surface and a byte standard-library vocabulary.
+This proposal defines the remaining binary-schema field vocabulary needed for
+frame headers and frame-specific payload dispatch. It depends on a schema
+declaration surface and a byte standard-library vocabulary.
+
+The source-surface `ReservedBits(width, value)` declaration syntax is
+implemented under `../specification/source-surface.md`.
 
 ## Problem
 
