@@ -23,6 +23,21 @@ pub type StreamInput
 	End
 end
 
+pub type DecodeError
+	DecodeError(id: String, offset: ByteOffset, field_path: String)
+end
+
+pub type DecodeReadiness
+	NeedBytes(count: ByteCount)
+	NeedEnd
+end
+
+pub type DecodeStep<T>
+	Decoded(value: T, consumed: ByteCount)
+	NeedMore(readiness: DecodeReadiness)
+	Invalid(error: DecodeError)
+end
+
 pub fn byte(value: Int) -> Result<Byte, String>
 	match value < 0
 		true => Err("byte value must be between 0 and 255")
@@ -87,6 +102,14 @@ end
 
 pub fn byte_decode_http2_frame_header(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int}, String>
 	prelude_builtin::byte_decode_http2_frame_header(view)
+end
+
+pub fn http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String) -> Result<(), String>
+	prelude_builtin::http2_protocol_closed_with_pending(offset, pending_count, active_continuation)
+end
+
+pub fn http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String) -> Result<(), String>
+	prelude_builtin::http2_protocol_continuation_expected(offset, actual_kind, actual_stream, expected_stream, started_kind, started_offset, active_continuation)
 end
 
 pub fn byte_read_u16_be(view: ByteView) -> Result<Int, String>

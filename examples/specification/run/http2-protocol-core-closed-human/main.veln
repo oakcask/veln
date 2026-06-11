@@ -1,0 +1,15 @@
+# HTTP/2 protocol-state failures project to human runtime diagnostics.
+
+type Http2ProtocolFailure
+	ClosedWithPending(Int, Int, String)
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		ClosedWithPending(offset, pending_count, active_continuation) => http2_protocol_closed_with_pending(offset, pending_count, active_continuation)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	project(ClosedWithPending(0, 4, "none"))
+end

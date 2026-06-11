@@ -24,6 +24,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "view_value: Result<ByteView, String>, view_chunk: ByteChunk, ",
             "read_u8: Result<Int, String>, expect_u8: Result<Int, String>, ",
             "decoded_header: Result<{length: Int, kind: Int, flags: Int, stream_id: Int}, String>, ",
+            "closed_http2: Result<(), String>, continuation_http2: Result<(), String>, ",
             "read_u16: Result<Int, String>, read_u24: Result<Int, String>, ",
             "read_u31: Result<Int, String>, read_u32: Result<Int, String>, ",
             "write_u8: Result<ByteChunk, String>, write_u16: Result<ByteChunk, String>, ",
@@ -51,6 +52,8 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "view_chunk: byte_view_to_chunk(view), read_u8: byte_read_u8_be(view), ",
             "expect_u8: byte_expect_fixed_u8_be(view, 1, \"DemoPacket\", \"kind\"), ",
             "decoded_header: byte_decode_http2_frame_header(view), ",
+            "closed_http2: http2_protocol_closed_with_pending(0, 4, \"none\"), ",
+            "continuation_http2: http2_protocol_continuation_expected(9, 0, 1, 1, 1, 0, \"headers\"), ",
             "read_u16: byte_read_u16_be(view), read_u24: byte_read_u24_be(view), ",
             "read_u31: byte_read_u31_be(view), read_u32: byte_read_u32_be(view), ",
             "write_u8: byte_write_u8_be(1), write_u16: byte_write_u16_be(1), ",
@@ -250,10 +253,30 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             "fn done() -> StreamInput\n",
             "  prelude::End\n",
             "end\n",
+            "fn decoded(count: ByteCount) -> DecodeStep<Int>\n",
+            "  Decoded(7, count)\n",
+            "end\n",
+            "fn waiting(count: ByteCount) -> DecodeStep<Int>\n",
+            "  prelude::DecodeStep::NeedMore(prelude::DecodeReadiness::NeedBytes(count))\n",
+            "end\n",
+            "fn waiting_for_end() -> DecodeStep<Int>\n",
+            "  DecodeStep::NeedMore(NeedEnd)\n",
+            "end\n",
+            "fn invalid(offset: ByteOffset) -> DecodeStep<Int>\n",
+            "  prelude::Invalid(DecodeError(\"codec.invalid\", offset, \"demo.field\"))\n",
+            "end\n",
             "fn label(input: StreamInput) -> String\n",
             "  match input\n",
             "    prelude::StreamInput::Chunk(bytes) => int_to_string(byte_count_to_int(byte_chunk_count(bytes)))\n",
             "    prelude::End => \"end\"\n",
+            "  end\n",
+            "end\n",
+            "fn decode_label(step: DecodeStep<Int>) -> String\n",
+            "  match step\n",
+            "    prelude::DecodeStep::Decoded(value, consumed) => int_to_string(value + byte_count_to_int(consumed))\n",
+            "    NeedMore(prelude::DecodeReadiness::NeedBytes(count)) => int_to_string(byte_count_to_int(count))\n",
+            "    NeedMore(prelude::NeedEnd) => \"end\"\n",
+            "    prelude::DecodeStep::Invalid(DecodeError(id, _, _)) => id\n",
             "  end\n",
             "end\n",
         ),
@@ -301,6 +324,20 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             if name == &vec!["StreamInput".to_string(), "End".to_string()]
                 && payloads.is_empty())
     );
+    for function_name in ["decoded", "waiting", "waiting_for_end", "invalid"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("{function_name} should return a constructor");
+        };
+        assert_eq!(
+            expr.ty,
+            CoreType::named("DecodeStep", vec![CoreType::int()])
+        );
+    }
     let label = core
         .functions
         .iter()

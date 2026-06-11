@@ -440,12 +440,16 @@ fn result_failure_from_trace_line(line: &str) -> Option<TestFailure> {
     let value = decode_hex_text(fields.next()?)?;
     let mut fixture_hex = None;
     let mut byte_diagnostic = None;
+    let mut protocol_diagnostic = None;
     while let Some(kind) = fields.next() {
         match kind {
             "fixture_hex" => fixture_hex = Some(fixture_hex_details(&mut fields)?),
             "byte_diagnostic" => byte_diagnostic = Some(byte_diagnostic_details(&mut fields)?),
             "byte_diagnostic_v2" => {
                 byte_diagnostic = Some(byte_diagnostic_v2_details(&mut fields)?)
+            }
+            "protocol_diagnostic" => {
+                protocol_diagnostic = Some(protocol_diagnostic_details(&mut fields)?)
             }
             _ => return None,
         }
@@ -454,6 +458,7 @@ fn result_failure_from_trace_line(line: &str) -> Option<TestFailure> {
         value,
         fixture_hex,
         byte_diagnostic,
+        protocol_diagnostic,
     ))
 }
 
@@ -556,6 +561,37 @@ fn byte_diagnostic_v2_details<'a>(fields: &mut impl Iterator<Item = &'a str>) ->
             ]),
         ),
         ("field_path".to_string(), JsonValue::array(field_path)),
+    ];
+    for _ in 0..detail_count {
+        let key = fields.next()?.to_string();
+        let value_kind = fields.next()?;
+        let value = fields.next()?;
+        let json_value = match value_kind {
+            "number" => JsonValue::Number(value.parse::<i64>().ok()?),
+            "string" => JsonValue::string(decode_hex_text(value)?),
+            _ => return None,
+        };
+        entries.push((key, json_value));
+    }
+    Some(JsonValue::Object(entries))
+}
+
+fn protocol_diagnostic_details<'a>(
+    fields: &mut impl Iterator<Item = &'a str>,
+) -> Option<JsonValue> {
+    let id = fields.next()?.to_string();
+    let byte_offset = fields.next()?.parse::<i64>().ok()?;
+    let detail_count = fields.next()?.parse::<usize>().ok()?;
+    let mut entries = vec![
+        ("kind".to_string(), JsonValue::string("protocol_diagnostic")),
+        ("id".to_string(), JsonValue::string(id)),
+        (
+            "byte_offset".to_string(),
+            JsonValue::object([
+                ("kind", JsonValue::string("ByteOffset")),
+                ("value", JsonValue::Number(byte_offset)),
+            ]),
+        ),
     ];
     for _ in 0..detail_count {
         let key = fields.next()?.to_string();
@@ -809,13 +845,14 @@ impl TestFailure {
     }
 
     pub fn result(value: String, fixture_hex: Option<JsonValue>) -> Self {
-        Self::result_with_details(value, fixture_hex, None)
+        Self::result_with_details(value, fixture_hex, None, None)
     }
 
     pub fn result_with_details(
         value: String,
         fixture_hex: Option<JsonValue>,
         byte_diagnostic: Option<JsonValue>,
+        protocol_diagnostic: Option<JsonValue>,
     ) -> Self {
         let mut details = vec![
             ("kind", JsonValue::string("result")),
@@ -827,6 +864,9 @@ impl TestFailure {
         }
         if let Some(byte_diagnostic) = byte_diagnostic {
             details.push(("byte_diagnostic", byte_diagnostic));
+        }
+        if let Some(protocol_diagnostic) = protocol_diagnostic {
+            details.push(("protocol_diagnostic", protocol_diagnostic));
         }
         Self {
             kind: "result".to_string(),
@@ -3724,6 +3764,41 @@ mod tests {
                 "\"expected_value\":1,",
                 "\"actual_value\":255,",
                 "\"nearby_context\":\"ff0001\"}}"
+            )
+        );
+    }
+
+    #[test]
+    fn protocol_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f3220657870656374656420434f4e54494e554154494f4e206672616d652061742062797465206f66667365742039",
+            "\tprotocol_diagnostic\thttp2.protocol.continuation_expected\t9",
+            "\t6\tactual_frame_kind\tnumber\t0",
+            "\tactual_stream_id\tnumber\t1",
+            "\texpected_stream_id\tnumber\t1",
+            "\tstarted_frame_kind\tnumber\t1",
+            "\tstarted_byte_offset\tnumber\t0",
+            "\tactive_continuation\tstring\t68656164657273\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 expected CONTINUATION frame at byte offset 9\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.protocol.continuation_expected\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":9},",
+                "\"actual_frame_kind\":0,",
+                "\"actual_stream_id\":1,",
+                "\"expected_stream_id\":1,",
+                "\"started_frame_kind\":1,",
+                "\"started_byte_offset\":0,",
+                "\"active_continuation\":\"headers\"}}"
             )
         );
     }

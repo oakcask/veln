@@ -19,10 +19,12 @@ compiler-known calls.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
-- Source-visible `StreamInput` ADT and pure byte vocabulary helpers for
-  `Byte`, `ByteChunk`, `ByteView`, `ByteCount`, `ByteOffset`, compact hex
-  fixture decoding, fixed-width unsigned big-endian reads and writes, and
-  fixed U8 field checks:
+- Source-visible `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`, and
+  `DecodeError` ADTs plus pure byte vocabulary helpers for `Byte`,
+  `ByteChunk`, `ByteView`, `ByteCount`, `ByteOffset`, compact hex fixture
+  decoding, fixed-width unsigned big-endian reads and writes, and fixed U8
+  field checks. HTTP/2 frame-header decoding and protocol diagnostic
+  projection helpers are listed with those signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).
 - Descriptor-backed standard symbols, source metadata, and the

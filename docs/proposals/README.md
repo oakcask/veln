@@ -33,7 +33,8 @@ compare it with `../specification/` before changing behavior.
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
   truncation, and reserved-bit mismatch details.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
-  concrete pure protocol-core slice that exercises the binary schema work.
+  remaining concrete pure protocol-core behavior beyond the implemented
+  ordinary-source decode-state fixture slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define the later route from pure protocol code to transport effects,
   deadlines, channels, and stream tasks.

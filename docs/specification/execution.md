@@ -22,8 +22,9 @@ execution reference.
   operations and return immutable byte values or `Result` failures for invalid
   values, invalid compact hex fixture text, out-of-bounds counts and ranges,
   truncation, schema fixed-field mismatches, and fixed-width unsigned
-  conversion overflow. Standard `StreamInput` values execute as ordinary
-  immutable ADT values.
+  conversion overflow. Standard `StreamInput`, `DecodeStep<T>`,
+  `DecodeReadiness`, and `DecodeError` values execute as ordinary immutable
+  ADT values.
 - The implemented binary schema primitive execution slice decodes the
   `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
   `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes
@@ -46,6 +47,13 @@ execution reference.
   lists through complete lowercase hex in `case.toml`. The harness checks
   stable consecutive program-output lines for the list count, chunk order,
   exact hex strings, decoded byte counts, empty lists, and zero-length chunks.
+- The first ordinary-source HTTP/2 sans-I/O protocol-core example models
+  chunk arrival and end-of-stream events as ADTs. Its pure decode state keeps
+  undecoded suffix bytes and the next absolute byte offset, reuses the
+  frame-header primitive for available headers, and represents closed-input
+  truncation and continuation ordering failures as typed protocol values before
+  projecting stable diagnostic ids and related context into fixture output,
+  human runtime diagnostics, and `run --json` `protocol_diagnostic` details.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior
