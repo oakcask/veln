@@ -14,8 +14,9 @@ compare it with `../specification/` before changing behavior.
   standard-library design.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   source-level schema declarations as external representation boundaries.
-- [Binary Data Standard Library](binary-data-standard-library.md): define byte
-  chunks, views, offsets, counts, checked reads, writes, and conversions.
+- [Binary Data Standard Library](binary-data-standard-library.md): define the
+  remaining byte views, checked reads, writes, conversions, stream input, and
+  binary-buffer behavior beyond the implemented byte vocabulary slice.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define exact-width fields, endian-aware fields, reserved bits,
   length-dependent payloads, tag dispatch, and unknown tag preservation.

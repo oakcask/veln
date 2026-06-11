@@ -12,6 +12,7 @@ pub(crate) fn prelude_signature(name: &str, expected: Option<&Type>) -> Option<(
     let descriptor = prelude_symbol(name)?;
     let expected = ExpectedPreludeParts::from_expected(expected);
     prelude_float_signature(descriptor.name)
+        .or_else(|| prelude_byte_signature(descriptor.name))
         .or_else(|| prelude_string_signature(descriptor.name))
         .or_else(|| prelude_vec_signature(descriptor.name, &expected))
         .or_else(|| prelude_list_signature(descriptor.name, &expected))
@@ -102,6 +103,41 @@ fn prelude_float_signature(name: &str) -> Option<(Vec<Type>, Type)> {
         "float_less" | "float_less_equal" | "float_greater" | "float_greater_equal" => {
             Some((vec![Type::float(), Type::float()], Type::bool()))
         }
+        _ => None,
+    }
+}
+
+fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
+    let byte = Type::named("Byte", Vec::new());
+    let byte_chunk = Type::named("ByteChunk", Vec::new());
+    let byte_count = Type::named("ByteCount", Vec::new());
+    let byte_offset = Type::named("ByteOffset", Vec::new());
+    match name {
+        "byte" => Some((
+            vec![Type::int()],
+            adt::result_type(byte.clone(), Type::string()),
+        )),
+        "byte_to_int" => Some((vec![byte.clone()], Type::int())),
+        "byte_chunk" => Some((vec![Type::vec(byte.clone())], byte_chunk.clone())),
+        "byte_chunk_count" => Some((vec![byte_chunk.clone()], byte_count.clone())),
+        "byte_append" => Some((
+            vec![byte_chunk.clone(), byte_chunk.clone()],
+            byte_chunk.clone(),
+        )),
+        "byte_take" | "byte_drop" => Some((
+            vec![byte_chunk.clone(), byte_count.clone()],
+            adt::result_type(byte_chunk.clone(), Type::string()),
+        )),
+        "byte_count" => Some((
+            vec![Type::int()],
+            adt::result_type(byte_count.clone(), Type::string()),
+        )),
+        "byte_count_to_int" => Some((vec![byte_count.clone()], Type::int())),
+        "byte_offset" => Some((
+            vec![Type::int()],
+            adt::result_type(byte_offset.clone(), Type::string()),
+        )),
+        "byte_offset_to_int" => Some((vec![byte_offset], Type::int())),
         _ => None,
     }
 }
@@ -511,6 +547,7 @@ pub(crate) fn core_prelude_signature(
     let descriptor = prelude_symbol(name)?;
     let expected = ExpectedCorePreludeParts::from_expected(expected);
     let signature = core_prelude_float_signature(descriptor.name)
+        .or_else(|| core_prelude_byte_signature(descriptor.name))
         .or_else(|| core_prelude_string_signature(descriptor.name))
         .or_else(|| core_prelude_vec_signature(descriptor.name, &expected))
         .or_else(|| core_prelude_list_signature(descriptor.name, &expected))
@@ -605,6 +642,41 @@ fn core_prelude_float_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)>
         "float_less" | "float_less_equal" | "float_greater" | "float_greater_equal" => {
             Some((vec![CoreType::float(), CoreType::float()], CoreType::bool()))
         }
+        _ => None,
+    }
+}
+
+fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
+    let byte = CoreType::named("Byte", Vec::new());
+    let byte_chunk = CoreType::named("ByteChunk", Vec::new());
+    let byte_count = CoreType::named("ByteCount", Vec::new());
+    let byte_offset = CoreType::named("ByteOffset", Vec::new());
+    match name {
+        "byte" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(byte.clone(), CoreType::string()),
+        )),
+        "byte_to_int" => Some((vec![byte.clone()], CoreType::int())),
+        "byte_chunk" => Some((vec![CoreType::vec(byte.clone())], byte_chunk.clone())),
+        "byte_chunk_count" => Some((vec![byte_chunk.clone()], byte_count.clone())),
+        "byte_append" => Some((
+            vec![byte_chunk.clone(), byte_chunk.clone()],
+            byte_chunk.clone(),
+        )),
+        "byte_take" | "byte_drop" => Some((
+            vec![byte_chunk.clone(), byte_count.clone()],
+            adt::core_result_type(byte_chunk.clone(), CoreType::string()),
+        )),
+        "byte_count" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(byte_count.clone(), CoreType::string()),
+        )),
+        "byte_count_to_int" => Some((vec![byte_count.clone()], CoreType::int())),
+        "byte_offset" => Some((
+            vec![CoreType::int()],
+            adt::core_result_type(byte_offset.clone(), CoreType::string()),
+        )),
+        "byte_offset_to_int" => Some((vec![byte_offset], CoreType::int())),
         _ => None,
     }
 }

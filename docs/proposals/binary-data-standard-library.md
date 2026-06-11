@@ -2,10 +2,12 @@
 
 Status: proposed
 
-This proposal defines the source-visible byte vocabulary needed by binary
-schemas, codecs, and sans-I/O protocol cores. It is a prerequisite for the
-HTTP/2 binary schema design driver because frame parsing requires immutable
-byte chunks, bounded views, byte positions, and checked integer conversion.
+This proposal tracks the remaining binary standard-library work needed by
+binary schemas, codecs, and sans-I/O protocol cores. The first source-visible
+byte vocabulary slice is current behavior under
+`../specification/types.md`, `../specification/names-effects.md`, and
+`../specification/execution.md`; this proposal keeps the unimplemented
+follow-up work.
 
 ## Problem
 
@@ -16,19 +18,19 @@ slicing, offsets for diagnostics, and output chunks for encoding.
 
 ## Scope
 
-Define standard-library support for:
+Define the remaining standard-library support for:
 
-- `Byte`
-- immutable `ByteChunk`
 - immutable `ByteView`
-- `ByteOffset`
-- `ByteCount`
-- byte length, slice, drop, and append operations
 - checked reads for exact-width unsigned integers
 - endian-aware reads and writes
 - checked integer conversion with overflow diagnostics
 - immutable output chunks for encoding
 - bounded buffers for flow-control and incremental parsing examples
+
+The implemented narrow slice already covers `Byte`, immutable `ByteChunk`,
+`ByteOffset`, `ByteCount`, and pure helpers for construction, length, append,
+bounded take, and bounded drop. Current behavior belongs to the specification
+pages, not this proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
@@ -159,12 +161,12 @@ bounded by default.
 - Do not define HPACK table behavior.
 - Do not promise production memory layout or zero-copy guarantees.
 
-## Completion Criteria
+## Remaining Completion Criteria
 
-- Specification pages describe byte values, chunks, views, offsets, and counts.
+- Specification pages describe byte views, checked reads and writes,
+  conversion boundaries, stream input, and binary-buffer behavior.
 - Examples decode and encode small binary values without relying on HTTP/2.
 - Checked conversion and truncation diagnostics are covered.
-- Runtime support preserves immutability across ordinary values, tasks, and
-  channels.
+- Runtime support preserves byte views across tasks and channels.
 - The HTTP/2 design driver can represent pending input and outgoing chunks in
   source examples.

@@ -79,6 +79,13 @@ that iterates over the list representation instead of growing the host call
 stack. This support does not expose source-level tail-call syntax or a general
 tail-call optimization guarantee.
 
+Standard byte chunk helpers are pure prelude runtime operations. The runtime
+constructs immutable `ByteChunk` values, computes `ByteCount`, appends chunks
+without mutating inputs, and returns `Result` failures for invalid byte values,
+negative counts or offsets, and slice or drop counts that exceed the chunk
+length. The exact host representation of byte chunks, counts, offsets, and
+bytes is backend-owned.
+
 User-defined `fn` declarations are stack-safe for direct self-recursive chains
 when every direct self call appears in tail position and the function has no
 runtime `ensure` or `invariant` clauses. The final expression of a

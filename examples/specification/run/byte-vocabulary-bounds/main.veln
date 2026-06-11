@@ -1,0 +1,8 @@
+# Byte slicing reports bounds failures through ordinary Result propagation.
+pub fn main() -> Result<(), String>
+	let value: Byte = byte(1)?
+	let chunk: ByteChunk = byte_chunk([value])
+	let too_many: ByteCount = byte_count(2)?
+	let ignored: ByteChunk = byte_take(chunk, too_many)?
+	Ok(())
+end

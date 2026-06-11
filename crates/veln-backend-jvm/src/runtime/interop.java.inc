@@ -101,3 +101,11 @@
     private static Result asResult(Object value) {
         return (Result) value;
     }
+
+    private static Adt asAdt(Object value, String name) {
+        Adt adt = (Adt) value;
+        if (!adt.name.equals(name)) {
+            throw new IllegalStateException("expected " + name + ", found " + adt.name);
+        }
+        return adt;
+    }
