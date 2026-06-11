@@ -282,6 +282,10 @@ against the built `veln` binary.
   decoded byte chunks built in fixture source, optional consumed counts, and
   invalid fixture expectations; `case.toml` checks exact complete lowercase
   hex output.
+- `run/binary-fixture-truncated-input-json/`: a named binary fixture record
+  decodes valid compact hex bytes that are intentionally too short for a
+  fixed-width `ByteView` read; `case.toml` checks fixture-owned truncation
+  facts separately from the `codec.incomplete_input` JSON details.
 - `run/binary-byteview/`: `ByteView` slices, fixed-width unsigned big-endian
   reads and writes, truncation failures, range failures, and conversion
   overflow failures, plus channel freeze preservation for bounded views.

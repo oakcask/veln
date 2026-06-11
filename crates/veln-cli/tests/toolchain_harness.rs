@@ -637,12 +637,22 @@ struct BinaryFixtureExpectation {
     bytes: Option<BinaryFixtureBytes>,
     consumed: Option<usize>,
     error: Option<String>,
+    truncation: Option<BinaryFixtureTruncation>,
 }
 
 #[derive(Debug)]
 struct BinaryFixtureBytes {
     hex: String,
     bytes: Vec<u8>,
+}
+
+#[derive(Debug, Default)]
+struct BinaryFixtureTruncation {
+    byte_offset: Option<usize>,
+    expected_count: Option<usize>,
+    available_count: Option<usize>,
+    readiness: Option<String>,
+    field_path: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -920,6 +930,7 @@ impl<'a> ManifestParser<'a> {
             bytes: None,
             consumed: None,
             error: None,
+            truncation: None,
         });
         Section::BinaryFixture(self.binary_fixtures.len() - 1)
     }
@@ -1108,6 +1119,36 @@ impl<'a> ManifestParser<'a> {
                 fixture.consumed = Some(parse_nonnegative_usize(self.path, line_number, value));
             }
             "error" => fixture.error = Some(parse_string(self.path, line_number, value)),
+            "byte_offset" => {
+                fixture
+                    .truncation
+                    .get_or_insert_with(BinaryFixtureTruncation::default)
+                    .byte_offset = Some(parse_nonnegative_usize(self.path, line_number, value));
+            }
+            "expected_count" => {
+                fixture
+                    .truncation
+                    .get_or_insert_with(BinaryFixtureTruncation::default)
+                    .expected_count = Some(parse_nonnegative_usize(self.path, line_number, value));
+            }
+            "available_count" => {
+                fixture
+                    .truncation
+                    .get_or_insert_with(BinaryFixtureTruncation::default)
+                    .available_count = Some(parse_nonnegative_usize(self.path, line_number, value));
+            }
+            "readiness" => {
+                fixture
+                    .truncation
+                    .get_or_insert_with(BinaryFixtureTruncation::default)
+                    .readiness = Some(parse_string(self.path, line_number, value));
+            }
+            "field_path" => {
+                fixture
+                    .truncation
+                    .get_or_insert_with(BinaryFixtureTruncation::default)
+                    .field_path = Some(parse_string(self.path, line_number, value));
+            }
             _ => manifest_error(
                 self.path,
                 line_number,
@@ -1206,6 +1247,27 @@ impl<'a> ManifestParser<'a> {
                     0,
                     format!("binary_fixture {index} `consumed` exceeds decoded byte count"),
                 );
+            }
+            if let Some(truncation) = &fixture.truncation {
+                if fixture.bytes.is_none() {
+                    manifest_error(
+                        self.path,
+                        0,
+                        format!("binary_fixture {index} truncation metadata needs `hex`"),
+                    );
+                }
+                if truncation.byte_offset.is_none()
+                    || truncation.expected_count.is_none()
+                    || truncation.available_count.is_none()
+                    || truncation.readiness.is_none()
+                    || truncation.field_path.is_none()
+                {
+                    manifest_error(
+                        self.path,
+                        0,
+                        format!("binary_fixture {index} has incomplete truncation metadata"),
+                    );
+                }
             }
         }
 
@@ -1567,13 +1629,36 @@ fn expected_binary_fixture_line(fixture: &BinaryFixtureExpectation) -> String {
         let consumed = fixture
             .consumed
             .map_or_else(|| "none".to_string(), |value| value.to_string());
-        return format!(
+        let mut line = format!(
             "fixture {} hex {} count {} consumed {}",
             fixture.name,
             bytes.hex,
             bytes.bytes.len(),
             consumed
         );
+        if let Some(truncation) = &fixture.truncation {
+            line.push_str(&format!(
+                " offset {} expected {} available {} readiness {} field_path {}",
+                truncation
+                    .byte_offset
+                    .expect("binary fixture byte offset should be present"),
+                truncation
+                    .expected_count
+                    .expect("binary fixture expected count should be present"),
+                truncation
+                    .available_count
+                    .expect("binary fixture available count should be present"),
+                truncation
+                    .readiness
+                    .as_deref()
+                    .expect("binary fixture readiness should be present"),
+                truncation
+                    .field_path
+                    .as_deref()
+                    .expect("binary fixture field path should be present")
+            ));
+        }
+        return line;
     }
 
     format!(
@@ -1638,9 +1723,14 @@ command = ["run", "--json", "main", "main.veln"]
 exit = 0
 
 [[binary_fixture]]
-name = "valid-preface"
-hex = "0001ff"
-consumed = 3
+name = "short-u24"
+hex = "0001"
+consumed = 2
+byte_offset = 2
+expected_count = 3
+available_count = 2
+readiness = "need_bytes"
+field_path = "[]"
 
 [[binary_fixture]]
 name = "bad-separator"
@@ -1651,13 +1741,13 @@ error = "fixture.hex.invalid_character"
     assert!(manifest.expectations.needs_stdout_json());
     let fixtures = &manifest.expectations.binary_fixtures;
     assert_eq!(fixtures.len(), 2);
-    assert_eq!(fixtures[0].name, "valid-preface");
-    assert_eq!(fixtures[0].bytes.as_ref().unwrap().hex, "0001ff");
-    assert_eq!(fixtures[0].bytes.as_ref().unwrap().bytes, [0, 1, 255]);
-    assert_eq!(fixtures[0].consumed, Some(3));
+    assert_eq!(fixtures[0].name, "short-u24");
+    assert_eq!(fixtures[0].bytes.as_ref().unwrap().hex, "0001");
+    assert_eq!(fixtures[0].bytes.as_ref().unwrap().bytes, [0, 1]);
+    assert_eq!(fixtures[0].consumed, Some(2));
     assert_eq!(
         expected_binary_fixture_line(&fixtures[0]),
-        "fixture valid-preface hex 0001ff count 3 consumed 3"
+        "fixture short-u24 hex 0001 count 2 consumed 2 offset 2 expected 3 available 2 readiness need_bytes field_path []"
     );
     assert_eq!(fixtures[1].name, "bad-separator");
     assert_eq!(
