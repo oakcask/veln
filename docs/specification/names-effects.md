@@ -19,8 +19,8 @@ compiler-known calls.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
-- Pure byte vocabulary helpers for `Byte`, `ByteChunk`, `ByteCount`, and
-  `ByteOffset`:
+- Pure byte vocabulary helpers for `Byte`, `ByteChunk`, `ByteCount`,
+  `ByteOffset`, and compact hex fixture decoding:
   [names-effects-full.md](names-effects-full.md#helper-signatures).
 - Descriptor-backed standard symbols, source metadata, and the
   compiler-support source-loading trial:

@@ -48,6 +48,77 @@
         return byteChunkObject(copy);
     }
 
+    public static Object byteChunkFromHex(Object text) {
+        String input = asString(text);
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
+        int highNibble = -1;
+
+        for (int index = 0; index < input.length(); index += 1) {
+            char value = input.charAt(index);
+            if (value > 127) {
+                return fixtureHexInvalidCharacter(bytes.size(), highNibble >= 0 ? "low" : "high");
+            }
+            if (isAsciiWhitespace(value)) {
+                if (highNibble >= 0) {
+                    return fixtureHexInvalidCharacter(bytes.size(), "low");
+                }
+                continue;
+            }
+
+            int nibble = hexNibble(value);
+            if (nibble < 0) {
+                return fixtureHexInvalidCharacter(bytes.size(), highNibble >= 0 ? "low" : "high");
+            }
+            if (highNibble < 0) {
+                highNibble = nibble;
+            } else {
+                bytes.add(byteObject((highNibble << 4) | nibble));
+                highNibble = -1;
+            }
+        }
+
+        if (highNibble >= 0) {
+            return err(
+                "fixture.hex.odd_length: dangling hex nibble at byte offset "
+                    + bytes.size()
+                    + " high nibble"
+            );
+        }
+        return ok(byteChunkObject(bytes));
+    }
+
+    private static Object fixtureHexInvalidCharacter(int byteOffset, String nibble) {
+        return err(
+            "fixture.hex.invalid_character: expected ASCII hex digit at byte offset "
+                + byteOffset
+                + " "
+                + nibble
+                + " nibble"
+        );
+    }
+
+    private static boolean isAsciiWhitespace(char value) {
+        return value == ' '
+            || value == '\t'
+            || value == '\n'
+            || value == '\r'
+            || value == '\f'
+            || value == 11;
+    }
+
+    private static int hexNibble(char value) {
+        if (value >= '0' && value <= '9') {
+            return value - '0';
+        }
+        if (value >= 'a' && value <= 'f') {
+            return value - 'a' + 10;
+        }
+        if (value >= 'A' && value <= 'F') {
+            return value - 'A' + 10;
+        }
+        return -1;
+    }
+
     public static Object byteTake(Object chunk, Object count) {
         java.util.List<Object> bytes = byteChunkBytes(chunk);
         long requested = byteCountLong(count);

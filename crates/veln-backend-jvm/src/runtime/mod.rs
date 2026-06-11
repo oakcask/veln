@@ -33,6 +33,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "byte_chunk" => "byteChunk",
     "byte_chunk_count" => "byteChunkCount",
     "byte_append" => "byteAppend",
+    "byte_chunk_from_hex" => "byteChunkFromHex",
     "byte_take" => "byteTake",
     "byte_drop" => "byteDrop",
     "byte_count" => "byteCount",

@@ -72,6 +72,21 @@ public final class RuntimeListHarness {
 }
 "#;
 
+const RUNTIME_BYTE_HEX_HARNESS: &str = r#"
+public final class RuntimeByteHexHarness {
+    public static void main(String[] args) {
+        System.out.println(VelnRuntime.byteChunkFromHex("0001ff"));
+        System.out.println(VelnRuntime.byteChunkFromHex("00 01\nff\t10"));
+        System.out.println(VelnRuntime.byteChunkFromHex("0x00"));
+        System.out.println(VelnRuntime.byteChunkFromHex("00_1"));
+        System.out.println(VelnRuntime.byteChunkFromHex("0 0"));
+        System.out.println(VelnRuntime.byteChunkFromHex("00#comment"));
+        System.out.println(VelnRuntime.byteChunkFromHex("00:01"));
+        System.out.println(VelnRuntime.byteChunkFromHex("001"));
+    }
+}
+"#;
+
 const PUBLIC_LIST_HELPER_HARNESS: &str = r#"
 public final class PublicListHelperHarness {
     public static void main(String[] args) {
@@ -582,6 +597,66 @@ fn jvm_runtime_list_helpers_traverse_large_lists_iteratively_when_java_is_availa
 }
 
 #[test]
+fn jvm_runtime_decodes_compact_hex_fixtures_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let root = temp_dir("runtime-byte-hex");
+    write_jvm_program(&root, &program);
+    fs::write(
+        root.join("RuntimeByteHexHarness.java"),
+        RUNTIME_BYTE_HEX_HARNESS,
+    )
+    .expect("Java harness should be written");
+
+    let javac = Command::new("javac")
+        .arg("RuntimeByteHexHarness.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        javac.status.code(),
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("RuntimeByteHexHarness")
+        .current_dir(&root)
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "Ok(ByteChunk([Byte(0), Byte(1), Byte(255)]))\n",
+            "Ok(ByteChunk([Byte(0), Byte(1), Byte(255), Byte(16)]))\n",
+            "Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 0 low nibble)\n",
+            "Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble)\n",
+            "Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 0 low nibble)\n",
+            "Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble)\n",
+            "Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble)\n",
+            "Err(fixture.hex.odd_length: dangling hex nibble at byte offset 1 high nibble)\n",
+        )
+    );
+}
+
+#[test]
 fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
@@ -841,6 +916,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("byte_chunk", "byteChunk"),
         ("byte_chunk_count", "byteChunkCount"),
         ("byte_append", "byteAppend"),
+        ("byte_chunk_from_hex", "byteChunkFromHex"),
         ("byte_take", "byteTake"),
         ("byte_drop", "byteDrop"),
         ("byte_count", "byteCount"),

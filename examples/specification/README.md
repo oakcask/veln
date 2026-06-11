@@ -249,6 +249,12 @@ against the built `veln` binary.
 - `run/prelude-containers/`: vec, dictionary, list, option, result, and string
   prelude helper value semantics, including non-mutating container updates,
   source-order vec and list traversal, and empty-container checks.
+- `run/byte-fixture-hex/`: compact ASCII hex fixture text, whitespace between
+  byte pairs, and decoded `ByteChunk` values.
+- `run/byte-fixture-hex-invalid/`: invalid compact hex fixture characters,
+  prefixes, or separators fail with stable fixture hex error text.
+- `run/byte-fixture-hex-odd/`: dangling compact hex fixture nibbles fail with
+  stable fixture hex error text.
 - `run/implicit-prelude-imports/`: qualified `prelude::` fallback and local
   declaration shadowing over implicit prelude imports.
 - `run/tail-recursion-trampoline/`: stack-safe direct tail recursion, nested

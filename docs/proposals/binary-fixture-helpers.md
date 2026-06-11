@@ -6,6 +6,14 @@ This proposal defines fixture helpers for binary examples and tests. It is a
 prerequisite for the HTTP/2 binary schema design driver because frame fixtures
 need compact, reviewable source data and stable expected output.
 
+Implemented slice: `byte_chunk_from_hex(text)` decodes compact ASCII hex
+fixture text into ordinary `ByteChunk` values and reports stable
+`fixture.hex.invalid_character` and `fixture.hex.odd_length` `Err(String)`
+values. The remaining proposal work covers named binary fixture records,
+expected consumed byte counts, expected output chunks, truncated input cases,
+invalid field cases, fixture diagnostics with structured byte offsets and
+field paths, and protocol-facing fixture harness support.
+
 ## Problem
 
 Binary protocol tests are difficult to review when byte arrays are spelled as
@@ -18,9 +26,8 @@ fixture support.
 
 ## Scope
 
-Define support for:
+Define remaining support for:
 
-- hex-to-byte fixture helpers
 - named binary fixture records
 - expected consumed byte counts
 - expected output chunks
@@ -134,7 +141,10 @@ frame" call that hides the byte-level behavior under test.
 
 The boundary is therefore ownership-based: fixture helpers can be reused within
 the examples that own them, while production APIs come only from the standard
-library and implemented language surfaces.
+library and implemented language surfaces. The implemented compact hex helper
+is deliberately part of the standard prelude byte vocabulary; broader shared
+fixture records and assertion helpers remain test-owned until promoted through
+a separate implemented surface.
 
 ## Non-Goals
 
@@ -145,8 +155,10 @@ library and implemented language surfaces.
 
 ## Completion Criteria
 
-- Examples include compact valid and invalid binary fixtures.
-- Hex parsing diagnostics are stable and distinct from codec diagnostics.
+- Remaining examples include named valid and invalid binary fixtures beyond
+  compact source text.
+- Hex parsing diagnostics with structured source spans are stable and distinct
+  from codec diagnostics.
 - Test cases can assert byte offsets, field paths, consumed counts, and output
   chunks.
 - The HTTP/2 design driver can add frame fixtures without unreadable byte-array
