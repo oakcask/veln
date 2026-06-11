@@ -49,9 +49,41 @@ fn emit_invalid_fixture(fixture: { name : String, source : String, expected_erro
 	stdio::println(checked)
 end
 
+fn emit_output_chunk(list_name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(list_name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_output_chunk_lists() -> Result<(), String> effects [stdio]
+	let first: ByteChunk = byte_chunk_from_hex("0001ff")?
+	let second: ByteChunk = byte_chunk_from_hex("00040000000f000001")?
+	emit_output_chunk_list_header("protocol-output", 2)
+	emit_output_chunk("protocol-output", 0, first, "0001ff")
+	emit_output_chunk("protocol-output", 1, second, "00040000000f000001")
+	let empty: ByteChunk = byte_chunk([])
+	emit_output_chunk_list_header("empty-chunk", 1)
+	emit_output_chunk("empty-chunk", 0, empty, "")
+	emit_output_chunk_list_header("no-output", 0)
+	Ok(())
+end
+
 pub fn emit_binary_fixtures() -> Result<(), String> effects [stdio]
 	emit_valid_fixture(valid_preface()?)
 	emit_valid_fixture(valid_window_update()?)
 	emit_invalid_fixture(bad_separator())
+	let ignored: () = emit_output_chunk_lists()?
 	Ok(())
 end

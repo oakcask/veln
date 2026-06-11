@@ -36,7 +36,8 @@ assertions, diagnostic selectors, and file content assertions.
 - Invocation and fixture setup: `command`, `stdin`, `repeat`, `[env]`,
   `[tools]`, `[requires]`, and `[skip]`.
 - Observable command results: `exit`, `[stdout]`, `[stderr]`,
-  `[help]`, `[[json_assert]]`, `[[diagnostics]]`, and `[[file_assert]]`.
+  `[help]`, `[[json_assert]]`, `[[diagnostics]]`, `[[file_assert]]`,
+  `[[binary_fixture]]`, and `[[output_chunk_list]]`.
 - External tool setup: `[tools] java = "missing"`, `"fake-success"`, or
   `"real"`.
 
@@ -55,6 +56,13 @@ first help line, `usage` checks the `Usage:` line, and the list fields check
 that the matching section heading and listed entries appear. Help cases should
 still use `[stdout]` and `[stderr]` for stream format and emptiness, and should
 point behavior questions to the command specification.
+
+Use `[[binary_fixture]]` and `[[output_chunk_list]]` only for test-owned binary
+fixture evidence. Binary fixture records compare named program-output lines
+against complete lowercase hex, decoded counts, optional consumed counts,
+stable fixture errors, and truncation metadata. Output chunk lists compare a
+named, ordered sequence of complete lowercase hex chunks against consecutive
+program-output lines, including empty lists and zero-length chunks.
 
 ## Manifest Policy
 

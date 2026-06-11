@@ -352,6 +352,7 @@ struct CaseExpectations {
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
     binary_fixtures: Vec<BinaryFixtureExpectation>,
+    output_chunk_lists: Vec<OutputChunkListExpectation>,
 }
 
 #[derive(Debug)]
@@ -435,7 +436,7 @@ impl CaseExpectations {
             }
         }
 
-        if !self.binary_fixtures.is_empty() {
+        if !self.binary_fixtures.is_empty() || !self.output_chunk_lists.is_empty() {
             let program_stdout = json
                 .as_ref()
                 .and_then(|json| json_path(json, "stdout"))
@@ -443,6 +444,9 @@ impl CaseExpectations {
                 .unwrap_or(&output.stdout);
             for fixture in &self.binary_fixtures {
                 assert_binary_fixture(context, program_stdout, fixture);
+            }
+            for chunks in &self.output_chunk_lists {
+                assert_output_chunk_list(context, program_stdout, chunks);
             }
         }
     }
@@ -452,6 +456,7 @@ impl CaseExpectations {
             || !self.json_assertions.is_empty()
             || !self.diagnostics.is_empty()
             || !self.binary_fixtures.is_empty()
+            || !self.output_chunk_lists.is_empty()
     }
 
     fn assert_files_match(&self, context: &CaseRunContext<'_>, project_root: &Path) {
@@ -646,6 +651,12 @@ struct BinaryFixtureBytes {
     bytes: Vec<u8>,
 }
 
+#[derive(Debug)]
+struct OutputChunkListExpectation {
+    name: String,
+    chunks: Option<Vec<BinaryFixtureBytes>>,
+}
+
 #[derive(Debug, Default)]
 struct BinaryFixtureTruncation {
     byte_offset: Option<usize>,
@@ -783,6 +794,7 @@ enum Section {
     Diagnostic(usize),
     DiagnosticSpan(usize),
     BinaryFixture(usize),
+    OutputChunkList(usize),
     Requires,
     Skip,
     Env,
@@ -811,6 +823,7 @@ struct ManifestParser<'a> {
     file_assertions: Vec<FileAssertion>,
     diagnostics: Vec<DiagnosticExpectation>,
     binary_fixtures: Vec<BinaryFixtureExpectation>,
+    output_chunk_lists: Vec<OutputChunkListExpectation>,
     tools: ToolSetup,
     requires: Requirements,
     skip: SkipRules,
@@ -833,6 +846,7 @@ impl<'a> ManifestParser<'a> {
             file_assertions: Vec::new(),
             diagnostics: Vec::new(),
             binary_fixtures: Vec::new(),
+            output_chunk_lists: Vec::new(),
             tools: ToolSetup::default(),
             requires: Requirements::default(),
             skip: SkipRules::default(),
@@ -871,6 +885,7 @@ impl<'a> ManifestParser<'a> {
             "[[diagnostics]]" => self.parse_diagnostic_header(),
             "[diagnostics.span]" => self.parse_diagnostic_span_header(line_number),
             "[[binary_fixture]]" => self.parse_binary_fixture_header(),
+            "[[output_chunk_list]]" => self.parse_output_chunk_list_header(),
             _ => manifest_error(self.path, line_number, format!("unknown section `{line}`")),
         };
     }
@@ -935,6 +950,14 @@ impl<'a> ManifestParser<'a> {
         Section::BinaryFixture(self.binary_fixtures.len() - 1)
     }
 
+    fn parse_output_chunk_list_header(&mut self) -> Section {
+        self.output_chunk_lists.push(OutputChunkListExpectation {
+            name: String::new(),
+            chunks: None,
+        });
+        Section::OutputChunkList(self.output_chunk_lists.len() - 1)
+    }
+
     fn parse_section_key(&mut self, line_number: usize, key: &str, value: &str) {
         match self.section {
             Section::Root => self.parse_root_key(line_number, key, value),
@@ -969,6 +992,9 @@ impl<'a> ManifestParser<'a> {
             }
             Section::BinaryFixture(index) => {
                 self.parse_binary_fixture_key(index, line_number, key, value)
+            }
+            Section::OutputChunkList(index) => {
+                self.parse_output_chunk_list_key(index, line_number, key, value)
             }
         }
     }
@@ -1157,6 +1183,31 @@ impl<'a> ManifestParser<'a> {
         }
     }
 
+    fn parse_output_chunk_list_key(
+        &mut self,
+        index: usize,
+        line_number: usize,
+        key: &str,
+        value: &str,
+    ) {
+        let chunks = &mut self.output_chunk_lists[index];
+        match key {
+            "name" => chunks.name = parse_string(self.path, line_number, value),
+            "chunks" => {
+                chunks.chunks = Some(parse_binary_fixture_hex_array(
+                    self.path,
+                    line_number,
+                    value,
+                ));
+            }
+            _ => manifest_error(
+                self.path,
+                line_number,
+                format!("unknown output_chunk_list key `{key}`"),
+            ),
+        }
+    }
+
     fn finish(self) -> CaseManifest {
         let manifest = CaseManifest {
             invocation: CaseInvocation {
@@ -1178,6 +1229,7 @@ impl<'a> ManifestParser<'a> {
                 file_assertions: self.file_assertions,
                 diagnostics: self.diagnostics,
                 binary_fixtures: self.binary_fixtures,
+                output_chunk_lists: self.output_chunk_lists,
             },
             tools: self.tools,
             requires: self.requires,
@@ -1268,6 +1320,22 @@ impl<'a> ManifestParser<'a> {
                         format!("binary_fixture {index} has incomplete truncation metadata"),
                     );
                 }
+            }
+        }
+        for (index, chunks) in manifest.expectations.output_chunk_lists.iter().enumerate() {
+            if chunks.name.is_empty() {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!("output_chunk_list {index} is missing `name`"),
+                );
+            }
+            if chunks.chunks.is_none() {
+                manifest_error(
+                    self.path,
+                    0,
+                    format!("output_chunk_list {index} is missing `chunks`"),
+                );
             }
         }
 
@@ -1368,6 +1436,20 @@ fn parse_binary_fixture_hex(path: &Path, line_number: usize, value: &str) -> Bin
     let hex = parse_string(path, line_number, value);
     let bytes = decode_lowercase_hex(path, line_number, &hex);
     BinaryFixtureBytes { hex, bytes }
+}
+
+fn parse_binary_fixture_hex_array(
+    path: &Path,
+    line_number: usize,
+    value: &str,
+) -> Vec<BinaryFixtureBytes> {
+    parse_string_array(path, line_number, value)
+        .into_iter()
+        .map(|hex| {
+            let bytes = decode_lowercase_hex(path, line_number, &hex);
+            BinaryFixtureBytes { hex, bytes }
+        })
+        .collect()
 }
 
 fn decode_lowercase_hex(path: &Path, line_number: usize, hex: &str) -> Vec<u8> {
@@ -1624,6 +1706,27 @@ fn assert_binary_fixture(
     );
 }
 
+fn assert_output_chunk_list(
+    context: &CaseRunContext<'_>,
+    stdout: &str,
+    chunks: &OutputChunkListExpectation,
+) {
+    let expected = expected_output_chunk_list_lines(chunks);
+    let actual = stdout.lines().collect::<Vec<_>>();
+    let matches = actual.windows(expected.len()).any(|window| {
+        window
+            .iter()
+            .zip(&expected)
+            .all(|(actual, expected)| *actual == expected.as_str())
+    });
+    assert!(
+        matches,
+        "{}: expected output chunk list:\n{}\ngot:\n{stdout}",
+        context.label(),
+        expected.join("\n")
+    );
+}
+
 fn expected_binary_fixture_line(fixture: &BinaryFixtureExpectation) -> String {
     if let Some(bytes) = &fixture.bytes {
         let consumed = fixture
@@ -1669,6 +1772,28 @@ fn expected_binary_fixture_line(fixture: &BinaryFixtureExpectation) -> String {
             .as_deref()
             .expect("binary fixture error should be present")
     )
+}
+
+fn expected_output_chunk_list_lines(chunks: &OutputChunkListExpectation) -> Vec<String> {
+    let chunk_values = chunks
+        .chunks
+        .as_deref()
+        .expect("output chunk list chunks should be present");
+    let mut lines = vec![format!(
+        "output_chunk_list {} count {}",
+        chunks.name,
+        chunk_values.len()
+    )];
+    for (index, chunk) in chunk_values.iter().enumerate() {
+        lines.push(format!(
+            "output_chunk {} index {} hex \"{}\" count {}",
+            chunks.name,
+            index,
+            chunk.hex,
+            chunk.bytes.len()
+        ));
+    }
+    lines
 }
 
 fn jdk_is_available() -> bool {
@@ -1757,6 +1882,89 @@ error = "fixture.hex.invalid_character"
     assert_eq!(
         expected_binary_fixture_line(&fixtures[1]),
         "fixture bad-separator error fixture.hex.invalid_character"
+    );
+}
+
+#[test]
+fn manifest_output_chunk_lists_parse_ordered_hex_chunks() {
+    let manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[output_chunk_list]]
+name = "protocol-output"
+chunks = ["0001ff", "00040000000f000001"]
+
+[[output_chunk_list]]
+name = "empty-chunk"
+chunks = [""]
+
+[[output_chunk_list]]
+name = "no-output"
+chunks = []
+"#,
+    );
+
+    assert!(manifest.expectations.needs_stdout_json());
+    let chunk_lists = &manifest.expectations.output_chunk_lists;
+    assert_eq!(chunk_lists.len(), 3);
+    assert_eq!(chunk_lists[0].name, "protocol-output");
+    assert_eq!(
+        chunk_lists[0].chunks.as_ref().unwrap()[0].bytes,
+        [0, 1, 255]
+    );
+    assert_eq!(
+        expected_output_chunk_list_lines(&chunk_lists[0]),
+        [
+            "output_chunk_list protocol-output count 2",
+            "output_chunk protocol-output index 0 hex \"0001ff\" count 3",
+            "output_chunk protocol-output index 1 hex \"00040000000f000001\" count 9",
+        ]
+    );
+    assert_eq!(
+        expected_output_chunk_list_lines(&chunk_lists[1]),
+        [
+            "output_chunk_list empty-chunk count 1",
+            "output_chunk empty-chunk index 0 hex \"\" count 0",
+        ]
+    );
+    assert_eq!(
+        expected_output_chunk_list_lines(&chunk_lists[2]),
+        ["output_chunk_list no-output count 0"]
+    );
+}
+
+#[test]
+#[should_panic(expected = "expected lowercase hex")]
+fn manifest_output_chunk_lists_reject_uppercase_hex() {
+    let _manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[output_chunk_list]]
+name = "protocol-output"
+chunks = ["00FF"]
+"#,
+    );
+}
+
+#[test]
+#[should_panic(expected = "expected complete lowercase hex byte pairs")]
+fn manifest_output_chunk_lists_reject_odd_length_hex() {
+    let _manifest = parse_manifest(
+        Path::new("case.toml"),
+        r#"
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[[output_chunk_list]]
+name = "protocol-output"
+chunks = ["001"]
+"#,
     );
 }
 

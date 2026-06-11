@@ -50,6 +50,13 @@ checked by their stable error text. This is executable specification evidence
 for fixture ownership and expected-output comparison, not a public
 serialization surface.
 
+The same case also pins protocol-facing expected output chunk lists. A
+`[[output_chunk_list]]` manifest entry names an ordered list of complete
+lowercase hex chunks. The harness compares the named list against consecutive
+program-output lines that include the list count, each chunk index, each exact
+hex string, and the decoded byte count. Empty chunk lists and zero-length
+chunks are distinct and checked separately.
+
 `../../examples/specification/run/binary-fixture-truncated-input-json/` shows a
 named fixture record whose valid decoded bytes are intentionally too short for
 the read under test. The case metadata keeps the fixture name, complete

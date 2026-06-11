@@ -29,6 +29,10 @@ execution reference.
   valid decoded bytes that are intentionally too short for a closed-input
   `ByteView` read; those cases keep fixture-owned truncation facts in
   metadata while `run --json` reports `codec.incomplete_input`.
+- Executable specification cases may also assert named output `ByteChunk`
+  lists through complete lowercase hex in `case.toml`. The harness checks
+  stable consecutive program-output lines for the list count, chunk order,
+  exact hex strings, decoded byte counts, empty lists, and zero-length chunks.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior
