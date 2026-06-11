@@ -1,8 +1,8 @@
 use veln_source::{SourceSpan, TextRange};
 
 use crate::{
-    BodyLine, FunctionDecl, ModuleDecl, PublicAliasDecl, SchemaDecl, SyntaxItem, Token, TokenKind,
-    TypeDecl, UseDecl,
+    BodyLine, CodecDecl, FunctionDecl, ModuleDecl, PublicAliasDecl, SchemaDecl, SyntaxItem, Token,
+    TokenKind, TypeDecl, UseDecl,
 };
 
 #[derive(Clone, Debug)]
@@ -69,6 +69,7 @@ pub enum SyntaxNodeKind {
     FunctionDecl,
     TypeDecl,
     SchemaDecl,
+    CodecDecl,
     PublicAliasDecl,
     FunctionSignature,
     ContractClause,
@@ -143,6 +144,7 @@ pub(crate) fn build_lossless_root(
         SyntaxItem::Function(function) => TopLevelNode::Function(function),
         SyntaxItem::Type(type_decl) => TopLevelNode::Type(type_decl),
         SyntaxItem::Schema(schema) => TopLevelNode::Schema(schema),
+        SyntaxItem::Codec(codec) => TopLevelNode::Codec(codec),
         SyntaxItem::PublicAlias(alias) => TopLevelNode::PublicAlias(alias),
     }));
     top_level.sort_by_key(|node| node.range().start);
@@ -166,6 +168,11 @@ pub(crate) fn build_lossless_root(
                 span_range(&schema.span),
                 node_tokens,
             ),
+            TopLevelNode::Codec(codec) => token_node(
+                SyntaxNodeKind::CodecDecl,
+                span_range(&codec.span),
+                node_tokens,
+            ),
             TopLevelNode::PublicAlias(alias) => token_node(
                 SyntaxNodeKind::PublicAliasDecl,
                 span_range(&alias.span),
@@ -184,6 +191,7 @@ enum TopLevelNode<'a> {
     Function(&'a FunctionDecl),
     Type(&'a TypeDecl),
     Schema(&'a SchemaDecl),
+    Codec(&'a CodecDecl),
     PublicAlias(&'a PublicAliasDecl),
 }
 
@@ -194,6 +202,7 @@ impl TopLevelNode<'_> {
             Self::Function(function) => span_range(&function.span),
             Self::Type(type_decl) => span_range(&type_decl.span),
             Self::Schema(schema) => span_range(&schema.span),
+            Self::Codec(codec) => span_range(&codec.span),
             Self::PublicAlias(alias) => span_range(&alias.span),
         }
     }

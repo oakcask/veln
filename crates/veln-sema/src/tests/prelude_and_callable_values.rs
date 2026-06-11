@@ -23,6 +23,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "hex_chunk: Result<ByteChunk, String>, taken: Result<ByteChunk, String>, dropped: Result<ByteChunk, String>, ",
             "view_value: Result<ByteView, String>, view_chunk: ByteChunk, ",
             "read_u8: Result<Int, String>, expect_u8: Result<Int, String>, ",
+            "decoded_header: Result<{length: Int, kind: Int, flags: Int, stream_id: Int}, String>, ",
             "read_u16: Result<Int, String>, read_u24: Result<Int, String>, ",
             "read_u31: Result<Int, String>, read_u32: Result<Int, String>, ",
             "write_u8: Result<ByteChunk, String>, write_u16: Result<ByteChunk, String>, ",
@@ -49,6 +50,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "dropped: byte_drop(chunk, count), view_value: byte_view(chunk, offset, count), ",
             "view_chunk: byte_view_to_chunk(view), read_u8: byte_read_u8_be(view), ",
             "expect_u8: byte_expect_fixed_u8_be(view, 1, \"DemoPacket\", \"kind\"), ",
+            "decoded_header: byte_decode_http2_frame_header(view), ",
             "read_u16: byte_read_u16_be(view), read_u24: byte_read_u24_be(view), ",
             "read_u31: byte_read_u31_be(view), read_u32: byte_read_u32_be(view), ",
             "write_u8: byte_write_u8_be(1), write_u16: byte_write_u16_be(1), ",
@@ -392,6 +394,7 @@ fn imported_public_function_conflicts_with_implicit_prelude_bare_call() {
         uses: main.uses,
         aliases: Vec::new(),
         schemas: Vec::new(),
+        codecs: Vec::new(),
         types: Vec::new(),
         functions: main
             .functions

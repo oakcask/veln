@@ -99,6 +99,34 @@
         );
     }
 
+    private static void registerSchemaTruncatedFieldDiagnostic(
+        String message,
+        long byteOffset,
+        String schemaName,
+        String fieldName,
+        long expectedCount,
+        long availableCount,
+        String nearbyContext
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.truncated_field",
+                byteOffset,
+                java.util.Arrays.asList(
+                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
+                    new ByteDiagnosticFieldPathSegment("field", fieldName)
+                ),
+                java.util.Arrays.asList(
+                    ByteDiagnosticDetail.number("expected_count", expectedCount),
+                    ByteDiagnosticDetail.number("available_count", availableCount),
+                    ByteDiagnosticDetail.string("readiness", "need_bytes"),
+                    ByteDiagnosticDetail.string("nearby_context", nearbyContext)
+                )
+            )
+        );
+    }
+
     private static void registerSchemaFixedFieldMismatchDiagnostic(
         String message,
         long byteOffset,
@@ -118,6 +146,35 @@
                     new ByteDiagnosticFieldPathSegment("field", fieldName)
                 ),
                 java.util.Arrays.asList(
+                    ByteDiagnosticDetail.number("expected_value", expectedValue),
+                    ByteDiagnosticDetail.number("actual_value", actualValue),
+                    ByteDiagnosticDetail.string("nearby_context", nearbyContext)
+                )
+            )
+        );
+    }
+
+    private static void registerSchemaReservedBitsMismatchDiagnostic(
+        String message,
+        long byteOffset,
+        String schemaName,
+        String fieldName,
+        long bitWidth,
+        long expectedValue,
+        long actualValue,
+        String nearbyContext
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.reserved_bits_mismatch",
+                byteOffset,
+                java.util.Arrays.asList(
+                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
+                    new ByteDiagnosticFieldPathSegment("field", fieldName)
+                ),
+                java.util.Arrays.asList(
+                    ByteDiagnosticDetail.number("bit_width", bitWidth),
                     ByteDiagnosticDetail.number("expected_value", expectedValue),
                     ByteDiagnosticDetail.number("actual_value", actualValue),
                     ByteDiagnosticDetail.string("nearby_context", nearbyContext)

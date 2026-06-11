@@ -231,6 +231,57 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             }
             diagnostic
         }
+        "schema.truncated_field" => {
+            let expected_count = json_number(byte_entries, "expected_count")?;
+            let available_count = json_number(byte_entries, "available_count")?;
+            let readiness = json_string(byte_entries, "readiness")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("truncated schema field at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "pending readiness is `{readiness}` because input is closed."
+            )));
+            diagnostic.related.push(note_json(format!(
+                "Schema field expected {expected_count} byte(s); {available_count} byte(s) were available."
+            )));
+            if let Some(context) = json_string(byte_entries, "nearby_context")
+                && !context.is_empty()
+            {
+                diagnostic
+                    .related
+                    .push(note_json(format!("Nearby bytes: {context}.")));
+            }
+            diagnostic
+        }
+        "schema.reserved_bits_mismatch" => {
+            let bit_width = json_number(byte_entries, "bit_width")?;
+            let expected_value = json_number(byte_entries, "expected_value")?;
+            let actual_value = json_number(byte_entries, "actual_value")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("reserved bits mismatch at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "ReservedBits({bit_width}, {expected_value}) expected value {expected_value}; actual value was {actual_value}."
+            )));
+            if let Some(context) = json_string(byte_entries, "nearby_context")
+                && !context.is_empty()
+            {
+                diagnostic
+                    .related
+                    .push(note_json(format!("Nearby bytes: {context}.")));
+            }
+            diagnostic
+        }
         _ => return None,
     };
     if let Some(field_path) = field_path_text(byte_entries) {
@@ -601,6 +652,121 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("schema `DemoPacket` / field `kind`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_truncated_schema_field_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.truncated_field")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(6)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("Http2FrameHeader")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("stream_id")),
+                    ]),
+                ]),
+            ),
+            ("expected_count", JsonValue::Number(4)),
+            ("available_count", JsonValue::Number(1)),
+            ("readiness", JsonValue::string("need_bytes")),
+            ("nearby_context", JsonValue::string("000005010400")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "truncated schema field `stream_id` at byte offset 6".to_string(),
+            None,
+            Some(byte_diagnostic),
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "schema.truncated_field");
+        assert_eq!(
+            diagnostic.message,
+            "truncated schema field at byte offset 6"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(diagnostic.related[0].to_json().contains("need_bytes"));
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("expected 4 byte(s); 1 byte(s) were available")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("schema `Http2FrameHeader` / field `stream_id`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_reserved_bits_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.reserved_bits_mismatch")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(5)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("Http2FrameHeader")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("stream_reserved")),
+                    ]),
+                ]),
+            ),
+            ("bit_width", JsonValue::Number(1)),
+            ("expected_value", JsonValue::Number(0)),
+            ("actual_value", JsonValue::Number(1)),
+            ("nearby_context", JsonValue::string("000005010480000001")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "reserved bits mismatch at byte offset 5".to_string(),
+            None,
+            Some(byte_diagnostic),
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "schema.reserved_bits_mismatch");
+        assert_eq!(
+            diagnostic.message,
+            "reserved bits mismatch at byte offset 5"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("ReservedBits(1, 0) expected value 0; actual value was 1")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("schema `Http2FrameHeader` / field `stream_reserved`")
         );
     }
 

@@ -85,6 +85,10 @@ pub fn byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: Strin
 	prelude_builtin::byte_expect_fixed_u8_be(view, expected, schema_name, field_name)
 end
 
+pub fn byte_decode_http2_frame_header(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int}, String>
+	prelude_builtin::byte_decode_http2_frame_header(view)
+end
+
 pub fn byte_read_u16_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u16_be(view)
 end

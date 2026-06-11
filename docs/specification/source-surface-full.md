@@ -17,6 +17,7 @@ ModulePath    ::= Name ("::" Name)*
 PackageString ::= String
 IntLiteral    ::= ASCII decimal digit+
 Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias
+                  | CodecDecl
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
@@ -28,6 +29,12 @@ SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | ReservedBitsPrimitive
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 SchemaFieldWhere ::= "where" ContractPredicate
+CodecDecl     ::= "pub"? "codec" Name "for" Name CodecDirections NL
+                  CodecImplementation* "end" NL?
+CodecDirections ::= CodecDirection+
+CodecDirection ::= "decode" | "encode"
+CodecImplementation ::= "derive" CodecDirection NL
+                  | CodecDirection "with" Name NL
 PublicAlias   ::= "pub" ("fn" | "type") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
@@ -92,11 +99,27 @@ schema field type positions report `schema.exact_width_primitive`. Missing
 `ReservedBits` arguments or non-literal arguments report
 `schema.reserved_bits_primitive`. The parser preserves the predicate and
 primitive text with the owning field for diagnostics and editor support, but
-schema decode and encode execution is not implemented. Field names must be
-ordinary identifiers; names beginning with `_` remain hole tokens and are
-rejected as schema field names. Schema declarations do not create ordinary
-value bindings, ordinary source ADT types, constructors, or executable decode
-or encode functions.
+general schema decode and encode execution is not implemented. The narrow
+frame-header primitive decode slice is routed from `execution.md`. Field names
+must be ordinary identifiers; names beginning with `_` remain hole tokens and
+are rejected as schema field names. Schema declarations do not create ordinary
+value bindings, ordinary source ADT types, constructors, or general executable
+decode or encode functions.
+
+Codec declarations are top-level source module items. `codec Name for
+SchemaName decode`, `codec Name for SchemaName encode`, and `codec Name for
+SchemaName decode encode` are accepted, with optional leading `pub` for public
+module ownership. The direction list must be non-empty and cannot repeat
+`decode` or `encode`; other direction words are rejected. A codec body contains
+one implementation clause for each listed direction: `derive decode`,
+`derive encode`, `decode with function_name`, or
+`encode with function_name`. A missing clause, a clause for an unlisted
+direction, or a duplicate clause is a parse diagnostic. The parser and AST
+preserve the codec name, referenced schema name, directions, visibility, and
+body clauses for formatting, editor support, and source metadata. Codec
+execution is not implemented: codec declarations do not generate executable
+decode or encode functions, do not type-check `with` function signatures, and
+do not run schema value mapping.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`
@@ -527,4 +550,5 @@ operators, task selection, manifest fields beyond the implemented `[package]`,
 doctest metadata other than `error`, `ignore`, `fail`, `runtime=contract`,
 runtime contract detail attributes, `runtime=ensure`, runtime ensure detail
 attributes, `runtime=result`, runtime result value matching, and
-`veln-output` stream selection.
+`veln-output` stream selection. Codec execution, generated decode or encode
+functions, and `with` function signature checking are not implemented.

@@ -131,6 +131,20 @@ public final class RuntimeByteViewHarness {
         ));
         System.out.println(VelnRuntime.byteWriteU8Be(Long.valueOf(256)));
         System.out.println(VelnRuntime.byteReadU31Be(maxU32View));
+        Object frame = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("000005010400000001")).value();
+        Object frameView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            frame,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(9))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteDecodeHttp2FrameHeader(frameView));
+        Object reservedFrame = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("000005010480000001")).value();
+        Object reservedView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            reservedFrame,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(9))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteDecodeHttp2FrameHeader(reservedView));
     }
 }
 "#;
@@ -762,6 +776,8 @@ fn jvm_runtime_reads_and_writes_byte_views_when_java_is_available() {
             "Err(byte view range exceeds chunk length)\n",
             "Err(byte_write_u8_be value must be between 0 and 255)\n",
             "Err(byte_read_u31_be value exceeds maximum 2147483647)\n",
+            "Ok({length=5, kind=1, flags=4, stream_id=1})\n",
+            "Err(reserved bits mismatch at byte offset 5)\n",
         )
     );
 }
@@ -1033,6 +1049,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("byte_view_to_chunk", "byteViewToChunk"),
         ("byte_read_u8_be", "byteReadU8Be"),
         ("byte_expect_fixed_u8_be", "byteExpectFixedU8Be"),
+        (
+            "byte_decode_http2_frame_header",
+            "byteDecodeHttp2FrameHeader",
+        ),
         ("byte_read_u16_be", "byteReadU16Be"),
         ("byte_read_u24_be", "byteReadU24Be"),
         ("byte_read_u31_be", "byteReadU31Be"),

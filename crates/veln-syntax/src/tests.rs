@@ -6,7 +6,10 @@ use veln_source::SourceFile;
 fn first_function(output: &ParseOutput) -> &FunctionDecl {
     match &output.tree.items[0] {
         SyntaxItem::Function(function) => function,
-        SyntaxItem::Type(_) | SyntaxItem::Schema(_) | SyntaxItem::PublicAlias(_) => {
+        SyntaxItem::Type(_)
+        | SyntaxItem::Schema(_)
+        | SyntaxItem::Codec(_)
+        | SyntaxItem::PublicAlias(_) => {
             panic!("expected function item")
         }
     }
@@ -358,6 +361,107 @@ fn reports_schema_declaration_syntax_diagnostics() {
         "{:#?}",
         output.diagnostics
     );
+}
+
+#[test]
+fn parses_codec_declarations_and_formats_canonical_layout() {
+    let source = SourceFile::new(
+        "codec.veln",
+        concat!(
+            "pub  codec   Http2FrameHeaderCodec for  Http2FrameHeader   decode   encode\n",
+            "  derive   decode\n",
+            "  encode   with encode_header\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Codec(codec) = &output.tree.items[0] else {
+        panic!("expected codec declaration");
+    };
+    assert_eq!(codec.visibility, Visibility::Public);
+    assert_eq!(codec.name.as_deref(), Some("Http2FrameHeaderCodec"));
+    assert_eq!(codec.schema.as_deref(), Some("Http2FrameHeader"));
+    assert_eq!(
+        codec.directions,
+        vec![CodecDirection::Decode, CodecDirection::Encode]
+    );
+    assert_eq!(codec.implementations.len(), 2);
+    assert_eq!(codec.implementations[0].direction, CodecDirection::Decode);
+    assert!(matches!(
+        codec.implementations[0].kind,
+        CodecImplementationKind::Derive
+    ));
+    assert_eq!(codec.implementations[1].direction, CodecDirection::Encode);
+    assert!(matches!(
+        &codec.implementations[1].kind,
+        CodecImplementationKind::With { function: Some(function) } if function == "encode_header"
+    ));
+    assert!(codec.end_present);
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "pub codec Http2FrameHeaderCodec for Http2FrameHeader decode encode\n",
+            "\tderive decode\n",
+            "\tencode with encode_header\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
+fn reports_codec_declaration_shape_diagnostics() {
+    let source = SourceFile::new(
+        "bad.veln",
+        concat!(
+            "codec Empty for Header\n",
+            "end\n",
+            "\n",
+            "codec DuplicateDirection for Header decode decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "codec UnknownDirection for Header decode inspect\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "codec MissingImplementation for Header decode encode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "codec UnlistedImplementation for Header decode\n",
+            "  derive decode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "codec DuplicateImplementation for Header decode\n",
+            "  derive decode\n",
+            "  decode with decode_header\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    for id in [
+        "parse.codec_empty_directions",
+        "parse.codec_duplicate_direction",
+        "parse.codec_unknown_direction",
+        "parse.codec_missing_implementation",
+        "parse.codec_unlisted_implementation",
+        "parse.codec_duplicate_implementation",
+    ] {
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == id),
+            "missing {id}: {:#?}",
+            output.diagnostics
+        );
+    }
 }
 
 #[test]

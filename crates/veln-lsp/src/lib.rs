@@ -68,6 +68,7 @@ pub fn diagnostics(source: &SourceFile) -> Vec<Diagnostic> {
         aliases: lowered.aliases,
         types: lowered.types,
         schemas: lowered.schemas,
+        codecs: lowered.codecs,
         functions: lowered.functions,
     };
     veln_sema::lower_checked_surface_module(&module).diagnostics

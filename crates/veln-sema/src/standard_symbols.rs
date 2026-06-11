@@ -164,6 +164,7 @@ source_prelude_symbol_set! {
     "byte_view_to_chunk" => veln_stdlib::prelude_source("byte_view_to_chunk"),
     "byte_read_u8_be" => veln_stdlib::prelude_source("byte_read_u8_be"),
     "byte_expect_fixed_u8_be" => veln_stdlib::prelude_source("byte_expect_fixed_u8_be"),
+    "byte_decode_http2_frame_header" => veln_stdlib::prelude_source("byte_decode_http2_frame_header"),
     "byte_read_u16_be" => veln_stdlib::prelude_source("byte_read_u16_be"),
     "byte_read_u24_be" => veln_stdlib::prelude_source("byte_read_u24_be"),
     "byte_read_u31_be" => veln_stdlib::prelude_source("byte_read_u31_be"),

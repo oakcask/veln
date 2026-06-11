@@ -86,6 +86,7 @@ grammar_line(40, "ModulePath    ::= Name (\"::\" Name)*").
 grammar_line(45, "PackageString ::= String").
 grammar_line(47, "IntLiteral    ::= ASCII decimal digit+").
 grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias").
+grammar_line(51, "                  | CodecDecl").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
@@ -97,6 +98,12 @@ grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere
 grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive").
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" ContractPredicate").
+grammar_line(107, "CodecDecl     ::= \"pub\"? \"codec\" Name \"for\" Name CodecDirections NL").
+grammar_line(107, "                  CodecImplementation* \"end\" NL?").
+grammar_line(107, "CodecDirections ::= CodecDirection+").
+grammar_line(107, "CodecDirection ::= \"decode\" | \"encode\"").
+grammar_line(107, "CodecImplementation ::= \"derive\" CodecDirection NL").
+grammar_line(107, "                  | CodecDirection \"with\" Name NL").
 grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
@@ -240,6 +247,12 @@ keyword_kind("pub", pub).
 keyword_kind("fn", fn).
 keyword_kind("type", type).
 keyword_kind("schema", schema).
+keyword_kind("codec", codec).
+keyword_kind("for", for).
+keyword_kind("decode", decode).
+keyword_kind("encode", encode).
+keyword_kind("derive", derive).
+keyword_kind("with", with).
 keyword_kind("format", format).
 keyword_kind("where", where).
 keyword_kind("test", test).
@@ -282,6 +295,7 @@ item --> nls, function_decl.
 item --> nls, test_decl.
 item --> nls, type_decl.
 item --> nls, schema_decl.
+item --> nls, codec_decl.
 item --> nls, public_alias.
 
 function_decl -->
@@ -355,6 +369,65 @@ schema_field_where_opt -->
     { Tokens \= [], valid_contract_tokens(Tokens) },
     !.
 schema_field_where_opt --> [].
+
+codec_decl -->
+    visibility,
+    tok(codec),
+    ident,
+    tok(for),
+    ident,
+    codec_directions(Directions),
+    nl,
+    codec_implementations(Implementations),
+    {
+        set_matches_unique(Directions, Implementations)
+    },
+    tok(end),
+    newline_opt.
+
+codec_directions([Direction | Rest]) -->
+    codec_direction(Direction),
+    codec_directions_tail(Rest).
+
+codec_directions_tail([Direction | Rest]) -->
+    codec_direction(Direction),
+    !,
+    codec_directions_tail(Rest).
+codec_directions_tail([]) --> [].
+
+codec_direction(decode) --> tok(decode).
+codec_direction(encode) --> tok(encode).
+
+codec_implementations([]) -->
+    nls,
+    peek_end,
+    !.
+codec_implementations([Implementation | Rest]) -->
+    nls,
+    codec_implementation(Implementation),
+    codec_implementations(Rest).
+
+peek_end(S, S) :-
+    S = [t(end, _) | _].
+
+codec_implementation(Direction) -->
+    tok(derive),
+    codec_direction(Direction),
+    nl.
+codec_implementation(Direction) -->
+    codec_direction(Direction),
+    tok(with),
+    ident,
+    nl.
+
+set_matches_unique(Declared, Implemented) :-
+    sort(Declared, DeclaredSet),
+    sort(Implemented, ImplementedSet),
+    length(Declared, DeclaredLength),
+    length(DeclaredSet, DeclaredLength),
+    length(Implemented, ImplementedLength),
+    length(ImplementedSet, ImplementedLength),
+    DeclaredSet = ImplementedSet.
 
 public_alias -->
     tok(pub),

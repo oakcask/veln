@@ -83,6 +83,20 @@ projection. The named-fixture truncation case pins the same JSON diagnostic
 shape while proving that valid fixture bytes fail as codec truncation, not as
 fixture text validation.
 
+## Binary Schema Frame Header
+
+The executable specification cases
+`../../examples/specification/run/binary-schema-frame-header-decode/`,
+`../../examples/specification/run/binary-schema-frame-header-truncated-json/`,
+and
+`../../examples/specification/run/binary-schema-frame-header-reserved-json/`
+cover the implemented frame-header primitive decode slice. The valid case
+checks `UInt24be`, two `UInt8` fields, `ReservedBits(1, 0)`, and `UInt31be`
+over one `ByteView`, and its expected record omits the reserved field. The
+failure cases pin structured `schema.truncated_field` and
+`schema.reserved_bits_mismatch` details, including byte offsets and schema
+field paths.
+
 `../../examples/specification/run/binary-fixed-field-mismatch-json/` and
 `../../examples/specification/run/binary-fixed-field-mismatch-human/` pin the
 first schema-owned fixed-field mismatch diagnostic slice. The JSON case

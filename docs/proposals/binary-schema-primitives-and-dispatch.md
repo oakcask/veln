@@ -10,8 +10,13 @@ The source-surface `ReservedBits(width, value)` declaration syntax is
 implemented under `../specification/source-surface.md`.
 The declaration-time exact-width primitive names `UInt8`, `UInt24be`, and
 `UInt31be` are also implemented there for `format binary` schema field type
-positions only. Decode, encode, endian-aware byte execution, dispatch, and
-schema value mapping remain proposal work.
+positions only. The executable frame-header primitive decode slice is
+implemented under `../specification/execution.md`: it consumes `UInt24be`,
+`UInt8`, `UInt8`, `ReservedBits(1, 0)`, and `UInt31be` from a `ByteView`,
+returns ordinary `Int` fields for the visible values, and reports structured
+schema failures for truncated fields and reserved-bit mismatches. General
+schema decode, encode, dispatch, and schema value mapping remain proposal
+work.
 
 ## Problem
 
@@ -195,10 +200,13 @@ author likely referred to an earlier field with a compatible role.
 
 ## Remaining Completion Criteria
 
-- Executable examples show a binary frame header schema with fixed-width reads,
-  writes, and reserved-bit validation.
+- Executable examples show binary schema writes and general schema-owned
+  fixed-width reads beyond the implemented frame-header primitive decode
+  slice.
 - Examples show tag-based payload dispatch and unknown tag preservation.
-- Invalid fixed fields and truncated fields produce structured diagnostics.
+- Invalid fixed fields in general schema decode produce structured
+  diagnostics beyond the implemented frame-header truncation and reserved-bit
+  mismatch details.
 - The schema vocabulary is general enough for another binary protocol example.
 - The HTTP/2 design driver can express frame header and payload boundaries
   without ordinary parsing functions doing all layout work.

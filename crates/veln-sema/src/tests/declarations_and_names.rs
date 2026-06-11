@@ -545,6 +545,57 @@ fn duplicate_function_like_declaration_names_are_static_errors() {
 }
 
 #[test]
+fn duplicate_codec_declaration_names_are_static_errors() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "codec same for Header decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "codec same for Header encode\n",
+            "  derive encode\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate codec declaration name `same`"
+    }));
+}
+
+#[test]
+fn codec_declarations_resolve_schema_targets() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "codec MissingCodec for Missing decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved codec schema `Missing`"
+    }));
+}
+
+#[test]
 fn duplicate_use_aliases_are_static_errors() {
     let source = SourceFile::new(
         "main.veln",

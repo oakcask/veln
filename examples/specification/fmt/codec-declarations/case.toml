@@ -1,0 +1,13 @@
+command = ["fmt", "main.veln"]
+repeat = 2
+exit = 0
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "empty"
+
+[[file_assert]]
+path = "main.veln"
+equals = "pub codec HeaderRoundTrip for Header decode encode\n\tdecode with decode_header\n\tderive encode\nend\n"

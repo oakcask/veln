@@ -98,6 +98,17 @@ cross task and channel freeze boundaries as ordinary immutable ADT values. The
 exact host representation of byte chunks, byte views, counts, offsets, and
 bytes is backend-owned.
 
+The binary schema primitive execution slice exposes a narrow frame-header
+decode helper over `ByteView`. It consumes a `UInt24be` length field, two
+`UInt8` fields, one `ReservedBits(1, 0)` field, and one `UInt31be` stream id
+field. Exact-width unsigned fields produce ordinary `Int` values in the
+decoded record. The reserved field is representation-only: it advances the
+decode position and validates the fixed bit pattern but is omitted from the
+record. Truncated schema fields return a `schema.truncated_field` result
+failure with expected and available byte counts. Reserved-bit mismatches
+return `schema.reserved_bits_mismatch` with bit width, expected value, actual
+value, nearby bytes, byte offset, and schema field path.
+
 Standard `StreamInput` values execute as ordinary immutable source ADT values:
 `Chunk(bytes)` preserves the supplied `ByteChunk`, including an empty chunk,
 and `End` is a separate nullary variant.

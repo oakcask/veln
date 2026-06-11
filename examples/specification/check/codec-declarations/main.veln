@@ -1,0 +1,20 @@
+schema Http2FrameHeader
+  format binary
+
+  length: UInt24be
+  stream_reserved: ReservedBits(1, 0)
+  stream_id: UInt31be
+end
+
+codec HeaderDecode for Http2FrameHeader decode
+  derive decode
+end
+
+pub codec HeaderRoundTrip for Http2FrameHeader decode encode
+  decode with decode_header
+  derive encode
+end
+
+fn decode_header() -> ()
+  ()
+end

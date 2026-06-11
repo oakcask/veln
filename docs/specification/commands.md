@@ -36,9 +36,10 @@ requiring the full command reference on the first read.
 - `run`: entry resolution, argument conversion, static gates, direct JVM
   classfile execution without an ordinary Java source compiler requirement,
   human runtime diagnostics for closed-input `ByteView` read truncation and
-  schema fixed-field mismatch, and run JSON. Use [run-json.md](run-json.md)
-  first for machine-readable output, then [commands-full.md](commands-full.md)
-  for exact command rules.
+  schema fixed-field mismatch, binary schema field truncation and reserved-bit
+  mismatch, and run JSON. Use [run-json.md](run-json.md) first for
+  machine-readable output, then [commands-full.md](commands-full.md) for exact
+  command rules.
 - `test`: test and doctest selection, static gates, direct JVM classfile
   execution without an ordinary Java source compiler requirement,
   `runtime=contract`, `runtime=ensure`, and `runtime=result` doctest

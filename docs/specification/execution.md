@@ -24,6 +24,14 @@ execution reference.
   truncation, schema fixed-field mismatches, and fixed-width unsigned
   conversion overflow. Standard `StreamInput` values execute as ordinary
   immutable ADT values.
+- The implemented binary schema primitive execution slice decodes the
+  `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
+  `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes
+  ordinary `Int` fields for `length`, `kind`, `flags`, and `stream_id`.
+  The reserved field is consumed and validated but is not exposed in the
+  mapped record. Truncated schema fields report `schema.truncated_field`;
+  invalid reserved bits report `schema.reserved_bits_mismatch`. Both carry
+  byte offset and schema field path details.
 - Executable specification cases may keep named binary fixture records in the
   example tree; the harness checks complete lowercase hex output without
   promoting a production fixture API. Named fixture records can also represent
