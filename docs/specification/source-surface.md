@@ -46,8 +46,10 @@ Top-level `schema Name` and `pub schema Name` declarations are implemented as
 source module items. The implemented schema body slice requires a single
 `format binary` clause before schema fields. Schema field lines contain a field
 name, `:`, type text, and an optional field-local `where` predicate. In binary
-schemas, `ReservedBits(width, value)` is accepted as a schema primitive when
-both arguments are literal non-negative integers. The predicate and primitive
+schemas, `UInt8`, `UInt24be`, `UInt31be`, and `ReservedBits(width, value)` are
+accepted as schema primitives. `ReservedBits` arguments must be literal
+non-negative integers. These primitive names are representation-local field
+vocabulary, not ordinary source types or values. The predicate and primitive
 text are parsed and preserved as source-surface syntax; schema decode and
 encode execution is not implemented. Schema declarations do not create ordinary
 value bindings or ordinary type declarations.

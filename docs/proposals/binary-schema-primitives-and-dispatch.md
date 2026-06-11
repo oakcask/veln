@@ -8,6 +8,10 @@ declaration surface and a byte standard-library vocabulary.
 
 The source-surface `ReservedBits(width, value)` declaration syntax is
 implemented under `../specification/source-surface.md`.
+The declaration-time exact-width primitive names `UInt8`, `UInt24be`, and
+`UInt31be` are also implemented there for `format binary` schema field type
+positions only. Decode, encode, endian-aware byte execution, dispatch, and
+schema value mapping remain proposal work.
 
 ## Problem
 
@@ -18,9 +22,10 @@ external representation facts, not internal Veln type declarations.
 
 ## Scope
 
-Define binary schema support for:
+Define remaining binary schema support for:
 
-- exact-width unsigned fields such as 8-bit, 24-bit, and 31-bit values
+- executable exact-width unsigned field reads and writes for 8-bit, 24-bit,
+  and 31-bit values
 - endian-aware field reads and writes
 - reserved bits that are consumed but not exposed as ordinary data
 - flags that decode as raw bits, bitsets, or frame-specific ADTs
@@ -50,21 +55,24 @@ must stay outside schema declarations.
 
 ## Discussion Result: Exact-Width Primitive Names
 
-Exact-width unsigned names should belong to the binary schema primitive
-vocabulary. They are field representation names, not ordinary source-visible
-numeric types.
+The declaration-time source-surface slice for exact-width unsigned names now
+lives under `../specification/source-surface.md`. Those names belong to the
+binary schema primitive vocabulary as field representation names, not ordinary
+source-visible numeric types.
 
-The primitive name records the external width and byte order that the schema
-must consume or emit. A decoded field maps to `Int` by default, or to an
-independently declared Veln record, ADT, or wrapper through an explicit mapping
-rule. This keeps schema declarations responsible for byte layout while keeping
-ordinary Veln values responsible for protocol meaning.
+The remaining proposal work is to make the primitive name record the external
+width and byte order that the schema must consume or emit. A decoded field
+should map to `Int` by default, or to an independently declared Veln record,
+ADT, or wrapper through an explicit mapping rule. This keeps schema
+declarations responsible for byte layout while keeping ordinary Veln values
+responsible for protocol meaning.
 
-HTTP/2 frame headers should use schema primitives such as `UInt8`, `UInt24be`,
-and `UInt31be`. `UInt24be` consumes a three-byte unsigned big-endian field.
-`UInt31be` represents the 31-bit unsigned value in a big-endian field position
-whose remaining bit is handled as a reserved or fixed schema bit. The 31-bit
-value should not become a general-purpose source type.
+HTTP/2 frame headers can declare schema fields with primitives such as
+`UInt8`, `UInt24be`, and `UInt31be`. Executable schema support should make
+`UInt24be` consume a three-byte unsigned big-endian field. `UInt31be` should
+represent the 31-bit unsigned value in a big-endian field position whose
+remaining bit is handled as a reserved or fixed schema bit. The 31-bit value
+should not become a general-purpose source type.
 
 ## Discussion Result: Reserved Bit Spelling
 
@@ -185,10 +193,10 @@ author likely referred to an earlier field with a compatible role.
 - Do not define network effects or task scheduling.
 - Do not optimize binary layout.
 
-## Completion Criteria
+## Remaining Completion Criteria
 
-- Examples show a binary frame header schema with fixed widths and reserved
-  bits.
+- Executable examples show a binary frame header schema with fixed-width reads,
+  writes, and reserved-bit validation.
 - Examples show tag-based payload dispatch and unknown tag preservation.
 - Invalid fixed fields and truncated fields produce structured diagnostics.
 - The schema vocabulary is general enough for another binary protocol example.

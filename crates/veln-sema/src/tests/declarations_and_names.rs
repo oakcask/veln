@@ -232,6 +232,7 @@ fn binary_schema_accepts_reserved_bits_literal_primitive() {
             "  format binary\n",
             "\n",
             "  length: UInt24be\n",
+            "  kind: UInt8\n",
             "  stream_reserved: ReservedBits(1, 0)\n",
             "  stream_id: UInt31be\n",
             "end\n",
@@ -243,6 +244,82 @@ fn binary_schema_accepts_reserved_bits_literal_primitive() {
     let diagnostics = analyze_surface_module(&module);
 
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn exact_width_binary_schema_primitives_require_binary_schema_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema BadHeader\n",
+            "  format text\n",
+            "\n",
+            "  length: UInt24be\n",
+            "  kind: UInt8\n",
+            "  stream_id: UInt31be\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 3);
+    for primitive in ["UInt24be", "UInt8", "UInt31be"] {
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.exact_width_primitive"
+                && diagnostic.message
+                    == format!(
+                        "binary schema primitive `{primitive}` can only be used in a `format binary` schema field"
+                    )
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains("\"reason\":\"non_binary_format\"")
+        }));
+    }
+}
+
+#[test]
+fn exact_width_binary_schema_primitives_are_not_ordinary_types_or_values() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "fn ordinary_types(value: UInt8) -> UInt24be\n",
+            "  UInt31be\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 3);
+    for (primitive, reason) in [
+        ("UInt8", "parameter_type"),
+        ("UInt24be", "return_type"),
+        ("UInt31be", "value_position"),
+    ] {
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.exact_width_primitive"
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains(&format!("\"primitive\":\"{primitive}\""))
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains(&format!("\"reason\":\"{reason}\""))
+        }));
+    }
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.unresolved"),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]
