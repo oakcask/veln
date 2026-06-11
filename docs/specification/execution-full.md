@@ -106,11 +106,14 @@ Executable specification cases may define named binary fixture records inside
 their example source or helper files. These test-owned records can carry the
 fixture name, decoded `ByteChunk`, optional consumed `ByteCount`, and expected
 invalid-fixture error text. The CLI toolchain harness compares their observable
-output with complete lowercase hex strings, stable truncation metadata, and
+output with complete lowercase hex strings, byte diagnostic metadata, and
 stable error text from `case.toml`. A named fixture can decode successfully and
 still be intentionally too short for a closed-input `ByteView` read; in that
 case, `run --json` reports `codec.incomplete_input` rather than a fixture text
-validation failure. This fixture support is limited to executable
+validation failure. A named fixture can also decode successfully and fail a
+test-owned codec or protocol field check; in that case, the harness metadata
+records the diagnostic id, byte offset, structured field path, and consumed
+count where the case has one. This fixture support is limited to executable
 specification evidence and does not add a production binary serialization or
 fixture API. The same harness support can assert named output `ByteChunk`
 lists through complete lowercase hex chunks in `case.toml`, preserving chunk

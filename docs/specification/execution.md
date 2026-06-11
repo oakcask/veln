@@ -28,7 +28,11 @@ execution reference.
   promoting a production fixture API. Named fixture records can also represent
   valid decoded bytes that are intentionally too short for a closed-input
   `ByteView` read; those cases keep fixture-owned truncation facts in
-  metadata while `run --json` reports `codec.incomplete_input`.
+  metadata while `run --json` reports `codec.incomplete_input`. Other named
+  fixture records can represent valid decoded bytes that fail a test-owned
+  codec or protocol field check; their metadata records the diagnostic id,
+  byte offset, structured field path, and consumed count where the case has
+  one.
 - Executable specification cases may also assert named output `ByteChunk`
   lists through complete lowercase hex in `case.toml`. The harness checks
   stable consecutive program-output lines for the list count, chunk order,

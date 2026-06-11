@@ -642,7 +642,7 @@ struct BinaryFixtureExpectation {
     bytes: Option<BinaryFixtureBytes>,
     consumed: Option<usize>,
     error: Option<String>,
-    truncation: Option<BinaryFixtureTruncation>,
+    byte_diagnostic: Option<BinaryFixtureByteDiagnostic>,
 }
 
 #[derive(Debug)]
@@ -658,12 +658,13 @@ struct OutputChunkListExpectation {
 }
 
 #[derive(Debug, Default)]
-struct BinaryFixtureTruncation {
+struct BinaryFixtureByteDiagnostic {
+    diagnostic_id: Option<String>,
     byte_offset: Option<usize>,
     expected_count: Option<usize>,
     available_count: Option<usize>,
     readiness: Option<String>,
-    field_path: Option<String>,
+    field_path: Option<JsonValue>,
 }
 
 #[derive(Debug, Default)]
@@ -945,7 +946,7 @@ impl<'a> ManifestParser<'a> {
             bytes: None,
             consumed: None,
             error: None,
-            truncation: None,
+            byte_diagnostic: None,
         });
         Section::BinaryFixture(self.binary_fixtures.len() - 1)
     }
@@ -1145,35 +1146,41 @@ impl<'a> ManifestParser<'a> {
                 fixture.consumed = Some(parse_nonnegative_usize(self.path, line_number, value));
             }
             "error" => fixture.error = Some(parse_string(self.path, line_number, value)),
+            "diagnostic_id" => {
+                fixture
+                    .byte_diagnostic
+                    .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
+                    .diagnostic_id = Some(parse_string(self.path, line_number, value));
+            }
             "byte_offset" => {
                 fixture
-                    .truncation
-                    .get_or_insert_with(BinaryFixtureTruncation::default)
+                    .byte_diagnostic
+                    .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
                     .byte_offset = Some(parse_nonnegative_usize(self.path, line_number, value));
             }
             "expected_count" => {
                 fixture
-                    .truncation
-                    .get_or_insert_with(BinaryFixtureTruncation::default)
+                    .byte_diagnostic
+                    .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
                     .expected_count = Some(parse_nonnegative_usize(self.path, line_number, value));
             }
             "available_count" => {
                 fixture
-                    .truncation
-                    .get_or_insert_with(BinaryFixtureTruncation::default)
+                    .byte_diagnostic
+                    .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
                     .available_count = Some(parse_nonnegative_usize(self.path, line_number, value));
             }
             "readiness" => {
                 fixture
-                    .truncation
-                    .get_or_insert_with(BinaryFixtureTruncation::default)
+                    .byte_diagnostic
+                    .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
                     .readiness = Some(parse_string(self.path, line_number, value));
             }
             "field_path" => {
                 fixture
-                    .truncation
-                    .get_or_insert_with(BinaryFixtureTruncation::default)
-                    .field_path = Some(parse_string(self.path, line_number, value));
+                    .byte_diagnostic
+                    .get_or_insert_with(BinaryFixtureByteDiagnostic::default)
+                    .field_path = Some(parse_manifest_json_value(self.path, line_number, value));
             }
             _ => manifest_error(
                 self.path,
@@ -1300,24 +1307,45 @@ impl<'a> ManifestParser<'a> {
                     format!("binary_fixture {index} `consumed` exceeds decoded byte count"),
                 );
             }
-            if let Some(truncation) = &fixture.truncation {
+            if let Some(byte_diagnostic) = &fixture.byte_diagnostic {
                 if fixture.bytes.is_none() {
                     manifest_error(
                         self.path,
                         0,
-                        format!("binary_fixture {index} truncation metadata needs `hex`"),
+                        format!("binary_fixture {index} byte diagnostic metadata needs `hex`"),
                     );
                 }
-                if truncation.byte_offset.is_none()
-                    || truncation.expected_count.is_none()
-                    || truncation.available_count.is_none()
-                    || truncation.readiness.is_none()
-                    || truncation.field_path.is_none()
+                if byte_diagnostic.byte_offset.is_none() || byte_diagnostic.field_path.is_none() {
+                    manifest_error(
+                        self.path,
+                        0,
+                        format!("binary_fixture {index} has incomplete byte diagnostic metadata"),
+                    );
+                }
+                validate_binary_fixture_field_path(
+                    self.path,
+                    index,
+                    byte_diagnostic.field_path.as_ref(),
+                );
+                let has_count_metadata = byte_diagnostic.expected_count.is_some()
+                    || byte_diagnostic.available_count.is_some()
+                    || byte_diagnostic.readiness.is_some();
+                if has_count_metadata
+                    && (byte_diagnostic.expected_count.is_none()
+                        || byte_diagnostic.available_count.is_none()
+                        || byte_diagnostic.readiness.is_none())
                 {
                     manifest_error(
                         self.path,
                         0,
-                        format!("binary_fixture {index} has incomplete truncation metadata"),
+                        format!("binary_fixture {index} has incomplete byte count metadata"),
+                    );
+                }
+                if byte_diagnostic.diagnostic_id.is_none() && !has_count_metadata {
+                    manifest_error(
+                        self.path,
+                        0,
+                        format!("binary_fixture {index} needs `diagnostic_id` for field metadata"),
                     );
                 }
             }
@@ -1340,6 +1368,57 @@ impl<'a> ManifestParser<'a> {
         }
 
         manifest
+    }
+}
+
+fn validate_binary_fixture_field_path(
+    path: &Path,
+    fixture_index: usize,
+    field_path: Option<&JsonValue>,
+) {
+    let Some(JsonValue::Array(segments)) = field_path else {
+        manifest_error(
+            path,
+            0,
+            format!("binary_fixture {fixture_index} `field_path` must be a JSON array"),
+        );
+    };
+    for (segment_index, segment) in segments.iter().enumerate() {
+        let JsonValue::Object(_) = segment else {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "binary_fixture {fixture_index} `field_path` segment {segment_index} must be an object"
+                ),
+            );
+        };
+        if segment
+            .object_field("kind")
+            .and_then(JsonValue::as_str)
+            .is_none()
+        {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "binary_fixture {fixture_index} `field_path` segment {segment_index} is missing string `kind`"
+                ),
+            );
+        }
+        if segment
+            .object_field("name")
+            .and_then(JsonValue::as_str)
+            .is_none()
+        {
+            manifest_error(
+                path,
+                0,
+                format!(
+                    "binary_fixture {fixture_index} `field_path` segment {segment_index} is missing string `name`"
+                ),
+            );
+        }
     }
 }
 
@@ -1739,27 +1818,25 @@ fn expected_binary_fixture_line(fixture: &BinaryFixtureExpectation) -> String {
             bytes.bytes.len(),
             consumed
         );
-        if let Some(truncation) = &fixture.truncation {
-            line.push_str(&format!(
-                " offset {} expected {} available {} readiness {} field_path {}",
-                truncation
-                    .byte_offset
-                    .expect("binary fixture byte offset should be present"),
-                truncation
-                    .expected_count
-                    .expect("binary fixture expected count should be present"),
-                truncation
-                    .available_count
-                    .expect("binary fixture available count should be present"),
-                truncation
-                    .readiness
-                    .as_deref()
-                    .expect("binary fixture readiness should be present"),
-                truncation
-                    .field_path
-                    .as_deref()
-                    .expect("binary fixture field path should be present")
-            ));
+        if let Some(byte_diagnostic) = &fixture.byte_diagnostic {
+            if let Some(diagnostic_id) = &byte_diagnostic.diagnostic_id {
+                line.push_str(&format!(" diagnostic {diagnostic_id}"));
+            }
+            if let Some(byte_offset) = byte_diagnostic.byte_offset {
+                line.push_str(&format!(" offset {byte_offset}"));
+            }
+            if let Some(expected_count) = byte_diagnostic.expected_count {
+                line.push_str(&format!(" expected {expected_count}"));
+            }
+            if let Some(available_count) = byte_diagnostic.available_count {
+                line.push_str(&format!(" available {available_count}"));
+            }
+            if let Some(readiness) = &byte_diagnostic.readiness {
+                line.push_str(&format!(" readiness {readiness}"));
+            }
+            if let Some(field_path) = &byte_diagnostic.field_path {
+                line.push_str(&format!(" field_path {}", field_path.to_compact_string()));
+            }
         }
         return line;
     }
@@ -1855,7 +1932,15 @@ byte_offset = 2
 expected_count = 3
 available_count = 2
 readiness = "need_bytes"
-field_path = "[]"
+field_path = []
+
+[[binary_fixture]]
+name = "invalid-frame-kind"
+hex = "ff0001"
+consumed = 1
+diagnostic_id = "schema.invalid_field_value"
+byte_offset = 0
+field_path = [{"kind":"schema","name":"DemoPacket"},{"kind":"field","name":"kind"}]
 
 [[binary_fixture]]
 name = "bad-separator"
@@ -1865,7 +1950,7 @@ error = "fixture.hex.invalid_character"
 
     assert!(manifest.expectations.needs_stdout_json());
     let fixtures = &manifest.expectations.binary_fixtures;
-    assert_eq!(fixtures.len(), 2);
+    assert_eq!(fixtures.len(), 3);
     assert_eq!(fixtures[0].name, "short-u24");
     assert_eq!(fixtures[0].bytes.as_ref().unwrap().hex, "0001");
     assert_eq!(fixtures[0].bytes.as_ref().unwrap().bytes, [0, 1]);
@@ -1874,13 +1959,20 @@ error = "fixture.hex.invalid_character"
         expected_binary_fixture_line(&fixtures[0]),
         "fixture short-u24 hex 0001 count 2 consumed 2 offset 2 expected 3 available 2 readiness need_bytes field_path []"
     );
-    assert_eq!(fixtures[1].name, "bad-separator");
+    assert_eq!(fixtures[1].name, "invalid-frame-kind");
+    assert_eq!(fixtures[1].bytes.as_ref().unwrap().hex, "ff0001");
+    assert_eq!(fixtures[1].consumed, Some(1));
     assert_eq!(
-        fixtures[1].error.as_deref(),
+        expected_binary_fixture_line(&fixtures[1]),
+        "fixture invalid-frame-kind hex ff0001 count 3 consumed 1 diagnostic schema.invalid_field_value offset 0 field_path [{\"kind\":\"schema\",\"name\":\"DemoPacket\"},{\"kind\":\"field\",\"name\":\"kind\"}]"
+    );
+    assert_eq!(fixtures[2].name, "bad-separator");
+    assert_eq!(
+        fixtures[2].error.as_deref(),
         Some("fixture.hex.invalid_character")
     );
     assert_eq!(
-        expected_binary_fixture_line(&fixtures[1]),
+        expected_binary_fixture_line(&fixtures[2]),
         "fixture bad-separator error fixture.hex.invalid_character"
     );
 }
@@ -2203,6 +2295,37 @@ enum JsonValue {
 }
 
 impl JsonValue {
+    fn to_compact_string(&self) -> String {
+        match self {
+            Self::Null => "null".to_string(),
+            Self::Bool(value) => value.to_string(),
+            Self::Number(value) => value.to_string(),
+            Self::String(value) => format!("\"{}\"", escape_json_string(value)),
+            Self::Array(values) => {
+                let values = values
+                    .iter()
+                    .map(JsonValue::to_compact_string)
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!("[{values}]")
+            }
+            Self::Object(entries) => {
+                let entries = entries
+                    .iter()
+                    .map(|(key, value)| {
+                        format!(
+                            "\"{}\":{}",
+                            escape_json_string(key),
+                            value.to_compact_string()
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(",");
+                format!("{{{entries}}}")
+            }
+        }
+    }
+
     fn as_array(&self) -> Option<&[JsonValue]> {
         match self {
             Self::Array(values) => Some(values),
@@ -2226,6 +2349,26 @@ impl JsonValue {
             _ => None,
         }
     }
+}
+
+fn escape_json_string(value: &str) -> String {
+    let mut escaped = String::new();
+    for ch in value.chars() {
+        match ch {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            '\u{08}' => escaped.push_str("\\b"),
+            '\u{0c}' => escaped.push_str("\\f"),
+            ch if ch.is_control() => {
+                escaped.push_str(&format!("\\u{:04x}", ch as u32));
+            }
+            ch => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 fn parse_json(text: &str) -> Result<JsonValue, String> {

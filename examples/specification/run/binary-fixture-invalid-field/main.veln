@@ -1,0 +1,36 @@
+# Named binary fixtures can own valid bytes that fail a field check.
+use stdio
+
+fn emit_consumed(consumed: Option<ByteCount>) -> () effects [stdio]
+	match consumed
+		Some(count) => stdio::print(int_to_string(byte_count_to_int(count)))
+		None => stdio::print("none")
+	end
+end
+
+fn emit_invalid_field_fixture(fixture: { name : String, bytes : ByteChunk, expected_hex : String, expected_consumed : Option<ByteCount>, diagnostic_id : String, byte_offset : ByteOffset, field_path : String }) -> () effects [stdio]
+	stdio::print("fixture ")
+	stdio::print(fixture.name)
+	stdio::print(" hex ")
+	stdio::print(fixture.expected_hex)
+	stdio::print(" count ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(fixture.bytes))))
+	stdio::print(" consumed ")
+	emit_consumed(fixture.expected_consumed)
+	stdio::print(" diagnostic ")
+	stdio::print(fixture.diagnostic_id)
+	stdio::print(" offset ")
+	stdio::print(int_to_string(byte_offset_to_int(fixture.byte_offset)))
+	stdio::print(" field_path ")
+	stdio::println(fixture.field_path)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("ff0001")?
+	let consumed: ByteCount = byte_count(1)?
+	let diagnostic_offset: ByteOffset = byte_offset(0)?
+	let field_path: String = "[{\"kind\":\"schema\",\"name\":\"DemoPacket\"},{\"kind\":\"field\",\"name\":\"kind\"}]"
+	let fixture = { name: "invalid-frame-kind", bytes: bytes, expected_hex: "ff0001", expected_consumed: Some(consumed), diagnostic_id: "schema.invalid_field_value", byte_offset: diagnostic_offset, field_path: field_path }
+	emit_invalid_field_fixture(fixture)
+	Ok(())
+end
