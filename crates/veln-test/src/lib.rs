@@ -438,7 +438,53 @@ fn result_failure_from_trace_line(line: &str) -> Option<TestFailure> {
         return None;
     }
     let value = decode_hex_text(fields.next()?)?;
-    Some(TestFailure::result(value))
+    let details = match fields.next() {
+        Some("fixture_hex") => Some(fixture_hex_details(&mut fields)?),
+        Some(_) => return None,
+        None => None,
+    };
+    Some(TestFailure::result(value, details))
+}
+
+fn fixture_hex_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<JsonValue> {
+    let id = fields.next()?.to_string();
+    let text_start = fields.next()?.parse::<i64>().ok()?;
+    let text_end = fields.next()?.parse::<i64>().ok()?;
+    let byte_offset = fields.next()?.parse::<i64>().ok()?;
+    let nibble = fields.next()?.to_string();
+    let context_start = fields.next()?.parse::<i64>().ok()?;
+    let context_end = fields.next()?.parse::<i64>().ok()?;
+    let context = decode_hex_text(fields.next()?)?;
+    if fields.next().is_some() {
+        return None;
+    }
+    Some(JsonValue::object([
+        ("kind", JsonValue::string("fixture_hex")),
+        ("id", JsonValue::string(id)),
+        (
+            "fixture_text_span",
+            JsonValue::object([
+                ("start", JsonValue::Number(text_start)),
+                ("end", JsonValue::Number(text_end)),
+            ]),
+        ),
+        (
+            "byte_offset",
+            JsonValue::object([
+                ("kind", JsonValue::string("ByteOffset")),
+                ("value", JsonValue::Number(byte_offset)),
+            ]),
+        ),
+        ("nibble_position", JsonValue::string(nibble)),
+        (
+            "nearby_context",
+            JsonValue::object([
+                ("start", JsonValue::Number(context_start)),
+                ("end", JsonValue::Number(context_end)),
+                ("text", JsonValue::string(context)),
+            ]),
+        ),
+    ]))
 }
 
 fn hex_digit(character: char) -> Option<u8> {
@@ -678,15 +724,19 @@ impl TestFailure {
         }
     }
 
-    pub fn result(value: String) -> Self {
+    pub fn result(value: String, fixture_hex: Option<JsonValue>) -> Self {
+        let mut details = vec![
+            ("kind", JsonValue::string("result")),
+            ("phase", JsonValue::string("runtime")),
+            ("value", JsonValue::string(value.clone())),
+        ];
+        if let Some(fixture_hex) = fixture_hex {
+            details.push(("fixture_hex", fixture_hex));
+        }
         Self {
             kind: "result".to_string(),
             message: format!("runtime result failure: Err({value})"),
-            details: JsonValue::object([
-                ("kind", JsonValue::string("result")),
-                ("phase", JsonValue::string("runtime")),
-                ("value", JsonValue::string(value)),
-            ]),
+            details: JsonValue::object(details),
         }
     }
 
@@ -3460,6 +3510,38 @@ mod tests {
     }
 
     #[test]
+    fn fixture_hex_result_trace_keeps_structured_details() {
+        let trace = concat!(
+            "result\t",
+            "666978747572652e6865782e696e76616c69645f6368617261637465723a20",
+            "657870656374656420415343494920686578206469676974206174206279746520",
+            "6f666673657420312068696768206e6962626c65",
+            "\tfixture_hex\tfixture.hex.invalid_character\t2\t3\t1\thigh\t0\t5\t30305f3031\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.message,
+            "runtime result failure: Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble)"
+        );
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble\",",
+                "\"fixture_hex\":{\"kind\":\"fixture_hex\",",
+                "\"id\":\"fixture.hex.invalid_character\",",
+                "\"fixture_text_span\":{\"start\":2,\"end\":3},",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":1},",
+                "\"nibble_position\":\"high\",",
+                "\"nearby_context\":{\"start\":0,\"end\":5,\"text\":\"00_01\"}}}"
+            )
+        );
+    }
+
+    #[test]
     fn expected_runtime_contract_failure_marks_matching_case_passed() {
         let source_file = SourceFile::new(
             "main.veln#doctest-1_test.veln",
@@ -3585,7 +3667,10 @@ mod tests {
             diagnostics: Vec::new(),
         };
 
-        apply_runtime_result(&mut case, Some(TestFailure::result("bad".to_string())));
+        apply_runtime_result(
+            &mut case,
+            Some(TestFailure::result("bad".to_string(), None)),
+        );
 
         assert_eq!(case.status, TestCaseStatus::Passed);
         assert!(case.reason.is_none());

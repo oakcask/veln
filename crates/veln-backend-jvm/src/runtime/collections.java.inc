@@ -52,49 +52,87 @@
         String input = asString(text);
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
         int highNibble = -1;
+        int highNibbleIndex = -1;
 
         for (int index = 0; index < input.length(); index += 1) {
             char value = input.charAt(index);
             if (value > 127) {
-                return fixtureHexInvalidCharacter(bytes.size(), highNibble >= 0 ? "low" : "high");
+                return fixtureHexInvalidCharacter(
+                    input,
+                    index,
+                    bytes.size(),
+                    highNibble >= 0 ? "low" : "high"
+                );
             }
             if (isAsciiWhitespace(value)) {
                 if (highNibble >= 0) {
-                    return fixtureHexInvalidCharacter(bytes.size(), "low");
+                    return fixtureHexInvalidCharacter(input, index, bytes.size(), "low");
                 }
                 continue;
             }
 
             int nibble = hexNibble(value);
             if (nibble < 0) {
-                return fixtureHexInvalidCharacter(bytes.size(), highNibble >= 0 ? "low" : "high");
+                return fixtureHexInvalidCharacter(
+                    input,
+                    index,
+                    bytes.size(),
+                    highNibble >= 0 ? "low" : "high"
+                );
             }
             if (highNibble < 0) {
                 highNibble = nibble;
+                highNibbleIndex = index;
             } else {
                 bytes.add(byteObject((highNibble << 4) | nibble));
                 highNibble = -1;
+                highNibbleIndex = -1;
             }
         }
 
         if (highNibble >= 0) {
-            return err(
-                "fixture.hex.odd_length: dangling hex nibble at byte offset "
-                    + bytes.size()
-                    + " high nibble"
-            );
+            return fixtureHexOddLength(input, highNibbleIndex, bytes.size());
         }
         return ok(byteChunkObject(bytes));
     }
 
-    private static Object fixtureHexInvalidCharacter(int byteOffset, String nibble) {
-        return err(
-            "fixture.hex.invalid_character: expected ASCII hex digit at byte offset "
-                + byteOffset
-                + " "
-                + nibble
-                + " nibble"
+    private static Object fixtureHexInvalidCharacter(
+        String input,
+        int textIndex,
+        int byteOffset,
+        String nibble
+    ) {
+        String message = "fixture.hex.invalid_character: expected ASCII hex digit at byte offset "
+            + byteOffset
+            + " "
+            + nibble
+            + " nibble";
+        registerFixtureHexDiagnostic(
+            message,
+            "fixture.hex.invalid_character",
+            input,
+            textIndex,
+            textIndex + 1,
+            byteOffset,
+            nibble
         );
+        return err(message);
+    }
+
+    private static Object fixtureHexOddLength(String input, int textIndex, int byteOffset) {
+        String message = "fixture.hex.odd_length: dangling hex nibble at byte offset "
+            + byteOffset
+            + " high nibble";
+        registerFixtureHexDiagnostic(
+            message,
+            "fixture.hex.odd_length",
+            input,
+            textIndex,
+            textIndex + 1,
+            byteOffset,
+            "high"
+        );
+        return err(message);
     }
 
     private static boolean isAsciiWhitespace(char value) {

@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["Err(fixture.hex.invalid_character: expected ASCII hex digit at byte offset 1 high nibble)"]

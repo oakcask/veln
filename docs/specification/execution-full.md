@@ -87,8 +87,11 @@ counts or offsets, and slice or drop counts that exceed the chunk length. Hex
 fixture decoding accepts ASCII hex byte pairs with ASCII whitespace between
 complete bytes only; invalid characters and dangling nibbles return stable
 fixture hex error ids with decoded byte offset and nibble position in the
-error text. The exact host representation of byte chunks, counts, offsets, and
-bytes is backend-owned.
+error text. When such a failure propagates out of a `run --json` entry as an
+`Err(String)`, the result failure details also include the fixture text span,
+decoded `ByteOffset`, nibble position, and nearby fixture text context. The
+exact host representation of byte chunks, counts, offsets, and bytes is
+backend-owned.
 
 Standard `StreamInput` values execute as ordinary immutable source ADT values:
 `Chunk(bytes)` preserves the supplied `ByteChunk`, including an empty chunk,
@@ -186,11 +189,11 @@ strategy, and later structural-sharing choices remain backend details.
 Runtime contract failures stop the selected `run` entry or fail the selected
 test case. Human output names the failed clause text, function boundary, source
 identity, and blame route. `veln run --json` reports one top-level structured
-runtime error record. `veln test --json` embeds runtime contract failures in
-the failed case with structured runtime contract details. Tests that return
-`Err(value)` are reported with structured runtime result details in
-`veln test --json`. `require` uses caller blame; `ensure` uses implementation
-blame. When `?` propagates an error result
+error record. `veln test --json` embeds runtime contract failures in
+the failed case with structured runtime contract details. Entries and tests
+that return `Err(value)` are reported with structured runtime result details
+in `veln run --json` and `veln test --json`. `require` uses caller blame;
+`ensure` uses implementation blame. When `?` propagates an error result
 out of a function, the function's `ensure` clauses run before that early
 return.
 

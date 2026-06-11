@@ -407,7 +407,9 @@ and returns `Ok(ByteChunk)` for the decoded bytes. It returns `Err(String)`
 with `fixture.hex.invalid_character` for non-hex text, prefixes, underscores,
 comments, separators, non-ASCII characters, or whitespace inside a byte pair,
 and `fixture.hex.odd_length` for a dangling final nibble. The error text
-includes the decoded byte offset and the high or low nibble position.
+includes the decoded byte offset and the high or low nibble position. When the
+error propagates out of `run --json`, the runtime result details expose the
+fixture text span, decoded `ByteOffset`, nibble position, and nearby context.
 `byte_take(chunk, count)` and `byte_drop(chunk, count)` return `Ok(ByteChunk)`
 when `count` is within the chunk length, and `Err(String)` when the count is
 outside that chunk.
