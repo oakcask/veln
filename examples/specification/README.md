@@ -266,6 +266,9 @@ against the built `veln` binary.
   prefixes, or separators fail with stable fixture hex error text.
 - `run/byte-fixture-hex-odd/`: dangling compact hex fixture nibbles fail with
   stable fixture hex error text.
+- `run/binary-fixture-records/`: test-owned named binary fixture records carry
+  decoded byte chunks, optional consumed counts, and invalid fixture
+  expectations; `case.toml` checks exact complete lowercase hex output.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.
