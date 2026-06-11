@@ -152,6 +152,17 @@ const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
 const SELF_HOSTING_CANDIDATE_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[];
 
 source_prelude_symbol_set! {
+    "byte" => veln_stdlib::prelude_source("byte"),
+    "byte_to_int" => veln_stdlib::prelude_source("byte_to_int"),
+    "byte_chunk" => veln_stdlib::prelude_source("byte_chunk"),
+    "byte_chunk_count" => veln_stdlib::prelude_source("byte_chunk_count"),
+    "byte_append" => veln_stdlib::prelude_source("byte_append"),
+    "byte_take" => veln_stdlib::prelude_source("byte_take"),
+    "byte_drop" => veln_stdlib::prelude_source("byte_drop"),
+    "byte_count" => veln_stdlib::prelude_source("byte_count"),
+    "byte_count_to_int" => veln_stdlib::prelude_source("byte_count_to_int"),
+    "byte_offset" => veln_stdlib::prelude_source("byte_offset"),
+    "byte_offset_to_int" => veln_stdlib::prelude_source("byte_offset_to_int"),
     "vec_fold" => veln_stdlib::prelude_source("vec_fold"),
     "vec_len" => veln_stdlib::prelude_source("vec_len"),
     "vec_is_empty" => veln_stdlib::prelude_source("vec_is_empty"),

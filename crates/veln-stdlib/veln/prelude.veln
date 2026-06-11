@@ -1,3 +1,87 @@
+pub type Byte
+	Byte(value: Int)
+end
+
+pub type ByteChunk
+	ByteChunk(bytes: Vec<Byte>)
+end
+
+pub type ByteOffset
+	ByteOffset(value: Int)
+end
+
+pub type ByteCount
+	ByteCount(value: Int)
+end
+
+pub fn byte(value: Int) -> Result<Byte, String>
+	match value < 0
+		true => Err("byte value must be between 0 and 255")
+		false => match value > 255
+			true => Err("byte value must be between 0 and 255")
+			false => Ok(Byte(value))
+		end
+	end
+end
+
+pub fn byte_to_int(value: Byte) -> Int
+	match value
+		Byte(inner) => inner
+	end
+end
+
+pub fn byte_chunk(bytes: Vec<Byte>) -> ByteChunk
+	ByteChunk(bytes)
+end
+
+pub fn byte_chunk_count(chunk: ByteChunk) -> ByteCount
+	match chunk
+		ByteChunk(bytes) => ByteCount(prelude_builtin::vec_len(bytes))
+	end
+end
+
+pub fn byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
+	match left
+		ByteChunk(left_bytes) => match right
+			ByteChunk(right_bytes) => ByteChunk(prelude_builtin::vec_concat(left_bytes, right_bytes))
+		end
+	end
+end
+
+pub fn byte_take(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
+	prelude_builtin::byte_take(chunk, count)
+end
+
+pub fn byte_drop(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
+	prelude_builtin::byte_drop(chunk, count)
+end
+
+pub fn byte_count(value: Int) -> Result<ByteCount, String>
+	match value < 0
+		true => Err("byte count must be non-negative")
+		false => Ok(ByteCount(value))
+	end
+end
+
+pub fn byte_count_to_int(value: ByteCount) -> Int
+	match value
+		ByteCount(inner) => inner
+	end
+end
+
+pub fn byte_offset(value: Int) -> Result<ByteOffset, String>
+	match value < 0
+		true => Err("byte offset must be non-negative")
+		false => Ok(ByteOffset(value))
+	end
+end
+
+pub fn byte_offset_to_int(value: ByteOffset) -> Int
+	match value
+		ByteOffset(inner) => inner
+	end
+end
+
 pub fn vec_fold(items: Vec<A>, initial: B, f: fn(B, A) -> B) -> B
 	prelude_builtin::vec_fold(items, initial, f)
 end

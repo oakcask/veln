@@ -10,6 +10,8 @@ Implemented type annotations:
 - primitives: `Bool`, `Int`, `Float`, `String`, and `()`
 - built-in and descriptor-backed type constructors: `Option<T>`,
   `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`
+- standard prelude byte vocabulary names: `Byte`, `ByteChunk`, `ByteOffset`,
+  and `ByteCount`
 - records: `{name: Type, ...}`
 - function types: `fn(T, ...) -> U` with optional `effects [name, ...]`
 - other named type paths with optional type arguments, unless they are one of
@@ -28,6 +30,13 @@ declared type parameters from surrounding context and payload expressions.
 Nullary generic constructors require surrounding type context; when no
 assignment, return, call, match, or other expected type determines the omitted
 parameter, inference reports an ambiguous constructor type.
+
+The standard prelude byte vocabulary uses `Byte` for one byte value,
+`ByteChunk` for an immutable owned byte sequence, `ByteCount` for byte lengths
+and consumed counts, and `ByteOffset` for absolute byte offsets. Their
+constructor layout is not a public source contract; programs construct and
+inspect values through the prelude helpers in
+[names-effects-full.md#helper-signatures](names-effects-full.md#helper-signatures).
 
 In a function or test return annotation, a returned function type may carry its
 own effect list before the enclosing declaration's effect list. For example,

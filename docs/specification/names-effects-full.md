@@ -307,6 +307,17 @@ helpers are part of this public helper set; names such as `list_to_vec` or
 ### Helper Signatures
 
 ```veln
+byte(value: Int) -> Result<Byte, String>
+byte_to_int(value: Byte) -> Int
+byte_chunk(bytes: Vec<Byte>) -> ByteChunk
+byte_chunk_count(chunk: ByteChunk) -> ByteCount
+byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
+byte_take(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
+byte_drop(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
+byte_count(value: Int) -> Result<ByteCount, String>
+byte_count_to_int(value: ByteCount) -> Int
+byte_offset(value: Int) -> Result<ByteOffset, String>
+byte_offset_to_int(value: ByteOffset) -> Int
 vec_len(items: Vec<A>) -> Int
 vec_is_empty(items: Vec<A>) -> Bool
 vec_push(items: Vec<A>, value: A) -> Vec<A>
@@ -368,18 +379,31 @@ tail-call optimization guarantee.
 integer spelling and returns the original input string in `Err` when parsing
 fails. `int_to_string` renders an integer for display and string composition.
 
+`byte(value)` accepts integers from `0` through `255` and returns `Err(String)`
+for values outside that range. `byte_chunk(bytes)` returns an immutable owned
+chunk containing the supplied bytes. `byte_chunk_count(chunk)` returns the
+chunk length as `ByteCount`. `byte_append(left, right)` returns a new chunk
+with the left bytes followed by the right bytes. `byte_take(chunk, count)` and
+`byte_drop(chunk, count)` return `Ok(ByteChunk)` when `count` is within the
+chunk length, and `Err(String)` when the count is outside that chunk.
+`byte_count(value)` and `byte_offset(value)` accept non-negative integers.
+The `*_to_int` helpers expose the stored integer value for ordinary source
+logic and display.
+
 ### Source-Backed Boundary
 
 The implemented standard symbol table has this current pure-helper split:
 
-- source-backed pure helpers: `vec_len`, `vec_is_empty`, `vec_push`,
-  `vec_concat`, `vec_map`, `vec_filter`, `vec_fold`, `vec_try_map`,
-  `vec_try_map_with`, `list_nil`, `list_cons`, `list_is_empty`, `list_fold`,
-  `list_reverse`, `list_map`, `list_filter`, `list_try_map`, `dict_get`,
-  `dict_contains`, `dict_insert`, `dict_remove`, `option_map`,
-  `option_and_then`, `option_unwrap_or`, `result_map`, `result_map_err`,
-  `result_and_then`, `string_split_once`, `string_parse_int`, and
-  `int_to_string`
+- source-backed pure helpers: `byte`, `byte_to_int`, `byte_chunk`,
+  `byte_chunk_count`, `byte_append`, `byte_take`, `byte_drop`, `byte_count`,
+  `byte_count_to_int`, `byte_offset`, `byte_offset_to_int`, `vec_len`,
+  `vec_is_empty`, `vec_push`, `vec_concat`, `vec_map`, `vec_filter`,
+  `vec_fold`, `vec_try_map`, `vec_try_map_with`, `list_nil`, `list_cons`,
+  `list_is_empty`, `list_fold`, `list_reverse`, `list_map`, `list_filter`,
+  `list_try_map`, `dict_get`, `dict_contains`, `dict_insert`, `dict_remove`,
+  `option_map`, `option_and_then`, `option_unwrap_or`, `result_map`,
+  `result_map_err`, `result_and_then`, `string_split_once`,
+  `string_parse_int`, and `int_to_string`
 - descriptor-only pure helpers: none
 
 This empty descriptor-only pure-helper list is the implemented completion
@@ -412,7 +436,10 @@ host vec size directly. The vec traversal helpers use
 `prelude_builtin::vec_fold`, and vec append support uses
 `prelude_builtin::vec_push`; their step helpers are implementation details, and
 this source placement does not expose or stabilize a public vec
-representation. The `vec_fold` entry is declared in the shared `prelude`
+representation. Byte slice helpers delegate through
+`prelude_builtin::byte_take` and `prelude_builtin::byte_drop` because bounded
+slicing currently crosses the runtime container boundary. The `vec_fold` entry
+is declared in the shared `prelude`
 source and delegates to `prelude_builtin::vec_fold`. The list
 helpers use the descriptor-backed `List<A>` constructors and pattern coverage;
 their private step helpers are ordinary support source and do not expose a
