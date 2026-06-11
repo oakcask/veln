@@ -253,10 +253,30 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             "fn done() -> StreamInput\n",
             "  prelude::End\n",
             "end\n",
+            "fn decoded(count: ByteCount) -> DecodeStep<Int>\n",
+            "  Decoded(7, count)\n",
+            "end\n",
+            "fn waiting(count: ByteCount) -> DecodeStep<Int>\n",
+            "  prelude::DecodeStep::NeedMore(prelude::DecodeReadiness::NeedBytes(count))\n",
+            "end\n",
+            "fn waiting_for_end() -> DecodeStep<Int>\n",
+            "  DecodeStep::NeedMore(NeedEnd)\n",
+            "end\n",
+            "fn invalid(offset: ByteOffset) -> DecodeStep<Int>\n",
+            "  prelude::Invalid(DecodeError(\"codec.invalid\", offset, \"demo.field\"))\n",
+            "end\n",
             "fn label(input: StreamInput) -> String\n",
             "  match input\n",
             "    prelude::StreamInput::Chunk(bytes) => int_to_string(byte_count_to_int(byte_chunk_count(bytes)))\n",
             "    prelude::End => \"end\"\n",
+            "  end\n",
+            "end\n",
+            "fn decode_label(step: DecodeStep<Int>) -> String\n",
+            "  match step\n",
+            "    prelude::DecodeStep::Decoded(value, consumed) => int_to_string(value + byte_count_to_int(consumed))\n",
+            "    NeedMore(prelude::DecodeReadiness::NeedBytes(count)) => int_to_string(byte_count_to_int(count))\n",
+            "    NeedMore(prelude::NeedEnd) => \"end\"\n",
+            "    prelude::DecodeStep::Invalid(DecodeError(id, _, _)) => id\n",
             "  end\n",
             "end\n",
         ),
@@ -304,6 +324,20 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             if name == &vec!["StreamInput".to_string(), "End".to_string()]
                 && payloads.is_empty())
     );
+    for function_name in ["decoded", "waiting", "waiting_for_end", "invalid"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("{function_name} should return a constructor");
+        };
+        assert_eq!(
+            expr.ty,
+            CoreType::named("DecodeStep", vec![CoreType::int()])
+        );
+    }
     let label = core
         .functions
         .iter()

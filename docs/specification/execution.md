@@ -22,8 +22,9 @@ execution reference.
   operations and return immutable byte values or `Result` failures for invalid
   values, invalid compact hex fixture text, out-of-bounds counts and ranges,
   truncation, schema fixed-field mismatches, and fixed-width unsigned
-  conversion overflow. Standard `StreamInput` values execute as ordinary
-  immutable ADT values.
+  conversion overflow. Standard `StreamInput`, `DecodeStep<T>`,
+  `DecodeReadiness`, and `DecodeError` values execute as ordinary immutable
+  ADT values.
 - The implemented binary schema primitive execution slice decodes the
   `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
   `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes

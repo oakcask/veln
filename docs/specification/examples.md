@@ -83,6 +83,16 @@ projection. The named-fixture truncation case pins the same JSON diagnostic
 shape while proving that valid fixture bytes fail as codec truncation, not as
 fixture text validation.
 
+## Codec Decode Step Vocabulary
+
+The executable specification case
+`../../examples/specification/run/codec-decode-step-vocabulary/` covers the
+source-visible incremental decode transition vocabulary. Ordinary source
+functions construct `DecodeStep<T>` values for a successful `Decoded` outcome
+with a decoded value and consumed `ByteCount`, a `NeedMore` outcome with
+`NeedBytes` readiness that consumes no input, and an `Invalid` outcome carrying
+a structured `DecodeError` with id, byte offset, and field path.
+
 ## Binary Schema Frame Header
 
 The executable specification cases

@@ -461,6 +461,107 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             propagation: None,
             visibility: Visibility::Public,
         },
+        AdtDescriptor {
+            type_name: "DecodeError".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![AdtVariantDescriptor {
+                name: "DecodeError".to_string(),
+                kind: AdtVariantKind::Source,
+                payload_fields: vec![
+                    AdtPayloadField {
+                        name: "id".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::string()),
+                    },
+                    AdtPayloadField {
+                        name: "offset".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::named("ByteOffset", Vec::new())),
+                    },
+                    AdtPayloadField {
+                        name: "field_path".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::string()),
+                    },
+                ],
+                coverage_case: "DecodeError(_)".to_string(),
+                visibility: Visibility::Public,
+            }],
+            diagnostic_name: "decodeerror".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
+            type_name: "DecodeReadiness".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "NeedBytes".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "count".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
+                    }],
+                    coverage_case: "NeedBytes(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "NeedEnd".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "NeedEnd".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "decodereadiness".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
+            type_name: "DecodeStep".to_string(),
+            module_name: None,
+            type_parameters: vec!["T".to_string()],
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "Decoded".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "value".to_string(),
+                            ty: AdtPayloadType::TypeParameter(0),
+                        },
+                        AdtPayloadField {
+                            name: "consumed".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
+                        },
+                    ],
+                    coverage_case: "Decoded(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "NeedMore".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "readiness".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::named("DecodeReadiness", Vec::new())),
+                    }],
+                    coverage_case: "NeedMore(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "Invalid".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "error".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::named("DecodeError", Vec::new())),
+                    }],
+                    coverage_case: "Invalid(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "decodestep".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
     ]
 }
 
@@ -652,7 +753,10 @@ fn constructor_matches_visible_path(
 
 fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bool {
     descriptor.module_name.is_none()
-        && descriptor.type_name == "StreamInput"
+        && matches!(
+            descriptor.type_name.as_str(),
+            "StreamInput" | "DecodeError" | "DecodeReadiness" | "DecodeStep"
+        )
         && descriptor.visibility == Visibility::Public
         && alias == PRELUDE_MODULE
 }
