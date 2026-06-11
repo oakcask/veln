@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "valid result frame offset 0 kind 4 stream 0 next 9 pending 0 continuation none\nincomplete result waiting offset 0 kind 0 stream 0 next 0 pending 4 continuation none\nclosed id http2.protocol.closed_with_pending offset 0 pending 4 actual_kind 0 actual_stream 0 expected_stream 0 started_kind 0 started_offset 0\nheaders result frame offset 0 kind 1 stream 1 next 9 pending 0 continuation active\ncontinuation id http2.protocol.continuation_expected offset 9 pending 0 actual_kind 0 actual_stream 1 expected_stream 1 started_kind 1 started_offset 0\n"
+
+[[json_assert]]
+path = "error"
+equals = null

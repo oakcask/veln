@@ -111,3 +111,19 @@ path, expected and actual byte values, and nearby hex context. The human case
 asserts that the primary message stays focused on the fixed-field mismatch and
 puts field path, expected value, actual value, and nearby context in related
 notes.
+
+## HTTP/2 Protocol Core Example
+
+The executable specification case
+`../../examples/specification/run/http2-protocol-core/` shows the implemented
+ordinary-source HTTP/2 sans-I/O decode-state slice. The example models input
+chunks and end-of-stream as explicit ADT events, stores parser state as the
+undecoded `ByteChunk` suffix plus the next absolute byte offset, and reuses
+the binary frame-header primitive for each available header.
+
+The case pins four observable outcomes: a valid frame-header arrival,
+incomplete input that waits for more bytes, closed input with pending bytes,
+and a continuation ordering failure. Protocol failures stay as ordinary ADT
+values and are projected by source code into stable diagnostic ids and related
+context fields for byte offset, frame kind, stream id, and active
+continuation state.

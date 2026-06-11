@@ -330,6 +330,10 @@ against the built `veln` binary.
   validation reports `schema.reserved_bits_mismatch` through `run --json`
   with byte offset, field path, bit width, expected value, actual value, and
   nearby bytes.
+- `run/http2-protocol-core/`: an ordinary-source HTTP/2 sans-I/O decode state
+  handles chunk arrival, incomplete input, end-of-stream truncation, and a
+  continuation ordering failure while projecting typed protocol failures into
+  stable ids and related context.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.
