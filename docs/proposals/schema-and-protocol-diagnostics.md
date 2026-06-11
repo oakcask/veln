@@ -7,6 +7,11 @@ failures. It is a prerequisite for the HTTP/2 binary schema design driver
 because byte-level failures must be repairable by agents and distinguishable
 from stream-state protocol errors.
 
+Implemented behavior for closed-input fixed-width `ByteView` read truncation
+is specified under `../specification/run-json.md`. The remaining proposal work
+covers schema-owned failures, broader codec diagnostics, and protocol-state
+diagnostic projection.
+
 ## Problem
 
 Existing diagnostics cover source parsing, type checking, effects, contracts,

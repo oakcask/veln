@@ -26,7 +26,8 @@ compare it with `../specification/` before changing behavior.
 - [Codec Execution Boundary](codec-execution-boundary.md): separate schema
   declarations from executable decode and encode behavior.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
-  define structured diagnostics for schema, codec, and protocol-state failures.
+  define remaining structured diagnostics beyond the implemented closed-input
+  `ByteView` read truncation details.
 - [Binary Fixture Helpers](binary-fixture-helpers.md): define remaining binary
   fixture helper work beyond compact hex byte chunks, structured fixture text
   validation details, and the implemented executable-specification named

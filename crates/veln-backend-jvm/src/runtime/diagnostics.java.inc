@@ -34,6 +34,7 @@
         }
         String value = format(asResult(result).value());
         FixtureHexDiagnostic fixtureHex = fixtureHexDiagnostics.get().remove(value);
+        ByteDiagnostic byteDiagnostic = byteDiagnostics.get().remove(value);
         String line = "result"
             + "\t" + hex(value);
         if (fixtureHex != null) {
@@ -47,6 +48,15 @@
                 + "\t" + Integer.toString(fixtureHex.contextStart)
                 + "\t" + Integer.toString(fixtureHex.contextEnd)
                 + "\t" + hex(fixtureHex.context);
+        }
+        if (byteDiagnostic != null) {
+            line = line
+                + "\tbyte_diagnostic"
+                + "\t" + byteDiagnostic.id
+                + "\t" + Long.toString(byteDiagnostic.byteOffset)
+                + "\t" + Long.toString(byteDiagnostic.expectedCount)
+                + "\t" + Long.toString(byteDiagnostic.availableCount)
+                + "\t" + byteDiagnostic.readiness;
         }
         line = line + System.lineSeparator();
         try {
@@ -63,6 +73,27 @@
 
     private static final ThreadLocal<java.util.Map<String, FixtureHexDiagnostic>> fixtureHexDiagnostics =
         ThreadLocal.withInitial(java.util.HashMap::new);
+
+    private static final ThreadLocal<java.util.Map<String, ByteDiagnostic>> byteDiagnostics =
+        ThreadLocal.withInitial(java.util.HashMap::new);
+
+    private static void registerCodecIncompleteInputDiagnostic(
+        String message,
+        long byteOffset,
+        long expectedCount,
+        long availableCount
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "codec.incomplete_input",
+                byteOffset,
+                expectedCount,
+                availableCount,
+                "need_bytes"
+            )
+        );
+    }
 
     private static void registerFixtureHexDiagnostic(
         String message,
@@ -118,5 +149,27 @@
             this.contextStart = contextStart;
             this.contextEnd = contextEnd;
             this.context = context;
+        }
+    }
+
+    private static final class ByteDiagnostic {
+        final String id;
+        final long byteOffset;
+        final long expectedCount;
+        final long availableCount;
+        final String readiness;
+
+        ByteDiagnostic(
+            String id,
+            long byteOffset,
+            long expectedCount,
+            long availableCount,
+            String readiness
+        ) {
+            this.id = id;
+            this.byteOffset = byteOffset;
+            this.expectedCount = expectedCount;
+            this.availableCount = availableCount;
+            this.readiness = readiness;
         }
     }

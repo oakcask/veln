@@ -31,5 +31,33 @@ path = "error.details.value"
 equals = "byte read requires 3 bytes but view has 2"
 
 [[json_assert]]
+path = "error.details.byte_diagnostic.kind"
+equals = "byte_diagnostic"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "codec.incomplete_input"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.kind"
+equals = "ByteOffset"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.expected_count"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.available_count"
+equals = 2
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.readiness"
+equals = "need_bytes"
+
+[[json_assert]]
 path = "stderr"
 equals = "Err(byte read requires 3 bytes but view has 2)\n"

@@ -266,7 +266,9 @@
             return boundsError;
         }
         if (count < width) {
-            return err("byte read requires " + width + " bytes but view has " + count);
+            String message = "byte read requires " + width + " bytes but view has " + count;
+            registerCodecIncompleteInputDiagnostic(message, offset + count, width, count);
+            return err(message);
         }
         long value = 0;
         for (int index = 0; index < width; index += 1) {

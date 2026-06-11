@@ -286,7 +286,8 @@ against the built `veln` binary.
   reads and writes, truncation failures, range failures, and conversion
   overflow failures, plus channel freeze preservation for bounded views.
 - `run/binary-byteview-read-failure-json/`: ByteView read truncation propagates
-  as a runtime `Result` failure through `run --json`.
+  as a runtime `Result` failure through `run --json` with
+  `codec.incomplete_input` byte diagnostic details.
 - `run/binary-byteview-range-failure-human/`: ByteView range failures propagate
   stable error text through human `run` stderr.
 - `run/binary-byteview-write-failure-human/`: unsigned big-endian write

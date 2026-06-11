@@ -438,12 +438,20 @@ fn result_failure_from_trace_line(line: &str) -> Option<TestFailure> {
         return None;
     }
     let value = decode_hex_text(fields.next()?)?;
-    let details = match fields.next() {
-        Some("fixture_hex") => Some(fixture_hex_details(&mut fields)?),
-        Some(_) => return None,
-        None => None,
-    };
-    Some(TestFailure::result(value, details))
+    let mut fixture_hex = None;
+    let mut byte_diagnostic = None;
+    while let Some(kind) = fields.next() {
+        match kind {
+            "fixture_hex" => fixture_hex = Some(fixture_hex_details(&mut fields)?),
+            "byte_diagnostic" => byte_diagnostic = Some(byte_diagnostic_details(&mut fields)?),
+            _ => return None,
+        }
+    }
+    Some(TestFailure::result_with_details(
+        value,
+        fixture_hex,
+        byte_diagnostic,
+    ))
 }
 
 fn fixture_hex_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<JsonValue> {
@@ -484,6 +492,29 @@ fn fixture_hex_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option
                 ("text", JsonValue::string(context)),
             ]),
         ),
+    ]))
+}
+
+fn byte_diagnostic_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<JsonValue> {
+    let id = fields.next()?.to_string();
+    let byte_offset = fields.next()?.parse::<i64>().ok()?;
+    let expected_count = fields.next()?.parse::<i64>().ok()?;
+    let available_count = fields.next()?.parse::<i64>().ok()?;
+    let readiness = fields.next()?.to_string();
+    Some(JsonValue::object([
+        ("kind", JsonValue::string("byte_diagnostic")),
+        ("id", JsonValue::string(id)),
+        (
+            "byte_offset",
+            JsonValue::object([
+                ("kind", JsonValue::string("ByteOffset")),
+                ("value", JsonValue::Number(byte_offset)),
+            ]),
+        ),
+        ("field_path", JsonValue::array(Vec::<JsonValue>::new())),
+        ("expected_count", JsonValue::Number(expected_count)),
+        ("available_count", JsonValue::Number(available_count)),
+        ("readiness", JsonValue::string(readiness)),
     ]))
 }
 
@@ -725,6 +756,14 @@ impl TestFailure {
     }
 
     pub fn result(value: String, fixture_hex: Option<JsonValue>) -> Self {
+        Self::result_with_details(value, fixture_hex, None)
+    }
+
+    pub fn result_with_details(
+        value: String,
+        fixture_hex: Option<JsonValue>,
+        byte_diagnostic: Option<JsonValue>,
+    ) -> Self {
         let mut details = vec![
             ("kind", JsonValue::string("result")),
             ("phase", JsonValue::string("runtime")),
@@ -732,6 +771,9 @@ impl TestFailure {
         ];
         if let Some(fixture_hex) = fixture_hex {
             details.push(("fixture_hex", fixture_hex));
+        }
+        if let Some(byte_diagnostic) = byte_diagnostic {
+            details.push(("byte_diagnostic", byte_diagnostic));
         }
         Self {
             kind: "result".to_string(),
@@ -3537,6 +3579,37 @@ mod tests {
                 "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":1},",
                 "\"nibble_position\":\"high\",",
                 "\"nearby_context\":{\"start\":0,\"end\":5,\"text\":\"00_01\"}}}"
+            )
+        );
+    }
+
+    #[test]
+    fn byte_diagnostic_result_trace_keeps_structured_details() {
+        let trace = concat!(
+            "result\t",
+            "6279746520726561642072657175697265732033206279746573206275742076696577206861732032",
+            "\tbyte_diagnostic\tcodec.incomplete_input\t2\t3\t2\tneed_bytes\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.message,
+            "runtime result failure: Err(byte read requires 3 bytes but view has 2)"
+        );
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"byte read requires 3 bytes but view has 2\",",
+                "\"byte_diagnostic\":{\"kind\":\"byte_diagnostic\",",
+                "\"id\":\"codec.incomplete_input\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":2},",
+                "\"field_path\":[],",
+                "\"expected_count\":3,",
+                "\"available_count\":2,",
+                "\"readiness\":\"need_bytes\"}}"
             )
         );
     }
