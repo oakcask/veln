@@ -1289,6 +1289,14 @@ fn parse_manifest_json_value(path: &Path, line_number: usize, value: &str) -> Js
         JsonValue::Bool(false)
     } else if value == "null" {
         JsonValue::Null
+    } else if value.starts_with('[') || value.starts_with('{') {
+        parse_json(value).unwrap_or_else(|error| {
+            manifest_error(
+                path,
+                line_number,
+                format!("invalid json assertion value: {error}"),
+            )
+        })
     } else {
         JsonValue::Number(parse_i64(path, line_number, value))
     }

@@ -33,6 +33,18 @@ value. When the result value is a compact fixture hex failure from
 - `nibble_position`: `high` or `low`
 - `nearby_context`: bounded fixture text around the failed span
 
+When the result value is a closed-input fixed-width `ByteView` read
+truncation, `details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "codec.incomplete_input"`
+- `byte_offset`: the first missing decoded-stream `ByteOffset`
+- `field_path`: schema-local path segment objects with `kind` and `name`;
+  empty when no schema owns the read
+- `expected_count`: the required byte count
+- `available_count`: the byte count available in the view
+- `readiness: "need_bytes"`
+
 Other non-zero Java process exits use `error.kind: "runtime"` with
 `details.phase: "runtime"`. JDK setup failures use `error.kind: "runner"` with
 `details.phase: "tool"`.
