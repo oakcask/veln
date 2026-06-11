@@ -51,14 +51,13 @@
         }
         if (byteDiagnostic != null) {
             line = line
-                + "\tbyte_diagnostic"
+                + "\tbyte_diagnostic_v2"
                 + "\t" + byteDiagnostic.id
                 + "\t" + Long.toString(byteDiagnostic.byteOffset)
                 + "\t" + Integer.toString(byteDiagnostic.fieldPath.size())
                 + formatByteDiagnosticFieldPath(byteDiagnostic.fieldPath)
-                + "\t" + Long.toString(byteDiagnostic.expectedCount)
-                + "\t" + Long.toString(byteDiagnostic.availableCount)
-                + "\t" + byteDiagnostic.readiness;
+                + "\t" + Integer.toString(byteDiagnostic.details.size())
+                + formatByteDiagnosticDetails(byteDiagnostic.details);
         }
         line = line + System.lineSeparator();
         try {
@@ -91,9 +90,38 @@
                 "codec.incomplete_input",
                 byteOffset,
                 java.util.Collections.emptyList(),
-                expectedCount,
-                availableCount,
-                "need_bytes"
+                java.util.Arrays.asList(
+                    ByteDiagnosticDetail.number("expected_count", expectedCount),
+                    ByteDiagnosticDetail.number("available_count", availableCount),
+                    ByteDiagnosticDetail.string("readiness", "need_bytes")
+                )
+            )
+        );
+    }
+
+    private static void registerSchemaFixedFieldMismatchDiagnostic(
+        String message,
+        long byteOffset,
+        String schemaName,
+        String fieldName,
+        long expectedValue,
+        long actualValue,
+        String nearbyContext
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.fixed_field_mismatch",
+                byteOffset,
+                java.util.Arrays.asList(
+                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
+                    new ByteDiagnosticFieldPathSegment("field", fieldName)
+                ),
+                java.util.Arrays.asList(
+                    ByteDiagnosticDetail.number("expected_value", expectedValue),
+                    ByteDiagnosticDetail.number("actual_value", actualValue),
+                    ByteDiagnosticDetail.string("nearby_context", nearbyContext)
+                )
             )
         );
     }
@@ -104,6 +132,16 @@
         String out = "";
         for (ByteDiagnosticFieldPathSegment segment : fieldPath) {
             out = out + "\t" + segment.kind + "\t" + hex(segment.name);
+        }
+        return out;
+    }
+
+    private static String formatByteDiagnosticDetails(
+        java.util.List<ByteDiagnosticDetail> details
+    ) {
+        String out = "";
+        for (ByteDiagnosticDetail detail : details) {
+            out = out + "\t" + detail.key + "\t" + detail.valueKind + "\t" + detail.encodedValue;
         }
         return out;
     }
@@ -169,24 +207,38 @@
         final String id;
         final long byteOffset;
         final java.util.List<ByteDiagnosticFieldPathSegment> fieldPath;
-        final long expectedCount;
-        final long availableCount;
-        final String readiness;
+        final java.util.List<ByteDiagnosticDetail> details;
 
         ByteDiagnostic(
             String id,
             long byteOffset,
             java.util.List<ByteDiagnosticFieldPathSegment> fieldPath,
-            long expectedCount,
-            long availableCount,
-            String readiness
+            java.util.List<ByteDiagnosticDetail> details
         ) {
             this.id = id;
             this.byteOffset = byteOffset;
             this.fieldPath = fieldPath;
-            this.expectedCount = expectedCount;
-            this.availableCount = availableCount;
-            this.readiness = readiness;
+            this.details = details;
+        }
+    }
+
+    private static final class ByteDiagnosticDetail {
+        final String key;
+        final String valueKind;
+        final String encodedValue;
+
+        static ByteDiagnosticDetail number(String key, long value) {
+            return new ByteDiagnosticDetail(key, "number", Long.toString(value));
+        }
+
+        static ByteDiagnosticDetail string(String key, String value) {
+            return new ByteDiagnosticDetail(key, "string", hex(value));
+        }
+
+        ByteDiagnosticDetail(String key, String valueKind, String encodedValue) {
+            this.key = key;
+            this.valueKind = valueKind;
+            this.encodedValue = encodedValue;
         }
     }
 

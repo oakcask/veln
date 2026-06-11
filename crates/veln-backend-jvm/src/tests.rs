@@ -1032,6 +1032,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("byte_view", "byteView"),
         ("byte_view_to_chunk", "byteViewToChunk"),
         ("byte_read_u8_be", "byteReadU8Be"),
+        ("byte_expect_fixed_u8_be", "byteExpectFixedU8Be"),
         ("byte_read_u16_be", "byteReadU16Be"),
         ("byte_read_u24_be", "byteReadU24Be"),
         ("byte_read_u31_be", "byteReadU31Be"),

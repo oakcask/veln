@@ -28,7 +28,7 @@ compare it with `../specification/` before changing behavior.
   declarations from executable decode and encode behavior.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
-  `ByteView` read truncation details.
+  `ByteView` read truncation and schema fixed-field mismatch details.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   concrete pure protocol-core slice that exercises the binary schema work.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):

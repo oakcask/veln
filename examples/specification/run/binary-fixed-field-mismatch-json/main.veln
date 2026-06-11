@@ -1,0 +1,9 @@
+# Fixed-field mismatches propagate as schema byte diagnostics in run JSON.
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("ff0001")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(1)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: Int = byte_expect_fixed_u8_be(view, 1, "DemoPacket", "kind")?
+	Ok(())
+end

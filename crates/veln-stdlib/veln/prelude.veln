@@ -81,6 +81,10 @@ pub fn byte_read_u8_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u8_be(view)
 end
 
+pub fn byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, field_name: String) -> Result<Int, String>
+	prelude_builtin::byte_expect_fixed_u8_be(view, expected, schema_name, field_name)
+end
+
 pub fn byte_read_u16_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u16_be(view)
 end

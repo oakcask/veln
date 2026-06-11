@@ -340,6 +340,7 @@ byte_drop(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 byte_view(chunk: ByteChunk, offset: ByteOffset, count: ByteCount) -> Result<ByteView, String>
 byte_view_to_chunk(view: ByteView) -> ByteChunk
 byte_read_u8_be(view: ByteView) -> Result<Int, String>
+byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, field_name: String) -> Result<Int, String>
 byte_read_u16_be(view: ByteView) -> Result<Int, String>
 byte_read_u24_be(view: ByteView) -> Result<Int, String>
 byte_read_u31_be(view: ByteView) -> Result<Int, String>
@@ -439,6 +440,9 @@ non-negative offset and count error strings as the construction helpers.
 The fixed-width unsigned big-endian read helpers read from the start of the
 view and return `Err(String)` when the view is too short. The `u31` read also
 returns `Err(String)` when the high bit would exceed the 31-bit maximum. The
+`byte_expect_fixed_u8_be` helper reads one byte and returns
+`schema.fixed_field_mismatch` diagnostic details when the actual byte differs
+from the expected fixed byte for the supplied schema and field names. The
 fixed-width unsigned big-endian write helpers return `Ok(ByteChunk)` for
 values in range and `Err(String)` for negative values or values larger than
 the helper width can encode.

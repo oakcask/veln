@@ -119,6 +119,12 @@ fixture API. The same harness support can assert named output `ByteChunk`
 lists through complete lowercase hex chunks in `case.toml`, preserving chunk
 order and distinguishing empty lists from zero-length chunks.
 
+The source-backed `byte_expect_fixed_u8_be` helper reads one byte from a
+`ByteView`, returns `Ok(Int)` when it matches the expected fixed value, and
+returns `Err(String)` with `schema.fixed_field_mismatch` byte diagnostic
+details when the byte is present but differs. Truncated input remains
+`codec.incomplete_input`.
+
 User-defined `fn` declarations are stack-safe for direct self-recursive chains
 when every direct self call appears in tail position and the function has no
 runtime `ensure` or `invariant` clauses. The final expression of a

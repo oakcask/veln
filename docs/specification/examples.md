@@ -82,3 +82,12 @@ output. The read-truncation JSON and human cases pin the
 projection. The named-fixture truncation case pins the same JSON diagnostic
 shape while proving that valid fixture bytes fail as codec truncation, not as
 fixture text validation.
+
+`../../examples/specification/run/binary-fixed-field-mismatch-json/` and
+`../../examples/specification/run/binary-fixed-field-mismatch-human/` pin the
+first schema-owned fixed-field mismatch diagnostic slice. The JSON case
+asserts `schema.fixed_field_mismatch`, decoded byte offset, structured field
+path, expected and actual byte values, and nearby hex context. The human case
+asserts that the primary message stays focused on the fixed-field mismatch and
+puts field path, expected value, actual value, and nearby context in related
+notes.

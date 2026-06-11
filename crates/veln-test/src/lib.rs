@@ -444,6 +444,9 @@ fn result_failure_from_trace_line(line: &str) -> Option<TestFailure> {
         match kind {
             "fixture_hex" => fixture_hex = Some(fixture_hex_details(&mut fields)?),
             "byte_diagnostic" => byte_diagnostic = Some(byte_diagnostic_details(&mut fields)?),
+            "byte_diagnostic_v2" => {
+                byte_diagnostic = Some(byte_diagnostic_v2_details(&mut fields)?)
+            }
             _ => return None,
         }
     }
@@ -526,6 +529,46 @@ fn byte_diagnostic_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Op
         ("available_count", JsonValue::Number(available_count)),
         ("readiness", JsonValue::string(readiness)),
     ]))
+}
+
+fn byte_diagnostic_v2_details<'a>(fields: &mut impl Iterator<Item = &'a str>) -> Option<JsonValue> {
+    let id = fields.next()?.to_string();
+    let byte_offset = fields.next()?.parse::<i64>().ok()?;
+    let field_path_count = fields.next()?.parse::<usize>().ok()?;
+    let mut field_path = Vec::with_capacity(field_path_count);
+    for _ in 0..field_path_count {
+        let kind = fields.next()?.to_string();
+        let name = decode_hex_text(fields.next()?)?;
+        field_path.push(JsonValue::object([
+            ("kind", JsonValue::string(kind)),
+            ("name", JsonValue::string(name)),
+        ]));
+    }
+    let detail_count = fields.next()?.parse::<usize>().ok()?;
+    let mut entries = vec![
+        ("kind".to_string(), JsonValue::string("byte_diagnostic")),
+        ("id".to_string(), JsonValue::string(id)),
+        (
+            "byte_offset".to_string(),
+            JsonValue::object([
+                ("kind", JsonValue::string("ByteOffset")),
+                ("value", JsonValue::Number(byte_offset)),
+            ]),
+        ),
+        ("field_path".to_string(), JsonValue::array(field_path)),
+    ];
+    for _ in 0..detail_count {
+        let key = fields.next()?.to_string();
+        let value_kind = fields.next()?;
+        let value = fields.next()?;
+        let json_value = match value_kind {
+            "number" => JsonValue::Number(value.parse::<i64>().ok()?),
+            "string" => JsonValue::string(decode_hex_text(value)?),
+            _ => return None,
+        };
+        entries.push((key, json_value));
+    }
+    Some(JsonValue::Object(entries))
 }
 
 fn hex_digit(character: char) -> Option<u8> {
@@ -3649,6 +3692,38 @@ mod tests {
                 "\"expected_count\":3,",
                 "\"available_count\":2,",
                 "\"readiness\":\"need_bytes\"}}"
+            )
+        );
+    }
+
+    #[test]
+    fn byte_diagnostic_v2_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "6669786564206669656c64206d69736d617463682061742062797465206f66667365742030",
+            "\tbyte_diagnostic_v2\tschema.fixed_field_mismatch\t0",
+            "\t2\tschema\t44656d6f5061636b6574\tfield\t6b696e64",
+            "\t3\texpected_value\tnumber\t1",
+            "\tactual_value\tnumber\t255",
+            "\tnearby_context\tstring\t666630303031\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"fixed field mismatch at byte offset 0\",",
+                "\"byte_diagnostic\":{\"kind\":\"byte_diagnostic\",",
+                "\"id\":\"schema.fixed_field_mismatch\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":0},",
+                "\"field_path\":[{\"kind\":\"schema\",\"name\":\"DemoPacket\"},",
+                "{\"kind\":\"field\",\"name\":\"kind\"}],",
+                "\"expected_value\":1,",
+                "\"actual_value\":255,",
+                "\"nearby_context\":\"ff0001\"}}"
             )
         );
     }
