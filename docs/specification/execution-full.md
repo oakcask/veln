@@ -90,6 +90,10 @@ fixture hex error ids with decoded byte offset and nibble position in the
 error text. The exact host representation of byte chunks, counts, offsets, and
 bytes is backend-owned.
 
+Standard `StreamInput` values execute as ordinary immutable source ADT values:
+`Chunk(bytes)` preserves the supplied `ByteChunk`, including an empty chunk,
+and `End` is a separate nullary variant.
+
 User-defined `fn` declarations are stack-safe for direct self-recursive chains
 when every direct self call appears in tail position and the function has no
 runtime `ensure` or `invariant` clauses. The final expression of a

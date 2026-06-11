@@ -38,6 +38,10 @@ declaration reported as related context.
 Local value bindings and declarations in the current source module shadow
 imported names for both bare values and calls. The standard prelude remains
 available through `prelude::` when a local declaration shadows its bare name.
+The `StreamInput` standard ADT constructors are available as `Chunk(bytes)`,
+`End`, `StreamInput::Chunk(bytes)`, `StreamInput::End`,
+`prelude::Chunk(bytes)`, `prelude::End`,
+`prelude::StreamInput::Chunk(bytes)`, and `prelude::StreamInput::End`.
 
 A wildcard let target, `_`, evaluates its expression without declaring a local
 name. It can be annotated for type checking, but it is never a resolvable
@@ -303,6 +307,19 @@ must be present in that table before the prelude signature adapter assigns its
 compiler-known type. They do not infer effects. No `List`/`Vec` conversion
 helpers are part of this public helper set; names such as `list_to_vec` or
 `vec_to_list` resolve only when user declarations put them in scope.
+
+### Standard Byte ADTs
+
+```veln
+type StreamInput
+	Chunk(bytes: ByteChunk)
+	End
+end
+```
+
+`StreamInput` is the source-visible incremental input event type. `Chunk`
+carries an ordinary immutable `ByteChunk`, including empty chunks, and `End`
+is the explicit end-of-stream event.
 
 ### Helper Signatures
 

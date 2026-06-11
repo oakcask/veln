@@ -216,6 +216,35 @@ fn lowers_type_declarations_with_variant_fields() {
 }
 
 #[test]
+fn lowers_schema_declarations_as_distinct_module_items() {
+    let module = lower_source(concat!(
+        "pub schema Http2FrameHeader\n",
+        "  format binary\n",
+        "\n",
+        "  length: UInt24be\n",
+        "  kind: UInt8\n",
+        "end\n",
+    ));
+
+    assert!(module.functions.is_empty());
+    assert!(module.types.is_empty());
+    assert_eq!(module.schemas.len(), 1);
+    let schema = &module.schemas[0];
+    assert_eq!(schema.node_id.display("schema"), "schema-1");
+    assert_eq!(schema.visibility, Visibility::Public);
+    assert_eq!(schema.name.as_deref(), Some("Http2FrameHeader"));
+    assert_eq!(
+        schema.format.as_ref().map(|format| format.name.as_str()),
+        Some("binary")
+    );
+    assert_eq!(schema.fields.len(), 2);
+    assert_eq!(schema.fields[0].name, "length");
+    assert_eq!(schema.fields[0].ty, "UInt24be");
+    assert_eq!(schema.fields[1].name, "kind");
+    assert_eq!(schema.fields[1].ty, "UInt8");
+}
+
+#[test]
 fn lowers_holes_to_node_id_backed_expression_nodes() {
     let module = lower_source("fn todo() -> ()\n  _answer\nend\n");
 

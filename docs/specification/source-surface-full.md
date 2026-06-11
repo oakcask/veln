@@ -15,12 +15,15 @@ UseDecl       ::= "use" ModulePath ImportSource? NL
 ImportSource  ::= "from" PackageString
 ModulePath    ::= Name ("::" Name)*
 PackageString ::= String
-Item          ::= Function | TestDecl | TypeDecl | PublicAlias
+Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias
 Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
                   Contract* Body "end" NL?
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
+SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat NL SchemaField+ "end" NL?
+SchemaFormat  ::= "format" "binary" NL
+SchemaField   ::= Name ":" TypeText NL
 PublicAlias   ::= "pub" ("fn" | "type") Name "=" MemberPath NL
 TypeParamList ::= "<" Name ("," Name)* ","? ">"
 TypeVariant   ::= "pub"? UpperName TypeVariantFields? NL
@@ -68,6 +71,15 @@ uppercase. `BindingName` is an unqualified identifier whose first character is
 not uppercase. `TypeText` is collected from source and parsed by the semantic
 type parser. Contract predicates parse through a narrower predicate production
 before semantic contract validation.
+
+Schema declarations are top-level source module items. `schema Name` is
+private to its source module, and `pub schema Name` records public schema
+ownership for the declaring module. The implemented schema body slice requires
+one `format binary` clause before any schema fields, followed by one or more
+`name: TypeText` field lines. Field names must be ordinary identifiers; names
+beginning with `_` remain hole tokens and are rejected as schema field names.
+Schema declarations do not create ordinary value bindings, ordinary source ADT
+types, constructors, or executable decode or encode functions.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`

@@ -1,0 +1,14 @@
+schema Http2FrameHeader
+  format binary
+
+  length: UInt24be
+  kind: UInt8
+end
+
+fn value_use() -> ()
+  Http2FrameHeader
+end
+
+fn type_use(header: Http2FrameHeader) -> ()
+  ()
+end

@@ -38,6 +38,7 @@ The implemented semantic token types are standard LSP token types:
 | function declaration name | `function` | `declaration` |
 | function call or known function reference | `function` | none |
 | test declaration name | `function` | `declaration`, `test` |
+| schema declaration name | `type` | `declaration` |
 | parameter declaration | `parameter` | `declaration`, `readonly` |
 | parameter reference | `parameter` | `readonly` |
 | let binding declaration | `variable` | `declaration`, `readonly` |
@@ -45,6 +46,7 @@ The implemented semantic token types are standard LSP token types:
 | result binding | `variable` | `declaration`, `readonly`, `result` |
 | type name | `type` | none |
 | effect label | `enumMember` | none |
+| schema format name | `enumMember` | none |
 | record or field-access field | `property` | none |
 | unnamed or named hole | `variable` | `hole` |
 | prelude function | `function` | `defaultLibrary` |

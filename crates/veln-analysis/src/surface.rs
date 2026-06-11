@@ -41,6 +41,7 @@ impl SurfaceParts {
                 uses: Vec::new(),
                 aliases: Vec::new(),
                 types: Vec::new(),
+                schemas: Vec::new(),
                 functions: Vec::new(),
             },
             derived_modules: Vec::new(),
@@ -81,6 +82,7 @@ fn process_parsed_source(
     parts.module.uses.extend(lowered.uses);
     parts.module.aliases.extend(lowered.aliases);
     parts.module.types.extend(lowered.types);
+    parts.module.schemas.extend(lowered.schemas);
     parts.module.functions.extend(lowered.functions);
 }
 
@@ -1037,6 +1039,7 @@ fn module_with_reachable_functions(
         uses: module.uses.clone(),
         aliases: module.aliases.clone(),
         types: module.types.clone(),
+        schemas: module.schemas.clone(),
         functions: module
             .functions
             .iter()

@@ -543,6 +543,7 @@ mod tests {
             module: None,
             uses: Vec::new(),
             aliases: Vec::new(),
+            schemas: Vec::new(),
             types: Vec::new(),
             functions: Vec::new(),
         };
@@ -592,6 +593,7 @@ mod tests {
             module: None,
             uses: Vec::new(),
             aliases: Vec::new(),
+            schemas: Vec::new(),
             types: Vec::new(),
             functions: Vec::new(),
         };
@@ -954,6 +956,7 @@ mod tests {
         let mut uses = Vec::new();
         let mut aliases = Vec::new();
         let mut types = Vec::new();
+        let mut schemas = Vec::new();
         let mut functions = Vec::new();
         for source in &sources {
             let parsed = parse(source);
@@ -975,6 +978,7 @@ mod tests {
             uses.extend(lowered.uses);
             aliases.extend(lowered.aliases);
             types.extend(lowered.types);
+            schemas.extend(lowered.schemas);
             functions.extend(lowered.functions);
         }
         (
@@ -988,6 +992,7 @@ mod tests {
                 uses,
                 aliases,
                 types,
+                schemas,
                 functions,
             },
         )

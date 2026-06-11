@@ -1,0 +1,4 @@
+schema BadHeader
+	format binary
+
+	length: UInt24be

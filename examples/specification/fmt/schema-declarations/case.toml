@@ -1,0 +1,13 @@
+command = ["fmt", "main.veln"]
+repeat = 2
+exit = 0
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "empty"
+
+[[file_assert]]
+path = "main.veln"
+equals = "pub schema Http2FrameHeader\n\tformat binary\n\n\tlength: UInt24be\n\tkind: UInt8\nend\n"

@@ -306,7 +306,7 @@ fn fmt_rejects_legacy_slash_comment_source() {
     assert_contains_all(
         stderr(&output),
         &[
-            "main.veln:1:1: error[parse.expected_item]: expected a function, test, or type declaration",
+            "main.veln:1:1: error[parse.expected_item]: expected a function, test, type, or schema declaration",
         ],
     );
 }

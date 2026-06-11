@@ -1114,7 +1114,7 @@ impl<'a> CoreLowerer<'a> {
             }
             lowered_arms.push(CoreMatchArm {
                 node_id: arm.node_id,
-                pattern: Self::lower_pattern(&arm.pattern),
+                pattern: self.lower_pattern(&arm.pattern),
                 expr: lowered_expr,
                 span: arm.span.clone(),
             });
@@ -1171,7 +1171,7 @@ impl<'a> CoreLowerer<'a> {
         }
     }
 
-    fn lower_pattern(pattern: &Pattern) -> CorePattern {
+    fn lower_pattern(&self, pattern: &Pattern) -> CorePattern {
         CorePattern {
             node_id: pattern.node_id,
             kind: match &pattern.kind {
@@ -1188,17 +1188,31 @@ impl<'a> CoreLowerer<'a> {
                         .map(|field| CorePatternField {
                             node_id: field.node_id,
                             name: field.name.clone(),
-                            pattern: Self::lower_pattern(&field.pattern),
+                            pattern: self.lower_pattern(&field.pattern),
                             span: field.span.clone(),
                         })
                         .collect(),
                 ),
                 PatternKind::Constructor { name, args } => CorePatternKind::Constructor {
-                    name: name.clone(),
-                    args: args.iter().map(Self::lower_pattern).collect(),
+                    name: self.canonical_constructor_name(name),
+                    args: args.iter().map(|arg| self.lower_pattern(arg)).collect(),
                 },
             },
             span: pattern.span.clone(),
+        }
+    }
+
+    fn canonical_constructor_name(&self, name: &[String]) -> Vec<String> {
+        match self.environment.adts.constructor(
+            name,
+            self.function.module_name.as_deref(),
+            &self.environment.uses,
+        ) {
+            ConstructorLookup::Found(constructor) => vec![
+                constructor.descriptor.type_name.clone(),
+                constructor.variant.name.clone(),
+            ],
+            ConstructorLookup::Ambiguous | ConstructorLookup::Missing => name.to_vec(),
         }
     }
 

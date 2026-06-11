@@ -1,6 +1,7 @@
 use veln_ast::{PublicAliasKind, SurfaceModule, TypeDecl, UseDecl, Visibility};
 use veln_core::CoreType;
 
+use crate::prelude::PRELUDE_MODULE;
 use crate::types::{Type, parse_type_or_unknown};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -433,6 +434,33 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             propagation: None,
             visibility: Visibility::Public,
         },
+        AdtDescriptor {
+            type_name: "StreamInput".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "Chunk".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "bytes".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::named("ByteChunk", Vec::new())),
+                    }],
+                    coverage_case: "Chunk(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "End".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: Vec::new(),
+                    coverage_case: "End".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "streaminput".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
     ]
 }
 
@@ -609,15 +637,24 @@ fn constructor_matches_visible_path(
         [name] => name == &variant.name,
         [qualifier, name] if name == &variant.name => {
             qualifier == &descriptor.type_name
+                || standard_prelude_alias_matches(descriptor, qualifier)
                 || import_alias_matches(descriptor, qualifier, uses, current_module)
         }
         [alias, type_name, name] => {
             name == &variant.name
                 && type_name == &descriptor.type_name
-                && import_alias_matches(descriptor, alias, uses, current_module)
+                && (standard_prelude_alias_matches(descriptor, alias)
+                    || import_alias_matches(descriptor, alias, uses, current_module))
         }
         _ => false,
     }
+}
+
+fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bool {
+    descriptor.module_name.is_none()
+        && descriptor.type_name == "StreamInput"
+        && descriptor.visibility == Visibility::Public
+        && alias == PRELUDE_MODULE
 }
 
 fn import_alias_matches(

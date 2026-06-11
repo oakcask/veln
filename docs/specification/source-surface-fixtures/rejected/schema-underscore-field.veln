@@ -1,0 +1,5 @@
+schema BadHeader
+	format binary
+
+	_reserved: UInt8
+end

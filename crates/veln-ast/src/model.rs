@@ -23,6 +23,7 @@ pub struct SurfaceModule {
     pub uses: Vec<UseDecl>,
     pub aliases: Vec<PublicAlias>,
     pub types: Vec<TypeDecl>,
+    pub schemas: Vec<SchemaDecl>,
     pub functions: Vec<Function>,
 }
 
@@ -82,6 +83,32 @@ pub struct TypeVariantDecl {
 
 #[derive(Clone, Debug)]
 pub struct TypeVariantField {
+    pub node_id: NodeId,
+    pub name: String,
+    pub ty: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaDecl {
+    pub node_id: NodeId,
+    pub module_name: Option<String>,
+    pub visibility: Visibility,
+    pub name: Option<String>,
+    pub format: Option<SchemaFormatClause>,
+    pub fields: Vec<SchemaField>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaFormatClause {
+    pub node_id: NodeId,
+    pub name: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaField {
     pub node_id: NodeId,
     pub name: String,
     pub ty: String,

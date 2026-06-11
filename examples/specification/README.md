@@ -213,6 +213,13 @@ against the built `veln` binary.
   negative static doctest fences.
 - `check/doctest-metadata-diagnostics/`: unknown and invalid doctest metadata,
   duplicate output fences, and missing expected failures.
+- `check/schema-declarations/`: accepted top-level `schema` and `pub schema`
+  declarations with `format binary` fields.
+- `check/schema-declaration-diagnostics/`: parser diagnostics for malformed
+  schema headers, missing `end`, fields before `format`, multiple `format`
+  clauses, and `_`-prefixed fields.
+- `check/schema-ordinary-use-diagnostics/`: schema declarations do not create
+  ordinary value bindings.
 - `doc/generated-markdown/`: generated documentation from package and tool
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.
@@ -226,6 +233,8 @@ against the built `veln` binary.
 - `fmt/canonical-formatting/`: headers, imports, standalone and trailing
   comments, contracts, match indentation, operators, postfix `?`, lists,
   records, and idempotence.
+- `fmt/schema-declarations/`: canonical layout for schema headers,
+  `format binary`, fields, and idempotence.
 - `fmt/all-or-nothing/`: parse-failure write gate across multiple files.
 - `explain/known-diagnostic/`: known diagnostic explanation output.
 - `explain/list-catalog/`: implemented diagnostic catalog listing.
@@ -235,6 +244,8 @@ against the built `veln` binary.
   shutdown, and exit over stdin.
 - `lsp/semantic-tokens-unsaved-change/`: semantic tokens follow unsaved
   document content supplied by didChange.
+- `lsp/schema-semantic-tokens/`: semantic-token transport for schema
+  declarations and format clauses.
 - `lsp/publish-diagnostics/`: diagnostics are published from open document
   text and cleared after didClose.
 - `lsp/unopened-missing-file/`: semantic-token requests for unopened,
@@ -255,6 +266,9 @@ against the built `veln` binary.
   prefixes, or separators fail with stable fixture hex error text.
 - `run/byte-fixture-hex-odd/`: dangling compact hex fixture nibbles fail with
   stable fixture hex error text.
+- `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
+  chunk arrivals, empty chunks, explicit end events, and qualified prelude
+  constructor paths.
 - `run/implicit-prelude-imports/`: qualified `prelude::` fallback and local
   declaration shadowing over implicit prelude imports.
 - `run/tail-recursion-trampoline/`: stack-safe direct tail recursion, nested

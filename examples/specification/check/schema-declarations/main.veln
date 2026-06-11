@@ -1,0 +1,13 @@
+schema Http2FrameHeader
+  format binary
+
+  length: UInt24be
+  kind: UInt8
+end
+
+pub schema PublicFrameHeader
+  format binary
+
+  length: UInt24be
+  kind: UInt8
+end

@@ -49,5 +49,5 @@ pub(crate) use boundary::{
     check_declared_effect_labels, check_duplicate_constructor_names,
     check_duplicate_function_names, check_duplicate_type_names, check_duplicate_use_aliases,
     check_module_boundary, check_public_aliases, check_public_function_boundary,
-    check_reserved_prelude_aliases, check_test_declaration_boundary,
+    check_reserved_prelude_aliases, check_schema_type_references, check_test_declaration_boundary,
 };

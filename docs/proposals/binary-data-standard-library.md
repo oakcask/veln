@@ -3,8 +3,8 @@
 Status: proposed
 
 This proposal tracks the remaining binary standard-library work needed by
-binary schemas, codecs, and sans-I/O protocol cores. The first source-visible
-byte vocabulary slice is current behavior under
+binary schemas, codecs, and sans-I/O protocol cores. The source-visible byte
+vocabulary and stream-input slice is current behavior under
 `../specification/types.md`, `../specification/names-effects.md`, and
 `../specification/execution.md`; this proposal keeps the unimplemented
 follow-up work.
@@ -28,14 +28,14 @@ Define the remaining standard-library support for:
 - bounded buffers for flow-control and incremental parsing examples
 
 The implemented narrow slice already covers `Byte`, immutable `ByteChunk`,
-`ByteOffset`, `ByteCount`, and pure helpers for construction, length, append,
-bounded take, and bounded drop. Current behavior belongs to the specification
-pages, not this proposal.
+`ByteOffset`, `ByteCount`, `StreamInput`, and pure helpers for construction,
+length, append, bounded take, and bounded drop. Current behavior belongs to
+the specification pages, not this proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
-The standard byte vocabulary should use `Byte`, `ByteChunk`, `ByteView`,
-`ByteOffset`, `ByteCount`, and `StreamInput`.
+The remaining byte vocabulary should add `ByteView` alongside the implemented
+`Byte`, `ByteChunk`, `ByteOffset`, `ByteCount`, and `StreamInput` names.
 
 `ByteChunk` is the immutable owned byte sequence for both input and output.
 Encoding APIs should return `ByteChunk` or a list of `ByteChunk` values rather
@@ -48,28 +48,6 @@ diagnostics. `ByteCount` is the public name for lengths, consumed counts, and
 bounded buffer sizes. The library should avoid a public `BytePosition` alias
 until a later design needs a position value that is not simply an absolute byte
 offset.
-
-`StreamInput` is the incremental input event type used by sans-I/O parsers.
-It should distinguish byte chunk arrival from end-of-stream with explicit ADT
-variants. End-of-stream must not be represented as a missing chunk or a
-zero-length `ByteChunk`.
-
-## Discussion Result: Stream Input Variant Names
-
-`StreamInput` should use `Chunk(bytes: ByteChunk)` and `End` as its first
-public variants.
-
-`Chunk` names arrival of bytes from an external stream without tying the value
-to sockets, files, or a particular transport. The payload type remains the
-shared immutable `ByteChunk`; a separate `InputChunk` name would duplicate the
-direction-neutral byte vocabulary without adding a new invariant.
-
-`End` names the explicit end-of-stream event. Avoid `Eof` as the public
-variant because the same event is useful for non-file streams, and avoid
-`Closed` because a closed transport can still have protocol-specific cleanup
-or error handling outside the byte-input event. A zero-length chunk is still a
-chunk event and must not stand in for `End`; callers may ignore or normalize
-empty chunk arrivals at their own API boundary.
 
 ## Discussion Result: Byte View Freezing
 
@@ -164,7 +142,7 @@ bounded by default.
 ## Remaining Completion Criteria
 
 - Specification pages describe byte views, checked reads and writes,
-  conversion boundaries, stream input, and binary-buffer behavior.
+  conversion boundaries, and binary-buffer behavior.
 - Examples decode and encode small binary values without relying on HTTP/2.
 - Checked conversion and truncation diagnostics are covered.
 - Runtime support preserves byte views across tasks and channels.

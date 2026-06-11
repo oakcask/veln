@@ -223,8 +223,28 @@ impl<'a> Classifier<'a> {
                         self.cursor += 1;
                     }
                 }
-                TokenKind::Fn | TokenKind::Test | TokenKind::Pub => {
+                TokenKind::Schema => {
+                    self.collect_schema_header(&mut semantic_tokens);
+                }
+                TokenKind::Fn | TokenKind::Test => {
                     self.collect_function_header(&mut semantic_tokens);
+                }
+                TokenKind::Pub => {
+                    if self.next_significant_kind() == Some(TokenKind::Schema) {
+                        self.collect_schema_header(&mut semantic_tokens);
+                    } else {
+                        self.collect_function_header(&mut semantic_tokens);
+                    }
+                }
+                TokenKind::Format => {
+                    semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
+                    self.cursor += 1;
+                    self.skip_trivia();
+                    if self.at(TokenKind::Ident) {
+                        let token = &self.tokens[self.cursor];
+                        semantic_tokens.push(self.simple(token, SemanticTokenType::EnumMember));
+                        self.cursor += 1;
+                    }
                 }
                 TokenKind::Let => {
                     semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
@@ -245,6 +265,26 @@ impl<'a> Classifier<'a> {
             }
         }
         semantic_tokens
+    }
+
+    fn collect_schema_header(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
+        self.params.clear();
+        self.locals.clear();
+        while self.at(TokenKind::Pub) || self.at(TokenKind::Schema) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.simple(token, SemanticTokenType::Keyword));
+            self.cursor += 1;
+            self.skip_trivia();
+        }
+        if self.at(TokenKind::Ident) {
+            let token = &self.tokens[self.cursor];
+            semantic_tokens.push(self.modified(
+                token,
+                SemanticTokenType::Type,
+                &[SemanticTokenModifier::Declaration],
+            ));
+            self.cursor += 1;
+        }
     }
 
     fn collect_module_name(&mut self, semantic_tokens: &mut Vec<SemanticToken>) {
@@ -454,6 +494,8 @@ impl<'a> Classifier<'a> {
             TokenKind::Pub
             | TokenKind::Fn
             | TokenKind::Type
+            | TokenKind::Schema
+            | TokenKind::Format
             | TokenKind::Test
             | TokenKind::Effects
             | TokenKind::Let
@@ -824,6 +866,47 @@ mod tests {
         assert!(tokens.contains(&(
             "satisfy".to_string(),
             SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+    }
+
+    #[test]
+    fn collector_classifies_schema_declarations_and_format_clauses() {
+        let source = SourceFile::new(
+            "schema.veln",
+            concat!(
+                "pub schema Http2FrameHeader\n",
+                "  format binary\n",
+                "\n",
+                "  length: UInt24be\n",
+                "end\n",
+            ),
+        );
+
+        let tokens = collect_text(&source);
+
+        assert!(tokens.contains(&(
+            "schema".to_string(),
+            SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(
+            tokens.contains(&(
+                "Http2FrameHeader".to_string(),
+                SemanticTokenType::Type,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .bits()
+            ))
+        );
+        assert!(tokens.contains(&(
+            "format".to_string(),
+            SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(tokens.contains(&(
+            "binary".to_string(),
+            SemanticTokenType::EnumMember,
             SemanticTokenModifiers::empty().bits()
         )));
     }

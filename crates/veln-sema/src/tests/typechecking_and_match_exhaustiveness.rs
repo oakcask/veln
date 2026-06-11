@@ -1458,6 +1458,7 @@ fn ambiguous_unqualified_imported_source_adt_constructor_is_rejected() {
         module: app.module,
         uses: app.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: first.types.into_iter().chain(second.types).collect(),
         functions: app.functions,
     };
@@ -1506,6 +1507,7 @@ fn imported_source_adt_constructor_resolves_through_module_and_type_paths() {
         module: app.module,
         uses: app.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: types.types,
         functions: app.functions,
     };
@@ -1553,6 +1555,7 @@ fn public_type_alias_reexports_imported_constructors() {
         module: app.module,
         uses: app.uses.into_iter().chain(api.uses).collect(),
         aliases: api.aliases,
+        schemas: Vec::new(),
         types: implementation.types,
         functions: app.functions,
     };
@@ -1584,6 +1587,7 @@ fn private_source_adt_constructor_is_hidden_from_importing_module() {
         module: app.module,
         uses: app.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: shapes.types,
         functions: app.functions,
     };
@@ -1626,6 +1630,7 @@ fn private_source_adt_constructor_pattern_does_not_satisfy_imported_exhaustivene
         module: app.module,
         uses: app.uses,
         aliases: Vec::new(),
+        schemas: Vec::new(),
         types: shapes.types,
         functions: app.functions,
     };

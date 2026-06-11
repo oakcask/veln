@@ -11,7 +11,7 @@ Implemented type annotations:
 - built-in and descriptor-backed type constructors: `Option<T>`,
   `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`
 - standard prelude byte vocabulary names: `Byte`, `ByteChunk`, `ByteOffset`,
-  and `ByteCount`
+  `ByteCount`, and `StreamInput`
 - records: `{name: Type, ...}`
 - function types: `fn(T, ...) -> U` with optional `effects [name, ...]`
 - other named type paths with optional type arguments, unless they are one of
@@ -33,9 +33,13 @@ parameter, inference reports an ambiguous constructor type.
 
 The standard prelude byte vocabulary uses `Byte` for one byte value,
 `ByteChunk` for an immutable owned byte sequence, `ByteCount` for byte lengths
-and consumed counts, and `ByteOffset` for absolute byte offsets. Their
-constructor layout is not a public source contract; programs construct and
-inspect values through the prelude helpers in
+and consumed counts, `ByteOffset` for absolute byte offsets, and
+`StreamInput` for incremental input events. `StreamInput` is a public ADT with
+`Chunk(bytes: ByteChunk)` and `End` variants. A zero-length `ByteChunk` inside
+`Chunk` remains a chunk arrival and is not equivalent to `End`. The
+constructor layout of the other byte vocabulary types is not a public source
+contract; programs construct and inspect those values through the prelude
+helpers in
 [names-effects-full.md#helper-signatures](names-effects-full.md#helper-signatures).
 
 In a function or test return annotation, a returned function type may carry its

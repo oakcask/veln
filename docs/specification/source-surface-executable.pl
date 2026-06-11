@@ -84,12 +84,15 @@ grammar_line(30, "UseDecl       ::= \"use\" ModulePath ImportSource? NL").
 grammar_line(35, "ImportSource  ::= \"from\" PackageString").
 grammar_line(40, "ModulePath    ::= Name (\"::\" Name)*").
 grammar_line(45, "PackageString ::= String").
-grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl | PublicAlias").
+grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
+grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat NL SchemaField+ \"end\" NL?").
+grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
+grammar_line(104, "SchemaField   ::= Name \":\" TypeText NL").
 grammar_line(105, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
@@ -232,6 +235,8 @@ ident_continue_char(Char) :-
 keyword_kind("pub", pub).
 keyword_kind("fn", fn).
 keyword_kind("type", type).
+keyword_kind("schema", schema).
+keyword_kind("format", format).
 keyword_kind("test", test).
 keyword_kind("effects", effects).
 keyword_kind("let", let).
@@ -271,6 +276,7 @@ items --> [].
 item --> nls, function_decl.
 item --> nls, test_decl.
 item --> nls, type_decl.
+item --> nls, schema_decl.
 item --> nls, public_alias.
 
 function_decl -->
@@ -310,6 +316,32 @@ type_decl -->
     type_variants,
     tok(end),
     newline_opt.
+
+schema_decl -->
+    visibility,
+    tok(schema),
+    ident,
+    nl,
+    schema_format,
+    nls,
+    schema_fields,
+    tok(end),
+    newline_opt.
+
+schema_format -->
+    tok(format),
+    ident_text("binary"),
+    nl.
+
+schema_fields --> schema_field, !, schema_fields_tail.
+schema_fields_tail --> schema_field, !, schema_fields_tail.
+schema_fields_tail --> [].
+
+schema_field -->
+    ident,
+    tok(colon),
+    type_text_until([nl]),
+    nl.
 
 public_alias -->
     tok(pub),

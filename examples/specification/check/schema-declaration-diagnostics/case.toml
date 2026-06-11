@@ -1,0 +1,13 @@
+command = ["check", "--json", "bad.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"parse.schema_field_before_format\"", "\"id\":\"parse.schema_multiple_format\"", "\"id\":\"parse.schema_field_name\"", "\"id\":\"parse.expected_identifier\"", "\"id\":\"parse.expected_end\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
