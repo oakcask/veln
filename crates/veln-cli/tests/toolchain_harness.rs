@@ -1302,7 +1302,7 @@ fn parse_binary_fixture_hex(path: &Path, line_number: usize, value: &str) -> Bin
 
 fn decode_lowercase_hex(path: &Path, line_number: usize, hex: &str) -> Vec<u8> {
     let bytes = hex.as_bytes();
-    if bytes.len() % 2 != 0 {
+    if !bytes.len().is_multiple_of(2) {
         manifest_error(
             path,
             line_number,
