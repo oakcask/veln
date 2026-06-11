@@ -87,6 +87,54 @@ public final class RuntimeByteHexHarness {
 }
 "#;
 
+const RUNTIME_BYTE_VIEW_HARNESS: &str = r#"
+public final class RuntimeByteViewHarness {
+    public static void main(String[] args) {
+        Object chunk = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("00010203ff")).value();
+        Object view = ((VelnRuntime.Result) VelnRuntime.byteView(
+            chunk,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(1))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(3))).value()
+        )).value();
+        Object wideView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            chunk,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(1))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteReadU8Be(view));
+        System.out.println(VelnRuntime.byteReadU16Be(view));
+        System.out.println(VelnRuntime.byteReadU24Be(view));
+        System.out.println(VelnRuntime.byteReadU31Be(wideView));
+        Object maxU31 = ((VelnRuntime.Result) VelnRuntime.byteWriteU31Be(Long.valueOf(2147483647))).value();
+        Object maxU31View = ((VelnRuntime.Result) VelnRuntime.byteView(
+            maxU31,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteReadU31Be(maxU31View));
+        Object maxU32 = ((VelnRuntime.Result) VelnRuntime.byteWriteU32Be(Long.valueOf(4294967295L))).value();
+        Object maxU32View = ((VelnRuntime.Result) VelnRuntime.byteView(
+            maxU32,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteReadU32Be(maxU32View));
+        System.out.println(VelnRuntime.byteReadU24Be(((VelnRuntime.Result) VelnRuntime.byteView(
+            chunk,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(2))).value()
+        )).value()));
+        System.out.println(VelnRuntime.byteView(
+            chunk,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(4))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(2))).value()
+        ));
+        System.out.println(VelnRuntime.byteWriteU8Be(Long.valueOf(256)));
+        System.out.println(VelnRuntime.byteReadU31Be(maxU32View));
+    }
+}
+"#;
+
 const PUBLIC_LIST_HELPER_HARNESS: &str = r#"
 public final class PublicListHelperHarness {
     public static void main(String[] args) {
@@ -657,6 +705,68 @@ fn jvm_runtime_decodes_compact_hex_fixtures_when_java_is_available() {
 }
 
 #[test]
+fn jvm_runtime_reads_and_writes_byte_views_when_java_is_available() {
+    if Command::new("java").arg("-version").output().is_err()
+        || Command::new("javac").arg("-version").output().is_err()
+    {
+        return;
+    }
+
+    let ir = lower_to_ir("pub fn main() -> ()\n  ()\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+    let root = temp_dir("runtime-byte-view");
+    write_jvm_program(&root, &program);
+    fs::write(
+        root.join("RuntimeByteViewHarness.java"),
+        RUNTIME_BYTE_VIEW_HARNESS,
+    )
+    .expect("Java harness should be written");
+
+    let javac = Command::new("javac")
+        .arg("RuntimeByteViewHarness.java")
+        .current_dir(&root)
+        .output()
+        .expect("javac should run");
+    assert!(
+        javac.status.success(),
+        "javac failed with status {:?}\nstdout:\n{}\nstderr:\n{}",
+        javac.status.code(),
+        String::from_utf8_lossy(&javac.stdout),
+        String::from_utf8_lossy(&javac.stderr)
+    );
+
+    let output = Command::new("java")
+        .arg("-cp")
+        .arg(&root)
+        .arg("RuntimeByteViewHarness")
+        .current_dir(&root)
+        .output()
+        .expect("java should run");
+    let _ = fs::remove_dir_all(&root);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "Ok(1)\n",
+            "Ok(258)\n",
+            "Ok(66051)\n",
+            "Ok(16909311)\n",
+            "Ok(2147483647)\n",
+            "Ok(4294967295)\n",
+            "Err(byte read requires 3 bytes but view has 2)\n",
+            "Err(byte view range exceeds chunk length)\n",
+            "Err(byte_write_u8_be value must be between 0 and 255)\n",
+            "Err(byte_read_u31_be value exceeds maximum 2147483647)\n",
+        )
+    );
+}
+
+#[test]
 fn bytecode_backend_public_list_helpers_traverse_large_lists_iteratively_when_java_is_available() {
     if Command::new("java").arg("-version").output().is_err()
         || Command::new("javac").arg("-version").output().is_err()
@@ -919,6 +1029,18 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("byte_chunk_from_hex", "byteChunkFromHex"),
         ("byte_take", "byteTake"),
         ("byte_drop", "byteDrop"),
+        ("byte_view", "byteView"),
+        ("byte_view_to_chunk", "byteViewToChunk"),
+        ("byte_read_u8_be", "byteReadU8Be"),
+        ("byte_read_u16_be", "byteReadU16Be"),
+        ("byte_read_u24_be", "byteReadU24Be"),
+        ("byte_read_u31_be", "byteReadU31Be"),
+        ("byte_read_u32_be", "byteReadU32Be"),
+        ("byte_write_u8_be", "byteWriteU8Be"),
+        ("byte_write_u16_be", "byteWriteU16Be"),
+        ("byte_write_u24_be", "byteWriteU24Be"),
+        ("byte_write_u31_be", "byteWriteU31Be"),
+        ("byte_write_u32_be", "byteWriteU32Be"),
         ("byte_count", "byteCount"),
         ("byte_count_to_int", "byteCountToInt"),
         ("byte_offset", "byteOffset"),

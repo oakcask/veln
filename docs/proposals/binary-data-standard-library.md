@@ -18,24 +18,21 @@ slicing, offsets for diagnostics, and output chunks for encoding.
 
 ## Scope
 
-Define the remaining standard-library support for:
-
-- immutable `ByteView`
-- checked reads for exact-width unsigned integers
-- endian-aware reads and writes
-- checked integer conversion with overflow diagnostics
-- immutable output chunks for encoding
-- bounded buffers for flow-control and incremental parsing examples
+Define the remaining standard-library support for binary-buffer behavior,
+schema-facing conversion policy, protocol-facing diagnostics, and bounded
+buffers for flow-control and incremental parsing examples.
 
 The implemented narrow slice already covers `Byte`, immutable `ByteChunk`,
-`ByteOffset`, `ByteCount`, `StreamInput`, and pure helpers for construction,
-length, append, bounded take, and bounded drop. Current behavior belongs to
-the specification pages, not this proposal.
+immutable `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, pure helpers
+for construction, length, append, bounded take, bounded drop, bounded views,
+and fixed-width unsigned big-endian reads and writes for 8-bit, 16-bit,
+24-bit, 31-bit, and 32-bit values. Current behavior belongs to the
+specification pages, not this proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
-The remaining byte vocabulary should add `ByteView` alongside the implemented
-`Byte`, `ByteChunk`, `ByteOffset`, `ByteCount`, and `StreamInput` names.
+The byte vocabulary includes `ByteView` alongside the implemented `Byte`,
+`ByteChunk`, `ByteOffset`, `ByteCount`, and `StreamInput` names.
 
 `ByteChunk` is the immutable owned byte sequence for both input and output.
 Encoding APIs should return `ByteChunk` or a list of `ByteChunk` values rather
@@ -51,10 +48,11 @@ offset.
 
 ## Discussion Result: Byte View Freezing
 
-`ByteView` should use the ordinary Veln value-freezing boundary for tasks and
-channels. A frozen view carries an immutable bounded byte sequence with the
-same logical offset and length the sender observed; it does not carry a
-source-visible borrow lifetime.
+The implemented `ByteView` slice uses the ordinary Veln value-freezing
+boundary for tasks and channels, as specified under
+`../specification/execution.md`. A frozen view carries an immutable bounded
+byte sequence with the same logical offset and length the sender observed; it
+does not carry a source-visible borrow lifetime.
 
 The runtime is responsible for preserving the referenced bytes across the
 boundary. It may share immutable backing storage, pin storage, reference-count
@@ -72,9 +70,9 @@ large consumed input buffers alive.
 Exact unsigned widths should be schema primitives first, not a family of
 ordinary source-visible numeric types.
 
-The standard library should expose byte-oriented checked reads and writes for
-fixed-width unsigned representations, but their ordinary Veln value result
-should be `Int` unless an explicit mapping converts the value into an
+The standard library exposes byte-oriented checked reads and writes for the
+current fixed-width unsigned big-endian representations, and their ordinary
+Veln value result is `Int` unless an explicit mapping converts the value into an
 independently declared domain type. This keeps external layout facts such as
 width, byte order, and reserved bits at the schema or codec boundary instead of
 leaking every wire width into the general type system.
@@ -141,10 +139,11 @@ bounded by default.
 
 ## Remaining Completion Criteria
 
-- Specification pages describe byte views, checked reads and writes,
-  conversion boundaries, and binary-buffer behavior.
-- Examples decode and encode small binary values without relying on HTTP/2.
-- Checked conversion and truncation diagnostics are covered.
-- Runtime support preserves byte views across tasks and channels.
+- Specification pages describe the later binary-buffer behavior and any
+  schema-facing conversion boundaries not covered by the current byte helpers.
+- Protocol-facing diagnostics cover byte previews, field paths, expected and
+  actual counts, and absolute offsets.
+- Runtime support for later buffer APIs preserves bounded data across tasks
+  and channels without promising source-visible memory layout.
 - The HTTP/2 design driver can represent pending input and outgoing chunks in
   source examples.

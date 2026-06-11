@@ -321,6 +321,11 @@ end
 carries an ordinary immutable `ByteChunk`, including empty chunks, and `End`
 is the explicit end-of-stream event.
 
+`ByteView` is the source-visible bounded immutable byte view. Programs create
+checked views with `byte_view(chunk, offset, count)` and inspect the bounded
+bytes with the byte-view helper functions; the runtime does not expose a
+source-visible borrow lifetime or zero-copy layout guarantee.
+
 ### Helper Signatures
 
 ```veln
@@ -332,6 +337,18 @@ byte_append(left: ByteChunk, right: ByteChunk) -> ByteChunk
 byte_chunk_from_hex(text: String) -> Result<ByteChunk, String>
 byte_take(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 byte_drop(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
+byte_view(chunk: ByteChunk, offset: ByteOffset, count: ByteCount) -> Result<ByteView, String>
+byte_view_to_chunk(view: ByteView) -> ByteChunk
+byte_read_u8_be(view: ByteView) -> Result<Int, String>
+byte_read_u16_be(view: ByteView) -> Result<Int, String>
+byte_read_u24_be(view: ByteView) -> Result<Int, String>
+byte_read_u31_be(view: ByteView) -> Result<Int, String>
+byte_read_u32_be(view: ByteView) -> Result<Int, String>
+byte_write_u8_be(value: Int) -> Result<ByteChunk, String>
+byte_write_u16_be(value: Int) -> Result<ByteChunk, String>
+byte_write_u24_be(value: Int) -> Result<ByteChunk, String>
+byte_write_u31_be(value: Int) -> Result<ByteChunk, String>
+byte_write_u32_be(value: Int) -> Result<ByteChunk, String>
 byte_count(value: Int) -> Result<ByteCount, String>
 byte_count_to_int(value: ByteCount) -> Int
 byte_offset(value: Int) -> Result<ByteOffset, String>
@@ -413,6 +430,18 @@ fixture text span, decoded `ByteOffset`, nibble position, and nearby context.
 `byte_take(chunk, count)` and `byte_drop(chunk, count)` return `Ok(ByteChunk)`
 when `count` is within the chunk length, and `Err(String)` when the count is
 outside that chunk.
+`byte_view(chunk, offset, count)` returns a bounded immutable `ByteView` when
+the non-negative offset and count describe a range within the chunk, and
+returns `Err(String)` when the range exceeds the chunk length. `byte_view` and
+byte reads report negative direct-constructor payloads with the same
+non-negative offset and count error strings as the construction helpers.
+`byte_view_to_chunk(view)` materializes the bounded bytes as a `ByteChunk`.
+The fixed-width unsigned big-endian read helpers read from the start of the
+view and return `Err(String)` when the view is too short. The `u31` read also
+returns `Err(String)` when the high bit would exceed the 31-bit maximum. The
+fixed-width unsigned big-endian write helpers return `Ok(ByteChunk)` for
+values in range and `Err(String)` for negative values or values larger than
+the helper width can encode.
 `byte_count(value)` and `byte_offset(value)` accept non-negative integers.
 The `*_to_int` helpers expose the stored integer value for ordinary source
 logic and display.
@@ -423,9 +452,13 @@ The implemented standard symbol table has this current pure-helper split:
 
 - source-backed pure helpers: `byte`, `byte_to_int`, `byte_chunk`,
   `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`, `byte_take`,
-  `byte_drop`, `byte_count`, `byte_count_to_int`, `byte_offset`,
-  `byte_offset_to_int`, `vec_len`, `vec_is_empty`, `vec_push`, `vec_concat`,
-  `vec_map`, `vec_filter`, `vec_fold`, `vec_try_map`, `vec_try_map_with`,
+  `byte_drop`, `byte_view`, `byte_view_to_chunk`, `byte_read_u8_be`,
+  `byte_read_u16_be`, `byte_read_u24_be`, `byte_read_u31_be`,
+  `byte_read_u32_be`, `byte_write_u8_be`, `byte_write_u16_be`,
+  `byte_write_u24_be`, `byte_write_u31_be`, `byte_write_u32_be`,
+  `byte_count`, `byte_count_to_int`, `byte_offset`, `byte_offset_to_int`,
+  `vec_len`, `vec_is_empty`, `vec_push`, `vec_concat`, `vec_map`,
+  `vec_filter`, `vec_fold`, `vec_try_map`, `vec_try_map_with`,
   `list_nil`, `list_cons`, `list_is_empty`, `list_fold`, `list_reverse`,
   `list_map`, `list_filter`, `list_try_map`, `dict_get`, `dict_contains`,
   `dict_insert`, `dict_remove`, `option_map`, `option_and_then`,

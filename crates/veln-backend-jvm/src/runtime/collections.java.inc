@@ -14,12 +14,39 @@
         return adt("ByteOffset", new Object[] { Long.valueOf(value) });
     }
 
+    private static Object byteViewObject(Object chunk, long offset, long count) {
+        return adt(
+            "ByteView",
+            new Object[] { chunk, byteOffsetObject(offset), byteCountObject(count) }
+        );
+    }
+
     private static long byteCountLong(Object value) {
         return asLong(asAdt(value, "ByteCount").payloads[0]);
     }
 
+    private static long byteOffsetLong(Object value) {
+        return asLong(asAdt(value, "ByteOffset").payloads[0]);
+    }
+
     private static java.util.List<Object> byteChunkBytes(Object chunk) {
         return asList(asAdt(chunk, "ByteChunk").payloads[0]);
+    }
+
+    private static Object byteViewChunk(Object view) {
+        return asAdt(view, "ByteView").payloads[0];
+    }
+
+    private static long byteViewOffset(Object view) {
+        return byteOffsetLong(asAdt(view, "ByteView").payloads[1]);
+    }
+
+    private static long byteViewCount(Object view) {
+        return byteCountLong(asAdt(view, "ByteView").payloads[2]);
+    }
+
+    private static long byteValueLong(Object value) {
+        return asLong(asAdt(value, "Byte").payloads[0]);
     }
 
     public static Object byteValue(Object value) {
@@ -179,6 +206,128 @@
             return err("byte count exceeds chunk length");
         }
         return ok(byteChunkObject(bytes.subList((int) requested, bytes.size())));
+    }
+
+    public static Object byteView(Object chunk, Object offset, Object count) {
+        java.util.List<Object> bytes = byteChunkBytes(chunk);
+        long requestedOffset = byteOffsetLong(offset);
+        long requestedCount = byteCountLong(count);
+        if (requestedOffset < 0) {
+            return err("byte offset must be non-negative");
+        }
+        if (requestedCount < 0) {
+            return err("byte count must be non-negative");
+        }
+        if (requestedOffset > bytes.size()) {
+            return err("byte view offset exceeds chunk length");
+        }
+        if (requestedCount > bytes.size() - requestedOffset) {
+            return err("byte view range exceeds chunk length");
+        }
+        return ok(byteViewObject(chunk, requestedOffset, requestedCount));
+    }
+
+    public static Object byteViewToChunk(Object view) {
+        java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
+        long offset = byteViewOffset(view);
+        long count = byteViewCount(view);
+        if (offset < 0 || count < 0 || offset > bytes.size() || count > bytes.size() - offset) {
+            return byteChunkObject(java.util.Collections.emptyList());
+        }
+        return byteChunkObject(bytes.subList((int) offset, (int) (offset + count)));
+    }
+
+    public static Object byteReadU8Be(Object view) {
+        return byteReadUnsignedBe(view, 1, 0xffL, "byte_read_u8_be");
+    }
+
+    public static Object byteReadU16Be(Object view) {
+        return byteReadUnsignedBe(view, 2, 0xffffL, "byte_read_u16_be");
+    }
+
+    public static Object byteReadU24Be(Object view) {
+        return byteReadUnsignedBe(view, 3, 0xffffffL, "byte_read_u24_be");
+    }
+
+    public static Object byteReadU31Be(Object view) {
+        return byteReadUnsignedBe(view, 4, 0x7fffffffL, "byte_read_u31_be");
+    }
+
+    public static Object byteReadU32Be(Object view) {
+        return byteReadUnsignedBe(view, 4, 0xffffffffL, "byte_read_u32_be");
+    }
+
+    private static Object byteReadUnsignedBe(Object view, int width, long maxValue, String name) {
+        java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
+        long offset = byteViewOffset(view);
+        long count = byteViewCount(view);
+        Object boundsError = byteViewBoundsError(bytes, offset, count);
+        if (boundsError != null) {
+            return boundsError;
+        }
+        if (count < width) {
+            return err("byte read requires " + width + " bytes but view has " + count);
+        }
+        long value = 0;
+        for (int index = 0; index < width; index += 1) {
+            value = (value << 8) | byteValueLong(bytes.get((int) offset + index));
+        }
+        if (value > maxValue) {
+            return err(name + " value exceeds maximum " + maxValue);
+        }
+        return ok(Long.valueOf(value));
+    }
+
+    private static Object byteViewBoundsError(
+        java.util.List<Object> bytes,
+        long offset,
+        long count
+    ) {
+        if (offset < 0) {
+            return err("byte offset must be non-negative");
+        }
+        if (count < 0) {
+            return err("byte count must be non-negative");
+        }
+        if (offset > bytes.size()) {
+            return err("byte view offset exceeds chunk length");
+        }
+        if (count > bytes.size() - offset) {
+            return err("byte view range exceeds chunk length");
+        }
+        return null;
+    }
+
+    public static Object byteWriteU8Be(Object value) {
+        return byteWriteUnsignedBe(value, 1, 0xffL, "byte_write_u8_be");
+    }
+
+    public static Object byteWriteU16Be(Object value) {
+        return byteWriteUnsignedBe(value, 2, 0xffffL, "byte_write_u16_be");
+    }
+
+    public static Object byteWriteU24Be(Object value) {
+        return byteWriteUnsignedBe(value, 3, 0xffffffL, "byte_write_u24_be");
+    }
+
+    public static Object byteWriteU31Be(Object value) {
+        return byteWriteUnsignedBe(value, 4, 0x7fffffffL, "byte_write_u31_be");
+    }
+
+    public static Object byteWriteU32Be(Object value) {
+        return byteWriteUnsignedBe(value, 4, 0xffffffffL, "byte_write_u32_be");
+    }
+
+    private static Object byteWriteUnsignedBe(Object value, int width, long maxValue, String name) {
+        long unsigned = asLong(value);
+        if (unsigned < 0 || unsigned > maxValue) {
+            return err(name + " value must be between 0 and " + maxValue);
+        }
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>(width);
+        for (int index = width - 1; index >= 0; index -= 1) {
+            bytes.add(byteObject((unsigned >> (index * 8)) & 0xffL));
+        }
+        return ok(byteChunkObject(bytes));
     }
 
     public static Object byteCount(Object value) {

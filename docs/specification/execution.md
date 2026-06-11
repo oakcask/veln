@@ -18,9 +18,10 @@ execution reference.
   invalid or incomplete entries are regenerated before execution.
 - Standard `List` traversal helpers execute through runtime support that avoids
   growing the host call stack for large helper traversals.
-- Standard byte chunk helpers execute as pure prelude runtime operations and
-  return immutable chunk values or `Result` failures for invalid values,
-  invalid compact hex fixture text, and out-of-bounds counts. Standard
+- Standard byte chunk and byte view helpers execute as pure prelude runtime
+  operations and return immutable byte values or `Result` failures for invalid
+  values, invalid compact hex fixture text, out-of-bounds counts and ranges,
+  truncation, and fixed-width unsigned conversion overflow. Standard
   `StreamInput` values execute as ordinary immutable ADT values.
 - Executable specification cases may keep named binary fixture records in the
   example tree; the harness checks complete lowercase hex output without

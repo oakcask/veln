@@ -16,8 +16,9 @@ compare it with `../specification/` before changing behavior.
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` source-surface slice.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
-  remaining byte views, checked reads, writes, conversions, and binary-buffer
-  behavior beyond the implemented byte vocabulary and stream-input slice.
+  remaining binary-buffer, schema-facing conversion, and protocol-facing
+  diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
+  big-endian read/write, and stream-input slices.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define exact-width fields, endian-aware fields, reserved bits,
   length-dependent payloads, tag dispatch, and unknown tag preservation.

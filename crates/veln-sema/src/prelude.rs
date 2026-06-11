@@ -110,6 +110,7 @@ fn prelude_float_signature(name: &str) -> Option<(Vec<Type>, Type)> {
 fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
     let byte = Type::named("Byte", Vec::new());
     let byte_chunk = Type::named("ByteChunk", Vec::new());
+    let byte_view = Type::named("ByteView", Vec::new());
     let byte_count = Type::named("ByteCount", Vec::new());
     let byte_offset = Type::named("ByteOffset", Vec::new());
     match name {
@@ -130,6 +131,21 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
         )),
         "byte_take" | "byte_drop" => Some((
             vec![byte_chunk.clone(), byte_count.clone()],
+            adt::result_type(byte_chunk.clone(), Type::string()),
+        )),
+        "byte_view" => Some((
+            vec![byte_chunk.clone(), byte_offset.clone(), byte_count.clone()],
+            adt::result_type(byte_view.clone(), Type::string()),
+        )),
+        "byte_view_to_chunk" => Some((vec![byte_view.clone()], byte_chunk.clone())),
+        "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
+        | "byte_read_u32_be" => Some((
+            vec![byte_view.clone()],
+            adt::result_type(Type::int(), Type::string()),
+        )),
+        "byte_write_u8_be" | "byte_write_u16_be" | "byte_write_u24_be" | "byte_write_u31_be"
+        | "byte_write_u32_be" => Some((
+            vec![Type::int()],
             adt::result_type(byte_chunk.clone(), Type::string()),
         )),
         "byte_count" => Some((
@@ -653,6 +669,7 @@ fn core_prelude_float_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)>
 fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> {
     let byte = CoreType::named("Byte", Vec::new());
     let byte_chunk = CoreType::named("ByteChunk", Vec::new());
+    let byte_view = CoreType::named("ByteView", Vec::new());
     let byte_count = CoreType::named("ByteCount", Vec::new());
     let byte_offset = CoreType::named("ByteOffset", Vec::new());
     match name {
@@ -673,6 +690,21 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
         )),
         "byte_take" | "byte_drop" => Some((
             vec![byte_chunk.clone(), byte_count.clone()],
+            adt::core_result_type(byte_chunk.clone(), CoreType::string()),
+        )),
+        "byte_view" => Some((
+            vec![byte_chunk.clone(), byte_offset.clone(), byte_count.clone()],
+            adt::core_result_type(byte_view.clone(), CoreType::string()),
+        )),
+        "byte_view_to_chunk" => Some((vec![byte_view.clone()], byte_chunk.clone())),
+        "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
+        | "byte_read_u32_be" => Some((
+            vec![byte_view.clone()],
+            adt::core_result_type(CoreType::int(), CoreType::string()),
+        )),
+        "byte_write_u8_be" | "byte_write_u16_be" | "byte_write_u24_be" | "byte_write_u31_be"
+        | "byte_write_u32_be" => Some((
+            vec![CoreType::int()],
             adt::core_result_type(byte_chunk.clone(), CoreType::string()),
         )),
         "byte_count" => Some((
