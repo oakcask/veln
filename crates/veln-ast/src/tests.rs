@@ -223,6 +223,8 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         "\n",
         "  length: UInt24be\n",
         "  padding_length: UInt8 where padding_length <= length\n",
+        "  stream_reserved: ReservedBits(1, 0)\n",
+        "  stream_id: UInt31be\n",
         "  payload: ByteView(length - padding_length)\n",
         "end\n",
     ));
@@ -238,7 +240,7 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
-    assert_eq!(schema.fields.len(), 3);
+    assert_eq!(schema.fields.len(), 5);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
     assert_eq!(schema.fields[1].name, "padding_length");
@@ -252,8 +254,12 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         "schema_field_where-5"
     );
     assert_eq!(where_clause.predicate, "padding_length <= length");
-    assert_eq!(schema.fields[2].name, "payload");
-    assert_eq!(schema.fields[2].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.fields[2].name, "stream_reserved");
+    assert_eq!(schema.fields[2].ty, "ReservedBits(1, 0)");
+    assert_eq!(schema.fields[3].name, "stream_id");
+    assert_eq!(schema.fields[3].ty, "UInt31be");
+    assert_eq!(schema.fields[4].name, "payload");
+    assert_eq!(schema.fields[4].ty, "ByteView(length - padding_length)");
 }
 
 #[test]

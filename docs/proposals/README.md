@@ -21,8 +21,8 @@ compare it with `../specification/` before changing behavior.
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
   big-endian read/write, and stream-input slices.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
-  define exact-width fields, endian-aware fields, reserved bits,
-  length-dependent payloads, tag dispatch, and unknown tag preservation.
+  define remaining binary schema primitive and dispatch behavior beyond the
+  implemented source-surface `ReservedBits(width, value)` declaration slice.
 - [Codec Execution Boundary](codec-execution-boundary.md): separate schema
   declarations from executable decode and encode behavior.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):

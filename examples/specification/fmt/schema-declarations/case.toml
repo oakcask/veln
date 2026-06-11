@@ -10,4 +10,4 @@ format = "empty"
 
 [[file_assert]]
 path = "main.veln"
-equals = "pub schema Http2FrameHeader\n\tformat binary\n\n\tlength: UInt24be\n\tpadding_length: UInt8 where padding_length <= length\n\tpayload: ByteView(length - padding_length)\nend\n"
+equals = "pub schema Http2FrameHeader\n\tformat binary\n\n\tlength: UInt24be\n\tpadding_length: UInt8 where padding_length <= length\n\tstream_reserved: ReservedBits(1, 0)\n\tstream_id: UInt31be\n\tpayload: ByteView(length - padding_length)\nend\n"

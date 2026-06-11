@@ -84,6 +84,7 @@ grammar_line(30, "UseDecl       ::= \"use\" ModulePath ImportSource? NL").
 grammar_line(35, "ImportSource  ::= \"from\" PackageString").
 grammar_line(40, "ModulePath    ::= Name (\"::\" Name)*").
 grammar_line(45, "PackageString ::= String").
+grammar_line(47, "IntLiteral    ::= ASCII decimal digit+").
 grammar_line(50, "Item          ::= Function | TestDecl | TypeDecl | SchemaDecl | PublicAlias").
 grammar_line(60, "Function      ::= \"pub\"? \"fn\" Name \"(\" ParamList? \")\" Return? Effects? NL").
 grammar_line(70, "                  Contract* Body \"end\" NL?").
@@ -92,9 +93,11 @@ grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
 grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat NL SchemaField+ \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
-grammar_line(104, "SchemaField   ::= Name \":\" TypeText SchemaFieldWhere? NL").
-grammar_line(105, "SchemaFieldWhere ::= \"where\" ContractPredicate").
-grammar_line(106, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\") Name \"=\" MemberPath NL").
+grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
+grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive").
+grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
+grammar_line(107, "SchemaFieldWhere ::= \"where\" ContractPredicate").
+grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").

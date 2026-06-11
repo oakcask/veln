@@ -1,6 +1,6 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
-use veln_ast::{PublicAliasKind, SchemaDecl, UseDecl};
+use veln_ast::{PublicAliasKind, SchemaDecl, SchemaField, UseDecl};
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -365,6 +365,28 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
     diagnostics
 }
 
+pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
+    for schema in &module.schemas {
+        let format_name = schema.format.as_ref().map(|format| format.name.as_str());
+        for field in &schema.fields {
+            let Some(primitive) = reserved_bits_primitive(&field.ty) else {
+                continue;
+            };
+            if format_name != Some("binary") {
+                diagnostics.push(reserved_bits_format_diagnostic(schema, field));
+                continue;
+            }
+            if let Err(reason) = primitive {
+                diagnostics.push(reserved_bits_argument_diagnostic(schema, field, reason));
+            }
+        }
+    }
+
+    diagnostics
+}
+
 fn push_schema_type_reference_diagnostics(
     module: &SurfaceModule,
     current_module: Option<&str>,
@@ -466,6 +488,116 @@ fn schema_type_reference_diagnostic(
             ("node_id", JsonValue::string(node_id)),
             ("schema", JsonValue::string(schema_name)),
             ("use_kind", JsonValue::string(use_kind)),
+        ]),
+    )
+}
+
+fn reserved_bits_primitive(ty: &str) -> Option<Result<(i64, i64), ReservedBitsArgumentReason>> {
+    let rest = ty.strip_prefix("ReservedBits")?;
+    if rest
+        .chars()
+        .next()
+        .is_some_and(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    {
+        return None;
+    }
+    let rest = rest.trim();
+    if rest.is_empty() {
+        return Some(Err(ReservedBitsArgumentReason::Arity));
+    }
+    if !rest.starts_with('(') {
+        return None;
+    }
+    if !rest.ends_with(')') {
+        return Some(Err(ReservedBitsArgumentReason::Arity));
+    }
+    let inner = rest[1..rest.len() - 1].trim();
+    let args = inner
+        .split(',')
+        .map(str::trim)
+        .filter(|arg| !arg.is_empty())
+        .collect::<Vec<_>>();
+    if args.len() != 2 {
+        return Some(Err(ReservedBitsArgumentReason::Arity));
+    }
+    let Ok(width) = parse_reserved_bits_integer(args[0]) else {
+        return Some(Err(ReservedBitsArgumentReason::Literal));
+    };
+    let Ok(value) = parse_reserved_bits_integer(args[1]) else {
+        return Some(Err(ReservedBitsArgumentReason::Literal));
+    };
+    Some(Ok((width, value)))
+}
+
+fn parse_reserved_bits_integer(text: &str) -> Result<i64, ()> {
+    if text.is_empty() || !text.chars().all(|ch| ch.is_ascii_digit()) {
+        return Err(());
+    }
+    text.parse::<i64>().map_err(|_| ())
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReservedBitsArgumentReason {
+    Arity,
+    Literal,
+}
+
+fn reserved_bits_format_diagnostic(schema: &SchemaDecl, field: &SchemaField) -> Diagnostic {
+    let schema_name = schema.name.as_deref().unwrap_or("<missing>");
+    Diagnostic::new(
+        "schema.reserved_bits_primitive",
+        Severity::Error,
+        DiagnosticKind::Type,
+        "`ReservedBits` can only be used in a `format binary` schema field",
+        Some(field.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("schema")),
+            (
+                "node_id",
+                JsonValue::string(field.node_id.display("schema-field")),
+            ),
+            ("schema", JsonValue::string(schema_name)),
+            ("field", JsonValue::string(field.name.clone())),
+            ("primitive", JsonValue::string("ReservedBits")),
+            ("reason", JsonValue::string("non_binary_format")),
+        ]),
+    )
+}
+
+fn reserved_bits_argument_diagnostic(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reason: ReservedBitsArgumentReason,
+) -> Diagnostic {
+    let schema_name = schema.name.as_deref().unwrap_or("<missing>");
+    let reason_text = match reason {
+        ReservedBitsArgumentReason::Arity => "argument_count",
+        ReservedBitsArgumentReason::Literal => "non_literal_argument",
+    };
+    let message = match reason {
+        ReservedBitsArgumentReason::Arity => {
+            "`ReservedBits` requires width and value integer arguments"
+        }
+        ReservedBitsArgumentReason::Literal => {
+            "`ReservedBits` arguments must be literal non-negative integers"
+        }
+    };
+    Diagnostic::new(
+        "schema.reserved_bits_primitive",
+        Severity::Error,
+        DiagnosticKind::Type,
+        message,
+        Some(field.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("schema")),
+            (
+                "node_id",
+                JsonValue::string(field.node_id.display("schema-field")),
+            ),
+            ("schema", JsonValue::string(schema_name)),
+            ("field", JsonValue::string(field.name.clone())),
+            ("primitive", JsonValue::string("ReservedBits")),
+            ("reason", JsonValue::string(reason_text)),
         ]),
     )
 }

@@ -224,6 +224,127 @@ fn test_declaration_accepts_unit_return() {
 }
 
 #[test]
+fn binary_schema_accepts_reserved_bits_literal_primitive() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Http2FrameHeader\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt24be\n",
+            "  stream_reserved: ReservedBits(1, 0)\n",
+            "  stream_id: UInt31be\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn binary_schema_rejects_malformed_reserved_bits_primitive() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema BadHeader\n",
+            "  format binary\n",
+            "\n",
+            "  missing: ReservedBits()\n",
+            "  bare: ReservedBits\n",
+            "  named: ReservedBits(width, 0)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 3);
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|diagnostic| {
+                diagnostic.id == "schema.reserved_bits_primitive"
+                    && diagnostic.message
+                        == "`ReservedBits` requires width and value integer arguments"
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains("\"reason\":\"argument_count\"")
+            })
+            .count(),
+        2
+    );
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "schema.reserved_bits_primitive"
+            && diagnostic.message
+                == "`ReservedBits` arguments must be literal non-negative integers"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"non_literal_argument\"")
+    }));
+}
+
+#[test]
+fn reserved_bits_prefix_does_not_capture_type_paths() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "\n",
+            "  field: ReservedBits::Visible\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.reserved_bits_primitive"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
+fn reserved_bits_primitive_reports_non_binary_schema_format() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema BadHeader\n",
+            "  format text\n",
+            "\n",
+            "  stream_reserved: ReservedBits(1, 0)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "schema.reserved_bits_primitive"
+            && diagnostic.message
+                == "`ReservedBits` can only be used in a `format binary` schema field"
+            && diagnostic
+                .details
+                .to_json()
+                .contains("\"reason\":\"non_binary_format\"")
+    }));
+}
+
+#[test]
 fn test_declaration_requires_return_annotation() {
     let source = SourceFile::new(
         "main_test.veln",
