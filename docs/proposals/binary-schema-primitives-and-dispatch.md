@@ -71,8 +71,9 @@ default.
 
 Use a `ReservedBits(width, value)` binary schema primitive for this purpose.
 The field still has a schema-local name so diagnostics can report a stable
-field path, but names beginning with `_` are not mapped into the produced Veln
-record or ADT unless a later explicit mapping rule opts in.
+field path, but the primitive marks the field as representation-only so it is
+not mapped into the produced Veln record or ADT unless a later explicit mapping
+rule opts in.
 
 For HTTP/2, the stream identifier field is therefore written as a one-bit
 reserved field followed by the visible 31-bit value:
@@ -84,7 +85,7 @@ schema Http2FrameHeader
   length: UInt24be
   kind: UInt8 as FrameKind
   flags: UInt8
-  _stream_reserved: ReservedBits(1, 0)
+  stream_reserved: ReservedBits(1, 0)
   stream_id: UInt31be
 end
 ```
@@ -131,8 +132,8 @@ clause.
 Exact-width integer primitives produce ordinary `Int` values unless a
 schema-declared representation conversion maps the field into a visible domain
 type. Byte ranges produce `ByteView` or `ByteChunk` values according to the
-field vocabulary. Reserved fields, fixed fields, and other names beginning
-with `_` stay available for validation and diagnostics but are omitted from the
+field vocabulary. Reserved fields, fixed fields, and other representation-only
+fields stay available for validation and diagnostics but are omitted from the
 mapped value unless the mapping explicitly includes them.
 
 Tag dispatch maps known cases to explicit target constructors or records. An

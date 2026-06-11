@@ -65,10 +65,12 @@ its schema-local field names available as ordinary source bindings.
 
 The mapping clause should name the target value shape and assign schema-local
 fields to the target's record fields or ADT constructor payload fields. Fields
-whose names begin with `_` are omitted from the produced value unless the
-mapping explicitly includes them. This keeps reserved bits and other
-representation-only facts available for validation and diagnostics without
-turning them into protocol-domain data by accident.
+marked representation-only by the selected schema vocabulary are omitted from
+the produced value unless the mapping explicitly includes them. This keeps
+reserved bits and other representation-only facts available for validation and
+diagnostics without turning them into protocol-domain data by accident.
+Schema-local field names follow ordinary Veln binding-name syntax; names
+beginning with `_` remain holes and are not valid field declarations.
 
 Mapping is checked after schema field validation and before the decoded value
 is returned by a codec. The checker should resolve target record fields and ADT
@@ -178,7 +180,7 @@ schema Http2FrameHeader
   length: UInt24be
   kind: UInt8 as FrameKind
   flags: UInt8
-  _stream_reserved: ReservedBits(1, 0)
+  stream_reserved: ReservedBits(1, 0)
   stream_id: UInt31be
 end
 ```

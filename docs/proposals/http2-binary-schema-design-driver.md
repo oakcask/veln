@@ -456,7 +456,7 @@ schema Http2FrameHeader
   length: UInt24be
   kind: UInt8 as FrameKind
   flags: UInt8
-  _stream_reserved: ReservedBits(1, 0)
+  stream_reserved: ReservedBits(1, 0)
   stream_id: UInt31be
 end
 ```
