@@ -33,9 +33,22 @@
             return;
         }
         String value = format(asResult(result).value());
+        FixtureHexDiagnostic fixtureHex = fixtureHexDiagnostics.get().remove(value);
         String line = "result"
-            + "\t" + hex(value)
-            + System.lineSeparator();
+            + "\t" + hex(value);
+        if (fixtureHex != null) {
+            line = line
+                + "\tfixture_hex"
+                + "\t" + fixtureHex.id
+                + "\t" + Integer.toString(fixtureHex.textStart)
+                + "\t" + Integer.toString(fixtureHex.textEnd)
+                + "\t" + Integer.toString(fixtureHex.byteOffset)
+                + "\t" + fixtureHex.nibble
+                + "\t" + Integer.toString(fixtureHex.contextStart)
+                + "\t" + Integer.toString(fixtureHex.contextEnd)
+                + "\t" + hex(fixtureHex.context);
+        }
+        line = line + System.lineSeparator();
         try {
             java.nio.file.Files.write(
                 java.nio.file.Paths.get(path),
@@ -45,5 +58,65 @@
             );
         } catch (java.io.IOException ioError) {
             throw new RuntimeException("failed to record result error", ioError);
+        }
+    }
+
+    private static final ThreadLocal<java.util.Map<String, FixtureHexDiagnostic>> fixtureHexDiagnostics =
+        ThreadLocal.withInitial(java.util.HashMap::new);
+
+    private static void registerFixtureHexDiagnostic(
+        String message,
+        String id,
+        String input,
+        int textStart,
+        int textEnd,
+        int byteOffset,
+        String nibble
+    ) {
+        int contextStart = Math.max(0, textStart - 8);
+        int contextEnd = Math.min(input.length(), textEnd + 8);
+        fixtureHexDiagnostics.get().put(
+            message,
+            new FixtureHexDiagnostic(
+                id,
+                textStart,
+                textEnd,
+                byteOffset,
+                nibble,
+                contextStart,
+                contextEnd,
+                input.substring(contextStart, contextEnd)
+            )
+        );
+    }
+
+    private static final class FixtureHexDiagnostic {
+        final String id;
+        final int textStart;
+        final int textEnd;
+        final int byteOffset;
+        final String nibble;
+        final int contextStart;
+        final int contextEnd;
+        final String context;
+
+        FixtureHexDiagnostic(
+            String id,
+            int textStart,
+            int textEnd,
+            int byteOffset,
+            String nibble,
+            int contextStart,
+            int contextEnd,
+            String context
+        ) {
+            this.id = id;
+            this.textStart = textStart;
+            this.textEnd = textEnd;
+            this.byteOffset = byteOffset;
+            this.nibble = nibble;
+            this.contextStart = contextStart;
+            this.contextEnd = contextEnd;
+            this.context = context;
         }
     }

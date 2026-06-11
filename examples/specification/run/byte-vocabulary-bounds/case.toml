@@ -16,11 +16,19 @@ equals = "failed"
 
 [[json_assert]]
 path = "error.kind"
-equals = "runtime"
+equals = "result"
 
 [[json_assert]]
 path = "error.details.phase"
 equals = "runtime"
+
+[[json_assert]]
+path = "error.details.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "byte count exceeds chunk length"
 
 [[json_assert]]
 path = "stderr"

@@ -1,0 +1,5 @@
+# Compact hex fixture dangling nibbles propagate through human run output.
+pub fn main() -> Result<(), String>
+	let ignored: ByteChunk = byte_chunk_from_hex("001")?
+	Ok(())
+end

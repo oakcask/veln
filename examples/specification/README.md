@@ -264,8 +264,18 @@ against the built `veln` binary.
   byte pairs, and decoded `ByteChunk` values.
 - `run/byte-fixture-hex-invalid/`: invalid compact hex fixture characters,
   prefixes, or separators fail with stable fixture hex error text.
+- `run/byte-fixture-hex-invalid-human/`: invalid compact hex fixture text
+  propagates stable fixture hex error text through human `run` stderr.
+- `run/byte-fixture-hex-invalid-json/`: invalid compact hex fixture text
+  propagates stable fixture hex error text through `run --json` stderr and
+  structured fixture text validation details through JSON.
 - `run/byte-fixture-hex-odd/`: dangling compact hex fixture nibbles fail with
   stable fixture hex error text.
+- `run/byte-fixture-hex-odd-human/`: dangling compact hex fixture nibbles
+  propagate stable fixture hex error text through human `run` stderr.
+- `run/byte-fixture-hex-odd-json/`: dangling compact hex fixture nibbles
+  propagate stable fixture hex error text through `run --json` stderr and
+  structured fixture text validation details through JSON.
 - `run/binary-fixture-records/`: test-owned named binary fixture records carry
   decoded byte chunks built in fixture source, optional consumed counts, and
   invalid fixture expectations; `case.toml` checks exact complete lowercase

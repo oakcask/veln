@@ -9,12 +9,15 @@ need compact, reviewable source data and stable expected output.
 Implemented slices: `byte_chunk_from_hex(text)` decodes compact ASCII hex
 fixture text into ordinary `ByteChunk` values and reports stable
 `fixture.hex.invalid_character` and `fixture.hex.odd_length` `Err(String)`
-values. Executable specification cases can also own named binary fixture
-records in the example tree, with harness checks for complete lowercase hex
-output, decoded byte counts, optional consumed counts, and invalid fixture
-error text. The remaining proposal work covers truncated input cases, invalid
-field cases, fixture diagnostics with structured byte offsets and field paths,
-and protocol-facing fixture harness support.
+values. When those fixture text validation failures propagate out of
+`run --json`, result details include the fixture text span, decoded
+`ByteOffset`, nibble position, and nearby fixture text context. Executable
+specification cases can also own named binary fixture records in the example
+tree, with harness checks for complete lowercase hex output, decoded byte
+counts, optional consumed counts, and invalid fixture error text. The remaining
+proposal work covers truncated input cases, invalid field cases, structured
+field paths for codec and protocol diagnostics, and protocol-facing fixture
+harness support.
 
 ## Problem
 
@@ -33,7 +36,7 @@ Define remaining support for:
 - protocol-facing expected output chunk lists
 - truncated input cases
 - invalid field cases
-- fixture diagnostics that can match byte offsets and field paths
+- fixture diagnostics that can match codec and protocol field paths
 
 ## Discussion Result: Fixture Byte Rendering
 
@@ -157,8 +160,8 @@ a separate implemented surface.
 
 - Remaining examples include named valid and invalid binary fixtures beyond
   compact source text.
-- Hex parsing diagnostics with structured source spans are stable and distinct
-  from codec diagnostics.
+- Codec and protocol fixture diagnostics with structured field paths are
+  distinct from fixture text validation diagnostics.
 - Test cases can assert byte offsets, field paths, consumed counts, and output
   chunks.
 - The HTTP/2 design driver can add frame fixtures without unreadable byte-array

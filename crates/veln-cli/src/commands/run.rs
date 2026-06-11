@@ -9,7 +9,7 @@ use veln_ast::FunctionKind;
 use veln_backend_jvm::{EntryArgType, generate_classfiles_with_entry_arg_types};
 use veln_diagnostics::{DiagnosticEnvelope, JsonValue};
 use veln_project::Project;
-use veln_test::{TestFailure, contract_failure_from_trace};
+use veln_test::{TestFailure, contract_failure_from_trace, result_failure_from_trace};
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{
@@ -143,11 +143,16 @@ fn run_json(
     entry_args: &[String],
 ) -> Result<ExitCode, String> {
     let contract_error_file = build_dir.join("contract-errors.tsv");
-    let event_env = [("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str())];
+    let result_error_file = build_dir.join("result-errors.tsv");
+    let event_env = [
+        ("VELN_CONTRACT_ERRORS", contract_error_file.as_os_str()),
+        ("VELN_RESULT_ERRORS", result_error_file.as_os_str()),
+    ];
     let result = prepare_and_run_jvm_capture_with_env(
         build_dir, program, "veln run", &event_env, entry_args,
     )?;
     let contract_error_trace = fs::read_to_string(&contract_error_file).unwrap_or_default();
+    let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
 
     let report = match result {
         JvmRunResult::ToolError(message) => RunJsonReport::tool_error(message),
@@ -158,6 +163,8 @@ fn run_json(
             if output.status.success() {
                 RunJsonReport::passed(exit_code, stdout, stderr)
             } else if let Some(failure) = contract_failure_from_trace(&contract_error_trace) {
+                RunJsonReport::failed(exit_code, stdout, stderr, failure)
+            } else if let Some(failure) = result_failure_from_trace(&result_error_trace) {
                 RunJsonReport::failed(exit_code, stdout, stderr, failure)
             } else {
                 RunJsonReport::runtime_error(

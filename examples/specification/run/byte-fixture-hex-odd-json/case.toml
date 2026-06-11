@@ -1,0 +1,67 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.phase"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.details.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "fixture.hex.odd_length: dangling hex nibble at byte offset 1 high nibble"
+
+[[json_assert]]
+path = "error.details.fixture_hex.kind"
+equals = "fixture_hex"
+
+[[json_assert]]
+path = "error.details.fixture_hex.id"
+equals = "fixture.hex.odd_length"
+
+[[json_assert]]
+path = "error.details.fixture_hex.fixture_text_span.start"
+equals = 2
+
+[[json_assert]]
+path = "error.details.fixture_hex.fixture_text_span.end"
+equals = 3
+
+[[json_assert]]
+path = "error.details.fixture_hex.byte_offset.kind"
+equals = "ByteOffset"
+
+[[json_assert]]
+path = "error.details.fixture_hex.byte_offset.value"
+equals = 1
+
+[[json_assert]]
+path = "error.details.fixture_hex.nibble_position"
+equals = "high"
+
+[[json_assert]]
+path = "error.details.fixture_hex.nearby_context.text"
+equals = "001"
+
+[[json_assert]]
+path = "stderr"
+equals = "Err(fixture.hex.odd_length: dangling hex nibble at byte offset 1 high nibble)\n"

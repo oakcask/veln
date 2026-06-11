@@ -1,0 +1,5 @@
+# Compact hex fixture invalid characters propagate through JSON run output.
+pub fn main() -> Result<(), String>
+	let ignored: ByteChunk = byte_chunk_from_hex("00_01")?
+	Ok(())
+end
