@@ -1,5 +1,6 @@
 use std::env;
 use std::fs;
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -7,13 +8,14 @@ use veln_analysis::{DoctestMode, ProjectAnalysis, analyze_project};
 use veln_ast::Function;
 use veln_ast::FunctionKind;
 use veln_backend_jvm::{EntryArgType, generate_classfiles_with_entry_arg_types};
-use veln_diagnostics::{DiagnosticEnvelope, JsonValue};
+use veln_diagnostics::{Diagnostic, DiagnosticEnvelope, DiagnosticKind, JsonValue, Severity};
 use veln_project::Project;
 use veln_test::{TestFailure, contract_failure_from_trace, result_failure_from_trace};
 
 use crate::diagnostics::{has_error, print_human_stderr, tool_info};
 use crate::java::{
-    JvmRunResult, create_build_dir, prepare_and_run_jvm, prepare_and_run_jvm_capture_with_env,
+    JvmRunResult, create_build_dir, exit_code_from_status, forward_process_output,
+    prepare_and_run_jvm_capture_with_env,
 };
 
 pub(crate) fn run_entry(
@@ -39,7 +41,7 @@ pub(crate) fn run_entry(
     let result = if json {
         run_json(&build_dir, &jvm, &entry_args)
     } else {
-        prepare_and_run_jvm(&build_dir, &jvm, &entry_args)
+        run_human(&build_dir, &jvm, &entry_args)
     };
     let cleanup_result = fs::remove_dir_all(&build_dir);
     if let Err(error) = cleanup_result {
@@ -135,6 +137,146 @@ fn lower_run_entry(
         return Ok(None);
     };
     Ok(Some(ir))
+}
+
+fn run_human(
+    build_dir: &std::path::Path,
+    program: &veln_backend_jvm::JvmProgram,
+    entry_args: &[String],
+) -> Result<ExitCode, String> {
+    let result_error_file = build_dir.join("result-errors.tsv");
+    let event_env = [("VELN_RESULT_ERRORS", result_error_file.as_os_str())];
+    let result = prepare_and_run_jvm_capture_with_env(
+        build_dir, program, "veln run", &event_env, entry_args,
+    )?;
+    let output = match result {
+        JvmRunResult::Ran(output) => output,
+        JvmRunResult::ToolError(message) => {
+            eprintln!("{message}");
+            return Ok(ExitCode::from(1));
+        }
+    };
+    if output.status.success() {
+        forward_process_output(&output)?;
+        return Ok(exit_code_from_status(output.status));
+    }
+
+    let result_error_trace = fs::read_to_string(&result_error_file).unwrap_or_default();
+    let result_failure = result_failure_from_trace(&result_error_trace);
+    let diagnostic = result_failure
+        .as_ref()
+        .and_then(byte_result_failure_diagnostic);
+    if let (Some(failure), Some(diagnostic)) = (result_failure.as_ref(), diagnostic) {
+        io::stdout()
+            .write_all(&output.stdout)
+            .map_err(|error| error.to_string())?;
+        io::stderr()
+            .write_all(stderr_without_result_failure_line(&output.stderr, failure))
+            .map_err(|error| error.to_string())?;
+        print_human_stderr(&DiagnosticEnvelope::new(tool_info(), vec![diagnostic]))?;
+    } else {
+        forward_process_output(&output)?;
+    }
+    Ok(exit_code_from_status(output.status))
+}
+
+fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
+    let details = json_object(&failure.details)?;
+    let byte_diagnostic = json_field(details, "byte_diagnostic")?;
+    let byte_entries = json_object(byte_diagnostic)?;
+    let id = json_string(byte_entries, "id")?;
+    if id != "codec.incomplete_input" {
+        return None;
+    }
+
+    let byte_offset = byte_offset_value(byte_entries)?;
+    let expected_count = json_number(byte_entries, "expected_count")?;
+    let available_count = json_number(byte_entries, "available_count")?;
+    let readiness = json_string(byte_entries, "readiness")?;
+    let mut diagnostic = Diagnostic::new(
+        id,
+        Severity::Error,
+        DiagnosticKind::Runtime,
+        format!("missing byte at byte offset {byte_offset}"),
+        None,
+        byte_diagnostic.clone(),
+    );
+    diagnostic.related.push(note_json(format!(
+        "pending readiness is `{readiness}` because input is closed."
+    )));
+    diagnostic.related.push(note_json(format!(
+        "Fixed-width read expected {expected_count} byte(s); {available_count} byte(s) were available."
+    )));
+    if let Some(field_path) = field_path_text(byte_entries) {
+        diagnostic
+            .related
+            .push(note_json(format!("Field path: {field_path}.")));
+    }
+    Some(diagnostic)
+}
+
+fn byte_offset_value(entries: &[(String, JsonValue)]) -> Option<i64> {
+    let offset = json_field(entries, "byte_offset")?;
+    let offset_entries = json_object(offset)?;
+    json_number(offset_entries, "value")
+}
+
+fn stderr_without_result_failure_line<'a>(stderr: &'a [u8], failure: &TestFailure) -> &'a [u8] {
+    let Some(value) = result_failure_value(failure) else {
+        return stderr;
+    };
+    let line = format!("Err({value})\n");
+    stderr.strip_suffix(line.as_bytes()).unwrap_or(stderr)
+}
+
+fn result_failure_value(failure: &TestFailure) -> Option<String> {
+    let details = json_object(&failure.details)?;
+    json_string(details, "value")
+}
+
+fn field_path_text(entries: &[(String, JsonValue)]) -> Option<String> {
+    let JsonValue::Array(segments) = json_field(entries, "field_path")? else {
+        return None;
+    };
+    let mut parts = Vec::new();
+    for segment in segments {
+        let segment_entries = json_object(segment)?;
+        let kind = json_string(segment_entries, "kind")?;
+        let name = json_string(segment_entries, "name")?;
+        parts.push(format!("{kind} `{name}`"));
+    }
+    (!parts.is_empty()).then(|| parts.join(" / "))
+}
+
+fn note_json(message: String) -> JsonValue {
+    JsonValue::object([("message", JsonValue::string(message))])
+}
+
+fn json_field<'a>(entries: &'a [(String, JsonValue)], key: &str) -> Option<&'a JsonValue> {
+    entries
+        .iter()
+        .find_map(|(entry_key, value)| (entry_key == key).then_some(value))
+}
+
+fn json_object(value: &JsonValue) -> Option<&[(String, JsonValue)]> {
+    match value {
+        JsonValue::Object(entries) => Some(entries),
+        _ => None,
+    }
+}
+
+fn json_string(entries: &[(String, JsonValue)], key: &str) -> Option<String> {
+    match json_field(entries, key)? {
+        JsonValue::String(value) => Some(value.clone()),
+        _ => None,
+    }
+}
+
+fn json_number(entries: &[(String, JsonValue)], key: &str) -> Option<i64> {
+    match json_field(entries, key)? {
+        JsonValue::Number(value) => Some(*value),
+        _ => None,
+    }
 }
 
 fn run_json(
@@ -320,5 +462,76 @@ fn validate_entry_arg(ty: EntryArgType, param_name: &str, raw_arg: &str) -> Resu
         EntryArgType::Bool => Err(format!(
             "veln: invalid Bool argument for parameter `{param_name}`: `{raw_arg}`"
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_field_path_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("codec.incomplete_input")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(7)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("DemoPacket")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("payload")),
+                    ]),
+                ]),
+            ),
+            ("expected_count", JsonValue::Number(4)),
+            ("available_count", JsonValue::Number(1)),
+            ("readiness", JsonValue::string("need_bytes")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "short input".to_string(),
+            None,
+            Some(byte_diagnostic),
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "codec.incomplete_input");
+        assert_eq!(diagnostic.kind, DiagnosticKind::Runtime);
+        assert_eq!(diagnostic.message, "missing byte at byte offset 7");
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(diagnostic.related[0].to_json().contains("need_bytes"));
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("expected 4 byte(s); 1 byte(s) were available")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("schema `DemoPacket` / field `payload`")
+        );
+    }
+
+    #[test]
+    fn stderr_without_result_failure_line_keeps_user_stderr() {
+        let failure = TestFailure::result_with_details("short input".to_string(), None, None);
+        let stderr = b"user warning\nErr(short input)\n";
+
+        assert_eq!(
+            stderr_without_result_failure_line(stderr, &failure),
+            b"user warning\n"
+        );
     }
 }

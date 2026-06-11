@@ -77,7 +77,8 @@ ordinary immutable freeze boundary.
 The sibling failure cases under `../../examples/specification/run/` pin the
 runtime `Result` propagation shape for ByteView read truncation, ByteView range
 failure, and unsigned write conversion overflow in JSON and human command
-output. The read-truncation JSON case also pins the `codec.incomplete_input`
-byte diagnostic details. The named-fixture truncation case pins the same
-diagnostic shape while proving that valid fixture bytes fail as codec
-truncation, not as fixture text validation.
+output. The read-truncation JSON and human cases pin the
+`codec.incomplete_input` byte diagnostic details and missing-byte human
+projection. The named-fixture truncation case pins the same JSON diagnostic
+shape while proving that valid fixture bytes fail as codec truncation, not as
+fixture text validation.

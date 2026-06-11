@@ -25,6 +25,7 @@ pub enum DiagnosticKind {
     Type,
     Contract,
     Effect,
+    Runtime,
     Lint,
     Hole,
     Doc,
@@ -39,6 +40,7 @@ impl DiagnosticKind {
             Self::Type => "type",
             Self::Contract => "contract",
             Self::Effect => "effect",
+            Self::Runtime => "runtime",
             Self::Lint => "lint",
             Self::Hole => "hole",
             Self::Doc => "doc",
@@ -83,6 +85,7 @@ mod tests {
         assert_eq!(DiagnosticKind::Type.as_str(), "type");
         assert_eq!(DiagnosticKind::Contract.as_str(), "contract");
         assert_eq!(DiagnosticKind::Effect.as_str(), "effect");
+        assert_eq!(DiagnosticKind::Runtime.as_str(), "runtime");
         assert_eq!(DiagnosticKind::Lint.as_str(), "lint");
         assert_eq!(DiagnosticKind::Hole.as_str(), "hole");
         assert_eq!(DiagnosticKind::Doc.as_str(), "doc");

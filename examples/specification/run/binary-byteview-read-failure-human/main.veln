@@ -1,0 +1,9 @@
+# ByteView read truncation propagates as a human runtime diagnostic.
+pub fn main() -> Result<(), String>
+	let chunk: ByteChunk = byte_chunk_from_hex("0001")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(2)?
+	let view: ByteView = byte_view(chunk, offset, count)?
+	let ignored: Int = byte_read_u24_be(view)?
+	Ok(())
+end
