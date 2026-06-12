@@ -116,10 +116,25 @@ one implementation clause for each listed direction: `derive decode`,
 `encode with function_name`. A missing clause, a clause for an unlisted
 direction, or a duplicate clause is a parse diagnostic. The parser and AST
 preserve the codec name, referenced schema name, directions, visibility, and
-body clauses for formatting, editor support, and source metadata. Codec
-execution is not implemented: codec declarations do not generate executable
-decode or encode functions, do not type-check `with` function signatures, and
-do not run schema value mapping.
+body clauses for formatting, editor support, source metadata, and checker
+boundaries.
+
+The checker validates the implemented decode function boundary for
+`decode with function_name`. The name must resolve to an ordinary function in
+the same module as the codec declaration. The referenced function must take
+exactly two parameters, first `ByteView` for the bounded input view and then
+`ByteOffset` for the absolute base byte offset. Its return type must be
+`DecodeStep<T>` for one source-visible decoded value type `T`. The checker does
+not run schema value mapping for `T`; it only verifies that the return shape is
+the incremental decode transition. A missing function reports
+`name.unresolved` at the `decode with` clause. A wrong parameter count,
+parameter type, or return type reports `codec.decode_signature` at that clause
+and includes related context pointing to the referenced function declaration.
+
+Codec execution is not implemented: codec declarations do not generate
+executable decode or encode functions, do not implement `derive decode`, do
+not type-check encode `with` function signatures, and do not run schema value
+mapping.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`

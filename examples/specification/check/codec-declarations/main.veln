@@ -15,6 +15,6 @@ pub codec HeaderRoundTrip for Http2FrameHeader decode encode
   derive encode
 end
 
-fn decode_header() -> ()
-  ()
+fn decode_header(input: ByteView, base: ByteOffset) -> DecodeStep<Int>
+  NeedMore(NeedEnd)
 end

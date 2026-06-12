@@ -65,9 +65,15 @@ direction: `derive decode`, `derive encode`, `decode with function_name`, or
 `encode with function_name`. The parser reports declaration-shape errors for
 empty, unknown, or duplicate directions, missing clauses, clauses for unlisted
 directions, and duplicate clauses. The source model preserves codec visibility,
-schema ownership, directions, and body clauses for metadata, formatting, and
-editor support. Codec execution, generated decode or encode functions, and
-function signature checking for `with` clauses are not implemented.
+schema ownership, directions, and body clauses for metadata, formatting,
+editor support, and checker boundaries. A `decode with function_name` clause
+must resolve to an ordinary function in the codec's module with exactly
+`ByteView` and `ByteOffset` parameters and a `DecodeStep<T>` return type.
+Invalid decode signatures report `codec.decode_signature` at the codec
+implementation clause, with related context pointing to the referenced
+function when it is available. Codec execution, generated decode or encode
+functions, `derive decode`, generated or checked encode function signatures,
+and schema value mapping are not implemented.
 
 ## Expressions
 

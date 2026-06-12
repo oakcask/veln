@@ -159,7 +159,10 @@ declaration must not silently add directions that are missing from its head.
 
 The source-surface body clause forms are implemented in
 `../specification/source-surface.md`: `derive decode`, `derive encode`,
-`decode with <function>`, and `encode with <function>`.
+`decode with <function>`, and `encode with <function>`. The checker also
+implements the first `decode with` boundary slice: the referenced function must
+be an ordinary same-module function whose parameters are `ByteView` and
+`ByteOffset` and whose return shape is `DecodeStep<T>`.
 
 `derive` asks the checker to generate that direction from the named schema,
 using the schema mapping and validation rules. A derived direction is accepted
@@ -170,19 +173,18 @@ choice without extra code.
 
 `with` binds a direction to an ordinary source function. The function remains a
 normal top-level item with its own visibility, contracts, effects, tests, and
-documentation. The codec checker verifies that its signature matches the
-canonical shape for the bound direction and schema mapping: decoders consume a
-bounded `ByteView` plus base `ByteOffset` and return `DecodeStep<T>`, while
-encoders consume the mapped Veln value and return the encode result shape
-accepted by this proposal.
+documentation. The implemented decode checker verifies the canonical boundary
+shape for hand-written decoders: a bounded `ByteView` plus base `ByteOffset`
+and a `DecodeStep<T>` return. Remaining work should connect `T` to schema
+value mapping and define the encode result shape.
 
 The implemented parser rejects a missing implementation clause for a listed
 direction, a body clause for a direction absent from the declaration head, and
 duplicate implementation clauses. Remaining checker work should reject a
-derived or bound function whose result type does not match the schema mapping.
-Keeping hand-written logic in ordinary functions avoids nested function syntax
-inside `codec` while still giving modules one named codec item for imports,
-exports, fixtures, and diagnostics.
+derived or bound function whose decoded or encoded value type does not match
+the schema mapping. Keeping hand-written logic in ordinary functions avoids
+nested function syntax inside `codec` while still giving modules one named
+codec item for imports, exports, fixtures, and diagnostics.
 
 ## Discussion Result: Codec Names And Imports
 

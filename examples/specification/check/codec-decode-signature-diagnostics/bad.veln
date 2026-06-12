@@ -1,0 +1,41 @@
+schema Packet
+  format binary
+
+  kind: UInt8
+end
+
+codec MissingDecode for Packet decode
+  decode with missing_decoder
+end
+
+codec WrongCountDecode for Packet decode
+  decode with no_params
+end
+
+codec WrongViewDecode for Packet decode
+  decode with wrong_view
+end
+
+codec WrongBaseDecode for Packet decode
+  decode with wrong_base
+end
+
+codec WrongReturnDecode for Packet decode
+  decode with wrong_return
+end
+
+fn no_params() -> DecodeStep<Int>
+  NeedMore(NeedEnd)
+end
+
+fn wrong_view(input: ByteChunk, base: ByteOffset) -> DecodeStep<Int>
+  NeedMore(NeedEnd)
+end
+
+fn wrong_base(input: ByteView, base: ByteCount) -> DecodeStep<Int>
+  NeedMore(NeedEnd)
+end
+
+fn wrong_return(input: ByteView, base: ByteOffset) -> Result<Int, String>
+  Ok(0)
+end

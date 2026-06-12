@@ -596,6 +596,130 @@ fn codec_declarations_resolve_schema_targets() {
 }
 
 #[test]
+fn codec_decode_with_accepts_boundary_signature() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "codec HeaderDecode for Header decode\n",
+            "  decode with decode_header\n",
+            "end\n",
+            "\n",
+            "fn decode_header(input: ByteView, base: ByteOffset) -> DecodeStep<Int>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn codec_decode_with_reports_signature_shape_at_clause() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "codec HeaderDecode for Header decode\n",
+            "  decode with decode_header\n",
+            "end\n",
+            "\n",
+            "fn decode_header(input: ByteChunk, base: ByteCount) -> Result<Int, String>\n",
+            "  Ok(0)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 3);
+    for (reason, message, actual) in [
+        (
+            "input_view_type",
+            "decode function first parameter must be `ByteView`",
+            "ByteChunk",
+        ),
+        (
+            "base_offset_type",
+            "decode function second parameter must be `ByteOffset`",
+            "ByteCount",
+        ),
+        (
+            "return_type",
+            "decode function must return `DecodeStep<T>`",
+            "Result<Int, String>",
+        ),
+    ] {
+        assert!(diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "codec.decode_signature"
+                && diagnostic.message == message
+                && diagnostic
+                    .span
+                    .as_ref()
+                    .is_some_and(|span| span.start.line == 7)
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains(&format!("\"reason\":\"{reason}\""))
+                && diagnostic
+                    .details
+                    .to_json()
+                    .contains(&format!("\"actual_signature\":\"{actual}\""))
+                && diagnostic.related.len() == 1
+        }));
+    }
+}
+
+#[test]
+fn codec_decode_with_reports_unresolved_function_at_clause() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "codec HeaderDecode for Header decode\n",
+            "  decode with missing_decode\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "name.unresolved");
+    assert_eq!(
+        diagnostics[0].message,
+        "unresolved decode function `missing_decode`"
+    );
+    assert!(diagnostics[0].related.is_empty());
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"phase\":\"codec\"")
+    );
+}
+
+#[test]
 fn duplicate_use_aliases_are_static_errors() {
     let source = SourceFile::new(
         "main.veln",

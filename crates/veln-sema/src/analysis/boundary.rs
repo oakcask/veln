@@ -1,6 +1,9 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
-use veln_ast::{CodecDecl, PublicAliasKind, SchemaDecl, SchemaField, UseDecl};
+use veln_ast::{
+    CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, PublicAliasKind,
+    SchemaDecl, SchemaField, UseDecl,
+};
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -303,6 +306,239 @@ pub(crate) fn check_codec_schema_references(module: &SurfaceModule) -> Vec<Diagn
     }
 
     diagnostics
+}
+
+pub(crate) fn check_codec_decode_signatures(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
+    for codec in &module.codecs {
+        for implementation in codec.implementations.iter().filter(|implementation| {
+            implementation.direction == CodecDirection::Decode
+                && matches!(implementation.kind, CodecImplementationKind::With { .. })
+        }) {
+            let CodecImplementationKind::With { function } = &implementation.kind else {
+                continue;
+            };
+            let Some(function_name) = function else {
+                continue;
+            };
+            let Some(function) = codec_decode_function(module, codec, function_name) else {
+                diagnostics.push(unresolved_codec_decode_function_diagnostic(
+                    codec,
+                    implementation,
+                    function_name,
+                ));
+                continue;
+            };
+
+            diagnostics.extend(codec_decode_signature_diagnostics(
+                codec,
+                implementation,
+                function,
+                function_name,
+            ));
+        }
+    }
+
+    diagnostics
+}
+
+fn codec_decode_function<'a>(
+    module: &'a SurfaceModule,
+    codec: &CodecDecl,
+    function_name: &str,
+) -> Option<&'a Function> {
+    module.functions.iter().find(|function| {
+        function.kind == FunctionKind::Function
+            && function.module_name == codec.module_name
+            && function.name.as_deref() == Some(function_name)
+    })
+}
+
+fn codec_decode_signature_diagnostics(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    function: &Function,
+    function_name: &str,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
+    if function.params.len() != 2 {
+        diagnostics.push(codec_decode_signature_diagnostic(
+            codec,
+            implementation,
+            Some(function),
+            function_name,
+            "parameter_count",
+            "decode function must take `ByteView` and `ByteOffset` parameters",
+            format!(
+                "fn({}) -> {}",
+                parameter_types_text(function),
+                return_type_text(function)
+            ),
+        ));
+        return diagnostics;
+    }
+
+    for (index, expected_type, expected_text) in [
+        (0usize, Type::named("ByteView", Vec::new()), "ByteView"),
+        (1usize, Type::named("ByteOffset", Vec::new()), "ByteOffset"),
+    ] {
+        let actual_type = function
+            .params
+            .get(index)
+            .and_then(|param| param.ty.as_deref())
+            .and_then(|annotation| parse_type_annotation(annotation).ok())
+            .unwrap_or(Type::Unknown);
+        if actual_type != expected_type {
+            let ordinal = if index == 0 { "first" } else { "second" };
+            diagnostics.push(codec_decode_signature_diagnostic(
+                codec,
+                implementation,
+                Some(function),
+                function_name,
+                if index == 0 {
+                    "input_view_type"
+                } else {
+                    "base_offset_type"
+                },
+                format!("decode function {ordinal} parameter must be `{expected_text}`"),
+                actual_type.render(),
+            ));
+        }
+    }
+
+    let return_type = function
+        .return_type
+        .as_deref()
+        .and_then(|annotation| parse_type_annotation(annotation).ok())
+        .unwrap_or(Type::Unknown);
+    if !is_decode_step_return(&return_type) {
+        diagnostics.push(codec_decode_signature_diagnostic(
+            codec,
+            implementation,
+            Some(function),
+            function_name,
+            "return_type",
+            "decode function must return `DecodeStep<T>`",
+            return_type.render(),
+        ));
+    }
+
+    diagnostics
+}
+
+fn is_decode_step_return(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { name, args } if name == "DecodeStep" && args.len() == 1
+    )
+}
+
+fn parameter_types_text(function: &Function) -> String {
+    function
+        .params
+        .iter()
+        .map(|param| {
+            param
+                .ty
+                .as_deref()
+                .and_then(|annotation| parse_type_annotation(annotation).ok())
+                .unwrap_or(Type::Unknown)
+                .render()
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn return_type_text(function: &Function) -> String {
+    function
+        .return_type
+        .as_deref()
+        .and_then(|annotation| parse_type_annotation(annotation).ok())
+        .unwrap_or(Type::Unknown)
+        .render()
+}
+
+fn unresolved_codec_decode_function_diagnostic(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    function_name: &str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "name.unresolved",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("unresolved decode function `{function_name}`"),
+        Some(implementation.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("codec")),
+            (
+                "node_id",
+                JsonValue::string(implementation.node_id.display("codec-impl")),
+            ),
+            (
+                "codec",
+                JsonValue::string(codec.name.as_deref().unwrap_or("<missing>")),
+            ),
+            ("direction", JsonValue::string("decode")),
+            ("expected_kind", JsonValue::string("function")),
+            ("target", JsonValue::string(function_name.to_string())),
+        ]),
+    )
+}
+
+fn codec_decode_signature_diagnostic(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    function: Option<&Function>,
+    function_name: &str,
+    reason: &'static str,
+    message: impl Into<String>,
+    actual_signature: impl Into<String>,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "codec.decode_signature",
+        Severity::Error,
+        DiagnosticKind::Type,
+        message.into(),
+        Some(implementation.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("codec")),
+            (
+                "node_id",
+                JsonValue::string(implementation.node_id.display("codec-impl")),
+            ),
+            (
+                "codec",
+                JsonValue::string(codec.name.as_deref().unwrap_or("<missing>")),
+            ),
+            ("direction", JsonValue::string("decode")),
+            ("function", JsonValue::string(function_name.to_string())),
+            ("reason", JsonValue::string(reason)),
+            (
+                "expected_signature",
+                JsonValue::string("fn(ByteView, ByteOffset) -> DecodeStep<T>"),
+            ),
+            (
+                "actual_signature",
+                JsonValue::string(actual_signature.into()),
+            ),
+        ]),
+    );
+    if let Some(function) = function {
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("function_signature")),
+            (
+                "message",
+                JsonValue::string(format!(
+                    "Referenced function `{function_name}` is declared here."
+                )),
+            ),
+            ("span", span_json(&function.span)),
+        ]));
+    }
+    diagnostic
 }
 
 pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
