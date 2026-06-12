@@ -113,6 +113,18 @@ pin the focused primary messages and related notes for readiness, expected
 versus available bytes, reserved-bit values, nearby bytes, and schema field
 paths.
 
+The executable specification cases
+`../../examples/specification/run/binary-schema-frame-payload-decode/`,
+`../../examples/specification/run/binary-schema-frame-payload-length-json/`,
+and
+`../../examples/specification/run/binary-schema-frame-payload-length-human/`
+cover the bounded HTTP/2 frame payload slice. The valid case observes payload
+bytes through the returned `payload: ByteView` separately from the header
+fields. The failure cases pin `schema.length_out_of_bounds` for a complete
+header whose decoded length exceeds the available payload bytes, including the
+first missing byte offset, expected and available counts, nearby bytes, and
+`Http2FrameHeader.payload` field path.
+
 `../../examples/specification/run/binary-fixed-field-mismatch-json/` and
 `../../examples/specification/run/binary-fixed-field-mismatch-human/` pin the
 first schema-owned fixed-field mismatch diagnostic slice. The JSON case

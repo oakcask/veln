@@ -361,6 +361,48 @@
         ));
     }
 
+    public static Object byteDecodeHttp2Frame(Object view) {
+        Object headerRead = byteDecodeHttp2FrameHeader(view);
+        if (isErr(headerRead)) {
+            return headerRead;
+        }
+
+        java.util.Map<Object, Object> header = asMap(unwrapOk(headerRead));
+        long length = asLong(header.get("length"));
+        long baseOffset = byteViewOffset(view);
+        long count = byteViewCount(view);
+        long headerCount = 9L;
+        long availablePayload = Math.max(0L, count - headerCount);
+        if (length > availablePayload) {
+            long byteOffset = baseOffset + headerCount + availablePayload;
+            String message = "payload length out of bounds at byte offset " + byteOffset;
+            registerSchemaLengthOutOfBoundsDiagnostic(
+                message,
+                byteOffset,
+                "Http2FrameHeader",
+                "payload",
+                length,
+                availablePayload,
+                byteViewContextHex(view, 8)
+            );
+            return err(message);
+        }
+
+        Object payload = byteViewObject(byteViewChunk(view), baseOffset + headerCount, length);
+        return ok(record(
+            "length",
+            header.get("length"),
+            "kind",
+            header.get("kind"),
+            "flags",
+            header.get("flags"),
+            "stream_id",
+            header.get("stream_id"),
+            "payload",
+            payload
+        ));
+    }
+
     public static Object http2ProtocolClosedWithPending(
         Object offset,
         Object pendingCount,

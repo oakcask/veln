@@ -1053,6 +1053,7 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "byte_decode_http2_frame_header",
             "byteDecodeHttp2FrameHeader",
         ),
+        ("byte_decode_http2_frame", "byteDecodeHttp2Frame"),
         ("byte_read_u16_be", "byteReadU16Be"),
         ("byte_read_u24_be", "byteReadU24Be"),
         ("byte_read_u31_be", "byteReadU31Be"),

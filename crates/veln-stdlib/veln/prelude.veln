@@ -104,6 +104,10 @@ pub fn byte_decode_http2_frame_header(view: ByteView) -> Result<{length: Int, ki
 	prelude_builtin::byte_decode_http2_frame_header(view)
 end
 
+pub fn byte_decode_http2_frame(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
+	prelude_builtin::byte_decode_http2_frame(view)
+end
+
 pub fn http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String) -> Result<(), String>
 	prelude_builtin::http2_protocol_closed_with_pending(offset, pending_count, active_continuation)
 end

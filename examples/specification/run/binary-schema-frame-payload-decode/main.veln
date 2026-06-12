@@ -1,0 +1,27 @@
+# Binary schema frame decode exposes a bounded payload ByteView.
+use stdio
+
+fn emit_frame(frame: {length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}) -> Result<(), String> effects [stdio]
+	stdio::print(int_to_string(frame.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(frame.kind))
+	stdio::print(" ")
+	stdio::print(int_to_string(frame.flags))
+	stdio::print(" ")
+	stdio::print(int_to_string(frame.stream_id))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(byte_view_to_chunk(frame.payload)))))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_read_u16_be(frame.payload)?))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("000002010400000001aabb")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(11)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let frame: {length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView} = byte_decode_http2_frame(view)?
+	emit_frame(frame)
+	Ok(())
+end

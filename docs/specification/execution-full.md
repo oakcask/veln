@@ -109,6 +109,15 @@ failure with expected and available byte counts. Reserved-bit mismatches
 return `schema.reserved_bits_mismatch` with bit width, expected value, actual
 value, nearby bytes, byte offset, and schema field path.
 
+The frame decode helper extends that slice with a bounded payload view. It
+first applies the same header validation, then returns the visible header
+fields plus `payload: ByteView`. The payload view shares the input chunk,
+starts immediately after the nine-byte frame header, and uses the decoded
+length field as its count. If the closed input has fewer payload bytes than
+the decoded length, the helper returns `schema.length_out_of_bounds` with the
+first missing byte offset, `Http2FrameHeader.payload` field path, expected
+payload count, available payload count, and nearby lowercase hex context.
+
 Standard `StreamInput` values execute as ordinary immutable source ADT values:
 `Chunk(bytes)` preserves the supplied `ByteChunk`, including an empty chunk,
 and `End` is a separate nullary variant.

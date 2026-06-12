@@ -14,9 +14,11 @@ positions only. The executable frame-header primitive decode slice is
 implemented under `../specification/execution.md`: it consumes `UInt24be`,
 `UInt8`, `UInt8`, `ReservedBits(1, 0)`, and `UInt31be` from a `ByteView`,
 returns ordinary `Int` fields for the visible values, and reports structured
-schema failures for truncated fields and reserved-bit mismatches. General
-schema decode, encode, dispatch, and schema value mapping remain proposal
-work.
+schema failures for truncated fields and reserved-bit mismatches. The narrow
+HTTP/2 frame helper also returns a bounded payload `ByteView` selected by the
+decoded length and reports `schema.length_out_of_bounds` when closed input
+cannot provide that payload range. General schema decode, encode, dispatch,
+and schema value mapping remain proposal work.
 
 ## Problem
 
@@ -34,7 +36,7 @@ Define remaining binary schema support for:
 - endian-aware field reads and writes
 - reserved bits that are consumed but not exposed as ordinary data
 - flags that decode as raw bits, bitsets, or frame-specific ADTs
-- length-prefixed payloads
+- general schema-declared length-prefixed payloads
 - field references inside later field definitions
 - dispatch from a tag field to payload schemas
 - unknown tags that preserve raw payload bytes when permitted
@@ -202,11 +204,11 @@ author likely referred to an earlier field with a compatible role.
 
 - Executable examples show binary schema writes and general schema-owned
   fixed-width reads beyond the implemented frame-header primitive decode
-  slice.
+  and HTTP/2 payload boundary helper slices.
 - Examples show tag-based payload dispatch and unknown tag preservation.
 - Invalid fixed fields in general schema decode produce structured
   diagnostics beyond the implemented frame-header truncation and reserved-bit
   mismatch details.
 - The schema vocabulary is general enough for another binary protocol example.
 - The HTTP/2 design driver can express frame header and payload boundaries
-  without ordinary parsing functions doing all layout work.
+  through general schema declarations instead of the current narrow helper.

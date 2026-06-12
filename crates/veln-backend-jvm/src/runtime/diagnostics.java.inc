@@ -242,6 +242,33 @@
         );
     }
 
+    private static void registerSchemaLengthOutOfBoundsDiagnostic(
+        String message,
+        long byteOffset,
+        String schemaName,
+        String fieldName,
+        long expectedCount,
+        long availableCount,
+        String nearbyContext
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.length_out_of_bounds",
+                byteOffset,
+                java.util.Arrays.asList(
+                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
+                    new ByteDiagnosticFieldPathSegment("field", fieldName)
+                ),
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("expected_count", expectedCount),
+                    DiagnosticDetail.number("available_count", availableCount),
+                    DiagnosticDetail.string("nearby_context", nearbyContext)
+                )
+            )
+        );
+    }
+
     private static String formatByteDiagnosticFieldPath(
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath
     ) {
