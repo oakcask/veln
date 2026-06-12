@@ -380,6 +380,10 @@ against the built `veln` binary.
   passes `ByteView` and `ByteOffset` to the referenced decoder and observes
   its returned `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values
   unchanged while the schema mapping pins the accepted value type.
+- `run/codec-encode-boundary/`: a hand-written `encode with` codec item call
+  passes the mapped record value and ordinary encoder parameters to the
+  referenced encoder and observes its returned `Encoded` and
+  `Invalid(EncodeError)` `EncodeStep<TState>` values unchanged.
 - `run/derived-codec-decode-boundary/`: a `derive decode` codec item call
   over an eligible binary schema observes the generated decode-step helper's
   `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the

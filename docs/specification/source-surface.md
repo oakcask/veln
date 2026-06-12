@@ -114,8 +114,11 @@ parameter must match the mapping target record shape. Invalid encode
 signatures report `codec.encode_signature`; mapped value parameter mismatches
 report `codec.encode_value_type` at the codec implementation clause, with
 related context pointing to the referenced function when it is available.
-General codec-generated decode functions, derived encode execution, and
-executable encode operations are not implemented. Generated
+When the clause is valid, the codec item name is an ordinary call target in
+the declaring module, or through a written import-qualified module path when
+the codec is `pub`. The call uses the referenced function's parameters and
+returns its `EncodeStep<TState>` value unchanged. General codec-generated
+decode functions and derived encode execution are not implemented. Generated
 `byte_decode_<schema>` helpers for the eligible binary schema slice, their
 `byte_decode_step_<schema>` incremental decode-step counterparts, and derived
 decode codec calls over that decode-step slice are covered by

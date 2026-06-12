@@ -183,11 +183,14 @@ must return `EncodeStep<TState>` for one source-visible encoder state type
 clause. A wrong return type reports `codec.encode_signature`; a missing or
 wrong mapped value parameter reports `codec.encode_value_type` at that clause.
 Both diagnostics include related context pointing to the referenced function
-declaration.
+declaration. When the clause is valid, the codec item name is an ordinary call
+target for the hand-written encode boundary in the declaring module. A
+`pub codec` can also be called through a written import-qualified module path.
+The call expects the same parameters as the referenced function and returns
+that function's `EncodeStep<TState>` value unchanged.
 
 Codec declarations do not generate general executable decode or encode
-functions, do not implement derived encode execution, and do not execute
-hand-written encode functions.
+functions and do not implement derived encode execution.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`
