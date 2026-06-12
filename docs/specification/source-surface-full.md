@@ -163,9 +163,15 @@ When the clause is valid, the codec item name is an ordinary call target for
 the hand-written decode boundary in the declaring module. A `pub codec` can
 also be called through a written import-qualified module path. The call
 expects the same `ByteView` and `ByteOffset` arguments as the referenced
-function and returns that function's `DecodeStep<T>` value unchanged. Bare
-imported codec names are not call targets, and encode-only codecs do not expose
-this decode boundary.
+function and returns that function's `DecodeStep<T>` value unchanged.
+
+When a codec has `derive decode` and the referenced schema is eligible for the
+generated `byte_decode_step_<schema>` helper, the codec item name is also an
+ordinary decode call target in the declaring module. A `pub codec` can also be
+called through a written import-qualified module path. The call expects
+`ByteView` and `ByteOffset` arguments and returns that generated helper's
+`DecodeStep<T>` result. Bare imported codec names are not call targets, and
+encode-only codecs do not expose this decode boundary.
 
 The checker also validates the implemented encode function boundary for
 `encode with function_name`. The name must resolve to an ordinary function in
@@ -179,9 +185,9 @@ wrong mapped value parameter reports `codec.encode_value_type` at that clause.
 Both diagnostics include related context pointing to the referenced function
 declaration.
 
-Codec declarations do not generate executable decode or encode functions, do
-not implement `derive decode`, do not implement derived encode execution, and
-do not execute hand-written encode functions.
+Codec declarations do not generate general executable decode or encode
+functions, do not implement derived encode execution, and do not execute
+hand-written encode functions.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`

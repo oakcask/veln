@@ -264,28 +264,8 @@ fn core_function_call_signature(
     current_module: Option<&str>,
 ) -> Option<CoreCallSignature> {
     if let Some(function) = resolve_function(segments, environment, current_module) {
-        if let Some(schema_name) = function
-            .target_name
-            .strip_prefix(SCHEMA_DECODE_TARGET_PREFIX)
-        {
-            return Some(CoreCallSignature {
-                target: CoreCallTarget::SchemaDecode(schema_name.to_string()),
-                params: function.params.iter().map(core_type).collect(),
-                return_type: core_type(&function.return_type),
-            });
-        }
-        if let Some(schema_name) = function
-            .target_name
-            .strip_prefix(SCHEMA_DECODE_STEP_TARGET_PREFIX)
-        {
-            return Some(CoreCallSignature {
-                target: CoreCallTarget::SchemaDecodeStep(schema_name.to_string()),
-                params: function.params.iter().map(core_type).collect(),
-                return_type: core_type(&function.return_type),
-            });
-        }
         return Some(CoreCallSignature {
-            target: CoreCallTarget::Function(function.target_name.clone()),
+            target: core_target_from_signature_name(&function.target_name),
             params: function.params.iter().map(core_type).collect(),
             return_type: core_type(&function.return_type),
         });
@@ -399,10 +379,20 @@ fn core_codec_call_signature(
         _ => environment.codec_decode_path(segments, current_module),
     }?;
     Some(CoreCallSignature {
-        target: CoreCallTarget::Function(codec.target_name.clone()),
+        target: core_target_from_signature_name(&codec.target_name),
         params: codec.params.iter().map(core_type).collect(),
         return_type: core_type(&codec.return_type),
     })
+}
+
+fn core_target_from_signature_name(target_name: &str) -> CoreCallTarget {
+    if let Some(schema_name) = target_name.strip_prefix(SCHEMA_DECODE_TARGET_PREFIX) {
+        return CoreCallTarget::SchemaDecode(schema_name.to_string());
+    }
+    if let Some(schema_name) = target_name.strip_prefix(SCHEMA_DECODE_STEP_TARGET_PREFIX) {
+        return CoreCallTarget::SchemaDecodeStep(schema_name.to_string());
+    }
+    CoreCallTarget::Function(target_name.to_string())
 }
 
 fn type_applied_name_path(callee: &Expr) -> Option<(&[String], &[String])> {

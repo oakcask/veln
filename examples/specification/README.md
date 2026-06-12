@@ -380,6 +380,11 @@ against the built `veln` binary.
   passes `ByteView` and `ByteOffset` to the referenced decoder and observes
   its returned `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values
   unchanged while the schema mapping pins the accepted value type.
+- `run/derived-codec-decode-boundary/`: a `derive decode` codec item call
+  over an eligible binary schema observes the generated decode-step helper's
+  `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the
+  codec item name while preserving mapped record fields and no-consumption
+  outcomes.
 - `run/binary-schema-frame-payload-decode/`: HTTP/2 frame decode returns the
   visible header fields plus a bounded payload `ByteView` selected by the
   decoded length.

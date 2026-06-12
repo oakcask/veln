@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["codec schema `app::wire::PrivatePacket` is private", "unresolved codec schema `app::wire::MissingPacket`", "codec schema target `app::wire::make_packet` is a function, not a schema", "codec schema target `app::wire::PacketShape` is a type, not a schema", "codec schema target `app::wire::PacketCodec` is a codec, not a schema", "unresolved codec schema `PublicPacket`", "unresolved codec schema `other::PublicPacket`", "unresolved codec schema `facade::PublicPacket`", "unresolved value `payload`", "unresolved call_target `app::wire::PacketCodec`"]
+contains = ["codec schema `app::wire::PrivatePacket` is private", "unresolved codec schema `app::wire::MissingPacket`", "codec schema target `app::wire::make_packet` is a function, not a schema", "codec schema target `app::wire::PacketShape` is a type, not a schema", "codec schema target `app::wire::PacketCodec` is a codec, not a schema", "unresolved codec schema `PublicPacket`", "unresolved codec schema `other::PublicPacket`", "unresolved codec schema `facade::PublicPacket`", "unresolved value `payload`", "expected `Int`, but found `DecodeStep<{payload: Int}>`"]
 
 [stderr]
 format = "empty"
@@ -67,7 +67,7 @@ kind = "name"
 message = "unresolved value `payload`"
 
 [[diagnostics]]
-id = "name.unresolved"
+id = "type.mismatch"
 severity = "error"
-kind = "name"
-message = "unresolved call_target `app::wire::PacketCodec`"
+kind = "type"
+message = "expected `Int`, but found `DecodeStep<{payload: Int}>`"

@@ -196,6 +196,74 @@ fn codec_decode_with_resolves_as_named_decode_boundary() {
 }
 
 #[test]
+fn codec_derive_decode_resolves_as_schema_decode_step_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Packet\n",
+            "  Packet {length: Int}\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt8\n",
+            "\n",
+            "  map to Packet\n",
+            "    length = wire_length\n",
+            "end\n",
+            "\n",
+            "codec PacketCodec for PacketWire decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  PacketCodec(view, base)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "PacketWire"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "PacketWire"
+    ));
+}
+
+#[test]
 fn imported_public_codec_decode_resolves_through_qualified_module_path() {
     let app_source = SourceFile::new(
         "app.veln",
@@ -258,6 +326,75 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
             target: CoreCallTarget::Function(name),
             ..
         } if name == "decode_packet"
+    ));
+}
+
+#[test]
+fn imported_public_derived_codec_decode_resolves_through_qualified_module_path() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  wire::PacketCodec(view, base)\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "type Packet\n",
+            "  Packet {length: Int}\n",
+            "end\n",
+            "\n",
+            "pub schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt8\n",
+            "\n",
+            "  map to Packet\n",
+            "    length = wire_length\n",
+            "end\n",
+            "\n",
+            "pub codec PacketCodec for PacketWire decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: wire.types,
+        schemas: wire.schemas,
+        codecs: wire.codecs,
+        functions: app.functions,
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
+            ..
+        } if name == "PacketWire"
     ));
 }
 

@@ -35,7 +35,7 @@ compare it with `../specification/` before changing behavior.
   mapped decode value boundary, encode function return and mapped value
   parameter boundaries, source-visible decode and encode result vocabulary,
   generated exact-width binary schema decode-step helper slice, and
-  hand-written codec decode execution boundary.
+  hand-written and eligible derived codec decode execution boundaries.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
