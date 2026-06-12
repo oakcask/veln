@@ -120,17 +120,19 @@ The parser, formatter, lowered AST, and editor token collector preserve mapping
 clauses as source metadata. The generated binary decode helper uses one
 eligible structural mapping clause when all schema fields are implemented
 exact-width unsigned primitives and the target resolves to `Int` record fields.
-General target-field resolution, ADT constructor mapping, nested record
-construction, multiple mapping selection, and encode-side mapping are not
-implemented.
+Target-field resolution outside that single-record `Int` slice, ADT
+constructor mapping, nested record construction, multiple mapping selection,
+and encode-side mapping are not implemented.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
-schema for diagnostics and editor support, but general schema decode and encode
-execution is not implemented. The narrow primitive decode slices are routed
-from `execution.md`. Field names must be ordinary identifiers; names beginning
-with `_` remain hole tokens and are rejected as schema field names. Schema
-declarations do not create ordinary value bindings, ordinary source ADT types,
-constructors, or general executable decode or encode functions.
+schema for diagnostics and editor support. General schema encode execution and
+schema decode outside the narrow generated binary helper slices are not
+implemented. The narrow primitive, field-local validation, and mapped-record
+decode slices are routed from `execution.md`. Field names must be ordinary
+identifiers; names beginning with `_` remain hole tokens and are rejected as
+schema field names. Schema declarations do not create ordinary value bindings,
+ordinary source ADT types, constructors, or general executable decode or encode
+functions.
 
 Codec declarations are top-level source module items. `codec Name for
 SchemaName decode`, `codec Name for imported::SchemaName encode`, and
@@ -157,10 +159,10 @@ shape is the incremental decode transition. A missing function reports
 parameter type, or return type reports `codec.decode_signature` at that clause
 and includes related context pointing to the referenced function declaration.
 
-Codec execution is not implemented: codec declarations do not generate
-executable decode or encode functions, do not implement `derive decode`, do
-not type-check encode `with` function signatures, and do not run schema value
-mapping.
+Codec declaration execution is not implemented: codec declarations do not
+generate executable decode or encode functions, do not implement
+`derive decode`, do not type-check encode `with` function signatures, and do
+not select runtime schema value mapping for `decode with` results.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`

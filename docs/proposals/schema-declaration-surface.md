@@ -12,8 +12,9 @@ checked examples under `../../examples/specification/`.
 Current source syntax has a first top-level `schema` declaration slice with a
 single `format binary` clause, field declarations, field-local `where`
 predicate syntax, structural `map to Target` mapping clauses, and a narrow
-executable field-local validation helper. It does not yet have general runtime
-schema validation for arbitrary schemas, runtime mapping, complete binary
+executable field-local validation and mapped-record helper slice. It does not
+yet have general runtime schema validation for arbitrary schemas, runtime
+mapping beyond the generated exact-width record slice, complete binary
 primitive semantics, or executable codec bindings.
 
 The HTTP/2 design driver needs a declaration that can say:
@@ -278,15 +279,20 @@ Implemented:
 - Source `format binary` schemas whose fields all use implemented exact-width
   unsigned primitives expose generated `byte_decode_<schema>` helper bindings.
 - Structural schema value mapping clauses are accepted, formatted, lowered, and
-  exposed to editor token metadata without enabling generated codec execution.
+  exposed to editor token metadata.
+- The generated exact-width unsigned helper slice resolves one structural
+  `map to Target` clause into `Int` record fields, rejects invalid mapping
+  assignments before execution, and returns the mapped record shape after
+  field-local validation passes.
 
 Remaining:
 
 - General schema validation diagnostics distinguish malformed schema syntax
   from failed schema validation for arbitrary schema declarations.
-- Runtime schema value mapping resolves target fields or ADT constructors,
-  rejects missing target fields, type-checks assigned values, and constructs
-  decoded values from generated codecs.
+- Runtime schema value mapping beyond the implemented single exact-width
+  unsigned record slice resolves ADT constructors, nested records, multiple
+  mapping clauses or mapping selection, representation conversion hooks, and
+  codec-selected mapping.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive slice.
 - The HTTP/2 design driver can express its full frame header boundary without
