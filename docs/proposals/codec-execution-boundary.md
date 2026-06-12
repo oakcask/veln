@@ -176,7 +176,8 @@ normal top-level item with its own visibility, contracts, effects, tests, and
 documentation. The implemented decode checker verifies the canonical boundary
 shape for hand-written decoders: a bounded `ByteView` plus base `ByteOffset`
 and a `DecodeStep<T>` return. Remaining work should connect `T` to schema
-value mapping and define the encode result shape.
+value mapping and bind hand-written encoders to the implemented
+`EncodeStep<TState>` result shape.
 
 The implemented parser rejects a missing implementation clause for a listed
 direction, a body clause for a direction absent from the declaration head, and
