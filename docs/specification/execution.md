@@ -50,6 +50,19 @@ execution reference.
   reports `schema.validation_failed` at the owning field byte offset with
   schema field path, predicate text, decoded values, and structured byte
   preview fields.
+- The narrow binary schema closed dispatch slice decodes
+  `Dispatch(tag_field, tag => Primitive, ...)` fields after the referenced tag
+  field has been decoded by an earlier exact-width field in the same schema.
+  Known dispatch cases consume the selected exact-width unsigned payload
+  primitive and expose the payload as an ordinary `Int` field. Unknown tags in
+  the closed dispatch report `schema.dispatch_unknown_tag` at the dispatch
+  field byte offset with schema field path, decoded tag field, decoded tag
+  value, expected tags, and structured byte preview fields. The checked
+  examples are
+  `examples/specification/run/binary-schema-closed-dispatch-decode/`,
+  `examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
+  and
+  `examples/specification/run/binary-schema-closed-dispatch-unknown-human/`.
 - When an eligible generated binary schema decode helper has one structural
   `map to Target` clause and the target resolves to a single record-shaped
   source type whose mapped fields are `Int`, the helper returns the mapped

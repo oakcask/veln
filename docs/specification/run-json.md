@@ -107,6 +107,18 @@ When the result value is a binary schema field-local validation failure,
   such as `length` and `padding_length`
 - `byte_preview`: a structured bounded byte preview object
 
+When the result value is a binary schema closed dispatch unknown tag failure,
+`details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "schema.dispatch_unknown_tag"`
+- `byte_offset`: the decoded-stream `ByteOffset` of the dispatch field
+- `field_path`: schema-local path segment objects with `kind` and `name`
+- `tag_field`: the schema-local field name used for dispatch
+- `decoded_tag_value`: the decoded integer tag value
+- `expected_tags`: display text for the closed set of accepted tag values
+- `byte_preview`: a structured bounded byte preview object
+
 For schema-owned byte diagnostics, `byte_preview` includes:
 
 - `encoding: "hex"`

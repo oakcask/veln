@@ -20,8 +20,12 @@ reserved-bit mismatches. The width-sample primitive decode slice consumes
 same structured truncation shape. The narrow HTTP/2 frame helper also returns
 a bounded payload `ByteView` selected by the decoded length and reports
 `schema.length_out_of_bounds` when closed input cannot provide that payload
-range. General schema decode, encode, dispatch, and schema value mapping
-remain proposal work.
+range. The narrow closed dispatch slice implements
+`Dispatch(tag_field, tag => Primitive, ...)` for generated binary schema
+decode helpers, decodes known case payloads as `Int`, and reports
+`schema.dispatch_unknown_tag` with structured tag and byte context for unknown
+tags. General schema decode, encode, extension-tolerant dispatch, and schema
+value mapping remain proposal work.
 
 ## Problem
 
@@ -208,8 +212,8 @@ author likely referred to an earlier field with a compatible role.
 
 - Executable examples show binary schema writes and general schema-owned
   fixed-width reads beyond the implemented frame-header, width-sample, and
-  HTTP/2 payload boundary helper slices.
-- Examples show tag-based payload dispatch and unknown tag preservation.
+  HTTP/2 payload boundary helper and narrow closed-dispatch slices.
+- Examples show extension-tolerant unknown tag preservation.
 - Invalid fixed fields in general schema decode produce structured
   diagnostics beyond the implemented frame-header truncation and reserved-bit
   mismatch details.

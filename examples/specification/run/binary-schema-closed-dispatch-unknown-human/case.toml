@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[schema.dispatch_unknown_tag]: unknown dispatch tag at byte offset 1", "note: Dispatch tag field `kind` decoded value 3.", "note: Expected tag values: 1, 2.", "note: Nearby bytes: 03aabbcc.", "note: Field path: schema `ClosedDispatchPacket` / field `payload`."]

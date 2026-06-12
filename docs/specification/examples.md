@@ -200,6 +200,16 @@ the generated schema mapping slice. The helper decodes exact-width schema
 fields, checks the field-local predicate, and returns the mapped ordinary
 record field names rather than the schema-local field names.
 
+`../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
+`../../examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
+and
+`../../examples/specification/run/binary-schema-closed-dispatch-unknown-human/`
+pin the narrow closed dispatch slice. The passing case decodes a known tag and
+selected payload as ordinary `Int` fields. The failing cases assert
+`schema.dispatch_unknown_tag`, the dispatch byte offset, structured field
+path, decoded tag field and value, expected tag values, structured byte
+preview fields, and focused human related notes.
+
 ## HTTP/2 Protocol Core Example
 
 The executable specification case

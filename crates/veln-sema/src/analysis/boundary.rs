@@ -1335,14 +1335,17 @@ fn generated_schema_field_types(schema: &SchemaDecl) -> Option<BTreeMap<String, 
     if schema.format.as_ref()?.name != "binary" {
         return None;
     }
-    schema
-        .fields
-        .iter()
-        .map(|field| {
-            exact_width_binary_primitive_name(&field.ty)?;
-            Some((field.name.clone(), Type::int()))
-        })
-        .collect()
+    let mut decoded_fields = BTreeMap::new();
+    for field in &schema.fields {
+        if exact_width_binary_primitive_name(&field.ty).is_none() {
+            let dispatch = closed_dispatch_schema_primitive(&field.ty)?;
+            if !decoded_fields.contains_key(&dispatch.tag_field) {
+                return None;
+            }
+        }
+        decoded_fields.insert(field.name.clone(), Type::int());
+    }
+    Some(decoded_fields)
 }
 
 fn schema_mapping_target_diagnostic(

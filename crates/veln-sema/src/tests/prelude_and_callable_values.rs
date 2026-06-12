@@ -131,6 +131,54 @@ fn generated_schema_decode_helpers_return_mapped_record_shape() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_closed_dispatch_metadata() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ClosedDispatchPacket\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => UInt16be, 2 => UInt32be)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{kind: Int, payload: Int}, String>\n",
+            "  byte_decode_closed_dispatch_packet(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "ClosedDispatchPacket");
+    assert_eq!(schema.function_name, "byte_decode_closed_dispatch_packet");
+    assert_eq!(schema.fields[0].name, "kind");
+    assert_eq!(schema.fields[0].width, 1);
+    assert!(schema.fields[0].dispatch.is_none());
+    assert_eq!(schema.fields[1].name, "payload");
+    assert_eq!(schema.fields[1].width, 0);
+    let dispatch = schema.fields[1]
+        .dispatch
+        .as_ref()
+        .expect("payload should carry dispatch metadata");
+    assert_eq!(dispatch.tag_field, "kind");
+    assert_eq!(
+        dispatch
+            .cases
+            .iter()
+            .map(|case| (case.tag, case.width))
+            .collect::<Vec<_>>(),
+        vec![(1, 2), (2, 4)]
+    );
+}
+
+#[test]
 fn codec_decode_with_resolves_as_named_decode_boundary() {
     let source = SourceFile::new(
         "main.veln",

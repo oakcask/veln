@@ -310,6 +310,27 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
+        "schema.dispatch_unknown_tag" => {
+            let tag_field = json_string(byte_entries, "tag_field")?;
+            let decoded_tag_value = json_number(byte_entries, "decoded_tag_value")?;
+            let expected_tags = json_string(byte_entries, "expected_tags")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("unknown dispatch tag at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Dispatch tag field `{tag_field}` decoded value {decoded_tag_value}."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Expected tag values: {expected_tags}.")));
+            push_byte_preview_note(&mut diagnostic, byte_entries);
+            diagnostic
+        }
         _ => return None,
     };
     if let Some(field_path) = field_path_text(byte_entries) {
