@@ -16,8 +16,8 @@ use crate::{
     CodecImplementationKind, Contract, ContractKind, DictEntry, Expr, ExprKind, Function,
     FunctionKind, MatchArm, ModuleHeader, NodeId, Param, Pattern, PatternField, PatternKind,
     PrefixOp, PublicAlias, PublicAliasKind, RecordField, ResultBinding, SchemaDecl, SchemaField,
-    SchemaFieldWhereClause, SchemaFormatClause, SurfaceModule, TypeDecl, TypeVariantDecl,
-    TypeVariantField, UseDecl, Visibility,
+    SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment, SchemaMappingClause,
+    SurfaceModule, TypeDecl, TypeVariantDecl, TypeVariantField, UseDecl, Visibility,
 };
 
 pub fn lower_surface_ast(tree: &SyntaxTree) -> SurfaceModule {
@@ -264,6 +264,25 @@ impl AstBuilder {
                         }
                     }),
                     span: field.span.clone(),
+                })
+                .collect(),
+            mappings: schema
+                .mappings
+                .iter()
+                .map(|mapping| SchemaMappingClause {
+                    node_id: self.alloc(),
+                    target: mapping.target.clone(),
+                    assignments: mapping
+                        .assignments
+                        .iter()
+                        .map(|assignment| SchemaMappingAssignment {
+                            node_id: self.alloc(),
+                            target: assignment.target.clone(),
+                            source: assignment.source.clone(),
+                            span: assignment.span.clone(),
+                        })
+                        .collect(),
+                    span: mapping.span.clone(),
                 })
                 .collect(),
             span: schema.span.clone(),

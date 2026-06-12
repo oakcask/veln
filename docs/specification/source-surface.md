@@ -50,12 +50,17 @@ schemas, `UInt8`, `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`, and
 `ReservedBits(width, value)` are accepted as schema primitives.
 `ReservedBits` arguments must be literal
 non-negative integers. These primitive names are representation-local field
-vocabulary, not ordinary source types or values. The predicate and primitive
-text are parsed and preserved as source-surface syntax. The implemented
-execution slices for these primitive names are routed from
-[execution.md](execution.md). General schema decode, encode, dispatch, and
-value mapping are not implemented. Schema declarations do not create ordinary
-value bindings or ordinary type declarations.
+vocabulary, not ordinary source types or values. A schema may end with
+structural `map to Target` clauses whose assignment lines use
+`target_field = schema_field` to map schema-local fields into an ordinary
+source value shape. Mapping clauses are parsed, formatted, lowered, and exposed
+to editor support as source metadata only; generated codec execution is not
+implemented. The predicate, primitive, and mapping text are parsed and
+preserved as source-surface syntax. The implemented execution slices for these
+primitive names are routed from [execution.md](execution.md). General schema
+decode, encode, dispatch, and runtime value mapping are not implemented.
+Schema declarations do not create ordinary value bindings or ordinary type
+declarations.
 
 Top-level `codec Name for SchemaName ...` and
 `pub codec Name for SchemaName ...` declarations are implemented as source
@@ -86,7 +91,7 @@ the codec's module with exactly `ByteView` and `ByteOffset` parameters and a
 `codec.decode_signature` at the codec implementation clause, with related
 context pointing to the referenced function when it is available. Codec
 execution, generated decode or encode functions, `derive decode`, generated or
-checked encode function signatures, and schema value mapping are not
+checked encode function signatures, and runtime schema value mapping are not
 implemented.
 
 ## Expressions

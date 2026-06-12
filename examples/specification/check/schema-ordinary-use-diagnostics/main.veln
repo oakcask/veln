@@ -5,6 +5,17 @@ schema Http2FrameHeader
   kind: UInt8
 end
 
+schema MappedHeader
+  format binary
+
+  length: UInt24be
+  kind: UInt8
+
+  map to Http2FrameHeader
+    length = length
+    kind = kind
+end
+
 fn value_use() -> ()
   Http2FrameHeader
 end

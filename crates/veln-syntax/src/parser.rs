@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use veln_source::{SourceFile, SourceSpan, TextRange};
 
@@ -8,9 +8,9 @@ use crate::{
     CodecImplementationClause, CodecImplementationKind, ContractClause, ContractKind, DictEntry,
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
-    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SyntaxItem, SyntaxTree,
-    Token, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter,
-    UseDecl, UsePackage, Visibility, lex,
+    SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment,
+    SchemaMappingClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl,
+    TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
 };
 
 #[derive(Clone, Debug)]
@@ -348,6 +348,7 @@ impl<'a> Parser<'a> {
 
         let mut format = None;
         let mut fields = Vec::new();
+        let mut mappings = Vec::new();
         let mut end_present = false;
         while !self.at(TokenKind::Eof) {
             self.eat_newlines();
@@ -367,6 +368,8 @@ impl<'a> Parser<'a> {
                 if format.is_none() {
                     format = Some(clause);
                 }
+            } else if self.at_ident_text("map") && !self.peek_at(TokenKind::Colon) {
+                mappings.push(self.parse_schema_mapping_clause(format.is_some()));
             } else {
                 fields.push(self.parse_schema_field(format.is_some()));
             }
@@ -389,6 +392,7 @@ impl<'a> Parser<'a> {
             name,
             format,
             fields,
+            mappings,
             span: self.source.span(start.cover(end)),
             end_present,
         }
@@ -511,6 +515,113 @@ impl<'a> Parser<'a> {
         }
         SchemaFieldWhereClause {
             predicate: normalize_collected_text(parts),
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_schema_mapping_clause(&mut self, has_format: bool) -> SchemaMappingClause {
+        let start = self.expect_ident_text("map", "schema_mapping", "map").range;
+        if !has_format {
+            self.error_current(
+                "parse.schema_mapping_before_format",
+                "schema mapping appears before a format clause",
+                "schema_mapping",
+                vec!["format"],
+                RecoveryStrategy::InsertToken,
+                Some("format"),
+            );
+        }
+        if self.eat_ident_text("to", "schema_mapping", "to").is_none() {
+            self.error_current(
+                "parse.schema_mapping",
+                "schema mapping must start with `map to Target`",
+                "schema_mapping",
+                vec!["to"],
+                RecoveryStrategy::InsertToken,
+                Some("target"),
+            );
+        }
+        let target = self.expect_name_path("schema_mapping", "mapping target");
+        let mut end = self.expect_newline("schema_mapping").range;
+
+        let mut assignments = Vec::new();
+        let mut assigned_targets = BTreeSet::new();
+        while !self.at(TokenKind::Eof) {
+            self.eat_newlines();
+            if matches!(self.current().kind, TokenKind::End | TokenKind::Format)
+                || (self.at_ident_text("map") && !self.peek_at(TokenKind::Colon))
+            {
+                break;
+            }
+            let assignment = self.parse_schema_mapping_assignment(&mut assigned_targets);
+            end = self.previous().map_or(start, |token| token.range);
+            assignments.push(assignment);
+        }
+        if assignments.is_empty() {
+            self.error_current(
+                "parse.schema_mapping_assignment",
+                "schema mapping requires at least one assignment",
+                "schema_mapping",
+                vec!["assignment"],
+                RecoveryStrategy::InsertToken,
+                Some("assignment"),
+            );
+        }
+
+        SchemaMappingClause {
+            target,
+            assignments,
+            span: self.source.span(start.cover(end)),
+        }
+    }
+
+    fn parse_schema_mapping_assignment(
+        &mut self,
+        assigned_targets: &mut BTreeSet<String>,
+    ) -> SchemaMappingAssignment {
+        let start = self.current().range;
+        let target = if self.at(TokenKind::Ident) && self.peek_at(TokenKind::Equal) {
+            self.bump().text
+        } else {
+            if self.at(TokenKind::Ident) {
+                self.error_current(
+                    "parse.schema_mapping_implicit_assignment",
+                    "schema mapping assignments must name a target with `target = field`",
+                    "schema_mapping",
+                    vec!["="],
+                    RecoveryStrategy::InsertToken,
+                    Some("newline"),
+                );
+            } else {
+                self.error_current(
+                    "parse.schema_mapping_assignment_target",
+                    "expected schema mapping assignment target",
+                    "schema_mapping",
+                    vec!["assignment target"],
+                    RecoveryStrategy::InsertToken,
+                    Some("="),
+                );
+            }
+            "<missing>".to_string()
+        };
+        if !assigned_targets.insert(target.clone()) && target != "<missing>" {
+            self.error_current(
+                "parse.schema_mapping_duplicate_assignment",
+                format!("schema mapping assigns target `{target}` more than once"),
+                "schema_mapping",
+                vec!["unique assignment target"],
+                RecoveryStrategy::SkipToken,
+                Some("newline"),
+            );
+        }
+        self.expect(TokenKind::Equal, "schema_mapping", vec!["="]);
+        let source = self
+            .expect_ident("schema_mapping", "schema field")
+            .unwrap_or_else(|| "<missing>".to_string());
+        let end = self.expect_newline("schema_mapping").range;
+        SchemaMappingAssignment {
+            target,
+            source,
             span: self.source.span(start.cover(end)),
         }
     }
@@ -1462,6 +1573,48 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn expect_ident_text(
+        &mut self,
+        text: &'static str,
+        context: &'static str,
+        expected: &'static str,
+    ) -> Token {
+        if self.at_ident_text(text) {
+            self.bump()
+        } else {
+            self.error_current(
+                "parse.expected_identifier",
+                format!("expected {expected}"),
+                context,
+                vec![expected],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+            self.current().clone()
+        }
+    }
+
+    fn eat_ident_text(
+        &mut self,
+        text: &str,
+        context: &'static str,
+        expected: &'static str,
+    ) -> Option<String> {
+        if self.at(TokenKind::Ident) && self.current().text == text {
+            Some(self.bump().text)
+        } else {
+            self.error_current(
+                "parse.expected_identifier",
+                format!("expected {expected}"),
+                context,
+                vec![expected],
+                RecoveryStrategy::InsertToken,
+                None,
+            );
+            None
+        }
+    }
+
     fn expect_name_path(
         &mut self,
         context: &'static str,
@@ -1631,6 +1784,10 @@ impl<'a> Parser<'a> {
         self.tokens
             .get(self.cursor + offset)
             .map(|token| token.kind)
+    }
+
+    fn at_ident_text(&self, text: &str) -> bool {
+        self.at(TokenKind::Ident) && self.current().text == text
     }
 
     fn current(&self) -> &Token {

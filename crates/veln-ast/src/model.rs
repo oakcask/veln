@@ -98,6 +98,7 @@ pub struct SchemaDecl {
     pub name: Option<String>,
     pub format: Option<SchemaFormatClause>,
     pub fields: Vec<SchemaField>,
+    pub mappings: Vec<SchemaMappingClause>,
     pub span: SourceSpan,
 }
 
@@ -121,6 +122,22 @@ pub struct SchemaField {
 pub struct SchemaFieldWhereClause {
     pub node_id: NodeId,
     pub predicate: String,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaMappingClause {
+    pub node_id: NodeId,
+    pub target: Option<String>,
+    pub assignments: Vec<SchemaMappingAssignment>,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug)]
+pub struct SchemaMappingAssignment {
+    pub node_id: NodeId,
+    pub target: String,
+    pub source: String,
     pub span: SourceSpan,
 }
 
