@@ -1267,6 +1267,59 @@ mod tests {
     }
 
     #[test]
+    fn protocol_result_failure_diagnostic_projects_stream_invalid_frame_kind_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            ("id", JsonValue::string("http2.protocol.invalid_frame_kind")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("actual_frame_kind", JsonValue::Number(0)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            ("expected_frame_kind", JsonValue::Number(1)),
+            ("active_state", JsonValue::string("idle-stream")),
+            (
+                "rule_provenance",
+                JsonValue::string("idle_streams_require_headers"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 invalid frame kind at byte offset 0".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.invalid_frame_kind");
+        assert_eq!(diagnostic.message, "invalid frame kind at byte offset 0");
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("Frame kind 0 on stream 1")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("expected frame kind 1")
+        );
+        assert!(diagnostic.related[1].to_json().contains("idle-stream"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("idle_streams_require_headers")
+        );
+    }
+
+    #[test]
     fn stderr_without_result_failure_line_keeps_user_stderr() {
         let failure = TestFailure::result_with_details("short input".to_string(), None, None, None);
         let stderr = b"user warning\nErr(short input)\n";

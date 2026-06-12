@@ -3898,6 +3898,41 @@ mod tests {
     }
 
     #[test]
+    fn stream_invalid_frame_kind_protocol_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f3220696e76616c6964206672616d65206b696e642061742062797465206f66667365742030",
+            "\tprotocol_diagnostic\thttp2.protocol.invalid_frame_kind\t0",
+            "\t6\tactual_frame_kind\tnumber\t0",
+            "\tstream_id\tnumber\t1",
+            "\tstream_ref\tstring\t73747265616d",
+            "\texpected_frame_kind\tnumber\t1",
+            "\tactive_state\tstring\t69646c652d73747265616d",
+            "\trule_provenance\tstring\t69646c655f73747265616d735f726571756972655f68656164657273\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 invalid frame kind at byte offset 0\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.protocol.invalid_frame_kind\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":0},",
+                "\"actual_frame_kind\":0,",
+                "\"stream_id\":1,",
+                "\"stream_ref\":\"stream\",",
+                "\"expected_frame_kind\":1,",
+                "\"active_state\":\"idle-stream\",",
+                "\"rule_provenance\":\"idle_streams_require_headers\"}}"
+            )
+        );
+    }
+
+    #[test]
     fn expected_runtime_contract_failure_marks_matching_case_passed() {
         let source_file = SourceFile::new(
             "main.veln#doctest-1_test.veln",
