@@ -330,6 +330,16 @@ type DecodeStep<T>
 	NeedMore(readiness: DecodeReadiness)
 	Invalid(error: DecodeError)
 end
+
+type EncodeError
+	EncodeError(id: String, field_path: String, reason: String)
+end
+
+type EncodeStep<TState>
+	Encoded(chunks: List<ByteChunk>)
+	Partial(chunks: List<ByteChunk>, produced: ByteCount, state: TState)
+	Invalid(error: EncodeError)
+end
 ```
 
 `StreamInput` is the source-visible incremental input event type. `Chunk`
@@ -341,6 +351,13 @@ is the explicit end-of-stream event.
 carries `DecodeReadiness`, and `Invalid` carries a structured `DecodeError`.
 `NeedBytes` names the minimum buffered byte count required before retrying, and
 `NeedEnd` represents decoders that need an explicit end-of-stream event.
+
+`EncodeStep<TState>` is the source-visible incremental encode transition
+type. `Encoded` carries the complete immutable output chunks, `Partial`
+carries committed output chunks, their produced `ByteCount`, and the encoder
+state that owns the remaining work, and `Invalid` carries a structured
+`EncodeError`. `EncodeError` carries a stable id, source-visible field path,
+and representation-failure reason.
 
 `ByteView` is the source-visible bounded immutable byte view. Programs create
 checked views with `byte_view(chunk, offset, count)` and inspect the bounded

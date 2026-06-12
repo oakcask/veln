@@ -1204,6 +1204,22 @@ impl<'a> FunctionChecker<'a> {
                     return Some(self.infer_adt_constructor(expr, args, expected, constructor));
                 }
                 ConstructorLookup::Ambiguous => {
+                    if let Some(constructor) = expected
+                        .and_then(|expected| {
+                            self.environment.adts.descriptor_for_type(&expected.ty)
+                        })
+                        .and_then(|descriptor| {
+                            self.environment.adts.constructor_for_descriptor(
+                                segments,
+                                descriptor,
+                                self.function.module_name.as_deref(),
+                                &self.environment.uses,
+                            )
+                        })
+                        .filter(|constructor| !constructor.variant.payload_fields.is_empty())
+                    {
+                        return Some(self.infer_adt_constructor(expr, args, expected, constructor));
+                    }
                     self.push_ambiguous_name(
                         callee.node_id,
                         callee.span.clone(),
@@ -1821,8 +1837,13 @@ impl<'a> FunctionChecker<'a> {
                 bindings
             }
             PatternKind::Constructor { name, args } => {
-                let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+                let Some(descriptor) = self.environment.adts.descriptor_for_type(scrutinee_type)
+                else {
+                    return Vec::new();
+                };
+                let Some(constructor) = self.environment.adts.constructor_for_descriptor(
                     name,
+                    descriptor,
                     self.function.module_name.as_deref(),
                     &self.environment.uses,
                 ) else {

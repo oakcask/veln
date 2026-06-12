@@ -210,15 +210,19 @@ generated decode or encode entry points.
 
 ## Discussion Result: Encode Output And Failures
 
-Encoding should return immutable output chunks through an encode-specific
-result shape, not reuse `DecodeStep<T>` and not mutate a caller-owned byte
-builder.
+The initial source-visible encode vocabulary is implemented in
+`../specification/names-effects.md`: ordinary source can construct and match
+`EncodeStep<TState>` and `EncodeError`. Remaining codec execution work should
+use this encode-specific result shape, not reuse `DecodeStep<T>`, and not
+mutate a caller-owned byte builder.
 
 The public result shape should distinguish `Encoded`, `Partial`, and
-`Invalid`. `Encoded` carries the complete output as a `ByteChunk` or list of
-`ByteChunk` values. `Partial` carries the chunks that are ready to emit, their
-produced `ByteCount`, and an encoder state value that owns the remaining work.
-It is used only by APIs where the caller supplied an output budget, chunk-size
+`Invalid`. The implemented source-visible shape uses
+`Encoded(List<ByteChunk>)`, `Partial(List<ByteChunk>, ByteCount, TState)`, and
+`Invalid(EncodeError)`. `Encoded` carries the complete output chunks.
+`Partial` carries the chunks that are ready to emit, their produced
+`ByteCount`, and an encoder state value that owns the remaining work. It is
+used only by APIs where the caller supplied an output budget, chunk-size
 limit, or sink backpressure boundary. Unbounded helper APIs may collect all
 chunks and expose a simpler `Result<List<ByteChunk>, EncodeError>` wrapper.
 

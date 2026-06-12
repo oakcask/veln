@@ -1,0 +1,108 @@
+# EncodeStep exposes ordinary source-visible incremental encode outcomes.
+use stdio
+
+fn complete_encoder(chunks: List<ByteChunk>) -> EncodeStep<String>
+	Encoded(chunks)
+end
+
+fn limited_encoder(chunks: List<ByteChunk>, produced: ByteCount) -> EncodeStep<String>
+	prelude::EncodeStep::Partial(chunks, produced, "waiting-for-sink")
+end
+
+fn invalid_encoder() -> EncodeStep<String>
+	EncodeStep::Invalid(EncodeError("codec.out_of_range", "DemoPacket.length", "value exceeds UInt24be"))
+end
+
+fn chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_count(tail)
+	end
+end
+
+fn chunk_byte_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(chunk, tail) => byte_count_to_int(byte_chunk_count(chunk)) + chunk_byte_count(tail)
+	end
+end
+
+fn step_kind(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		EncodeStep::Invalid(_) => "invalid"
+	end
+end
+
+fn emitted_chunks(step: EncodeStep<String>) -> Int
+	match step
+		Encoded(chunks) => chunk_count(chunks)
+		Partial(chunks, _, _) => chunk_count(chunks)
+		Invalid(_) => 0
+	end
+end
+
+fn emitted_bytes(step: EncodeStep<String>) -> Int
+	match step
+		Encoded(chunks) => chunk_byte_count(chunks)
+		Partial(_, produced, _) => byte_count_to_int(produced)
+		Invalid(_) => 0
+	end
+end
+
+fn pending_state(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, state) => state
+		Invalid(_) => "none"
+	end
+end
+
+fn error_id(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn error_path(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn error_reason(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let first: ByteChunk = byte_chunk_from_hex("0102")?
+	let second: ByteChunk = byte_chunk_from_hex("ff")?
+	let complete_chunks: List<ByteChunk> = list_cons(first, list_cons(second, list_nil()))
+	let encoded: EncodeStep<String> = complete_encoder(complete_chunks)
+	let limited_chunk: ByteChunk = byte_chunk_from_hex("aa55")?
+	let limited_chunks: List<ByteChunk> = list_cons(limited_chunk, list_nil())
+	let produced: ByteCount = byte_count(2)?
+	let partial: EncodeStep<String> = limited_encoder(limited_chunks, produced)
+	let invalid: EncodeStep<String> = invalid_encoder()
+	stdio::println(step_kind(encoded))
+	stdio::println(int_to_string(emitted_chunks(encoded)))
+	stdio::println(int_to_string(emitted_bytes(encoded)))
+	stdio::println(step_kind(partial))
+	stdio::println(int_to_string(emitted_chunks(partial)))
+	stdio::println(int_to_string(emitted_bytes(partial)))
+	stdio::println(pending_state(partial))
+	stdio::println(step_kind(invalid))
+	stdio::println(error_id(invalid))
+	stdio::println(error_path(invalid))
+	stdio::println(error_reason(invalid))
+	Ok(())
+end
