@@ -15,6 +15,10 @@ pub codec HeaderRoundTrip for Header decode encode
   derive encode
 end
 
+fn encode_header_sample() -> EncodeStep<()>
+  HeaderRoundTrip({length: 1})
+end
+
 codec ImportedHeaderDecode for app::wire::Header decode
   derive decode
 end

@@ -647,6 +647,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::SchemaEncode(name) => {
                 self.emit_schema_encode_call(code, name, args);
             }
+            IrCallTarget::SchemaEncodeStep(name) => {
+                self.emit_schema_encode_step_call(code, name, args);
+            }
             IrCallTarget::StdioBuiltin(name) => {
                 for arg in args {
                     self.emit_expr(code, arg);
@@ -768,6 +771,31 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeDeclaredBinarySchema",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_schema_encode_step_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
+        let schema = self
+            .program
+            .program
+            .schema_decoders
+            .iter()
+            .find(|schema| schema.schema_name == name)
+            .unwrap_or_else(|| panic!("missing schema encoder spec `{name}`"));
+        let [value] = args else {
+            panic!("schema encode-step call should receive one record argument");
+        };
+        self.emit_expr(code, value);
+        code.ldc_string(&schema.schema_name);
+        self.emit_schema_field_names(code, schema);
+        self.emit_schema_field_widths(code, schema);
+        self.emit_schema_field_max_values(code, schema);
+        self.emit_schema_reserved_bit_widths(code, schema);
+        self.emit_schema_reserved_values(code, schema);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "byteEncodeStepDeclaredBinarySchema",
             "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }

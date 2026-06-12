@@ -436,6 +436,10 @@ against the built `veln` binary.
   passes the mapped record value and ordinary encoder parameters to the
   referenced encoder and observes its returned `Encoded` and
   `Invalid(EncodeError)` `EncodeStep<TState>` values unchanged.
+- `run/derived-codec-encode-boundary/`: a `derive encode` codec item call
+  over an eligible binary schema observes successful generated helper output
+  as `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated
+  helper failures as `Invalid(EncodeError)`.
 - `run/derived-codec-decode-boundary/`: a `derive decode` codec item call
   over an eligible binary schema observes the generated decode-step helper's
   `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the

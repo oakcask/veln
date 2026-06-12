@@ -165,6 +165,7 @@ pub enum IrCallTarget {
     SchemaDecode(String),
     SchemaDecodeStep(String),
     SchemaEncode(String),
+    SchemaEncodeStep(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),

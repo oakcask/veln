@@ -206,7 +206,8 @@ The call expects the same parameters as the referenced function and returns
 that function's `EncodeStep<TState>` value unchanged.
 
 Codec declarations do not generate general executable decode or encode
-functions and do not implement derived encode execution.
+functions beyond the derived decode and derived encode slices routed from
+`execution.md`.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`
