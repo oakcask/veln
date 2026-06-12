@@ -533,6 +533,15 @@ against the built `veln` binary.
   failure reports `http2.protocol.invalid_payload_length` through `run --json`
   with byte offset, frame kind, stream reference, observed and expected
   payload lengths, active state, and rule provenance.
+- `run/http2-protocol-core-goaway-length-human/`: a wrong-length GOAWAY
+  fixed-prefix payload reports `http2.protocol.invalid_payload_length` through
+  human `run` stderr with observed and expected payload length plus protocol
+  state and provenance notes.
+- `run/http2-protocol-core-goaway-length-json/`: the same GOAWAY
+  fixed-prefix payload failure reports
+  `http2.protocol.invalid_payload_length` through `run --json` with byte
+  offset, frame kind, stream reference, observed and expected payload lengths,
+  active state, and rule provenance.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.

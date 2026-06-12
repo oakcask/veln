@@ -292,11 +292,13 @@ expectations, and rule provenance.
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-goaway-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
-and `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`
+`../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
+and `../../examples/specification/run/http2-protocol-core-goaway-length-json/case.toml`
 pin the command-facing projection path for those typed failures. The human
 cases check focused primary messages and related context, while the JSON cases
 check `protocol_diagnostic` details for byte offset, frame kind, stream id,

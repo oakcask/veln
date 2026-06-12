@@ -47,7 +47,8 @@ compare it with `../specification/` before changing behavior.
   truncation, reserved-bit mismatch, payload length boundary, field-local
   schema validation details, structured schema byte previews, and the HTTP/2
   frame-size peer-limit, SETTINGS value range peer-limit, and invalid
-  connection-state and stream-state frame-kind protocol projections.
+  connection-state, stream-state frame-kind, and fixed payload-length protocol
+  projections.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, frame-size peer-limit diagnostic

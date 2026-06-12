@@ -30,9 +30,11 @@ preview fields while human output keeps compact nearby-byte notes. The
 implemented HTTP/2 protocol-state projections use
 `http2.peer_limit.frame_size_exceeded` for frame-size peer-limit failures and
 `http2.protocol.invalid_frame_kind` for invalid connection-state and
-stream-state frame kinds; both are checked by the HTTP/2 protocol-core cases
-under `../../examples/specification/run/`. The remaining proposal work covers
-broader schema and codec diagnostics beyond these implemented slices.
+stream-state frame kinds. The fixed payload-length projection uses
+`http2.protocol.invalid_payload_length` for PING and GOAWAY payload-length
+failures. These protocol projections are checked by the HTTP/2 protocol-core
+cases under `../../examples/specification/run/`. The remaining proposal work
+covers broader schema and codec diagnostics beyond these implemented slices.
 
 ## Problem
 
@@ -283,10 +285,11 @@ truncation as `codec.incomplete_input`, fixed-field mismatches, frame-header
 schema truncation, reserved-bit mismatches, and payload length boundary
 failures, plus HTTP/2 protocol-state projections for frame-size peer-limit,
 SETTINGS value range peer-limit, and invalid connection-state and stream-state
-frame-kind failures. `run --json` examples assert the stable byte and protocol
-diagnostic detail fields documented in `../specification/run-json.md`; human
-`run` examples assert the focused primary messages and related notes documented
-in `../specification/commands.md`.
+frame-kind failures, plus fixed payload-length failures for PING and GOAWAY.
+`run --json` examples assert the stable byte and protocol diagnostic detail
+fields documented in `../specification/run-json.md`; human `run` examples
+assert the focused primary messages and related notes documented in
+`../specification/commands.md`.
 
 The implemented protocol-state diagnostic projection slice covers:
 
