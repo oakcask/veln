@@ -202,29 +202,35 @@ accumulated opaque header-block byte count. Receive-limit state records the
 active maximum frame size with protocol-default, local-configuration, or
 local-SETTINGS provenance. Peer-received `SETTINGS_MAX_FRAME_SIZE` is stored as
 peer-advertised state for outbound decisions and does not replace the inbound
-receive maximum used by later frame-size checks. A final CONTINUATION with
+receive maximum used by later frame-size checks. Received
+`SETTINGS_MAX_FRAME_SIZE` values are range-checked before updating
+peer-advertised state; out-of-range values stay as typed peer-limit failures
+at the offending SETTINGS item byte offset. A final CONTINUATION with
 END_HEADERS clears continuation state and exposes the completed accumulated
 byte count in the observable example output. Protocol failures stay as
 ordinary ADT values and are projected by source code into stable diagnostic ids
 and related context fields for byte offset, observed and allowed lengths,
 actual and expected frame kind, stream reference, active continuation,
-connection state, or stream state, receive-limit provenance, and rule
-provenance.
+connection state, or stream state, setting identity, accepted SETTINGS range,
+receive-limit provenance, peer-limit provenance, and rule provenance.
 
 `../../examples/specification/run/http2-protocol-core-closed-human/`,
 `../../examples/specification/run/http2-protocol-core-continuation-json/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
+`../../examples/specification/run/http2-protocol-core-settings-value-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
+`../../examples/specification/run/http2-protocol-core-settings-value-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`, and
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`
 pin the command-facing projection path for those typed failures. The human
 cases check focused primary messages and related context, while the JSON cases
 check `protocol_diagnostic` details for byte offset, frame kind, stream id,
 active continuation, connection state, or stream state, observed and allowed
-frame sizes, stream reference, receive-limit provenance, and rule provenance.
-The frame-size command fixtures cover local-configuration provenance while the
-ordinary protocol-core case keeps the protocol-default, local-configuration,
-local-SETTINGS, and peer-advertised SETTINGS distinctions visible in executable
-output.
+frame sizes, setting identity, observed setting value, accepted setting range,
+stream reference, receive-limit provenance, peer-limit provenance, and rule
+provenance. The frame-size command fixtures cover local-configuration
+provenance while the ordinary protocol-core case keeps the protocol-default,
+local-configuration, local-SETTINGS, peer-advertised SETTINGS, and rejected
+peer-advertised SETTINGS distinctions visible in executable output.

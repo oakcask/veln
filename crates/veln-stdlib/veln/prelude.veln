@@ -142,6 +142,10 @@ pub fn http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, a
 	prelude_builtin::http2_peer_limit_frame_size_exceeded(offset, observed_length, allowed_length, frame_kind, stream_id, receive_limit_provenance)
 end
 
+pub fn http2_peer_limit_settings_value_out_of_range(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String) -> Result<(), String>
+	prelude_builtin::http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance)
+end
+
 pub fn byte_read_u16_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u16_be(view)
 end

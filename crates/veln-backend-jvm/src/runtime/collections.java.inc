@@ -1101,6 +1101,37 @@
         return err(message);
     }
 
+    public static Object http2PeerLimitSettingsValueOutOfRange(
+        Object offset,
+        Object settingIdentifier,
+        Object settingName,
+        Object observedValue,
+        Object acceptedMinValue,
+        Object acceptedMaxValue,
+        Object peerLimitProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long identifier = asLong(settingIdentifier);
+        String name = asString(settingName);
+        long observed = asLong(observedValue);
+        long acceptedMin = asLong(acceptedMinValue);
+        long acceptedMax = asLong(acceptedMaxValue);
+        String provenance = asString(peerLimitProvenance);
+        String message = "HTTP/2 SETTINGS value outside accepted range at byte offset "
+            + byteOffset;
+        registerHttp2PeerLimitSettingsValueOutOfRangeDiagnostic(
+            message,
+            byteOffset,
+            identifier,
+            name,
+            observed,
+            acceptedMin,
+            acceptedMax,
+            provenance
+        );
+        return err(message);
+    }
+
     public static Object byteReadU16Be(Object view) {
         return byteReadUnsignedBe(view, 2, 0xffffL, "byte_read_u16_be");
     }

@@ -248,7 +248,12 @@ state for maximum frame size. The checked example keeps protocol-default,
 local-configuration, and local-SETTINGS receive-limit provenance visible in
 frame-size failures, stores a received `SETTINGS_MAX_FRAME_SIZE` value as
 peer-advertised state, and confirms that the peer-advertised value is not used
-as the inbound receive maximum for a later incoming frame-size failure.
+as the inbound receive maximum for a later incoming frame-size failure. It
+range-checks received `SETTINGS_MAX_FRAME_SIZE` values before updating
+peer-advertised state and projects out-of-range values as
+`http2.peer_limit.settings_value_out_of_range` with setting identity, observed
+value, accepted range, item byte offset, and peer-limit provenance in
+executable output, human diagnostics, and JSON details.
 
 The remaining scope below is still planned work for the full protocol core.
 

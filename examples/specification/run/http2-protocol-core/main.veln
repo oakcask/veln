@@ -43,6 +43,12 @@ type Http2ProtocolFailure
 	ContinuationExpected(Int, Int, Int, Int, Int, Int)
 	InvalidFrameKind(Int, Int, Int, Int, String, String)
 	FrameSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int)
+	SettingsValueOutOfRange(Int, Int, String, Int, Int, Int, String)
+end
+
+type SettingsRangeDecision
+	SettingsValueOk
+	SettingsValueFailed(Http2ProtocolFailure)
 end
 
 type Http2Step
@@ -145,9 +151,48 @@ fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: Pen
 	let frame_count: ByteCount = byte_count(frame_count_int)?
 	let suffix: ByteChunk = byte_drop(pending, frame_count)?
 	let consumed_state: Http2DecodeState = State(suffix, next_offset + frame_count_int, continuation, receive_limit, peer_settings)
-	match validate_continuation(continuation, next_offset, length, kind, flags, stream_id)
-		Ok(Decision(next_continuation, completed_count)) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, peer_settings)?), next_offset, length, kind, flags, stream_id, completed_count))
-		Err(error) => Ok(Failed(consumed_state, error))
+	let settings_decision: SettingsRangeDecision = validate_settings_value(pending, next_offset, length, kind)?
+	match settings_decision
+		SettingsValueOk => match validate_continuation(continuation, next_offset, length, kind, flags, stream_id)
+			Ok(Decision(next_continuation, completed_count)) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, peer_settings)?), next_offset, length, kind, flags, stream_id, completed_count))
+			Err(error) => Ok(Failed(consumed_state, error))
+		end
+		SettingsValueFailed(error) => Ok(Failed(consumed_state, error))
+	end
+end
+
+fn validate_settings_value(pending: ByteChunk, next_offset: Int, length: Int, kind: Int) -> Result<SettingsRangeDecision, String>
+	match kind == 4
+		true => match length == 6
+			true => validate_single_settings_value(pending, next_offset)
+			false => Ok(SettingsValueOk)
+		end
+		false => Ok(SettingsValueOk)
+	end
+end
+
+fn validate_single_settings_value(pending: ByteChunk, next_offset: Int) -> Result<SettingsRangeDecision, String>
+	let item_offset: ByteOffset = byte_offset(9)?
+	let item_count: ByteCount = byte_count(6)?
+	let item: ByteView = byte_view(pending, item_offset, item_count)?
+	let identifier_count: ByteCount = byte_count(2)?
+	let value_offset: ByteOffset = byte_offset(2)?
+	let value_count: ByteCount = byte_count(4)?
+	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
+	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
+	match identifier == 5
+		true => validate_max_frame_size_setting(next_offset + 9, value)
+		false => Ok(SettingsValueOk)
+	end
+end
+
+fn validate_max_frame_size_setting(item_offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
+	match value < 16384
+		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings")))
+		false => match value > 16777215
+			true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 5, "SETTINGS_MAX_FRAME_SIZE", value, 16384, 16777215, "peer_settings")))
+			false => Ok(SettingsValueOk)
+		end
 	end
 end
 
@@ -333,6 +378,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(_, _, _, _, _, _) => "http2.protocol.continuation_expected"
 		InvalidFrameKind(_, _, _, _, _, _) => "http2.protocol.invalid_frame_kind"
 		FrameSizeExceeded(_, _, _, _, _) => "http2.peer_limit.frame_size_exceeded"
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "http2.peer_limit.settings_value_out_of_range"
 	end
 end
 
@@ -342,6 +388,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(offset, _, _, _, _, _) => offset
 		InvalidFrameKind(offset, _, _, _, _, _) => offset
 		FrameSizeExceeded(offset, _, _, _, _) => offset
+		SettingsValueOutOfRange(offset, _, _, _, _, _, _) => offset
 	end
 end
 
@@ -351,6 +398,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(_, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
 
@@ -360,6 +408,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidFrameKind(_, actual_kind, _, _, _, _) => actual_kind
 		FrameSizeExceeded(_, _, _, actual_kind, _) => actual_kind
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 4
 	end
 end
 
@@ -369,6 +418,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(_, _, actual_stream, _, _, _) => actual_stream
 		InvalidFrameKind(_, _, actual_stream, _, _, _) => actual_stream
 		FrameSizeExceeded(_, _, _, _, actual_stream) => actual_stream
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
 
@@ -378,6 +428,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(_, _, _, expected_stream, _, _) => expected_stream
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
 
@@ -387,6 +438,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(_, _, _, _, _, _) => 9
 		InvalidFrameKind(_, _, _, expected_kind, _, _) => expected_kind
 		FrameSizeExceeded(_, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 4
 	end
 end
 
@@ -396,6 +448,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(_, _, _, _, started_kind, _) => started_kind
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
 
@@ -405,6 +458,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(_, _, _, _, _, started_offset) => started_offset
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
 
@@ -414,6 +468,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(_, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, observed_length, _, _, _) => observed_length
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
 
@@ -423,6 +478,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		ContinuationExpected(_, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_value(receive_limit)
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
 
@@ -432,6 +488,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(_, _, _, _, _, _) => "headers"
 		InvalidFrameKind(_, _, _, _, active_state, _) => active_state
 		FrameSizeExceeded(_, _, _, _, _) => "none"
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "connection-control"
 	end
 end
 
@@ -441,6 +498,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(_, _, _, _, _, _) => "rfc9113_continuation_sequence"
 		InvalidFrameKind(_, _, _, _, _, rule_provenance) => rule_provenance
 		FrameSizeExceeded(_, _, _, _, _) => "none"
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "http2_settings_value_range"
 	end
 end
 
@@ -450,6 +508,67 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		ContinuationExpected(_, _, _, _, _, _) => "none"
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_provenance_label(receive_limit)
+		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
+	end
+end
+
+fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
+	match failure
+		ClosedWithPending(_, _) => 0
+		ContinuationExpected(_, _, _, _, _, _) => 0
+		InvalidFrameKind(_, _, _, _, _, _) => 0
+		FrameSizeExceeded(_, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, setting_identifier, _, _, _, _, _) => setting_identifier
+	end
+end
+
+fn failure_setting_name(failure: Http2ProtocolFailure) -> String
+	match failure
+		ClosedWithPending(_, _) => "none"
+		ContinuationExpected(_, _, _, _, _, _) => "none"
+		InvalidFrameKind(_, _, _, _, _, _) => "none"
+		FrameSizeExceeded(_, _, _, _, _) => "none"
+		SettingsValueOutOfRange(_, _, setting_name, _, _, _, _) => setting_name
+	end
+end
+
+fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
+	match failure
+		ClosedWithPending(_, _) => 0
+		ContinuationExpected(_, _, _, _, _, _) => 0
+		InvalidFrameKind(_, _, _, _, _, _) => 0
+		FrameSizeExceeded(_, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, observed_value, _, _, _) => observed_value
+	end
+end
+
+fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
+	match failure
+		ClosedWithPending(_, _) => 0
+		ContinuationExpected(_, _, _, _, _, _) => 0
+		InvalidFrameKind(_, _, _, _, _, _) => 0
+		FrameSizeExceeded(_, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, accepted_min_value, _, _) => accepted_min_value
+	end
+end
+
+fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
+	match failure
+		ClosedWithPending(_, _) => 0
+		ContinuationExpected(_, _, _, _, _, _) => 0
+		InvalidFrameKind(_, _, _, _, _, _) => 0
+		FrameSizeExceeded(_, _, _, _, _) => 0
+		SettingsValueOutOfRange(_, _, _, _, _, accepted_max_value, _) => accepted_max_value
+	end
+end
+
+fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
+	match failure
+		ClosedWithPending(_, _) => "none"
+		ContinuationExpected(_, _, _, _, _, _) => "none"
+		InvalidFrameKind(_, _, _, _, _, _) => "none"
+		FrameSizeExceeded(_, _, _, _, _) => "none"
+		SettingsValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance) => peer_limit_provenance
 	end
 end
 
@@ -522,6 +641,27 @@ fn print_peer_settings(label: String, state: Http2DecodeState) -> () effects [st
 	stdio::println(int_to_string(state_peer_max_frame_size_offset(state)))
 end
 
+fn print_settings_failure(label: String, step: Http2Step) -> () effects [stdio]
+	let failure: Http2ProtocolFailure = step_failure(step)
+	stdio::print(label)
+	stdio::print(" id ")
+	stdio::print(failure_id(failure))
+	stdio::print(" offset ")
+	stdio::print(int_to_string(failure_offset(failure)))
+	stdio::print(" setting_identifier ")
+	stdio::print(int_to_string(failure_setting_identifier(failure)))
+	stdio::print(" setting_name ")
+	stdio::print(failure_setting_name(failure))
+	stdio::print(" observed_value ")
+	stdio::print(int_to_string(failure_observed_value(failure)))
+	stdio::print(" accepted_min ")
+	stdio::print(int_to_string(failure_accepted_min_value(failure)))
+	stdio::print(" accepted_max ")
+	stdio::print(int_to_string(failure_accepted_max_value(failure)))
+	stdio::print(" peer_limit ")
+	stdio::println(failure_peer_limit_provenance(failure))
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040000000000")?), empty_state())?
 	print_step("valid", valid)
@@ -548,6 +688,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let peer_settings: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000500008000")?), empty_state())?
 	print_step("peer-settings", peer_settings)
 	print_peer_settings("peer-settings", step_state(peer_settings))
+	let peer_settings_too_low: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000500003fff")?), empty_state())?
+	print_settings_failure("settings-range", peer_settings_too_low)
+	print_peer_settings("settings-range", step_state(peer_settings_too_low))
+	let peer_settings_too_high: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000501000000")?), empty_state())?
+	print_settings_failure("settings-range-high", peer_settings_too_high)
+	print_peer_settings("settings-range-high", step_state(peer_settings_too_high))
 	let peer_advertised_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("004001000000000003")?), step_state(peer_settings))?
 	print_failure("frame-size-peer-advertised", peer_advertised_too_large)
 	print_peer_settings("frame-size-peer-advertised", step_state(peer_advertised_too_large))

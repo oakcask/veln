@@ -189,6 +189,33 @@
         );
     }
 
+    private static void registerHttp2PeerLimitSettingsValueOutOfRangeDiagnostic(
+        String message,
+        long byteOffset,
+        long settingIdentifier,
+        String settingName,
+        long observedValue,
+        long acceptedMinValue,
+        long acceptedMaxValue,
+        String peerLimitProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.peer_limit.settings_value_out_of_range",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("setting_identifier", settingIdentifier),
+                    DiagnosticDetail.string("setting_name", settingName),
+                    DiagnosticDetail.number("observed_value", observedValue),
+                    DiagnosticDetail.number("accepted_min_value", acceptedMinValue),
+                    DiagnosticDetail.number("accepted_max_value", acceptedMaxValue),
+                    DiagnosticDetail.string("peer_limit_provenance", peerLimitProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerCodecIncompleteInputDiagnostic(
         String message,
         long byteOffset,
