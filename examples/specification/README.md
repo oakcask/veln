@@ -359,6 +359,10 @@ against the built `veln` binary.
   helper checks field-local predicates, then maps schema-local exact-width
   fields into the target record field names before returning the decoded
   value.
+- `run/binary-schema-decode-step/`: a generated binary schema decode-step
+  helper returns `Decoded` with the exact consumed count for complete buffered
+  input and `NeedMore(NeedBytes(...))` without consuming bytes for short open
+  input.
 - `run/binary-schema-frame-payload-decode/`: HTTP/2 frame decode returns the
   visible header fields plus a bounded payload `ByteView` selected by the
   decoded length.

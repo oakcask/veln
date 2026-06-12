@@ -30,6 +30,7 @@ pub(crate) struct FunctionSignature {
 }
 
 pub(crate) const SCHEMA_DECODE_TARGET_PREFIX: &str = "schema-decode:";
+pub(crate) const SCHEMA_DECODE_STEP_TARGET_PREFIX: &str = "schema-decode-step:";
 
 pub(crate) enum FunctionLookup<'a> {
     Found(&'a FunctionSignature),
@@ -373,19 +374,21 @@ fn schema_decode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSign
     module
         .schemas
         .iter()
-        .filter_map(|schema| schema_decode_function_signature(module, schema))
+        .flat_map(|schema| schema_decode_function_signatures_for_schema(module, schema))
         .collect()
 }
 
-fn schema_decode_function_signature(
+fn schema_decode_function_signatures_for_schema(
     module: &SurfaceModule,
     schema: &SchemaDecl,
-) -> Option<FunctionSignature> {
-    let schema_name = schema.name.as_ref()?;
-    if schema.format.as_ref()?.name != "binary" {
-        return None;
+) -> Vec<FunctionSignature> {
+    let Some(schema_name) = schema.name.as_ref() else {
+        return Vec::new();
+    };
+    if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
+        return Vec::new();
     }
-    let fields = schema
+    let Some(fields) = schema
         .fields
         .iter()
         .map(|field| {
@@ -395,8 +398,12 @@ fn schema_decode_function_signature(
                 exact_width_schema_primitive(&field.ty)?,
             ))
         })
-        .collect::<Option<Vec<_>>>()?;
+        .collect::<Option<Vec<_>>>()
+    else {
+        return Vec::new();
+    };
     let byte_view = Type::named("ByteView", Vec::new());
+    let byte_offset = Type::named("ByteOffset", Vec::new());
     let mapped_fields = schema_decode_mapping_fields(module, schema)
         .map(|fields| {
             fields
@@ -405,18 +412,33 @@ fn schema_decode_function_signature(
                 .collect::<Vec<_>>()
         })
         .unwrap_or_else(|| fields.into_iter().map(|(name, ty, _)| (name, ty)).collect());
-    let result = Type::named("Result", vec![Type::Record(mapped_fields), Type::string()]);
-    Some(FunctionSignature {
-        name: schema_decode_function_name(schema_name),
-        target_name: format!("{SCHEMA_DECODE_TARGET_PREFIX}{schema_name}"),
-        module_name: schema.module_name.clone(),
-        visibility: schema.visibility,
-        params: vec![byte_view],
-        return_type: result,
-        effects: Vec::new(),
-        node_id: schema.node_id,
-        span: schema.span.clone(),
-    })
+    let decoded_type = Type::Record(mapped_fields);
+    let result = Type::named("Result", vec![decoded_type.clone(), Type::string()]);
+    let step = Type::named("DecodeStep", vec![decoded_type]);
+    vec![
+        FunctionSignature {
+            name: schema_decode_function_name(schema_name),
+            target_name: format!("{SCHEMA_DECODE_TARGET_PREFIX}{schema_name}"),
+            module_name: schema.module_name.clone(),
+            visibility: schema.visibility,
+            params: vec![byte_view.clone()],
+            return_type: result,
+            effects: Vec::new(),
+            node_id: schema.node_id,
+            span: schema.span.clone(),
+        },
+        FunctionSignature {
+            name: schema_decode_step_function_name(schema_name),
+            target_name: format!("{SCHEMA_DECODE_STEP_TARGET_PREFIX}{schema_name}"),
+            module_name: schema.module_name.clone(),
+            visibility: schema.visibility,
+            params: vec![byte_view, byte_offset],
+            return_type: step,
+            effects: Vec::new(),
+            node_id: schema.node_id,
+            span: schema.span.clone(),
+        },
+    ]
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -505,6 +527,10 @@ fn schema_mapping_target_type<'a>(
 
 pub(crate) fn schema_decode_function_name(schema_name: &str) -> String {
     format!("byte_decode_{}", snake_case_identifier(schema_name))
+}
+
+pub(crate) fn schema_decode_step_function_name(schema_name: &str) -> String {
+    format!("byte_decode_step_{}", snake_case_identifier(schema_name))
 }
 
 pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {

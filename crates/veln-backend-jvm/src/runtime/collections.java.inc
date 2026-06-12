@@ -965,6 +965,38 @@
         return byteDecodeBinarySchema(view, (BinarySchemaSpec) unwrapOk(schema));
     }
 
+    public static Object byteDecodeStepDeclaredBinarySchema(
+        Object view,
+        Object baseOffset,
+        Object schemaName,
+        Object fieldNames,
+        Object widths,
+        Object predicates,
+        Object mappingTargets,
+        Object mappingSources
+    ) {
+        Object schema = declaredBinarySchemaSpec(
+            schemaName,
+            fieldNames,
+            widths,
+            predicates,
+            mappingTargets,
+            mappingSources
+        );
+        if (isErr(schema)) {
+            return invalidDecodeStep(
+                "schema.decode_metadata",
+                baseOffset,
+                asString(schemaName)
+            );
+        }
+        return byteDecodeStepBinarySchema(
+            view,
+            baseOffset,
+            (BinarySchemaSpec) unwrapOk(schema)
+        );
+    }
+
     public static Object http2ProtocolClosedWithPending(
         Object offset,
         Object pendingCount,
@@ -1116,6 +1148,26 @@
         String schemaName,
         String fieldName
     ) {
+        return schemaReadUnsignedBeWithBase(
+            view,
+            byteViewOffset(view),
+            relativeOffset,
+            width,
+            maxValue,
+            schemaName,
+            fieldName
+        );
+    }
+
+    private static Object schemaReadUnsignedBeWithBase(
+        Object view,
+        long diagnosticBaseOffset,
+        int relativeOffset,
+        int width,
+        long maxValue,
+        String schemaName,
+        String fieldName
+    ) {
         java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
         long baseOffset = byteViewOffset(view);
         long count = byteViewCount(view);
@@ -1125,7 +1177,7 @@
         }
         long available = Math.max(0L, count - relativeOffset);
         if (available < width) {
-            long byteOffset = baseOffset + count;
+            long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + fieldName + "` at byte offset " + byteOffset;
             registerSchemaTruncatedFieldDiagnostic(
                 message,
@@ -1150,6 +1202,14 @@
     }
 
     private static Object byteDecodeBinarySchema(Object view, BinarySchemaSpec schema) {
+        return byteDecodeBinarySchemaWithBase(view, schema, byteViewOffset(view));
+    }
+
+    private static Object byteDecodeBinarySchemaWithBase(
+        Object view,
+        BinarySchemaSpec schema,
+        long diagnosticBaseOffset
+    ) {
         Object boundsError = byteViewBoundsError(
             byteChunkBytes(byteViewChunk(view)),
             byteViewOffset(view),
@@ -1167,8 +1227,9 @@
         java.util.LinkedHashMap<String, Long> decoded = new java.util.LinkedHashMap<String, Long>();
         long relativeOffset = 0L;
         for (SchemaFieldSpec field : schema.fields) {
-            Object read = schemaReadUnsignedBe(
+            Object read = schemaReadUnsignedBeWithBase(
                 view,
+                diagnosticBaseOffset,
                 (int) relativeOffset,
                 field.width,
                 field.maxValue,
@@ -1189,7 +1250,7 @@
                     return err(failure.getMessage());
                 }
                 if (!passed) {
-                    long byteOffset = byteViewOffset(view) + relativeOffset;
+                    long byteOffset = diagnosticBaseOffset + relativeOffset;
                     String message = "schema validation failed at byte offset " + byteOffset;
                     registerSchemaValidationFailedDiagnostic(
                         message,
@@ -1209,6 +1270,61 @@
         }
 
         return ok(schemaDecodedRecord(schema, decoded));
+    }
+
+    private static Object byteDecodeStepBinarySchema(
+        Object view,
+        Object baseOffset,
+        BinarySchemaSpec schema
+    ) {
+        Object boundsError = byteViewBoundsError(
+            byteChunkBytes(byteViewChunk(view)),
+            byteViewOffset(view),
+            byteViewCount(view)
+        );
+        if (boundsError != null) {
+            return invalidDecodeStep("schema.byte_view", baseOffset, schema.name);
+        }
+
+        long totalWidth = schemaTotalWidth(schema);
+        if (byteViewCount(view) < totalWidth) {
+            return adt(
+                "DecodeStep::NeedMore",
+                new Object[] {
+                    adt("DecodeReadiness::NeedBytes", new Object[] { byteCountObject(totalWidth) })
+                }
+            );
+        }
+
+        long diagnosticBaseOffset = byteOffsetLong(baseOffset);
+        Object decoded = byteDecodeBinarySchemaWithBase(view, schema, diagnosticBaseOffset);
+        if (isErr(decoded)) {
+            return invalidDecodeStep("schema.decode_failed", baseOffset, schema.name);
+        }
+        return adt(
+            "DecodeStep::Decoded",
+            new Object[] { unwrapOk(decoded), byteCountObject(totalWidth) }
+        );
+    }
+
+    private static long schemaTotalWidth(BinarySchemaSpec schema) {
+        long total = 0L;
+        for (SchemaFieldSpec field : schema.fields) {
+            total += field.width;
+        }
+        return total;
+    }
+
+    private static Object invalidDecodeStep(String id, Object baseOffset, String fieldPath) {
+        return adt(
+            "DecodeStep::Invalid",
+            new Object[] {
+                adt(
+                    "DecodeError",
+                    new Object[] { id, baseOffset, fieldPath }
+                )
+            }
+        );
     }
 
     private static Object schemaDecodedRecord(

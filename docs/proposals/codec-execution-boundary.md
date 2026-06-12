@@ -31,7 +31,9 @@ items preserve explicit `decode` and `encode` directions plus `derive` and
 
 Define codec support for:
 
-- decoding from `ByteView` plus an explicit input position
+- remaining general decoding from `ByteView` plus an explicit input position,
+  beyond the implemented generated exact-width binary schema decode-step
+  helper slice in `../specification/execution.md`
 - encoding into immutable output chunks
 - consumed byte counts
 - incomplete input readiness

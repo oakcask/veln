@@ -57,6 +57,15 @@ execution reference.
   assignment sources must name decoded schema fields. Mapping assignment
   targets must name target fields, every target field must be assigned once,
   and non-`Int` target fields are rejected before execution.
+- Eligible generated binary schema decode-step helpers named
+  `byte_decode_step_<schema>` accept a bounded `ByteView` and explicit base
+  `ByteOffset`. When the view has at least the schema's exact-width byte
+  count, they return `Decoded(value, consumed)` with `consumed` equal to the
+  exact schema byte count. When the open view is shorter, they return
+  `NeedMore(NeedBytes(count))` with `count` equal to the minimum buffered byte
+  count required before retrying and consume no bytes. Closed-input
+  `byte_decode_<schema>` truncation diagnostics remain on the existing
+  `Result` helper path.
 - The frame decode helper reuses the frame-header validation and adds a
   bounded `payload: ByteView` over the same bytes. The payload starts after
   the nine-byte frame header and uses the decoded `length` as its count. If
