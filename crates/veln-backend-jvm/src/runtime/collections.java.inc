@@ -1251,6 +1251,36 @@
         return err(message);
     }
 
+    public static Object http2ProtocolInvalidPayloadLength(
+        Object offset,
+        Object frameKind,
+        Object streamId,
+        Object observedLength,
+        Object expectedLength,
+        Object activeState,
+        Object ruleProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long kind = asLong(frameKind);
+        long stream = asLong(streamId);
+        long observed = asLong(observedLength);
+        long expected = asLong(expectedLength);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 invalid payload length at byte offset " + byteOffset;
+        registerHttp2ProtocolInvalidPayloadLengthDiagnostic(
+            message,
+            byteOffset,
+            kind,
+            stream,
+            observed,
+            expected,
+            state,
+            provenance
+        );
+        return err(message);
+    }
+
     public static Object http2PeerLimitFrameSizeExceeded(
         Object offset,
         Object observedLength,

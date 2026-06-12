@@ -417,6 +417,33 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Rule provenance: {provenance}.")));
             Some(diagnostic)
         }
+        "http2.protocol.invalid_payload_length" => {
+            let frame_kind = json_number(protocol_entries, "frame_kind")?;
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let observed_length = json_number(protocol_entries, "observed_payload_length")?;
+            let expected_length = json_number(protocol_entries, "expected_payload_length")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("invalid payload length at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared {observed_length} byte(s); expected {expected_length} byte(s)."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {provenance}.")));
+            Some(diagnostic)
+        }
         "http2.peer_limit.frame_size_exceeded" => {
             let observed_length = json_number(protocol_entries, "observed_payload_length")?;
             let allowed_length = json_number(protocol_entries, "allowed_max_frame_size")?;
@@ -1361,6 +1388,70 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("connection_frames_require_settings")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_invalid_payload_length_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.invalid_payload_length"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(6)),
+            ("stream_id", JsonValue::Number(0)),
+            ("stream_ref", JsonValue::string("connection")),
+            ("observed_payload_length", JsonValue::Number(7)),
+            ("expected_payload_length", JsonValue::Number(8)),
+            ("active_state", JsonValue::string("connection-control")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_ping_payload_length"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 invalid payload length at byte offset 0".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.invalid_payload_length");
+        assert_eq!(
+            diagnostic.message,
+            "invalid payload length at byte offset 0"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("Frame kind 6 on connection 0")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("expected 8 byte(s)")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("connection-control")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("rfc9113_ping_payload_length")
         );
     }
 

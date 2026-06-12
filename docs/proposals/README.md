@@ -52,7 +52,7 @@ compare it with `../specification/` before changing behavior.
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, frame-size peer-limit diagnostic
   slice with receive-limit provenance, SETTINGS value range diagnostic slice,
-  and invalid frame-kind diagnostic slice.
+  invalid frame-kind diagnostic slice, and PING/GOAWAY receive slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define the later route from pure protocol code to transport effects,
   deadlines, channels, and stream tasks.
