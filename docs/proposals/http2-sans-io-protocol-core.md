@@ -23,14 +23,16 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - frame header encode
 - remaining SETTINGS values and settings interactions beyond the implemented
   maximum-frame-size receive and peer-advertised state
-- DATA
+- remaining DATA behavior beyond the implemented receive-window accounting
 - HEADERS with opaque header-block payloads
 - CONTINUATION handling only as needed to keep header-block boundaries valid
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
 - stream identifiers
 - stream lifecycle
-- inbound and outbound flow-control windows
+- WINDOW_UPDATE, initial-window-size changes, outbound flow control, and
+  broader stream-window interactions beyond the implemented inbound DATA
+  receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state
 
 ## Discussion Result: Limit Placement
@@ -263,6 +265,15 @@ shutdown. Stream-targeted PING and GOAWAY frames remain typed frame-kind
 failures, while wrong-length PING and GOAWAY payloads use
 `http2.protocol.invalid_payload_length` in ordinary output, human diagnostics,
 and JSON `protocol_diagnostic` details.
+The implemented slice also accepts DATA frames on an already-open stream and
+decrements both connection and stream receive-window credit by the payload
+length. DATA on the connection stream or on an idle stream remains
+`http2.protocol.invalid_frame_kind`, and DATA payloads that exceed the
+available stream or connection receive-window credit use
+`http2.peer_limit.flow_control_window_exceeded` with byte offset, stream
+reference, observed payload length, allowed window credit, active state, and
+rule provenance in executable output, human diagnostics, and JSON
+`protocol_diagnostic` details.
 
 The remaining scope below is still planned work for the full protocol core.
 

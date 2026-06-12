@@ -284,8 +284,9 @@ The implemented diagnostic slices cover closed-input `ByteView` read
 truncation as `codec.incomplete_input`, fixed-field mismatches, frame-header
 schema truncation, reserved-bit mismatches, and payload length boundary
 failures, plus HTTP/2 protocol-state projections for frame-size peer-limit,
-SETTINGS value range peer-limit, and invalid connection-state and stream-state
-frame-kind failures, plus fixed payload-length failures for PING and GOAWAY.
+SETTINGS value range peer-limit, DATA receive flow-control peer-limit, and
+invalid connection-state and stream-state frame-kind failures, plus fixed
+payload-length failures for PING and GOAWAY.
 `run --json` examples assert the stable byte and protocol diagnostic detail
 fields documented in `../specification/run-json.md`; human `run` examples
 assert the focused primary messages and related notes documented in

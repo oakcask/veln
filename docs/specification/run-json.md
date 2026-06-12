@@ -145,6 +145,12 @@ frame-size check, such as protocol default, local configuration, or local
 SETTINGS. Peer-received `SETTINGS_MAX_FRAME_SIZE` values belong to
 peer-advertised state for outbound decisions and are not reported as the
 receive-limit provenance for later inbound frame-size failures. Received
+DATA frames that exceed available inbound receive-window credit use id
+`http2.peer_limit.flow_control_window_exceeded` and record
+`byte_offset.value`, `observed_payload_length`, `allowed_window_credit`,
+`frame_kind`, `stream_id`, `stream_ref`, `active_state`, and
+`rule_provenance`; the checked HTTP/2 examples cover both stream-window and
+connection-window receive credit failures. Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record
 `byte_offset.value`, `setting_identifier`, `setting_name`, `observed_value`,

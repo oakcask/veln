@@ -271,6 +271,10 @@ Pending continuation state records the owning stream, starting frame kind,
 starting byte offset, and accumulated opaque header-block byte count.
 Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
+Receive flow-control state records connection receive-window credit and the
+currently open stream receive-window credit. DATA on the open stream consumes
+both windows by payload length, while DATA payloads larger than the available
+stream or connection receive-window credit remain typed peer-limit failures.
 Peer-received `SETTINGS_MAX_FRAME_SIZE` is stored as peer-advertised state for
 outbound decisions and does not replace the inbound receive maximum used by
 later frame-size checks. Received `SETTINGS_MAX_FRAME_SIZE` values are
@@ -289,12 +293,14 @@ expectations, and rule provenance.
 `../../examples/specification/run/http2-protocol-core-continuation-json/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-human/`,
+`../../examples/specification/run/http2-protocol-core-flow-control-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-json/`,
+`../../examples/specification/run/http2-protocol-core-flow-control-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
@@ -305,8 +311,10 @@ check `protocol_diagnostic` details for byte offset, frame kind, stream id,
 active continuation, connection state, or stream state, observed and allowed
 frame sizes, setting identity, observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
-expected payload length, and rule provenance. The frame-size command fixtures
-cover local-configuration
-provenance while the ordinary protocol-core case keeps the protocol-default,
-local-configuration, local-SETTINGS, peer-advertised SETTINGS, and rejected
-peer-advertised SETTINGS distinctions visible in executable output.
+expected payload length, flow-control window credit, and rule provenance. The
+flow-control command fixtures cover stream receive-window provenance while the
+ordinary protocol-core case also covers connection receive-window provenance.
+The frame-size command fixtures cover local-configuration provenance while the
+ordinary protocol-core case keeps the protocol-default, local-configuration,
+local-SETTINGS, peer-advertised SETTINGS, and rejected peer-advertised SETTINGS
+distinctions visible in executable output.

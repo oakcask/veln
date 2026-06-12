@@ -151,6 +151,10 @@ pub fn http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, a
 	prelude_builtin::http2_peer_limit_frame_size_exceeded(offset, observed_length, allowed_length, frame_kind, stream_id, receive_limit_provenance)
 end
 
+pub fn http2_peer_limit_flow_control_window_exceeded(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String) -> Result<(), String>
+	prelude_builtin::http2_peer_limit_flow_control_window_exceeded(offset, observed_length, allowed_window_credit, frame_kind, stream_id, active_state, rule_provenance)
+end
+
 pub fn http2_peer_limit_settings_value_out_of_range(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String) -> Result<(), String>
 	prelude_builtin::http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance)
 end
