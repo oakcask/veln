@@ -376,6 +376,10 @@ against the built `veln` binary.
   helper returns `Decoded` with the exact consumed count for complete buffered
   input and `NeedMore(NeedBytes(...))` without consuming bytes for short open
   input.
+- `run/codec-decode-boundary/`: a hand-written `decode with` codec item call
+  passes `ByteView` and `ByteOffset` to the referenced decoder and observes
+  its returned `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values
+  unchanged while the schema mapping pins the accepted value type.
 - `run/binary-schema-frame-payload-decode/`: HTTP/2 frame decode returns the
   visible header fields plus a bounded payload `ByteView` selected by the
   decoded length.

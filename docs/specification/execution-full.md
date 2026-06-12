@@ -147,6 +147,17 @@ incremental helper does not change the closed-input `Result` helper path:
 closed truncation still reports `schema.truncated_field` through
 `byte_decode_<schema>`.
 
+A codec declaration with a valid hand-written `decode with function_name`
+clause exposes the codec item name as an executable decode boundary in ordinary
+source calls. The call accepts the bounded `ByteView` and explicit base
+`ByteOffset`, invokes the already-checked same-module decode function, and
+returns that function's `DecodeStep<T>` value unchanged. The implemented
+mapped-record checker still requires `T` to match the referenced schema's
+single structural mapping target shape. Same-module private codecs are
+callable only inside their declaring module; imported calls require a written
+qualified module path to a `pub codec`. Derived decode execution and encode
+execution remain unimplemented.
+
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header
 fields plus `payload: ByteView`. The payload view shares the input chunk,

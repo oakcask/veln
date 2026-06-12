@@ -131,6 +131,190 @@ fn generated_schema_decode_helpers_return_mapped_record_shape() {
 }
 
 #[test]
+fn codec_decode_with_resolves_as_named_decode_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "codec PacketCodec for PacketWire decode\n",
+            "  decode with decode_packet\n",
+            "end\n",
+            "\n",
+            "fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  PacketCodec(view, base)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::Function(name),
+            ..
+        } if name == "decode_packet"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::Function(name),
+            ..
+        } if name == "decode_packet"
+    ));
+}
+
+#[test]
+fn imported_public_codec_decode_resolves_through_qualified_module_path() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  wire::PacketCodec(view, base)\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "pub codec PacketCodec for PacketWire decode\n",
+            "  decode with decode_packet\n",
+            "end\n",
+            "\n",
+            "fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: Vec::new(),
+        schemas: wire.schemas,
+        codecs: wire.codecs,
+        functions: [app.functions, wire.functions].concat(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::Function(name),
+            ..
+        } if name == "decode_packet"
+    ));
+}
+
+#[test]
+fn imported_codec_decode_does_not_resolve_as_bare_call() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "pub fn main(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  PacketCodec(view, base)\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "pub codec PacketCodec for PacketWire decode\n",
+            "  decode with decode_packet\n",
+            "end\n",
+            "\n",
+            "fn decode_packet(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int}>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: Vec::new(),
+        schemas: wire.schemas,
+        codecs: wire.codecs,
+        functions: [app.functions, wire.functions].concat(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.unresolved"
+            && diagnostic.message == "unresolved call_target `PacketCodec`"
+    }));
+}
+
+#[test]
 fn infers_prelude_helper_calls_from_expected_types() {
     let source = SourceFile::new(
         "main.veln",

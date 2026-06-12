@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use veln_ast::{
-    BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind,
-    SchemaDecl, SchemaMappingClause, SurfaceModule, TypeDecl, TypeVariantDecl, UseDecl, Visibility,
+    BodyLineKind, CodecDirection, CodecImplementationKind, Expr, ExprKind, FunctionKind, NodeId,
+    Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaMappingClause, SurfaceModule,
+    TypeDecl, TypeVariantDecl, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -12,12 +13,26 @@ use crate::effects::{is_concurrency_call, is_stdio_call, standard_library_effect
 
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
+    codec_decoders: Vec<CodecDecodeSignature>,
     pub(crate) uses: Vec<UseDecl>,
     pub(crate) adts: AdtRegistry,
 }
 
 #[derive(Clone)]
 pub(crate) struct FunctionSignature {
+    pub(crate) name: String,
+    pub(crate) target_name: String,
+    pub(crate) module_name: Option<String>,
+    pub(crate) visibility: Visibility,
+    pub(crate) params: Vec<Type>,
+    pub(crate) return_type: Type,
+    pub(crate) effects: Vec<String>,
+    pub(crate) node_id: NodeId,
+    pub(crate) span: SourceSpan,
+}
+
+#[derive(Clone)]
+pub(crate) struct CodecDecodeSignature {
     pub(crate) name: String,
     pub(crate) target_name: String,
     pub(crate) module_name: Option<String>,
@@ -281,10 +296,12 @@ impl TypeEnvironment {
             .collect::<Vec<_>>();
         functions.extend(schema_decode_function_signatures(module));
         infer_function_body_effects(module, &mut functions);
+        let codec_decoders = codec_decode_signatures(module, &functions);
         let aliases = function_alias_signatures(module, &functions);
         functions.extend(aliases);
         Self {
             functions,
+            codec_decoders,
             uses: module.uses.clone(),
             adts: AdtRegistry::from_module(module),
         }
@@ -368,6 +385,77 @@ impl TypeEnvironment {
             _ => None,
         }
     }
+
+    pub(crate) fn unqualified_codec_decode(
+        &self,
+        name: &str,
+        current_module: Option<&str>,
+    ) -> Option<&CodecDecodeSignature> {
+        self.codec_decoders
+            .iter()
+            .find(|codec| codec.name == name && codec.module_name.as_deref() == current_module)
+    }
+
+    pub(crate) fn codec_decode_path(
+        &self,
+        segments: &[String],
+        current_module: Option<&str>,
+    ) -> Option<&CodecDecodeSignature> {
+        match segments {
+            [name] => self.unqualified_codec_decode(name, current_module),
+            [_, .., name] => {
+                let use_decl = imported_use_for_path(
+                    &self.uses,
+                    &segments[..segments.len() - 1],
+                    current_module,
+                )?;
+                let module_name = use_decl.name.as_str();
+                self.codec_decoders.iter().find(|codec| {
+                    codec.name == *name
+                        && codec.module_name.as_deref() == Some(module_name)
+                        && codec.visibility == Visibility::Public
+                })
+            }
+            _ => None,
+        }
+    }
+}
+
+fn codec_decode_signatures(
+    module: &SurfaceModule,
+    functions: &[FunctionSignature],
+) -> Vec<CodecDecodeSignature> {
+    module
+        .codecs
+        .iter()
+        .filter_map(|codec| {
+            let name = codec.name.clone()?;
+            let implementation = codec
+                .implementations
+                .iter()
+                .find(|implementation| implementation.direction == CodecDirection::Decode)?;
+            let CodecImplementationKind::With {
+                function: Some(function_name),
+            } = &implementation.kind
+            else {
+                return None;
+            };
+            let function = functions.iter().find(|function| {
+                function.name == *function_name && function.module_name == codec.module_name
+            })?;
+            Some(CodecDecodeSignature {
+                name,
+                target_name: function.target_name.clone(),
+                module_name: codec.module_name.clone(),
+                visibility: codec.visibility,
+                params: function.params.clone(),
+                return_type: function.return_type.clone(),
+                effects: function.effects.clone(),
+                node_id: codec.node_id,
+                span: codec.span.clone(),
+            })
+        })
+        .collect()
 }
 
 fn schema_decode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {

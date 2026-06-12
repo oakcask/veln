@@ -142,13 +142,13 @@ The source-surface direction list is implemented in
 `../specification/source-surface.md`. Codec declarations name exactly one
 schema and list `decode`, `encode`, or both in the declaration head.
 
-The direction list is the source-visible opt-in boundary. A `decode` direction
-will authorize the executable codec layer to expose a decoder for values
-produced from that schema, with `DecodeStep<T>` readiness and consumed-count
-behavior. An `encode` direction will authorize the executable codec layer to
-expose an encoder from the mapped Veln value back into immutable byte chunks.
-A declaration that lists both directions may share schema-derived checks and
-mapping facts, but each direction still has its own result shape and
+The direction list is the source-visible opt-in boundary. For the implemented
+hand-written `decode with` slice, a `decode` direction exposes the codec item
+as a decoder for values produced from that schema, with `DecodeStep<T>`
+readiness and consumed-count behavior. A future executable `encode` direction
+will expose an encoder from the mapped Veln value back into immutable byte
+chunks. A declaration that lists both directions may share schema-derived
+checks and mapping facts, but each direction still has its own result shape and
 diagnostics.
 
 Remaining checker work should reject directions that the named schema cannot
@@ -186,9 +186,12 @@ and a `DecodeStep<T>` return. For the implemented structural mapping slice, the
 decoded `T` must match the mapped target record shape. The implemented encode
 checker verifies the hand-written encoder result boundary as
 `EncodeStep<TState>` and, for the same mapping slice, verifies that the first
-encoder parameter is the mapped target record shape. Remaining work should
-extend this beyond the currently implemented mapping slice and connect it to
-executable codec invocation.
+encoder parameter is the mapped target record shape. The implemented
+hand-written decode execution boundary exposes the codec item name as an
+ordinary source call that forwards `ByteView` and `ByteOffset` to the
+referenced function and returns its `DecodeStep<T>` unchanged. Remaining work
+should extend this beyond the currently implemented mapping slice and add
+derived decode execution plus executable encode invocation.
 
 The implemented parser rejects a missing implementation clause for a listed
 direction, a body clause for a direction absent from the declaration head, and
@@ -201,17 +204,16 @@ for imports, exports, fixtures, and diagnostics.
 ## Discussion Result: Codec Names And Imports
 
 The source model now preserves named top-level codec items and their
-visibility. The declaration name owns the future executable codec boundary for
-one schema plus its explicit direction list; it is not derived from the schema
+visibility. The declaration name owns the executable codec boundary for one
+schema plus its explicit direction list; it is not derived from the schema
 name, and it does not synthesize separate top-level decoder or encoder
 functions.
 
-Remaining import and execution work should make a private codec usable only in
-its declaring module. A public codec should be exposed through the declaring
-module path when that source module is exported by the package manifest. A
-`use` declaration should let an importing module reference the public codec
-item through the imported module path, without re-exporting it from the
-importing module.
+The implemented hand-written decode call path makes a private codec usable
+only in its declaring module. A `pub codec` is exposed through a written
+import-qualified module path, without re-exporting it from the importing
+module. Remaining import and execution work should apply the same item shape to
+derived decode and encode execution.
 
 Importing a codec imports the codec item only. It does not import the schema as
 an ordinary value, expose schema-local field names, or add codec directions that
