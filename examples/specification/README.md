@@ -234,6 +234,12 @@ against the built `veln` binary.
 - `check/codec-declaration-diagnostics/`: parser diagnostics for empty,
   duplicate, and unknown codec direction lists plus missing, unlisted, and
   duplicate implementation clauses.
+- `check/codec-decode-signature-diagnostics/`: `decode with` checker
+  diagnostics for unresolved decoder functions and wrong decode function
+  parameter or return shapes.
+- `check/codec-decode-signature-human/`: human `check` output keeps the
+  `codec.decode_signature` primary message at the codec implementation clause
+  and reports the referenced function as a related note.
 - `doc/generated-markdown/`: generated documentation from package and tool
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.

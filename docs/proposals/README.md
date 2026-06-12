@@ -27,7 +27,7 @@ compare it with `../specification/` before changing behavior.
   primitive decode slice.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
-  declaration source-surface slice.
+  declaration source-surface slice and decode function signature boundary.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
