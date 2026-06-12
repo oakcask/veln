@@ -270,7 +270,9 @@ encoder state owns only the remaining encode work.
 ## Completion Criteria
 
 - Remaining proposal work starts after the implemented source-surface
-  declaration slice.
+  declaration slice, generated exact-width binary schema decode-step helper
+  slice, and hand-written plus eligible derived codec decode execution
+  boundaries.
 - Examples show decode, encode, consumed byte counts, and `NeedMore` behavior.
 - Codec failures include structured diagnostic data.
 - Incremental examples keep only undecoded suffix bytes in parser state.
