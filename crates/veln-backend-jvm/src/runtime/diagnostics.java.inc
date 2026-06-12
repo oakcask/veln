@@ -163,6 +163,34 @@
         );
     }
 
+    private static void registerHttp2ProtocolInvalidPayloadLengthDiagnostic(
+        String message,
+        long byteOffset,
+        long frameKind,
+        long streamId,
+        long observedLength,
+        long expectedLength,
+        String activeState,
+        String ruleProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.invalid_payload_length",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("frame_kind", frameKind),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.number("observed_payload_length", observedLength),
+                    DiagnosticDetail.number("expected_payload_length", expectedLength),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2PeerLimitFrameSizeExceededDiagnostic(
         String message,
         long byteOffset,

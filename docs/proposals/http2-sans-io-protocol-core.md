@@ -16,22 +16,22 @@ ordinary Veln values.
 
 ## Scope
 
-Define a small HTTP/2 core covering:
+Define the remaining HTTP/2 core behavior beyond the implemented
+ordinary-source decode-state slices. Planned coverage still includes:
 
 - connection preface validation
-- frame header decode and encode
-- SETTINGS
-- PING
-- GOAWAY
+- frame header encode
+- remaining SETTINGS values and settings interactions beyond the implemented
+  maximum-frame-size receive and peer-advertised state
 - DATA
 - HEADERS with opaque header-block payloads
 - CONTINUATION handling only as needed to keep header-block boundaries valid
-- typed protocol errors
-- connection settings
+- typed protocol errors for the remaining frame and stream rules
+- connection settings beyond maximum frame size
 - stream identifiers
 - stream lifecycle
 - inbound and outbound flow-control windows
-- graceful shutdown state
+- graceful shutdown interactions beyond the implemented GOAWAY receive state
 
 ## Discussion Result: Limit Placement
 
@@ -254,6 +254,15 @@ peer-advertised state and projects out-of-range values as
 `http2.peer_limit.settings_value_out_of_range` with setting identity, observed
 value, accepted range, item byte offset, and peer-limit provenance in
 executable output, human diagnostics, and JSON details.
+It now also handles structurally decoded PING and GOAWAY frames. PING is
+accepted only on the connection stream with an eight-byte payload, and the
+observable output preserves the ACK flag distinction. GOAWAY is accepted only
+on the connection stream with the fixed eight-byte prefix needed to expose the
+last stream id and error code, then transitions the decode state into graceful
+shutdown. Stream-targeted PING and GOAWAY frames remain typed frame-kind
+failures, while wrong-length PING and GOAWAY payloads use
+`http2.protocol.invalid_payload_length` in ordinary output, human diagnostics,
+and JSON `protocol_diagnostic` details.
 
 The remaining scope below is still planned work for the full protocol core.
 

@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.invalid_payload_length]: invalid payload length at byte offset 0", "note: Frame kind 6 on connection 0 declared 7 byte(s); expected 8 byte(s).", "note: Active protocol state: connection-control.", "note: Rule provenance: rfc9113_ping_payload_length."]

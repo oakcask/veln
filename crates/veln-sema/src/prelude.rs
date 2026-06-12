@@ -190,6 +190,18 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             ],
             adt::result_type(Type::unit(), Type::string()),
         )),
+        "http2_protocol_invalid_payload_length" => Some((
+            vec![
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::string(),
+                Type::string(),
+            ],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
         "http2_peer_limit_frame_size_exceeded" => Some((
             vec![
                 Type::int(),
@@ -848,6 +860,18 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
         )),
         "http2_protocol_invalid_frame_kind" => Some((
             vec![
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::string(),
+                CoreType::string(),
+            ],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
+        )),
+        "http2_protocol_invalid_payload_length" => Some((
+            vec![
+                CoreType::int(),
                 CoreType::int(),
                 CoreType::int(),
                 CoreType::int(),

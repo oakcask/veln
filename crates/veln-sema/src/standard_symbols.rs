@@ -171,6 +171,7 @@ source_prelude_symbol_set! {
     "http2_protocol_closed_with_pending" => veln_stdlib::prelude_source("http2_protocol_closed_with_pending"),
     "http2_protocol_continuation_expected" => veln_stdlib::prelude_source("http2_protocol_continuation_expected"),
     "http2_protocol_invalid_frame_kind" => veln_stdlib::prelude_source("http2_protocol_invalid_frame_kind"),
+    "http2_protocol_invalid_payload_length" => veln_stdlib::prelude_source("http2_protocol_invalid_payload_length"),
     "http2_peer_limit_frame_size_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_frame_size_exceeded"),
     "http2_peer_limit_settings_value_out_of_range" => veln_stdlib::prelude_source("http2_peer_limit_settings_value_out_of_range"),
     "byte_read_u16_be" => veln_stdlib::prelude_source("byte_read_u16_be"),

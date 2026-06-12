@@ -983,6 +983,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "closed_http2: http2_protocol_closed_with_pending(0, 4, \"none\"), ",
             "continuation_http2: http2_protocol_continuation_expected(9, 0, 1, 1, 1, 0, \"headers\"), ",
             "invalid_kind_http2: http2_protocol_invalid_frame_kind(0, 0, 0, 4, \"connection-control\", \"connection_frames_require_settings\"), ",
+            "invalid_payload_http2: http2_protocol_invalid_payload_length(0, 6, 0, 7, 8, \"connection-control\", \"rfc9113_ping_payload_length\"), ",
             "frame_size_http2: http2_peer_limit_frame_size_exceeded(0, 16385, 16384, 0, 3, \"protocol_default\"), ",
             "settings_value_http2: http2_peer_limit_settings_value_out_of_range(9, 5, \"SETTINGS_MAX_FRAME_SIZE\", 16383, 16384, 16777215, \"peer_settings\"), ",
             "read_u16: byte_read_u16_be(view), read_u24: byte_read_u24_be(view), ",

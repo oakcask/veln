@@ -477,9 +477,11 @@ against the built `veln` binary.
   CONTINUATION completion for an opaque header block, and a continuation
   ordering failure while projecting typed protocol failures, including an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
-  failure, and invalid connection-state and stream-state frame kinds, into
-  stable ids and related context. The case keeps local receive-limit provenance
-  separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state and
+  failure, invalid connection-state and stream-state frame kinds,
+  wrong-length PING and GOAWAY payloads, stream-targeted PING and GOAWAY
+  frames, valid PING ACK distinction, and valid GOAWAY graceful shutdown facts,
+  into stable ids and related context. The case keeps local receive-limit
+  provenance separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state and
   range-checks received `SETTINGS_MAX_FRAME_SIZE` before updating that
   peer-advertised state.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
@@ -523,6 +525,23 @@ against the built `veln` binary.
   stream-state frame-kind failure reports `http2.protocol.invalid_frame_kind`
   through `run --json` with byte offset, actual and expected frame kinds,
   stream reference, active state, and rule provenance.
+- `run/http2-protocol-core-ping-length-human/`: a wrong-length PING payload
+  reports `http2.protocol.invalid_payload_length` through human `run` stderr
+  with observed and expected payload length plus protocol state and provenance
+  notes.
+- `run/http2-protocol-core-ping-length-json/`: the same PING payload-length
+  failure reports `http2.protocol.invalid_payload_length` through `run --json`
+  with byte offset, frame kind, stream reference, observed and expected
+  payload lengths, active state, and rule provenance.
+- `run/http2-protocol-core-goaway-length-human/`: a wrong-length GOAWAY
+  fixed-prefix payload reports `http2.protocol.invalid_payload_length` through
+  human `run` stderr with observed and expected payload length plus protocol
+  state and provenance notes.
+- `run/http2-protocol-core-goaway-length-json/`: the same GOAWAY
+  fixed-prefix payload failure reports
+  `http2.protocol.invalid_payload_length` through `run --json` with byte
+  offset, frame kind, stream reference, observed and expected payload lengths,
+  active state, and rule provenance.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.
