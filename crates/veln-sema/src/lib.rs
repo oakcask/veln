@@ -33,7 +33,8 @@ use crate::analysis::{
 use crate::lowering::lower_surface_module_to_core;
 use crate::types::{
     TypeEnvironment, closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    schema_decode_function_name, schema_decode_mapping_fields,
+    exact_width_schema_primitive_max_value, schema_decode_function_name,
+    schema_decode_mapping_fields,
 };
 
 #[derive(Clone, Debug)]
@@ -136,6 +137,7 @@ fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
                     fields.push(IrSchemaDecodeField {
                         name: field.name.clone(),
                         width,
+                        max_value: exact_width_schema_primitive_max_value(&field.ty)?,
                         predicate: field
                             .where_clause
                             .as_ref()
@@ -152,6 +154,7 @@ fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
                 fields.push(IrSchemaDecodeField {
                     name: field.name.clone(),
                     width: 0,
+                    max_value: 0,
                     predicate: None,
                     dispatch: Some(IrSchemaDecodeDispatch {
                         tag_field: dispatch.tag_field,

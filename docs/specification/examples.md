@@ -200,6 +200,14 @@ the generated schema mapping slice. The helper decodes exact-width schema
 fields, checks the field-local predicate, and returns the mapped ordinary
 record field names rather than the schema-local field names.
 
+`../../examples/specification/run/binary-schema-primitive-encode/` and
+`../../examples/specification/run/binary-schema-primitive-encode-out-of-range/`
+pin the generated exact-width primitive encode helper slice. The passing case
+encodes `UInt16be` followed by `UInt32be` into one immutable `ByteChunk` and
+checks complete lowercase hex output. The failing case matches the returned
+`EncodeError` and asserts `codec.out_of_range`, the schema field path, and the
+`UInt31be` maximum.
+
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
 and

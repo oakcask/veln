@@ -1,0 +1,43 @@
+use stdio
+
+schema SchemaWriteSample
+	format binary
+
+	short_value: UInt16be
+	wide_value: UInt32be
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
+	emit_output_chunk_list_header("schema-write-sample", 1)
+	emit_output_chunk("schema-write-sample", 0, bytes, "1234deadbeef")
+end
+
+fn emit_result(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded(bytes)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_schema_write_sample({short_value: 4660, wide_value: 3735928559})
+	emit_result(encoded)
+end

@@ -1047,6 +1047,54 @@
         );
     }
 
+    public static Object byteEncodeDeclaredBinarySchema(
+        Object value,
+        Object schemaName,
+        Object fieldNames,
+        Object widths,
+        Object maxValues
+    ) {
+        String name = asString(schemaName);
+        java.util.List<Object> fieldNameValues = asList(fieldNames);
+        java.util.List<Object> widthValues = asList(widths);
+        java.util.List<Object> maxValueValues = asList(maxValues);
+        if (fieldNameValues.size() != widthValues.size()
+            || fieldNameValues.size() != maxValueValues.size()) {
+            return err(encodeError(
+                "codec.metadata",
+                name,
+                "invalid schema encoder metadata for schema `" + name + "`"
+            ));
+        }
+
+        java.util.Map<Object, Object> fields = asMap(value);
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
+        for (int index = 0; index < fieldNameValues.size(); index += 1) {
+            String fieldName = asString(fieldNameValues.get(index));
+            int width = (int) asLong(widthValues.get(index));
+            long maxValue = asLong(maxValueValues.get(index));
+            if (width < 1 || width > 4) {
+                return err(encodeError(
+                    "codec.metadata",
+                    name + "." + fieldName,
+                    "unsupported schema field width " + width
+                ));
+            }
+            Object encoded = schemaWriteUnsignedBe(
+                fields.get(fieldName),
+                width,
+                maxValue,
+                name,
+                fieldName
+            );
+            if (isErr(encoded)) {
+                return encoded;
+            }
+            bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
+        }
+        return ok(byteChunkObject(bytes));
+    }
+
     public static Object http2ProtocolClosedWithPending(
         Object offset,
         Object pendingCount,
@@ -1735,6 +1783,32 @@
             bytes.add(byteObject((unsigned >> (index * 8)) & 0xffL));
         }
         return ok(byteChunkObject(bytes));
+    }
+
+    private static Object schemaWriteUnsignedBe(
+        Object value,
+        int width,
+        long maxValue,
+        String schemaName,
+        String fieldName
+    ) {
+        long unsigned = asLong(value);
+        if (unsigned < 0 || unsigned > maxValue) {
+            return err(encodeError(
+                "codec.out_of_range",
+                schemaName + "." + fieldName,
+                "value must be between 0 and " + maxValue
+            ));
+        }
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>(width);
+        for (int index = width - 1; index >= 0; index -= 1) {
+            bytes.add(byteObject((unsigned >> (index * 8)) & 0xffL));
+        }
+        return ok(byteChunkObject(bytes));
+    }
+
+    private static Object encodeError(String id, String fieldPath, String reason) {
+        return adt("EncodeError::EncodeError", new Object[] { id, fieldPath, reason });
     }
 
     public static Object byteCount(Object value) {

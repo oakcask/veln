@@ -372,6 +372,14 @@ against the built `veln` binary.
   helper checks field-local predicates, then maps schema-local exact-width
   fields into the target record field names before returning the decoded
   value.
+- `run/binary-schema-primitive-encode/`: a generated binary schema encode
+  helper writes visible exact-width unsigned primitive `Int` fields in
+  declaration order and checks complete lowercase hex output for one
+  `ByteChunk`.
+- `run/binary-schema-primitive-encode-out-of-range/`: the same encode helper
+  slice returns a structured `EncodeError` with `codec.out_of_range`, schema
+  field path, and primitive range reason when a `UInt31be` value exceeds its
+  maximum.
 - `run/binary-schema-closed-dispatch-decode/`: a generated binary schema
   decode helper reads a closed dispatch tag, selects the known payload case,
   and returns the selected payload as an ordinary `Int` field.

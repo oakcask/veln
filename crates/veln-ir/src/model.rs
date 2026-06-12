@@ -20,6 +20,7 @@ pub struct IrSchemaDecodeSpec {
 pub struct IrSchemaDecodeField {
     pub name: String,
     pub width: u8,
+    pub max_value: i64,
     pub predicate: Option<String>,
     pub dispatch: Option<IrSchemaDecodeDispatch>,
 }
@@ -154,6 +155,7 @@ pub enum IrCallTarget {
     Function(String),
     SchemaDecode(String),
     SchemaDecodeStep(String),
+    SchemaEncode(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),
