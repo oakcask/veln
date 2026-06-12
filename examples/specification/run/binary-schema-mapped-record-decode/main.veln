@@ -1,0 +1,33 @@
+# Binary schema mapping decodes schema-local fields into a target record shape.
+use stdio
+
+type FrameHeader
+	FrameHeader {kind: Int, length: Int}
+end
+
+schema FrameHeaderWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8 where wire_kind <= wire_length
+
+	map to FrameHeader
+		length = wire_length
+		kind = wire_kind
+end
+
+fn emit_header(header: {kind: Int, length: Int}) -> () effects [stdio]
+	stdio::print(int_to_string(header.kind))
+	stdio::print(" ")
+	stdio::println(int_to_string(header.length))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("123405")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(3)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let header: {kind: Int, length: Int} = byte_decode_frame_header_wire(view)?
+	emit_header(header)
+	Ok(())
+end

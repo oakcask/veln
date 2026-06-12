@@ -2,7 +2,7 @@ use super::*;
 use crate::prelude::PRELUDE_MODULE;
 use veln_ast::{
     CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, PublicAliasKind,
-    SchemaDecl, SchemaField, UseDecl,
+    SchemaDecl, SchemaField, SchemaMappingAssignment, SchemaMappingClause, UseDecl,
 };
 
 pub(crate) fn check_public_function_boundary(function: &Function) -> Vec<Diagnostic> {
@@ -858,6 +858,292 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
     }
 
     diagnostics
+}
+
+pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
+    for schema in &module.schemas {
+        let Some(schema_fields) = generated_schema_field_types(schema) else {
+            continue;
+        };
+        for mapping in &schema.mappings {
+            let Some(target) = &mapping.target else {
+                continue;
+            };
+            let target_fields = schema_mapping_target_record_fields(module, schema, mapping);
+            let Some(target_fields) = target_fields else {
+                diagnostics.push(schema_mapping_target_diagnostic(schema, mapping, target));
+                continue;
+            };
+            let target_field_types = target_fields.into_iter().collect::<BTreeMap<_, _>>();
+            let mut assigned_targets = BTreeMap::<String, SourceSpan>::new();
+            for assignment in &mapping.assignments {
+                if !schema_fields.contains_key(&assignment.source) {
+                    diagnostics.push(schema_mapping_source_diagnostic(schema, assignment));
+                }
+                let Some(target_ty) = target_field_types.get(&assignment.target) else {
+                    diagnostics.push(schema_mapping_target_field_diagnostic(
+                        schema, mapping, assignment,
+                    ));
+                    continue;
+                };
+                if target_ty != &Type::int() {
+                    diagnostics.push(schema_mapping_type_diagnostic(
+                        schema, mapping, assignment, target_ty,
+                    ));
+                }
+                if let Some(first_span) =
+                    assigned_targets.insert(assignment.target.clone(), assignment.span.clone())
+                {
+                    diagnostics.push(schema_mapping_duplicate_target_diagnostic(
+                        schema,
+                        mapping,
+                        assignment,
+                        &first_span,
+                    ));
+                }
+            }
+            for target_field in target_field_types.keys() {
+                if !assigned_targets.contains_key(target_field) {
+                    diagnostics.push(schema_mapping_missing_target_diagnostic(
+                        schema,
+                        mapping,
+                        target_field,
+                    ));
+                }
+            }
+        }
+    }
+
+    diagnostics
+}
+
+fn generated_schema_field_types(schema: &SchemaDecl) -> Option<BTreeMap<String, Type>> {
+    if schema.format.as_ref()?.name != "binary" {
+        return None;
+    }
+    schema
+        .fields
+        .iter()
+        .map(|field| {
+            exact_width_binary_primitive_name(&field.ty)?;
+            Some((field.name.clone(), Type::int()))
+        })
+        .collect()
+}
+
+fn schema_mapping_target_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    target: &str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.mapping_target",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!("schema mapping target `{target}` is not a supported record target"),
+        Some(mapping.span.clone()),
+        schema_mapping_details(
+            mapping.node_id.display("schema-mapping"),
+            schema,
+            mapping,
+            [
+                ("reason", JsonValue::string("unsupported_target")),
+                ("target", JsonValue::string(target.to_string())),
+            ],
+        ),
+    )
+}
+
+fn schema_mapping_source_diagnostic(
+    schema: &SchemaDecl,
+    assignment: &SchemaMappingAssignment,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.mapping_source_field",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!(
+            "schema mapping source field `{}` is not declared",
+            assignment.source
+        ),
+        Some(assignment.span.clone()),
+        schema_mapping_assignment_details(
+            assignment.node_id.display("schema-mapping-assignment"),
+            schema,
+            assignment,
+            [("reason", JsonValue::string("unknown_source_field"))],
+        ),
+    )
+}
+
+fn schema_mapping_target_field_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    assignment: &SchemaMappingAssignment,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.mapping_target_field",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!(
+            "schema mapping target field `{}` is not declared",
+            assignment.target
+        ),
+        Some(assignment.span.clone()),
+        schema_mapping_assignment_details(
+            assignment.node_id.display("schema-mapping-assignment"),
+            schema,
+            assignment,
+            [
+                ("reason", JsonValue::string("unknown_target_field")),
+                (
+                    "mapping_target",
+                    JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                ),
+            ],
+        ),
+    )
+}
+
+fn schema_mapping_type_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    assignment: &SchemaMappingAssignment,
+    target_ty: &Type,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.mapping_type",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "schema mapping target field `{}` expects `{}`, but source field `{}` decodes as `Int`",
+            assignment.target,
+            target_ty.render(),
+            assignment.source
+        ),
+        Some(assignment.span.clone()),
+        schema_mapping_assignment_details(
+            assignment.node_id.display("schema-mapping-assignment"),
+            schema,
+            assignment,
+            [
+                ("reason", JsonValue::string("field_type_mismatch")),
+                (
+                    "mapping_target",
+                    JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                ),
+                ("expected", JsonValue::string(target_ty.render())),
+                ("actual", JsonValue::string("Int")),
+            ],
+        ),
+    )
+}
+
+fn schema_mapping_duplicate_target_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    assignment: &SchemaMappingAssignment,
+    first_span: &SourceSpan,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "schema.mapping_duplicate_target_field",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!(
+            "schema mapping assigns target field `{}` more than once",
+            assignment.target
+        ),
+        Some(assignment.span.clone()),
+        schema_mapping_assignment_details(
+            assignment.node_id.display("schema-mapping-assignment"),
+            schema,
+            assignment,
+            [
+                ("reason", JsonValue::string("duplicate_target_field")),
+                (
+                    "mapping_target",
+                    JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                ),
+            ],
+        ),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("span", span_json(first_span)),
+        (
+            "message",
+            JsonValue::string(format!(
+                "First assignment to `{}` is here.",
+                assignment.target
+            )),
+        ),
+    ]));
+    diagnostic
+}
+
+fn schema_mapping_missing_target_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    target_field: &str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.mapping_missing_target_field",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("schema mapping does not assign target field `{target_field}`"),
+        Some(mapping.span.clone()),
+        schema_mapping_details(
+            mapping.node_id.display("schema-mapping"),
+            schema,
+            mapping,
+            [
+                ("reason", JsonValue::string("missing_target_field")),
+                ("target_field", JsonValue::string(target_field.to_string())),
+            ],
+        ),
+    )
+}
+
+fn schema_mapping_details<const N: usize>(
+    node_id: String,
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    extra: [(&'static str, JsonValue); N],
+) -> JsonValue {
+    let mut fields = vec![
+        ("phase", JsonValue::string("schema")),
+        ("node_id", JsonValue::string(node_id)),
+        (
+            "schema",
+            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
+        ),
+    ];
+    if let Some(target) = &mapping.target {
+        fields.push(("mapping_target", JsonValue::string(target.clone())));
+    }
+    fields.extend(extra);
+    JsonValue::object(fields)
+}
+
+fn schema_mapping_assignment_details<const N: usize>(
+    node_id: String,
+    schema: &SchemaDecl,
+    assignment: &SchemaMappingAssignment,
+    extra: [(&'static str, JsonValue); N],
+) -> JsonValue {
+    let mut fields = vec![
+        ("phase", JsonValue::string("schema")),
+        ("node_id", JsonValue::string(node_id)),
+        (
+            "schema",
+            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
+        ),
+        ("target_field", JsonValue::string(assignment.target.clone())),
+        ("source_field", JsonValue::string(assignment.source.clone())),
+    ];
+    fields.extend(extra);
+    JsonValue::object(fields)
 }
 
 fn push_schema_type_reference_diagnostics(

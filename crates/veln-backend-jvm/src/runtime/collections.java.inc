@@ -75,13 +75,33 @@
         }
     }
 
+    private static final class SchemaMappingFieldSpec {
+        final String target;
+        final String source;
+
+        SchemaMappingFieldSpec(String target, String source) {
+            this.target = target;
+            this.source = source;
+        }
+    }
+
     private static final class BinarySchemaSpec {
         final String name;
         final SchemaFieldSpec[] fields;
+        final SchemaMappingFieldSpec[] mapping;
 
         BinarySchemaSpec(String name, SchemaFieldSpec[] fields) {
+            this(name, fields, new SchemaMappingFieldSpec[0]);
+        }
+
+        BinarySchemaSpec(
+            String name,
+            SchemaFieldSpec[] fields,
+            SchemaMappingFieldSpec[] mapping
+        ) {
             this.name = name;
             this.fields = fields;
+            this.mapping = mapping;
         }
     }
 
@@ -927,9 +947,18 @@
         Object schemaName,
         Object fieldNames,
         Object widths,
-        Object predicates
+        Object predicates,
+        Object mappingTargets,
+        Object mappingSources
     ) {
-        Object schema = declaredBinarySchemaSpec(schemaName, fieldNames, widths, predicates);
+        Object schema = declaredBinarySchemaSpec(
+            schemaName,
+            fieldNames,
+            widths,
+            predicates,
+            mappingTargets,
+            mappingSources
+        );
         if (isErr(schema)) {
             return schema;
         }
@@ -1179,27 +1208,51 @@
             relativeOffset += field.width;
         }
 
+        return ok(schemaDecodedRecord(schema, decoded));
+    }
+
+    private static Object schemaDecodedRecord(
+        BinarySchemaSpec schema,
+        java.util.LinkedHashMap<String, Long> decoded
+    ) {
+        if (schema.mapping.length > 0) {
+            java.util.ArrayList<Object> entries =
+                new java.util.ArrayList<Object>(schema.mapping.length * 2);
+            for (SchemaMappingFieldSpec field : schema.mapping) {
+                entries.add(field.target);
+                entries.add(decoded.get(field.source));
+            }
+            return record(entries.toArray(new Object[entries.size()]));
+        }
+
         java.util.ArrayList<Object> entries = new java.util.ArrayList<Object>(decoded.size() * 2);
         for (java.util.Map.Entry<String, Long> entry : decoded.entrySet()) {
             entries.add(entry.getKey());
             entries.add(entry.getValue());
         }
-        return ok(record(entries.toArray(new Object[entries.size()])));
+        return record(entries.toArray(new Object[entries.size()]));
     }
 
     private static Object declaredBinarySchemaSpec(
         Object schemaName,
         Object fieldNames,
         Object widths,
-        Object predicates
+        Object predicates,
+        Object mappingTargets,
+        Object mappingSources
     ) {
         String name = asString(schemaName);
         java.util.List<Object> fieldNameValues = asList(fieldNames);
         java.util.List<Object> widthValues = asList(widths);
         java.util.List<Object> predicateValues = asList(predicates);
+        java.util.List<Object> mappingTargetValues = asList(mappingTargets);
+        java.util.List<Object> mappingSourceValues = asList(mappingSources);
         if (fieldNameValues.size() != widthValues.size()
             || fieldNameValues.size() != predicateValues.size()) {
             return err("invalid schema decoder metadata for schema `" + name + "`");
+        }
+        if (mappingTargetValues.size() != mappingSourceValues.size()) {
+            return err("invalid schema decoder mapping metadata for schema `" + name + "`");
         }
         SchemaFieldSpec[] fields = new SchemaFieldSpec[fieldNameValues.size()];
         for (int index = 0; index < fieldNameValues.size(); index += 1) {
@@ -1227,7 +1280,15 @@
             }
             fields[index] = unsignedSchemaField(fieldName, (int) width, predicate);
         }
-        return ok(new BinarySchemaSpec(name, fields));
+        SchemaMappingFieldSpec[] mapping =
+            new SchemaMappingFieldSpec[mappingTargetValues.size()];
+        for (int index = 0; index < mappingTargetValues.size(); index += 1) {
+            mapping[index] = new SchemaMappingFieldSpec(
+                asString(mappingTargetValues.get(index)),
+                asString(mappingSourceValues.get(index))
+            );
+        }
+        return ok(new BinarySchemaSpec(name, fields, mapping));
     }
 
     private static Object unsupportedSchemaPredicate(BinarySchemaSpec schema) {

@@ -223,6 +223,9 @@ against the built `veln` binary.
   schema headers, missing `end`, fields before `format`, multiple `format`
   clauses, `_`-prefixed fields, malformed field-local `where` predicates,
   and malformed schema mapping clauses.
+- `check/schema-mapping-diagnostics/`: generated binary schema mapping
+  diagnostics for mapping assignments that name schema-local source fields
+  not decoded by the schema.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
@@ -352,6 +355,10 @@ against the built `veln` binary.
   for a `UInt32be` field reports `schema.truncated_field` through JSON run
   output with byte offset, field path, byte counts, readiness, and structured
   byte preview fields.
+- `run/binary-schema-mapped-record-decode/`: a generated binary schema decode
+  helper checks field-local predicates, then maps schema-local exact-width
+  fields into the target record field names before returning the decoded
+  value.
 - `run/binary-schema-frame-payload-decode/`: HTTP/2 frame decode returns the
   visible header fields plus a bounded payload `ByteView` selected by the
   decoded length.

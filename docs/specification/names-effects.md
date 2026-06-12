@@ -24,9 +24,11 @@ compiler-known calls.
   vocabulary helpers for `Byte`, `ByteChunk`, `ByteView`, `ByteCount`,
   `ByteOffset`, compact hex fixture decoding, fixed-width unsigned big-endian
   reads and writes, fixed U8 field checks, and the narrow schema width-sample
-  decode helper. HTTP/2 frame-header decoding, bounded payload frame
-  decoding, and protocol diagnostic projection helpers are listed with those
-  signatures:
+  decode helper. Generated binary schema decode helpers return schema-local
+  `Int` record fields unless the eligible single structural `map to Target`
+  slice resolves a mapped `Int` record shape. HTTP/2 frame-header decoding,
+  bounded payload frame decoding, and protocol diagnostic projection helpers
+  are listed with those signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).
 - Descriptor-backed standard symbols, source metadata, and the

@@ -117,8 +117,12 @@ schema-local field on the right. Duplicate left-hand targets, missing
 left-hand targets, and bare schema-field lines are parse diagnostics; reserved
 bits and other representation fields are omitted unless explicitly assigned.
 The parser, formatter, lowered AST, and editor token collector preserve mapping
-clauses as source metadata. Generated codec execution, target-field resolution,
-and runtime value construction are not implemented.
+clauses as source metadata. The generated binary decode helper uses one
+eligible structural mapping clause when all schema fields are implemented
+exact-width unsigned primitives and the target resolves to `Int` record fields.
+General target-field resolution, ADT constructor mapping, nested record
+construction, multiple mapping selection, and encode-side mapping are not
+implemented.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support, but general schema decode and encode

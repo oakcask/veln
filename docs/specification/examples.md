@@ -172,6 +172,11 @@ The passing case decodes an exact-width arithmetic predicate. The failing case
 asserts the same `schema.validation_failed` shape with decoded values keyed by
 schema field name.
 
+`../../examples/specification/run/binary-schema-mapped-record-decode/` pins
+the generated schema mapping slice. The helper decodes exact-width schema
+fields, checks the field-local predicate, and returns the mapped ordinary
+record field names rather than the schema-local field names.
+
 ## HTTP/2 Protocol Core Example
 
 The executable specification case

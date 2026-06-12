@@ -692,10 +692,12 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_field_names(code, schema);
         self.emit_schema_field_widths(code, schema);
         self.emit_schema_field_predicates(code, schema);
+        self.emit_schema_mapping_targets(code, schema);
+        self.emit_schema_mapping_sources(code, schema);
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeDeclaredBinarySchema",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 
@@ -725,6 +727,28 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     fn emit_schema_field_predicates(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
         self.emit_object_array(code, schema.fields.len(), |_, code, index| {
             code.ldc_string(schema.fields[index].predicate.as_deref().unwrap_or(""));
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_mapping_targets(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
+        self.emit_object_array(code, schema.mapping.len(), |_, code, index| {
+            code.ldc_string(&schema.mapping[index].target);
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_mapping_sources(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
+        self.emit_object_array(code, schema.mapping.len(), |_, code, index| {
+            code.ldc_string(&schema.mapping[index].source);
         });
         code.invokestatic(
             &self.program.options.runtime_class,

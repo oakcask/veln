@@ -53,12 +53,14 @@ non-negative integers. These primitive names are representation-local field
 vocabulary, not ordinary source types or values. A schema may end with
 structural `map to Target` clauses whose assignment lines use
 `target_field = schema_field` to map schema-local fields into an ordinary
-source value shape. Mapping clauses are parsed, formatted, lowered, and exposed
-to editor support as source metadata only; generated codec execution is not
-implemented. The predicate, primitive, and mapping text are parsed and
-preserved as source-surface syntax. The implemented execution slices for these
-primitive names are routed from [execution.md](execution.md). General schema
-decode, encode, dispatch, and runtime value mapping are not implemented.
+source value shape. Mapping clauses are parsed, formatted, lowered, exposed to
+editor support, and used by the generated decode slice described in
+[execution.md](execution.md) when the schema has a single structural mapping
+and all decoded fields use the implemented exact-width unsigned primitive
+slice. The predicate, primitive, and mapping text are parsed and preserved as
+source-surface syntax. General schema decode, encode, dispatch, ADT
+constructor mapping, nested record mapping, and multiple mapping selection are
+not implemented.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 

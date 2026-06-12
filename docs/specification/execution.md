@@ -50,6 +50,13 @@ execution reference.
   reports `schema.validation_failed` at the owning field byte offset with
   schema field path, predicate text, decoded values, and structured byte
   preview fields.
+- When an eligible generated binary schema decode helper has one structural
+  `map to Target` clause and the target resolves to a single record-shaped
+  source type whose mapped fields are `Int`, the helper returns the mapped
+  ordinary record shape instead of the schema-local field shape. Mapping
+  assignment sources must name decoded schema fields. Mapping assignment
+  targets must name target fields, every target field must be assigned once,
+  and non-`Int` target fields are rejected before execution.
 - The frame decode helper reuses the frame-header validation and adds a
   bounded `payload: ByteView` over the same bytes. The payload starts after
   the nine-byte frame header and uses the decoded `length` as its count. If

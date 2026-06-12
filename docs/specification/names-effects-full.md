@@ -497,8 +497,10 @@ all use implemented exact-width unsigned primitives expose generated
 `byte_decode_<schema>` helpers in their declaring module. Those helpers decode
 fields in schema order, check supported field-local `where` predicates after
 the owning field is decoded, return ordinary `Int` values when validation
-passes, and report `schema.validation_failed` with field path, predicate,
-decoded values, and structured byte preview fields when validation fails. The
+passes, and can return a mapped record shape when one eligible structural
+`map to Target` clause maps decoded schema fields into `Int` target fields.
+They report `schema.validation_failed` with field path, predicate, decoded
+values, and structured byte preview fields when validation fails. The
 fixed-width unsigned big-endian write helpers return `Ok(ByteChunk)` for
 values in range and `Err(String)` for negative values or values larger than
 the helper width can encode.
