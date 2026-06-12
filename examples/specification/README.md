@@ -387,8 +387,8 @@ against the built `veln` binary.
   handles chunk arrival, incomplete input, end-of-stream truncation, valid
   CONTINUATION completion for an opaque header block, and a continuation
   ordering failure while projecting typed protocol failures, including an
-  incoming frame-size peer-limit failure and an invalid connection-state frame
-  kind, into stable ids and related context.
+  incoming frame-size peer-limit failure and invalid connection-state and
+  stream-state frame kinds, into stable ids and related context.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation
@@ -412,6 +412,14 @@ against the built `veln` binary.
   frame-kind state failure reports `http2.protocol.invalid_frame_kind` through
   `run --json` with byte offset, actual and expected frame kinds, stream
   reference, active state, and rule provenance.
+- `run/http2-protocol-core-stream-invalid-frame-kind-human/`: a DATA frame kind
+  on an idle HTTP/2 stream reports `http2.protocol.invalid_frame_kind` through
+  human `run` stderr with stream reference, expected frame kind, active state,
+  and rule provenance notes.
+- `run/http2-protocol-core-stream-invalid-frame-kind-json/`: the same
+  stream-state frame-kind failure reports `http2.protocol.invalid_frame_kind`
+  through `run --json` with byte offset, actual and expected frame kinds,
+  stream reference, active state, and rule provenance.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.

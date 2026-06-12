@@ -133,7 +133,14 @@ fn validate_connection_frame_kind(offset: Int, kind: Int, stream_id: Int) -> Res
 			true => Ok(Decision(NoContinuation, 0))
 			false => Err(InvalidFrameKind(offset, kind, stream_id, 4, "connection-control", "connection_frames_require_settings"))
 		end
-		false => Ok(Decision(NoContinuation, 0))
+		false => validate_stream_frame_kind(offset, kind, stream_id)
+	end
+end
+
+fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
+	match kind == 1
+		true => Ok(Decision(NoContinuation, 0))
+		false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 	end
 end
 
@@ -444,5 +451,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("frame-size", too_large)
 	let bad_connection_kind: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000000")?), empty_state())?
 	print_failure("invalid-kind", bad_connection_kind)
+	let bad_stream_kind: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), empty_state())?
+	print_failure("invalid-stream-kind", bad_stream_kind)
 	Ok(())
 end

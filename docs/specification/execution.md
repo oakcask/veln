@@ -76,8 +76,9 @@ execution reference.
   frame-header primitive for available headers, and represents closed-input
   truncation, continuation ordering failures, and incoming frame payloads that
   exceed the active receive maximum frame size, plus invalid connection-state
-  frame kinds, as typed protocol values before projecting stable diagnostic ids
-  and related context into fixture output, human runtime diagnostics, and
+  and stream-state frame kinds, as typed protocol values before projecting
+  stable diagnostic ids and related context into fixture output, human runtime
+  diagnostics, and
   `run --json` `protocol_diagnostic` details.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
