@@ -985,6 +985,33 @@
         return err(message);
     }
 
+    public static Object http2ProtocolInvalidFrameKind(
+        Object offset,
+        Object actualKind,
+        Object streamId,
+        Object expectedKind,
+        Object activeState,
+        Object ruleProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long frameKind = asLong(actualKind);
+        long stream = asLong(streamId);
+        long expectedFrameKind = asLong(expectedKind);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 invalid frame kind at byte offset " + byteOffset;
+        registerHttp2ProtocolInvalidFrameKindDiagnostic(
+            message,
+            byteOffset,
+            frameKind,
+            stream,
+            expectedFrameKind,
+            state,
+            provenance
+        );
+        return err(message);
+    }
+
     public static Object http2PeerLimitFrameSizeExceeded(
         Object offset,
         Object observedLength,

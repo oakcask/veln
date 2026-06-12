@@ -1090,6 +1090,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2_peer_limit_frame_size_exceeded",
             "http2PeerLimitFrameSizeExceeded",
         ),
+        (
+            "http2_protocol_invalid_frame_kind",
+            "http2ProtocolInvalidFrameKind",
+        ),
         ("byte_read_u16_be", "byteReadU16Be"),
         ("byte_read_u24_be", "byteReadU24Be"),
         ("byte_read_u31_be", "byteReadU31Be"),

@@ -370,6 +370,32 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             )));
             Some(diagnostic)
         }
+        "http2.protocol.invalid_frame_kind" => {
+            let actual_kind = json_number(protocol_entries, "actual_frame_kind")?;
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let expected_kind = json_number(protocol_entries, "expected_frame_kind")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("invalid frame kind at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Frame kind {actual_kind} on {stream_ref} {stream_id} did not match expected frame kind {expected_kind}."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {provenance}.")));
+            Some(diagnostic)
+        }
         "http2.peer_limit.frame_size_exceeded" => {
             let observed_length = json_number(protocol_entries, "observed_payload_length")?;
             let allowed_length = json_number(protocol_entries, "allowed_max_frame_size")?;
@@ -1181,6 +1207,63 @@ mod tests {
                 .contains("active receive maximum is 16384 byte(s)")
         );
         assert!(diagnostic.related[1].to_json().contains("protocol_default"));
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_invalid_frame_kind_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            ("id", JsonValue::string("http2.protocol.invalid_frame_kind")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("actual_frame_kind", JsonValue::Number(0)),
+            ("stream_id", JsonValue::Number(0)),
+            ("stream_ref", JsonValue::string("connection")),
+            ("expected_frame_kind", JsonValue::Number(4)),
+            ("active_state", JsonValue::string("connection-control")),
+            (
+                "rule_provenance",
+                JsonValue::string("connection_frames_require_settings"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 invalid frame kind at byte offset 0".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.invalid_frame_kind");
+        assert_eq!(diagnostic.message, "invalid frame kind at byte offset 0");
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("Frame kind 0 on connection 0")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("expected frame kind 4")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("connection-control")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("connection_frames_require_settings")
+        );
     }
 
     #[test]

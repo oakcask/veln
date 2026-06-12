@@ -137,6 +137,32 @@
         );
     }
 
+    private static void registerHttp2ProtocolInvalidFrameKindDiagnostic(
+        String message,
+        long byteOffset,
+        long actualKind,
+        long streamId,
+        long expectedKind,
+        String activeState,
+        String ruleProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.invalid_frame_kind",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("actual_frame_kind", actualKind),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.number("expected_frame_kind", expectedKind),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2PeerLimitFrameSizeExceededDiagnostic(
         String message,
         long byteOffset,
