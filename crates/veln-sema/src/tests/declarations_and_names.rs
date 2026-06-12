@@ -1055,6 +1055,219 @@ fn codec_encode_with_ignores_functions_from_other_modules() {
 }
 
 #[test]
+fn codec_with_accepts_mapped_schema_value_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {length: Int, kind: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "  wire_length: UInt16be\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    length = wire_length\n",
+            "    kind = wire_kind\n",
+            "end\n",
+            "\n",
+            "codec HeaderCodec for HeaderWire decode encode\n",
+            "  decode with decode_header\n",
+            "  encode with encode_header\n",
+            "end\n",
+            "\n",
+            "fn decode_header(input: ByteView, base: ByteOffset) -> DecodeStep<{kind: Int, length: Int}>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
+            "\n",
+            "fn encode_header(header: {length: Int, kind: Int}) -> EncodeStep<String>\n",
+            "  Encoded(list_nil())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn codec_decode_with_reports_mapped_value_type_mismatch_at_clause() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {length: Int, kind: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "  wire_length: UInt16be\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    length = wire_length\n",
+            "    kind = wire_kind\n",
+            "end\n",
+            "\n",
+            "codec HeaderDecode for HeaderWire decode\n",
+            "  decode with decode_header\n",
+            "end\n",
+            "\n",
+            "fn decode_header(input: ByteView, base: ByteOffset) -> DecodeStep<Int>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "codec.decode_value_type");
+    assert_eq!(
+        diagnostic.message,
+        "decode function value type is `Int`, but schema mapping value type is `{length: Int, kind: Int}`"
+    );
+    assert!(
+        diagnostic
+            .span
+            .as_ref()
+            .is_some_and(|span| span.start.line == 16)
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"reason\":\"return_value_type\"")
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"expected_value_type\":\"{length: Int, kind: Int}\"")
+    );
+    assert_eq!(diagnostic.related.len(), 1);
+}
+
+#[test]
+fn codec_encode_with_reports_mapped_value_parameter_mismatch_at_clause() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {length: Int, kind: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "  wire_length: UInt16be\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    length = wire_length\n",
+            "    kind = wire_kind\n",
+            "end\n",
+            "\n",
+            "codec HeaderEncode for HeaderWire encode\n",
+            "  encode with encode_header\n",
+            "end\n",
+            "\n",
+            "fn encode_header(header: Int) -> EncodeStep<String>\n",
+            "  Encoded(list_nil())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "codec.encode_value_type");
+    assert_eq!(
+        diagnostic.message,
+        "encode function value parameter must match schema mapping value type"
+    );
+    assert!(
+        diagnostic
+            .span
+            .as_ref()
+            .is_some_and(|span| span.start.line == 16)
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"reason\":\"value_parameter_type\"")
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"actual_value_type\":\"Int\"")
+    );
+    assert_eq!(diagnostic.related.len(), 1);
+}
+
+#[test]
+fn codec_with_skips_mapped_value_boundary_outside_implemented_schema_slice() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {length: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format text\n",
+            "  wire_length: UInt16be\n",
+            "\n",
+            "  map to Header\n",
+            "    length = wire_length\n",
+            "end\n",
+            "\n",
+            "codec HeaderCodec for HeaderWire decode encode\n",
+            "  decode with decode_header\n",
+            "  encode with encode_header\n",
+            "end\n",
+            "\n",
+            "fn decode_header(input: ByteView, base: ByteOffset) -> DecodeStep<Int>\n",
+            "  NeedMore(NeedEnd)\n",
+            "end\n",
+            "\n",
+            "fn encode_header(header: Int) -> EncodeStep<String>\n",
+            "  Encoded(list_nil())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "schema.exact_width_primitive"),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| !diagnostic.id.starts_with("codec.")),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn generated_schema_mappings_report_source_target_and_type_diagnostics() {
     let source = SourceFile::new(
         "main.veln",

@@ -91,15 +91,21 @@ A `decode with function_name` clause must resolve to an ordinary function in
 the codec's module with exactly `ByteView` and `ByteOffset` parameters and a
 `DecodeStep<T>` return type. Invalid decode signatures report
 `codec.decode_signature` at the codec implementation clause, with related
-context pointing to the referenced function when it is available.
+context pointing to the referenced function when it is available. When the
+referenced schema has one implemented structural mapping, the `T` value type
+must match the mapping target record shape; mismatches report
+`codec.decode_value_type` at the codec implementation clause.
 
 An `encode with function_name` clause must resolve to an ordinary function in
-the codec's module with an `EncodeStep<TState>` return type. Invalid encode
-signatures report `codec.encode_signature` at the codec implementation clause,
-with related context pointing to the referenced function when it is available.
+the codec's module with an `EncodeStep<TState>` return type. When the
+referenced schema has one implemented structural mapping, the function's first
+parameter must match the mapping target record shape. Invalid encode
+signatures report `codec.encode_signature`; mapped value parameter mismatches
+report `codec.encode_value_type` at the codec implementation clause, with
+related context pointing to the referenced function when it is available.
 Codec declaration execution, codec-generated decode or encode functions,
-`derive decode`, derived encode execution, encode parameter shape validation,
-and codec-selected schema mapping are not implemented. Generated
+`derive decode`, derived encode execution, and executable encode operations
+are not implemented. Generated
 `byte_decode_<schema>` helpers for the eligible binary schema slice and their
 `byte_decode_step_<schema>` incremental decode-step counterparts are covered
 by [execution.md](execution.md).

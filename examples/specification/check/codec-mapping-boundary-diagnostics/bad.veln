@@ -1,0 +1,30 @@
+type FrameHeader
+	FrameHeader {length: Int, kind: Int}
+end
+
+schema FrameHeaderWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8
+
+	map to FrameHeader
+		length = wire_length
+		kind = wire_kind
+end
+
+codec HeaderDecode for FrameHeaderWire decode
+	decode with wrong_decode
+end
+
+codec HeaderEncode for FrameHeaderWire encode
+	encode with wrong_encode
+end
+
+fn wrong_decode(input: ByteView, base: ByteOffset) -> DecodeStep<Int>
+	NeedMore(NeedEnd)
+end
+
+fn wrong_encode(header: Int) -> EncodeStep<String>
+	Encoded(list_nil())
+end

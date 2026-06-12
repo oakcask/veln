@@ -441,6 +441,7 @@ pub(crate) fn check_codec_decode_signatures(module: &SurfaceModule) -> Vec<Diagn
             };
 
             diagnostics.extend(codec_decode_signature_diagnostics(
+                module,
                 codec,
                 implementation,
                 function,
@@ -476,6 +477,7 @@ pub(crate) fn check_codec_encode_signatures(module: &SurfaceModule) -> Vec<Diagn
             };
 
             diagnostics.extend(codec_encode_signature_diagnostics(
+                module,
                 codec,
                 implementation,
                 function,
@@ -500,6 +502,7 @@ fn codec_same_module_function<'a>(
 }
 
 fn codec_decode_signature_diagnostics(
+    module: &SurfaceModule,
     codec: &CodecDecl,
     implementation: &CodecImplementationClause,
     function: &Function,
@@ -567,43 +570,104 @@ fn codec_decode_signature_diagnostics(
             "decode function must return `DecodeStep<T>`",
             return_type.render(),
         ));
+    } else if let Some(expected_value_type) = codec_mapping_value_type(module, codec) {
+        let actual_value_type = decode_step_value_type(&return_type)
+            .expect("DecodeStep return value type is available after shape check");
+        if !types_match(&expected_value_type, actual_value_type) {
+            diagnostics.push(codec_decode_value_type_diagnostic(
+                codec,
+                implementation,
+                function,
+                function_name,
+                &expected_value_type,
+                actual_value_type,
+            ));
+        }
     }
 
     diagnostics
 }
 
 fn is_decode_step_return(ty: &Type) -> bool {
-    matches!(
-        ty,
-        Type::Named { name, args } if name == "DecodeStep" && args.len() == 1
-    )
+    decode_step_value_type(ty).is_some()
+}
+
+fn decode_step_value_type(ty: &Type) -> Option<&Type> {
+    match ty {
+        Type::Named { name, args } if name == "DecodeStep" && args.len() == 1 => Some(&args[0]),
+        _ => None,
+    }
 }
 
 fn codec_encode_signature_diagnostics(
+    module: &SurfaceModule,
     codec: &CodecDecl,
     implementation: &CodecImplementationClause,
     function: &Function,
     function_name: &str,
 ) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
+    if let Some(expected_value_type) = codec_mapping_value_type(module, codec) {
+        match function.params.first() {
+            Some(param) => {
+                let actual_value_type = param
+                    .ty
+                    .as_deref()
+                    .and_then(|annotation| parse_type_annotation(annotation).ok())
+                    .unwrap_or(Type::Unknown);
+                if !types_match(&expected_value_type, &actual_value_type) {
+                    diagnostics.push(codec_encode_value_type_diagnostic(
+                        codec,
+                        implementation,
+                        function,
+                        function_name,
+                        &expected_value_type,
+                        EncodeValueTypeMismatch {
+                            reason: "value_parameter_type",
+                            message:
+                                "encode function value parameter must match schema mapping value type",
+                            actual_value_type: &actual_value_type,
+                        },
+                    ));
+                }
+            }
+            None => {
+                diagnostics.push(codec_encode_value_type_diagnostic(
+                    codec,
+                    implementation,
+                    function,
+                    function_name,
+                    &expected_value_type,
+                    EncodeValueTypeMismatch {
+                        reason: "missing_value_parameter",
+                        message: "encode function must take a schema mapping value parameter",
+                        actual_value_type: &Type::Unknown,
+                    },
+                ));
+            }
+        }
+    }
+
     let return_type = function
         .return_type
         .as_deref()
         .and_then(|annotation| parse_type_annotation(annotation).ok())
         .unwrap_or(Type::Unknown);
 
-    if is_encode_step_return(&return_type) {
-        return Vec::new();
+    if !is_encode_step_return(&return_type) {
+        diagnostics.push(codec_encode_signature_diagnostic(
+            codec,
+            implementation,
+            Some(function),
+            function_name,
+            "return_type",
+            "encode function must return `EncodeStep<TState>`",
+            return_type.render(),
+        ));
     }
 
-    vec![codec_encode_signature_diagnostic(
-        codec,
-        implementation,
-        Some(function),
-        function_name,
-        "return_type",
-        "encode function must return `EncodeStep<TState>`",
-        return_type.render(),
-    )]
+    diagnostics
 }
 
 fn is_encode_step_return(ty: &Type) -> bool {
@@ -611,6 +675,84 @@ fn is_encode_step_return(ty: &Type) -> bool {
         ty,
         Type::Named { name, args } if name == "EncodeStep" && args.len() == 1
     )
+}
+
+fn codec_mapping_value_type(module: &SurfaceModule, codec: &CodecDecl) -> Option<Type> {
+    let schema = codec_referenced_schema(module, codec)?;
+    let [mapping] = schema.mappings.as_slice() else {
+        return None;
+    };
+    let schema_fields = generated_schema_field_types(schema)?;
+    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
+    if !mapping_is_implemented_value_slice(&schema_fields, mapping, &target_fields) {
+        return None;
+    }
+    Some(Type::Record(target_fields))
+}
+
+fn mapping_is_implemented_value_slice(
+    schema_fields: &BTreeMap<String, Type>,
+    mapping: &SchemaMappingClause,
+    target_fields: &[(String, Type)],
+) -> bool {
+    let mut seen_targets = BTreeMap::<&str, ()>::new();
+    for assignment in &mapping.assignments {
+        if !schema_fields.contains_key(&assignment.source) {
+            return false;
+        }
+        if !target_fields
+            .iter()
+            .any(|(target_field, _)| target_field == &assignment.target)
+        {
+            return false;
+        }
+        if seen_targets
+            .insert(assignment.target.as_str(), ())
+            .is_some()
+        {
+            return false;
+        }
+    }
+
+    target_fields.iter().all(|(target_field, target_ty)| {
+        target_ty == &Type::int() && seen_targets.contains_key(target_field.as_str())
+    })
+}
+
+fn codec_referenced_schema<'a>(
+    module: &'a SurfaceModule,
+    codec: &CodecDecl,
+) -> Option<&'a SchemaDecl> {
+    let schema_name = codec.schema.as_ref()?;
+    let current_module = codec.module_name.as_deref();
+    let segments = schema_name
+        .split("::")
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    match segments.as_slice() {
+        [name] => module.schemas.iter().find(|schema| {
+            schema.name.as_deref() == Some(name.as_str())
+                && schema.module_name.as_deref() == current_module
+        }),
+        [_, .., name] => {
+            let use_decl = imported_use_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            )?;
+            let target_module = Some(use_decl.name.as_str());
+            module.schemas.iter().find(|schema| {
+                schema.name.as_deref() == Some(name.as_str())
+                    && schema.module_name.as_deref() == target_module
+                    && schema.visibility == Visibility::Public
+            })
+        }
+        _ => None,
+    }
+}
+
+fn types_match(expected: &Type, actual: &Type) -> bool {
+    actual != &Type::Unknown && is_assignable(expected, actual) && is_assignable(actual, expected)
 }
 
 fn parameter_types_text(function: &Function) -> String {
@@ -798,6 +940,126 @@ fn codec_encode_signature_diagnostic(
         ]));
     }
     diagnostic
+}
+
+fn codec_decode_value_type_diagnostic(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    function: &Function,
+    function_name: &str,
+    expected_value_type: &Type,
+    actual_value_type: &Type,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "codec.decode_value_type",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "decode function value type is `{}`, but schema mapping value type is `{}`",
+            actual_value_type.render(),
+            expected_value_type.render()
+        ),
+        Some(implementation.span.clone()),
+        codec_mapping_value_details(
+            implementation,
+            codec,
+            "decode",
+            function_name,
+            "return_value_type",
+            expected_value_type,
+            actual_value_type,
+        ),
+    );
+    diagnostic
+        .related
+        .push(codec_function_related(function, function_name));
+    diagnostic
+}
+
+fn codec_encode_value_type_diagnostic(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    function: &Function,
+    function_name: &str,
+    expected_value_type: &Type,
+    mismatch: EncodeValueTypeMismatch<'_>,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "codec.encode_value_type",
+        Severity::Error,
+        DiagnosticKind::Type,
+        mismatch.message,
+        Some(implementation.span.clone()),
+        codec_mapping_value_details(
+            implementation,
+            codec,
+            "encode",
+            function_name,
+            mismatch.reason,
+            expected_value_type,
+            mismatch.actual_value_type,
+        ),
+    );
+    diagnostic
+        .related
+        .push(codec_function_related(function, function_name));
+    diagnostic
+}
+
+struct EncodeValueTypeMismatch<'a> {
+    reason: &'static str,
+    message: &'static str,
+    actual_value_type: &'a Type,
+}
+
+fn codec_mapping_value_details(
+    implementation: &CodecImplementationClause,
+    codec: &CodecDecl,
+    direction: &'static str,
+    function_name: &str,
+    reason: &'static str,
+    expected_value_type: &Type,
+    actual_value_type: &Type,
+) -> JsonValue {
+    JsonValue::object([
+        ("phase", JsonValue::string("codec")),
+        (
+            "node_id",
+            JsonValue::string(implementation.node_id.display("codec-impl")),
+        ),
+        (
+            "codec",
+            JsonValue::string(codec.name.as_deref().unwrap_or("<missing>")),
+        ),
+        ("direction", JsonValue::string(direction)),
+        ("function", JsonValue::string(function_name.to_string())),
+        ("reason", JsonValue::string(reason)),
+        (
+            "schema",
+            JsonValue::string(codec.schema.as_deref().unwrap_or("<missing>")),
+        ),
+        (
+            "expected_value_type",
+            JsonValue::string(expected_value_type.render()),
+        ),
+        (
+            "actual_value_type",
+            JsonValue::string(actual_value_type.render()),
+        ),
+    ])
+}
+
+fn codec_function_related(function: &Function, function_name: &str) -> JsonValue {
+    JsonValue::object([
+        ("kind", JsonValue::string("function_signature")),
+        (
+            "message",
+            JsonValue::string(format!(
+                "Referenced function `{function_name}` is declared here."
+            )),
+        ),
+        ("span", span_json(&function.span)),
+    ])
 }
 
 pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {

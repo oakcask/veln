@@ -32,8 +32,9 @@ compare it with `../specification/` before changing behavior.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,
-  encode function return boundary, source-visible decode and encode result
-  vocabulary, and generated exact-width binary schema decode-step helper slice.
+  mapped decode value boundary, encode function return and mapped value
+  parameter boundaries, source-visible decode and encode result vocabulary,
+  and generated exact-width binary schema decode-step helper slice.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
