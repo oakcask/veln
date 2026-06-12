@@ -66,6 +66,13 @@ execution reference.
   count required before retrying and consume no bytes. Closed-input
   `byte_decode_<schema>` truncation diagnostics remain on the existing
   `Result` helper path.
+- A codec declaration with a valid hand-written `decode with function_name`
+  clause exposes the codec item name as the executable decode boundary for
+  ordinary source calls. The call accepts a bounded `ByteView` and explicit
+  base `ByteOffset`, invokes the referenced same-module function, and returns
+  its `DecodeStep<T>` unchanged. Same-module private codecs are callable only
+  in their declaring module; imported calls require a written qualified module
+  path to a `pub codec`.
 - The frame decode helper reuses the frame-header validation and adds a
   bounded `payload: ByteView` over the same bytes. The payload starts after
   the nine-byte frame header and uses the decoded `length` as its count. If

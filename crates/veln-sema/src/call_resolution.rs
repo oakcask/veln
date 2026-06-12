@@ -97,6 +97,7 @@ fn type_name_path_call_signature(
         BindingCallSignature::ShadowedNonCallable => None,
         BindingCallSignature::Missing => {
             function_type_call_signature(segments, environment, current_module)
+                .or_else(|| codec_type_call_signature(segments, environment, current_module))
         }
     }
 }
@@ -219,6 +220,7 @@ fn core_name_path_call_signature(
         BindingCallSignature::Missing => {}
     }
     core_function_call_signature(segments, expected, environment, current_module)
+        .or_else(|| core_codec_call_signature(segments, environment, current_module))
 }
 
 fn qualified_core_prelude_call_signature(
@@ -357,6 +359,50 @@ fn resolve_function<'a>(
             .found(),
         _ => environment.function_path(segments, current_module),
     }
+}
+
+fn codec_type_call_signature(
+    segments: &[String],
+    environment: &TypeEnvironment,
+    current_module: Option<&str>,
+) -> Option<TypeCallSignature> {
+    let (codec, symbol) = match segments {
+        [name] => (
+            environment.unqualified_codec_decode(name, current_module),
+            name.clone(),
+        ),
+        _ => (
+            environment.codec_decode_path(segments, current_module),
+            segments.join("::"),
+        ),
+    };
+    let codec = codec?;
+    Some(TypeCallSignature {
+        params: codec.params.clone(),
+        return_type: codec.return_type.clone(),
+        origin: CallOrigin {
+            node_id: codec.node_id,
+            span: codec.span.clone(),
+            symbol,
+            effects: codec.effects.clone(),
+        },
+    })
+}
+
+fn core_codec_call_signature(
+    segments: &[String],
+    environment: &TypeEnvironment,
+    current_module: Option<&str>,
+) -> Option<CoreCallSignature> {
+    let codec = match segments {
+        [name] => environment.unqualified_codec_decode(name, current_module),
+        _ => environment.codec_decode_path(segments, current_module),
+    }?;
+    Some(CoreCallSignature {
+        target: CoreCallTarget::Function(codec.target_name.clone()),
+        params: codec.params.iter().map(core_type).collect(),
+        return_type: core_type(&codec.return_type),
+    })
 }
 
 fn type_applied_name_path(callee: &Expr) -> Option<(&[String], &[String])> {

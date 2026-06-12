@@ -97,6 +97,12 @@ The executable specification case
 generated schema-derived decode-step helper: complete buffered input returns
 `Decoded` with the exact consumed count, and short open input returns
 `NeedMore(NeedBytes(...))` without consuming bytes.
+The executable specification case
+`../../examples/specification/run/codec-decode-boundary/` covers a
+hand-written codec decode boundary: a codec item call passes `ByteView` and
+`ByteOffset` to the referenced decoder and observes its returned `Decoded`,
+`NeedMore`, and `Invalid` `DecodeStep<T>` values unchanged while the schema
+mapping pins the accepted value type.
 
 ## Codec Encode Step Vocabulary
 

@@ -85,7 +85,9 @@ importing module's qualified path. Imported private schemas report
 `name.unresolved`; ordinary functions, source ADT types, and codec items at
 the referenced path report `name.kind_mismatch` instead of being treated as
 schemas. Importing or referencing a schema does not import schema-local field
-names, create ordinary type bindings, or expose executable codec APIs.
+names or create ordinary type bindings. Executable codec item calls are
+provided only by valid hand-written codec implementations, not by schema
+references themselves.
 
 A `decode with function_name` clause must resolve to an ordinary function in
 the codec's module with exactly `ByteView` and `ByteOffset` parameters and a
@@ -94,7 +96,12 @@ the codec's module with exactly `ByteView` and `ByteOffset` parameters and a
 context pointing to the referenced function when it is available. When the
 referenced schema has one implemented structural mapping, the `T` value type
 must match the mapping target record shape; mismatches report
-`codec.decode_value_type` at the codec implementation clause.
+`codec.decode_value_type` at the codec implementation clause. A codec with a
+hand-written `decode with` clause is callable through the codec item name in
+its declaring module, or through a written import-qualified module path when
+the codec is `pub`. That call takes the same `ByteView` and `ByteOffset`
+arguments and returns the referenced function's `DecodeStep<T>` unchanged.
+Bare imported codec names are not ordinary call targets.
 
 An `encode with function_name` clause must resolve to an ordinary function in
 the codec's module with an `EncodeStep<TState>` return type. When the
@@ -103,9 +110,8 @@ parameter must match the mapping target record shape. Invalid encode
 signatures report `codec.encode_signature`; mapped value parameter mismatches
 report `codec.encode_value_type` at the codec implementation clause, with
 related context pointing to the referenced function when it is available.
-Codec declaration execution, codec-generated decode or encode functions,
-`derive decode`, derived encode execution, and executable encode operations
-are not implemented. Generated
+Codec-generated decode functions, `derive decode`, derived encode execution,
+and executable encode operations are not implemented. Generated
 `byte_decode_<schema>` helpers for the eligible binary schema slice and their
 `byte_decode_step_<schema>` incremental decode-step counterparts are covered
 by [execution.md](execution.md).
