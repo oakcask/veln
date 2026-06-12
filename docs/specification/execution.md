@@ -63,13 +63,27 @@ execution reference.
   `examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
   and
   `examples/specification/run/binary-schema-closed-dispatch-unknown-human/`.
+- The narrow binary schema extension dispatch slice decodes
+  `ExtensionDispatch(tag_field, length_field, tag => Primitive, ...)` fields
+  after both referenced fields have been decoded by earlier exact-width fields
+  in the same schema. Known cases consume the selected exact-width unsigned
+  payload primitive and expose it as `SchemaDispatchPayload::Known(Int)`.
+  Unknown cases do not report `schema.dispatch_unknown_tag`; they expose
+  `SchemaDispatchPayload::Unknown(tag, payload)` where `payload` is a bounded
+  `ByteView` over exactly the byte count decoded from `length_field`. If the
+  closed input cannot provide that bounded payload, the helper reports
+  `schema.length_out_of_bounds` at the first missing payload byte. The checked
+  examples are
+  `examples/specification/run/binary-schema-extension-dispatch-decode/`,
+  `examples/specification/run/binary-schema-extension-dispatch-unknown/`, and
+  `examples/specification/run/binary-schema-extension-dispatch-length-human/`.
 - When an eligible generated binary schema decode helper has one structural
   `map to Target` clause and the target resolves to a single record-shaped
-  source type whose mapped fields are `Int`, the helper returns the mapped
-  ordinary record shape instead of the schema-local field shape. Mapping
-  assignment sources must name decoded schema fields. Mapping assignment
-  targets must name target fields, every target field must be assigned once,
-  and non-`Int` target fields are rejected before execution.
+  source type whose mapped fields match the schema-local decoded field types,
+  the helper returns the mapped ordinary record shape instead of the
+  schema-local field shape. Mapping assignment sources must name decoded
+  schema fields. Mapping assignment targets must name target fields, and every
+  target field must be assigned once before execution.
 - Eligible generated binary schema decode-step helpers named
   `byte_decode_step_<schema>` accept a bounded `ByteView` and explicit base
   `ByteOffset`. When the view has at least the schema's exact-width byte

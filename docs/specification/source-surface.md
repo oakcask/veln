@@ -52,8 +52,13 @@ schemas, `UInt8`, `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`, and
 non-negative integers. The narrow closed tag-dispatch field type
 `Dispatch(tag_field, tag => Primitive, ...)` is accepted when `tag_field`
 names a previously decoded schema field and each case primitive is one of the
-implemented exact-width unsigned binary primitives. These primitive names are
-representation-local field vocabulary, not ordinary source types or values.
+implemented exact-width unsigned binary primitives. The extension-tolerant
+field type `ExtensionDispatch(tag_field, length_field, tag => Primitive, ...)`
+is accepted when both referenced fields were decoded earlier in the same
+schema. Its known cases use the same implemented exact-width unsigned binary
+primitive vocabulary, and its unknown cases preserve a bounded raw payload
+selected by `length_field`. These primitive names are representation-local
+field vocabulary, not ordinary source types or values.
 A schema may end with
 structural `map to Target` clauses whose assignment lines use
 `target_field = schema_field` to map schema-local fields into an ordinary
@@ -61,11 +66,12 @@ source value shape. Mapping clauses are parsed, formatted, lowered, exposed to
 editor support, and used by the generated decode slice described in
 [execution.md](execution.md) when the schema has a single structural mapping
 and all decoded fields use the implemented exact-width unsigned primitive or
-closed dispatch slice. The predicate, primitive, dispatch, and mapping text
-are parsed and preserved as source-surface syntax. General schema decode,
-general schema encode beyond the exact-width primitive helper slice,
-extension-tolerant dispatch, ADT constructor mapping, nested record mapping,
-and multiple mapping selection are not implemented.
+closed or extension-tolerant dispatch slice. The predicate, primitive,
+dispatch, and mapping text are parsed and preserved as source-surface syntax.
+General schema decode, general schema encode beyond the exact-width primitive
+helper slice, general ADT constructor mapping beyond the extension dispatch
+payload wrapper, nested record mapping, and multiple mapping selection are not
+implemented.
 Eligible binary schemas whose fields are only visible exact-width unsigned
 primitives also expose generated `byte_encode_<schema>` helpers described in
 [execution.md](execution.md); schema mappings, field-local validation,

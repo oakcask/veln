@@ -1291,7 +1291,8 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
             let target_field_types = target_fields.into_iter().collect::<BTreeMap<_, _>>();
             let mut assigned_targets = BTreeMap::<String, SourceSpan>::new();
             for assignment in &mapping.assignments {
-                if !schema_fields.contains_key(&assignment.source) {
+                let source_ty = schema_fields.get(&assignment.source);
+                if source_ty.is_none() {
                     diagnostics.push(schema_mapping_source_diagnostic(schema, assignment));
                 }
                 let Some(target_ty) = target_field_types.get(&assignment.target) else {
@@ -1300,9 +1301,11 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
                     ));
                     continue;
                 };
-                if target_ty != &Type::int() {
+                if let Some(source_ty) = source_ty
+                    && target_ty != source_ty
+                {
                     diagnostics.push(schema_mapping_type_diagnostic(
-                        schema, mapping, assignment, target_ty,
+                        schema, mapping, assignment, target_ty, source_ty,
                     ));
                 }
                 if let Some(first_span) =
@@ -1337,13 +1340,26 @@ fn generated_schema_field_types(schema: &SchemaDecl) -> Option<BTreeMap<String, 
     }
     let mut decoded_fields = BTreeMap::new();
     for field in &schema.fields {
-        if exact_width_binary_primitive_name(&field.ty).is_none() {
-            let dispatch = closed_dispatch_schema_primitive(&field.ty)?;
-            if !decoded_fields.contains_key(&dispatch.tag_field) {
+        let field_ty = if exact_width_binary_primitive_name(&field.ty).is_some() {
+            Type::int()
+        } else {
+            let dispatch = closed_dispatch_schema_primitive(&field.ty)
+                .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
+            if !decoded_fields.contains_key(&dispatch.tag_field)
+                || dispatch
+                    .length_field
+                    .as_ref()
+                    .is_some_and(|length_field| !decoded_fields.contains_key(length_field))
+            {
                 return None;
             }
-        }
-        decoded_fields.insert(field.name.clone(), Type::int());
+            if dispatch.length_field.is_some() {
+                Type::named("SchemaDispatchPayload", vec![Type::int()])
+            } else {
+                Type::int()
+            }
+        };
+        decoded_fields.insert(field.name.clone(), field_ty);
     }
     Some(decoded_fields)
 }
@@ -1427,16 +1443,18 @@ fn schema_mapping_type_diagnostic(
     mapping: &SchemaMappingClause,
     assignment: &SchemaMappingAssignment,
     target_ty: &Type,
+    source_ty: &Type,
 ) -> Diagnostic {
     Diagnostic::new(
         "schema.mapping_type",
         Severity::Error,
         DiagnosticKind::Type,
         format!(
-            "schema mapping target field `{}` expects `{}`, but source field `{}` decodes as `Int`",
+            "schema mapping target field `{}` expects `{}`, but source field `{}` decodes as `{}`",
             assignment.target,
             target_ty.render(),
-            assignment.source
+            assignment.source,
+            source_ty.render()
         ),
         Some(assignment.span.clone()),
         schema_mapping_assignment_details(
@@ -1450,7 +1468,7 @@ fn schema_mapping_type_diagnostic(
                     JsonValue::string(mapping.target.clone().unwrap_or_default()),
                 ),
                 ("expected", JsonValue::string(target_ty.render())),
-                ("actual", JsonValue::string("Int")),
+                ("actual", JsonValue::string(source_ty.render())),
             ],
         ),
     )

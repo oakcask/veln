@@ -1,0 +1,47 @@
+# Binary schema extension dispatch preserves an unknown payload.
+use stdio
+
+schema ExtensionDispatchPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => UInt16be, 2 => UInt32be)
+end
+
+fn emit_payload(payload: SchemaDispatchPayload<Int>) -> Result<(), String> effects [stdio]
+	match payload
+		Known(value) => emit_known(value)
+		Unknown(tag, raw) => emit_unknown(tag, raw)
+	end
+end
+
+fn emit_known(value: Int) -> Result<(), String> effects [stdio]
+	stdio::println(int_to_string(value))
+	Ok(())
+end
+
+fn emit_unknown(tag: Int, raw: ByteView) -> Result<(), String> effects [stdio]
+	let chunk: ByteChunk = byte_view_to_chunk(raw)
+	stdio::print("unknown ")
+	stdio::print(int_to_string(tag))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_read_u8_be(raw)?))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("0307aabbcc")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(5)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<Int>} = byte_decode_extension_dispatch_packet(view)?
+	stdio::print(int_to_string(packet.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.kind))
+	stdio::print(" ")
+	emit_payload(packet.payload)
+	Ok(())
+end

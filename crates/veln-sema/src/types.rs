@@ -616,14 +616,25 @@ fn schema_decode_record_fields(schema: &SchemaDecl) -> Option<Vec<(String, Type,
         let width = if let Some(width) = exact_width_schema_primitive(&field.ty) {
             width
         } else {
-            let dispatch = closed_dispatch_schema_primitive(&field.ty)?;
-            if !decoded_fields.contains(&dispatch.tag_field) {
+            let dispatch = closed_dispatch_schema_primitive(&field.ty)
+                .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
+            if !decoded_fields.contains(&dispatch.tag_field)
+                || dispatch
+                    .length_field
+                    .as_ref()
+                    .is_some_and(|length_field| !decoded_fields.contains(length_field))
+            {
                 return None;
             }
             0
         };
         decoded_fields.insert(field.name.clone());
-        fields.push((field.name.clone(), Type::int(), width));
+        let ty = if extension_dispatch_schema_primitive(&field.ty).is_some() {
+            Type::named("SchemaDispatchPayload", vec![Type::int()])
+        } else {
+            Type::int()
+        };
+        fields.push((field.name.clone(), ty, width));
     }
     Some(fields)
 }
@@ -787,6 +798,7 @@ pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SchemaDispatchSpec {
     pub(crate) tag_field: String,
+    pub(crate) length_field: Option<String>,
     pub(crate) cases: Vec<SchemaDispatchCase>,
 }
 
@@ -797,16 +809,7 @@ pub(crate) struct SchemaDispatchCase {
 }
 
 pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatchSpec> {
-    let rest = ty.trim().strip_prefix("Dispatch")?;
-    if rest
-        .chars()
-        .next()
-        .is_some_and(|ch| ch.is_ascii_alphanumeric() || ch == '_')
-    {
-        return None;
-    }
-    let rest = rest.trim();
-    let inner = rest.strip_prefix('(')?.strip_suffix(')')?;
+    let inner = schema_call_inner(ty, "Dispatch")?;
     let mut args = inner
         .split(',')
         .map(str::trim)
@@ -826,7 +829,53 @@ pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatc
     if cases.is_empty() {
         return None;
     }
-    Some(SchemaDispatchSpec { tag_field, cases })
+    Some(SchemaDispatchSpec {
+        tag_field,
+        length_field: None,
+        cases,
+    })
+}
+
+pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatchSpec> {
+    let inner = schema_call_inner(ty, "ExtensionDispatch")?;
+    let mut args = inner
+        .split(',')
+        .map(str::trim)
+        .filter(|arg| !arg.is_empty());
+    let tag_field = args.next()?.to_string();
+    let length_field = args.next()?.to_string();
+    if !is_schema_identifier(&tag_field) || !is_schema_identifier(&length_field) {
+        return None;
+    }
+    let cases = args
+        .map(|arg| {
+            let (tag, primitive) = arg.split_once("=>")?;
+            let tag = parse_schema_tag(tag.trim())?;
+            let width = exact_width_schema_primitive(primitive.trim())?;
+            Some(SchemaDispatchCase { tag, width })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    if cases.is_empty() {
+        return None;
+    }
+    Some(SchemaDispatchSpec {
+        tag_field,
+        length_field: Some(length_field),
+        cases,
+    })
+}
+
+fn schema_call_inner<'a>(ty: &'a str, name: &str) -> Option<&'a str> {
+    let rest = ty.trim().strip_prefix(name)?;
+    if rest
+        .chars()
+        .next()
+        .is_some_and(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    {
+        return None;
+    }
+    let rest = rest.trim();
+    rest.strip_prefix('(')?.strip_suffix(')')
 }
 
 fn parse_schema_tag(text: &str) -> Option<i64> {

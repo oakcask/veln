@@ -699,6 +699,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_field_widths(code, schema);
         self.emit_schema_field_predicates(code, schema);
         self.emit_schema_dispatch_tag_fields(code, schema);
+        self.emit_schema_dispatch_length_fields(code, schema);
         self.emit_schema_dispatch_case_tags(code, schema);
         self.emit_schema_dispatch_case_widths(code, schema);
         self.emit_schema_mapping_targets(code, schema);
@@ -706,7 +707,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeDeclaredBinarySchema",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 
@@ -728,6 +729,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_field_widths(code, schema);
         self.emit_schema_field_predicates(code, schema);
         self.emit_schema_dispatch_tag_fields(code, schema);
+        self.emit_schema_dispatch_length_fields(code, schema);
         self.emit_schema_dispatch_case_tags(code, schema);
         self.emit_schema_dispatch_case_widths(code, schema);
         self.emit_schema_mapping_targets(code, schema);
@@ -735,7 +737,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeStepDeclaredBinarySchema",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 
@@ -848,6 +850,27 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 &this.program.options.runtime_class,
                 "list",
                 "([Ljava/lang/Object;)Ljava/util/List;",
+            );
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_dispatch_length_fields(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+    ) {
+        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
+            code.ldc_string(
+                schema.fields[index]
+                    .dispatch
+                    .as_ref()
+                    .and_then(|dispatch| dispatch.length_field.as_deref())
+                    .unwrap_or(""),
             );
         });
         code.invokestatic(
