@@ -84,10 +84,13 @@ responsible for protocol meaning.
 The implemented narrow executable slices already make `UInt8`, `UInt16be`,
 `UInt24be`, `UInt31be`, and `UInt32be` consume fixed-width unsigned
 big-endian fields and return ordinary `Int` values for visible fields.
-General schema-owned decode, encode, dispatch, and mapping remain proposal
-work. A `UInt31be` field represents the 31-bit unsigned value in a big-endian
-field position whose remaining bit is handled as a reserved or fixed schema
-bit. The 31-bit value should not become a general-purpose source type.
+The implemented exact-width primitive encode helper slice emits those visible
+ordinary `Int` fields as big-endian `ByteChunk` output and reports structured
+`EncodeError` range failures. General schema-owned decode, encode, dispatch,
+and mapping beyond the implemented slices remain proposal work. A `UInt31be`
+field represents the 31-bit unsigned value in a big-endian field position
+whose remaining bit is handled as a reserved or fixed schema bit. The 31-bit
+value should not become a general-purpose source type.
 
 ## Discussion Result: Reserved Bit Spelling
 
@@ -211,8 +214,9 @@ author likely referred to an earlier field with a compatible role.
 ## Remaining Completion Criteria
 
 - Executable examples show binary schema writes and general schema-owned
-  fixed-width reads beyond the implemented frame-header, width-sample, and
-  HTTP/2 payload boundary helper and narrow closed-dispatch slices.
+  fixed-width reads beyond the implemented frame-header, width-sample,
+  primitive encode helper, HTTP/2 payload boundary helper, and narrow
+  closed-dispatch slices.
 - Examples show extension-tolerant unknown tag preservation.
 - Invalid fixed fields in general schema decode produce structured
   diagnostics beyond the implemented frame-header truncation and reserved-bit

@@ -28,8 +28,8 @@ compare it with `../specification/` before changing behavior.
   define remaining binary schema primitive and dispatch behavior beyond the
   implemented source-surface exact-width and `ReservedBits(width, value)`
   declaration slices, the frame-header and width-sample primitive decode
-  slices, the narrow HTTP/2 payload boundary helper, and the narrow closed
-  dispatch failure slice.
+  slices, the exact-width primitive encode helper slice, the narrow HTTP/2
+  payload boundary helper, and the narrow closed dispatch failure slice.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

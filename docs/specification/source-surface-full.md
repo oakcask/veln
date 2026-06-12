@@ -125,10 +125,13 @@ constructor mapping, nested record construction, multiple mapping selection,
 and encode-side mapping are not implemented.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
-schema for diagnostics and editor support. General schema encode execution and
-schema decode outside the narrow generated binary helper slices are not
-implemented. The narrow primitive, field-local validation, and mapped-record
-decode slices are routed from `execution.md`. Field names must be ordinary
+schema for diagnostics and editor support. Eligible binary schemas whose
+fields are only visible exact-width unsigned primitives expose generated
+`byte_encode_<schema>` helpers routed from `execution.md`. General schema
+encode execution beyond that primitive helper slice and schema decode outside
+the narrow generated binary helper slices are not implemented. The narrow
+primitive, field-local validation, mapped-record decode, and primitive encode
+slices are routed from `execution.md`. Field names must be ordinary
 identifiers; names beginning with `_` remain hole tokens and are rejected as
 schema field names. Schema declarations do not create ordinary value bindings,
 ordinary source ADT types, constructors, or general executable decode or encode

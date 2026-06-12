@@ -175,7 +175,18 @@ function with that function's parameters and returns its
 target record shape. Same-module private encode codecs are callable only
 inside their declaring module; imported calls require a written qualified
 module path to a `pub codec`. Derived encode execution and general generated
-encode helpers remain unimplemented.
+encode helpers beyond the exact-width primitive slice remain unimplemented.
+
+Eligible generated binary schema encode helpers named
+`byte_encode_<schema>` accept one record whose fields match the schema-local
+visible exact-width unsigned primitive fields as ordinary `Int` values. The
+helper writes fields in declaration order into one immutable big-endian
+`ByteChunk` and returns `Result<ByteChunk, EncodeError>`. Values outside the
+primitive range return `Err(EncodeError("codec.out_of_range", field_path,
+reason))`; `UInt31be` uses the 31-bit maximum even though it occupies four
+bytes. This slice excludes schema mappings, field-local validation, dispatch
+fields, reserved or fixed fields, nested mappings, and derived codec encode
+execution.
 
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header

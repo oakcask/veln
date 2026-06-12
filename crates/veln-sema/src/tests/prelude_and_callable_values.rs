@@ -85,6 +85,65 @@ fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_for_exact_width_binary_schemas() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema WritePacket\n",
+            "  format binary\n",
+            "\n",
+            "  short_value: UInt16be\n",
+            "  stream_id: UInt31be\n",
+            "  wide_value: UInt32be\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {short_value: Int, stream_id: Int, wide_value: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_write_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "WritePacket"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "WritePacket");
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width, field.max_value))
+            .collect::<Vec<_>>(),
+        vec![
+            ("short_value", 2, 0xffff),
+            ("stream_id", 4, 0x7fffffff),
+            ("wide_value", 4, 0xffffffff),
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_return_mapped_record_shape() {
     let source = SourceFile::new(
         "main.veln",

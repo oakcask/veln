@@ -79,6 +79,18 @@ execution reference.
   count required before retrying and consume no bytes. Closed-input
   `byte_decode_<schema>` truncation diagnostics remain on the existing
   `Result` helper path.
+- Eligible generated binary schema encode helpers named
+  `byte_encode_<schema>` accept one record whose fields match the schema-local
+  visible exact-width unsigned primitive fields as ordinary `Int` values. The
+  helper writes fields in declaration order into one immutable big-endian
+  `ByteChunk` and returns `Result<ByteChunk, EncodeError>`. Values outside the
+  primitive range return `Err(EncodeError("codec.out_of_range", field_path,
+  reason))`; `UInt31be` uses the 31-bit maximum even though it occupies four
+  bytes. This slice excludes schema mappings, field-local validation,
+  dispatch fields, reserved or fixed fields, nested mappings, and derived
+  codec encode execution. The checked examples are
+  `examples/specification/run/binary-schema-primitive-encode/` and
+  `examples/specification/run/binary-schema-primitive-encode-out-of-range/`.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls. The call

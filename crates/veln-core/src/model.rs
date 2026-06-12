@@ -134,6 +134,7 @@ pub enum CoreCallTarget {
     Function(String),
     SchemaDecode(String),
     SchemaDecodeStep(String),
+    SchemaEncode(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),

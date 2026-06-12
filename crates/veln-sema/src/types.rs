@@ -46,6 +46,7 @@ pub(crate) struct CodecCallSignature {
 
 pub(crate) const SCHEMA_DECODE_TARGET_PREFIX: &str = "schema-decode:";
 pub(crate) const SCHEMA_DECODE_STEP_TARGET_PREFIX: &str = "schema-decode-step:";
+pub(crate) const SCHEMA_ENCODE_TARGET_PREFIX: &str = "schema-encode:";
 
 pub(crate) enum FunctionLookup<'a> {
     Found(&'a FunctionSignature),
@@ -295,6 +296,7 @@ impl TypeEnvironment {
             })
             .collect::<Vec<_>>();
         functions.extend(schema_decode_function_signatures(module));
+        functions.extend(schema_encode_function_signatures(module));
         infer_function_body_effects(module, &mut functions);
         let codec_calls = codec_call_signatures(module, &functions);
         let aliases = function_alias_signatures(module, &functions);
@@ -626,6 +628,45 @@ fn schema_decode_record_fields(schema: &SchemaDecl) -> Option<Vec<(String, Type,
     Some(fields)
 }
 
+fn schema_encode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {
+    module
+        .schemas
+        .iter()
+        .filter_map(|schema| schema_encode_function_signature_for_schema(schema))
+        .collect()
+}
+
+fn schema_encode_function_signature_for_schema(schema: &SchemaDecl) -> Option<FunctionSignature> {
+    let schema_name = schema.name.as_ref()?;
+    if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
+        return None;
+    }
+    if !schema.mappings.is_empty() {
+        return None;
+    }
+    let mut fields = Vec::new();
+    for field in &schema.fields {
+        if field.where_clause.is_some() {
+            return None;
+        }
+        exact_width_schema_primitive(&field.ty)?;
+        fields.push((field.name.clone(), Type::int()));
+    }
+    let byte_chunk = Type::named("ByteChunk", Vec::new());
+    let encode_error = Type::named("EncodeError", Vec::new());
+    Some(FunctionSignature {
+        name: schema_encode_function_name(schema_name),
+        target_name: format!("{SCHEMA_ENCODE_TARGET_PREFIX}{schema_name}"),
+        module_name: schema.module_name.clone(),
+        visibility: schema.visibility,
+        params: vec![Type::Record(fields)],
+        return_type: Type::named("Result", vec![byte_chunk, encode_error]),
+        effects: Vec::new(),
+        node_id: schema.node_id,
+        span: schema.span.clone(),
+    })
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SchemaDecodeMappingField {
     pub(crate) target: String,
@@ -718,12 +759,27 @@ pub(crate) fn schema_decode_step_function_name(schema_name: &str) -> String {
     format!("byte_decode_step_{}", snake_case_identifier(schema_name))
 }
 
+pub(crate) fn schema_encode_function_name(schema_name: &str) -> String {
+    format!("byte_encode_{}", snake_case_identifier(schema_name))
+}
+
 pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
     match ty.trim() {
         "UInt8" => Some(1),
         "UInt16be" => Some(2),
         "UInt24be" => Some(3),
         "UInt31be" | "UInt32be" => Some(4),
+        _ => None,
+    }
+}
+
+pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
+    match ty.trim() {
+        "UInt8" => Some(0xff),
+        "UInt16be" => Some(0xffff),
+        "UInt24be" => Some(0xffffff),
+        "UInt31be" => Some(0x7fffffff),
+        "UInt32be" => Some(0xffffffff),
         _ => None,
     }
 }

@@ -27,9 +27,12 @@ compiler-known calls.
   decode helper. Generated binary schema decode helpers return schema-local
   `Int` record fields unless the eligible single structural `map to Target`
   slice resolves a mapped `Int` record shape; generated decode-step helpers
-  expose the same value shape through `DecodeStep<T>` for open input. HTTP/2
-  frame-header decoding, bounded payload frame decoding, and protocol
-  diagnostic projection helpers are listed with those signatures:
+  expose the same value shape through `DecodeStep<T>` for open input.
+  Generated binary schema encode helpers for the exact-width primitive slice
+  accept schema-local `Int` record fields and return
+  `Result<ByteChunk, EncodeError>`. HTTP/2 frame-header decoding, bounded
+  payload frame decoding, and protocol diagnostic projection helpers are
+  listed with those signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).
 - Descriptor-backed standard symbols, source metadata, and the
