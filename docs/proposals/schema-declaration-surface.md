@@ -10,10 +10,11 @@ checked examples under `../../examples/specification/`.
 ## Problem
 
 Current source syntax has a first top-level `schema` declaration slice with a
-single `format binary` clause, field declarations, and field-local `where`
-predicate syntax, plus a narrow executable field-local validation helper. It
-does not yet have general runtime schema validation for arbitrary schemas,
-mapping, complete binary primitive semantics, or executable codec bindings.
+single `format binary` clause, field declarations, field-local `where`
+predicate syntax, structural `map to Target` mapping clauses, and a narrow
+executable field-local validation helper. It does not yet have general runtime
+schema validation for arbitrary schemas, runtime mapping, complete binary
+primitive semantics, or executable codec bindings.
 
 The HTTP/2 design driver needs a declaration that can say:
 
@@ -41,6 +42,9 @@ The implemented first slice covers:
 - schema visibility and module ownership rules for `schema` and `pub schema`
 - schema references from codec declaration heads, including same-module bare
   references and imported public schema references through written `use` paths
+- structural schema value mapping clauses with explicit `map to Target`
+  headers and `target_field = schema_field` assignments preserved by the
+  parser, formatter, lowered AST, and editor token metadata
 - the first narrow executable field-local validation slice for
   `SchemaValidationSample`, where `padding_length <= length` is checked during
   binary schema decode after `padding_length` is decoded
@@ -51,7 +55,9 @@ This proposal remains open for:
 
 - general runtime evaluation of field-local validation clauses for arbitrary
   schema declarations
-- mapping from schema fields to Veln values
+- runtime mapping from schema fields to Veln values, including target-field
+  resolution, type checking, generated record construction, and ADT
+  constructor payload construction
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition, fixture, and
@@ -78,19 +84,24 @@ schema body.
 
 ## Discussion Result: Schema Value Mapping
 
-Schema field values should map into independently declared source records and
-ADTs through an explicit mapping clause. A schema does not implicitly publish a
-record type just because it names fields, and importing a schema does not make
-its schema-local field names available as ordinary source bindings.
+The structural mapping clause syntax is implemented as current behavior under
+`../specification/source-surface.md`. A schema may preserve explicit
+`map to Target` clauses that assign schema-local fields to target fields, but
+this source-surface slice does not resolve the target shape or construct a
+decoded value.
 
-The mapping clause should name the target value shape and assign schema-local
-fields to the target's record fields or ADT constructor payload fields. Fields
-marked representation-only by the selected schema vocabulary are omitted from
-the produced value unless the mapping explicitly includes them. This keeps
-reserved bits and other representation-only facts available for validation and
-diagnostics without turning them into protocol-domain data by accident.
-Schema-local field names follow ordinary Veln binding-name syntax; names
-beginning with `_` remain holes and are not valid field declarations.
+The remaining runtime mapping work is to map schema field values into
+independently declared source records and ADTs. A schema does not implicitly
+publish a record type just because it names fields, and importing a schema does
+not make its schema-local field names available as ordinary source bindings.
+
+The runtime checker should resolve the target value shape and assign
+schema-local fields to the target's record fields or ADT constructor payload
+fields. Fields marked representation-only by the selected schema vocabulary are
+omitted from the produced value unless the mapping explicitly includes them.
+This keeps reserved bits and other representation-only facts available for
+validation and diagnostics without turning them into protocol-domain data by
+accident.
 
 Mapping is checked after schema field validation and before the decoded value
 is returned by a codec. The checker should resolve target record fields and ADT
@@ -253,11 +264,16 @@ Implemented:
   `SchemaValidationSample` and reports `schema.validation_failed` with byte
   offset, field path, predicate text, decoded values, and structured byte
   preview fields.
+- Structural schema value mapping clauses are accepted, formatted, lowered, and
+  exposed to editor token metadata without enabling generated codec execution.
 
 Remaining:
 
 - General schema validation diagnostics distinguish malformed schema syntax
   from failed schema validation for arbitrary schema declarations.
+- Runtime schema value mapping resolves target fields or ADT constructors,
+  rejects missing target fields, type-checks assigned values, and constructs
+  decoded values from generated codecs.
 - Field-local `where` predicates are evaluated during general schema decode.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

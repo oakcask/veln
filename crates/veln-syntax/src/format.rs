@@ -1,7 +1,8 @@
 use crate::{
     BinaryOp, BodyLine, CodecDecl, CodecImplementationKind, ContractKind, Expr, ExprKind,
-    FunctionDecl, FunctionKind, Pattern, PatternKind, PrefixOp, SchemaDecl, SyntaxItem, SyntaxTree,
-    TokenKind, TypeDecl, TypeVariantDecl, TypeVariantFieldDelimiter, Visibility,
+    FunctionDecl, FunctionKind, Pattern, PatternKind, PrefixOp, SchemaDecl, SchemaMappingClause,
+    SyntaxItem, SyntaxTree, TokenKind, TypeDecl, TypeVariantDecl, TypeVariantFieldDelimiter,
+    Visibility,
 };
 
 pub fn format_tree(tree: &SyntaxTree) -> String {
@@ -138,6 +139,13 @@ fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &Schema
         push_source_line(out, comments, field.span.start.line, 1, line);
     }
 
+    if !schema.mappings.is_empty() && !schema.fields.is_empty() {
+        out.push('\n');
+    }
+    for mapping in &schema.mappings {
+        format_schema_mapping(out, comments, mapping);
+    }
+
     push_source_line(
         out,
         comments,
@@ -145,6 +153,28 @@ fn format_schema_decl(out: &mut String, comments: &LineComments, schema: &Schema
         0,
         String::from("end"),
     );
+}
+
+fn format_schema_mapping(out: &mut String, comments: &LineComments, mapping: &SchemaMappingClause) {
+    push_source_line(
+        out,
+        comments,
+        mapping.span.start.line,
+        1,
+        format!(
+            "map to {}",
+            mapping.target.as_deref().unwrap_or("<missing>")
+        ),
+    );
+    for assignment in &mapping.assignments {
+        push_source_line(
+            out,
+            comments,
+            assignment.span.start.line,
+            2,
+            format!("{} = {}", assignment.target, assignment.source),
+        );
+    }
 }
 
 fn format_alias(alias: &crate::PublicAliasDecl) -> String {
@@ -249,12 +279,22 @@ fn schema_end_line(schema: &SchemaDecl) -> usize {
 }
 
 fn schema_body_end_line(schema: &SchemaDecl) -> usize {
-    schema
+    let field_end = schema
         .fields
         .last()
         .map(|field| field.span.end.line)
-        .or_else(|| schema.format.as_ref().map(|format| format.span.end.line))
-        .unwrap_or(schema.span.start.line)
+        .unwrap_or(schema.span.start.line);
+    let mapping_end = schema
+        .mappings
+        .last()
+        .map(|mapping| mapping.span.end.line)
+        .unwrap_or(schema.span.start.line);
+    let format_end = schema
+        .format
+        .as_ref()
+        .map(|format| format.span.end.line)
+        .unwrap_or(schema.span.start.line);
+    field_end.max(mapping_end).max(format_end)
 }
 
 fn codec_end_line(codec: &CodecDecl) -> usize {

@@ -804,6 +804,24 @@ pub(crate) fn check_schema_type_references(module: &SurfaceModule) -> Vec<Diagno
         }
     }
 
+    for schema in &module.schemas {
+        let current_module = schema.module_name.as_deref();
+        for mapping in &schema.mappings {
+            let Some(target) = &mapping.target else {
+                continue;
+            };
+            push_schema_type_reference_diagnostics(
+                module,
+                current_module,
+                target,
+                mapping.node_id.display("schema-mapping"),
+                mapping.span.clone(),
+                "schema_mapping_target",
+                &mut diagnostics,
+            );
+        }
+    }
+
     diagnostics
 }
 

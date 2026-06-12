@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"parse.schema_field_before_format\"", "\"id\":\"parse.schema_multiple_format\"", "\"id\":\"parse.schema_field_name\"", "\"id\":\"parse.schema_field_where\"", "\"id\":\"parse.expected_identifier\"", "\"id\":\"parse.expected_end\""]
+contains = ["\"id\":\"parse.schema_field_before_format\"", "\"id\":\"parse.schema_multiple_format\"", "\"id\":\"parse.schema_field_name\"", "\"id\":\"parse.schema_field_where\"", "\"id\":\"parse.schema_mapping\"", "\"id\":\"parse.schema_mapping_assignment\"", "\"id\":\"parse.schema_mapping_duplicate_assignment\"", "\"id\":\"parse.schema_mapping_assignment_target\"", "\"id\":\"parse.schema_mapping_implicit_assignment\"", "\"id\":\"parse.expected_identifier\"", "\"id\":\"parse.expected_end\""]
 
 [stderr]
 format = "empty"

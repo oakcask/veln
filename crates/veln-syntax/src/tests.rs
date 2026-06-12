@@ -259,10 +259,16 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "pub schema Http2FrameHeader\n",
             "  format binary\n",
             "  length: UInt24be\n",
+            "  kind: UInt8\n",
             "  padding_length: UInt8 where padding_length <= length\n",
             "  stream_reserved: ReservedBits( 1,0 )\n",
             "  stream_id: UInt31be\n",
             "  payload: ByteView(length - padding_length)\n",
+            "\n",
+            "  map to FrameHeader\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "    stream_id = stream_id\n",
             "end\n",
         ),
     );
@@ -279,22 +285,31 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
-    assert_eq!(schema.fields.len(), 5);
+    assert_eq!(schema.fields.len(), 6);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
-    assert_eq!(schema.fields[1].name, "padding_length");
+    assert_eq!(schema.fields[1].name, "kind");
     assert_eq!(schema.fields[1].ty, "UInt8");
-    let where_clause = schema.fields[1]
+    assert_eq!(schema.fields[2].name, "padding_length");
+    assert_eq!(schema.fields[2].ty, "UInt8");
+    let where_clause = schema.fields[2]
         .where_clause
         .as_ref()
         .expect("field should carry where clause");
     assert_eq!(where_clause.predicate, "padding_length <= length");
-    assert_eq!(schema.fields[2].name, "stream_reserved");
-    assert_eq!(schema.fields[2].ty, "ReservedBits(1, 0)");
-    assert_eq!(schema.fields[3].name, "stream_id");
-    assert_eq!(schema.fields[3].ty, "UInt31be");
-    assert_eq!(schema.fields[4].name, "payload");
-    assert_eq!(schema.fields[4].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.fields[3].name, "stream_reserved");
+    assert_eq!(schema.fields[3].ty, "ReservedBits(1, 0)");
+    assert_eq!(schema.fields[4].name, "stream_id");
+    assert_eq!(schema.fields[4].ty, "UInt31be");
+    assert_eq!(schema.fields[5].name, "payload");
+    assert_eq!(schema.fields[5].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.mappings.len(), 1);
+    assert_eq!(schema.mappings[0].target.as_deref(), Some("FrameHeader"));
+    assert_eq!(schema.mappings[0].assignments.len(), 3);
+    assert_eq!(schema.mappings[0].assignments[0].target, "length");
+    assert_eq!(schema.mappings[0].assignments[0].source, "length");
+    assert_eq!(schema.mappings[0].assignments[1].target, "kind");
+    assert_eq!(schema.mappings[0].assignments[1].source, "kind");
     assert!(schema.end_present);
     assert_eq!(
         format_tree(&output.tree),
@@ -303,10 +318,16 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
             "\tformat binary\n",
             "\n",
             "\tlength: UInt24be\n",
+            "\tkind: UInt8\n",
             "\tpadding_length: UInt8 where padding_length <= length\n",
             "\tstream_reserved: ReservedBits(1, 0)\n",
             "\tstream_id: UInt31be\n",
             "\tpayload: ByteView(length - padding_length)\n",
+            "\n",
+            "\tmap to FrameHeader\n",
+            "\t\tlength = length\n",
+            "\t\tkind = kind\n",
+            "\t\tstream_id = stream_id\n",
             "end\n",
         )
     );
@@ -351,6 +372,12 @@ fn reports_schema_declaration_syntax_diagnostics() {
             "  format binary\n",
             "  _reserved: UInt8\n",
             "  broken: UInt8 where\n",
+            "  map to EmptyHeader\n",
+            "  map Header\n",
+            "    length = length\n",
+            "    length = kind\n",
+            "    = stream_id\n",
+            "    stream_reserved\n",
             "end\n",
         ),
     );
@@ -386,6 +413,46 @@ fn reports_schema_declaration_syntax_diagnostics() {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.id == "parse.schema_field_where"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.schema_mapping"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.schema_mapping_assignment"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.schema_mapping_duplicate_assignment"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.schema_mapping_assignment_target"),
+        "{:#?}",
+        output.diagnostics
+    );
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.id == "parse.schema_mapping_implicit_assignment"),
         "{:#?}",
         output.diagnostics
     );

@@ -217,18 +217,19 @@ against the built `veln` binary.
   declarations with `format binary` fields, `UInt8`, `UInt16be`, `UInt24be`,
   `UInt31be`, and `UInt32be` exact-width unsigned primitive fields,
   `ReservedBits(width, value)` primitive fields, and field-local `where`
-  predicates.
+  predicates, plus structural `map to Target` clauses that assign schema-local
+  fields to target fields.
 - `check/schema-declaration-diagnostics/`: parser diagnostics for malformed
   schema headers, missing `end`, fields before `format`, multiple `format`
-  clauses, `_`-prefixed fields, and malformed field-local `where`
-  predicates.
+  clauses, `_`-prefixed fields, malformed field-local `where` predicates,
+  and malformed schema mapping clauses.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
   when exact-width unsigned primitive names are used as ordinary source types
   or values.
 - `check/schema-ordinary-use-diagnostics/`: schema declarations do not create
-  ordinary value bindings.
+  ordinary value bindings or ordinary target types for schema mappings.
 - `check/codec-declarations/`: accepted private and public top-level `codec`
   declarations with explicit `decode` and `encode` directions, `derive`
   clauses, and `with` clauses.

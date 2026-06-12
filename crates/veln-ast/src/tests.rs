@@ -222,10 +222,16 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         "  format binary\n",
         "\n",
         "  length: UInt24be\n",
+        "  kind: UInt8\n",
         "  padding_length: UInt8 where padding_length <= length\n",
         "  stream_reserved: ReservedBits(1, 0)\n",
         "  stream_id: UInt31be\n",
         "  payload: ByteView(length - padding_length)\n",
+        "\n",
+        "  map to FrameHeader\n",
+        "    length = length\n",
+        "    kind = kind\n",
+        "    stream_id = stream_id\n",
         "end\n",
     ));
 
@@ -240,26 +246,43 @@ fn lowers_schema_declarations_as_distinct_module_items() {
         schema.format.as_ref().map(|format| format.name.as_str()),
         Some("binary")
     );
-    assert_eq!(schema.fields.len(), 5);
+    assert_eq!(schema.fields.len(), 6);
     assert_eq!(schema.fields[0].name, "length");
     assert_eq!(schema.fields[0].ty, "UInt24be");
-    assert_eq!(schema.fields[1].name, "padding_length");
+    assert_eq!(schema.fields[1].name, "kind");
     assert_eq!(schema.fields[1].ty, "UInt8");
-    let where_clause = schema.fields[1]
+    assert_eq!(schema.fields[2].name, "padding_length");
+    assert_eq!(schema.fields[2].ty, "UInt8");
+    let where_clause = schema.fields[2]
         .where_clause
         .as_ref()
         .expect("field should lower where clause");
     assert_eq!(
         where_clause.node_id.display("schema_field_where"),
-        "schema_field_where-5"
+        "schema_field_where-6"
     );
     assert_eq!(where_clause.predicate, "padding_length <= length");
-    assert_eq!(schema.fields[2].name, "stream_reserved");
-    assert_eq!(schema.fields[2].ty, "ReservedBits(1, 0)");
-    assert_eq!(schema.fields[3].name, "stream_id");
-    assert_eq!(schema.fields[3].ty, "UInt31be");
-    assert_eq!(schema.fields[4].name, "payload");
-    assert_eq!(schema.fields[4].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.fields[3].name, "stream_reserved");
+    assert_eq!(schema.fields[3].ty, "ReservedBits(1, 0)");
+    assert_eq!(schema.fields[4].name, "stream_id");
+    assert_eq!(schema.fields[4].ty, "UInt31be");
+    assert_eq!(schema.fields[5].name, "payload");
+    assert_eq!(schema.fields[5].ty, "ByteView(length - padding_length)");
+    assert_eq!(schema.mappings.len(), 1);
+    assert_eq!(
+        schema.mappings[0].node_id.display("schema_mapping"),
+        "schema_mapping-10"
+    );
+    assert_eq!(schema.mappings[0].target.as_deref(), Some("FrameHeader"));
+    assert_eq!(schema.mappings[0].assignments.len(), 3);
+    assert_eq!(schema.mappings[0].assignments[0].target, "length");
+    assert_eq!(schema.mappings[0].assignments[0].source, "length");
+    assert_eq!(
+        schema.mappings[0].assignments[0]
+            .node_id
+            .display("schema_mapping_assignment"),
+        "schema_mapping_assignment-11"
+    );
 }
 
 #[test]

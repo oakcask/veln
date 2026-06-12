@@ -4,6 +4,12 @@ schema BadHeader
   format binary
   _reserved: UInt8
   broken: UInt8 where
+  map to EmptyHeader
+  map Header
+    length = length
+    length = kind
+    = stream_id
+    stream_reserved
 end
 
 schema

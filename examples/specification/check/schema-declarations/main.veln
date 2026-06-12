@@ -3,11 +3,20 @@ schema Http2FrameHeader
 
   priority: UInt16be
   length: UInt24be
+  kind: UInt8
   padding_length: UInt8 where padding_length <= length
   stream_reserved: ReservedBits(1, 0)
   stream_id: UInt31be
   checksum: UInt32be
   payload: ByteView(length - padding_length)
+
+  map to FrameHeader
+    priority = priority
+    length = length
+    kind = kind
+    stream_id = stream_id
+    checksum = checksum
+    payload = payload
 end
 
 pub schema PublicFrameHeader
@@ -15,9 +24,18 @@ pub schema PublicFrameHeader
 
   priority: UInt16be
   length: UInt24be
+  kind: UInt8
   padding_length: UInt8 where padding_length <= length
   stream_reserved: ReservedBits(1, 0)
   stream_id: UInt31be
   checksum: UInt32be
   payload: ByteView(length - padding_length)
+
+  map to FrameHeader
+    priority = priority
+    length = length
+    kind = kind
+    stream_id = stream_id
+    checksum = checksum
+    payload = payload
 end

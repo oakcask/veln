@@ -23,12 +23,14 @@ Function      ::= "pub"? "fn" Name "(" ParamList? ")" Return? Effects? NL
 TestDecl      ::= "test" Name "(" ")" Return Effects? NL
                   Contract* Body "end" NL?
 TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
-SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat NL SchemaField+ "end" NL?
+SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat NL SchemaField+ SchemaMapping* "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | ReservedBitsPrimitive
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 SchemaFieldWhere ::= "where" ContractPredicate
+SchemaMapping ::= "map" "to" MemberPath NL SchemaMappingAssignment+
+SchemaMappingAssignment ::= Name "=" Name NL
 CodecDecl     ::= "pub"? "codec" Name "for" MemberPath CodecDirections NL
                   CodecImplementation* "end" NL?
 CodecDirections ::= CodecDirection+
@@ -98,14 +100,33 @@ spelling when `width` and `value` are literal non-negative integers, such as
 `ReservedBits(1, 0)`. Exact-width primitive names used outside `format binary`
 schema field type positions report `schema.exact_width_primitive`. Missing
 `ReservedBits` arguments or non-literal arguments report
-`schema.reserved_bits_primitive`. The parser preserves the predicate and
-primitive text with the owning field for diagnostics and editor support, but
-general schema decode and encode execution is not implemented. The narrow
-primitive decode slices are routed from `execution.md`. Field names must be
-ordinary identifiers; names beginning with `_` remain hole tokens and are
-rejected as schema field names. Schema declarations do not create ordinary
-value bindings, ordinary source ADT types, constructors, or general executable
-decode or encode functions.
+`schema.reserved_bits_primitive`.
+
+A schema may end with one or more structural mapping clauses:
+
+```text
+map to FrameHeader
+  length = length
+  kind = kind
+  stream_id = stream_id
+```
+
+The mapping target is a member path naming an ordinary source value shape. Each
+assignment line must explicitly name a target field on the left and a
+schema-local field on the right. Duplicate left-hand targets, missing
+left-hand targets, and bare schema-field lines are parse diagnostics; reserved
+bits and other representation fields are omitted unless explicitly assigned.
+The parser, formatter, lowered AST, and editor token collector preserve mapping
+clauses as source metadata. Generated codec execution, target-field resolution,
+and runtime value construction are not implemented.
+
+The parser preserves the predicate, primitive, and mapping text with the owning
+schema for diagnostics and editor support, but general schema decode and encode
+execution is not implemented. The narrow primitive decode slices are routed
+from `execution.md`. Field names must be ordinary identifiers; names beginning
+with `_` remain hole tokens and are rejected as schema field names. Schema
+declarations do not create ordinary value bindings, ordinary source ADT types,
+constructors, or general executable decode or encode functions.
 
 Codec declarations are top-level source module items. `codec Name for
 SchemaName decode`, `codec Name for imported::SchemaName encode`, and
@@ -126,8 +147,8 @@ the same module as the codec declaration. The referenced function must take
 exactly two parameters, first `ByteView` for the bounded input view and then
 `ByteOffset` for the absolute base byte offset. Its return type must be
 `DecodeStep<T>` for one source-visible decoded value type `T`. The checker does
-not run schema value mapping for `T`; it only verifies that the return shape is
-the incremental decode transition. A missing function reports
+not run runtime schema value mapping for `T`; it only verifies that the return
+shape is the incremental decode transition. A missing function reports
 `name.unresolved` at the `decode with` clause. A wrong parameter count,
 parameter type, or return type reports `codec.decode_signature` at that clause
 and includes related context pointing to the referenced function declaration.

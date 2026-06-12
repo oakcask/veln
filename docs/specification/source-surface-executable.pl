@@ -92,12 +92,14 @@ grammar_line(70, "                  Contract* Body \"end\" NL?").
 grammar_line(80, "TestDecl      ::= \"test\" Name \"(\" \")\" Return Effects? NL").
 grammar_line(90, "                  Contract* Body \"end\" NL?").
 grammar_line(100, "TypeDecl      ::= \"pub\"? \"type\" Name TypeParamList? NL TypeVariant+ \"end\" NL?").
-grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat NL SchemaField+ \"end\" NL?").
+grammar_line(102, "SchemaDecl    ::= \"pub\"? \"schema\" Name NL SchemaFormat NL SchemaField+ SchemaMapping* \"end\" NL?").
 grammar_line(103, "SchemaFormat  ::= \"format\" \"binary\" NL").
 grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere? NL").
 grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive").
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" ContractPredicate").
+grammar_line(107, "SchemaMapping ::= \"map\" \"to\" MemberPath NL SchemaMappingAssignment+").
+grammar_line(107, "SchemaMappingAssignment ::= Name \"=\" Name NL").
 grammar_line(107, "CodecDecl     ::= \"pub\"? \"codec\" Name \"for\" MemberPath CodecDirections NL").
 grammar_line(107, "                  CodecImplementation* \"end\" NL?").
 grammar_line(107, "CodecDirections ::= CodecDirection+").
@@ -344,6 +346,8 @@ schema_decl -->
     schema_format,
     nls,
     schema_fields,
+    nls,
+    schema_mappings,
     tok(end),
     newline_opt.
 
@@ -369,6 +373,26 @@ schema_field_where_opt -->
     { Tokens \= [], valid_contract_tokens(Tokens) },
     !.
 schema_field_where_opt --> [].
+
+schema_mappings --> schema_mapping, !, nls, schema_mappings.
+schema_mappings --> [].
+
+schema_mapping -->
+    ident_text("map"),
+    ident_text("to"),
+    member_path,
+    nl,
+    schema_mapping_assignments.
+
+schema_mapping_assignments --> schema_mapping_assignment, !, schema_mapping_assignments_tail.
+schema_mapping_assignments_tail --> schema_mapping_assignment, !, schema_mapping_assignments_tail.
+schema_mapping_assignments_tail --> [].
+
+schema_mapping_assignment -->
+    ident,
+    tok(equal),
+    ident,
+    nl.
 
 codec_decl -->
     visibility,
