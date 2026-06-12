@@ -612,7 +612,11 @@ fn schema_decode_function_signatures_for_schema(
 fn schema_decode_record_fields(schema: &SchemaDecl) -> Option<Vec<(String, Type, u8)>> {
     let mut decoded_fields = BTreeSet::new();
     let mut fields = Vec::new();
-    for field in &schema.fields {
+    for (index, field) in schema.fields.iter().enumerate() {
+        if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
+            supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
+            continue;
+        }
         let width = if let Some(width) = exact_width_schema_primitive(&field.ty) {
             width
         } else {
@@ -656,9 +660,13 @@ fn schema_encode_function_signature_for_schema(schema: &SchemaDecl) -> Option<Fu
         return None;
     }
     let mut fields = Vec::new();
-    for field in &schema.fields {
+    for (index, field) in schema.fields.iter().enumerate() {
         if field.where_clause.is_some() {
             return None;
+        }
+        if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
+            supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
+            continue;
         }
         exact_width_schema_primitive(&field.ty)?;
         fields.push((field.name.clone(), Type::int()));
@@ -793,6 +801,52 @@ pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
         "UInt32be" => Some(0xffffffff),
         _ => None,
     }
+}
+
+pub(crate) fn reserved_bits_schema_primitive(ty: &str) -> Option<(i64, i64)> {
+    let rest = ty.strip_prefix("ReservedBits")?;
+    if rest
+        .chars()
+        .next()
+        .is_some_and(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    {
+        return None;
+    }
+    let rest = rest.trim();
+    if !rest.starts_with('(') || !rest.ends_with(')') {
+        return None;
+    }
+    let inner = rest[1..rest.len() - 1].trim();
+    let args = inner
+        .split(',')
+        .map(str::trim)
+        .filter(|arg| !arg.is_empty())
+        .collect::<Vec<_>>();
+    let [width, value] = args.as_slice() else {
+        return None;
+    };
+    let width = parse_reserved_bits_integer(width)?;
+    let value = parse_reserved_bits_integer(value)?;
+    Some((width, value))
+}
+
+pub(crate) fn supported_encode_reserved_bits(
+    next_field: Option<&veln_ast::SchemaField>,
+    reserved: (i64, i64),
+) -> Option<(u8, i64)> {
+    let (bit_width, expected_value) = reserved;
+    let next_field = next_field?;
+    if bit_width == 1 && expected_value == 0 && next_field.ty.trim() == "UInt31be" {
+        return Some((1, 0));
+    }
+    None
+}
+
+fn parse_reserved_bits_integer(text: &str) -> Option<i64> {
+    if text.is_empty() || !text.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    text.parse::<i64>().ok()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

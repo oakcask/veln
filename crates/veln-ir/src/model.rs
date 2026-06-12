@@ -23,6 +23,13 @@ pub struct IrSchemaDecodeField {
     pub max_value: i64,
     pub predicate: Option<String>,
     pub dispatch: Option<IrSchemaDecodeDispatch>,
+    pub reserved_bits: Option<IrSchemaReservedBits>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaReservedBits {
+    pub bit_width: u8,
+    pub expected_value: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

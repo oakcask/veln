@@ -144,6 +144,74 @@ fn generated_schema_encode_helpers_resolve_for_exact_width_binary_schemas() {
 }
 
 #[test]
+fn generated_schema_encode_helpers_omit_reserved_bits_from_value_record() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ReservedStreamIdentifier\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt24be\n",
+            "  stream_reserved: ReservedBits(1, 0)\n",
+            "  stream_id: UInt31be\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {length: Int, stream_id: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_reserved_stream_identifier(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "ReservedStreamIdentifier"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            ("length", 3, 0xffffff, None),
+            ("stream_reserved", 0, 0, Some((1, 0))),
+            ("stream_id", 4, 0x7fffffff, None),
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_return_mapped_record_shape() {
     let source = SourceFile::new(
         "main.veln",

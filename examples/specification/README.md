@@ -380,6 +380,14 @@ against the built `veln` binary.
   slice returns a structured `EncodeError` with `codec.out_of_range`, schema
   field path, and primitive range reason when a `UInt31be` value exceeds its
   maximum.
+- `run/binary-schema-reserved-bit-encode/`: the reserved-bit encode helper
+  slice writes `ReservedBits(1, 0)` followed by `UInt31be` as one shared
+  four-byte stream identifier position, omits the reserved field from the
+  source value record, and checks both ordinary and maximum stream ids.
+- `check/schema-reserved-bit-encode-diagnostics/`: valid `ReservedBits`
+  syntax outside the implemented encode layout reports
+  `schema.reserved_bits_encode` with the unsupported bit width and expected
+  value.
 - `run/binary-schema-closed-dispatch-decode/`: a generated binary schema
   decode helper reads a closed dispatch tag, selects the known payload case,
   and returns the selected payload as an ordinary `Int` field.
