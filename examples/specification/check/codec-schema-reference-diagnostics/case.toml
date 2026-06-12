@@ -1,9 +1,9 @@
-command = ["check", "--json", "main.veln", "wire.veln", "other.veln"]
+command = ["check", "--json", "main.veln", "app/wire.veln", "other.veln"]
 exit = 1
 
 [stdout]
 format = "json"
-contains = ["codec schema `wire::PrivatePacket` is private", "unresolved codec schema `wire::MissingPacket`", "codec schema target `wire::make_packet` is a function, not a schema", "codec schema target `wire::PacketShape` is a type, not a schema", "codec schema target `wire::PacketCodec` is a codec, not a schema", "unresolved codec schema `PublicPacket`", "unresolved codec schema `other::PublicPacket`", "unresolved value `payload`", "unresolved call_target `wire::PacketCodec`"]
+contains = ["codec schema `app::wire::PrivatePacket` is private", "unresolved codec schema `app::wire::MissingPacket`", "codec schema target `app::wire::make_packet` is a function, not a schema", "codec schema target `app::wire::PacketShape` is a type, not a schema", "codec schema target `app::wire::PacketCodec` is a codec, not a schema", "unresolved codec schema `PublicPacket`", "unresolved codec schema `other::PublicPacket`", "unresolved value `payload`", "unresolved call_target `app::wire::PacketCodec`"]
 
 [stderr]
 format = "empty"
@@ -16,34 +16,52 @@ equals = "error"
 id = "name.visibility"
 severity = "error"
 kind = "name"
-message = "codec schema `wire::PrivatePacket` is private"
+message = "codec schema `app::wire::PrivatePacket` is private"
 
 [[diagnostics]]
 id = "name.unresolved"
 severity = "error"
 kind = "name"
-message = "unresolved codec schema `wire::MissingPacket`"
+message = "unresolved codec schema `app::wire::MissingPacket`"
 
 [[diagnostics]]
 id = "name.kind_mismatch"
 severity = "error"
 kind = "name"
-message = "codec schema target `wire::make_packet` is a function, not a schema"
+message = "codec schema target `app::wire::make_packet` is a function, not a schema"
 
 [[diagnostics]]
 id = "name.kind_mismatch"
 severity = "error"
 kind = "name"
-message = "codec schema target `wire::PacketShape` is a type, not a schema"
+message = "codec schema target `app::wire::PacketShape` is a type, not a schema"
 
 [[diagnostics]]
 id = "name.kind_mismatch"
 severity = "error"
 kind = "name"
-message = "codec schema target `wire::PacketCodec` is a codec, not a schema"
+message = "codec schema target `app::wire::PacketCodec` is a codec, not a schema"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved codec schema `PublicPacket`"
 
 [[diagnostics]]
 id = "name.unresolved"
 severity = "error"
 kind = "name"
 message = "unresolved codec schema `other::PublicPacket`"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved value `payload`"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved call_target `app::wire::PacketCodec`"

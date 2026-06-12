@@ -600,8 +600,8 @@ fn codec_declarations_resolve_imported_public_schema_targets() {
     let app_source = SourceFile::new(
         "app.veln",
         concat!(
-            "mod app\n",
-            "use wire\n",
+            "mod app.main\n",
+            "use app.wire\n",
             "codec ImportedDecode for wire::Packet decode\n",
             "  derive decode\n",
             "end\n",
@@ -610,7 +610,7 @@ fn codec_declarations_resolve_imported_public_schema_targets() {
     let wire_source = SourceFile::new(
         "wire.veln",
         concat!(
-            "mod wire\n",
+            "mod app.wire\n",
             "pub schema Packet\n",
             "  format binary\n",
             "  length: UInt8\n",
