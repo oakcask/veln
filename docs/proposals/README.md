@@ -23,9 +23,9 @@ compare it with `../specification/` before changing behavior.
   big-endian read/write, and stream-input slices.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining binary schema primitive and dispatch behavior beyond the
-  implemented source-surface `UInt8`, `UInt24be`, `UInt31be`, and
-  `ReservedBits(width, value)` declaration slices, the frame-header primitive
-  decode slice, and the narrow HTTP/2 payload boundary helper.
+  implemented source-surface exact-width and `ReservedBits(width, value)`
+  declaration slices, the frame-header and width-sample primitive decode
+  slices, and the narrow HTTP/2 payload boundary helper.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary, and

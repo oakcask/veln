@@ -166,6 +166,7 @@ source_prelude_symbol_set! {
     "byte_expect_fixed_u8_be" => veln_stdlib::prelude_source("byte_expect_fixed_u8_be"),
     "byte_decode_http2_frame_header" => veln_stdlib::prelude_source("byte_decode_http2_frame_header"),
     "byte_decode_http2_frame" => veln_stdlib::prelude_source("byte_decode_http2_frame"),
+    "byte_decode_schema_width_sample" => veln_stdlib::prelude_source("byte_decode_schema_width_sample"),
     "http2_protocol_closed_with_pending" => veln_stdlib::prelude_source("http2_protocol_closed_with_pending"),
     "http2_protocol_continuation_expected" => veln_stdlib::prelude_source("http2_protocol_continuation_expected"),
     "byte_read_u16_be" => veln_stdlib::prelude_source("byte_read_u16_be"),

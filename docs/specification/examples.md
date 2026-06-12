@@ -107,6 +107,15 @@ reason.
 ## Binary Schema Frame Header
 
 The executable specification cases
+`../../examples/specification/run/binary-schema-width-sample-decode/` and
+`../../examples/specification/run/binary-schema-width-sample-truncated-json/`
+cover the implemented `UInt16be` and `UInt32be` primitive decode slice. The
+valid case checks both fields over one `ByteView` and observes ordinary `Int`
+record fields. The failure case pins `schema.truncated_field` details for a
+truncated `UInt32be` field, including byte offset, schema field path, expected
+byte count, available byte count, readiness, and nearby bytes.
+
+The executable specification cases
 `../../examples/specification/run/binary-schema-frame-header-decode/`,
 `../../examples/specification/run/binary-schema-frame-header-truncated-json/`,
 and

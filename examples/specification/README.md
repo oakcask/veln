@@ -214,9 +214,10 @@ against the built `veln` binary.
 - `check/doctest-metadata-diagnostics/`: unknown and invalid doctest metadata,
   duplicate output fences, and missing expected failures.
 - `check/schema-declarations/`: accepted top-level `schema` and `pub schema`
-  declarations with `format binary` fields, exact-width unsigned primitive
-  fields, `ReservedBits(width, value)` primitive fields, and field-local
-  `where` predicates.
+  declarations with `format binary` fields, `UInt8`, `UInt16be`, `UInt24be`,
+  `UInt31be`, and `UInt32be` exact-width unsigned primitive fields,
+  `ReservedBits(width, value)` primitive fields, and field-local `where`
+  predicates.
 - `check/schema-declaration-diagnostics/`: parser diagnostics for malformed
   schema headers, missing `end`, fields before `format`, multiple `format`
   clauses, `_`-prefixed fields, and malformed field-local `where`
@@ -342,6 +343,13 @@ against the built `veln` binary.
   validation reports `schema.reserved_bits_mismatch` through `run --json`
   with byte offset, field path, bit width, expected value, actual value, and
   nearby bytes.
+- `run/binary-schema-width-sample-decode/`: the implemented `UInt16be` and
+  `UInt32be` primitive decode slice returns visible exact-width fields as
+  ordinary `Int` values.
+- `run/binary-schema-width-sample-truncated-json/`: schema decode truncation
+  for a `UInt32be` field reports `schema.truncated_field` through JSON run
+  output with byte offset, field path, byte counts, readiness, and nearby
+  bytes.
 - `run/binary-schema-frame-payload-decode/`: HTTP/2 frame decode returns the
   visible header fields plus a bounded payload `ByteView` selected by the
   decoded length.

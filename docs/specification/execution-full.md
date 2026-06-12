@@ -109,6 +109,13 @@ failure with expected and available byte counts. Reserved-bit mismatches
 return `schema.reserved_bits_mismatch` with bit width, expected value, actual
 value, nearby bytes, byte offset, and schema field path.
 
+The `SchemaWidthSample` primitive decode helper consumes one `UInt16be` field
+followed by one `UInt32be` field from a `ByteView`. Both fields produce
+ordinary `Int` values in the decoded record. Truncation reports the same
+`schema.truncated_field` diagnostic shape as the frame-header helper,
+including byte offset, structured field path, expected byte count, available
+byte count, readiness, and nearby lowercase hex context.
+
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header
 fields plus `payload: ByteView`. The payload view shares the input chunk,

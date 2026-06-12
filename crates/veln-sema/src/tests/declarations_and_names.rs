@@ -231,10 +231,12 @@ fn binary_schema_accepts_reserved_bits_literal_primitive() {
             "schema Http2FrameHeader\n",
             "  format binary\n",
             "\n",
+            "  priority: UInt16be\n",
             "  length: UInt24be\n",
             "  kind: UInt8\n",
             "  stream_reserved: ReservedBits(1, 0)\n",
             "  stream_id: UInt31be\n",
+            "  checksum: UInt32be\n",
             "end\n",
         ),
     );
@@ -254,9 +256,11 @@ fn exact_width_binary_schema_primitives_require_binary_schema_fields() {
             "schema BadHeader\n",
             "  format text\n",
             "\n",
+            "  priority: UInt16be\n",
             "  length: UInt24be\n",
             "  kind: UInt8\n",
             "  stream_id: UInt31be\n",
+            "  checksum: UInt32be\n",
             "end\n",
         ),
     );
@@ -265,8 +269,8 @@ fn exact_width_binary_schema_primitives_require_binary_schema_fields() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 3);
-    for primitive in ["UInt24be", "UInt8", "UInt31be"] {
+    assert_eq!(diagnostics.len(), 5);
+    for primitive in ["UInt16be", "UInt24be", "UInt8", "UInt31be", "UInt32be"] {
         assert!(diagnostics.iter().any(|diagnostic| {
             diagnostic.id == "schema.exact_width_primitive"
                 && diagnostic.message
@@ -286,7 +290,7 @@ fn exact_width_binary_schema_primitives_are_not_ordinary_types_or_values() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "fn ordinary_types(value: UInt8) -> UInt24be\n",
+            "fn ordinary_types(value: UInt16be, another: UInt8) -> {short: UInt24be, wide: UInt32be}\n",
             "  UInt31be\n",
             "end\n",
         ),
@@ -296,10 +300,12 @@ fn exact_width_binary_schema_primitives_are_not_ordinary_types_or_values() {
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 3);
+    assert_eq!(diagnostics.len(), 5);
     for (primitive, reason) in [
+        ("UInt16be", "parameter_type"),
         ("UInt8", "parameter_type"),
         ("UInt24be", "return_type"),
+        ("UInt32be", "return_type"),
         ("UInt31be", "value_position"),
     ] {
         assert!(diagnostics.iter().any(|diagnostic| {

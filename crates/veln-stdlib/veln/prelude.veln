@@ -118,6 +118,10 @@ pub fn byte_decode_http2_frame(view: ByteView) -> Result<{length: Int, kind: Int
 	prelude_builtin::byte_decode_http2_frame(view)
 end
 
+pub fn byte_decode_schema_width_sample(view: ByteView) -> Result<{short_value: Int, wide_value: Int}, String>
+	prelude_builtin::byte_decode_schema_width_sample(view)
+end
+
 pub fn http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String) -> Result<(), String>
 	prelude_builtin::http2_protocol_closed_with_pending(offset, pending_count, active_continuation)
 end

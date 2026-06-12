@@ -32,8 +32,9 @@ The implemented first slice covers:
 
 - top-level `schema` declarations
 - named schema fields
-- field type annotations that may name `UInt8`, `UInt24be`, `UInt31be`, and
-  `ReservedBits(width, value)` as binary schema primitives
+- field type annotations that may name `UInt8`, `UInt16be`, `UInt24be`,
+  `UInt31be`, `UInt32be`, and `ReservedBits(width, value)` as binary schema
+  primitives
 - source-surface `ReservedBits(width, value)` declaration checking for literal
   integer arguments in `format binary` schemas
 - schema visibility and module ownership rules for `schema` and `pub schema`
@@ -46,8 +47,8 @@ This proposal remains open for:
 
 - runtime evaluation of field-local validation clauses
 - mapping from schema fields to Veln values
-- complete binary primitive semantics beyond the implemented
-  `ReservedBits(width, value)` declaration slice
+- general binary primitive execution semantics beyond the implemented narrow
+  primitive decode slices
 - schema-aware references from later schema composition, fixture, and
   documentation surfaces beyond codec declaration heads
 
