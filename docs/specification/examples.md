@@ -174,17 +174,22 @@ the binary frame-header primitive for each available header.
 The case pins valid frame arrival, incomplete input that waits for more bytes,
 closed input with pending bytes, continuation state after HEADERS, continuation
 state after a non-final CONTINUATION, completion after a final CONTINUATION,
-and a continuation ordering failure. Pending continuation state records the
-owning stream, starting frame kind, starting byte offset, and accumulated
-opaque header-block byte count. A final CONTINUATION with END_HEADERS clears
-that state and exposes the completed accumulated byte count in the observable
-example output. Protocol failures stay as ordinary ADT values and are
-projected by source code into stable diagnostic ids and related context fields
-for byte offset, frame kind, stream id, and active continuation state.
+one continuation ordering failure, and an incoming frame whose payload length
+exceeds the active receive maximum frame size. Pending continuation state
+records the owning stream, starting frame kind, starting byte offset, and
+accumulated opaque header-block byte count. A final CONTINUATION with
+END_HEADERS clears that state and exposes the completed accumulated byte count
+in the observable example output. Protocol failures stay as ordinary ADT
+values and are projected by source code into stable diagnostic ids and related
+context fields for byte offset, observed and allowed lengths, frame kind,
+stream reference, active continuation state, and receive-limit provenance.
 
-`../../examples/specification/run/http2-protocol-core-closed-human/` and
-`../../examples/specification/run/http2-protocol-core-continuation-json/` pin
-the command-facing projection path for those typed failures. The human case
-checks the closed-input primary message and related context, while the JSON
-case checks `protocol_diagnostic` details for byte offset, frame kind, stream
-id, and active continuation state.
+`../../examples/specification/run/http2-protocol-core-closed-human/`,
+`../../examples/specification/run/http2-protocol-core-continuation-json/`,
+`../../examples/specification/run/http2-protocol-core-frame-size-human/`, and
+`../../examples/specification/run/http2-protocol-core-frame-size-json/` pin the
+command-facing projection path for those typed failures. The human cases check
+focused primary messages and related context, while the JSON cases check
+`protocol_diagnostic` details for byte offset, frame kind, stream id, active
+continuation state, observed and allowed frame sizes, stream reference, and
+receive-limit provenance.

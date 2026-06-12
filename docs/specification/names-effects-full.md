@@ -385,6 +385,7 @@ byte_decode_schema_width_sample(view: ByteView) -> Result<{short_value: Int, wid
 byte_decode_schema_validation_sample(view: ByteView) -> Result<{length: Int, padding_length: Int}, String>
 http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String) -> Result<(), String>
 http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String) -> Result<(), String>
+http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String) -> Result<(), String>
 byte_read_u16_be(view: ByteView) -> Result<Int, String>
 byte_read_u24_be(view: ByteView) -> Result<Int, String>
 byte_read_u31_be(view: ByteView) -> Result<Int, String>
@@ -514,7 +515,8 @@ The implemented standard symbol table has this current pure-helper split:
   `byte_decode_http2_frame`, `byte_decode_schema_width_sample`,
   `byte_decode_schema_validation_sample`,
   `http2_protocol_closed_with_pending`,
-  `http2_protocol_continuation_expected`, `byte_read_u16_be`,
+  `http2_protocol_continuation_expected`,
+  `http2_peer_limit_frame_size_exceeded`, `byte_read_u16_be`,
   `byte_read_u24_be`, `byte_read_u31_be`, `byte_read_u32_be`,
   `byte_write_u8_be`, `byte_write_u16_be`, `byte_write_u24_be`,
   `byte_write_u31_be`, `byte_write_u32_be`, `byte_count`,

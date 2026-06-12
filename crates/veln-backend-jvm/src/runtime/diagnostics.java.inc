@@ -137,6 +137,32 @@
         );
     }
 
+    private static void registerHttp2PeerLimitFrameSizeExceededDiagnostic(
+        String message,
+        long byteOffset,
+        long observedLength,
+        long allowedLength,
+        long frameKind,
+        long streamId,
+        String receiveLimitProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.peer_limit.frame_size_exceeded",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("observed_payload_length", observedLength),
+                    DiagnosticDetail.number("allowed_max_frame_size", allowedLength),
+                    DiagnosticDetail.number("frame_kind", frameKind),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerCodecIncompleteInputDiagnostic(
         String message,
         long byteOffset,

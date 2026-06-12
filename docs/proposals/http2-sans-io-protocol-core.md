@@ -235,11 +235,13 @@ The first ordinary-source executable slice is current behavior under
 with command-facing diagnostic projection fixtures beside that case. It covers
 chunk arrival, incomplete input that waits for more bytes, end-of-stream
 truncation with pending bytes, continuation header-block assembly through a
-valid final CONTINUATION frame, and one continuation ordering failure. It
-keeps parser state as undecoded suffix bytes plus the next absolute byte
-offset after each consumed frame, reuses the implemented frame-header
-primitive, and projects typed protocol failures into stable fixture output
-ids, `protocol_diagnostic` JSON details, and human related context.
+valid final CONTINUATION frame, one continuation ordering failure, and one
+incoming frame-size peer-limit failure. It keeps parser state as undecoded
+suffix bytes plus the next absolute byte offset after each consumed frame,
+reuses the implemented frame-header primitive, checks the active receive
+maximum frame size after structural header decode, and projects typed protocol
+failures into stable fixture output ids, `protocol_diagnostic` JSON details,
+and human related context.
 
 The remaining scope below is still planned work for the full protocol core.
 

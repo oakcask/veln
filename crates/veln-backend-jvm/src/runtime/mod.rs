@@ -46,6 +46,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "byte_decode_schema_validation_sample" => "byteDecodeSchemaValidationSample",
     "http2_protocol_closed_with_pending" => "http2ProtocolClosedWithPending",
     "http2_protocol_continuation_expected" => "http2ProtocolContinuationExpected",
+    "http2_peer_limit_frame_size_exceeded" => "http2PeerLimitFrameSizeExceeded",
     "byte_read_u16_be" => "byteReadU16Be",
     "byte_read_u24_be" => "byteReadU24Be",
     "byte_read_u31_be" => "byteReadU31Be",
