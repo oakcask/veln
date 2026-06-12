@@ -42,7 +42,9 @@ external representation facts, not internal Veln type declarations.
 
 ## Scope
 
-Define remaining binary schema support for:
+Define remaining binary schema support beyond the implemented narrow
+primitive, payload-boundary, closed-dispatch, and extension-dispatch slices
+for:
 
 - executable exact-width unsigned field reads and writes beyond the
   implemented narrow primitive decode slices
@@ -51,8 +53,9 @@ Define remaining binary schema support for:
 - flags that decode as raw bits, bitsets, or frame-specific ADTs
 - general schema-declared length-prefixed payloads
 - field references inside later field definitions
-- dispatch from a tag field to payload schemas
-- unknown tags that preserve raw payload bytes when permitted
+- general dispatch from a tag field to payload schemas
+- generalized extension-tolerant unknown tags that preserve raw payload bytes
+  when permitted
 - schema-level structural validation
 
 ## Discussion Result: Dependent Structure Boundary
