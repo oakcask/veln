@@ -51,5 +51,21 @@ path = "error.details.byte_diagnostic.padding_length"
 equals = 6
 
 [[json_assert]]
-path = "error.details.byte_diagnostic.nearby_context"
+path = "error.details.byte_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.data"
 equals = "00000506"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
+equals = 4
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
+equals = 4
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.truncated"
+equals = false

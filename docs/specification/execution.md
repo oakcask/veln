@@ -37,19 +37,20 @@ execution reference.
   by `UInt32be` from a `ByteView`. Both visible fields decode to ordinary
   `Int` values. Truncated fields use the same `schema.truncated_field` byte
   diagnostic shape as the frame-header slice, including byte offset, field
-  path, expected count, available count, readiness, and nearby bytes.
+  path, expected count, available count, readiness, and structured byte
+  preview fields.
 - The `SchemaValidationSample` decode slice consumes `UInt24be length`
   followed by `UInt8 padding_length where padding_length <= length`. The
   decoded value exposes both fields as ordinary `Int` values. A failed
   predicate reports `schema.validation_failed` at the owning field byte
-  offset with schema field path, predicate text, decoded values, and nearby
-  bytes.
+  offset with schema field path, predicate text, decoded values, and
+  structured byte preview fields.
 - The frame decode helper reuses the frame-header validation and adds a
   bounded `payload: ByteView` over the same bytes. The payload starts after
   the nine-byte frame header and uses the decoded `length` as its count. If
   the closed input cannot provide that payload range, the helper returns
   `schema.length_out_of_bounds` with byte offset, schema field path, expected
-  payload count, available payload count, and nearby byte context.
+  payload count, available payload count, and structured byte preview fields.
 - Executable specification cases may keep named binary fixture records in the
   example tree; the harness checks complete lowercase hex output without
   promoting a production fixture API. Named fixture records can also represent

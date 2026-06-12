@@ -251,7 +251,8 @@ Implemented:
 - The first narrow executable schema `where` validation slice checks
   `padding_length <= length` during binary decode for
   `SchemaValidationSample` and reports `schema.validation_failed` with byte
-  offset, field path, predicate text, decoded values, and nearby bytes.
+  offset, field path, predicate text, decoded values, and structured byte
+  preview fields.
 
 Remaining:
 

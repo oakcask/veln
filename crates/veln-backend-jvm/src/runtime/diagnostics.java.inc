@@ -206,7 +206,7 @@
                     DiagnosticDetail.number("expected_count", expectedCount),
                     DiagnosticDetail.number("available_count", availableCount),
                     DiagnosticDetail.string("readiness", "need_bytes"),
-                    DiagnosticDetail.string("nearby_context", nearbyContext)
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
                 )
             )
         );
@@ -233,7 +233,7 @@
                 java.util.Arrays.asList(
                     DiagnosticDetail.number("expected_value", expectedValue),
                     DiagnosticDetail.number("actual_value", actualValue),
-                    DiagnosticDetail.string("nearby_context", nearbyContext)
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
                 )
             )
         );
@@ -262,7 +262,7 @@
                     DiagnosticDetail.number("bit_width", bitWidth),
                     DiagnosticDetail.number("expected_value", expectedValue),
                     DiagnosticDetail.number("actual_value", actualValue),
-                    DiagnosticDetail.string("nearby_context", nearbyContext)
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
                 )
             )
         );
@@ -289,7 +289,7 @@
                 java.util.Arrays.asList(
                     DiagnosticDetail.number("expected_count", expectedCount),
                     DiagnosticDetail.number("available_count", availableCount),
-                    DiagnosticDetail.string("nearby_context", nearbyContext)
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
                 )
             )
         );
@@ -320,7 +320,7 @@
                     DiagnosticDetail.number("field_value", fieldValue),
                     DiagnosticDetail.number("length", lengthValue),
                     DiagnosticDetail.number("padding_length", paddingLengthValue),
-                    DiagnosticDetail.string("nearby_context", nearbyContext)
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
                 )
             )
         );
@@ -449,6 +449,14 @@
 
         static DiagnosticDetail string(String key, String value) {
             return new DiagnosticDetail(key, "string", hex(value));
+        }
+
+        static DiagnosticDetail bytePreview(String key, String value) {
+            return new DiagnosticDetail(
+                key,
+                "byte_preview",
+                hex(value.toLowerCase(java.util.Locale.ROOT))
+            );
         }
 
         DiagnosticDetail(String key, String valueKind, String encodedValue) {

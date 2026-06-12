@@ -569,11 +569,31 @@ fn byte_diagnostic_v2_details<'a>(fields: &mut impl Iterator<Item = &'a str>) ->
         let json_value = match value_kind {
             "number" => JsonValue::Number(value.parse::<i64>().ok()?),
             "string" => JsonValue::string(decode_hex_text(value)?),
+            "byte_preview" => byte_preview_value(value)?,
             _ => return None,
         };
         entries.push((key, json_value));
     }
     Some(JsonValue::Object(entries))
+}
+
+fn byte_preview_value(encoded_hex_text: &str) -> Option<JsonValue> {
+    let data = decode_hex_text(encoded_hex_text)?;
+    if data.len() % 2 != 0
+        || !data
+            .chars()
+            .all(|ch| ch.is_ascii_digit() || ('a'..='f').contains(&ch))
+    {
+        return None;
+    }
+    let preview_byte_count = (data.len() / 2) as i64;
+    Some(JsonValue::object([
+        ("encoding", JsonValue::string("hex")),
+        ("data", JsonValue::string(data)),
+        ("preview_byte_count", JsonValue::Number(preview_byte_count)),
+        ("total_byte_count", JsonValue::Number(preview_byte_count)),
+        ("truncated", JsonValue::Bool(false)),
+    ]))
 }
 
 fn protocol_diagnostic_details<'a>(
@@ -3745,7 +3765,7 @@ mod tests {
             "\t2\tschema\t44656d6f5061636b6574\tfield\t6b696e64",
             "\t3\texpected_value\tnumber\t1",
             "\tactual_value\tnumber\t255",
-            "\tnearby_context\tstring\t666630303031\n",
+            "\tbyte_preview\tbyte_preview\t666630303031\n",
         );
 
         let failure = result_failure_from_trace(trace).expect("trace should decode");
@@ -3763,7 +3783,11 @@ mod tests {
                 "{\"kind\":\"field\",\"name\":\"kind\"}],",
                 "\"expected_value\":1,",
                 "\"actual_value\":255,",
-                "\"nearby_context\":\"ff0001\"}}"
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"ff0001\",",
+                "\"preview_byte_count\":3,",
+                "\"total_byte_count\":3,",
+                "\"truncated\":false}}}"
             )
         );
     }

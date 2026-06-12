@@ -113,7 +113,8 @@ cover the implemented `UInt16be` and `UInt32be` primitive decode slice. The
 valid case checks both fields over one `ByteView` and observes ordinary `Int`
 record fields. The failure case pins `schema.truncated_field` details for a
 truncated `UInt32be` field, including byte offset, schema field path, expected
-byte count, available byte count, readiness, and nearby bytes.
+byte count, available byte count, readiness, and structured byte preview
+fields.
 
 The executable specification cases
 `../../examples/specification/run/binary-schema-frame-header-decode/`,
@@ -142,17 +143,18 @@ cover the bounded HTTP/2 frame payload slice. The valid case observes payload
 bytes through the returned `payload: ByteView` separately from the header
 fields. The failure cases pin `schema.length_out_of_bounds` for a complete
 header whose decoded length exceeds the available payload bytes, including the
-first missing byte offset, expected and available counts, nearby bytes, and
-`Http2FrameHeader.payload` field path.
+first missing byte offset, expected and available counts, structured byte
+preview fields in JSON, human nearby-byte notes, and `Http2FrameHeader.payload`
+field path.
 
 `../../examples/specification/run/binary-fixed-field-mismatch-json/` and
 `../../examples/specification/run/binary-fixed-field-mismatch-human/` pin the
 first schema-owned fixed-field mismatch diagnostic slice. The JSON case
 asserts `schema.fixed_field_mismatch`, decoded byte offset, structured field
-path, expected and actual byte values, and nearby hex context. The human case
-asserts that the primary message stays focused on the fixed-field mismatch and
-puts field path, expected value, actual value, and nearby context in related
-notes.
+path, expected and actual byte values, and structured byte preview fields. The
+human case asserts that the primary message stays focused on the fixed-field
+mismatch and puts field path, expected value, actual value, and nearby context
+in related notes.
 
 `../../examples/specification/run/binary-schema-validation-decode/`,
 `../../examples/specification/run/binary-schema-validation-json/`, and
@@ -160,7 +162,8 @@ notes.
 first field-local schema `where` validation slice. The passing case preserves
 the decoded record shape. The failing cases assert `schema.validation_failed`,
 the owning field byte offset, structured field path, failed predicate text,
-decoded values, nearby bytes, and the focused human primary message.
+decoded values, structured byte preview fields, and the focused human primary
+message.
 
 ## HTTP/2 Protocol Core Example
 

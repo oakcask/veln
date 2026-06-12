@@ -107,7 +107,7 @@ decode position and validates the fixed bit pattern but is omitted from the
 record. Truncated schema fields return a `schema.truncated_field` result
 failure with expected and available byte counts. Reserved-bit mismatches
 return `schema.reserved_bits_mismatch` with bit width, expected value, actual
-value, nearby bytes, byte offset, and schema field path.
+value, structured byte preview fields, byte offset, and schema field path.
 
 The `SchemaWidthSample` primitive decode helper consumes one `UInt16be` field
 followed by one `UInt32be` field from a `ByteView`. Both fields produce
