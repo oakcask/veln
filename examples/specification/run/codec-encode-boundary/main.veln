@@ -1,0 +1,107 @@
+# Hand-written codec encode boundaries call the named encoder function.
+use stdio
+
+type Packet
+	Packet {length: Int, kind: Int}
+end
+
+schema PacketWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8
+
+	map to Packet
+		length = wire_length
+		kind = wire_kind
+end
+
+codec PacketCodec for PacketWire encode
+	encode with encode_packet
+end
+
+fn encode_packet(packet: {length: Int, kind: Int}, chunks: List<ByteChunk>) -> EncodeStep<String>
+	match packet.kind <= packet.length
+		true => Encoded(chunks)
+		false => Invalid(EncodeError("codec.out_of_range", "Packet.kind", "kind exceeds length"))
+	end
+end
+
+fn chunk_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_count(tail)
+	end
+end
+
+fn chunk_byte_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(chunk, tail) => byte_count_to_int(byte_chunk_count(chunk)) + chunk_byte_count(tail)
+	end
+end
+
+fn step_kind(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn emitted_chunks(step: EncodeStep<String>) -> Int
+	match step
+		Encoded(chunks) => chunk_count(chunks)
+		Partial(chunks, _, _) => chunk_count(chunks)
+		Invalid(_) => 0
+	end
+end
+
+fn emitted_bytes(step: EncodeStep<String>) -> Int
+	match step
+		Encoded(chunks) => chunk_byte_count(chunks)
+		Partial(_, produced, _) => byte_count_to_int(produced)
+		Invalid(_) => 0
+	end
+end
+
+fn error_id(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(id, _, _)) => id
+	end
+end
+
+fn error_path(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, path, _)) => path
+	end
+end
+
+fn error_reason(step: EncodeStep<String>) -> String
+	match step
+		Encoded(_) => "none"
+		Partial(_, _, _) => "none"
+		Invalid(EncodeError(_, _, reason)) => reason
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let first: ByteChunk = byte_chunk_from_hex("0007")?
+	let second: ByteChunk = byte_chunk_from_hex("03")?
+	let chunks: List<ByteChunk> = list_cons(first, list_cons(second, list_nil()))
+	let encoded: EncodeStep<String> = PacketCodec({length: 7, kind: 3}, chunks)
+	stdio::println(step_kind(encoded))
+	stdio::println(int_to_string(emitted_chunks(encoded)))
+	stdio::println(int_to_string(emitted_bytes(encoded)))
+
+	let invalid: EncodeStep<String> = PacketCodec({length: 1, kind: 7}, list_nil())
+	stdio::println(step_kind(invalid))
+	stdio::println(error_id(invalid))
+	stdio::println(error_path(invalid))
+	stdio::println(error_reason(invalid))
+	Ok(())
+end

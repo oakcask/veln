@@ -12,7 +12,7 @@ use crate::prelude::{
 };
 use crate::types::{
     CallOrigin, FunctionSignature, SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_DECODE_TARGET_PREFIX,
-    Type, TypeEnvironment, core_type,
+    Type, TypeEnvironment, core_type, is_assignable,
 };
 
 pub(crate) struct TypeBinding<'a> {
@@ -96,8 +96,9 @@ fn type_name_path_call_signature(
         BindingCallSignature::Resolved(signature) => Some(signature),
         BindingCallSignature::ShadowedNonCallable => None,
         BindingCallSignature::Missing => {
-            function_type_call_signature(segments, environment, current_module)
-                .or_else(|| codec_type_call_signature(segments, environment, current_module))
+            function_type_call_signature(segments, environment, current_module).or_else(|| {
+                codec_type_call_signature(segments, expected, environment, current_module)
+            })
         }
     }
 }
@@ -220,7 +221,7 @@ fn core_name_path_call_signature(
         BindingCallSignature::Missing => {}
     }
     core_function_call_signature(segments, expected, environment, current_module)
-        .or_else(|| core_codec_call_signature(segments, environment, current_module))
+        .or_else(|| core_codec_call_signature(segments, expected, environment, current_module))
 }
 
 fn qualified_core_prelude_call_signature(
@@ -343,20 +344,21 @@ fn resolve_function<'a>(
 
 fn codec_type_call_signature(
     segments: &[String],
+    expected: Option<&Type>,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
 ) -> Option<TypeCallSignature> {
-    let (codec, symbol) = match segments {
+    let (codecs, symbol) = match segments {
         [name] => (
-            environment.unqualified_codec_decode(name, current_module),
+            environment.unqualified_codec_calls(name, current_module),
             name.clone(),
         ),
         _ => (
-            environment.codec_decode_path(segments, current_module),
+            environment.codec_call_path(segments, current_module),
             segments.join("::"),
         ),
     };
-    let codec = codec?;
+    let codec = select_codec_type_call(codecs, expected)?;
     Some(TypeCallSignature {
         params: codec.params.clone(),
         return_type: codec.return_type.clone(),
@@ -371,18 +373,102 @@ fn codec_type_call_signature(
 
 fn core_codec_call_signature(
     segments: &[String],
+    expected: Option<&CoreType>,
     environment: &TypeEnvironment,
     current_module: Option<&str>,
 ) -> Option<CoreCallSignature> {
-    let codec = match segments {
-        [name] => environment.unqualified_codec_decode(name, current_module),
-        _ => environment.codec_decode_path(segments, current_module),
-    }?;
+    let codecs = match segments {
+        [name] => environment.unqualified_codec_calls(name, current_module),
+        _ => environment.codec_call_path(segments, current_module),
+    };
+    let codec = select_codec_core_call(codecs, expected)?;
     Some(CoreCallSignature {
         target: core_target_from_signature_name(&codec.target_name),
         params: codec.params.iter().map(core_type).collect(),
         return_type: core_type(&codec.return_type),
     })
+}
+
+fn select_codec_type_call<'a>(
+    codecs: Vec<&'a crate::types::CodecCallSignature>,
+    expected: Option<&Type>,
+) -> Option<&'a crate::types::CodecCallSignature> {
+    if codecs.len() == 1 {
+        return codecs.into_iter().next();
+    }
+    let expected = expected.filter(|expected| expected != &&Type::Unknown)?;
+    codecs
+        .into_iter()
+        .find(|codec| is_assignable(expected, &codec.return_type))
+}
+
+fn select_codec_core_call<'a>(
+    codecs: Vec<&'a crate::types::CodecCallSignature>,
+    expected: Option<&CoreType>,
+) -> Option<&'a crate::types::CodecCallSignature> {
+    if codecs.len() == 1 {
+        return codecs.into_iter().next();
+    }
+    let expected = expected.filter(|expected| expected != &&CoreType::Unknown)?;
+    codecs
+        .into_iter()
+        .find(|codec| core_type_is_assignable(expected, &core_type(&codec.return_type)))
+}
+
+fn core_type_is_assignable(expected: &CoreType, actual: &CoreType) -> bool {
+    if expected == &CoreType::Unknown || actual == &CoreType::Unknown || expected == actual {
+        return true;
+    }
+    match (expected, actual) {
+        (CoreType::Record(expected_fields), CoreType::Record(actual_fields)) => {
+            expected_fields.iter().all(|(expected_name, expected_ty)| {
+                actual_fields
+                    .iter()
+                    .find(|(actual_name, _)| actual_name == expected_name)
+                    .is_some_and(|(_, actual_ty)| core_type_is_assignable(expected_ty, actual_ty))
+            })
+        }
+        (
+            CoreType::Named {
+                name: expected_name,
+                args: expected_args,
+            },
+            CoreType::Named {
+                name: actual_name,
+                args: actual_args,
+            },
+        ) => {
+            expected_name == actual_name
+                && expected_args.len() == actual_args.len()
+                && expected_args
+                    .iter()
+                    .zip(actual_args)
+                    .all(|(expected, actual)| core_type_is_assignable(expected, actual))
+        }
+        (
+            CoreType::Function {
+                params: expected_params,
+                return_type: expected_return,
+                effects: expected_effects,
+            },
+            CoreType::Function {
+                params: actual_params,
+                return_type: actual_return,
+                effects: actual_effects,
+            },
+        ) => {
+            expected_params.len() == actual_params.len()
+                && expected_params
+                    .iter()
+                    .zip(actual_params)
+                    .all(|(expected, actual)| core_type_is_assignable(expected, actual))
+                && core_type_is_assignable(expected_return, actual_return)
+                && actual_effects
+                    .iter()
+                    .all(|effect| expected_effects.iter().any(|expected| expected == effect))
+        }
+        _ => false,
+    }
 }
 
 fn core_target_from_signature_name(target_name: &str) -> CoreCallTarget {

@@ -13,7 +13,7 @@ use crate::effects::{is_concurrency_call, is_stdio_call, standard_library_effect
 
 pub(crate) struct TypeEnvironment {
     functions: Vec<FunctionSignature>,
-    codec_decoders: Vec<CodecDecodeSignature>,
+    codec_calls: Vec<CodecCallSignature>,
     pub(crate) uses: Vec<UseDecl>,
     pub(crate) adts: AdtRegistry,
 }
@@ -32,7 +32,7 @@ pub(crate) struct FunctionSignature {
 }
 
 #[derive(Clone)]
-pub(crate) struct CodecDecodeSignature {
+pub(crate) struct CodecCallSignature {
     pub(crate) name: String,
     pub(crate) target_name: String,
     pub(crate) module_name: Option<String>,
@@ -296,12 +296,12 @@ impl TypeEnvironment {
             .collect::<Vec<_>>();
         functions.extend(schema_decode_function_signatures(module));
         infer_function_body_effects(module, &mut functions);
-        let codec_decoders = codec_decode_signatures(module, &functions);
+        let codec_calls = codec_call_signatures(module, &functions);
         let aliases = function_alias_signatures(module, &functions);
         functions.extend(aliases);
         Self {
             functions,
-            codec_decoders,
+            codec_calls,
             uses: module.uses.clone(),
             adts: AdtRegistry::from_module(module),
         }
@@ -386,77 +386,98 @@ impl TypeEnvironment {
         }
     }
 
-    pub(crate) fn unqualified_codec_decode(
+    pub(crate) fn unqualified_codec_calls(
         &self,
         name: &str,
         current_module: Option<&str>,
-    ) -> Option<&CodecDecodeSignature> {
-        self.codec_decoders
+    ) -> Vec<&CodecCallSignature> {
+        self.codec_calls
             .iter()
-            .find(|codec| codec.name == name && codec.module_name.as_deref() == current_module)
+            .filter(|codec| codec.name == name && codec.module_name.as_deref() == current_module)
+            .collect()
     }
 
-    pub(crate) fn codec_decode_path(
+    pub(crate) fn codec_call_path(
         &self,
         segments: &[String],
         current_module: Option<&str>,
-    ) -> Option<&CodecDecodeSignature> {
+    ) -> Vec<&CodecCallSignature> {
         match segments {
-            [name] => self.unqualified_codec_decode(name, current_module),
+            [name] => self.unqualified_codec_calls(name, current_module),
             [_, .., name] => {
-                let use_decl = imported_use_for_path(
+                let Some(use_decl) = imported_use_for_path(
                     &self.uses,
                     &segments[..segments.len() - 1],
                     current_module,
-                )?;
+                ) else {
+                    return Vec::new();
+                };
                 let module_name = use_decl.name.as_str();
-                self.codec_decoders.iter().find(|codec| {
-                    codec.name == *name
-                        && codec.module_name.as_deref() == Some(module_name)
-                        && codec.visibility == Visibility::Public
-                })
+                self.codec_calls
+                    .iter()
+                    .filter(|codec| {
+                        codec.name == *name
+                            && codec.module_name.as_deref() == Some(module_name)
+                            && codec.visibility == Visibility::Public
+                    })
+                    .collect()
             }
-            _ => None,
+            _ => Vec::new(),
         }
     }
 }
 
-fn codec_decode_signatures(
+fn codec_call_signatures(
     module: &SurfaceModule,
     functions: &[FunctionSignature],
-) -> Vec<CodecDecodeSignature> {
+) -> Vec<CodecCallSignature> {
     module
         .codecs
         .iter()
-        .filter_map(|codec| {
+        .flat_map(|codec| {
             let name = codec.name.clone()?;
-            let implementation = codec
-                .implementations
-                .iter()
-                .find(|implementation| implementation.direction == CodecDirection::Decode)?;
-            match &implementation.kind {
-                CodecImplementationKind::With {
-                    function: Some(function_name),
-                } => codec_decode_with_signature(codec, functions, name, function_name),
-                CodecImplementationKind::Derive => {
-                    codec_derive_decode_signature(module, functions, codec, name)
-                }
-                CodecImplementationKind::With { function: None } => None,
-            }
+            Some(
+                codec
+                    .implementations
+                    .iter()
+                    .filter_map(move |implementation| {
+                        match (&implementation.direction, &implementation.kind) {
+                            (
+                                CodecDirection::Decode | CodecDirection::Encode,
+                                CodecImplementationKind::With {
+                                    function: Some(function_name),
+                                },
+                            ) => {
+                                codec_with_signature(codec, functions, name.clone(), function_name)
+                            }
+                            (CodecDirection::Decode, CodecImplementationKind::Derive) => {
+                                codec_derive_decode_signature(
+                                    module,
+                                    functions,
+                                    codec,
+                                    name.clone(),
+                                )
+                            }
+                            (CodecDirection::Encode, CodecImplementationKind::Derive)
+                            | (_, CodecImplementationKind::With { function: None }) => None,
+                        }
+                    }),
+            )
         })
+        .flatten()
         .collect()
 }
 
-fn codec_decode_with_signature(
+fn codec_with_signature(
     codec: &CodecDecl,
     functions: &[FunctionSignature],
     name: String,
     function_name: &str,
-) -> Option<CodecDecodeSignature> {
+) -> Option<CodecCallSignature> {
     let function = functions.iter().find(|function| {
         function.name == function_name && function.module_name == codec.module_name
     })?;
-    Some(CodecDecodeSignature {
+    Some(CodecCallSignature {
         name,
         target_name: function.target_name.clone(),
         module_name: codec.module_name.clone(),
@@ -474,14 +495,14 @@ fn codec_derive_decode_signature(
     functions: &[FunctionSignature],
     codec: &CodecDecl,
     name: String,
-) -> Option<CodecDecodeSignature> {
+) -> Option<CodecCallSignature> {
     let schema = codec_referenced_schema(module, codec)?;
     let schema_name = schema.name.as_ref()?;
     let step_name = schema_decode_step_function_name(schema_name);
     let function = functions.iter().find(|function| {
         function.name == step_name && function.module_name == schema.module_name
     })?;
-    Some(CodecDecodeSignature {
+    Some(CodecCallSignature {
         name,
         target_name: function.target_name.clone(),
         module_name: codec.module_name.clone(),

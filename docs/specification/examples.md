@@ -120,6 +120,12 @@ functions construct `EncodeStep<TState>` values for complete `Encoded`
 `ByteCount` and resumable state, and an `Invalid` outcome carrying a
 structured `EncodeError` with id, field path, and representation-failure
 reason.
+The executable specification case
+`../../examples/specification/run/codec-encode-boundary/` covers a
+hand-written codec encode boundary: a codec item call passes the mapped record
+value and ordinary encoder parameters to the referenced encoder and observes
+its returned `Encoded` and `Invalid(EncodeError)` `EncodeStep<TState>` values
+unchanged.
 
 ## Binary Schema Frame Header
 

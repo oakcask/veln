@@ -164,8 +164,18 @@ returns that function's `DecodeStep<T>` value unchanged. The implemented
 mapped-record checker still requires `T` to match the referenced schema's
 single structural mapping target shape. Same-module private decode codecs are
 callable only inside their declaring module; imported calls require a written
-qualified module path to a `pub codec`. Encode execution remains
-unimplemented.
+qualified module path to a `pub codec`.
+
+A codec declaration with a valid hand-written `encode with function_name`
+clause exposes the codec item name as an executable encode boundary in
+ordinary source calls. The call invokes the already-checked same-module encode
+function with that function's parameters and returns its
+`EncodeStep<TState>` value unchanged. For the implemented single structural
+`map to Target` schema slice, the first encoder parameter remains the mapped
+target record shape. Same-module private encode codecs are callable only
+inside their declaring module; imported calls require a written qualified
+module path to a `pub codec`. Derived encode execution and general generated
+encode helpers remain unimplemented.
 
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header

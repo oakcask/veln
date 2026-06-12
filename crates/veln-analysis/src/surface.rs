@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 use std::path::{Component, Path};
 
 use veln_ast::{
-    CodecDirection, CodecImplementationKind, Expr, ExprKind, Function, FunctionKind, Pattern,
-    PatternKind, PublicAliasKind, SurfaceModule, UseDecl, Visibility, lower_surface_ast,
+    CodecImplementationKind, Expr, ExprKind, Function, FunctionKind, Pattern, PatternKind,
+    PublicAliasKind, SurfaceModule, UseDecl, Visibility, lower_surface_ast,
     lower_surface_ast_with_module_identity,
 };
 use veln_diagnostics::{Diagnostic, DiagnosticKind, JsonValue, Severity};
@@ -973,7 +973,7 @@ pub(crate) fn reachable_entry_module(
 fn reachable_function_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
     let mut function_targets = function_targets(module);
     function_targets.extend(function_alias_targets(module, &function_targets));
-    function_targets.extend(codec_decode_targets(module));
+    function_targets.extend(codec_with_targets(module));
     function_targets
 }
 
@@ -1000,38 +1000,42 @@ fn function_target(function: &Function) -> Option<FunctionTarget> {
     })
 }
 
-fn codec_decode_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
+fn codec_with_targets(module: &SurfaceModule) -> Vec<FunctionTarget> {
     module
         .codecs
         .iter()
-        .filter_map(|codec| {
+        .flat_map(|codec| {
             let name = codec.name.clone()?;
-            let implementation = codec
-                .implementations
-                .iter()
-                .find(|implementation| implementation.direction == CodecDirection::Decode)?;
-            let CodecImplementationKind::With {
-                function: Some(function_name),
-            } = &implementation.kind
-            else {
-                return None;
-            };
-            let target = module.functions.iter().find(|function| {
-                function.kind == FunctionKind::Function
-                    && function.name.as_deref() == Some(function_name.as_str())
-                    && function.module_name == codec.module_name
-            })?;
-            Some(FunctionTarget {
-                name,
-                module_name: codec.module_name.clone(),
-                target_name: function_name.clone(),
-                target_module_name: target.module_name.clone(),
-                visibility: codec.visibility,
-                arity: target.params.len(),
-                bare_importable: false,
-                requires_public_import: true,
-            })
+            Some(
+                codec
+                    .implementations
+                    .iter()
+                    .filter_map(move |implementation| {
+                        let CodecImplementationKind::With {
+                            function: Some(function_name),
+                        } = &implementation.kind
+                        else {
+                            return None;
+                        };
+                        let target = module.functions.iter().find(|function| {
+                            function.kind == FunctionKind::Function
+                                && function.name.as_deref() == Some(function_name.as_str())
+                                && function.module_name == codec.module_name
+                        })?;
+                        Some(FunctionTarget {
+                            name: name.clone(),
+                            module_name: codec.module_name.clone(),
+                            target_name: function_name.clone(),
+                            target_module_name: target.module_name.clone(),
+                            visibility: codec.visibility,
+                            arity: target.params.len(),
+                            bare_importable: false,
+                            requires_public_import: true,
+                        })
+                    }),
+            )
         })
+        .flatten()
         .collect()
 }
 
@@ -2051,6 +2055,58 @@ mod tests {
             functions,
             vec![
                 (Some("main"), FunctionKind::Function, Some("decode_packet")),
+                (Some("main"), FunctionKind::Function, Some("main")),
+            ]
+        );
+    }
+
+    #[test]
+    fn run_entry_can_reach_codec_encode_function() {
+        let project = Project {
+            root: ".".into(),
+            files: vec![SourceFile::new(
+                "main.veln",
+                concat!(
+                    "schema PacketWire\n",
+                    "  format binary\n",
+                    "  length: UInt8\n",
+                    "end\n",
+                    "\n",
+                    "codec PacketCodec for PacketWire encode\n",
+                    "  encode with encode_packet\n",
+                    "end\n",
+                    "\n",
+                    "fn encode_packet(packet: {length: Int}) -> EncodeStep<String>\n",
+                    "  Encoded(list_nil())\n",
+                    "end\n",
+                    "\n",
+                    "pub fn main(packet: {length: Int}) -> EncodeStep<String>\n",
+                    "  PacketCodec(packet)\n",
+                    "end\n",
+                ),
+            )],
+            manifest: None,
+        };
+        let (module, diagnostics) = load_surface_module(&project);
+        assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+
+        let reachable = reachable_entry_module(&module, "main", FunctionKind::Function);
+        let functions = reachable
+            .functions
+            .iter()
+            .map(|function| {
+                (
+                    function.module_name.as_deref(),
+                    function.kind,
+                    function.name.as_deref(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            functions,
+            vec![
+                (Some("main"), FunctionKind::Function, Some("encode_packet")),
                 (Some("main"), FunctionKind::Function, Some("main")),
             ]
         );

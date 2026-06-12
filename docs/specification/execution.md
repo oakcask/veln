@@ -78,9 +78,15 @@ execution reference.
   ordinary source calls. The call accepts a bounded `ByteView` and explicit
   base `ByteOffset`, invokes the referenced same-module function, and returns
   its `DecodeStep<T>` unchanged.
+- A codec declaration with a valid hand-written `encode with function_name`
+  clause exposes the codec item name as the executable encode boundary for
+  ordinary source calls. The call invokes the referenced same-module function
+  with that function's parameters and returns its `EncodeStep<TState>` value
+  unchanged. For the implemented single structural `map to Target` schema
+  slice, the first encoder parameter remains the mapped target record shape.
 - Same-module private decode codecs are callable only in their declaring
-  module; imported calls require a written qualified module path to a
-  `pub codec`.
+  module; same-module private encode codecs follow the same rule. Imported
+  calls require a written qualified module path to a `pub codec`.
 - The frame decode helper reuses the frame-header validation and adds a
   bounded `payload: ByteView` over the same bytes. The payload starts after
   the nine-byte frame header and uses the decoded `length` as its count. If
