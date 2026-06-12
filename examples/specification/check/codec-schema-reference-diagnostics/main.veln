@@ -37,6 +37,6 @@ fn schema_field_is_not_imported() -> Int
 	payload
 end
 
-fn codec_item_is_not_callable() -> Int
-	app::wire::PacketCodec()
+fn codec_item_call_has_decode_shape(view: ByteView, base: ByteOffset) -> Int
+	app::wire::PacketCodec(view, base)
 end

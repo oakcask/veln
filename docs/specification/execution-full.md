@@ -147,16 +147,25 @@ incremental helper does not change the closed-input `Result` helper path:
 closed truncation still reports `schema.truncated_field` through
 `byte_decode_<schema>`.
 
+A codec declaration with a valid `derive decode` clause for the same eligible
+generated binary schema decode-step slice exposes the codec item name as an
+executable decode boundary in ordinary source calls. The call accepts the
+bounded `ByteView` and explicit base `ByteOffset` and returns the same
+`DecodeStep<T>` value as `byte_decode_step_<schema>`, including a mapped record
+value when the schema has the implemented single structural `map to Target`
+record mapping. `Decoded` reports the exact consumed byte count; `NeedMore`
+and `Invalid` consume no bytes.
+
 A codec declaration with a valid hand-written `decode with function_name`
-clause exposes the codec item name as an executable decode boundary in ordinary
-source calls. The call accepts the bounded `ByteView` and explicit base
-`ByteOffset`, invokes the already-checked same-module decode function, and
+clause also exposes the codec item name as an executable decode boundary in
+ordinary source calls. The call accepts the bounded `ByteView` and explicit
+base `ByteOffset`, invokes the already-checked same-module decode function, and
 returns that function's `DecodeStep<T>` value unchanged. The implemented
 mapped-record checker still requires `T` to match the referenced schema's
-single structural mapping target shape. Same-module private codecs are
+single structural mapping target shape. Same-module private decode codecs are
 callable only inside their declaring module; imported calls require a written
-qualified module path to a `pub codec`. Derived decode execution and encode
-execution remain unimplemented.
+qualified module path to a `pub codec`. Encode execution remains
+unimplemented.
 
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header

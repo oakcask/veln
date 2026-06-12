@@ -27,7 +27,10 @@ larger and less consistent with Veln's immutable value style.
 The source-surface declaration slice is implemented in
 `../specification/source-surface.md`: top-level `codec` and `pub codec`
 items preserve explicit `decode` and `encode` directions plus `derive` and
-`with` body clauses, but do not execute codecs.
+`with` body clauses. The implemented execution slice covers hand-written
+decode calls and derived decode calls for schemas that are already eligible for
+the generated exact-width binary schema decode-step helper in
+`../specification/execution.md`.
 
 Define codec support for:
 
@@ -143,13 +146,13 @@ The source-surface direction list is implemented in
 schema and list `decode`, `encode`, or both in the declaration head.
 
 The direction list is the source-visible opt-in boundary. For the implemented
-hand-written `decode with` slice, a `decode` direction exposes the codec item
-as a decoder for values produced from that schema, with `DecodeStep<T>`
-readiness and consumed-count behavior. A future executable `encode` direction
-will expose an encoder from the mapped Veln value back into immutable byte
-chunks. A declaration that lists both directions may share schema-derived
-checks and mapping facts, but each direction still has its own result shape and
-diagnostics.
+`decode with` and eligible `derive decode` slices, a `decode` direction exposes
+the codec item as a decoder for values produced from that schema, with
+`DecodeStep<T>` readiness and consumed-count behavior. A future executable
+`encode` direction will expose an encoder from the mapped Veln value back into
+immutable byte chunks. A declaration that lists both directions may share
+schema-derived checks and mapping facts, but each direction still has its own
+result shape and diagnostics.
 
 Remaining checker work should reject directions that the named schema cannot
 support. For example, encoding is unavailable when schema mapping is not total
@@ -189,9 +192,12 @@ checker verifies the hand-written encoder result boundary as
 encoder parameter is the mapped target record shape. The implemented
 hand-written decode execution boundary exposes the codec item name as an
 ordinary source call that forwards `ByteView` and `ByteOffset` to the
-referenced function and returns its `DecodeStep<T>` unchanged. Remaining work
-should extend this beyond the currently implemented mapping slice and add
-derived decode execution plus executable encode invocation.
+referenced function and returns its `DecodeStep<T>` unchanged. The implemented
+derived decode execution slice exposes the codec item name as an ordinary
+source call to the generated `byte_decode_step_<schema>` behavior when the
+schema is in the currently implemented exact-width binary schema decode-step
+slice. Remaining work should extend this beyond the currently implemented
+mapping slice and add executable encode invocation.
 
 The implemented parser rejects a missing implementation clause for a listed
 direction, a body clause for a direction absent from the declaration head, and
@@ -209,11 +215,11 @@ schema plus its explicit direction list; it is not derived from the schema
 name, and it does not synthesize separate top-level decoder or encoder
 functions.
 
-The implemented hand-written decode call path makes a private codec usable
-only in its declaring module. A `pub codec` is exposed through a written
-import-qualified module path, without re-exporting it from the importing
-module. Remaining import and execution work should apply the same item shape to
-derived decode and encode execution.
+The implemented hand-written and eligible derived decode call paths make a
+private codec usable only in its declaring module. A `pub codec` is exposed
+through a written import-qualified module path, without re-exporting it from
+the importing module. Remaining import and execution work should apply the
+same item shape to encode execution.
 
 Importing a codec imports the codec item only. It does not import the schema as
 an ordinary value, expose schema-local field names, or add codec directions that

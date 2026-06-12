@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use veln_ast::{
-    BodyLineKind, CodecDirection, CodecImplementationKind, Expr, ExprKind, FunctionKind, NodeId,
-    Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaMappingClause, SurfaceModule,
+    BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, FunctionKind,
+    NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaMappingClause, SurfaceModule,
     TypeDecl, TypeVariantDecl, UseDecl, Visibility,
 };
 use veln_core::CoreType;
@@ -434,28 +434,96 @@ fn codec_decode_signatures(
                 .implementations
                 .iter()
                 .find(|implementation| implementation.direction == CodecDirection::Decode)?;
-            let CodecImplementationKind::With {
-                function: Some(function_name),
-            } = &implementation.kind
-            else {
-                return None;
-            };
-            let function = functions.iter().find(|function| {
-                function.name == *function_name && function.module_name == codec.module_name
-            })?;
-            Some(CodecDecodeSignature {
-                name,
-                target_name: function.target_name.clone(),
-                module_name: codec.module_name.clone(),
-                visibility: codec.visibility,
-                params: function.params.clone(),
-                return_type: function.return_type.clone(),
-                effects: function.effects.clone(),
-                node_id: codec.node_id,
-                span: codec.span.clone(),
-            })
+            match &implementation.kind {
+                CodecImplementationKind::With {
+                    function: Some(function_name),
+                } => codec_decode_with_signature(codec, functions, name, function_name),
+                CodecImplementationKind::Derive => {
+                    codec_derive_decode_signature(module, functions, codec, name)
+                }
+                CodecImplementationKind::With { function: None } => None,
+            }
         })
         .collect()
+}
+
+fn codec_decode_with_signature(
+    codec: &CodecDecl,
+    functions: &[FunctionSignature],
+    name: String,
+    function_name: &str,
+) -> Option<CodecDecodeSignature> {
+    let function = functions.iter().find(|function| {
+        function.name == function_name && function.module_name == codec.module_name
+    })?;
+    Some(CodecDecodeSignature {
+        name,
+        target_name: function.target_name.clone(),
+        module_name: codec.module_name.clone(),
+        visibility: codec.visibility,
+        params: function.params.clone(),
+        return_type: function.return_type.clone(),
+        effects: function.effects.clone(),
+        node_id: codec.node_id,
+        span: codec.span.clone(),
+    })
+}
+
+fn codec_derive_decode_signature(
+    module: &SurfaceModule,
+    functions: &[FunctionSignature],
+    codec: &CodecDecl,
+    name: String,
+) -> Option<CodecDecodeSignature> {
+    let schema = codec_referenced_schema(module, codec)?;
+    let schema_name = schema.name.as_ref()?;
+    let step_name = schema_decode_step_function_name(schema_name);
+    let function = functions.iter().find(|function| {
+        function.name == step_name && function.module_name == schema.module_name
+    })?;
+    Some(CodecDecodeSignature {
+        name,
+        target_name: function.target_name.clone(),
+        module_name: codec.module_name.clone(),
+        visibility: codec.visibility,
+        params: function.params.clone(),
+        return_type: function.return_type.clone(),
+        effects: function.effects.clone(),
+        node_id: codec.node_id,
+        span: codec.span.clone(),
+    })
+}
+
+fn codec_referenced_schema<'a>(
+    module: &'a SurfaceModule,
+    codec: &CodecDecl,
+) -> Option<&'a SchemaDecl> {
+    let schema_name = codec.schema.as_ref()?;
+    let current_module = codec.module_name.as_deref();
+    let segments = schema_name
+        .split("::")
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    match segments.as_slice() {
+        [name] => module.schemas.iter().find(|schema| {
+            schema.name.as_deref() == Some(name.as_str())
+                && schema.module_name.as_deref() == current_module
+        }),
+        [_, .., name] => {
+            let use_decl = imported_use_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            )?;
+            let target_module = Some(use_decl.name.as_str());
+            module.schemas.iter().find(|schema| {
+                schema.name.as_deref() == Some(name.as_str())
+                    && schema.module_name.as_deref() == target_module
+                    && schema.visibility == Visibility::Public
+            })
+        }
+        _ => None,
+    }
 }
 
 fn schema_decode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {

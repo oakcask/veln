@@ -103,6 +103,12 @@ hand-written codec decode boundary: a codec item call passes `ByteView` and
 `ByteOffset` to the referenced decoder and observes its returned `Decoded`,
 `NeedMore`, and `Invalid` `DecodeStep<T>` values unchanged while the schema
 mapping pins the accepted value type.
+The executable specification case
+`../../examples/specification/run/derived-codec-decode-boundary/` covers a
+derived codec decode boundary for the same eligible generated binary schema
+decode-step slice: a codec item call observes the generated helper's
+`Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the codec
+item name while preserving mapped record fields and no-consumption outcomes.
 
 ## Codec Encode Step Vocabulary
 
