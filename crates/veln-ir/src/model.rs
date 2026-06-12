@@ -43,6 +43,7 @@ pub struct IrSchemaDecodeDispatch {
 pub struct IrSchemaDecodeDispatchCase {
     pub tag: i64,
     pub width: u8,
+    pub payload_schema: Option<Box<IrSchemaDecodeSpec>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

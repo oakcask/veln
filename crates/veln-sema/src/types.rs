@@ -567,7 +567,7 @@ fn schema_decode_function_signatures_for_schema(
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return Vec::new();
     }
-    let Some(fields) = schema_decode_record_fields(schema) else {
+    let Some(fields) = schema_decode_record_fields(module, schema) else {
         return Vec::new();
     };
     let byte_view = Type::named("ByteView", Vec::new());
@@ -609,7 +609,48 @@ fn schema_decode_function_signatures_for_schema(
     ]
 }
 
-fn schema_decode_record_fields(schema: &SchemaDecl) -> Option<Vec<(String, Type, u8)>> {
+fn schema_decode_record_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<Vec<(String, Type, u8)>> {
+    schema_decode_record_fields_inner(module, schema, &mut Vec::new())
+}
+
+pub(crate) fn schema_decode_record_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<Type> {
+    if schema.format.as_ref()?.name != "binary" {
+        return None;
+    }
+    Some(Type::Record(
+        schema_decode_record_fields(module, schema)?
+            .into_iter()
+            .map(|(name, ty, _)| (name, ty))
+            .collect(),
+    ))
+}
+
+fn schema_decode_record_fields_inner(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    stack: &mut Vec<String>,
+) -> Option<Vec<(String, Type, u8)>> {
+    let schema_name = schema.name.as_ref()?;
+    if stack.iter().any(|name| name == schema_name) {
+        return None;
+    }
+    stack.push(schema_name.clone());
+    let fields = schema_decode_record_fields_inner_after_push(module, schema, stack);
+    stack.pop();
+    fields
+}
+
+fn schema_decode_record_fields_inner_after_push(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    stack: &mut Vec<String>,
+) -> Option<Vec<(String, Type, u8)>> {
     let mut decoded_fields = BTreeSet::new();
     let mut fields = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
@@ -617,8 +658,8 @@ fn schema_decode_record_fields(schema: &SchemaDecl) -> Option<Vec<(String, Type,
             supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
             continue;
         }
-        let width = if let Some(width) = exact_width_schema_primitive(&field.ty) {
-            width
+        let (width, ty) = if let Some(width) = exact_width_schema_primitive(&field.ty) {
+            (width, Type::int())
         } else {
             let dispatch = closed_dispatch_schema_primitive(&field.ty)
                 .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
@@ -630,17 +671,110 @@ fn schema_decode_record_fields(schema: &SchemaDecl) -> Option<Vec<(String, Type,
             {
                 return None;
             }
-            0
+            let mut payload_types = dispatch
+                .cases
+                .iter()
+                .map(|case| schema_dispatch_case_type(module, schema, case, stack))
+                .collect::<Option<Vec<_>>>()?;
+            let payload_ty = payload_types.pop()?;
+            if payload_types.iter().any(|ty| ty != &payload_ty) {
+                return None;
+            }
+            let field_ty = if dispatch.length_field.is_some() {
+                Type::named("SchemaDispatchPayload", vec![payload_ty])
+            } else {
+                payload_ty
+            };
+            (0, field_ty)
         };
         decoded_fields.insert(field.name.clone());
-        let ty = if extension_dispatch_schema_primitive(&field.ty).is_some() {
-            Type::named("SchemaDispatchPayload", vec![Type::int()])
-        } else {
-            Type::int()
-        };
         fields.push((field.name.clone(), ty, width));
     }
     Some(fields)
+}
+
+fn schema_dispatch_case_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    case: &SchemaDispatchCase,
+    stack: &mut Vec<String>,
+) -> Option<Type> {
+    match &case.payload {
+        SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+        SchemaDispatchCasePayload::Schema { schema_name } => {
+            let nested = same_module_schema(module, schema, schema_name)?;
+            schema_decode_value_type_inner(module, nested, stack)
+        }
+    }
+}
+
+fn schema_decode_value_type_inner(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    stack: &mut Vec<String>,
+) -> Option<Type> {
+    let fields = schema_decode_record_fields_inner(module, schema, stack)?;
+    let mapped_fields = schema_decode_mapping_fields(module, schema)
+        .map(|fields| {
+            fields
+                .into_iter()
+                .map(|field| (field.target, Type::int()))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_else(|| fields.into_iter().map(|(name, ty, _)| (name, ty)).collect());
+    Some(Type::Record(mapped_fields))
+}
+
+pub(crate) fn same_module_schema<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    schema_name: &str,
+) -> Option<&'a SchemaDecl> {
+    if schema_name.contains("::") {
+        return None;
+    }
+    let current_index = module
+        .schemas
+        .iter()
+        .position(|candidate| candidate.node_id == schema.node_id)?;
+    module
+        .schemas
+        .iter()
+        .enumerate()
+        .find_map(|(index, candidate)| {
+            (candidate.name.as_deref() == Some(schema_name)
+                && candidate.module_name.as_deref() == schema.module_name.as_deref()
+                && candidate.format.as_ref().map(|format| format.name.as_str()) == Some("binary")
+                && index < current_index)
+                .then_some(candidate)
+        })
+}
+
+pub(crate) fn schema_decode_value_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<Type> {
+    schema_decode_value_type_inner(module, schema, &mut Vec::new())
+}
+
+pub(crate) fn schema_payload_name_path(text: &str) -> Option<Vec<String>> {
+    let segments = text.split("::").map(str::trim).collect::<Vec<_>>();
+    if segments.is_empty()
+        || segments
+            .iter()
+            .any(|segment| !is_schema_identifier(segment))
+    {
+        return None;
+    }
+    Some(segments.into_iter().map(str::to_string).collect())
+}
+
+pub(crate) fn schema_payload_name_is_path(text: &str) -> bool {
+    schema_payload_name_path(text).is_some()
+}
+
+pub(crate) fn schema_payload_name_last_segment(text: &str) -> &str {
+    text.rsplit("::").next().unwrap_or(text)
 }
 
 fn schema_encode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {
@@ -859,7 +993,13 @@ pub(crate) struct SchemaDispatchSpec {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct SchemaDispatchCase {
     pub(crate) tag: i64,
-    pub(crate) width: u8,
+    pub(crate) payload: SchemaDispatchCasePayload,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum SchemaDispatchCasePayload {
+    Primitive { width: u8 },
+    Schema { schema_name: String },
 }
 
 pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatchSpec> {
@@ -876,8 +1016,8 @@ pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatc
         .map(|arg| {
             let (tag, primitive) = arg.split_once("=>")?;
             let tag = parse_schema_tag(tag.trim())?;
-            let width = exact_width_schema_primitive(primitive.trim())?;
-            Some(SchemaDispatchCase { tag, width })
+            let payload = schema_dispatch_case_payload(primitive.trim())?;
+            Some(SchemaDispatchCase { tag, payload })
         })
         .collect::<Option<Vec<_>>>()?;
     if cases.is_empty() {
@@ -905,8 +1045,8 @@ pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDisp
         .map(|arg| {
             let (tag, primitive) = arg.split_once("=>")?;
             let tag = parse_schema_tag(tag.trim())?;
-            let width = exact_width_schema_primitive(primitive.trim())?;
-            Some(SchemaDispatchCase { tag, width })
+            let payload = schema_dispatch_case_payload(primitive.trim())?;
+            Some(SchemaDispatchCase { tag, payload })
         })
         .collect::<Option<Vec<_>>>()?;
     if cases.is_empty() {
@@ -916,6 +1056,15 @@ pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDisp
         tag_field,
         length_field: Some(length_field),
         cases,
+    })
+}
+
+fn schema_dispatch_case_payload(text: &str) -> Option<SchemaDispatchCasePayload> {
+    if let Some(width) = exact_width_schema_primitive(text) {
+        return Some(SchemaDispatchCasePayload::Primitive { width });
+    }
+    schema_payload_name_is_path(text).then(|| SchemaDispatchCasePayload::Schema {
+        schema_name: text.to_string(),
     })
 }
 

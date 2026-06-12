@@ -51,31 +51,39 @@ execution reference.
   schema field path, predicate text, decoded values, and structured byte
   preview fields.
 - The narrow binary schema closed dispatch slice decodes
-  `Dispatch(tag_field, tag => Primitive, ...)` fields after the referenced tag
+  `Dispatch(tag_field, tag => Payload, ...)` fields after the referenced tag
   field has been decoded by an earlier exact-width field in the same schema.
-  Known dispatch cases consume the selected exact-width unsigned payload
-  primitive and expose the payload as an ordinary `Int` field. Unknown tags in
-  the closed dispatch report `schema.dispatch_unknown_tag` at the dispatch
-  field byte offset with schema field path, decoded tag field, decoded tag
-  value, expected tags, and structured byte preview fields. The checked
-  examples are
+  Known dispatch cases consume either the selected exact-width unsigned
+  payload primitive and expose an ordinary `Int` field, or the selected
+  same-module nested binary schema and expose that schema's decoded record
+  shape. Unknown tags in the closed dispatch report
+  `schema.dispatch_unknown_tag` at the dispatch field byte offset with schema
+  field path, decoded tag field, decoded tag value, expected tags, and
+  structured byte preview fields. The checked examples are
   `examples/specification/run/binary-schema-closed-dispatch-decode/`,
+  `examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
   `examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
   and
   `examples/specification/run/binary-schema-closed-dispatch-unknown-human/`.
 - The narrow binary schema extension dispatch slice decodes
-  `ExtensionDispatch(tag_field, length_field, tag => Primitive, ...)` fields
+  `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` fields
   after both referenced fields have been decoded by earlier exact-width fields
-  in the same schema. Known cases consume the selected exact-width unsigned
-  payload primitive and expose it as `SchemaDispatchPayload::Known(Int)`.
-  Unknown cases do not report `schema.dispatch_unknown_tag`; they expose
+  in the same schema. Known cases consume either the selected exact-width
+  unsigned payload primitive or the selected same-module nested binary schema
+  from the bounded payload bytes selected by `length_field`, then expose it as
+  `SchemaDispatchPayload::Known(value)`. Unknown cases do not report
+  `schema.dispatch_unknown_tag`; they expose
   `SchemaDispatchPayload::Unknown(tag, payload)` where `payload` is a bounded
   `ByteView` over exactly the byte count decoded from `length_field`. If the
   closed input cannot provide that bounded payload, the helper reports
-  `schema.length_out_of_bounds` at the first missing payload byte. The checked
-  examples are
+  `schema.length_out_of_bounds` at the first missing payload byte. Nested
+  payload decode failures report the nested schema field path and absolute byte
+  offset from the enclosing input. The checked examples are
   `examples/specification/run/binary-schema-extension-dispatch-decode/`,
-  `examples/specification/run/binary-schema-extension-dispatch-unknown/`, and
+  `examples/specification/run/binary-schema-extension-dispatch-nested-decode/`,
+  `examples/specification/run/binary-schema-extension-dispatch-unknown/`,
+  `examples/specification/run/binary-schema-extension-dispatch-nested-unknown/`,
+  `examples/specification/run/binary-schema-dispatch-nested-failure-json/`, and
   `examples/specification/run/binary-schema-extension-dispatch-length-human/`.
 - When an eligible generated binary schema decode helper has one structural
   `map to Target` clause and the target resolves to a single record-shaped

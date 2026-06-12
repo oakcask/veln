@@ -1,0 +1,68 @@
+# Binary schema dispatch payload diagnostics keep nested schema scope narrow.
+use wire
+
+type Shape
+	Shape(Int)
+end
+
+schema MissingPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => MissingPayload)
+end
+
+schema NonSchemaPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => Shape)
+end
+
+schema ImportedPrivatePacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::PrivatePayload)
+end
+
+schema ImportedPublicPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::PublicPayload)
+end
+
+schema SelfPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => SelfPacket)
+end
+
+schema ForwardPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => LaterPayload)
+end
+
+schema PriorPayload
+	format binary
+
+	code: UInt8
+	value: UInt8
+end
+
+schema MixedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => UInt8, 2 => PriorPayload)
+end
+
+schema LaterPayload
+	format binary
+
+	code: UInt8
+end

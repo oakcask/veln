@@ -98,13 +98,19 @@ ordinary source types or values. Binary schema fields also accept the
 `ReservedBits(width, value)` primitive
 spelling when `width` and `value` are literal non-negative integers, such as
 `ReservedBits(1, 0)`. Binary schema fields also accept the closed dispatch
-type `Dispatch(tag_field, tag => Primitive, ...)` and the extension-tolerant
-type `ExtensionDispatch(tag_field, length_field, tag => Primitive, ...)`
-when the referenced fields were decoded earlier in the same schema and case
-primitives are implemented exact-width unsigned primitives. Exact-width
-primitive names used outside `format binary` schema field type positions
-report `schema.exact_width_primitive`. Missing `ReservedBits` arguments or
-non-literal arguments report `schema.reserved_bits_primitive`.
+type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
+type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
+the referenced fields were decoded earlier in the same schema and case
+payloads are implemented exact-width unsigned primitives or same-module binary
+schema items. Exact-width primitive names used outside `format binary` schema
+field type positions report `schema.exact_width_primitive`. Missing
+`ReservedBits` arguments or non-literal arguments report
+`schema.reserved_bits_primitive`. Missing, forward, or non-`Int` tag and
+length references report `schema.dispatch_reference`. Nested payload names
+that are missing, non-schema, private imported, unsupported imported, forward,
+recursive, or incompatible report `schema.dispatch_payload`. The checked
+diagnostics case is
+`../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`.
 
 A schema may end with one or more structural mapping clauses:
 

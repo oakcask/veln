@@ -1,6 +1,10 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
-use crate::types::supported_encode_reserved_bits;
+use crate::types::{
+    SchemaDispatchCasePayload, SchemaDispatchSpec, closed_dispatch_schema_primitive,
+    extension_dispatch_schema_primitive, schema_decode_record_type, schema_decode_value_type,
+    schema_payload_name_last_segment, schema_payload_name_path, supported_encode_reserved_bits,
+};
 use veln_ast::{
     CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, PublicAliasKind,
     SchemaDecl, SchemaField, SchemaMappingAssignment, SchemaMappingClause, UseDecl,
@@ -683,7 +687,7 @@ fn codec_mapping_value_type(module: &SurfaceModule, codec: &CodecDecl) -> Option
     let [mapping] = schema.mappings.as_slice() else {
         return None;
     };
-    let schema_fields = generated_schema_field_types(schema)?;
+    let schema_fields = generated_schema_field_types(module, schema)?;
     let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
     if !mapping_is_implemented_value_slice(&schema_fields, mapping, &target_fields) {
         return None;
@@ -1243,6 +1247,7 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
 
     for schema in &module.schemas {
         let format_name = schema.format.as_ref().map(|format| format.name.as_str());
+        let mut decoded_fields = BTreeMap::<String, Type>::new();
         for field in &schema.fields {
             if let Some(primitive) = exact_width_binary_primitive_name(&field.ty) {
                 if format_name != Some("binary") {
@@ -1254,30 +1259,47 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                         field.span.clone(),
                         "non_binary_format",
                     ));
+                } else {
+                    decoded_fields.insert(field.name.clone(), Type::int());
                 }
                 continue;
             }
-            let Some(primitive) = reserved_bits_primitive(&field.ty) else {
-                continue;
-            };
-            if format_name != Some("binary") {
-                diagnostics.push(reserved_bits_format_diagnostic(schema, field));
+            if format_name == Some("binary")
+                && let Some(dispatch) = closed_dispatch_schema_primitive(&field.ty)
+                    .or_else(|| extension_dispatch_schema_primitive(&field.ty))
+            {
+                if let Some(field_ty) = check_schema_dispatch_field(
+                    module,
+                    schema,
+                    field,
+                    &dispatch,
+                    &decoded_fields,
+                    &mut diagnostics,
+                ) {
+                    decoded_fields.insert(field.name.clone(), field_ty);
+                }
                 continue;
             }
-            match primitive {
-                Err(reason) => {
-                    diagnostics.push(reserved_bits_argument_diagnostic(schema, field, reason))
+            if let Some(primitive) = reserved_bits_primitive(&field.ty) {
+                if format_name != Some("binary") {
+                    diagnostics.push(reserved_bits_format_diagnostic(schema, field));
+                    continue;
                 }
-                Ok(reserved) => {
-                    let field_index = schema
-                        .fields
-                        .iter()
-                        .position(|schema_field| schema_field.node_id == field.node_id);
-                    let next_field = field_index.and_then(|index| schema.fields.get(index + 1));
-                    if supported_encode_reserved_bits(next_field, reserved).is_none() {
-                        diagnostics.push(reserved_bits_encode_shape_diagnostic(
-                            schema, field, reserved,
-                        ));
+                match primitive {
+                    Err(reason) => {
+                        diagnostics.push(reserved_bits_argument_diagnostic(schema, field, reason))
+                    }
+                    Ok(reserved) => {
+                        let field_index = schema
+                            .fields
+                            .iter()
+                            .position(|schema_field| schema_field.node_id == field.node_id);
+                        let next_field = field_index.and_then(|index| schema.fields.get(index + 1));
+                        if supported_encode_reserved_bits(next_field, reserved).is_none() {
+                            diagnostics.push(reserved_bits_encode_shape_diagnostic(
+                                schema, field, reserved,
+                            ));
+                        }
                     }
                 }
             }
@@ -1287,11 +1309,451 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
     diagnostics
 }
 
+fn check_schema_dispatch_field(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    dispatch: &SchemaDispatchSpec,
+    decoded_fields: &BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<Type> {
+    let mut valid = true;
+    if !check_schema_dispatch_reference(
+        schema,
+        field,
+        decoded_fields,
+        &dispatch.tag_field,
+        "tag",
+        diagnostics,
+    ) {
+        valid = false;
+    }
+    if let Some(length_field) = &dispatch.length_field
+        && !check_schema_dispatch_reference(
+            schema,
+            field,
+            decoded_fields,
+            length_field,
+            "length",
+            diagnostics,
+        )
+    {
+        valid = false;
+    }
+
+    let mut expected_payload_type = None::<Type>;
+    for case in &dispatch.cases {
+        let payload_ty = match &case.payload {
+            SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+            SchemaDispatchCasePayload::Schema { schema_name } => {
+                resolve_schema_dispatch_payload_schema(
+                    module,
+                    schema,
+                    field,
+                    case.tag,
+                    schema_name,
+                    diagnostics,
+                )
+                .and_then(|payload_schema| {
+                    schema_decode_value_type(module, payload_schema).or_else(|| {
+                        diagnostics.push(schema_dispatch_payload_diagnostic(
+                            schema,
+                            field,
+                            case.tag,
+                            schema_name,
+                            "incompatible_payload_schema",
+                            format!(
+                                "dispatch payload schema `{}` is not a supported decoded binary schema",
+                                schema_payload_name_last_segment(schema_name)
+                            ),
+                            [],
+                        ));
+                        None
+                    })
+                })
+            }
+        };
+        let Some(payload_ty) = payload_ty else {
+            valid = false;
+            continue;
+        };
+        if let Some(expected) = &expected_payload_type {
+            if expected != &payload_ty {
+                diagnostics.push(schema_dispatch_payload_diagnostic(
+                    schema,
+                    field,
+                    case.tag,
+                    schema_dispatch_case_payload_name(&case.payload),
+                    "incompatible_payload_type",
+                    format!(
+                        "dispatch payload case `{}` decodes as `{}`, but earlier cases decode as `{}`",
+                        case.tag,
+                        payload_ty.render(),
+                        expected.render()
+                    ),
+                    [
+                        ("expected", JsonValue::string(expected.render())),
+                        ("actual", JsonValue::string(payload_ty.render())),
+                    ],
+                ));
+                valid = false;
+            }
+        } else {
+            expected_payload_type = Some(payload_ty);
+        }
+    }
+
+    if !valid {
+        return None;
+    }
+    let payload_ty = expected_payload_type?;
+    if dispatch.length_field.is_some() {
+        Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
+    } else {
+        Some(payload_ty)
+    }
+}
+
+fn check_schema_dispatch_reference(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    decoded_fields: &BTreeMap<String, Type>,
+    reference: &str,
+    role: &'static str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let Some(ty) = decoded_fields.get(reference) else {
+        let reason = if schema_field_declared_after(schema, field, reference) {
+            "forward_field_reference"
+        } else {
+            "unknown_field_reference"
+        };
+        diagnostics.push(schema_dispatch_reference_diagnostic(
+            schema,
+            field,
+            reference,
+            role,
+            reason,
+            format!("dispatch {role} field `{reference}` must be an earlier decoded `Int` field"),
+            [],
+        ));
+        return false;
+    };
+    if ty != &Type::int() {
+        diagnostics.push(schema_dispatch_reference_diagnostic(
+            schema,
+            field,
+            reference,
+            role,
+            "incompatible_field_reference",
+            format!(
+                "dispatch {role} field `{reference}` decodes as `{}`, not `Int`",
+                ty.render()
+            ),
+            [("actual", JsonValue::string(ty.render()))],
+        ));
+        return false;
+    }
+    true
+}
+
+fn resolve_schema_dispatch_payload_schema<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    tag: i64,
+    payload_name: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<&'a SchemaDecl> {
+    let context = SchemaDispatchPayloadContext { schema, field, tag };
+    let Some(segments) = schema_payload_name_path(payload_name) else {
+        diagnostics.push(schema_dispatch_payload_diagnostic(
+            schema,
+            field,
+            tag,
+            payload_name,
+            "invalid_payload_name",
+            format!("dispatch payload schema `{payload_name}` is not a valid schema path"),
+            [],
+        ));
+        return None;
+    };
+    match segments.as_slice() {
+        [name] => resolve_local_schema_dispatch_payload_schema(
+            module,
+            schema,
+            field,
+            tag,
+            name,
+            diagnostics,
+        ),
+        [_, .., name] => {
+            let Some(use_decl) = imported_use_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                schema.module_name.as_deref(),
+            ) else {
+                diagnostics.push(schema_dispatch_payload_diagnostic(
+                    schema,
+                    field,
+                    tag,
+                    payload_name,
+                    "unknown_import",
+                    format!("dispatch payload schema `{payload_name}` is not declared"),
+                    [],
+                ));
+                return None;
+            };
+            resolve_imported_schema_dispatch_payload_schema(
+                module,
+                context,
+                use_decl,
+                payload_name,
+                name,
+                diagnostics,
+            )
+        }
+        _ => None,
+    }
+}
+
+#[derive(Clone, Copy)]
+struct SchemaDispatchPayloadContext<'a> {
+    schema: &'a SchemaDecl,
+    field: &'a SchemaField,
+    tag: i64,
+}
+
+fn resolve_local_schema_dispatch_payload_schema<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    tag: i64,
+    name: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<&'a SchemaDecl> {
+    let current_index = module
+        .schemas
+        .iter()
+        .position(|candidate| candidate.node_id == schema.node_id)?;
+    if let Some((index, candidate)) = module.schemas.iter().enumerate().find(|(_, candidate)| {
+        candidate.name.as_deref() == Some(name)
+            && candidate.module_name.as_deref() == schema.module_name.as_deref()
+    }) {
+        if index == current_index {
+            diagnostics.push(schema_dispatch_payload_diagnostic(
+                schema,
+                field,
+                tag,
+                name,
+                "self_payload_schema",
+                format!("dispatch payload schema `{name}` cannot reference itself"),
+                [],
+            ));
+            return None;
+        }
+        if index > current_index {
+            diagnostics.push(schema_dispatch_payload_diagnostic(
+                schema,
+                field,
+                tag,
+                name,
+                "forward_payload_schema",
+                format!(
+                    "dispatch payload schema `{name}` must be declared before schema `{}`",
+                    schema.name.as_deref().unwrap_or("<missing>")
+                ),
+                [],
+            ));
+            return None;
+        }
+        if candidate.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
+            diagnostics.push(schema_dispatch_payload_diagnostic(
+                schema,
+                field,
+                tag,
+                name,
+                "non_binary_payload_schema",
+                format!("dispatch payload schema `{name}` must use `format binary`"),
+                [],
+            ));
+            return None;
+        }
+        return Some(candidate);
+    }
+    if let Some(kind) = codec_schema_wrong_kind(module, schema.module_name.as_deref(), name) {
+        diagnostics.push(schema_dispatch_payload_diagnostic(
+            schema,
+            field,
+            tag,
+            name,
+            "non_schema_payload",
+            format!("dispatch payload `{name}` resolves to a {kind}, not a schema"),
+            [("resolved_kind", JsonValue::string(kind))],
+        ));
+    } else {
+        diagnostics.push(schema_dispatch_payload_diagnostic(
+            schema,
+            field,
+            tag,
+            name,
+            "unknown_payload_schema",
+            format!("dispatch payload schema `{name}` is not declared"),
+            [],
+        ));
+    }
+    None
+}
+
+fn resolve_imported_schema_dispatch_payload_schema<'a>(
+    module: &'a SurfaceModule,
+    context: SchemaDispatchPayloadContext<'_>,
+    use_decl: &UseDecl,
+    payload_name: &str,
+    name: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<&'a SchemaDecl> {
+    let target_module = Some(use_decl.name.as_str());
+    if let Some(candidate) = module.schemas.iter().find(|candidate| {
+        candidate.name.as_deref() == Some(name) && candidate.module_name.as_deref() == target_module
+    }) {
+        if candidate.visibility != Visibility::Public {
+            diagnostics.push(schema_dispatch_payload_diagnostic(
+                context.schema,
+                context.field,
+                context.tag,
+                payload_name,
+                "private_imported_payload_schema",
+                format!("imported dispatch payload schema `{payload_name}` is private"),
+                [],
+            ));
+            return None;
+        }
+        diagnostics.push(schema_dispatch_payload_diagnostic(
+            context.schema,
+            context.field,
+            context.tag,
+            payload_name,
+            "imported_payload_schema",
+            format!("imported dispatch payload schema `{payload_name}` is not supported"),
+            [],
+        ));
+        return None;
+    }
+    if let Some(kind) = codec_schema_wrong_kind(module, target_module, name) {
+        diagnostics.push(schema_dispatch_payload_diagnostic(
+            context.schema,
+            context.field,
+            context.tag,
+            payload_name,
+            "non_schema_payload",
+            format!("dispatch payload `{payload_name}` resolves to a {kind}, not a schema"),
+            [("resolved_kind", JsonValue::string(kind))],
+        ));
+    } else {
+        diagnostics.push(schema_dispatch_payload_diagnostic(
+            context.schema,
+            context.field,
+            context.tag,
+            payload_name,
+            "unknown_payload_schema",
+            format!("dispatch payload schema `{payload_name}` is not declared"),
+            [],
+        ));
+    }
+    None
+}
+
+fn schema_dispatch_case_payload_name(payload: &SchemaDispatchCasePayload) -> &str {
+    match payload {
+        SchemaDispatchCasePayload::Primitive { .. } => "<primitive>",
+        SchemaDispatchCasePayload::Schema { schema_name } => schema_name,
+    }
+}
+
+fn schema_field_declared_after(schema: &SchemaDecl, field: &SchemaField, reference: &str) -> bool {
+    let current_index = schema
+        .fields
+        .iter()
+        .position(|candidate| candidate.node_id == field.node_id);
+    let reference_index = schema
+        .fields
+        .iter()
+        .position(|candidate| candidate.name == reference);
+    matches!((current_index, reference_index), (Some(current), Some(reference)) if reference > current)
+}
+
+fn schema_dispatch_reference_diagnostic<const N: usize>(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reference: &str,
+    role: &'static str,
+    reason: &'static str,
+    message: String,
+    extra: [(&'static str, JsonValue); N],
+) -> Diagnostic {
+    let mut fields = schema_dispatch_details(schema, field, reason);
+    fields.push(("role", JsonValue::string(role)));
+    fields.push(("reference", JsonValue::string(reference.to_string())));
+    fields.extend(extra);
+    Diagnostic::new(
+        "schema.dispatch_reference",
+        Severity::Error,
+        DiagnosticKind::Name,
+        message,
+        Some(field.span.clone()),
+        JsonValue::object(fields),
+    )
+}
+
+fn schema_dispatch_payload_diagnostic<const N: usize>(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    tag: i64,
+    payload_name: &str,
+    reason: &'static str,
+    message: String,
+    extra: [(&'static str, JsonValue); N],
+) -> Diagnostic {
+    let mut fields = schema_dispatch_details(schema, field, reason);
+    fields.push(("case_tag", JsonValue::Number(tag)));
+    fields.push(("payload", JsonValue::string(payload_name.to_string())));
+    fields.extend(extra);
+    Diagnostic::new(
+        "schema.dispatch_payload",
+        Severity::Error,
+        DiagnosticKind::Type,
+        message,
+        Some(field.span.clone()),
+        JsonValue::object(fields),
+    )
+}
+
+fn schema_dispatch_details(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reason: &'static str,
+) -> Vec<(&'static str, JsonValue)> {
+    vec![
+        ("phase", JsonValue::string("schema")),
+        (
+            "node_id",
+            JsonValue::string(field.node_id.display("schema-field")),
+        ),
+        (
+            "schema",
+            JsonValue::string(schema.name.as_deref().unwrap_or("<missing>")),
+        ),
+        ("field", JsonValue::string(field.name.clone())),
+        ("reason", JsonValue::string(reason)),
+    ]
+}
+
 pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     for schema in &module.schemas {
-        let Some(schema_fields) = generated_schema_field_types(schema) else {
+        let Some(schema_fields) = generated_schema_field_types(module, schema) else {
             continue;
         };
         for mapping in &schema.mappings {
@@ -1349,34 +1811,14 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
     diagnostics
 }
 
-fn generated_schema_field_types(schema: &SchemaDecl) -> Option<BTreeMap<String, Type>> {
-    if schema.format.as_ref()?.name != "binary" {
+fn generated_schema_field_types(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<BTreeMap<String, Type>> {
+    let Type::Record(fields) = schema_decode_record_type(module, schema)? else {
         return None;
-    }
-    let mut decoded_fields = BTreeMap::new();
-    for field in &schema.fields {
-        let field_ty = if exact_width_binary_primitive_name(&field.ty).is_some() {
-            Type::int()
-        } else {
-            let dispatch = closed_dispatch_schema_primitive(&field.ty)
-                .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
-            if !decoded_fields.contains_key(&dispatch.tag_field)
-                || dispatch
-                    .length_field
-                    .as_ref()
-                    .is_some_and(|length_field| !decoded_fields.contains_key(length_field))
-            {
-                return None;
-            }
-            if dispatch.length_field.is_some() {
-                Type::named("SchemaDispatchPayload", vec![Type::int()])
-            } else {
-                Type::int()
-            }
-        };
-        decoded_fields.insert(field.name.clone(), field_ty);
-    }
-    Some(decoded_fields)
+    };
+    Some(fields.into_iter().collect())
 }
 
 fn schema_mapping_target_diagnostic(

@@ -357,6 +357,65 @@ fn generated_schema_decode_helpers_keep_extension_dispatch_metadata() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_nested_dispatch_schema_metadata() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema SettingsPayload\n",
+            "  format binary\n",
+            "\n",
+            "  code: UInt8\n",
+            "  value: UInt16be\n",
+            "end\n",
+            "\n",
+            "schema ExtensionNestedPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 1 => SettingsPayload)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<{code: Int, value: Int}>}, String>\n",
+            "  byte_decode_extension_nested_packet(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "ExtensionNestedPacket")
+        .expect("nested packet decoder should be emitted");
+    let dispatch = schema.fields[2]
+        .dispatch
+        .as_ref()
+        .expect("payload should carry dispatch metadata");
+    assert_eq!(dispatch.length_field.as_deref(), Some("length"));
+    assert_eq!(dispatch.cases[0].tag, 1);
+    assert_eq!(dispatch.cases[0].width, 0);
+    let nested = dispatch.cases[0]
+        .payload_schema
+        .as_ref()
+        .expect("dispatch case should carry nested schema metadata");
+    assert_eq!(nested.schema_name, "SettingsPayload");
+    assert_eq!(
+        nested
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width))
+            .collect::<Vec<_>>(),
+        vec![("code", 1), ("value", 2)]
+    );
+}
+
+#[test]
 fn codec_decode_with_resolves_as_named_decode_boundary() {
     let source = SourceFile::new(
         "main.veln",

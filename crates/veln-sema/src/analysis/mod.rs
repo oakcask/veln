@@ -36,8 +36,7 @@ use crate::repair_candidates::{
 use crate::standard_symbols::prelude_symbol;
 use crate::types::{
     Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, FunctionLookup, Type,
-    TypeEnvironment, closed_dispatch_schema_primitive, extension_dispatch_schema_primitive,
-    is_assignable, parse_type_annotation, schema_mapping_target_record_fields,
+    TypeEnvironment, is_assignable, parse_type_annotation, schema_mapping_target_record_fields,
 };
 
 mod body;

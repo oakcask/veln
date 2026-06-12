@@ -704,12 +704,13 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_dispatch_length_fields(code, schema);
         self.emit_schema_dispatch_case_tags(code, schema);
         self.emit_schema_dispatch_case_widths(code, schema);
+        self.emit_schema_dispatch_case_schema_specs(code, schema);
         self.emit_schema_mapping_targets(code, schema);
         self.emit_schema_mapping_sources(code, schema);
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeDeclaredBinarySchema",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 
@@ -736,12 +737,13 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_dispatch_length_fields(code, schema);
         self.emit_schema_dispatch_case_tags(code, schema);
         self.emit_schema_dispatch_case_widths(code, schema);
+        self.emit_schema_dispatch_case_schema_specs(code, schema);
         self.emit_schema_mapping_targets(code, schema);
         self.emit_schema_mapping_sources(code, schema);
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeStepDeclaredBinarySchema",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 
@@ -944,6 +946,61 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 "list",
                 "([Ljava/lang/Object;)Ljava/util/List;",
             );
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_dispatch_case_schema_specs(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+    ) {
+        self.emit_object_array(code, schema.fields.len(), |this, code, index| {
+            let cases = schema.fields[index]
+                .dispatch
+                .as_ref()
+                .map(|dispatch| dispatch.cases.as_slice())
+                .unwrap_or(&[]);
+            this.emit_object_array(code, cases.len(), |this, code, case_index| {
+                if let Some(payload_schema) = cases[case_index].payload_schema.as_ref() {
+                    this.emit_schema_metadata(code, payload_schema);
+                } else {
+                    code.ldc_string("");
+                }
+            });
+            code.invokestatic(
+                &this.program.options.runtime_class,
+                "list",
+                "([Ljava/lang/Object;)Ljava/util/List;",
+            );
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_metadata(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
+        self.emit_object_array(code, 13, |this, code, index| match index {
+            0 => code.ldc_string(&schema.schema_name),
+            1 => this.emit_schema_field_names(code, schema),
+            2 => this.emit_schema_field_widths(code, schema),
+            3 => this.emit_schema_reserved_bit_widths(code, schema),
+            4 => this.emit_schema_reserved_values(code, schema),
+            5 => this.emit_schema_field_predicates(code, schema),
+            6 => this.emit_schema_dispatch_tag_fields(code, schema),
+            7 => this.emit_schema_dispatch_length_fields(code, schema),
+            8 => this.emit_schema_dispatch_case_tags(code, schema),
+            9 => this.emit_schema_dispatch_case_widths(code, schema),
+            10 => this.emit_schema_dispatch_case_schema_specs(code, schema),
+            11 => this.emit_schema_mapping_targets(code, schema),
+            12 => this.emit_schema_mapping_sources(code, schema),
+            _ => unreachable!(),
         });
         code.invokestatic(
             &self.program.options.runtime_class,
