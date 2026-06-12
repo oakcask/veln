@@ -203,8 +203,12 @@ function's parameters and returns its `EncodeStep<TState>` unchanged. The
 implemented derived decode execution slice exposes the codec item name as an
 ordinary source call to the generated `byte_decode_step_<schema>` behavior
 when the schema is in the currently implemented exact-width binary schema
-decode-step slice. Remaining work should extend generated decode and derived
-encode execution beyond the currently implemented mapping slice.
+decode-step slice. The implemented derived encode execution slice exposes the
+codec item name as an ordinary source call to the generated
+`byte_encode_<schema>` behavior when the schema is in the currently
+implemented binary schema encode helper slice. Remaining work should extend
+generated decode and encode execution beyond the currently implemented helper
+slices.
 
 The implemented parser rejects a missing implementation clause for a listed
 direction, a body clause for a direction absent from the declaration head, and
