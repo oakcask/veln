@@ -114,11 +114,20 @@ execution reference.
   bytes. Unsupported reserved-bit encode shapes report
   `schema.reserved_bits_encode`. This slice excludes schema mappings,
   field-local validation, dispatch fields, other reserved or fixed fields,
-  nested mappings, and derived codec encode execution. The checked examples are
+  nested mappings, and derived codec encode execution for unsupported schemas.
+  The checked examples are
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`, and
   `examples/specification/check/schema-reserved-bit-encode-diagnostics/`.
+- A codec declaration with a valid `derive encode` clause for the same
+  eligible generated binary schema encode helper slice exposes the codec item
+  name as the executable encode boundary for ordinary source calls. The call
+  accepts the generated helper's value record, invokes the schema encode
+  helper, returns `EncodeStep<()>`, projects helper `Ok(ByteChunk)` output to
+  `Encoded(List<ByteChunk>)` with one chunk, and projects helper
+  `Err(EncodeError)` output to `Invalid(EncodeError)`. The checked example is
+  `examples/specification/run/derived-codec-encode-boundary/`.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls. The call

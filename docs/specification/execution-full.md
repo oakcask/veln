@@ -174,8 +174,19 @@ function with that function's parameters and returns its
 `map to Target` schema slice, the first encoder parameter remains the mapped
 target record shape. Same-module private encode codecs are callable only
 inside their declaring module; imported calls require a written qualified
-module path to a `pub codec`. Derived encode execution and general generated
-encode helpers beyond the exact-width primitive slice remain unimplemented.
+module path to a `pub codec`.
+
+A codec declaration with a valid `derive encode` clause for the same eligible
+generated binary schema encode helper slice exposes the codec item name as an
+executable encode boundary in ordinary source calls. The call accepts the
+generated helper's value record, invokes the generated schema encode helper,
+and returns `EncodeStep<()>`. Successful helper output is projected from
+`Ok(ByteChunk)` to `Encoded(List<ByteChunk>)` with one immutable output chunk.
+Helper `Err(EncodeError)` output is projected to `Invalid(EncodeError)`.
+Same-module private derived encode codecs are callable only inside their
+declaring module; imported calls require a written qualified module path to a
+`pub codec`. General generated encode helpers beyond the exact-width
+primitive slice remain unimplemented.
 
 Eligible generated binary schema encode helpers named
 `byte_encode_<schema>` accept one record whose fields match the schema-local
@@ -190,7 +201,7 @@ reason))`; `UInt31be` uses the 31-bit maximum even though it occupies four
 bytes. Unsupported reserved-bit encode shapes report
 `schema.reserved_bits_encode`. This slice excludes schema mappings,
 field-local validation, dispatch fields, other reserved or fixed fields,
-nested mappings, and derived codec encode execution.
+nested mappings, and derived codec encode execution for unsupported schemas.
 
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header

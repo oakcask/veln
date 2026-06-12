@@ -85,7 +85,7 @@ primitives, plus the supported `ReservedBits(1, 0)` before `UInt31be` layout,
 also expose generated `byte_encode_<schema>` helpers described in
 [execution.md](execution.md); schema mappings, field-local validation,
 dispatch fields, other reserved or fixed fields, and derived codec encode
-execution are outside that encode helper slice.
+execution over unsupported schemas are outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 
@@ -143,12 +143,13 @@ When the clause is valid, the codec item name is an ordinary call target in
 the declaring module, or through a written import-qualified module path when
 the codec is `pub`. The call uses the referenced function's parameters and
 returns its `EncodeStep<TState>` value unchanged. General codec-generated
-decode functions and derived encode execution are not implemented. Generated
+decode functions are not implemented. Generated
 `byte_decode_<schema>` helpers for the eligible binary schema slice, generated
 `byte_encode_<schema>` helpers for the exact-width and supported reserved-bit
 primitive encode slices, their `byte_decode_step_<schema>` incremental
-decode-step counterparts, and derived decode codec calls over that decode-step
-slice are covered by
+decode-step counterparts, derived decode codec calls over that decode-step
+slice, and derived encode codec calls over that encode helper slice are
+covered by
 [execution.md](execution.md).
 
 ## Expressions

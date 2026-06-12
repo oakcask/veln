@@ -126,6 +126,12 @@ hand-written codec encode boundary: a codec item call passes the mapped record
 value and ordinary encoder parameters to the referenced encoder and observes
 its returned `Encoded` and `Invalid(EncodeError)` `EncodeStep<TState>` values
 unchanged.
+The executable specification case
+`../../examples/specification/run/derived-codec-encode-boundary/` covers a
+derived codec encode boundary for the eligible generated binary schema encode
+helper slice: a codec item call observes successful helper output as
+`Encoded(List<ByteChunk>)` with one chunk and out-of-range generated helper
+failures as `Invalid(EncodeError)`.
 
 ## Binary Schema Frame Header
 

@@ -28,16 +28,19 @@ The source-surface declaration slice is implemented in
 `../specification/source-surface.md`: top-level `codec` and `pub codec`
 items preserve explicit `decode` and `encode` directions plus `derive` and
 `with` body clauses. The implemented execution slice covers hand-written
-decode calls and derived decode calls for schemas that are already eligible for
-the generated exact-width binary schema decode-step helper in
-`../specification/execution.md`.
+decode calls, hand-written encode calls, derived decode calls for schemas that
+are already eligible for the generated exact-width binary schema decode-step
+helper, and derived encode calls for schemas that are already eligible for the
+generated binary schema encode helper in `../specification/execution.md`.
 
 Define codec support for:
 
 - remaining general decoding from `ByteView` plus an explicit input position,
   beyond the implemented generated exact-width binary schema decode-step
   helper slice in `../specification/execution.md`
-- encoding into immutable output chunks
+- general encoding into immutable output chunks beyond the implemented
+  eligible generated binary schema encode helper and derived codec encode
+  slices in `../specification/execution.md`
 - consumed byte counts
 - incomplete input readiness
 - invalid input errors
@@ -220,10 +223,9 @@ name, and it does not synthesize separate top-level decoder or encoder
 functions.
 
 The implemented hand-written encode, hand-written decode, and eligible derived
-decode call paths make a private codec usable only in its declaring module. A
-`pub codec` is exposed through a written import-qualified module path, without
-re-exporting it from the importing module. Remaining import and execution work
-should apply the same item shape to derived encode execution.
+decode and encode call paths make a private codec usable only in its declaring
+module. A `pub codec` is exposed through a written import-qualified module
+path, without re-exporting it from the importing module.
 
 Importing a codec imports the codec item only. It does not import the schema as
 an ordinary value, expose schema-local field names, or add codec directions that
@@ -257,6 +259,13 @@ unknown values in a closed dispatch. The encoder should validate these
 representation facts before it exposes the first output chunk for a value, so
 a caller that observes `Partial` can treat the returned chunks as committed
 valid output for that encode operation.
+
+The implemented derived encode execution slice in
+`../specification/execution.md` covers eligible binary schemas that already
+expose `byte_encode_<schema>` helpers. The codec item call accepts the
+generated helper's schema-local value record, invokes that helper, returns
+`EncodeStep<()>`, projects `Ok(ByteChunk)` to `Encoded(List<ByteChunk>)` with
+one chunk, and projects `Err(EncodeError)` to `Invalid(EncodeError)`.
 
 After `Partial`, resuming uses the returned encoder state rather than an
 implicit mutable cursor. The state must not borrow from a caller-owned builder

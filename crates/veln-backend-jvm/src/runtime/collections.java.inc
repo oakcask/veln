@@ -1175,6 +1175,31 @@
         return ok(byteChunkObject(bytes));
     }
 
+    public static Object byteEncodeStepDeclaredBinarySchema(
+        Object value,
+        Object schemaName,
+        Object fieldNames,
+        Object widths,
+        Object maxValues,
+        Object reservedBitWidths,
+        Object reservedValues
+    ) {
+        Object encoded = byteEncodeDeclaredBinarySchema(
+            value,
+            schemaName,
+            fieldNames,
+            widths,
+            maxValues,
+            reservedBitWidths,
+            reservedValues
+        );
+        if (isErr(encoded)) {
+            return adt("EncodeStep::Invalid", new Object[] { resultValue(encoded) });
+        }
+        Object chunks = listCons(unwrapOk(encoded), listNil());
+        return adt("EncodeStep::Encoded", new Object[] { chunks });
+    }
+
     public static Object http2ProtocolClosedWithPending(
         Object offset,
         Object pendingCount,

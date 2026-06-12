@@ -47,6 +47,7 @@ pub(crate) struct CodecCallSignature {
 pub(crate) const SCHEMA_DECODE_TARGET_PREFIX: &str = "schema-decode:";
 pub(crate) const SCHEMA_DECODE_STEP_TARGET_PREFIX: &str = "schema-decode-step:";
 pub(crate) const SCHEMA_ENCODE_TARGET_PREFIX: &str = "schema-encode:";
+pub(crate) const SCHEMA_ENCODE_STEP_TARGET_PREFIX: &str = "schema-encode-step:";
 
 pub(crate) enum FunctionLookup<'a> {
     Found(&'a FunctionSignature),
@@ -460,8 +461,15 @@ fn codec_call_signatures(
                                     name.clone(),
                                 )
                             }
-                            (CodecDirection::Encode, CodecImplementationKind::Derive)
-                            | (_, CodecImplementationKind::With { function: None }) => None,
+                            (CodecDirection::Encode, CodecImplementationKind::Derive) => {
+                                codec_derive_encode_signature(
+                                    module,
+                                    functions,
+                                    codec,
+                                    name.clone(),
+                                )
+                            }
+                            (_, CodecImplementationKind::With { function: None }) => None,
                         }
                     }),
             )
@@ -511,6 +519,31 @@ fn codec_derive_decode_signature(
         visibility: codec.visibility,
         params: function.params.clone(),
         return_type: function.return_type.clone(),
+        effects: function.effects.clone(),
+        node_id: codec.node_id,
+        span: codec.span.clone(),
+    })
+}
+
+fn codec_derive_encode_signature(
+    module: &SurfaceModule,
+    functions: &[FunctionSignature],
+    codec: &CodecDecl,
+    name: String,
+) -> Option<CodecCallSignature> {
+    let schema = codec_referenced_schema(module, codec)?;
+    let schema_name = schema.name.as_ref()?;
+    let encode_name = schema_encode_function_name(schema_name);
+    let function = functions.iter().find(|function| {
+        function.name == encode_name && function.module_name == schema.module_name
+    })?;
+    Some(CodecCallSignature {
+        name,
+        target_name: format!("{SCHEMA_ENCODE_STEP_TARGET_PREFIX}{schema_name}"),
+        module_name: codec.module_name.clone(),
+        visibility: codec.visibility,
+        params: function.params.clone(),
+        return_type: Type::named("EncodeStep", vec![Type::unit()]),
         effects: function.effects.clone(),
         node_id: codec.node_id,
         span: codec.span.clone(),
