@@ -397,6 +397,31 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             )));
             Some(diagnostic)
         }
+        "http2.peer_limit.frame_size_exceeded" => {
+            let observed_length = json_number(protocol_entries, "observed_payload_length")?;
+            let allowed_length = json_number(protocol_entries, "allowed_max_frame_size")?;
+            let frame_kind = json_number(protocol_entries, "frame_kind")?;
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let provenance = json_string(protocol_entries, "receive_limit_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!(
+                    "frame payload length exceeds receive maximum at byte offset {byte_offset}"
+                ),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared {observed_length} byte(s); active receive maximum is {allowed_length} byte(s)."
+            )));
+            diagnostic.related.push(note_json(format!(
+                "Receive limit provenance: {provenance}."
+            )));
+            Some(diagnostic)
+        }
         _ => None,
     }
 }
@@ -1099,6 +1124,60 @@ mod tests {
                 .to_json()
                 .contains("frame kind 1 at byte offset 0")
         );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_frame_size_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.peer_limit.frame_size_exceeded"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("observed_payload_length", JsonValue::Number(16385)),
+            ("allowed_max_frame_size", JsonValue::Number(16384)),
+            ("frame_kind", JsonValue::Number(0)),
+            ("stream_id", JsonValue::Number(3)),
+            ("stream_ref", JsonValue::string("stream")),
+            (
+                "receive_limit_provenance",
+                JsonValue::string("protocol_default"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 frame payload length exceeds receive maximum at byte offset 0".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.peer_limit.frame_size_exceeded");
+        assert_eq!(
+            diagnostic.message,
+            "frame payload length exceeds receive maximum at byte offset 0"
+        );
+        assert_eq!(diagnostic.related.len(), 2);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("declared 16385 byte(s)")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("active receive maximum is 16384 byte(s)")
+        );
+        assert!(diagnostic.related[1].to_json().contains("protocol_default"));
     }
 
     #[test]

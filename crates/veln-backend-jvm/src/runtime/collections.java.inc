@@ -536,6 +536,34 @@
         return err(message);
     }
 
+    public static Object http2PeerLimitFrameSizeExceeded(
+        Object offset,
+        Object observedLength,
+        Object allowedLength,
+        Object frameKind,
+        Object streamId,
+        Object receiveLimitProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long observed = asLong(observedLength);
+        long allowed = asLong(allowedLength);
+        long kind = asLong(frameKind);
+        long stream = asLong(streamId);
+        String provenance = asString(receiveLimitProvenance);
+        String message = "HTTP/2 frame payload length exceeds receive maximum at byte offset "
+            + byteOffset;
+        registerHttp2PeerLimitFrameSizeExceededDiagnostic(
+            message,
+            byteOffset,
+            observed,
+            allowed,
+            kind,
+            stream,
+            provenance
+        );
+        return err(message);
+    }
+
     public static Object byteReadU16Be(Object view) {
         return byteReadUnsignedBe(view, 2, 0xffffL, "byte_read_u16_be");
     }

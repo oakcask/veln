@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.peer_limit.frame_size_exceeded]: frame payload length exceeds receive maximum at byte offset 0", "note: Frame kind 0 on stream 3 declared 16385 byte(s); active receive maximum is 16384 byte(s).", "note: Receive limit provenance: protocol_default."]

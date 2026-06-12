@@ -378,8 +378,8 @@ against the built `veln` binary.
 - `run/http2-protocol-core/`: an ordinary-source HTTP/2 sans-I/O decode state
   handles chunk arrival, incomplete input, end-of-stream truncation, valid
   CONTINUATION completion for an opaque header block, and a continuation
-  ordering failure while projecting typed protocol failures into stable ids
-  and related context.
+  ordering failure while projecting typed protocol failures, including an
+  incoming frame-size peer-limit failure, into stable ids and related context.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation
@@ -387,6 +387,14 @@ against the built `veln` binary.
 - `run/http2-protocol-core-continuation-json/`: a continuation ordering
   failure reports `http2.protocol.continuation_expected` through `run --json`
   with byte offset, frame kind, stream id, and active continuation details.
+- `run/http2-protocol-core-frame-size-human/`: an incoming frame whose payload
+  length exceeds the active receive maximum reports
+  `http2.peer_limit.frame_size_exceeded` through human `run` stderr with a
+  focused primary message and related frame-size context.
+- `run/http2-protocol-core-frame-size-json/`: the same frame-size peer-limit
+  failure reports `http2.peer_limit.frame_size_exceeded` through `run --json`
+  with byte offset, observed and allowed lengths, frame kind, stream
+  reference, and receive-limit provenance.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.

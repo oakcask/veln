@@ -22,6 +22,7 @@ end
 type Http2ProtocolFailure
 	ClosedWithPending(Int, Int)
 	ContinuationExpected(Int, Int, Int, Int, Int, Int)
+	FrameSizeExceeded(Int, Int, Int, Int, Int, String)
 end
 
 type Http2Step
@@ -75,10 +76,26 @@ fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingCont
 	let header_count: ByteCount = byte_count(9)?
 	let view: ByteView = byte_view(pending, zero, header_count)?
 	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header(view)?
-	let frame_count_int: Int = 9 + header.length
+	let max_frame_size: Int = receive_max_frame_size()
+	match header.length > max_frame_size
+		true => Ok(Failed(State(pending, next_offset, continuation), FrameSizeExceeded(next_offset, header.length, max_frame_size, header.kind, header.stream_id, receive_max_frame_size_provenance())))
+		false => decode_sized_frame(pending, next_offset, continuation, available, header.length, header.kind, header.flags, header.stream_id)
+	end
+end
+
+fn receive_max_frame_size() -> Int
+	16384
+end
+
+fn receive_max_frame_size_provenance() -> String
+	"protocol_default"
+end
+
+fn decode_sized_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, available: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<Http2Step, String>
+	let frame_count_int: Int = 9 + length
 	match available < frame_count_int
 		true => Ok(Waiting(State(pending, next_offset, continuation)))
-		false => decode_complete_frame(pending, next_offset, continuation, header.length, header.kind, header.flags, header.stream_id, frame_count_int)
+		false => decode_complete_frame(pending, next_offset, continuation, length, kind, flags, stream_id, frame_count_int)
 	end
 end
 
@@ -212,6 +229,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 	match failure
 		ClosedWithPending(_, _) => "http2.protocol.closed_with_pending"
 		ContinuationExpected(_, _, _, _, _, _) => "http2.protocol.continuation_expected"
+		FrameSizeExceeded(_, _, _, _, _, _) => "http2.peer_limit.frame_size_exceeded"
 	end
 end
 
@@ -219,6 +237,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(offset, _) => offset
 		ContinuationExpected(offset, _, _, _, _, _) => offset
+		FrameSizeExceeded(offset, _, _, _, _, _) => offset
 	end
 end
 
@@ -226,6 +245,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, pending_count) => pending_count
 		ContinuationExpected(_, _, _, _, _, _) => 0
+		FrameSizeExceeded(_, _, _, _, _, _) => 0
 	end
 end
 
@@ -233,6 +253,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
 		ContinuationExpected(_, actual_kind, _, _, _, _) => actual_kind
+		FrameSizeExceeded(_, _, _, actual_kind, _, _) => actual_kind
 	end
 end
 
@@ -240,6 +261,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
 		ContinuationExpected(_, _, actual_stream, _, _, _) => actual_stream
+		FrameSizeExceeded(_, _, _, _, actual_stream, _) => actual_stream
 	end
 end
 
@@ -247,6 +269,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
 		ContinuationExpected(_, _, _, expected_stream, _, _) => expected_stream
+		FrameSizeExceeded(_, _, _, _, _, _) => 0
 	end
 end
 
@@ -254,6 +277,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
 		ContinuationExpected(_, _, _, _, started_kind, _) => started_kind
+		FrameSizeExceeded(_, _, _, _, _, _) => 0
 	end
 end
 
@@ -261,6 +285,31 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
 		ContinuationExpected(_, _, _, _, _, started_offset) => started_offset
+		FrameSizeExceeded(_, _, _, _, _, _) => 0
+	end
+end
+
+fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
+	match failure
+		ClosedWithPending(_, _) => 0
+		ContinuationExpected(_, _, _, _, _, _) => 0
+		FrameSizeExceeded(_, observed_length, _, _, _, _) => observed_length
+	end
+end
+
+fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
+	match failure
+		ClosedWithPending(_, _) => 0
+		ContinuationExpected(_, _, _, _, _, _) => 0
+		FrameSizeExceeded(_, _, allowed_length, _, _, _) => allowed_length
+	end
+end
+
+fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
+	match failure
+		ClosedWithPending(_, _) => "none"
+		ContinuationExpected(_, _, _, _, _, _) => "none"
+		FrameSizeExceeded(_, _, _, _, _, provenance) => provenance
 	end
 end
 
@@ -310,7 +359,13 @@ fn print_failure(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::print(" continuation ")
 	stdio::print(state_continuation_label(state))
 	stdio::print(" accumulated ")
-	stdio::println(int_to_string(state_continuation_count(state)))
+	stdio::print(int_to_string(state_continuation_count(state)))
+	stdio::print(" observed_length ")
+	stdio::print(int_to_string(failure_observed_length(failure)))
+	stdio::print(" allowed_length ")
+	stdio::print(int_to_string(failure_allowed_length(failure)))
+	stdio::print(" receive_limit ")
+	stdio::println(failure_receive_limit_provenance(failure))
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
@@ -328,5 +383,9 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("continuation-done", continuation_done)
 	let bad_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(header_start))?
 	print_failure("continuation", bad_continuation)
+	let max_allowed_incomplete: Http2Step = receive(InputChunk(byte_chunk_from_hex("004000000000000003")?), empty_state())?
+	print_step("frame-size-at-limit", max_allowed_incomplete)
+	let too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("004001000000000003")?), empty_state())?
+	print_failure("frame-size", too_large)
 	Ok(())
 end

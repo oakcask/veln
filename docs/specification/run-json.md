@@ -113,6 +113,12 @@ Valid fixture bytes that fail a test-owned codec or protocol field check use
 fixture metadata for the diagnostic id, byte offset, structured field path,
 and consumed count where applicable.
 
+HTTP/2 protocol-core failures that originate from a source-visible projection
+helper attach `details.protocol_diagnostic`. The frame-size peer-limit slice
+uses id `http2.peer_limit.frame_size_exceeded` and records
+`byte_offset.value`, `observed_payload_length`, `allowed_max_frame_size`,
+`frame_kind`, `stream_id`, `stream_ref`, and `receive_limit_provenance`.
+
 Other non-zero Java process exits use `error.kind: "runtime"` with
 `details.phase: "runtime"`. JDK setup failures use `error.kind: "runner"` with
 `details.phase: "tool"`.

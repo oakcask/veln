@@ -68,7 +68,8 @@ execution reference.
   chunk arrival and end-of-stream events as ADTs. Its pure decode state keeps
   undecoded suffix bytes and the next absolute byte offset, reuses the
   frame-header primitive for available headers, and represents closed-input
-  truncation and continuation ordering failures as typed protocol values before
+  truncation, continuation ordering failures, and incoming frame payloads that
+  exceed the active receive maximum frame size as typed protocol values before
   projecting stable diagnostic ids and related context into fixture output,
   human runtime diagnostics, and `run --json` `protocol_diagnostic` details.
 - Eligible direct tail-recursive user functions execute deep self-recursive

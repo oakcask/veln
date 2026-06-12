@@ -3804,6 +3804,41 @@ mod tests {
     }
 
     #[test]
+    fn peer_limit_protocol_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f32206672616d65207061796c6f6164206c656e67746820657863656564732072656365697665206d6178696d756d2061742062797465206f66667365742030",
+            "\tprotocol_diagnostic\thttp2.peer_limit.frame_size_exceeded\t0",
+            "\t6\tobserved_payload_length\tnumber\t16385",
+            "\tallowed_max_frame_size\tnumber\t16384",
+            "\tframe_kind\tnumber\t0",
+            "\tstream_id\tnumber\t3",
+            "\tstream_ref\tstring\t73747265616d",
+            "\treceive_limit_provenance\tstring\t70726f746f636f6c5f64656661756c74\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 frame payload length exceeds receive maximum at byte offset 0\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.peer_limit.frame_size_exceeded\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":0},",
+                "\"observed_payload_length\":16385,",
+                "\"allowed_max_frame_size\":16384,",
+                "\"frame_kind\":0,",
+                "\"stream_id\":3,",
+                "\"stream_ref\":\"stream\",",
+                "\"receive_limit_provenance\":\"protocol_default\"}}"
+            )
+        );
+    }
+
+    #[test]
     fn expected_runtime_contract_failure_marks_matching_case_passed() {
         let source_file = SourceFile::new(
             "main.veln#doctest-1_test.veln",

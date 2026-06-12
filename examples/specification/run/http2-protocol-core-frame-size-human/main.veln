@@ -1,0 +1,15 @@
+# HTTP/2 peer-limit failures project to human runtime diagnostics.
+
+type Http2ProtocolFailure
+	FrameSizeExceeded(Int, Int, Int, Int, Int, String)
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		FrameSizeExceeded(offset, observed_length, allowed_length, frame_kind, stream_id, receive_limit_provenance) => http2_peer_limit_frame_size_exceeded(offset, observed_length, allowed_length, frame_kind, stream_id, receive_limit_provenance)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	project(FrameSizeExceeded(0, 16385, 16384, 0, 3, "protocol_default"))
+end
