@@ -1,0 +1,25 @@
+schema Packet
+  format binary
+
+  kind: UInt8
+end
+
+codec MissingEncode for Packet encode
+  encode with missing_encoder
+end
+
+codec GoodEncode for Packet encode
+  encode with encode_packet
+end
+
+codec WrongReturnEncode for Packet encode
+  encode with wrong_return
+end
+
+fn encode_packet(chunks: List<ByteChunk>) -> EncodeStep<String>
+  Encoded(chunks)
+end
+
+fn wrong_return() -> Result<List<ByteChunk>, String>
+  Ok(list_nil())
+end

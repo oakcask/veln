@@ -159,10 +159,20 @@ shape is the incremental decode transition. A missing function reports
 parameter type, or return type reports `codec.decode_signature` at that clause
 and includes related context pointing to the referenced function declaration.
 
+The checker also validates the implemented encode function boundary for
+`encode with function_name`. The name must resolve to an ordinary function in
+the same module as the codec declaration. The referenced function must return
+`EncodeStep<TState>` for one source-visible encoder state type `TState`. The
+checker does not validate an encode parameter shape or schema value mapping. A
+missing function reports `name.unresolved` at the `encode with` clause. A
+wrong return type reports `codec.encode_signature` at that clause and includes
+related context pointing to the referenced function declaration.
+
 Codec declaration execution is not implemented: codec declarations do not
 generate executable decode or encode functions, do not implement
-`derive decode`, do not type-check encode `with` function signatures, and do
-not select runtime schema value mapping for `decode with` results.
+`derive decode`, do not implement derived encode execution, do not validate
+encode parameter shapes, and do not select runtime schema value mapping for
+`decode with` or `encode with` results.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`

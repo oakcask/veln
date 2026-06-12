@@ -251,6 +251,12 @@ against the built `veln` binary.
 - `check/codec-decode-signature-human/`: human `check` output keeps the
   `codec.decode_signature` primary message at the codec implementation clause
   and reports the referenced function as a related note.
+- `check/codec-encode-signature-diagnostics/`: `encode with` checker
+  diagnostics for unresolved encoder functions and wrong encode function
+  return shapes.
+- `check/codec-encode-signature-human/`: human `check` output keeps the
+  `codec.encode_signature` primary message at the codec implementation clause
+  and reports the referenced function as a related note.
 - `doc/generated-markdown/`: generated documentation from package and tool
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.
