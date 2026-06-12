@@ -411,10 +411,12 @@ against the built `veln` binary.
   handles chunk arrival, incomplete input, end-of-stream truncation, valid
   CONTINUATION completion for an opaque header block, and a continuation
   ordering failure while projecting typed protocol failures, including an
-  incoming frame-size peer-limit failure and invalid connection-state and
-  stream-state frame kinds, into stable ids and related context. The case
-  keeps local receive-limit provenance separate from peer-advertised
-  `SETTINGS_MAX_FRAME_SIZE` state.
+  incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
+  failure, and invalid connection-state and stream-state frame kinds, into
+  stable ids and related context. The case keeps local receive-limit provenance
+  separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state and
+  range-checks received `SETTINGS_MAX_FRAME_SIZE` before updating that
+  peer-advertised state.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation
@@ -430,6 +432,16 @@ against the built `veln` binary.
   failure reports `http2.peer_limit.frame_size_exceeded` through `run --json`
   with byte offset, observed and allowed lengths, frame kind, stream
   reference, and local-configuration receive-limit provenance.
+- `run/http2-protocol-core-settings-value-human/`: a received
+  `SETTINGS_MAX_FRAME_SIZE` value below the accepted range reports
+  `http2.peer_limit.settings_value_out_of_range` through human `run` stderr
+  with the offending item byte offset, setting identity, observed value,
+  accepted range, and peer-limit provenance.
+- `run/http2-protocol-core-settings-value-json/`: the same SETTINGS
+  peer-limit failure reports
+  `http2.peer_limit.settings_value_out_of_range` through `run --json` with
+  structured setting identity, observed value, accepted range, and
+  peer-limit provenance fields.
 - `run/http2-protocol-core-invalid-frame-kind-human/`: a DATA frame kind on
   the connection stream reports `http2.protocol.invalid_frame_kind` through
   human `run` stderr with a focused primary message and related frame-kind,

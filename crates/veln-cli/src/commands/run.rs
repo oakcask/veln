@@ -421,6 +421,29 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             )));
             Some(diagnostic)
         }
+        "http2.peer_limit.settings_value_out_of_range" => {
+            let setting_identifier = json_number(protocol_entries, "setting_identifier")?;
+            let setting_name = json_string(protocol_entries, "setting_name")?;
+            let observed_value = json_number(protocol_entries, "observed_value")?;
+            let accepted_min_value = json_number(protocol_entries, "accepted_min_value")?;
+            let accepted_max_value = json_number(protocol_entries, "accepted_max_value")?;
+            let provenance = json_string(protocol_entries, "peer_limit_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("SETTINGS value outside accepted range at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "{setting_name} ({setting_identifier}) declared {observed_value}; accepted range is {accepted_min_value}..{accepted_max_value}."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Peer limit provenance: {provenance}.")));
+            Some(diagnostic)
+        }
         _ => None,
     }
 }
@@ -1207,6 +1230,60 @@ mod tests {
                 .contains("active receive maximum is 16384 byte(s)")
         );
         assert!(diagnostic.related[1].to_json().contains("protocol_default"));
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_settings_value_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.peer_limit.settings_value_out_of_range"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("setting_identifier", JsonValue::Number(5)),
+            ("setting_name", JsonValue::string("SETTINGS_MAX_FRAME_SIZE")),
+            ("observed_value", JsonValue::Number(16383)),
+            ("accepted_min_value", JsonValue::Number(16384)),
+            ("accepted_max_value", JsonValue::Number(16777215)),
+            ("peer_limit_provenance", JsonValue::string("peer_settings")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 SETTINGS value outside accepted range at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.id,
+            "http2.peer_limit.settings_value_out_of_range"
+        );
+        assert_eq!(
+            diagnostic.message,
+            "SETTINGS value outside accepted range at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 2);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("SETTINGS_MAX_FRAME_SIZE (5)")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("accepted range is 16384..16777215")
+        );
+        assert!(diagnostic.related[1].to_json().contains("peer_settings"));
     }
 
     #[test]

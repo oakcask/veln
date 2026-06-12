@@ -201,6 +201,18 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             ],
             adt::result_type(Type::unit(), Type::string()),
         )),
+        "http2_peer_limit_settings_value_out_of_range" => Some((
+            vec![
+                Type::int(),
+                Type::int(),
+                Type::string(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::string(),
+            ],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
         "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
         | "byte_read_u32_be" => Some((
             vec![byte_view.clone()],
@@ -849,6 +861,18 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             vec![
                 CoreType::int(),
                 CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::string(),
+            ],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
+        )),
+        "http2_peer_limit_settings_value_out_of_range" => Some((
+            vec![
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::string(),
                 CoreType::int(),
                 CoreType::int(),
                 CoreType::int(),

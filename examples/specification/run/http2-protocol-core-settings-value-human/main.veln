@@ -1,0 +1,15 @@
+# HTTP/2 SETTINGS peer-limit failures project to human runtime diagnostics.
+
+type Http2ProtocolFailure
+	SettingsValueOutOfRange(Int, Int, String, Int, Int, Int, String)
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		SettingsValueOutOfRange(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance) => http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	project(SettingsValueOutOfRange(9, 5, "SETTINGS_MAX_FRAME_SIZE", 16383, 16384, 16777215, "peer_settings"))
+end

@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.peer_limit.settings_value_out_of_range]: SETTINGS value outside accepted range at byte offset 9", "note: SETTINGS_MAX_FRAME_SIZE (5) declared 16383; accepted range is 16384..16777215.", "note: Peer limit provenance: peer_settings."]

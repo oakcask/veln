@@ -132,7 +132,11 @@ provenance names the active receive-limit entry used for the failed inbound
 frame-size check, such as protocol default, local configuration, or local
 SETTINGS. Peer-received `SETTINGS_MAX_FRAME_SIZE` values belong to
 peer-advertised state for outbound decisions and are not reported as the
-receive-limit provenance for later inbound frame-size failures. The
+receive-limit provenance for later inbound frame-size failures. Received
+SETTINGS range failures use id
+`http2.peer_limit.settings_value_out_of_range` and record
+`byte_offset.value`, `setting_identifier`, `setting_name`, `observed_value`,
+`accepted_min_value`, `accepted_max_value`, and `peer_limit_provenance`. The
 invalid frame-kind state slice uses id `http2.protocol.invalid_frame_kind` and
 records `byte_offset.value`, `actual_frame_kind`, `stream_id`, `stream_ref`,
 `expected_frame_kind`, `active_state`, and `rule_provenance`; the checked
