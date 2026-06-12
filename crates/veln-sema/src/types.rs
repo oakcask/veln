@@ -632,7 +632,7 @@ fn schema_encode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSign
     module
         .schemas
         .iter()
-        .filter_map(|schema| schema_encode_function_signature_for_schema(schema))
+        .filter_map(schema_encode_function_signature_for_schema)
         .collect()
 }
 
