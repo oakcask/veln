@@ -10,7 +10,9 @@ use crate::prelude::{
     core_prelude_signature, qualified_core_prelude_builtin_signature,
     qualified_core_prelude_signature,
 };
-use crate::types::{CallOrigin, FunctionSignature, Type, TypeEnvironment, core_type};
+use crate::types::{
+    CallOrigin, FunctionSignature, SCHEMA_DECODE_TARGET_PREFIX, Type, TypeEnvironment, core_type,
+};
 
 pub(crate) struct TypeBinding<'a> {
     pub(crate) name: &'a str,
@@ -259,6 +261,16 @@ fn core_function_call_signature(
     current_module: Option<&str>,
 ) -> Option<CoreCallSignature> {
     if let Some(function) = resolve_function(segments, environment, current_module) {
+        if let Some(schema_name) = function
+            .target_name
+            .strip_prefix(SCHEMA_DECODE_TARGET_PREFIX)
+        {
+            return Some(CoreCallSignature {
+                target: CoreCallTarget::SchemaDecode(schema_name.to_string()),
+                params: function.params.iter().map(core_type).collect(),
+                return_type: core_type(&function.return_type),
+            });
+        }
         return Some(CoreCallSignature {
             target: CoreCallTarget::Function(function.target_name.clone()),
             params: function.params.iter().map(core_type).collect(),

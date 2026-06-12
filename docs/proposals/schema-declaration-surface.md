@@ -45,16 +45,18 @@ The implemented first slice covers:
 - structural schema value mapping clauses with explicit `map to Target`
   headers and `target_field = schema_field` assignments preserved by the
   parser, formatter, lowered AST, and editor token metadata
-- the first narrow executable field-local validation slice for
-  `SchemaValidationSample`, where `padding_length <= length` is checked during
-  binary schema decode after `padding_length` is decoded
+- executable field-local validation helper slices that decode binary schema
+  fields in declaration order and evaluate supported `where` predicates after
+  the owning field is decoded
+- generated `byte_decode_<schema>` helper bindings for source `format binary`
+  schemas whose fields all use implemented exact-width unsigned primitives
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface
 
 This proposal remains open for:
 
-- general runtime evaluation of field-local validation clauses for arbitrary
-  schema declarations
+- generated runtime decode bindings for binary schema fields outside the
+  implemented exact-width unsigned primitive slice
 - runtime mapping from schema fields to Veln values, including target-field
   resolution, type checking, generated record construction, and ADT
   constructor payload construction
@@ -175,17 +177,19 @@ schema PaddedPayload
 end
 ```
 
-The first narrow executable validation slice is implemented under
-`../specification/execution.md` for `SchemaValidationSample`: after
-`padding_length` is decoded, the runtime checks
-`padding_length <= length` using the current field and the earlier decoded
-`length` field. General validation semantics for arbitrary schema
-declarations remain proposal work. At decode time, a `where` clause should be
-checked after its field has been decoded and before later fields may
-reference the validated value. The predicate may name the current field and
-fields decoded earlier in the same schema. It must not name later fields,
-ordinary source bindings, runtime settings, connection state, stream state, or
-imported functions.
+The executable validation helper slice is implemented under
+`../specification/execution.md`: schema helper definitions decode fields in
+declaration order and evaluate supported `where` predicates after the owning
+field is decoded. Source `format binary` schema declarations whose fields all
+use implemented exact-width unsigned primitives expose generated
+`byte_decode_<schema>` helpers without hand-written prelude entries. The
+implemented examples include `SchemaValidationSample` and another schema that
+checks an arithmetic boolean predicate. At decode time, a `where` clause is
+checked after its field has been decoded and before later fields may reference
+the validated value. The predicate may name the current field and fields
+decoded earlier in the same schema. It must not name later fields, ordinary
+source bindings, runtime settings, connection state, stream state, or imported
+functions.
 
 The predicate language should reuse the familiar comparison, boolean, literal,
 field-reference, and arithmetic operators from contract predicates, but with a
@@ -259,11 +263,14 @@ Implemented:
   `use` paths and import aliases, private imported schema diagnostics,
   wrong-kind diagnostics, missing schema diagnostics, and non-reexport
   boundaries.
-- The first narrow executable schema `where` validation slice checks
-  `padding_length <= length` during binary decode for
-  `SchemaValidationSample` and reports `schema.validation_failed` with byte
-  offset, field path, predicate text, decoded values, and structured byte
-  preview fields.
+- Executable schema `where` validation helper slices evaluate supported
+  predicates after the owning field is decoded, including arithmetic, boolean,
+  prefix `not`, and grouped predicates over the current field and earlier
+  decoded fields, and report `schema.validation_failed` with byte offset,
+  field path, predicate text, decoded values, and structured byte preview
+  fields.
+- Source `format binary` schemas whose fields all use implemented exact-width
+  unsigned primitives expose generated `byte_decode_<schema>` helper bindings.
 - Structural schema value mapping clauses are accepted, formatted, lowered, and
   exposed to editor token metadata without enabling generated codec execution.
 
@@ -274,6 +281,7 @@ Remaining:
 - Runtime schema value mapping resolves target fields or ADT constructors,
   rejects missing target fields, type-checks assigned values, and constructs
   decoded values from generated codecs.
-- Field-local `where` predicates are evaluated during general schema decode.
+- General schema decode can synthesize executable bindings for fields outside
+  the implemented exact-width unsigned primitive slice.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

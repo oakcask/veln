@@ -101,8 +101,10 @@ When the result value is a binary schema field-local validation failure,
 - `field_path`: schema-local path segment objects with `kind` and `name`
 - `predicate`: the failed field-local `where` predicate text
 - `field_value`: the decoded value of the owning field
-- decoded field values referenced by the predicate, such as `length` and
-  `padding_length`
+- `decoded_values`: display text for decoded schema fields available to the
+  predicate
+- decoded field values available to the predicate, keyed by schema field name,
+  such as `length` and `padding_length`
 - `byte_preview`: a structured bounded byte preview object
 
 For schema-owned byte diagnostics, `byte_preview` includes:

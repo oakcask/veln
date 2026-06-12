@@ -165,6 +165,13 @@ the owning field byte offset, structured field path, failed predicate text,
 decoded values, structured byte preview fields, and the focused human primary
 message.
 
+`../../examples/specification/run/binary-schema-validation-arithmetic-decode/`
+and `../../examples/specification/run/binary-schema-validation-arithmetic-json/`
+pin generated `byte_decode_<schema>` helpers for another schema declaration.
+The passing case decodes an exact-width arithmetic predicate. The failing case
+asserts the same `schema.validation_failed` shape with decoded values keyed by
+schema field name.
+
 ## HTTP/2 Protocol Core Example
 
 The executable specification case

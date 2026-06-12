@@ -302,10 +302,18 @@
         String fieldName,
         String predicate,
         long fieldValue,
-        long lengthValue,
-        long paddingLengthValue,
+        java.util.Map<String, Long> decodedValues,
         String nearbyContext
     ) {
+        java.util.ArrayList<DiagnosticDetail> details =
+            new java.util.ArrayList<DiagnosticDetail>();
+        details.add(DiagnosticDetail.string("predicate", predicate));
+        details.add(DiagnosticDetail.number("field_value", fieldValue));
+        details.add(DiagnosticDetail.string("decoded_values", formatDecodedSchemaValues(decodedValues)));
+        for (java.util.Map.Entry<String, Long> entry : decodedValues.entrySet()) {
+            details.add(DiagnosticDetail.number(entry.getKey(), entry.getValue().longValue()));
+        }
+        details.add(DiagnosticDetail.bytePreview("byte_preview", nearbyContext));
         byteDiagnostics.get().put(
             message,
             new ByteDiagnostic(
@@ -315,15 +323,22 @@
                     new ByteDiagnosticFieldPathSegment("schema", schemaName),
                     new ByteDiagnosticFieldPathSegment("field", fieldName)
                 ),
-                java.util.Arrays.asList(
-                    DiagnosticDetail.string("predicate", predicate),
-                    DiagnosticDetail.number("field_value", fieldValue),
-                    DiagnosticDetail.number("length", lengthValue),
-                    DiagnosticDetail.number("padding_length", paddingLengthValue),
-                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
-                )
+                details
             )
         );
+    }
+
+    private static String formatDecodedSchemaValues(java.util.Map<String, Long> decodedValues) {
+        StringBuilder out = new StringBuilder();
+        boolean first = true;
+        for (java.util.Map.Entry<String, Long> entry : decodedValues.entrySet()) {
+            if (!first) {
+                out.append(", ");
+            }
+            out.append(entry.getKey()).append("=").append(entry.getValue());
+            first = false;
+        }
+        return out.toString();
     }
 
     private static String formatByteDiagnosticFieldPath(

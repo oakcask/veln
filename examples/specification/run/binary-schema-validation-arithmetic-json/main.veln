@@ -1,0 +1,17 @@
+# Binary schema field-local validation reports arithmetic predicate failures.
+schema ArithmeticPacket
+	format binary
+
+	width: UInt8
+	item_count: UInt8
+	payload_length: UInt16be where not (payload_length != width * item_count) and payload_length >= 1 and true
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("03050010")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(4)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {width: Int, item_count: Int, payload_length: Int} = byte_decode_arithmetic_packet(view)?
+	Ok(())
+end

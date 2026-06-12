@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use veln_ast::{
     BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind,
-    SurfaceModule, UseDecl, Visibility,
+    SchemaDecl, SurfaceModule, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -28,6 +28,8 @@ pub(crate) struct FunctionSignature {
     pub(crate) node_id: NodeId,
     pub(crate) span: SourceSpan,
 }
+
+pub(crate) const SCHEMA_DECODE_TARGET_PREFIX: &str = "schema-decode:";
 
 pub(crate) enum FunctionLookup<'a> {
     Found(&'a FunctionSignature),
@@ -276,6 +278,7 @@ impl TypeEnvironment {
                 })
             })
             .collect::<Vec<_>>();
+        functions.extend(schema_decode_function_signatures(module));
         infer_function_body_effects(module, &mut functions);
         let aliases = function_alias_signatures(module, &functions);
         functions.extend(aliases);
@@ -364,6 +367,88 @@ impl TypeEnvironment {
             _ => None,
         }
     }
+}
+
+fn schema_decode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {
+    module
+        .schemas
+        .iter()
+        .filter_map(schema_decode_function_signature)
+        .collect()
+}
+
+fn schema_decode_function_signature(schema: &SchemaDecl) -> Option<FunctionSignature> {
+    let schema_name = schema.name.as_ref()?;
+    if schema.format.as_ref()?.name != "binary" {
+        return None;
+    }
+    let fields = schema
+        .fields
+        .iter()
+        .map(|field| {
+            Some((
+                field.name.clone(),
+                Type::int(),
+                exact_width_schema_primitive(&field.ty)?,
+            ))
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let byte_view = Type::named("ByteView", Vec::new());
+    let result = Type::named(
+        "Result",
+        vec![
+            Type::Record(fields.into_iter().map(|(name, ty, _)| (name, ty)).collect()),
+            Type::string(),
+        ],
+    );
+    Some(FunctionSignature {
+        name: schema_decode_function_name(schema_name),
+        target_name: format!("{SCHEMA_DECODE_TARGET_PREFIX}{schema_name}"),
+        module_name: schema.module_name.clone(),
+        visibility: schema.visibility,
+        params: vec![byte_view],
+        return_type: result,
+        effects: Vec::new(),
+        node_id: schema.node_id,
+        span: schema.span.clone(),
+    })
+}
+
+pub(crate) fn schema_decode_function_name(schema_name: &str) -> String {
+    format!("byte_decode_{}", snake_case_identifier(schema_name))
+}
+
+pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
+    match ty.trim() {
+        "UInt8" => Some(1),
+        "UInt16be" => Some(2),
+        "UInt24be" => Some(3),
+        "UInt31be" | "UInt32be" => Some(4),
+        _ => None,
+    }
+}
+
+fn snake_case_identifier(name: &str) -> String {
+    let mut out = String::new();
+    let mut previous_was_lower_or_digit = false;
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            if ch.is_ascii_uppercase() {
+                if previous_was_lower_or_digit && !out.ends_with('_') {
+                    out.push('_');
+                }
+                out.push(ch.to_ascii_lowercase());
+                previous_was_lower_or_digit = false;
+            } else {
+                out.push(ch);
+                previous_was_lower_or_digit = ch.is_ascii_lowercase() || ch.is_ascii_digit();
+            }
+        } else if !out.is_empty() && !out.ends_with('_') {
+            out.push('_');
+            previous_was_lower_or_digit = false;
+        }
+    }
+    out.trim_matches('_').to_string()
 }
 
 impl FunctionSignature {

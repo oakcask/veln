@@ -17,7 +17,7 @@ mod types;
 use veln_ast::{FunctionKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, Severity};
-use veln_ir::{TypedProgram, lower_checked_core};
+use veln_ir::{IrSchemaDecodeField, IrSchemaDecodeSpec, TypedProgram, lower_checked_core};
 
 use crate::analysis::{
     check_codec_decode_signatures, check_codec_schema_references, check_declared_effect_labels,
@@ -28,7 +28,7 @@ use crate::analysis::{
     check_test_declaration_boundary,
 };
 use crate::lowering::lower_surface_module_to_core;
-use crate::types::TypeEnvironment;
+use crate::types::{TypeEnvironment, exact_width_schema_primitive, schema_decode_function_name};
 
 #[derive(Clone, Debug)]
 pub struct LoweredSurfaceModule {
@@ -96,7 +96,12 @@ pub fn lower_analyzed_surface_module(
     {
         None
     } else {
-        lower_checked_core(&lowered_core.program).ok()
+        lower_checked_core(&lowered_core.program)
+            .ok()
+            .map(|mut ir| {
+                ir.schema_decoders = schema_decode_specs(module);
+                ir
+            })
     };
 
     LoweredSurfaceModule {
@@ -104,4 +109,36 @@ pub fn lower_analyzed_surface_module(
         core: Some(lowered_core.program),
         ir,
     }
+}
+
+fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
+    module
+        .schemas
+        .iter()
+        .filter_map(|schema| {
+            let schema_name = schema.name.as_ref()?;
+            if schema.format.as_ref()?.name != "binary" {
+                return None;
+            }
+            let fields = schema
+                .fields
+                .iter()
+                .map(|field| {
+                    Some(IrSchemaDecodeField {
+                        name: field.name.clone(),
+                        width: exact_width_schema_primitive(&field.ty)?,
+                        predicate: field
+                            .where_clause
+                            .as_ref()
+                            .map(|where_clause| where_clause.predicate.clone()),
+                    })
+                })
+                .collect::<Option<Vec<_>>>()?;
+            Some(IrSchemaDecodeSpec {
+                schema_name: schema_name.clone(),
+                function_name: schema_decode_function_name(schema_name),
+                fields,
+            })
+        })
+        .collect()
 }

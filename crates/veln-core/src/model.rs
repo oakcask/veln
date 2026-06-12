@@ -132,6 +132,7 @@ pub enum CoreExprKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CoreCallTarget {
     Function(String),
+    SchemaDecode(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),

@@ -5,6 +5,21 @@ use veln_source::SourceSpan;
 #[derive(Clone, Debug, PartialEq)]
 pub struct TypedProgram {
     pub functions: Vec<IrFunction>,
+    pub schema_decoders: Vec<IrSchemaDecodeSpec>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaDecodeSpec {
+    pub schema_name: String,
+    pub function_name: String,
+    pub fields: Vec<IrSchemaDecodeField>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaDecodeField {
+    pub name: String,
+    pub width: u8,
+    pub predicate: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -117,6 +132,7 @@ pub enum IrExprKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IrCallTarget {
     Function(String),
+    SchemaDecode(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),
