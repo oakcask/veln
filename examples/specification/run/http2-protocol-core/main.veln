@@ -58,7 +58,7 @@ type Http2ProtocolFailure
 	InvalidFrameKind(Int, Int, Int, Int, String, String)
 	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String)
 	FrameSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int)
-	FlowControlWindowExceeded(Int, Int, Int, Int, String, String)
+	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String)
 	SettingsValueOutOfRange(Int, Int, String, Int, Int, Int, String)
 end
 
@@ -189,10 +189,7 @@ fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: Pen
 	match settings_decision
 		SettingsValueOk => match validate_protocol_payload(next_offset, length, kind, stream_id)
 			ProtocolPayloadOk => match validate_continuation(continuation, next_offset, length, kind, flags, stream_id, receive_flow_control)
-				Ok(Decision(next_continuation, completed_count)) => match update_receive_flow_control(next_offset, length, kind, stream_id, receive_flow_control)
-					ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, next_receive_flow_control), next_offset, length, kind, flags, stream_id, completed_count))
-					ReceiveFlowControlFailed(error) => Ok(Failed(consumed_state, error))
-				end
+				Ok(Decision(next_continuation, completed_count)) => complete_receive_flow_control_update(pending, suffix, next_offset, frame_count_int, next_continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_count, consumed_state)
 				Err(error) => Ok(Failed(consumed_state, error))
 			end
 			ProtocolPayloadFailed(error) => Ok(Failed(consumed_state, error))
@@ -201,12 +198,23 @@ fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: Pen
 	end
 end
 
+fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_count: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
+	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, next_offset, length, kind, stream_id, receive_flow_control)?
+	match flow_control_decision
+		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, next_receive_flow_control), next_offset, length, kind, flags, stream_id, completed_count))
+		ReceiveFlowControlFailed(error) => Ok(Failed(consumed_state, error))
+	end
+end
+
 fn validate_protocol_payload(offset: Int, length: Int, kind: Int, stream_id: Int) -> ProtocolPayloadDecision
 	match kind == 6
 		true => validate_fixed_payload_length(offset, length, kind, stream_id, 8, "connection-control", "rfc9113_ping_payload_length")
 		false => match kind == 7
 			true => validate_fixed_payload_length(offset, length, kind, stream_id, 8, "connection-control", "rfc9113_goaway_payload_length")
-			false => ProtocolPayloadOk
+			false => match kind == 8
+				true => validate_fixed_payload_length(offset, length, kind, stream_id, 4, "flow-control", "rfc9113_window_update_payload_length")
+				false => ProtocolPayloadOk
+			end
 		end
 	end
 end
@@ -328,7 +336,10 @@ fn validate_connection_frame_kind(offset: Int, kind: Int, stream_id: Int, receiv
 				true => Ok(Decision(NoContinuation, 0))
 				false => match kind == 7
 					true => Ok(Decision(NoContinuation, 0))
-					false => Err(InvalidFrameKind(offset, kind, stream_id, 4, "connection-control", "connection_frames_require_settings"))
+					false => match kind == 8
+						true => Ok(Decision(NoContinuation, 0))
+						false => Err(InvalidFrameKind(offset, kind, stream_id, 4, "connection-control", "connection_frames_require_settings"))
+					end
 				end
 			end
 		end
@@ -341,7 +352,10 @@ fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_fl
 		true => Ok(Decision(NoContinuation, 0))
 		false => match kind == 0
 			true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
-			false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+			false => match kind == 8
+				true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
+				false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+			end
 		end
 	end
 end
@@ -373,12 +387,15 @@ fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started
 	end
 end
 
-fn update_receive_flow_control(offset: Int, length: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
+fn update_receive_flow_control(pending: ByteChunk, offset: Int, length: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
 	match kind == 1
-		true => ReceiveFlowControlOk(open_receive_stream(stream_id, receive_flow_control))
+		true => Ok(ReceiveFlowControlOk(open_receive_stream(stream_id, receive_flow_control)))
 		false => match kind == 0
-			true => consume_data_receive_window(offset, stream_id, length, receive_flow_control)
-			false => ReceiveFlowControlOk(receive_flow_control)
+			true => Ok(consume_data_receive_window(offset, stream_id, length, receive_flow_control))
+			false => match kind == 8
+				true => update_window_receive_credit(pending, offset, stream_id, receive_flow_control)
+				false => Ok(ReceiveFlowControlOk(receive_flow_control))
+			end
 		end
 	end
 end
@@ -393,10 +410,57 @@ fn consume_data_receive_window(offset: Int, stream_id: Int, length: Int, receive
 	match receive_flow_control
 		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => ReceiveFlowControlFailed(InvalidFrameKind(offset, 0, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window)) => match length > connection_window
-			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window"))
+			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, connection_window, "connection-flow-control", "connection_receive_window"))
 			false => match length > stream_window
-				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, stream_id, length, stream_window, "open-stream", "stream_receive_window"))
+				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 0, stream_id, length, stream_window, "open-stream", "stream_receive_window"))
 				false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window - length, OpenStreamReceiveWindow(open_stream_id, stream_window - length)))
+			end
+		end
+	end
+end
+
+fn max_receive_flow_control_window() -> Int
+	2147483647
+end
+
+fn update_window_receive_credit(pending: ByteChunk, offset: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControlDecision, String>
+	let increment: Int = window_update_increment(pending)?
+	match stream_id == 0
+		true => Ok(update_connection_receive_credit(offset, increment, receive_flow_control))
+		false => Ok(update_stream_receive_credit(offset, stream_id, increment, receive_flow_control))
+	end
+end
+
+fn window_update_increment(pending: ByteChunk) -> Result<Int, String>
+	let payload_offset: ByteOffset = byte_offset(9)?
+	let payload_count: ByteCount = byte_count(4)?
+	let payload: ByteView = byte_view(pending, payload_offset, payload_count)?
+	byte_read_u31_be(payload)
+end
+
+fn update_connection_receive_credit(offset: Int, increment: Int, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
+	match receive_flow_control
+		ReceiveFlowControl(connection_window, open_stream) => match increment == 0
+			true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, 0, increment, 1, "connection-flow-control", "window_update_increment_nonzero"))
+			false => match increment > max_receive_flow_control_window() - connection_window
+				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, 0, increment, max_receive_flow_control_window() - connection_window, "connection-flow-control", "connection_receive_window"))
+				false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window + increment, open_stream))
+			end
+		end
+	end
+end
+
+fn update_stream_receive_credit(offset: Int, stream_id: Int, increment: Int, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControlDecision
+	match receive_flow_control
+		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window)) => match stream_id == open_stream_id
+			false => ReceiveFlowControlFailed(InvalidFrameKind(offset, 8, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+			true => match increment == 0
+				true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, 1, "open-stream", "window_update_increment_nonzero"))
+				false => match increment > max_receive_flow_control_window() - stream_window
+					true => ReceiveFlowControlFailed(FlowControlWindowExceeded(offset, 8, stream_id, increment, max_receive_flow_control_window() - stream_window, "open-stream", "stream_receive_window"))
+					false => ReceiveFlowControlOk(ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(open_stream_id, stream_window + increment)))
+				end
 			end
 		end
 	end
@@ -554,7 +618,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "http2.protocol.invalid_frame_kind"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "http2.protocol.invalid_payload_length"
 		FrameSizeExceeded(_, _, _, _, _) => "http2.peer_limit.frame_size_exceeded"
-		FlowControlWindowExceeded(_, _, _, _, _, _) => "http2.peer_limit.flow_control_window_exceeded"
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.flow_control_window_exceeded"
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "http2.peer_limit.settings_value_out_of_range"
 	end
 end
@@ -566,7 +630,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(offset, _, _, _, _, _) => offset
 		InvalidPayloadLength(offset, _, _, _, _, _, _) => offset
 		FrameSizeExceeded(offset, _, _, _, _) => offset
-		FlowControlWindowExceeded(offset, _, _, _, _, _) => offset
+		FlowControlWindowExceeded(offset, _, _, _, _, _, _) => offset
 		SettingsValueOutOfRange(offset, _, _, _, _, _, _) => offset
 	end
 end
@@ -578,7 +642,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -590,7 +654,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _) => actual_kind
 		FrameSizeExceeded(_, _, _, actual_kind, _) => actual_kind
-		FlowControlWindowExceeded(_, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, actual_kind, _, _, _, _, _) => actual_kind
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 4
 	end
 end
@@ -602,7 +666,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, actual_stream, _, _, _) => actual_stream
 		InvalidPayloadLength(_, _, actual_stream, _, _, _, _) => actual_stream
 		FrameSizeExceeded(_, _, _, _, actual_stream) => actual_stream
-		FlowControlWindowExceeded(_, actual_stream, _, _, _, _) => actual_stream
+		FlowControlWindowExceeded(_, _, actual_stream, _, _, _, _) => actual_stream
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -614,7 +678,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -626,7 +690,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, expected_kind, _, _) => expected_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _) => actual_kind
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 4
 	end
 end
@@ -638,7 +702,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -650,7 +714,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -662,7 +726,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, observed_length, _, _, _) => observed_length
 		FrameSizeExceeded(_, observed_length, _, _, _) => observed_length
-		FlowControlWindowExceeded(_, _, observed_length, _, _, _) => observed_length
+		FlowControlWindowExceeded(_, _, _, observed_length, _, _, _) => observed_length
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -674,7 +738,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, expected_length, _, _) => expected_length
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_value(receive_limit)
-		FlowControlWindowExceeded(_, _, _, allowed_length, _, _) => allowed_length
+		FlowControlWindowExceeded(_, _, _, _, allowed_length, _, _) => allowed_length
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
 	end
 end
@@ -686,7 +750,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, active_state, _) => active_state
 		InvalidPayloadLength(_, _, _, _, _, active_state, _) => active_state
 		FrameSizeExceeded(_, _, _, _, _) => "none"
-		FlowControlWindowExceeded(_, _, _, _, active_state, _) => active_state
+		FlowControlWindowExceeded(_, _, _, _, _, active_state, _) => active_state
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "connection-control"
 	end
 end
@@ -698,7 +762,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, rule_provenance) => rule_provenance
 		InvalidPayloadLength(_, _, _, _, _, _, rule_provenance) => rule_provenance
 		FrameSizeExceeded(_, _, _, _, _) => "none"
-		FlowControlWindowExceeded(_, _, _, _, _, rule_provenance) => rule_provenance
+		FlowControlWindowExceeded(_, _, _, _, _, _, rule_provenance) => rule_provenance
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "http2_settings_value_range"
 	end
 end
@@ -710,7 +774,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_provenance_label(receive_limit)
-		FlowControlWindowExceeded(_, _, _, _, _, _) => "none"
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
 	end
 end
@@ -722,7 +786,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, setting_identifier, _, _, _, _, _) => setting_identifier
 	end
 end
@@ -734,7 +798,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
-		FlowControlWindowExceeded(_, _, _, _, _, _) => "none"
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, setting_name, _, _, _, _) => setting_name
 	end
 end
@@ -746,7 +810,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, observed_value, _, _, _) => observed_value
 	end
 end
@@ -758,7 +822,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, accepted_min_value, _, _) => accepted_min_value
 	end
 end
@@ -770,7 +834,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
-		FlowControlWindowExceeded(_, _, _, _, _, _) => 0
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, accepted_max_value, _) => accepted_max_value
 	end
 end
@@ -782,7 +846,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
-		FlowControlWindowExceeded(_, _, _, _, _, _) => "none"
+		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance) => peer_limit_provenance
 	end
 end
@@ -974,6 +1038,22 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("data-stream-window", data_stream_window)
 	let data_connection_window: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000400000000000101020304")?), receive_window_state(3, 1, 65535))?
 	print_failure("data-connection-window", data_connection_window)
+	let window_update_connection: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000000000005")?), receive_window_state(10, 1, 20))?
+	print_step("window-update-connection", window_update_connection)
+	print_receive_windows("window-update-connection", step_state(window_update_connection))
+	let window_update_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000100000007")?), receive_window_state(10, 1, 20))?
+	print_step("window-update-stream", window_update_stream)
+	print_receive_windows("window-update-stream", step_state(window_update_stream))
+	let window_update_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003080000000000000001")?), receive_window_state(10, 1, 20))?
+	print_failure("window-update-length", window_update_bad_length)
+	let window_update_idle_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000300000001")?), empty_state())?
+	print_failure("window-update-idle", window_update_idle_stream)
+	let window_update_zero: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000000000000")?), receive_window_state(10, 1, 20))?
+	print_failure("window-update-zero", window_update_zero)
+	let window_update_connection_overflow: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000000000008")?), receive_window_state(2147483640, 1, 20))?
+	print_failure("window-update-connection-overflow", window_update_connection_overflow)
+	let window_update_stream_overflow: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000100000008")?), receive_window_state(20, 1, 2147483640))?
+	print_failure("window-update-stream-overflow", window_update_stream_overflow)
 	let ping_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000000102030405060708")?), empty_state())?
 	print_ping("ping-data", ping_data)
 	let ping_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080601000000000102030405060708")?), empty_state())?

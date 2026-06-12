@@ -145,12 +145,15 @@ frame-size check, such as protocol default, local configuration, or local
 SETTINGS. Peer-received `SETTINGS_MAX_FRAME_SIZE` values belong to
 peer-advertised state for outbound decisions and are not reported as the
 receive-limit provenance for later inbound frame-size failures. Received
-DATA frames that exceed available inbound receive-window credit use id
+DATA frames that exceed available inbound receive-window credit, and
+`WINDOW_UPDATE` increments that would exceed available inbound receive-window
+growth, use id
 `http2.peer_limit.flow_control_window_exceeded` and record
 `byte_offset.value`, `observed_payload_length`, `allowed_window_credit`,
 `frame_kind`, `stream_id`, `stream_ref`, `active_state`, and
 `rule_provenance`; the checked HTTP/2 examples cover both stream-window and
-connection-window receive credit failures. Received
+connection-window receive credit failures. The ordinary protocol-core example
+also covers zero `WINDOW_UPDATE` increments as peer-limit failures. Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record
 `byte_offset.value`, `setting_identifier`, `setting_name`, `observed_value`,
@@ -163,8 +166,8 @@ Wrong-length protocol payloads use id
 `http2.protocol.invalid_payload_length` and record `byte_offset.value`,
 `frame_kind`, `stream_id`, `stream_ref`, `observed_payload_length`,
 `expected_payload_length`, `active_state`, and `rule_provenance`; the checked
-HTTP/2 examples cover the PING fixed-length failure and GOAWAY fixed-prefix
-length failure.
+HTTP/2 examples cover the PING fixed-length failure, GOAWAY fixed-prefix
+length failure, and `WINDOW_UPDATE` fixed-length failure.
 
 Other non-zero Java process exits use `error.kind: "runtime"` with
 `details.phase: "runtime"`. JDK setup failures use `error.kind: "runner"` with

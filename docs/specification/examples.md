@@ -279,8 +279,14 @@ Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
 Receive flow-control state records connection receive-window credit and the
 currently open stream receive-window credit. DATA on the open stream consumes
-both windows by payload length, while DATA payloads larger than the available
-stream or connection receive-window credit remain typed peer-limit failures.
+both windows by payload length. `WINDOW_UPDATE` on the connection stream
+increases connection receive-window credit, and `WINDOW_UPDATE` on the open
+stream increases that stream's receive-window credit. Wrong-length
+`WINDOW_UPDATE` payloads remain typed payload-length failures, idle-stream
+`WINDOW_UPDATE` remains the existing stream-state frame-kind failure, and zero
+or overflowing increments remain typed peer-limit failures without changing
+window state. DATA payloads larger than the available stream or connection
+receive-window credit also remain typed peer-limit failures.
 Peer-received `SETTINGS_MAX_FRAME_SIZE` is stored as peer-advertised state for
 outbound decisions and does not replace the inbound receive maximum used by
 later frame-size checks. Received `SETTINGS_MAX_FRAME_SIZE` values are
@@ -319,7 +325,8 @@ frame sizes, setting identity, observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
 expected payload length, flow-control window credit, and rule provenance. The
 flow-control command fixtures cover stream receive-window provenance while the
-ordinary protocol-core case also covers connection receive-window provenance.
+ordinary protocol-core case also covers connection receive-window provenance
+and the `WINDOW_UPDATE` receive-credit slice.
 The frame-size command fixtures cover local-configuration provenance while the
 ordinary protocol-core case keeps the protocol-default, local-configuration,
 local-SETTINGS, peer-advertised SETTINGS, and rejected peer-advertised SETTINGS

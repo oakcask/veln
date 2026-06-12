@@ -489,8 +489,9 @@ against the built `veln` binary.
   range-checks received `SETTINGS_MAX_FRAME_SIZE` before updating that
   peer-advertised state. The case also accepts DATA on an open stream,
   decrements both connection and stream receive-window credit by payload
-  length, and reports stream-window and connection-window credit exhaustion as
-  `http2.peer_limit.flow_control_window_exceeded`.
+  length, accepts `WINDOW_UPDATE` receive-credit increments for the connection
+  and open stream, and reports zero increments, receive-window overflow, and
+  credit exhaustion as `http2.peer_limit.flow_control_window_exceeded`.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation

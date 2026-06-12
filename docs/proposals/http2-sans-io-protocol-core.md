@@ -30,9 +30,9 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - connection settings beyond maximum frame size
 - stream identifiers
 - stream lifecycle
-- WINDOW_UPDATE, initial-window-size changes, outbound flow control, and
-  broader stream-window interactions beyond the implemented inbound DATA
-  receive-window accounting
+- initial-window-size changes, outbound flow control, and broader
+  stream-window interactions beyond the implemented inbound DATA and
+  `WINDOW_UPDATE` receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state
 
 ## Discussion Result: Limit Placement
@@ -274,6 +274,15 @@ available stream or connection receive-window credit use
 reference, observed payload length, allowed window credit, active state, and
 rule provenance in executable output, human diagnostics, and JSON
 `protocol_diagnostic` details.
+The implemented slice also receives `WINDOW_UPDATE` frames. Connection-level
+`WINDOW_UPDATE` increases connection receive-window credit, and
+stream-level `WINDOW_UPDATE` increases the currently open stream's
+receive-window credit. Wrong-length `WINDOW_UPDATE` payloads use
+`http2.protocol.invalid_payload_length`, idle or unknown stream-targeted
+`WINDOW_UPDATE` remains the existing stream-state
+`http2.protocol.invalid_frame_kind` shape, and zero or overflowing increments
+use `http2.peer_limit.flow_control_window_exceeded` without changing receive
+window state.
 
 The remaining scope below is still planned work for the full protocol core.
 
