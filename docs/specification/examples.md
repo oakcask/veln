@@ -154,12 +154,16 @@ chunks and end-of-stream as explicit ADT events, stores parser state as the
 undecoded `ByteChunk` suffix plus the next absolute byte offset, and reuses
 the binary frame-header primitive for each available header.
 
-The case pins four observable outcomes: a valid frame-header arrival,
-incomplete input that waits for more bytes, closed input with pending bytes,
-and a continuation ordering failure. Protocol failures stay as ordinary ADT
-values and are projected by source code into stable diagnostic ids and related
-context fields for byte offset, frame kind, stream id, and active
-continuation state.
+The case pins valid frame arrival, incomplete input that waits for more bytes,
+closed input with pending bytes, continuation state after HEADERS, continuation
+state after a non-final CONTINUATION, completion after a final CONTINUATION,
+and a continuation ordering failure. Pending continuation state records the
+owning stream, starting frame kind, starting byte offset, and accumulated
+opaque header-block byte count. A final CONTINUATION with END_HEADERS clears
+that state and exposes the completed accumulated byte count in the observable
+example output. Protocol failures stay as ordinary ADT values and are
+projected by source code into stable diagnostic ids and related context fields
+for byte offset, frame kind, stream id, and active continuation state.
 
 `../../examples/specification/run/http2-protocol-core-closed-human/` and
 `../../examples/specification/run/http2-protocol-core-continuation-json/` pin
