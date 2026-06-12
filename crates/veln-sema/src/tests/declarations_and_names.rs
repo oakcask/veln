@@ -894,6 +894,167 @@ fn codec_decode_with_reports_unresolved_function_at_clause() {
 }
 
 #[test]
+fn codec_encode_with_accepts_boundary_signature() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "codec HeaderEncode for Header encode\n",
+            "  encode with encode_header\n",
+            "end\n",
+            "\n",
+            "fn encode_header(chunks: List<ByteChunk>) -> EncodeStep<String>\n",
+            "  Encoded(chunks)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn codec_encode_with_reports_return_shape_at_clause() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "codec HeaderEncode for Header encode\n",
+            "  encode with encode_header\n",
+            "end\n",
+            "\n",
+            "fn encode_header() -> Result<List<ByteChunk>, String>\n",
+            "  Ok(list_nil())\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "codec.encode_signature");
+    assert_eq!(
+        diagnostic.message,
+        "encode function must return `EncodeStep<TState>`"
+    );
+    assert!(
+        diagnostic
+            .span
+            .as_ref()
+            .is_some_and(|span| span.start.line == 7)
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"reason\":\"return_type\"")
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"actual_signature\":\"Result<List<ByteChunk>, String>\"")
+    );
+    assert_eq!(diagnostic.related.len(), 1);
+}
+
+#[test]
+fn codec_encode_with_reports_unresolved_function_at_clause() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "codec HeaderEncode for Header encode\n",
+            "  encode with missing_encode\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "name.unresolved");
+    assert_eq!(
+        diagnostics[0].message,
+        "unresolved encode function `missing_encode`"
+    );
+    assert!(diagnostics[0].related.is_empty());
+    assert!(
+        diagnostics[0]
+            .details
+            .to_json()
+            .contains("\"phase\":\"codec\"")
+    );
+}
+
+#[test]
+fn codec_encode_with_ignores_functions_from_other_modules() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "schema Header\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "codec HeaderEncode for Header encode\n",
+            "  encode with encode_header\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "pub fn encode_header(chunks: List<ByteChunk>) -> EncodeStep<String>\n",
+            "  Encoded(chunks)\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: Vec::new(),
+        schemas: app.schemas,
+        codecs: app.codecs,
+        functions: wire.functions,
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.unresolved");
+    assert_eq!(
+        diagnostics[0].message,
+        "unresolved encode function `encode_header`"
+    );
+}
+
+#[test]
 fn generated_schema_mappings_report_source_target_and_type_diagnostics() {
     let source = SourceFile::new(
         "main.veln",

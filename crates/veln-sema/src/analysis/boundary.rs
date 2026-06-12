@@ -431,7 +431,7 @@ pub(crate) fn check_codec_decode_signatures(module: &SurfaceModule) -> Vec<Diagn
             let Some(function_name) = function else {
                 continue;
             };
-            let Some(function) = codec_decode_function(module, codec, function_name) else {
+            let Some(function) = codec_same_module_function(module, codec, function_name) else {
                 diagnostics.push(unresolved_codec_decode_function_diagnostic(
                     codec,
                     implementation,
@@ -452,7 +452,42 @@ pub(crate) fn check_codec_decode_signatures(module: &SurfaceModule) -> Vec<Diagn
     diagnostics
 }
 
-fn codec_decode_function<'a>(
+pub(crate) fn check_codec_encode_signatures(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+
+    for codec in &module.codecs {
+        for implementation in codec.implementations.iter().filter(|implementation| {
+            implementation.direction == CodecDirection::Encode
+                && matches!(implementation.kind, CodecImplementationKind::With { .. })
+        }) {
+            let CodecImplementationKind::With { function } = &implementation.kind else {
+                continue;
+            };
+            let Some(function_name) = function else {
+                continue;
+            };
+            let Some(function) = codec_same_module_function(module, codec, function_name) else {
+                diagnostics.push(unresolved_codec_encode_function_diagnostic(
+                    codec,
+                    implementation,
+                    function_name,
+                ));
+                continue;
+            };
+
+            diagnostics.extend(codec_encode_signature_diagnostics(
+                codec,
+                implementation,
+                function,
+                function_name,
+            ));
+        }
+    }
+
+    diagnostics
+}
+
+fn codec_same_module_function<'a>(
     module: &'a SurfaceModule,
     codec: &CodecDecl,
     function_name: &str,
@@ -544,6 +579,40 @@ fn is_decode_step_return(ty: &Type) -> bool {
     )
 }
 
+fn codec_encode_signature_diagnostics(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    function: &Function,
+    function_name: &str,
+) -> Vec<Diagnostic> {
+    let return_type = function
+        .return_type
+        .as_deref()
+        .and_then(|annotation| parse_type_annotation(annotation).ok())
+        .unwrap_or(Type::Unknown);
+
+    if is_encode_step_return(&return_type) {
+        return Vec::new();
+    }
+
+    vec![codec_encode_signature_diagnostic(
+        codec,
+        implementation,
+        Some(function),
+        function_name,
+        "return_type",
+        "encode function must return `EncodeStep<TState>`",
+        return_type.render(),
+    )]
+}
+
+fn is_encode_step_return(ty: &Type) -> bool {
+    matches!(
+        ty,
+        Type::Named { name, args } if name == "EncodeStep" && args.len() == 1
+    )
+}
+
 fn parameter_types_text(function: &Function) -> String {
     function
         .params
@@ -597,6 +666,34 @@ fn unresolved_codec_decode_function_diagnostic(
     )
 }
 
+fn unresolved_codec_encode_function_diagnostic(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    function_name: &str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "name.unresolved",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("unresolved encode function `{function_name}`"),
+        Some(implementation.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("codec")),
+            (
+                "node_id",
+                JsonValue::string(implementation.node_id.display("codec-impl")),
+            ),
+            (
+                "codec",
+                JsonValue::string(codec.name.as_deref().unwrap_or("<missing>")),
+            ),
+            ("direction", JsonValue::string("encode")),
+            ("expected_kind", JsonValue::string("function")),
+            ("target", JsonValue::string(function_name.to_string())),
+        ]),
+    )
+}
+
 fn codec_decode_signature_diagnostic(
     codec: &CodecDecl,
     implementation: &CodecImplementationClause,
@@ -628,6 +725,59 @@ fn codec_decode_signature_diagnostic(
             (
                 "expected_signature",
                 JsonValue::string("fn(ByteView, ByteOffset) -> DecodeStep<T>"),
+            ),
+            (
+                "actual_signature",
+                JsonValue::string(actual_signature.into()),
+            ),
+        ]),
+    );
+    if let Some(function) = function {
+        diagnostic.related.push(JsonValue::object([
+            ("kind", JsonValue::string("function_signature")),
+            (
+                "message",
+                JsonValue::string(format!(
+                    "Referenced function `{function_name}` is declared here."
+                )),
+            ),
+            ("span", span_json(&function.span)),
+        ]));
+    }
+    diagnostic
+}
+
+fn codec_encode_signature_diagnostic(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    function: Option<&Function>,
+    function_name: &str,
+    reason: &'static str,
+    message: impl Into<String>,
+    actual_signature: impl Into<String>,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "codec.encode_signature",
+        Severity::Error,
+        DiagnosticKind::Type,
+        message.into(),
+        Some(implementation.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("codec")),
+            (
+                "node_id",
+                JsonValue::string(implementation.node_id.display("codec-impl")),
+            ),
+            (
+                "codec",
+                JsonValue::string(codec.name.as_deref().unwrap_or("<missing>")),
+            ),
+            ("direction", JsonValue::string("encode")),
+            ("function", JsonValue::string(function_name.to_string())),
+            ("reason", JsonValue::string(reason)),
+            (
+                "expected_signature",
+                JsonValue::string("fn(...) -> EncodeStep<TState>"),
             ),
             (
                 "actual_signature",

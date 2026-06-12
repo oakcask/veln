@@ -1,0 +1,25 @@
+command = ["check", "--json", "bad.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"name.unresolved\"", "unresolved encode function `missing_encoder`", "\"id\":\"codec.encode_signature\"", "\"reason\":\"return_type\"", "Referenced function `wrong_return` is declared here."]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "name.unresolved"
+severity = "error"
+kind = "name"
+message = "unresolved encode function `missing_encoder`"
+
+[[diagnostics]]
+id = "codec.encode_signature"
+severity = "error"
+kind = "type"
+message = "encode function must return `EncodeStep<TState>`"

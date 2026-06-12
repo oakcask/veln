@@ -161,10 +161,12 @@ declaration must not silently add directions that are missing from its head.
 
 The source-surface body clause forms are implemented in
 `../specification/source-surface.md`: `derive decode`, `derive encode`,
-`decode with <function>`, and `encode with <function>`. The checker also
-implements the first `decode with` boundary slice: the referenced function must
-be an ordinary same-module function whose parameters are `ByteView` and
-`ByteOffset` and whose return shape is `DecodeStep<T>`.
+`decode with <function>`, and `encode with <function>`. The checker implements
+the first hand-written function boundary slices: `decode with` references must
+name ordinary same-module functions whose parameters are `ByteView` and
+`ByteOffset` and whose return shape is `DecodeStep<T>`, while `encode with`
+references must name ordinary same-module functions whose return shape is
+`EncodeStep<TState>`.
 
 `derive` asks the checker to generate that direction from the named schema,
 using the schema mapping and validation rules. A derived direction is accepted
@@ -177,9 +179,10 @@ choice without extra code.
 normal top-level item with its own visibility, contracts, effects, tests, and
 documentation. The implemented decode checker verifies the canonical boundary
 shape for hand-written decoders: a bounded `ByteView` plus base `ByteOffset`
-and a `DecodeStep<T>` return. Remaining work should connect `T` to schema
-value mapping and bind hand-written encoders to the implemented
-`EncodeStep<TState>` result shape.
+and a `DecodeStep<T>` return. The implemented encode checker verifies the
+hand-written encoder result boundary as `EncodeStep<TState>`. Remaining work
+should connect decoded and encoded values to schema value mapping and define
+any additional encoder parameter boundary.
 
 The implemented parser rejects a missing implementation clause for a listed
 direction, a body clause for a direction absent from the declaration head, and

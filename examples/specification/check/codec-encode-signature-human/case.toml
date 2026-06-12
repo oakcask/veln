@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[codec.encode_signature]: encode function must return `EncodeStep<TState>`", "note: main.veln:11:1: Referenced function `wrong_return` is declared here."]
+
+[stderr]
+format = "empty"

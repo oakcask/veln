@@ -46,10 +46,10 @@ mod repair_reasoning;
 pub(in crate::analysis) use body::FunctionChecker;
 pub(crate) use body::check_function_body;
 pub(crate) use boundary::{
-    check_codec_decode_signatures, check_codec_schema_references, check_declared_effect_labels,
-    check_duplicate_codec_names, check_duplicate_constructor_names, check_duplicate_function_names,
-    check_duplicate_type_names, check_duplicate_use_aliases, check_module_boundary,
-    check_public_aliases, check_public_function_boundary, check_reserved_prelude_aliases,
-    check_schema_field_primitives, check_schema_mappings, check_schema_type_references,
-    check_test_declaration_boundary,
+    check_codec_decode_signatures, check_codec_encode_signatures, check_codec_schema_references,
+    check_declared_effect_labels, check_duplicate_codec_names, check_duplicate_constructor_names,
+    check_duplicate_function_names, check_duplicate_type_names, check_duplicate_use_aliases,
+    check_module_boundary, check_public_aliases, check_public_function_boundary,
+    check_reserved_prelude_aliases, check_schema_field_primitives, check_schema_mappings,
+    check_schema_type_references, check_test_declaration_boundary,
 };
