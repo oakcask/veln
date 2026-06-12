@@ -243,6 +243,12 @@ frame, reuses the implemented frame-header primitive, checks the active receive
 maximum frame size after structural header decode, and projects typed protocol
 failures into stable fixture output ids,
 `protocol_diagnostic` JSON details, and human related context.
+It also splits the active receive-limit entry from peer-advertised SETTINGS
+state for maximum frame size. The checked example keeps protocol-default,
+local-configuration, and local-SETTINGS receive-limit provenance visible in
+frame-size failures, stores a received `SETTINGS_MAX_FRAME_SIZE` value as
+peer-advertised state, and confirms that the peer-advertised value is not used
+as the inbound receive maximum for a later incoming frame-size failure.
 
 The remaining scope below is still planned work for the full protocol core.
 

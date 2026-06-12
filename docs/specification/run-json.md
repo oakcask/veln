@@ -128,6 +128,11 @@ helper attach `details.protocol_diagnostic`. The frame-size peer-limit slice
 uses id `http2.peer_limit.frame_size_exceeded` and records
 `byte_offset.value`, `observed_payload_length`, `allowed_max_frame_size`,
 `frame_kind`, `stream_id`, `stream_ref`, and `receive_limit_provenance`. The
+provenance names the active receive-limit entry used for the failed inbound
+frame-size check, such as protocol default, local configuration, or local
+SETTINGS. Peer-received `SETTINGS_MAX_FRAME_SIZE` values belong to
+peer-advertised state for outbound decisions and are not reported as the
+receive-limit provenance for later inbound frame-size failures. The
 invalid frame-kind state slice uses id `http2.protocol.invalid_frame_kind` and
 records `byte_offset.value`, `actual_frame_kind`, `stream_id`, `stream_ref`,
 `expected_frame_kind`, `active_state`, and `rule_provenance`; the checked

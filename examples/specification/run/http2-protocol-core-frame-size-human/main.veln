@@ -11,5 +11,5 @@ fn project(failure: Http2ProtocolFailure) -> Result<(), String>
 end
 
 pub fn main() -> Result<(), String>
-	project(FrameSizeExceeded(0, 16385, 16384, 0, 3, "protocol_default"))
+	project(FrameSizeExceeded(0, 1025, 1024, 0, 3, "local_configuration"))
 end

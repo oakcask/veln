@@ -44,7 +44,8 @@ compare it with `../specification/` before changing behavior.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, frame-size peer-limit diagnostic
-  slice, and invalid frame-kind diagnostic slice.
+  slice with receive-limit provenance, and invalid frame-kind diagnostic
+  slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define the later route from pure protocol code to transport effects,
   deadlines, channels, and stream tasks.
