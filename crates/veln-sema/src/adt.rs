@@ -95,6 +95,15 @@ impl AdtRegistry {
         })
     }
 
+    pub(crate) fn descriptor_for_core_type(&self, ty: &CoreType) -> Option<&AdtDescriptor> {
+        let CoreType::Named { name, args } = ty else {
+            return None;
+        };
+        self.descriptors.iter().find(|descriptor| {
+            descriptor.type_name == *name && descriptor.type_parameters.len() == args.len()
+        })
+    }
+
     pub(crate) fn constructor(
         &self,
         segments: &[String],
@@ -132,8 +141,38 @@ impl AdtRegistry {
             ConstructorLookup::Found(constructor)
                 if same_descriptor(constructor.descriptor, descriptor) =>
             {
-                Some(constructor)
+                return Some(constructor);
             }
+            ConstructorLookup::Ambiguous
+                if descriptor_allows_expected_constructor_disambiguation(descriptor) => {}
+            _ => return None,
+        }
+
+        let mut matches = Vec::new();
+        for candidate in &self.descriptors {
+            if !same_descriptor(candidate, descriptor)
+                || !descriptor_visible(candidate, segments, current_module, uses, true)
+            {
+                continue;
+            }
+            for variant in &candidate.variants {
+                if constructor_matches_visible_path(
+                    candidate,
+                    variant,
+                    segments,
+                    uses,
+                    current_module,
+                ) && variant_visible(candidate, variant, current_module, segments)
+                {
+                    matches.push(AdtConstructor {
+                        descriptor: candidate,
+                        variant,
+                    });
+                }
+            }
+        }
+        match matches.as_slice() {
+            [constructor] => Some(*constructor),
             _ => None,
         }
     }
@@ -172,6 +211,12 @@ impl AdtRegistry {
             _ => ConstructorLookup::Ambiguous,
         }
     }
+}
+
+fn descriptor_allows_expected_constructor_disambiguation(descriptor: &AdtDescriptor) -> bool {
+    descriptor.module_name.is_none()
+        && matches!(descriptor.type_name.as_str(), "DecodeStep" | "EncodeStep")
+        && descriptor.visibility == Visibility::Public
 }
 
 fn type_alias_descriptors(
@@ -562,6 +607,90 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             propagation: None,
             visibility: Visibility::Public,
         },
+        AdtDescriptor {
+            type_name: "EncodeError".to_string(),
+            module_name: None,
+            type_parameters: Vec::new(),
+            variants: vec![AdtVariantDescriptor {
+                name: "EncodeError".to_string(),
+                kind: AdtVariantKind::Source,
+                payload_fields: vec![
+                    AdtPayloadField {
+                        name: "id".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::string()),
+                    },
+                    AdtPayloadField {
+                        name: "field_path".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::string()),
+                    },
+                    AdtPayloadField {
+                        name: "reason".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::string()),
+                    },
+                ],
+                coverage_case: "EncodeError(_)".to_string(),
+                visibility: Visibility::Public,
+            }],
+            diagnostic_name: "encodeerror".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
+            type_name: "EncodeStep".to_string(),
+            module_name: None,
+            type_parameters: vec!["TState".to_string()],
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "Encoded".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "chunks".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::named(
+                            "List",
+                            vec![Type::named("ByteChunk", Vec::new())],
+                        )),
+                    }],
+                    coverage_case: "Encoded(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "Partial".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "chunks".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named(
+                                "List",
+                                vec![Type::named("ByteChunk", Vec::new())],
+                            )),
+                        },
+                        AdtPayloadField {
+                            name: "produced".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteCount", Vec::new())),
+                        },
+                        AdtPayloadField {
+                            name: "state".to_string(),
+                            ty: AdtPayloadType::TypeParameter(0),
+                        },
+                    ],
+                    coverage_case: "Partial(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "Invalid".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "error".to_string(),
+                        ty: AdtPayloadType::Concrete(Type::named("EncodeError", Vec::new())),
+                    }],
+                    coverage_case: "Invalid(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "encodestep".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
     ]
 }
 
@@ -755,7 +884,12 @@ fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bo
     descriptor.module_name.is_none()
         && matches!(
             descriptor.type_name.as_str(),
-            "StreamInput" | "DecodeError" | "DecodeReadiness" | "DecodeStep"
+            "StreamInput"
+                | "DecodeError"
+                | "DecodeReadiness"
+                | "DecodeStep"
+                | "EncodeError"
+                | "EncodeStep"
         )
         && descriptor.visibility == Visibility::Public
         && alias == PRELUDE_MODULE

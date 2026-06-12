@@ -675,6 +675,31 @@ impl<'a> CoreLowerer<'a> {
                     .unwrap_or_else(|| adt::core_constructed_type(constructor, &[]));
                 self.core_expr(expr, ty, core_nullary_constructor_kind(constructor))
             }
+            ConstructorLookup::Ambiguous => {
+                if let Some(constructor) = expected
+                    .and_then(|expected| self.environment.adts.descriptor_for_core_type(expected))
+                    .and_then(|descriptor| {
+                        self.environment.adts.constructor_for_descriptor(
+                            segments,
+                            descriptor,
+                            self.function.module_name.as_deref(),
+                            &self.environment.uses,
+                        )
+                    })
+                    .filter(|constructor| constructor.variant.payload_fields.is_empty())
+                {
+                    return self.core_expr(
+                        expr,
+                        expected.cloned().unwrap_or(CoreType::Unknown),
+                        core_nullary_constructor_kind(constructor),
+                    );
+                }
+                self.core_expr(
+                    expr,
+                    CoreType::Unknown,
+                    CoreExprKind::Local(segments.join("::")),
+                )
+            }
             _ => match segments {
                 [name] => {
                     if let Some(binding) = self
@@ -750,15 +775,37 @@ impl<'a> CoreLowerer<'a> {
         args: &[Expr],
         expected: Option<&CoreType>,
     ) -> Option<CoreExpr> {
-        if let ExprKind::NamePath(segments) = &callee.kind
-            && let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+        if let ExprKind::NamePath(segments) = &callee.kind {
+            match self.environment.adts.constructor(
                 segments,
                 self.function.module_name.as_deref(),
                 &self.environment.uses,
-            )
-            && !constructor.variant.payload_fields.is_empty()
-        {
-            return Some(self.lower_adt_constructor(expr, args, expected, constructor));
+            ) {
+                ConstructorLookup::Found(constructor)
+                    if !constructor.variant.payload_fields.is_empty() =>
+                {
+                    return Some(self.lower_adt_constructor(expr, args, expected, constructor));
+                }
+                ConstructorLookup::Ambiguous => {
+                    if let Some(constructor) = expected
+                        .and_then(|expected| {
+                            self.environment.adts.descriptor_for_core_type(expected)
+                        })
+                        .and_then(|descriptor| {
+                            self.environment.adts.constructor_for_descriptor(
+                                segments,
+                                descriptor,
+                                self.function.module_name.as_deref(),
+                                &self.environment.uses,
+                            )
+                        })
+                        .filter(|constructor| !constructor.variant.payload_fields.is_empty())
+                    {
+                        return Some(self.lower_adt_constructor(expr, args, expected, constructor));
+                    }
+                }
+                _ => {}
+            }
         }
         None
     }
@@ -1114,7 +1161,7 @@ impl<'a> CoreLowerer<'a> {
             }
             lowered_arms.push(CoreMatchArm {
                 node_id: arm.node_id,
-                pattern: self.lower_pattern(&arm.pattern),
+                pattern: self.lower_pattern(&arm.pattern, Some(&scrutinee.ty)),
                 expr: lowered_expr,
                 span: arm.span.clone(),
             });
@@ -1152,8 +1199,16 @@ impl<'a> CoreLowerer<'a> {
                 })
                 .collect(),
             PatternKind::Constructor { name, args } => {
-                let ConstructorLookup::Found(constructor) = self.environment.adts.constructor(
+                let Some(descriptor) = self
+                    .environment
+                    .adts
+                    .descriptor_for_core_type(scrutinee_type)
+                else {
+                    return Vec::new();
+                };
+                let Some(constructor) = self.environment.adts.constructor_for_descriptor(
                     name,
+                    descriptor,
                     self.function.module_name.as_deref(),
                     &self.environment.uses,
                 ) else {
@@ -1171,7 +1226,7 @@ impl<'a> CoreLowerer<'a> {
         }
     }
 
-    fn lower_pattern(&self, pattern: &Pattern) -> CorePattern {
+    fn lower_pattern(&self, pattern: &Pattern, scrutinee_type: Option<&CoreType>) -> CorePattern {
         CorePattern {
             node_id: pattern.node_id,
             kind: match &pattern.kind {
@@ -1188,15 +1243,48 @@ impl<'a> CoreLowerer<'a> {
                         .map(|field| CorePatternField {
                             node_id: field.node_id,
                             name: field.name.clone(),
-                            pattern: self.lower_pattern(&field.pattern),
+                            pattern: self.lower_pattern(
+                                &field.pattern,
+                                scrutinee_type.and_then(|ty| ty.record_field(&field.name)),
+                            ),
                             span: field.span.clone(),
                         })
                         .collect(),
                 ),
-                PatternKind::Constructor { name, args } => CorePatternKind::Constructor {
-                    name: self.canonical_constructor_name(name),
-                    args: args.iter().map(|arg| self.lower_pattern(arg)).collect(),
-                },
+                PatternKind::Constructor { name, args } => {
+                    let constructor = scrutinee_type
+                        .and_then(|ty| self.environment.adts.descriptor_for_core_type(ty))
+                        .and_then(|descriptor| {
+                            self.environment.adts.constructor_for_descriptor(
+                                name,
+                                descriptor,
+                                self.function.module_name.as_deref(),
+                                &self.environment.uses,
+                            )
+                        });
+                    CorePatternKind::Constructor {
+                        name: constructor
+                            .map(|constructor| {
+                                vec![
+                                    constructor.descriptor.type_name.clone(),
+                                    constructor.variant.name.clone(),
+                                ]
+                            })
+                            .unwrap_or_else(|| self.canonical_constructor_name(name)),
+                        args: args
+                            .iter()
+                            .enumerate()
+                            .map(|(index, arg)| {
+                                let payload_type = scrutinee_type.and_then(|ty| {
+                                    constructor.and_then(|constructor| {
+                                        adt::core_payload_type(ty, constructor, index)
+                                    })
+                                });
+                                self.lower_pattern(arg, payload_type.as_ref())
+                            })
+                            .collect(),
+                    }
+                }
             },
             span: pattern.span.clone(),
         }

@@ -349,6 +349,10 @@ against the built `veln` binary.
 - `run/codec-decode-step-vocabulary/`: ordinary source constructs and matches
   `DecodeStep<T>`, `DecodeReadiness`, and `DecodeError` values for decoded,
   need-more-input, and invalid-input decoder outcomes.
+- `run/codec-encode-step-vocabulary/`: ordinary source constructs and matches
+  `EncodeStep<TState>` and `EncodeError` values for complete output,
+  committed partial output with produced byte counts and encoder state, and
+  invalid representation failures.
 - `run/http2-protocol-core/`: an ordinary-source HTTP/2 sans-I/O decode state
   handles chunk arrival, incomplete input, end-of-stream truncation, and a
   continuation ordering failure while projecting typed protocol failures into

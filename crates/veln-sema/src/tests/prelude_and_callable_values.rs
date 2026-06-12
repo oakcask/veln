@@ -267,6 +267,15 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             "fn invalid(offset: ByteOffset) -> DecodeStep<Int>\n",
             "  prelude::Invalid(DecodeError(\"codec.invalid\", offset, \"demo.field\"))\n",
             "end\n",
+            "fn encoded(chunks: List<ByteChunk>) -> EncodeStep<String>\n",
+            "  Encoded(chunks)\n",
+            "end\n",
+            "fn partial(chunks: List<ByteChunk>, count: ByteCount) -> EncodeStep<String>\n",
+            "  prelude::EncodeStep::Partial(chunks, count, \"waiting\")\n",
+            "end\n",
+            "fn invalid_encode() -> EncodeStep<String>\n",
+            "  EncodeStep::Invalid(EncodeError(\"codec.out_of_range\", \"demo.length\", \"too large\"))\n",
+            "end\n",
             "fn label(input: StreamInput) -> String\n",
             "  match input\n",
             "    prelude::StreamInput::Chunk(bytes) => int_to_string(byte_count_to_int(byte_chunk_count(bytes)))\n",
@@ -280,6 +289,16 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
             "    NeedMore(prelude::NeedEnd) => \"end\"\n",
             "    prelude::DecodeStep::Invalid(DecodeError(id, _, _)) => id\n",
             "  end\n",
+            "end\n",
+            "fn encode_label(step: EncodeStep<String>) -> String\n",
+            "  match step\n",
+            "    prelude::EncodeStep::Encoded(chunks) => int_to_string(list_fold(chunks, 0, count_chunk))\n",
+            "    Partial(_, _, state) => state\n",
+            "    prelude::EncodeStep::Invalid(EncodeError(id, _, _)) => id\n",
+            "  end\n",
+            "end\n",
+            "fn count_chunk(total: Int, chunk: ByteChunk) -> Int\n",
+            "  total + byte_count_to_int(byte_chunk_count(chunk))\n",
             "end\n",
         ),
     );
@@ -338,6 +357,20 @@ fn stream_input_constructors_resolve_through_standard_prelude_paths() {
         assert_eq!(
             expr.ty,
             CoreType::named("DecodeStep", vec![CoreType::int()])
+        );
+    }
+    for function_name in ["encoded", "partial", "invalid_encode"] {
+        let function = core
+            .functions
+            .iter()
+            .find(|function| function.name == function_name)
+            .unwrap_or_else(|| panic!("{function_name} should be lowered"));
+        let CoreStmtKind::Return { expr } = &function.body[0].kind else {
+            panic!("{function_name} should return a constructor");
+        };
+        assert_eq!(
+            expr.ty,
+            CoreType::named("EncodeStep", vec![CoreType::string()])
         );
     }
     let label = core

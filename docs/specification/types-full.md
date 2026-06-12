@@ -10,8 +10,9 @@ Implemented type annotations:
 - primitives: `Bool`, `Int`, `Float`, `String`, and `()`
 - built-in and descriptor-backed type constructors: `Option<T>`,
   `Result<T, E>`, `List<T>`, `Vec<T>`, and `Dict<K, V>`
-- standard prelude byte vocabulary names: `Byte`, `ByteChunk`, `ByteView`,
-  `ByteOffset`, `ByteCount`, and `StreamInput`
+- standard prelude byte and codec vocabulary names: `Byte`, `ByteChunk`,
+  `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, `DecodeStep<T>`,
+  `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
 - records: `{name: Type, ...}`
 - function types: `fn(T, ...) -> U` with optional `effects [name, ...]`
 - other named type paths with optional type arguments, unless they are one of
@@ -33,14 +34,19 @@ parameter, inference reports an ambiguous constructor type.
 
 The standard prelude byte vocabulary uses `Byte` for one byte value,
 `ByteChunk` for an immutable owned byte sequence, `ByteView` for a bounded
-immutable view into byte data, `ByteCount` for byte lengths and consumed
-counts, `ByteOffset` for absolute byte offsets, and `StreamInput` for
-incremental input events. `StreamInput` is a public ADT with
-`Chunk(bytes: ByteChunk)` and `End` variants. A zero-length `ByteChunk` inside
-`Chunk` remains a chunk arrival and is not equivalent to `End`. The
-constructor layout of the other byte vocabulary types is not a public source
-contract; programs construct and inspect those values through the prelude
-helpers in
+immutable view into byte data, `ByteCount` for byte lengths and consumed or
+produced counts, `ByteOffset` for absolute byte offsets, `StreamInput` for
+incremental input events, and `DecodeStep<T>` and `EncodeStep<TState>` for
+ordinary source-visible codec boundary values. `StreamInput` is a public ADT
+with `Chunk(bytes: ByteChunk)` and `End` variants. A zero-length `ByteChunk`
+inside `Chunk` remains a chunk arrival and is not equivalent to `End`.
+`EncodeStep<TState>` is a public ADT with `Encoded`, `Partial`, and `Invalid`
+variants; its output payloads use `List<ByteChunk>` and its `Partial` variant
+carries the encoder state as `TState`. `DecodeError` and `EncodeError` are
+public structured error ADTs for matching and inspection by ordinary source.
+The constructor layout of the other byte vocabulary types is not a public
+source contract; programs construct and inspect those values through the
+prelude helpers in
 [names-effects-full.md#helper-signatures](names-effects-full.md#helper-signatures).
 
 In a function or test return annotation, a returned function type may carry its

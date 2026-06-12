@@ -93,6 +93,17 @@ with a decoded value and consumed `ByteCount`, a `NeedMore` outcome with
 `NeedBytes` readiness that consumes no input, and an `Invalid` outcome carrying
 a structured `DecodeError` with id, byte offset, and field path.
 
+## Codec Encode Step Vocabulary
+
+The executable specification case
+`../../examples/specification/run/codec-encode-step-vocabulary/` covers the
+source-visible incremental encode transition vocabulary. Ordinary source
+functions construct `EncodeStep<TState>` values for complete `Encoded`
+`List<ByteChunk>` output, `Partial` committed chunks with produced
+`ByteCount` and resumable state, and an `Invalid` outcome carrying a
+structured `EncodeError` with id, field path, and representation-failure
+reason.
+
 ## Binary Schema Frame Header
 
 The executable specification cases
