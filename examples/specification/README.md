@@ -354,9 +354,10 @@ against the built `veln` binary.
   committed partial output with produced byte counts and encoder state, and
   invalid representation failures.
 - `run/http2-protocol-core/`: an ordinary-source HTTP/2 sans-I/O decode state
-  handles chunk arrival, incomplete input, end-of-stream truncation, and a
-  continuation ordering failure while projecting typed protocol failures into
-  stable ids and related context.
+  handles chunk arrival, incomplete input, end-of-stream truncation, valid
+  CONTINUATION completion for an opaque header block, and a continuation
+  ordering failure while projecting typed protocol failures into stable ids
+  and related context.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation

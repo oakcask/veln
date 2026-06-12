@@ -6,6 +6,10 @@ type PendingContinuation
 	Continuation(Int, Int, Int, Int)
 end
 
+type ContinuationDecision
+	Decision(PendingContinuation, Int)
+end
+
 type Http2DecodeState
 	State(ByteChunk, Int, PendingContinuation)
 end
@@ -21,7 +25,7 @@ type Http2ProtocolFailure
 end
 
 type Http2Step
-	FrameDecoded(Http2DecodeState, Int, Int, Int, Int, Int)
+	FrameDecoded(Http2DecodeState, Int, Int, Int, Int, Int, Int)
 	Waiting(Http2DecodeState)
 	Failed(Http2DecodeState, Http2ProtocolFailure)
 end
@@ -66,47 +70,57 @@ fn decode_available(pending: ByteChunk, next_offset: Int, continuation: PendingC
 end
 
 fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation) -> Result<Http2Step, String>
+	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	let zero: ByteOffset = byte_offset(0)?
 	let header_count: ByteCount = byte_count(9)?
 	let view: ByteView = byte_view(pending, zero, header_count)?
 	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header(view)?
-	let suffix: ByteChunk = byte_drop(pending, header_count)?
-	let consumed_state: Http2DecodeState = State(suffix, next_offset + 9, continuation)
-	match validate_continuation(continuation, next_offset, header.kind, header.flags, header.stream_id)
-		Ok(next_continuation) => Ok(FrameDecoded(State(suffix, next_offset + 9, next_continuation), next_offset, header.length, header.kind, header.flags, header.stream_id))
+	let frame_count_int: Int = 9 + header.length
+	match available < frame_count_int
+		true => Ok(Waiting(State(pending, next_offset, continuation)))
+		false => decode_complete_frame(pending, next_offset, continuation, header.length, header.kind, header.flags, header.stream_id, frame_count_int)
+	end
+end
+
+fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, length: Int, kind: Int, flags: Int, stream_id: Int, frame_count_int: Int) -> Result<Http2Step, String>
+	let frame_count: ByteCount = byte_count(frame_count_int)?
+	let suffix: ByteChunk = byte_drop(pending, frame_count)?
+	let consumed_state: Http2DecodeState = State(suffix, next_offset + frame_count_int, continuation)
+	match validate_continuation(continuation, next_offset, length, kind, flags, stream_id)
+		Ok(Decision(next_continuation, completed_count)) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, next_continuation), next_offset, length, kind, flags, stream_id, completed_count))
 		Err(error) => Ok(Failed(consumed_state, error))
 	end
 end
 
-fn validate_continuation(continuation: PendingContinuation, offset: Int, kind: Int, flags: Int, stream_id: Int) -> Result<PendingContinuation, Http2ProtocolFailure>
+fn validate_continuation(continuation: PendingContinuation, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match continuation
-		NoContinuation => validate_without_continuation(offset, kind, flags, stream_id)
-		Continuation(expected_stream, started_kind, started_offset, accumulated) => validate_with_continuation(expected_stream, started_kind, started_offset, accumulated, offset, kind, flags, stream_id)
+		NoContinuation => validate_without_continuation(offset, length, kind, flags, stream_id)
+		Continuation(expected_stream, started_kind, started_offset, accumulated) => validate_with_continuation(expected_stream, started_kind, started_offset, accumulated, offset, length, kind, flags, stream_id)
 	end
 end
 
-fn validate_without_continuation(offset: Int, kind: Int, flags: Int, stream_id: Int) -> Result<PendingContinuation, Http2ProtocolFailure>
+fn validate_without_continuation(offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match kind == 1
 		true => match flags == 4
-			true => Ok(NoContinuation)
-			false => Ok(Continuation(stream_id, kind, offset, 0))
+			true => Ok(Decision(NoContinuation, length))
+			false => Ok(Decision(Continuation(stream_id, kind, offset, length), 0))
 		end
-		false => Ok(NoContinuation)
+		false => Ok(Decision(NoContinuation, 0))
 	end
 end
 
-fn validate_with_continuation(expected_stream: Int, started_kind: Int, started_offset: Int, accumulated: Int, offset: Int, kind: Int, flags: Int, stream_id: Int) -> Result<PendingContinuation, Http2ProtocolFailure>
+fn validate_with_continuation(expected_stream: Int, started_kind: Int, started_offset: Int, accumulated: Int, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match kind == 9
-		true => validate_continuation_stream(expected_stream, started_kind, started_offset, accumulated, offset, kind, flags, stream_id)
+		true => validate_continuation_stream(expected_stream, started_kind, started_offset, accumulated, offset, length, kind, flags, stream_id)
 		false => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset))
 	end
 end
 
-fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started_offset: Int, accumulated: Int, offset: Int, kind: Int, flags: Int, stream_id: Int) -> Result<PendingContinuation, Http2ProtocolFailure>
+fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started_offset: Int, accumulated: Int, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match stream_id == expected_stream
 		true => match flags == 4
-			true => Ok(NoContinuation)
-			false => Ok(Continuation(expected_stream, started_kind, started_offset, accumulated))
+			true => Ok(Decision(NoContinuation, accumulated + length))
+			false => Ok(Decision(Continuation(expected_stream, started_kind, started_offset, accumulated + length), 0))
 		end
 		false => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset))
 	end
@@ -114,7 +128,7 @@ end
 
 fn step_kind(step: Http2Step) -> String
 	match step
-		FrameDecoded(_, _, _, _, _, _) => "frame"
+		FrameDecoded(_, _, _, _, _, _, _) => "frame"
 		Waiting(_) => "waiting"
 		Failed(_, _) => "failed"
 	end
@@ -122,7 +136,7 @@ end
 
 fn step_state(step: Http2Step) -> Http2DecodeState
 	match step
-		FrameDecoded(state, _, _, _, _, _) => state
+		FrameDecoded(state, _, _, _, _, _, _) => state
 		Waiting(state) => state
 		Failed(state, _) => state
 	end
@@ -130,7 +144,7 @@ end
 
 fn step_failure(step: Http2Step) -> Http2ProtocolFailure
 	match step
-		FrameDecoded(_, _, _, _, _, _) => ClosedWithPending(0, 0)
+		FrameDecoded(_, _, _, _, _, _, _) => ClosedWithPending(0, 0)
 		Waiting(_) => ClosedWithPending(0, 0)
 		Failed(_, failure) => failure
 	end
@@ -138,7 +152,7 @@ end
 
 fn step_offset(step: Http2Step) -> Int
 	match step
-		FrameDecoded(_, offset, _, _, _, _) => offset
+		FrameDecoded(_, offset, _, _, _, _, _) => offset
 		Waiting(_) => 0
 		Failed(_, _) => 0
 	end
@@ -146,7 +160,7 @@ end
 
 fn step_kind_value(step: Http2Step) -> Int
 	match step
-		FrameDecoded(_, _, _, kind, _, _) => kind
+		FrameDecoded(_, _, _, kind, _, _, _) => kind
 		Waiting(_) => 0
 		Failed(_, _) => 0
 	end
@@ -154,7 +168,15 @@ end
 
 fn step_stream_id(step: Http2Step) -> Int
 	match step
-		FrameDecoded(_, _, _, _, _, stream_id) => stream_id
+		FrameDecoded(_, _, _, _, _, stream_id, _) => stream_id
+		Waiting(_) => 0
+		Failed(_, _) => 0
+	end
+end
+
+fn step_completed_count(step: Http2Step) -> Int
+	match step
+		FrameDecoded(_, _, _, _, _, _, completed_count) => completed_count
 		Waiting(_) => 0
 		Failed(_, _) => 0
 	end
@@ -176,6 +198,13 @@ fn state_continuation_label(state: Http2DecodeState) -> String
 	match state
 		State(_, _, NoContinuation) => "none"
 		State(_, _, Continuation(_, _, _, _)) => "active"
+	end
+end
+
+fn state_continuation_count(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, NoContinuation) => 0
+		State(_, _, Continuation(_, _, _, accumulated)) => accumulated
 	end
 end
 
@@ -251,7 +280,11 @@ fn print_step(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::print(" pending ")
 	stdio::print(int_to_string(state_pending_count(state)))
 	stdio::print(" continuation ")
-	stdio::println(state_continuation_label(state))
+	stdio::print(state_continuation_label(state))
+	stdio::print(" accumulated ")
+	stdio::print(int_to_string(state_continuation_count(state)))
+	stdio::print(" completed ")
+	stdio::println(int_to_string(step_completed_count(step)))
 end
 
 fn print_failure(label: String, step: Http2Step) -> () effects [stdio]
@@ -275,7 +308,9 @@ fn print_failure(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::print(" started_offset ")
 	stdio::print(int_to_string(failure_started_offset(failure)))
 	stdio::print(" continuation ")
-	stdio::println(state_continuation_label(state))
+	stdio::print(state_continuation_label(state))
+	stdio::print(" accumulated ")
+	stdio::println(int_to_string(state_continuation_count(state)))
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
@@ -285,8 +320,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("incomplete", incomplete)
 	let truncated: Http2Step = receive(InputEnd, step_state(incomplete))?
 	print_failure("closed", truncated)
-	let header_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010000000001")?), empty_state())?
+	let header_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010000000001aabbcc")?), empty_state())?
 	print_step("headers", header_start)
+	let continuation_more: Http2Step = receive(InputChunk(byte_chunk_from_hex("000002090000000001ddee")?), step_state(header_start))?
+	print_step("continuation-more", continuation_more)
+	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000409040000000101020304")?), step_state(continuation_more))?
+	print_step("continuation-done", continuation_done)
 	let bad_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(header_start))?
 	print_failure("continuation", bad_continuation)
 	Ok(())
