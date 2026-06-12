@@ -179,14 +179,18 @@ encode helpers beyond the exact-width primitive slice remain unimplemented.
 
 Eligible generated binary schema encode helpers named
 `byte_encode_<schema>` accept one record whose fields match the schema-local
-visible exact-width unsigned primitive fields as ordinary `Int` values. The
-helper writes fields in declaration order into one immutable big-endian
+visible exact-width unsigned primitive fields as ordinary `Int` values. A
+`ReservedBits(1, 0)` field immediately before a `UInt31be` field is
+representation-only: it is omitted from the record and the helper emits the
+required zero high bit in the shared four-byte stream identifier position.
+The helper writes fields in declaration order into one immutable big-endian
 `ByteChunk` and returns `Result<ByteChunk, EncodeError>`. Values outside the
 primitive range return `Err(EncodeError("codec.out_of_range", field_path,
 reason))`; `UInt31be` uses the 31-bit maximum even though it occupies four
-bytes. This slice excludes schema mappings, field-local validation, dispatch
-fields, reserved or fixed fields, nested mappings, and derived codec encode
-execution.
+bytes. Unsupported reserved-bit encode shapes report
+`schema.reserved_bits_encode`. This slice excludes schema mappings,
+field-local validation, dispatch fields, other reserved or fixed fields,
+nested mappings, and derived codec encode execution.
 
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header

@@ -95,11 +95,14 @@ The implemented narrow executable slices already make `UInt8`, `UInt16be`,
 big-endian fields and return ordinary `Int` values for visible fields.
 The implemented exact-width primitive encode helper slice emits those visible
 ordinary `Int` fields as big-endian `ByteChunk` output and reports structured
-`EncodeError` range failures. General schema-owned decode, encode, dispatch,
-and mapping beyond the implemented slices remain proposal work. A `UInt31be`
-field represents the 31-bit unsigned value in a big-endian field position
-whose remaining bit is handled as a reserved or fixed schema bit. The 31-bit
-value should not become a general-purpose source type.
+`EncodeError` range failures. The implemented reserved-bit encode slice also
+accepts `ReservedBits(1, 0)` immediately before `UInt31be`, omits the reserved
+field from the encoder value record, and writes the required zero high bit in
+the shared four-byte stream identifier position. General schema-owned decode,
+encode, dispatch, and mapping beyond the implemented slices remain proposal
+work. A `UInt31be` field represents the 31-bit unsigned value in a big-endian
+field position whose remaining bit is handled as a reserved or fixed schema
+bit. The 31-bit value should not become a general-purpose source type.
 
 ## Discussion Result: Reserved Bit Spelling
 
@@ -231,8 +234,8 @@ author likely referred to an earlier field with a compatible role.
 
 - Executable examples show binary schema writes and general schema-owned
   fixed-width reads beyond the implemented frame-header, width-sample,
-  primitive encode helper, HTTP/2 payload boundary helper, and narrow
-  closed-dispatch and extension-dispatch slices.
+  primitive encode helper, reserved-bit encode helper, HTTP/2 payload boundary
+  helper, and narrow closed-dispatch and extension-dispatch slices.
 - General dispatch payload schemas can decode nested known payload shapes while
   keeping extension-tolerant unknown payload bytes opaque.
 - Invalid fixed fields in general schema decode produce structured

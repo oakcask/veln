@@ -208,6 +208,15 @@ checks complete lowercase hex output. The failing case matches the returned
 `EncodeError` and asserts `codec.out_of_range`, the schema field path, and the
 `UInt31be` maximum.
 
+`../../examples/specification/run/binary-schema-reserved-bit-encode/` pins the
+reserved-bit encode slice for `ReservedBits(1, 0)` followed by `UInt31be`.
+The case checks complete lowercase hex output for an HTTP/2-style stream
+identifier field and the `UInt31be` maximum boundary. The adjacent checker
+case
+`../../examples/specification/check/schema-reserved-bit-encode-diagnostics/`
+asserts `schema.reserved_bits_encode` for a reserved-bit shape outside the
+implemented encode layout.
+
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
 and

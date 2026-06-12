@@ -67,9 +67,11 @@
         final long maxValue;
         final SchemaPredicate predicate;
         final SchemaDispatchSpec dispatch;
+        final int reservedBitWidth;
+        final long reservedValue;
 
         SchemaFieldSpec(String name, int width, long maxValue, SchemaPredicate predicate) {
-            this(name, width, maxValue, predicate, null);
+            this(name, width, maxValue, predicate, null, 0, 0L);
         }
 
         SchemaFieldSpec(
@@ -79,11 +81,33 @@
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch
         ) {
+            this(name, width, maxValue, predicate, dispatch, 0, 0L);
+        }
+
+        SchemaFieldSpec(String name, int reservedBitWidth, long reservedValue) {
+            this(name, 0, 0L, null, null, reservedBitWidth, reservedValue);
+        }
+
+        SchemaFieldSpec(
+            String name,
+            int width,
+            long maxValue,
+            SchemaPredicate predicate,
+            SchemaDispatchSpec dispatch,
+            int reservedBitWidth,
+            long reservedValue
+        ) {
             this.name = name;
             this.width = width;
             this.maxValue = maxValue;
             this.predicate = predicate;
             this.dispatch = dispatch;
+            this.reservedBitWidth = reservedBitWidth;
+            this.reservedValue = reservedValue;
+        }
+
+        boolean isReserved() {
+            return reservedBitWidth > 0;
         }
     }
 
@@ -991,6 +1015,8 @@
         Object schemaName,
         Object fieldNames,
         Object widths,
+        Object reservedBitWidths,
+        Object reservedValues,
         Object predicates,
         Object dispatchTagFields,
         Object dispatchLengthFields,
@@ -1003,6 +1029,8 @@
             schemaName,
             fieldNames,
             widths,
+            reservedBitWidths,
+            reservedValues,
             predicates,
             dispatchTagFields,
             dispatchLengthFields,
@@ -1023,6 +1051,8 @@
         Object schemaName,
         Object fieldNames,
         Object widths,
+        Object reservedBitWidths,
+        Object reservedValues,
         Object predicates,
         Object dispatchTagFields,
         Object dispatchLengthFields,
@@ -1035,6 +1065,8 @@
             schemaName,
             fieldNames,
             widths,
+            reservedBitWidths,
+            reservedValues,
             predicates,
             dispatchTagFields,
             dispatchLengthFields,
@@ -1062,14 +1094,20 @@
         Object schemaName,
         Object fieldNames,
         Object widths,
-        Object maxValues
+        Object maxValues,
+        Object reservedBitWidths,
+        Object reservedValues
     ) {
         String name = asString(schemaName);
         java.util.List<Object> fieldNameValues = asList(fieldNames);
         java.util.List<Object> widthValues = asList(widths);
         java.util.List<Object> maxValueValues = asList(maxValues);
+        java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
+        java.util.List<Object> reservedValueValues = asList(reservedValues);
         if (fieldNameValues.size() != widthValues.size()
-            || fieldNameValues.size() != maxValueValues.size()) {
+            || fieldNameValues.size() != maxValueValues.size()
+            || fieldNameValues.size() != reservedBitWidthValues.size()
+            || fieldNameValues.size() != reservedValueValues.size()) {
             return err(encodeError(
                 "codec.metadata",
                 name,
@@ -1083,6 +1121,18 @@
             String fieldName = asString(fieldNameValues.get(index));
             int width = (int) asLong(widthValues.get(index));
             long maxValue = asLong(maxValueValues.get(index));
+            int reservedBitWidth = (int) asLong(reservedBitWidthValues.get(index));
+            long reservedValue = asLong(reservedValueValues.get(index));
+            if (reservedBitWidth > 0) {
+                if (reservedBitWidth != 1 || reservedValue != 0L) {
+                    return err(encodeError(
+                        "codec.metadata",
+                        name + "." + fieldName,
+                        "unsupported reserved bits encode field"
+                    ));
+                }
+                continue;
+            }
             if (width < 1 || width > 4) {
                 return err(encodeError(
                     "codec.metadata",
@@ -1340,6 +1390,65 @@
         return ok(Long.valueOf(value));
     }
 
+    private static Object schemaReadReservedBits(
+        Object view,
+        long diagnosticBaseOffset,
+        int relativeOffset,
+        int bitWidth,
+        long expectedValue,
+        String schemaName,
+        String fieldName
+    ) {
+        java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
+        long baseOffset = byteViewOffset(view);
+        long count = byteViewCount(view);
+        Object boundsError = byteViewBoundsError(bytes, baseOffset, count);
+        if (boundsError != null) {
+            return boundsError;
+        }
+        if (bitWidth != 1 || expectedValue != 0L) {
+            return err(
+                "unsupported reserved bits encode field `"
+                    + fieldName
+                    + "` in schema `"
+                    + schemaName
+                    + "`"
+            );
+        }
+        long available = Math.max(0L, count - relativeOffset);
+        if (available < 1L) {
+            long byteOffset = diagnosticBaseOffset + count;
+            String message = "truncated schema field `" + fieldName + "` at byte offset " + byteOffset;
+            registerSchemaTruncatedFieldDiagnostic(
+                message,
+                byteOffset,
+                schemaName,
+                fieldName,
+                1,
+                available,
+                byteViewContextHex(view, 8)
+            );
+            return err(message);
+        }
+        long actualValue = (byteValueLong(bytes.get((int) baseOffset + relativeOffset)) >> 7) & 1L;
+        if (actualValue != expectedValue) {
+            long byteOffset = diagnosticBaseOffset + relativeOffset;
+            String message = "reserved bits mismatch at byte offset " + byteOffset;
+            registerSchemaReservedBitsMismatchDiagnostic(
+                message,
+                byteOffset,
+                schemaName,
+                fieldName,
+                bitWidth,
+                expectedValue,
+                actualValue,
+                byteViewContextHex(view, 8)
+            );
+            return err(message);
+        }
+        return ok(Long.valueOf(actualValue));
+    }
+
     private static Object byteDecodeBinarySchema(Object view, BinarySchemaSpec schema) {
         return byteDecodeBinarySchemaWithBase(view, schema, byteViewOffset(view));
     }
@@ -1367,6 +1476,21 @@
         java.util.LinkedHashMap<String, Object> values = new java.util.LinkedHashMap<String, Object>();
         long relativeOffset = 0L;
         for (SchemaFieldSpec field : schema.fields) {
+            if (field.isReserved()) {
+                Object read = schemaReadReservedBits(
+                    view,
+                    diagnosticBaseOffset,
+                    (int) relativeOffset,
+                    field.reservedBitWidth,
+                    field.reservedValue,
+                    schema.name,
+                    field.name
+                );
+                if (isErr(read)) {
+                    return read;
+                }
+                continue;
+            }
             if (field.dispatch != null) {
                 SchemaDispatchCaseSpec dispatchCase = schemaDispatchCase(field, decoded);
                 if (dispatchCase == null) {
@@ -1541,7 +1665,9 @@
     private static long schemaTotalWidth(BinarySchemaSpec schema) {
         long total = 0L;
         for (SchemaFieldSpec field : schema.fields) {
-            if (field.dispatch == null) {
+            if (field.isReserved()) {
+                continue;
+            } else if (field.dispatch == null) {
                 total += field.width;
             } else {
                 total += schemaDispatchMaxWidth(field.dispatch);
@@ -1623,6 +1749,8 @@
         Object schemaName,
         Object fieldNames,
         Object widths,
+        Object reservedBitWidths,
+        Object reservedValues,
         Object predicates,
         Object dispatchTagFields,
         Object dispatchLengthFields,
@@ -1634,6 +1762,8 @@
         String name = asString(schemaName);
         java.util.List<Object> fieldNameValues = asList(fieldNames);
         java.util.List<Object> widthValues = asList(widths);
+        java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
+        java.util.List<Object> reservedValueValues = asList(reservedValues);
         java.util.List<Object> predicateValues = asList(predicates);
         java.util.List<Object> dispatchTagFieldValues = asList(dispatchTagFields);
         java.util.List<Object> dispatchLengthFieldValues = asList(dispatchLengthFields);
@@ -1642,6 +1772,8 @@
         java.util.List<Object> mappingTargetValues = asList(mappingTargets);
         java.util.List<Object> mappingSourceValues = asList(mappingSources);
         if (fieldNameValues.size() != widthValues.size()
+            || fieldNameValues.size() != reservedBitWidthValues.size()
+            || fieldNameValues.size() != reservedValueValues.size()
             || fieldNameValues.size() != predicateValues.size()
             || fieldNameValues.size() != dispatchTagFieldValues.size()
             || fieldNameValues.size() != dispatchLengthFieldValues.size()
@@ -1656,8 +1788,27 @@
         for (int index = 0; index < fieldNameValues.size(); index += 1) {
             String fieldName = asString(fieldNameValues.get(index));
             long width = asLong(widthValues.get(index));
+            long reservedBitWidth = asLong(reservedBitWidthValues.get(index));
+            long reservedValue = asLong(reservedValueValues.get(index));
             String tagField = asString(dispatchTagFieldValues.get(index));
             String lengthField = asString(dispatchLengthFieldValues.get(index));
+            if (reservedBitWidth > 0L) {
+                if (reservedBitWidth != 1L || reservedValue != 0L) {
+                    return err(
+                        "unsupported reserved bits encode field `"
+                            + fieldName
+                            + "` in schema `"
+                            + name
+                            + "`"
+                    );
+                }
+                fields[index] = new SchemaFieldSpec(
+                    fieldName,
+                    (int) reservedBitWidth,
+                    reservedValue
+                );
+                continue;
+            }
             if (!tagField.isEmpty()) {
                 Object dispatch = declaredSchemaDispatch(
                     name,

@@ -1,5 +1,6 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
+use crate::types::supported_encode_reserved_bits;
 use veln_ast::{
     CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, PublicAliasKind,
     SchemaDecl, SchemaField, SchemaMappingAssignment, SchemaMappingClause, UseDecl,
@@ -1263,8 +1264,22 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 diagnostics.push(reserved_bits_format_diagnostic(schema, field));
                 continue;
             }
-            if let Err(reason) = primitive {
-                diagnostics.push(reserved_bits_argument_diagnostic(schema, field, reason));
+            match primitive {
+                Err(reason) => {
+                    diagnostics.push(reserved_bits_argument_diagnostic(schema, field, reason))
+                }
+                Ok(reserved) => {
+                    let field_index = schema
+                        .fields
+                        .iter()
+                        .position(|schema_field| schema_field.node_id == field.node_id);
+                    let next_field = field_index.and_then(|index| schema.fields.get(index + 1));
+                    if supported_encode_reserved_bits(next_field, reserved).is_none() {
+                        diagnostics.push(reserved_bits_encode_shape_diagnostic(
+                            schema, field, reserved,
+                        ));
+                    }
+                }
             }
         }
     }
@@ -1880,6 +1895,31 @@ fn reserved_bits_argument_diagnostic(
             ("field", JsonValue::string(field.name.clone())),
             ("primitive", JsonValue::string("ReservedBits")),
             ("reason", JsonValue::string(reason_text)),
+        ]),
+    )
+}
+
+fn reserved_bits_encode_shape_diagnostic(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reserved: (i64, i64),
+) -> Diagnostic {
+    Diagnostic::new(
+        "schema.reserved_bits_encode",
+        Severity::Error,
+        DiagnosticKind::Type,
+        "`ReservedBits` encode support requires `ReservedBits(1, 0)` followed by `UInt31be`",
+        Some(field.span.clone()),
+        JsonValue::object([
+            (
+                "schema",
+                JsonValue::string(schema.name.clone().unwrap_or_default()),
+            ),
+            ("field", JsonValue::string(field.name.clone())),
+            ("primitive", JsonValue::string("ReservedBits")),
+            ("bit_width", JsonValue::Number(reserved.0)),
+            ("expected_value", JsonValue::Number(reserved.1)),
+            ("reason", JsonValue::string("unsupported_encode_shape")),
         ]),
     )
 }

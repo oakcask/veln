@@ -697,6 +697,8 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.ldc_string(&schema.schema_name);
         self.emit_schema_field_names(code, schema);
         self.emit_schema_field_widths(code, schema);
+        self.emit_schema_reserved_bit_widths(code, schema);
+        self.emit_schema_reserved_values(code, schema);
         self.emit_schema_field_predicates(code, schema);
         self.emit_schema_dispatch_tag_fields(code, schema);
         self.emit_schema_dispatch_length_fields(code, schema);
@@ -707,7 +709,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeDeclaredBinarySchema",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 
@@ -727,6 +729,8 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.ldc_string(&schema.schema_name);
         self.emit_schema_field_names(code, schema);
         self.emit_schema_field_widths(code, schema);
+        self.emit_schema_reserved_bit_widths(code, schema);
+        self.emit_schema_reserved_values(code, schema);
         self.emit_schema_field_predicates(code, schema);
         self.emit_schema_dispatch_tag_fields(code, schema);
         self.emit_schema_dispatch_length_fields(code, schema);
@@ -737,7 +741,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeStepDeclaredBinarySchema",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 
@@ -757,10 +761,12 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         self.emit_schema_field_names(code, schema);
         self.emit_schema_field_widths(code, schema);
         self.emit_schema_field_max_values(code, schema);
+        self.emit_schema_reserved_bit_widths(code, schema);
+        self.emit_schema_reserved_values(code, schema);
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteEncodeDeclaredBinarySchema",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 
@@ -790,6 +796,44 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     fn emit_schema_field_max_values(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
         self.emit_object_array(code, schema.fields.len(), |_, code, index| {
             code.ldc_long(schema.fields[index].max_value);
+            code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_reserved_bit_widths(
+        &mut self,
+        code: &mut MethodCode,
+        schema: &IrSchemaDecodeSpec,
+    ) {
+        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
+            let bit_width = schema.fields[index]
+                .reserved_bits
+                .as_ref()
+                .map(|reserved| reserved.bit_width as i64)
+                .unwrap_or(0);
+            code.ldc_long(bit_width);
+            code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_reserved_values(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
+        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
+            let expected_value = schema.fields[index]
+                .reserved_bits
+                .as_ref()
+                .map(|reserved| reserved.expected_value)
+                .unwrap_or(0);
+            code.ldc_long(expected_value);
             code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
         });
         code.invokestatic(

@@ -19,7 +19,8 @@ use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{
     IrSchemaDecodeDispatch, IrSchemaDecodeDispatchCase, IrSchemaDecodeField,
-    IrSchemaDecodeMappingField, IrSchemaDecodeSpec, TypedProgram, lower_checked_core,
+    IrSchemaDecodeMappingField, IrSchemaDecodeSpec, IrSchemaReservedBits, TypedProgram,
+    lower_checked_core,
 };
 
 use crate::analysis::{
@@ -34,7 +35,8 @@ use crate::lowering::lower_surface_module_to_core;
 use crate::types::{
     TypeEnvironment, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
-    schema_decode_function_name, schema_decode_mapping_fields,
+    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
+    supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -131,7 +133,23 @@ fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
             }
             let mut decoded_field_names = Vec::new();
             let mut fields = Vec::new();
-            for field in &schema.fields {
+            for (index, field) in schema.fields.iter().enumerate() {
+                if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
+                    let (bit_width, expected_value) =
+                        supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
+                    fields.push(IrSchemaDecodeField {
+                        name: field.name.clone(),
+                        width: 0,
+                        max_value: 0,
+                        predicate: None,
+                        dispatch: None,
+                        reserved_bits: Some(IrSchemaReservedBits {
+                            bit_width,
+                            expected_value,
+                        }),
+                    });
+                    continue;
+                }
                 if let Some(width) = exact_width_schema_primitive(&field.ty) {
                     decoded_field_names.push(field.name.clone());
                     fields.push(IrSchemaDecodeField {
@@ -143,6 +161,7 @@ fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
                             .as_ref()
                             .map(|where_clause| where_clause.predicate.clone()),
                         dispatch: None,
+                        reserved_bits: None,
                     });
                     continue;
                 }
@@ -174,6 +193,7 @@ fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
                             })
                             .collect(),
                     }),
+                    reserved_bits: None,
                 });
             }
             Some(IrSchemaDecodeSpec {
