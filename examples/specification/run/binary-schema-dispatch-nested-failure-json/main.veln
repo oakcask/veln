@@ -1,0 +1,23 @@
+# Binary schema nested dispatch payload failures keep nested field paths.
+schema SettingsPayload
+	format binary
+
+	code: UInt8
+	value: UInt16be
+end
+
+schema ClosedNestedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => SettingsPayload)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("010700")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(3)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {kind: Int, payload: {code: Int, value: Int}} = byte_decode_closed_nested_packet(view)?
+	Ok(())
+end

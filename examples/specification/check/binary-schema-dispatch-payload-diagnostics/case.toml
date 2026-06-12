@@ -1,0 +1,55 @@
+command = ["check", "--json", "main.veln", "wire.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["dispatch payload schema `MissingPayload` is not declared", "dispatch payload `Shape` resolves to a type, not a schema", "imported dispatch payload schema `wire::PrivatePayload` is private", "imported dispatch payload schema `wire::PublicPayload` is not supported", "dispatch payload schema `SelfPacket` cannot reference itself", "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`", "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`"]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload schema `MissingPayload` is not declared"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload `Shape` resolves to a type, not a schema"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "imported dispatch payload schema `wire::PrivatePayload` is private"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "imported dispatch payload schema `wire::PublicPayload` is not supported"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload schema `SelfPacket` cannot reference itself"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`"
+
+[[diagnostics]]
+id = "schema.dispatch_payload"
+severity = "error"
+kind = "type"
+message = "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`"

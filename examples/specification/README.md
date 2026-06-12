@@ -391,6 +391,9 @@ against the built `veln` binary.
 - `run/binary-schema-closed-dispatch-decode/`: a generated binary schema
   decode helper reads a closed dispatch tag, selects the known payload case,
   and returns the selected payload as an ordinary `Int` field.
+- `run/binary-schema-closed-dispatch-nested-decode/`: a closed dispatch known
+  case may select a same-module nested binary schema payload and return the
+  decoded nested record shape.
 - `run/binary-schema-closed-dispatch-unknown-json/`: a generated binary schema
   decode helper reports `schema.dispatch_unknown_tag` through `run --json`
   with byte offset, field path, decoded tag field, decoded tag value, expected
@@ -398,12 +401,26 @@ against the built `veln` binary.
 - `run/binary-schema-closed-dispatch-unknown-human/`: the same closed dispatch
   unknown-tag failure projects focused human `run` diagnostics with related
   tag, byte context, and field-path notes.
+- `check/binary-schema-dispatch-payload-diagnostics/`: nested dispatch payload
+  schema names are checked against the narrow same-module boundary, with
+  diagnostics for missing names, non-schema names, imported schemas, self
+  references, forward references, and incompatible payload shapes.
 - `run/binary-schema-extension-dispatch-decode/`: a generated binary schema
   decode helper reads an extension-tolerant dispatch tag, selects a known
   payload case, and returns `SchemaDispatchPayload::Known`.
+- `run/binary-schema-extension-dispatch-nested-decode/`: an
+  extension-tolerant known case may decode a same-module nested binary schema
+  payload and wrap the decoded record shape in
+  `SchemaDispatchPayload::Known`.
 - `run/binary-schema-extension-dispatch-unknown/`: the same extension-tolerant
   dispatch form preserves an unknown tag and bounded raw payload bytes without
   reporting `schema.dispatch_unknown_tag`.
+- `run/binary-schema-extension-dispatch-nested-unknown/`: unknown
+  extension-tolerant tags stay opaque even when known cases name nested
+  payload schemas.
+- `run/binary-schema-dispatch-nested-failure-json/`: nested payload schema
+  failures keep the nested schema field path and absolute byte offset in
+  `run --json`.
 - `run/binary-schema-extension-dispatch-length-human/`: extension-tolerant
   dispatch still reports a focused `schema.length_out_of_bounds` diagnostic
   when the decoded unknown-payload length exceeds closed input.

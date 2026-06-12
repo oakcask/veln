@@ -1,0 +1,11 @@
+schema PrivatePayload
+	format binary
+
+	code: UInt8
+end
+
+pub schema PublicPayload
+	format binary
+
+	code: UInt8
+end

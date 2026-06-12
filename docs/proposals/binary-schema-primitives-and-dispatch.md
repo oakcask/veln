@@ -29,9 +29,15 @@ tags. The narrow extension-tolerant dispatch slice implements
 generated binary schema decode helpers, decodes known case payloads as
 `SchemaDispatchPayload::Known(Int)`, preserves unknown tags and bounded raw
 payload bytes as `SchemaDispatchPayload::Unknown(tag, payload)`, and still
-reports `schema.length_out_of_bounds` for malformed payload ranges. General
-schema decode, encode, generalized dispatch payload schemas, and schema value
-mapping remain proposal work.
+reports `schema.length_out_of_bounds` for malformed payload ranges. The
+same-module nested payload slice also implements known
+`Dispatch(..., tag => SchemaName, ...)` and
+`ExtensionDispatch(..., tag => SchemaName, ...)` cases for generated binary
+schema decode helpers, returns the nested schema's decoded record shape for
+known cases, keeps extension-tolerant unknown tags opaque, and reports nested
+payload failures with the nested schema field path and absolute byte offset.
+General schema decode, encode, imported or generalized dispatch payload
+schemas, and schema value mapping remain proposal work.
 
 ## Problem
 
@@ -43,7 +49,8 @@ external representation facts, not internal Veln type declarations.
 ## Scope
 
 Define remaining binary schema support beyond the implemented narrow
-primitive, payload-boundary, closed-dispatch, and extension-dispatch slices
+primitive, payload-boundary, closed-dispatch, extension-dispatch, and
+same-module nested dispatch payload slices
 for:
 
 - executable exact-width unsigned field reads and writes beyond the
@@ -164,11 +171,12 @@ decoded length field so extension preservation cannot keep unrelated consumed
 input alive.
 
 The implemented narrow slice exposes this through
-`ExtensionDispatch(tag_field, length_field, tag => Primitive, ...)`, where the
+`ExtensionDispatch(tag_field, length_field, tag => Payload, ...)`, where the
 tag and length fields must already be decoded in the same schema, known cases
-use implemented exact-width unsigned primitive payloads, and unknown cases
-retain the bounded raw `ByteView`. General nested payload schemas and
-protocol-state legality checks remain outside this slice.
+use implemented exact-width unsigned primitive payloads or same-module nested
+binary schema payloads, and unknown cases retain the bounded raw `ByteView`.
+Imported or generalized nested payload schemas and protocol-state legality
+checks remain outside this slice.
 
 ## Discussion Result: Binary Schema Value Mapping
 
@@ -236,8 +244,9 @@ author likely referred to an earlier field with a compatible role.
   fixed-width reads beyond the implemented frame-header, width-sample,
   primitive encode helper, reserved-bit encode helper, HTTP/2 payload boundary
   helper, and narrow closed-dispatch and extension-dispatch slices.
-- General dispatch payload schemas can decode nested known payload shapes while
-  keeping extension-tolerant unknown payload bytes opaque.
+- Imported or generalized dispatch payload schemas can decode nested known
+  payload shapes while keeping extension-tolerant unknown payload bytes
+  opaque.
 - Invalid fixed fields in general schema decode produce structured
   diagnostics beyond the implemented frame-header truncation and reserved-bit
   mismatch details.

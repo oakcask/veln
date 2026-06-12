@@ -33,10 +33,10 @@ use crate::analysis::{
 };
 use crate::lowering::lower_surface_module_to_core;
 use crate::types::{
-    TypeEnvironment, closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
-    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
-    supported_encode_reserved_bits,
+    SchemaDispatchCasePayload, TypeEnvironment, closed_dispatch_schema_primitive,
+    exact_width_schema_primitive, exact_width_schema_primitive_max_value,
+    extension_dispatch_schema_primitive, reserved_bits_schema_primitive, same_module_schema,
+    schema_decode_function_name, schema_decode_mapping_fields, supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -126,89 +126,142 @@ fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
     module
         .schemas
         .iter()
-        .filter_map(|schema| {
-            let schema_name = schema.name.as_ref()?;
-            if schema.format.as_ref()?.name != "binary" {
-                return None;
-            }
-            let mut decoded_field_names = Vec::new();
-            let mut fields = Vec::new();
-            for (index, field) in schema.fields.iter().enumerate() {
-                if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
-                    let (bit_width, expected_value) =
-                        supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
-                    fields.push(IrSchemaDecodeField {
-                        name: field.name.clone(),
-                        width: 0,
-                        max_value: 0,
-                        predicate: None,
-                        dispatch: None,
-                        reserved_bits: Some(IrSchemaReservedBits {
-                            bit_width,
-                            expected_value,
-                        }),
-                    });
-                    continue;
-                }
-                if let Some(width) = exact_width_schema_primitive(&field.ty) {
-                    decoded_field_names.push(field.name.clone());
-                    fields.push(IrSchemaDecodeField {
-                        name: field.name.clone(),
-                        width,
-                        max_value: exact_width_schema_primitive_max_value(&field.ty)?,
-                        predicate: field
-                            .where_clause
-                            .as_ref()
-                            .map(|where_clause| where_clause.predicate.clone()),
-                        dispatch: None,
-                        reserved_bits: None,
-                    });
-                    continue;
-                }
-                let dispatch = closed_dispatch_schema_primitive(&field.ty)
-                    .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
-                if !decoded_field_names.contains(&dispatch.tag_field)
-                    || dispatch
-                        .length_field
-                        .as_ref()
-                        .is_some_and(|length_field| !decoded_field_names.contains(length_field))
-                {
-                    return None;
-                }
-                decoded_field_names.push(field.name.clone());
-                fields.push(IrSchemaDecodeField {
-                    name: field.name.clone(),
-                    width: 0,
-                    max_value: 0,
-                    predicate: None,
-                    dispatch: Some(IrSchemaDecodeDispatch {
-                        tag_field: dispatch.tag_field,
-                        length_field: dispatch.length_field,
-                        cases: dispatch
-                            .cases
-                            .into_iter()
-                            .map(|case| IrSchemaDecodeDispatchCase {
-                                tag: case.tag,
-                                width: case.width,
-                            })
-                            .collect(),
-                    }),
-                    reserved_bits: None,
-                });
-            }
-            Some(IrSchemaDecodeSpec {
-                schema_name: schema_name.clone(),
-                function_name: schema_decode_function_name(schema_name),
-                fields,
-                mapping: schema_decode_mapping_fields(module, schema)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|field| IrSchemaDecodeMappingField {
-                        target: field.target,
-                        source: field.source,
-                    })
-                    .collect(),
-            })
-        })
+        .filter_map(|schema| schema_decode_spec(module, schema))
         .collect()
+}
+
+fn schema_decode_spec(
+    module: &SurfaceModule,
+    schema: &veln_ast::SchemaDecl,
+) -> Option<IrSchemaDecodeSpec> {
+    schema_decode_spec_inner(module, schema, &mut Vec::new())
+}
+
+fn schema_decode_spec_inner(
+    module: &SurfaceModule,
+    schema: &veln_ast::SchemaDecl,
+    stack: &mut Vec<String>,
+) -> Option<IrSchemaDecodeSpec> {
+    let schema_name = schema.name.as_ref()?;
+    if schema.format.as_ref()?.name != "binary" {
+        return None;
+    }
+    if stack.iter().any(|name| name == schema_name) {
+        return None;
+    }
+    stack.push(schema_name.clone());
+    let spec = schema_decode_spec_inner_after_push(module, schema, stack);
+    stack.pop();
+    spec
+}
+
+fn schema_decode_spec_inner_after_push(
+    module: &SurfaceModule,
+    schema: &veln_ast::SchemaDecl,
+    stack: &mut Vec<String>,
+) -> Option<IrSchemaDecodeSpec> {
+    let schema_name = schema.name.as_ref()?;
+    let mut decoded_field_names = Vec::new();
+    let mut fields = Vec::new();
+    for (index, field) in schema.fields.iter().enumerate() {
+        if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
+            let (bit_width, expected_value) =
+                supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
+            fields.push(IrSchemaDecodeField {
+                name: field.name.clone(),
+                width: 0,
+                max_value: 0,
+                predicate: None,
+                dispatch: None,
+                reserved_bits: Some(IrSchemaReservedBits {
+                    bit_width,
+                    expected_value,
+                }),
+            });
+            continue;
+        }
+        if let Some(width) = exact_width_schema_primitive(&field.ty) {
+            decoded_field_names.push(field.name.clone());
+            fields.push(IrSchemaDecodeField {
+                name: field.name.clone(),
+                width,
+                max_value: exact_width_schema_primitive_max_value(&field.ty)?,
+                predicate: field
+                    .where_clause
+                    .as_ref()
+                    .map(|where_clause| where_clause.predicate.clone()),
+                dispatch: None,
+                reserved_bits: None,
+            });
+            continue;
+        }
+        let dispatch = closed_dispatch_schema_primitive(&field.ty)
+            .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
+        if !decoded_field_names.contains(&dispatch.tag_field)
+            || dispatch
+                .length_field
+                .as_ref()
+                .is_some_and(|length_field| !decoded_field_names.contains(length_field))
+        {
+            return None;
+        }
+        decoded_field_names.push(field.name.clone());
+        fields.push(IrSchemaDecodeField {
+            name: field.name.clone(),
+            width: 0,
+            max_value: 0,
+            predicate: None,
+            dispatch: Some(IrSchemaDecodeDispatch {
+                tag_field: dispatch.tag_field,
+                length_field: dispatch.length_field,
+                cases: dispatch
+                    .cases
+                    .into_iter()
+                    .map(|case| ir_schema_dispatch_case(module, schema, case, stack))
+                    .collect::<Option<Vec<_>>>()?,
+            }),
+            reserved_bits: None,
+        });
+    }
+    Some(IrSchemaDecodeSpec {
+        schema_name: schema_name.clone(),
+        function_name: schema_decode_function_name(schema_name),
+        fields,
+        mapping: schema_decode_mapping_fields(module, schema)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|field| IrSchemaDecodeMappingField {
+                target: field.target,
+                source: field.source,
+            })
+            .collect(),
+    })
+}
+
+fn ir_schema_dispatch_case(
+    module: &SurfaceModule,
+    schema: &veln_ast::SchemaDecl,
+    case: crate::types::SchemaDispatchCase,
+    stack: &mut Vec<String>,
+) -> Option<IrSchemaDecodeDispatchCase> {
+    let width = match &case.payload {
+        SchemaDispatchCasePayload::Primitive { width } => *width,
+        SchemaDispatchCasePayload::Schema { .. } => 0,
+    };
+    let payload_schema = match case.payload {
+        SchemaDispatchCasePayload::Primitive { .. } => None,
+        SchemaDispatchCasePayload::Schema { schema_name } => {
+            let nested_schema = same_module_schema(module, schema, &schema_name)?;
+            Some(Box::new(schema_decode_spec_inner(
+                module,
+                nested_schema,
+                stack,
+            )?))
+        }
+    };
+    Some(IrSchemaDecodeDispatchCase {
+        tag: case.tag,
+        width,
+        payload_schema,
+    })
 }

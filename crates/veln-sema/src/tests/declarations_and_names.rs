@@ -1328,6 +1328,147 @@ fn generated_schema_mappings_report_source_target_and_type_diagnostics() {
 }
 
 #[test]
+fn dispatch_payload_schema_references_report_resolution_diagnostics() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "\n",
+            "type Shape\n",
+            "  Shape(Int)\n",
+            "end\n",
+            "\n",
+            "schema MissingPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => MissingPayload)\n",
+            "end\n",
+            "\n",
+            "schema NonSchemaPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => Shape)\n",
+            "end\n",
+            "\n",
+            "schema ImportedPrivatePacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => wire::PrivatePayload)\n",
+            "end\n",
+            "\n",
+            "schema ImportedPublicPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => wire::PublicPayload)\n",
+            "end\n",
+            "\n",
+            "schema SelfPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => SelfPacket)\n",
+            "end\n",
+            "\n",
+            "schema ForwardPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => LaterPayload)\n",
+            "end\n",
+            "\n",
+            "schema PriorPayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "  value: UInt8\n",
+            "end\n",
+            "\n",
+            "schema MixedPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => UInt8, 2 => PriorPayload)\n",
+            "end\n",
+            "\n",
+            "schema LaterPayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "schema PrivatePayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "end\n",
+            "\n",
+            "pub schema PublicPayload\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let mut schemas = app.schemas;
+    schemas.extend(wire.schemas);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: app.types,
+        schemas,
+        codecs: Vec::new(),
+        functions: Vec::new(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    for (reason, message) in [
+        (
+            "unknown_payload_schema",
+            "dispatch payload schema `MissingPayload` is not declared",
+        ),
+        (
+            "non_schema_payload",
+            "dispatch payload `Shape` resolves to a type, not a schema",
+        ),
+        (
+            "private_imported_payload_schema",
+            "imported dispatch payload schema `wire::PrivatePayload` is private",
+        ),
+        (
+            "imported_payload_schema",
+            "imported dispatch payload schema `wire::PublicPayload` is not supported",
+        ),
+        (
+            "self_payload_schema",
+            "dispatch payload schema `SelfPacket` cannot reference itself",
+        ),
+        (
+            "forward_payload_schema",
+            "dispatch payload schema `LaterPayload` must be declared before schema `ForwardPacket`",
+        ),
+        (
+            "incompatible_payload_type",
+            "dispatch payload case `2` decodes as `{code: Int, value: Int}`, but earlier cases decode as `Int`",
+        ),
+    ] {
+        assert!(
+            diagnostics.iter().any(|diagnostic| {
+                diagnostic.id == "schema.dispatch_payload"
+                    && diagnostic.message == message
+                    && diagnostic
+                        .details
+                        .to_json()
+                        .contains(&format!("\"reason\":\"{reason}\""))
+            }),
+            "{diagnostics:#?}"
+        );
+    }
+}
+
+#[test]
 fn duplicate_use_aliases_are_static_errors() {
     let source = SourceFile::new(
         "main.veln",
