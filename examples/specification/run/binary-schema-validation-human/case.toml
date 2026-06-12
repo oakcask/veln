@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[schema.validation_failed]: schema validation failed at byte offset 3", "note: Predicate `padding_length <= length` failed for field value 6.", "note: Decoded values: length=5, padding_length=6.", "note: Nearby bytes: 00000506.", "note: Field path: schema `SchemaValidationSample` / field `padding_length`."]

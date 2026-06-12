@@ -15,8 +15,9 @@ compare it with `../specification/` before changing behavior.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary
-  schema primitive declaration slices, and codec declaration schema
-  import/reference visibility checks.
+  schema primitive declaration slices, codec declaration schema
+  import/reference visibility checks, and narrow
+  `SchemaValidationSample` field-local validation decode slice.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
@@ -33,7 +34,8 @@ compare it with `../specification/` before changing behavior.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
-  truncation, reserved-bit mismatch, and payload length boundary details.
+  truncation, reserved-bit mismatch, payload length boundary, and field-local
+  schema validation details.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice.

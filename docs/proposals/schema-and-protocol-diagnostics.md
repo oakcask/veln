@@ -21,12 +21,13 @@ specified under `../specification/run-json.md` and
 `../specification/commands.md` and checked by
 `../../examples/specification/run/binary-fixed-field-mismatch-json/` and
 `../../examples/specification/run/binary-fixed-field-mismatch-human/`. The
-implemented frame-header schema truncation, reserved-bit mismatch, and payload
-length boundary slices are specified under `../specification/run-json.md` and
-`../specification/commands.md` and checked by the binary schema frame-header
-and frame-payload cases under `../../examples/specification/run/`. The
-remaining proposal work covers broader schema and codec diagnostics plus
-protocol-state diagnostic projection.
+implemented frame-header schema truncation, reserved-bit mismatch, payload
+length boundary, and field-local validation slices are specified under
+`../specification/run-json.md` and `../specification/commands.md` and checked
+by the binary schema frame-header, frame-payload, and validation cases under
+`../../examples/specification/run/`. The remaining proposal work covers
+broader schema and codec diagnostics plus protocol-state diagnostic
+projection.
 
 ## Problem
 
@@ -167,7 +168,8 @@ that name the failed representation fact. The first canonical ids are:
   unavailable; the frame-header primitive decode slice is implemented under
   `../specification/run-json.md`
 - `schema.validation_failed` for a field-local schema `where` predicate that
-  evaluates to false
+  evaluates to false; the first narrow validation slice is implemented under
+  `../specification/run-json.md`
 - `schema.dispatch_unknown_tag` for an unknown tag in a closed dispatch
 - `schema.length_out_of_bounds` for a decoded length or count that cannot be
   sliced from the available bounded input

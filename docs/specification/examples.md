@@ -154,6 +154,14 @@ asserts that the primary message stays focused on the fixed-field mismatch and
 puts field path, expected value, actual value, and nearby context in related
 notes.
 
+`../../examples/specification/run/binary-schema-validation-decode/`,
+`../../examples/specification/run/binary-schema-validation-json/`, and
+`../../examples/specification/run/binary-schema-validation-human/` pin the
+first field-local schema `where` validation slice. The passing case preserves
+the decoded record shape. The failing cases assert `schema.validation_failed`,
+the owning field byte offset, structured field path, failed predicate text,
+decoded values, nearby bytes, and the focused human primary message.
+
 ## HTTP/2 Protocol Core Example
 
 The executable specification case

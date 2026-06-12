@@ -435,6 +435,58 @@
         ));
     }
 
+    public static Object byteDecodeSchemaValidationSample(Object view) {
+        Object lengthRead = schemaReadUnsignedBe(
+            view,
+            0,
+            3,
+            0xffffffL,
+            "SchemaValidationSample",
+            "length"
+        );
+        if (isErr(lengthRead)) {
+            return lengthRead;
+        }
+        Object paddingLengthRead = schemaReadUnsignedBe(
+            view,
+            3,
+            1,
+            0xffL,
+            "SchemaValidationSample",
+            "padding_length"
+        );
+        if (isErr(paddingLengthRead)) {
+            return paddingLengthRead;
+        }
+
+        long length = asLong(unwrapOk(lengthRead));
+        long paddingLength = asLong(unwrapOk(paddingLengthRead));
+        if (paddingLength > length) {
+            long byteOffset = byteViewOffset(view) + 3L;
+            String predicate = "padding_length <= length";
+            String message = "schema validation failed at byte offset " + byteOffset;
+            registerSchemaValidationFailedDiagnostic(
+                message,
+                byteOffset,
+                "SchemaValidationSample",
+                "padding_length",
+                predicate,
+                paddingLength,
+                length,
+                paddingLength,
+                byteViewContextHex(view, 8)
+            );
+            return err(message);
+        }
+
+        return ok(record(
+            "length",
+            unwrapOk(lengthRead),
+            "padding_length",
+            unwrapOk(paddingLengthRead)
+        ));
+    }
+
     public static Object http2ProtocolClosedWithPending(
         Object offset,
         Object pendingCount,

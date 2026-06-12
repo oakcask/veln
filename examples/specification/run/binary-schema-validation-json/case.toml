@@ -1,0 +1,55 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "schema validation failed at byte offset 3"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "schema.validation_failed"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"SchemaValidationSample"},{"kind":"field","name":"padding_length"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.predicate"
+equals = "padding_length <= length"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_value"
+equals = 6
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.length"
+equals = 5
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.padding_length"
+equals = 6
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.nearby_context"
+equals = "00000506"

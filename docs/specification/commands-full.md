@@ -218,6 +218,10 @@ When binary schema frame decode returns `schema.length_out_of_bounds`, human
 mode reports the failed payload boundary at the first missing byte offset and
 puts expected payload count, available payload count, nearby byte context, and
 field path in related notes.
+When binary schema field-local validation returns `schema.validation_failed`,
+human mode reports the failed validation fact at the owning field byte offset
+and puts predicate text, decoded values, nearby byte context, and field path
+in related notes.
 
 With `--json`, `run` captures process stdout and stderr into the run JSON
 record instead of forwarding them separately. Runtime contract failures are

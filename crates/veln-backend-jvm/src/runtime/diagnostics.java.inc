@@ -269,6 +269,37 @@
         );
     }
 
+    private static void registerSchemaValidationFailedDiagnostic(
+        String message,
+        long byteOffset,
+        String schemaName,
+        String fieldName,
+        String predicate,
+        long fieldValue,
+        long lengthValue,
+        long paddingLengthValue,
+        String nearbyContext
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.validation_failed",
+                byteOffset,
+                java.util.Arrays.asList(
+                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
+                    new ByteDiagnosticFieldPathSegment("field", fieldName)
+                ),
+                java.util.Arrays.asList(
+                    DiagnosticDetail.string("predicate", predicate),
+                    DiagnosticDetail.number("field_value", fieldValue),
+                    DiagnosticDetail.number("length", lengthValue),
+                    DiagnosticDetail.number("padding_length", paddingLengthValue),
+                    DiagnosticDetail.string("nearby_context", nearbyContext)
+                )
+            )
+        );
+    }
+
     private static String formatByteDiagnosticFieldPath(
         java.util.List<ByteDiagnosticFieldPathSegment> fieldPath
     ) {
