@@ -288,8 +288,11 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
         "schema.validation_failed" => {
             let predicate = json_string(byte_entries, "predicate")?;
             let field_value = json_number(byte_entries, "field_value")?;
-            let length = json_number(byte_entries, "length")?;
-            let padding_length = json_number(byte_entries, "padding_length")?;
+            let decoded_values = json_string(byte_entries, "decoded_values").or_else(|| {
+                let length = json_number(byte_entries, "length")?;
+                let padding_length = json_number(byte_entries, "padding_length")?;
+                Some(format!("length={length}, padding_length={padding_length}"))
+            })?;
             let mut diagnostic = Diagnostic::new(
                 id,
                 Severity::Error,
@@ -301,9 +304,9 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             diagnostic.related.push(note_json(format!(
                 "Predicate `{predicate}` failed for field value {field_value}."
             )));
-            diagnostic.related.push(note_json(format!(
-                "Decoded values: length={length}, padding_length={padding_length}."
-            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Decoded values: {decoded_values}.")));
             push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
@@ -991,6 +994,10 @@ mod tests {
             ),
             ("predicate", JsonValue::string("padding_length <= length")),
             ("field_value", JsonValue::Number(6)),
+            (
+                "decoded_values",
+                JsonValue::string("length=5, padding_length=6"),
+            ),
             ("length", JsonValue::Number(5)),
             ("padding_length", JsonValue::Number(6)),
             ("byte_preview", byte_preview("00000506")),

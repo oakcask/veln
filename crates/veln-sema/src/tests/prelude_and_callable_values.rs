@@ -1,6 +1,70 @@
 use super::*;
 
 #[test]
+fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ArithmeticPacket\n",
+            "  format binary\n",
+            "\n",
+            "  width: UInt8\n",
+            "  item_count: UInt8\n",
+            "  payload_length: UInt16be where not (payload_length != width * item_count) and true\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{width: Int, item_count: Int, payload_length: Int}, String>\n",
+            "  byte_decode_arithmetic_packet(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecode(name),
+            ..
+        } if name == "ArithmeticPacket"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "ArithmeticPacket");
+    assert_eq!(schema.function_name, "byte_decode_arithmetic_packet");
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| (field.name.as_str(), field.width, field.predicate.as_deref()))
+            .collect::<Vec<_>>(),
+        vec![
+            ("width", 1, None),
+            ("item_count", 1, None),
+            (
+                "payload_length",
+                2,
+                Some("not(payload_length != width * item_count) and true"),
+            ),
+        ]
+    );
+}
+
+#[test]
 fn infers_prelude_helper_calls_from_expected_types() {
     let source = SourceFile::new(
         "main.veln",

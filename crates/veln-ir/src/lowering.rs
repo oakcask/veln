@@ -29,7 +29,10 @@ pub fn lower_checked_core(program: &CheckedProgram) -> Result<TypedProgram, IrLo
         .iter()
         .map(lower_function)
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(TypedProgram { functions })
+    Ok(TypedProgram {
+        functions,
+        schema_decoders: Vec::new(),
+    })
 }
 
 fn lower_function(function: &veln_core::CoreFunction) -> Result<IrFunction, IrLowerError> {
@@ -303,6 +306,7 @@ fn lower_call_target(
 ) -> Result<IrCallTarget, IrLowerError> {
     match target {
         CoreCallTarget::Function(name) => Ok(IrCallTarget::Function(name.clone())),
+        CoreCallTarget::SchemaDecode(name) => Ok(IrCallTarget::SchemaDecode(name.clone())),
         CoreCallTarget::StdioBuiltin(name) => Ok(IrCallTarget::StdioBuiltin(name.clone())),
         CoreCallTarget::ConcurrencyBuiltin(name) => {
             Ok(IrCallTarget::ConcurrencyBuiltin(name.clone()))

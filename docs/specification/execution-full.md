@@ -116,14 +116,18 @@ ordinary `Int` values in the decoded record. Truncation reports the same
 including byte offset, structured field path, expected byte count, available
 byte count, readiness, and nearby lowercase hex context.
 
-The `SchemaValidationSample` decode helper is the first field-local
-validation execution slice. It consumes a `UInt24be length` field followed by
-`UInt8 padding_length where padding_length <= length`. Validation runs after
-`padding_length` is decoded and may read the earlier `length` field. Passing
-validation returns ordinary `Int` values for both fields. Failed validation
-returns `schema.validation_failed` at the `padding_length` byte offset with
-structured field path, predicate text, owning field value, referenced decoded
-values, and nearby lowercase hex context.
+The binary schema field-local validation execution slice decodes fields in
+declaration order for generated `byte_decode_<schema>` helpers when every
+field uses an implemented exact-width unsigned binary primitive. It checks a
+supported `where` predicate after the owning field is decoded. Predicate
+evaluation may read the current field and earlier decoded fields and supports
+comparison, boolean, literal, arithmetic, prefix `not`, and grouping forms.
+Later-field references, unknown fields, and ordinary source bindings named by
+a predicate return an unsupported schema predicate reference error. Passing
+validation returns ordinary `Int` values for decoded fields. Failed validation
+returns `schema.validation_failed` at the owning field byte offset with
+structured field path, predicate text, owning field value, decoded values, and
+nearby lowercase hex context.
 
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header

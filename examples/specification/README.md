@@ -371,6 +371,11 @@ against the built `veln` binary.
 - `run/binary-schema-validation-human/`: the same validation failure projects a
   focused human `run` diagnostic with predicate, decoded-value, byte-context,
   and field-path notes.
+- `run/binary-schema-validation-arithmetic-decode/`: another schema declaration
+  passes field-local validation using arithmetic and boolean predicate forms.
+- `run/binary-schema-validation-arithmetic-json/`: the same schema reports a
+  failed arithmetic predicate through `run --json` with decoded values keyed by
+  schema field name.
 - `run/codec-decode-step-vocabulary/`: ordinary source constructs and matches
   `DecodeStep<T>`, `DecodeReadiness`, and `DecodeError` values for decoded,
   need-more-input, and invalid-input decoder outcomes.

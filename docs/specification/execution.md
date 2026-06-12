@@ -39,12 +39,17 @@ execution reference.
   diagnostic shape as the frame-header slice, including byte offset, field
   path, expected count, available count, readiness, and structured byte
   preview fields.
-- The `SchemaValidationSample` decode slice consumes `UInt24be length`
-  followed by `UInt8 padding_length where padding_length <= length`. The
-  decoded value exposes both fields as ordinary `Int` values. A failed
-  predicate reports `schema.validation_failed` at the owning field byte
-  offset with schema field path, predicate text, decoded values, and
-  structured byte preview fields.
+- The binary schema field-local validation slice decodes fields in declaration
+  order for generated `byte_decode_<schema>` helpers when every field uses an
+  implemented exact-width unsigned binary primitive. It checks each supported
+  `where` predicate after its owning field is decoded. Predicates may use the
+  current field and earlier decoded fields with comparison, boolean, literal,
+  arithmetic, prefix `not`, and grouping forms. Later-field references,
+  unknown fields, and ordinary source bindings named by a predicate are
+  rejected as unsupported schema predicate references. A failed predicate
+  reports `schema.validation_failed` at the owning field byte offset with
+  schema field path, predicate text, decoded values, and structured byte
+  preview fields.
 - The frame decode helper reuses the frame-header validation and adds a
   bounded `payload: ByteView` over the same bytes. The payload starts after
   the nine-byte frame header and uses the decoded `length` as its count. If

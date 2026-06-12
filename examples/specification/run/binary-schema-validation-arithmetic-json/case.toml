@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "schema validation failed at byte offset 3"
+equals = "schema validation failed at byte offset 2"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.id"
@@ -28,31 +28,35 @@ equals = "schema.validation_failed"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_offset.value"
-equals = 3
+equals = 2
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_path"
-equals = [{"kind":"schema","name":"SchemaValidationSample"},{"kind":"field","name":"padding_length"}]
+equals = [{"kind":"schema","name":"ArithmeticPacket"},{"kind":"field","name":"payload_length"}]
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.predicate"
-equals = "padding_length <= length"
+equals = "not(payload_length != width * item_count) and payload_length >= 1 and true"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_value"
-equals = 6
+equals = 16
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.decoded_values"
-equals = "length=5, padding_length=6"
+equals = "width=3, item_count=5, payload_length=16"
 
 [[json_assert]]
-path = "error.details.byte_diagnostic.length"
+path = "error.details.byte_diagnostic.width"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.item_count"
 equals = 5
 
 [[json_assert]]
-path = "error.details.byte_diagnostic.padding_length"
-equals = 6
+path = "error.details.byte_diagnostic.payload_length"
+equals = 16
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.encoding"
@@ -60,7 +64,7 @@ equals = "hex"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.data"
-equals = "00000506"
+equals = "03050010"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"

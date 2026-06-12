@@ -5,8 +5,8 @@ use std::rc::Rc;
 use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
     ContractObligationStatus, IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind,
-    IrFunction, IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrStmt,
-    IrStmtKind, TypedProgram,
+    IrFunction, IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
+    IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
 };
 
 use crate::api::{EntryArgType, JvmClassFile, JvmProgram, SanitizedOptions};
@@ -638,6 +638,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     &object_method_descriptor(args.len()),
                 );
             }
+            IrCallTarget::SchemaDecode(name) => {
+                self.emit_schema_decode_call(code, name, args);
+            }
             IrCallTarget::StdioBuiltin(name) => {
                 for arg in args {
                     self.emit_expr(code, arg);
@@ -671,6 +674,63 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                 );
             }
         }
+    }
+
+    fn emit_schema_decode_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
+        let schema = self
+            .program
+            .program
+            .schema_decoders
+            .iter()
+            .find(|schema| schema.schema_name == name)
+            .unwrap_or_else(|| panic!("missing schema decoder spec `{name}`"));
+        let [view] = args else {
+            panic!("schema decoder call should receive one ByteView argument");
+        };
+        self.emit_expr(code, view);
+        code.ldc_string(&schema.schema_name);
+        self.emit_schema_field_names(code, schema);
+        self.emit_schema_field_widths(code, schema);
+        self.emit_schema_field_predicates(code, schema);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "byteDecodeDeclaredBinarySchema",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_schema_field_names(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
+        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
+            code.ldc_string(&schema.fields[index].name);
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_field_widths(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
+        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
+            code.ldc_long(schema.fields[index].width as i64);
+            code.invokestatic("java/lang/Long", "valueOf", "(J)Ljava/lang/Long;");
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_field_predicates(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
+        self.emit_object_array(code, schema.fields.len(), |_, code, index| {
+            code.ldc_string(schema.fields[index].predicate.as_deref().unwrap_or(""));
+        });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
     }
 
     fn emit_runtime_call(&mut self, code: &mut MethodCode, method: &str, args: &[IrExpr]) {

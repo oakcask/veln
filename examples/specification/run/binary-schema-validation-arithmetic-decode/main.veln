@@ -1,0 +1,28 @@
+# Binary schema field-local validation can pass for another schema declaration.
+use stdio
+
+schema ArithmeticPacket
+	format binary
+
+	width: UInt8
+	item_count: UInt8
+	payload_length: UInt16be where not (payload_length != width * item_count) and payload_length >= 1 and true
+end
+
+fn emit_sample(sample: {width: Int, item_count: Int, payload_length: Int}) -> () effects [stdio]
+	stdio::print(int_to_string(sample.width))
+	stdio::print(" ")
+	stdio::print(int_to_string(sample.item_count))
+	stdio::print(" ")
+	stdio::println(int_to_string(sample.payload_length))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("0305000f")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(4)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let sample: {width: Int, item_count: Int, payload_length: Int} = byte_decode_arithmetic_packet(view)?
+	emit_sample(sample)
+	Ok(())
+end
