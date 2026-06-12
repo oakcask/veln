@@ -36,11 +36,11 @@ equals = 0
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.observed_payload_length"
-equals = 16385
+equals = 1025
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.allowed_max_frame_size"
-equals = 16384
+equals = 1024
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.frame_kind"
@@ -56,4 +56,4 @@ equals = "stream"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.receive_limit_provenance"
-equals = "protocol_default"
+equals = "local_configuration"

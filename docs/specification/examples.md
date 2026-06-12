@@ -198,13 +198,18 @@ one continuation ordering failure, and an incoming frame whose payload length
 exceeds the active receive maximum frame size, plus a DATA frame kind rejected
 for connection-control state and idle-stream state. Pending continuation state
 records the owning stream, starting frame kind, starting byte offset, and
-accumulated opaque header-block byte count. A final CONTINUATION with
-END_HEADERS clears that state and exposes the completed accumulated byte count
-in the observable example output. Protocol failures stay as ordinary ADT
-values and are projected by source code into stable diagnostic ids and related
-context fields for byte offset, observed and allowed lengths, actual and
-expected frame kind, stream reference, active continuation, connection state,
-or stream state, receive-limit provenance, and rule provenance.
+accumulated opaque header-block byte count. Receive-limit state records the
+active maximum frame size with protocol-default, local-configuration, or
+local-SETTINGS provenance. Peer-received `SETTINGS_MAX_FRAME_SIZE` is stored as
+peer-advertised state for outbound decisions and does not replace the inbound
+receive maximum used by later frame-size checks. A final CONTINUATION with
+END_HEADERS clears continuation state and exposes the completed accumulated
+byte count in the observable example output. Protocol failures stay as
+ordinary ADT values and are projected by source code into stable diagnostic ids
+and related context fields for byte offset, observed and allowed lengths,
+actual and expected frame kind, stream reference, active continuation,
+connection state, or stream state, receive-limit provenance, and rule
+provenance.
 
 `../../examples/specification/run/http2-protocol-core-closed-human/`,
 `../../examples/specification/run/http2-protocol-core-continuation-json/`,
@@ -219,3 +224,7 @@ cases check focused primary messages and related context, while the JSON cases
 check `protocol_diagnostic` details for byte offset, frame kind, stream id,
 active continuation, connection state, or stream state, observed and allowed
 frame sizes, stream reference, receive-limit provenance, and rule provenance.
+The frame-size command fixtures cover local-configuration provenance while the
+ordinary protocol-core case keeps the protocol-default, local-configuration,
+local-SETTINGS, and peer-advertised SETTINGS distinctions visible in executable
+output.
