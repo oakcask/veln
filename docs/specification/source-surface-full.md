@@ -152,27 +152,30 @@ The checker validates the implemented decode function boundary for
 the same module as the codec declaration. The referenced function must take
 exactly two parameters, first `ByteView` for the bounded input view and then
 `ByteOffset` for the absolute base byte offset. Its return type must be
-`DecodeStep<T>` for one source-visible decoded value type `T`. The checker does
-not run runtime schema value mapping for `T`; it only verifies that the return
-shape is the incremental decode transition. A missing function reports
+`DecodeStep<T>` for one source-visible decoded value type `T`. When the
+referenced schema has one implemented structural `map to Target` clause, `T`
+must match the mapped target record shape. A missing function reports
 `name.unresolved` at the `decode with` clause. A wrong parameter count,
 parameter type, or return type reports `codec.decode_signature` at that clause
 and includes related context pointing to the referenced function declaration.
+A mapped value type mismatch reports `codec.decode_value_type` at that clause.
 
 The checker also validates the implemented encode function boundary for
 `encode with function_name`. The name must resolve to an ordinary function in
-the same module as the codec declaration. The referenced function must return
-`EncodeStep<TState>` for one source-visible encoder state type `TState`. The
-checker does not validate an encode parameter shape or schema value mapping. A
-missing function reports `name.unresolved` at the `encode with` clause. A
-wrong return type reports `codec.encode_signature` at that clause and includes
-related context pointing to the referenced function declaration.
+the same module as the codec declaration. When the referenced schema has one
+implemented structural `map to Target` clause, the referenced function's first
+parameter must match the mapped target record shape. The referenced function
+must return `EncodeStep<TState>` for one source-visible encoder state type
+`TState`. A missing function reports `name.unresolved` at the `encode with`
+clause. A wrong return type reports `codec.encode_signature`; a missing or
+wrong mapped value parameter reports `codec.encode_value_type` at that clause.
+Both diagnostics include related context pointing to the referenced function
+declaration.
 
 Codec declaration execution is not implemented: codec declarations do not
 generate executable decode or encode functions, do not implement
-`derive decode`, do not implement derived encode execution, do not validate
-encode parameter shapes, and do not select runtime schema value mapping for
-`decode with` or `encode with` results.
+`derive decode`, do not implement derived encode execution, and do not execute
+hand-written encode functions.
 
 In expression position, `{}` and brace literals whose first entry is a bare
 `name: value` field parse as records. Other brace literals with `key: value`

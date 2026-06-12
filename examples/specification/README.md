@@ -257,6 +257,13 @@ against the built `veln` binary.
 - `check/codec-encode-signature-human/`: human `check` output keeps the
   `codec.encode_signature` primary message at the codec implementation clause
   and reports the referenced function as a related note.
+- `check/codec-mapping-boundary/`: accepted `decode with` and `encode with`
+  functions whose value type matches the referenced schema's implemented
+  structural mapping target record shape.
+- `check/codec-mapping-boundary-diagnostics/`: mapped `decode with` and
+  `encode with` functions report `codec.decode_value_type` and
+  `codec.encode_value_type` when their value boundaries do not match the
+  schema mapping target record shape.
 - `doc/generated-markdown/`: generated documentation from package and tool
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.
