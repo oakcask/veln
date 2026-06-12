@@ -50,6 +50,13 @@ execution reference.
   reports `schema.validation_failed` at the owning field byte offset with
   schema field path, predicate text, decoded values, and structured byte
   preview fields.
+- When an eligible generated binary schema decode helper has one structural
+  `map to Target` clause and the target resolves to a single record-shaped
+  source type whose mapped fields are `Int`, the helper returns the mapped
+  ordinary record shape instead of the schema-local field shape. Mapping
+  assignment sources must name decoded schema fields. Mapping assignment
+  targets must name target fields, every target field must be assigned once,
+  and non-`Int` target fields are rejected before execution.
 - The frame decode helper reuses the frame-header validation and adds a
   bounded `payload: ByteView` over the same bytes. The payload starts after
   the nine-byte frame header and uses the decoded `length` as its count. If
@@ -75,9 +82,11 @@ execution reference.
   undecoded suffix bytes and the next absolute byte offset, reuses the
   frame-header primitive for available headers, and represents closed-input
   truncation, continuation ordering failures, and incoming frame payloads that
-  exceed the active receive maximum frame size as typed protocol values before
-  projecting stable diagnostic ids and related context into fixture output,
-  human runtime diagnostics, and `run --json` `protocol_diagnostic` details.
+  exceed the active receive maximum frame size, plus invalid connection-state
+  and stream-state frame kinds, as typed protocol values before projecting
+  stable diagnostic ids and related context into fixture output, human runtime
+  diagnostics, and
+  `run --json` `protocol_diagnostic` details.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior

@@ -1,0 +1,52 @@
+# HTTP/2 idle-stream frame kind failures project to human diagnostics.
+
+type Http2ProtocolFailure
+	InvalidFrameKind(Int, Int, Int, Int, String, String)
+end
+
+type Http2Step
+	FrameOk(Int)
+	Waiting
+	Failed(Http2ProtocolFailure)
+end
+
+fn receive(bytes: ByteChunk) -> Result<Http2Step, String>
+	let available: Int = byte_count_to_int(byte_chunk_count(bytes))
+	match available < 9
+		true => Ok(Waiting)
+		false => decode_header(bytes)
+	end
+end
+
+fn decode_header(bytes: ByteChunk) -> Result<Http2Step, String>
+	let zero: ByteOffset = byte_offset(0)?
+	let header_count: ByteCount = byte_count(9)?
+	let view: ByteView = byte_view(bytes, zero, header_count)?
+	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header(view)?
+	validate_stream_frame_kind(0, header.kind, header.stream_id)
+end
+
+fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int) -> Result<Http2Step, String>
+	match stream_id == 0
+		true => Ok(FrameOk(kind))
+		false => match kind == 1
+			true => Ok(FrameOk(kind))
+			false => Ok(Failed(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+	end
+end
+
+fn project_failure(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		InvalidFrameKind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance) => http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	let step: Http2Step = receive(byte_chunk_from_hex("000000000000000001")?)?
+	match step
+		Failed(failure) => project_failure(failure)
+		FrameOk(_) => Ok(())
+		Waiting => Ok(())
+	end
+end

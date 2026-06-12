@@ -13,6 +13,7 @@ pub struct IrSchemaDecodeSpec {
     pub schema_name: String,
     pub function_name: String,
     pub fields: Vec<IrSchemaDecodeField>,
+    pub mapping: Vec<IrSchemaDecodeMappingField>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -20,6 +21,12 @@ pub struct IrSchemaDecodeField {
     pub name: String,
     pub width: u8,
     pub predicate: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaDecodeMappingField {
+    pub target: String,
+    pub source: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]

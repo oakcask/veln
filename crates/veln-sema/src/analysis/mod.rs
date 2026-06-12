@@ -36,7 +36,7 @@ use crate::repair_candidates::{
 use crate::standard_symbols::prelude_symbol;
 use crate::types::{
     Binding, CallOrigin, EffectUse, ExpectedType, ExpectedTypeSource, FunctionLookup, Type,
-    TypeEnvironment, is_assignable, parse_type_annotation,
+    TypeEnvironment, is_assignable, parse_type_annotation, schema_mapping_target_record_fields,
 };
 
 mod body;
@@ -50,5 +50,6 @@ pub(crate) use boundary::{
     check_duplicate_codec_names, check_duplicate_constructor_names, check_duplicate_function_names,
     check_duplicate_type_names, check_duplicate_use_aliases, check_module_boundary,
     check_public_aliases, check_public_function_boundary, check_reserved_prelude_aliases,
-    check_schema_field_primitives, check_schema_type_references, check_test_declaration_boundary,
+    check_schema_field_primitives, check_schema_mappings, check_schema_type_references,
+    check_test_declaration_boundary,
 };

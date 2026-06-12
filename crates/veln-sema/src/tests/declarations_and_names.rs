@@ -894,6 +894,66 @@ fn codec_decode_with_reports_unresolved_function_at_clause() {
 }
 
 #[test]
+fn generated_schema_mappings_report_source_target_and_type_diagnostics() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {length: Int, kind: String, flags: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt16be\n",
+            "  kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    length = missing_length\n",
+            "    missing_target = kind\n",
+            "    kind = kind\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_source_field"
+                && diagnostic.message
+                    == "schema mapping source field `missing_length` is not declared"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_target_field"
+                && diagnostic.message
+                    == "schema mapping target field `missing_target` is not declared"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_type"
+                && diagnostic.message
+                    == "schema mapping target field `kind` expects `String`, but source field `kind` decodes as `Int`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_missing_target_field"
+                && diagnostic.message == "schema mapping does not assign target field `flags`"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn duplicate_use_aliases_are_static_errors() {
     let source = SourceFile::new(
         "main.veln",

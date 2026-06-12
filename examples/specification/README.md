@@ -223,6 +223,9 @@ against the built `veln` binary.
   schema headers, missing `end`, fields before `format`, multiple `format`
   clauses, `_`-prefixed fields, malformed field-local `where` predicates,
   and malformed schema mapping clauses.
+- `check/schema-mapping-diagnostics/`: generated binary schema mapping
+  diagnostics for mapping assignments that name schema-local source fields
+  not decoded by the schema.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
@@ -352,6 +355,10 @@ against the built `veln` binary.
   for a `UInt32be` field reports `schema.truncated_field` through JSON run
   output with byte offset, field path, byte counts, readiness, and structured
   byte preview fields.
+- `run/binary-schema-mapped-record-decode/`: a generated binary schema decode
+  helper checks field-local predicates, then maps schema-local exact-width
+  fields into the target record field names before returning the decoded
+  value.
 - `run/binary-schema-frame-payload-decode/`: HTTP/2 frame decode returns the
   visible header fields plus a bounded payload `ByteView` selected by the
   decoded length.
@@ -387,7 +394,8 @@ against the built `veln` binary.
   handles chunk arrival, incomplete input, end-of-stream truncation, valid
   CONTINUATION completion for an opaque header block, and a continuation
   ordering failure while projecting typed protocol failures, including an
-  incoming frame-size peer-limit failure, into stable ids and related context.
+  incoming frame-size peer-limit failure and invalid connection-state and
+  stream-state frame kinds, into stable ids and related context.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation
@@ -403,6 +411,22 @@ against the built `veln` binary.
   failure reports `http2.peer_limit.frame_size_exceeded` through `run --json`
   with byte offset, observed and allowed lengths, frame kind, stream
   reference, and receive-limit provenance.
+- `run/http2-protocol-core-invalid-frame-kind-human/`: a DATA frame kind on
+  the connection stream reports `http2.protocol.invalid_frame_kind` through
+  human `run` stderr with a focused primary message and related frame-kind,
+  state, and provenance notes.
+- `run/http2-protocol-core-invalid-frame-kind-json/`: the same invalid
+  frame-kind state failure reports `http2.protocol.invalid_frame_kind` through
+  `run --json` with byte offset, actual and expected frame kinds, stream
+  reference, active state, and rule provenance.
+- `run/http2-protocol-core-stream-invalid-frame-kind-human/`: a DATA frame kind
+  on an idle HTTP/2 stream reports `http2.protocol.invalid_frame_kind` through
+  human `run` stderr with stream reference, expected frame kind, active state,
+  and rule provenance notes.
+- `run/http2-protocol-core-stream-invalid-frame-kind-json/`: the same
+  stream-state frame-kind failure reports `http2.protocol.invalid_frame_kind`
+  through `run --json` with byte offset, actual and expected frame kinds,
+  stream reference, active state, and rule provenance.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.

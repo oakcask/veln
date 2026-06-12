@@ -62,6 +62,53 @@ fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
             ),
         ]
     );
+    assert!(schema.mapping.is_empty());
+}
+
+#[test]
+fn generated_schema_decode_helpers_return_mapped_record_shape() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type FrameHeader\n",
+            "  FrameHeader {kind: Int, length: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt16be\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to FrameHeader\n",
+            "    length = wire_length\n",
+            "    kind = wire_kind\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{kind: Int, length: Int}, String>\n",
+            "  byte_decode_header_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "HeaderWire");
+    assert_eq!(schema.function_name, "byte_decode_header_wire");
+    assert_eq!(
+        schema
+            .mapping
+            .iter()
+            .map(|field| (field.target.as_str(), field.source.as_str()))
+            .collect::<Vec<_>>(),
+        vec![("kind", "wire_kind"), ("length", "wire_length")]
+    );
 }
 
 #[test]
@@ -92,7 +139,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "decoded_widths: Result<{short_value: Int, wide_value: Int}, String>, ",
             "decoded_validation: Result<{length: Int, padding_length: Int}, String>, ",
             "closed_http2: Result<(), String>, continuation_http2: Result<(), String>, ",
-            "frame_size_http2: Result<(), String>, ",
+            "invalid_kind_http2: Result<(), String>, frame_size_http2: Result<(), String>, ",
             "read_u16: Result<Int, String>, read_u24: Result<Int, String>, ",
             "read_u31: Result<Int, String>, read_u32: Result<Int, String>, ",
             "write_u8: Result<ByteChunk, String>, write_u16: Result<ByteChunk, String>, ",
@@ -125,6 +172,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "decoded_validation: byte_decode_schema_validation_sample(view), ",
             "closed_http2: http2_protocol_closed_with_pending(0, 4, \"none\"), ",
             "continuation_http2: http2_protocol_continuation_expected(9, 0, 1, 1, 1, 0, \"headers\"), ",
+            "invalid_kind_http2: http2_protocol_invalid_frame_kind(0, 0, 0, 4, \"connection-control\", \"connection_frames_require_settings\"), ",
             "frame_size_http2: http2_peer_limit_frame_size_exceeded(0, 16385, 16384, 0, 3, \"protocol_default\"), ",
             "read_u16: byte_read_u16_be(view), read_u24: byte_read_u24_be(view), ",
             "read_u31: byte_read_u31_be(view), read_u32: byte_read_u32_be(view), ",

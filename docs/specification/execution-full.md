@@ -124,7 +124,12 @@ evaluation may read the current field and earlier decoded fields and supports
 comparison, boolean, literal, arithmetic, prefix `not`, and grouping forms.
 Later-field references, unknown fields, and ordinary source bindings named by
 a predicate return an unsupported schema predicate reference error. Passing
-validation returns ordinary `Int` values for decoded fields. Failed validation
+validation returns ordinary `Int` values for decoded fields unless the schema
+has one eligible structural `map to Target` clause. In that mapped slice, the
+generated helper constructs the target record field names from decoded schema
+fields after all field-local `where` predicates pass. Mapping diagnostics
+reject unknown source fields, unknown target fields, duplicate or missing
+target fields, and non-`Int` target fields before execution. Failed validation
 returns `schema.validation_failed` at the owning field byte offset with
 structured field path, predicate text, owning field value, decoded values, and
 nearby lowercase hex context.

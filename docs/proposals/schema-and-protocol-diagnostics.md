@@ -27,12 +27,12 @@ length boundary, and field-local validation slices are specified under
 by the binary schema frame-header, frame-payload, and validation cases under
 `../../examples/specification/run/`; their JSON details use structured byte
 preview fields while human output keeps compact nearby-byte notes. The
-implemented HTTP/2 frame-size
-peer-limit projection uses `http2.peer_limit.frame_size_exceeded` and is
-checked by the HTTP/2 protocol-core frame-size cases under
-`../../examples/specification/run/`. The remaining proposal work covers
-broader schema and codec diagnostics plus other protocol-state diagnostic
-projection.
+implemented HTTP/2 protocol-state projections use
+`http2.peer_limit.frame_size_exceeded` for frame-size peer-limit failures and
+`http2.protocol.invalid_frame_kind` for invalid connection-state and
+stream-state frame kinds; both are checked by the HTTP/2 protocol-core cases
+under `../../examples/specification/run/`. The remaining proposal work covers
+broader schema and codec diagnostics beyond these implemented slices.
 
 ## Problem
 
@@ -281,18 +281,24 @@ to stable human and JSON diagnostics.
 The implemented diagnostic slices cover closed-input `ByteView` read
 truncation as `codec.incomplete_input`, fixed-field mismatches, frame-header
 schema truncation, reserved-bit mismatches, and payload length boundary
-failures. `run --json` examples assert the stable byte diagnostic detail
-fields documented in `../specification/run-json.md`; human `run` examples
-assert the focused primary messages and related notes documented in
+failures, plus HTTP/2 protocol-state projections for frame-size peer-limit and
+invalid connection-state and stream-state frame-kind failures. `run --json`
+examples assert the stable byte and protocol diagnostic detail fields
+documented in `../specification/run-json.md`; human `run` examples assert the
+focused primary messages and related notes documented in
 `../specification/commands.md`.
 
-The remaining proposal work is complete when:
+The implemented protocol-state diagnostic projection slice covers:
 
-- Protocol-state examples cover invalid frame kind for a connection or stream
-  state.
-- Schema and protocol diagnostics keep the primary message focused on the
+- Protocol-state examples that cover invalid frame kind for a connection or
+  stream state, including the idle-stream rule that expects HEADERS before
+  DATA.
+- Schema and protocol diagnostics that keep the primary message focused on the
   failed fact at the reported span or byte position.
-- Related notes carry provenance, settings, limits, and state-transition
+- Related notes that carry provenance, settings, limits, and state-transition
   context where those surfaces are implemented.
-- The HTTP/2 design driver can test valid and invalid binary fixtures with
+- HTTP/2 design-driver support for valid and invalid binary fixtures with
   stable diagnostic assertions.
+
+The proposal remains open for broader schema and codec diagnostics that are not
+specified as current behavior under `../specification/`.

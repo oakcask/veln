@@ -12,8 +12,9 @@ checked examples under `../../examples/specification/`.
 Current source syntax has a first top-level `schema` declaration slice with a
 single `format binary` clause, field declarations, field-local `where`
 predicate syntax, structural `map to Target` mapping clauses, and a narrow
-executable field-local validation helper. It does not yet have general runtime
-schema validation for arbitrary schemas, runtime mapping, complete binary
+executable field-local validation and mapped-record helper slice. It does not
+yet have general runtime schema validation for arbitrary schemas, runtime
+mapping beyond the generated exact-width record slice, complete binary
 primitive semantics, or executable codec bindings.
 
 The HTTP/2 design driver needs a declaration that can say:
@@ -50,6 +51,9 @@ The implemented first slice covers:
   the owning field is decoded
 - generated `byte_decode_<schema>` helper bindings for source `format binary`
   schemas whose fields all use implemented exact-width unsigned primitives
+- generated runtime mapping for the same exact-width unsigned decode slice
+  when the schema has one structural `map to Target` clause whose target
+  resolves to `Int` record fields
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface
 
@@ -57,9 +61,10 @@ This proposal remains open for:
 
 - generated runtime decode bindings for binary schema fields outside the
   implemented exact-width unsigned primitive slice
-- runtime mapping from schema fields to Veln values, including target-field
-  resolution, type checking, generated record construction, and ADT
-  constructor payload construction
+- runtime mapping beyond the implemented single exact-width unsigned record
+  slice, including ADT constructor payload construction, nested record
+  construction, multiple mapping clauses or mapping selection, and
+  representation conversion hooks
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition, fixture, and
@@ -87,15 +92,17 @@ schema body.
 ## Discussion Result: Schema Value Mapping
 
 The structural mapping clause syntax is implemented as current behavior under
-`../specification/source-surface.md`. A schema may preserve explicit
-`map to Target` clauses that assign schema-local fields to target fields, but
-this source-surface slice does not resolve the target shape or construct a
-decoded value.
+`../specification/source-surface.md`. The first generated runtime mapping
+slice is implemented under `../specification/execution.md`: an eligible binary
+schema whose fields all use implemented exact-width unsigned primitives may
+use one `map to Target` clause to construct an ordinary mapped record after
+field-local validation succeeds.
 
 The remaining runtime mapping work is to map schema field values into
-independently declared source records and ADTs. A schema does not implicitly
-publish a record type just because it names fields, and importing a schema does
-not make its schema-local field names available as ordinary source bindings.
+independently declared source records outside that narrow slice and into ADTs.
+A schema does not implicitly publish a record type just because it names
+fields, and importing a schema does not make its schema-local field names
+available as ordinary source bindings.
 
 The runtime checker should resolve the target value shape and assign
 schema-local fields to the target's record fields or ADT constructor payload
@@ -272,15 +279,20 @@ Implemented:
 - Source `format binary` schemas whose fields all use implemented exact-width
   unsigned primitives expose generated `byte_decode_<schema>` helper bindings.
 - Structural schema value mapping clauses are accepted, formatted, lowered, and
-  exposed to editor token metadata without enabling generated codec execution.
+  exposed to editor token metadata.
+- The generated exact-width unsigned helper slice resolves one structural
+  `map to Target` clause into `Int` record fields, rejects invalid mapping
+  assignments before execution, and returns the mapped record shape after
+  field-local validation passes.
 
 Remaining:
 
 - General schema validation diagnostics distinguish malformed schema syntax
   from failed schema validation for arbitrary schema declarations.
-- Runtime schema value mapping resolves target fields or ADT constructors,
-  rejects missing target fields, type-checks assigned values, and constructs
-  decoded values from generated codecs.
+- Runtime schema value mapping beyond the implemented single exact-width
+  unsigned record slice resolves ADT constructors, nested records, multiple
+  mapping clauses or mapping selection, representation conversion hooks, and
+  codec-selected mapping.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive slice.
 - The HTTP/2 design driver can express its full frame header boundary without

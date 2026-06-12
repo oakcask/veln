@@ -7,6 +7,6 @@ pub use lowering::{IrLowerError, lower_checked_core};
 pub use model::{
     IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind, IrFunction, IrMatchArm, IrParam,
     IrPattern, IrPatternField, IrPatternKind, IrRecordField, IrSchemaDecodeField,
-    IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
+    IrSchemaDecodeMappingField, IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
 };
 pub use veln_core::ContractObligationStatus;

@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use veln_ast::{
     BodyLineKind, Expr, ExprKind, FunctionKind, NodeId, Pattern, PatternKind, PublicAliasKind,
-    SchemaDecl, SurfaceModule, UseDecl, Visibility,
+    SchemaDecl, SchemaMappingClause, SurfaceModule, TypeDecl, TypeVariantDecl, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -373,11 +373,14 @@ fn schema_decode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSign
     module
         .schemas
         .iter()
-        .filter_map(schema_decode_function_signature)
+        .filter_map(|schema| schema_decode_function_signature(module, schema))
         .collect()
 }
 
-fn schema_decode_function_signature(schema: &SchemaDecl) -> Option<FunctionSignature> {
+fn schema_decode_function_signature(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<FunctionSignature> {
     let schema_name = schema.name.as_ref()?;
     if schema.format.as_ref()?.name != "binary" {
         return None;
@@ -394,13 +397,15 @@ fn schema_decode_function_signature(schema: &SchemaDecl) -> Option<FunctionSigna
         })
         .collect::<Option<Vec<_>>>()?;
     let byte_view = Type::named("ByteView", Vec::new());
-    let result = Type::named(
-        "Result",
-        vec![
-            Type::Record(fields.into_iter().map(|(name, ty, _)| (name, ty)).collect()),
-            Type::string(),
-        ],
-    );
+    let mapped_fields = schema_decode_mapping_fields(module, schema)
+        .map(|fields| {
+            fields
+                .into_iter()
+                .map(|field| (field.target, Type::int()))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_else(|| fields.into_iter().map(|(name, ty, _)| (name, ty)).collect());
+    let result = Type::named("Result", vec![Type::Record(mapped_fields), Type::string()]);
     Some(FunctionSignature {
         name: schema_decode_function_name(schema_name),
         target_name: format!("{SCHEMA_DECODE_TARGET_PREFIX}{schema_name}"),
@@ -412,6 +417,90 @@ fn schema_decode_function_signature(schema: &SchemaDecl) -> Option<FunctionSigna
         node_id: schema.node_id,
         span: schema.span.clone(),
     })
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SchemaDecodeMappingField {
+    pub(crate) target: String,
+    pub(crate) source: String,
+}
+
+pub(crate) fn schema_decode_mapping_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<Vec<SchemaDecodeMappingField>> {
+    let [mapping] = schema.mappings.as_slice() else {
+        return None;
+    };
+    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
+    let mut fields = Vec::new();
+    for (target, target_ty) in target_fields {
+        if target_ty != Type::int() {
+            return None;
+        }
+        let source = mapping
+            .assignments
+            .iter()
+            .find(|assignment| assignment.target == target)?
+            .source
+            .clone();
+        if !schema
+            .fields
+            .iter()
+            .any(|schema_field| schema_field.name == source)
+        {
+            return None;
+        }
+        fields.push(SchemaDecodeMappingField { target, source });
+    }
+    Some(fields)
+}
+
+pub(crate) fn schema_mapping_target_record_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+) -> Option<Vec<(String, Type)>> {
+    let target = mapping.target.as_ref()?;
+    let target_decl = schema_mapping_target_type(module, schema, target)?;
+    if target_decl.params.is_empty() && target_decl.variants.len() == 1 {
+        return Some(type_variant_record_fields(&target_decl.variants[0]));
+    }
+    None
+}
+
+fn type_variant_record_fields(variant: &TypeVariantDecl) -> Vec<(String, Type)> {
+    variant
+        .fields
+        .iter()
+        .map(|field| (field.name.clone(), parse_type_or_unknown(Some(&field.ty))))
+        .collect()
+}
+
+fn schema_mapping_target_type<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    target: &str,
+) -> Option<&'a TypeDecl> {
+    let segments = target.split("::").map(str::to_string).collect::<Vec<_>>();
+    match segments.as_slice() {
+        [name] => module.types.iter().find(|type_decl| {
+            type_decl.name.as_deref() == Some(name.as_str())
+                && type_decl.module_name.as_deref() == schema.module_name.as_deref()
+        }),
+        [_, .., name] => {
+            let module_name = imported_module_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                schema.module_name.as_deref(),
+            )?;
+            module.types.iter().find(|type_decl| {
+                type_decl.name.as_deref() == Some(name.as_str())
+                    && type_decl.module_name.as_deref() == Some(module_name)
+            })
+        }
+        _ => None,
+    }
 }
 
 pub(crate) fn schema_decode_function_name(schema_name: &str) -> String {
@@ -842,6 +931,14 @@ fn imported_use_for_path<'a>(
 
 fn imported_function_is_visible(function: &FunctionSignature, use_decl: &UseDecl) -> bool {
     use_decl.package.is_none() || function.visibility == Visibility::Public
+}
+
+fn imported_module_for_path<'a>(
+    uses: &'a [UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a str> {
+    imported_use_for_path(uses, segments, current_module).map(|use_decl| use_decl.name.as_str())
 }
 
 fn effects_for_bare_callee<'a>(
