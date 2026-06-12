@@ -16,6 +16,10 @@ fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
             "pub fn main(view: ByteView) -> Result<{width: Int, item_count: Int, payload_length: Int}, String>\n",
             "  byte_decode_arithmetic_packet(view)\n",
             "end\n",
+            "\n",
+            "pub fn step(view: ByteView, base: ByteOffset) -> DecodeStep<{width: Int, item_count: Int, payload_length: Int}>\n",
+            "  byte_decode_step_arithmetic_packet(view, base)\n",
+            "end\n",
         ),
     );
     let parsed = parse(&source);
@@ -37,6 +41,21 @@ fn generated_schema_decode_helpers_resolve_from_binary_schema_declarations() {
         &expr.kind,
         CoreExprKind::Call {
             target: CoreCallTarget::SchemaDecode(name),
+            ..
+        } if name == "ArithmeticPacket"
+    ));
+    let step = core
+        .functions
+        .iter()
+        .find(|function| function.name == "step")
+        .expect("step should be lowered");
+    let CoreStmtKind::Return { expr } = &step.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaDecodeStep(name),
             ..
         } if name == "ArithmeticPacket"
     ));

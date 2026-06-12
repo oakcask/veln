@@ -92,6 +92,11 @@ functions construct `DecodeStep<T>` values for a successful `Decoded` outcome
 with a decoded value and consumed `ByteCount`, a `NeedMore` outcome with
 `NeedBytes` readiness that consumes no input, and an `Invalid` outcome carrying
 a structured `DecodeError` with id, byte offset, and field path.
+The executable specification case
+`../../examples/specification/run/binary-schema-decode-step/` covers the
+generated schema-derived decode-step helper: complete buffered input returns
+`Decoded` with the exact consumed count, and short open input returns
+`NeedMore(NeedBytes(...))` without consuming bytes.
 
 ## Codec Encode Step Vocabulary
 

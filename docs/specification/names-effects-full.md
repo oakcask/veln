@@ -500,7 +500,11 @@ the owning field is decoded, return ordinary `Int` values when validation
 passes, and can return a mapped record shape when one eligible structural
 `map to Target` clause maps decoded schema fields into `Int` target fields.
 They report `schema.validation_failed` with field path, predicate, decoded
-values, and structured byte preview fields when validation fails. The
+values, and structured byte preview fields when validation fails. The same
+eligible schema declarations also expose `byte_decode_step_<schema>` helpers
+that accept `ByteView` plus `ByteOffset` and return `DecodeStep<T>` with
+`Decoded(value, consumed)` for a complete buffered value or
+`NeedMore(NeedBytes(count))` for an open view that is too short to decide. The
 fixed-width unsigned big-endian write helpers return `Ok(ByteChunk)` for
 values in range and `Err(String)` for negative values or values larger than
 the helper width can encode.

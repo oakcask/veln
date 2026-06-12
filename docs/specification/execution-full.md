@@ -134,6 +134,19 @@ returns `schema.validation_failed` at the owning field byte offset with
 structured field path, predicate text, owning field value, decoded values, and
 nearby lowercase hex context.
 
+The same eligible generated binary schema slice also exposes
+`byte_decode_step_<schema>` helpers. A decode-step helper receives the bounded
+`ByteView` to inspect and an explicit base `ByteOffset` for the first byte in
+that view. If the view contains the full exact-width field sequence, the
+helper returns `Decoded(value, consumed)` where `value` has the same schema or
+mapped record shape as `byte_decode_<schema>` and `consumed` is exactly the
+schema byte width. If the open view is shorter than that width, the helper
+returns `NeedMore(NeedBytes(count))`, where `count` is the minimum buffered
+byte count required before retrying, and it consumes no bytes. This
+incremental helper does not change the closed-input `Result` helper path:
+closed truncation still reports `schema.truncated_field` through
+`byte_decode_<schema>`.
+
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header
 fields plus `payload: ByteView`. The payload view shares the input chunk,

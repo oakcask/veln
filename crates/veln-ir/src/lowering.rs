@@ -307,6 +307,7 @@ fn lower_call_target(
     match target {
         CoreCallTarget::Function(name) => Ok(IrCallTarget::Function(name.clone())),
         CoreCallTarget::SchemaDecode(name) => Ok(IrCallTarget::SchemaDecode(name.clone())),
+        CoreCallTarget::SchemaDecodeStep(name) => Ok(IrCallTarget::SchemaDecodeStep(name.clone())),
         CoreCallTarget::StdioBuiltin(name) => Ok(IrCallTarget::StdioBuiltin(name.clone())),
         CoreCallTarget::ConcurrencyBuiltin(name) => {
             Ok(IrCallTarget::ConcurrencyBuiltin(name.clone()))

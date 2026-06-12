@@ -641,6 +641,9 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             IrCallTarget::SchemaDecode(name) => {
                 self.emit_schema_decode_call(code, name, args);
             }
+            IrCallTarget::SchemaDecodeStep(name) => {
+                self.emit_schema_decode_step_call(code, name, args);
+            }
             IrCallTarget::StdioBuiltin(name) => {
                 for arg in args {
                     self.emit_expr(code, arg);
@@ -698,6 +701,32 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
             &self.program.options.runtime_class,
             "byteDecodeDeclaredBinarySchema",
             "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+        );
+    }
+
+    fn emit_schema_decode_step_call(&mut self, code: &mut MethodCode, name: &str, args: &[IrExpr]) {
+        let schema = self
+            .program
+            .program
+            .schema_decoders
+            .iter()
+            .find(|schema| schema.schema_name == name)
+            .unwrap_or_else(|| panic!("missing schema decoder spec `{name}`"));
+        let [view, base_offset] = args else {
+            panic!("schema decode-step call should receive ByteView and ByteOffset arguments");
+        };
+        self.emit_expr(code, view);
+        self.emit_expr(code, base_offset);
+        code.ldc_string(&schema.schema_name);
+        self.emit_schema_field_names(code, schema);
+        self.emit_schema_field_widths(code, schema);
+        self.emit_schema_field_predicates(code, schema);
+        self.emit_schema_mapping_targets(code, schema);
+        self.emit_schema_mapping_sources(code, schema);
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "byteDecodeStepDeclaredBinarySchema",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
         );
     }
 

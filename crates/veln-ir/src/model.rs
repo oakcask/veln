@@ -140,6 +140,7 @@ pub enum IrExprKind {
 pub enum IrCallTarget {
     Function(String),
     SchemaDecode(String),
+    SchemaDecodeStep(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),

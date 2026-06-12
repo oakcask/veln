@@ -11,7 +11,8 @@ use crate::prelude::{
     qualified_core_prelude_signature,
 };
 use crate::types::{
-    CallOrigin, FunctionSignature, SCHEMA_DECODE_TARGET_PREFIX, Type, TypeEnvironment, core_type,
+    CallOrigin, FunctionSignature, SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_DECODE_TARGET_PREFIX,
+    Type, TypeEnvironment, core_type,
 };
 
 pub(crate) struct TypeBinding<'a> {
@@ -267,6 +268,16 @@ fn core_function_call_signature(
         {
             return Some(CoreCallSignature {
                 target: CoreCallTarget::SchemaDecode(schema_name.to_string()),
+                params: function.params.iter().map(core_type).collect(),
+                return_type: core_type(&function.return_type),
+            });
+        }
+        if let Some(schema_name) = function
+            .target_name
+            .strip_prefix(SCHEMA_DECODE_STEP_TARGET_PREFIX)
+        {
+            return Some(CoreCallSignature {
+                target: CoreCallTarget::SchemaDecodeStep(schema_name.to_string()),
                 params: function.params.iter().map(core_type).collect(),
                 return_type: core_type(&function.return_type),
             });

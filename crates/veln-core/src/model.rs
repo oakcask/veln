@@ -133,6 +133,7 @@ pub enum CoreExprKind {
 pub enum CoreCallTarget {
     Function(String),
     SchemaDecode(String),
+    SchemaDecodeStep(String),
     StdioBuiltin(String),
     ConcurrencyBuiltin(String),
     StandardLibraryBuiltin(String),
