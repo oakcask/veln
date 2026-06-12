@@ -226,13 +226,7 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             diagnostic.related.push(note_json(format!(
                 "Fixed field expected value {expected_value}; actual value was {actual_value}."
             )));
-            if let Some(context) = json_string(byte_entries, "nearby_context")
-                && !context.is_empty()
-            {
-                diagnostic
-                    .related
-                    .push(note_json(format!("Nearby bytes: {context}.")));
-            }
+            push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
         "schema.truncated_field" => {
@@ -253,13 +247,7 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             diagnostic.related.push(note_json(format!(
                 "Schema field expected {expected_count} byte(s); {available_count} byte(s) were available."
             )));
-            if let Some(context) = json_string(byte_entries, "nearby_context")
-                && !context.is_empty()
-            {
-                diagnostic
-                    .related
-                    .push(note_json(format!("Nearby bytes: {context}.")));
-            }
+            push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
         "schema.length_out_of_bounds" => {
@@ -276,13 +264,7 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             diagnostic.related.push(note_json(format!(
                 "Payload length expected {expected_count} byte(s); {available_count} byte(s) were available."
             )));
-            if let Some(context) = json_string(byte_entries, "nearby_context")
-                && !context.is_empty()
-            {
-                diagnostic
-                    .related
-                    .push(note_json(format!("Nearby bytes: {context}.")));
-            }
+            push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
         "schema.reserved_bits_mismatch" => {
@@ -300,13 +282,7 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             diagnostic.related.push(note_json(format!(
                 "ReservedBits({bit_width}, {expected_value}) expected value {expected_value}; actual value was {actual_value}."
             )));
-            if let Some(context) = json_string(byte_entries, "nearby_context")
-                && !context.is_empty()
-            {
-                diagnostic
-                    .related
-                    .push(note_json(format!("Nearby bytes: {context}.")));
-            }
+            push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
         "schema.validation_failed" => {
@@ -328,13 +304,7 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             diagnostic.related.push(note_json(format!(
                 "Decoded values: length={length}, padding_length={padding_length}."
             )));
-            if let Some(context) = json_string(byte_entries, "nearby_context")
-                && !context.is_empty()
-            {
-                diagnostic
-                    .related
-                    .push(note_json(format!("Nearby bytes: {context}.")));
-            }
+            push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
         _ => return None,
@@ -457,6 +427,24 @@ fn field_path_text(entries: &[(String, JsonValue)]) -> Option<String> {
         parts.push(format!("{kind} `{name}`"));
     }
     (!parts.is_empty()).then(|| parts.join(" / "))
+}
+
+fn push_byte_preview_note(diagnostic: &mut Diagnostic, entries: &[(String, JsonValue)]) {
+    let context = byte_preview_data(entries).or_else(|| json_string(entries, "nearby_context"));
+    if let Some(context) = context
+        && !context.is_empty()
+    {
+        diagnostic
+            .related
+            .push(note_json(format!("Nearby bytes: {context}.")));
+    }
+}
+
+fn byte_preview_data(entries: &[(String, JsonValue)]) -> Option<String> {
+    let preview = json_field(entries, "byte_preview")?;
+    let preview_entries = json_object(preview)?;
+    let encoding = json_string(preview_entries, "encoding")?;
+    (encoding == "hex").then(|| json_string(preview_entries, "data"))?
 }
 
 fn note_json(message: String) -> JsonValue {
@@ -680,6 +668,17 @@ fn validate_entry_arg(ty: EntryArgType, param_name: &str, raw_arg: &str) -> Resu
 mod tests {
     use super::*;
 
+    fn byte_preview(data: &str) -> JsonValue {
+        let preview_byte_count = (data.len() / 2) as i64;
+        JsonValue::object([
+            ("encoding", JsonValue::string("hex")),
+            ("data", JsonValue::string(data)),
+            ("preview_byte_count", JsonValue::Number(preview_byte_count)),
+            ("total_byte_count", JsonValue::Number(preview_byte_count)),
+            ("truncated", JsonValue::Bool(false)),
+        ])
+    }
+
     #[test]
     fn byte_result_failure_diagnostic_projects_field_path_context() {
         let byte_diagnostic = JsonValue::object([
@@ -763,7 +762,7 @@ mod tests {
             ),
             ("expected_value", JsonValue::Number(1)),
             ("actual_value", JsonValue::Number(255)),
-            ("nearby_context", JsonValue::string("ff0001")),
+            ("byte_preview", byte_preview("ff0001")),
         ]);
         let failure = TestFailure::result_with_details(
             "fixed field mismatch at byte offset 0".to_string(),
@@ -819,7 +818,7 @@ mod tests {
             ("expected_count", JsonValue::Number(4)),
             ("available_count", JsonValue::Number(1)),
             ("readiness", JsonValue::string("need_bytes")),
-            ("nearby_context", JsonValue::string("000005010400")),
+            ("byte_preview", byte_preview("000005010400")),
         ]);
         let failure = TestFailure::result_with_details(
             "truncated schema field `stream_id` at byte offset 6".to_string(),
@@ -878,7 +877,7 @@ mod tests {
             ("bit_width", JsonValue::Number(1)),
             ("expected_value", JsonValue::Number(0)),
             ("actual_value", JsonValue::Number(1)),
-            ("nearby_context", JsonValue::string("000005010480000001")),
+            ("byte_preview", byte_preview("000005010480000001")),
         ]);
         let failure = TestFailure::result_with_details(
             "reserved bits mismatch at byte offset 5".to_string(),
@@ -935,10 +934,7 @@ mod tests {
             ),
             ("expected_count", JsonValue::Number(5)),
             ("available_count", JsonValue::Number(2)),
-            (
-                "nearby_context",
-                JsonValue::string("000005010400000001aabb"),
-            ),
+            ("byte_preview", byte_preview("000005010400000001aabb")),
         ]);
         let failure = TestFailure::result_with_details(
             "payload length out of bounds at byte offset 11".to_string(),
@@ -997,7 +993,7 @@ mod tests {
             ("field_value", JsonValue::Number(6)),
             ("length", JsonValue::Number(5)),
             ("padding_length", JsonValue::Number(6)),
-            ("nearby_context", JsonValue::string("00000506")),
+            ("byte_preview", byte_preview("00000506")),
         ]);
         let failure = TestFailure::result_with_details(
             "schema validation failed at byte offset 3".to_string(),

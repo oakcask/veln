@@ -21,7 +21,8 @@ compare it with `../specification/` before changing behavior.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
-  big-endian read/write, and stream-input slices.
+  big-endian read/write, stream-input, and schema byte-preview diagnostic
+  slices.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining binary schema primitive and dispatch behavior beyond the
   implemented source-surface exact-width and `ReservedBits(width, value)`
@@ -34,8 +35,9 @@ compare it with `../specification/` before changing behavior.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
-  truncation, reserved-bit mismatch, payload length boundary, and field-local
-  schema validation details, plus the HTTP/2 frame-size peer-limit projection.
+  truncation, reserved-bit mismatch, payload length boundary, field-local
+  schema validation details, structured schema byte previews, and the HTTP/2
+  frame-size peer-limit projection.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice and frame-size peer-limit

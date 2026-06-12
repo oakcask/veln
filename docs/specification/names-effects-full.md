@@ -496,7 +496,7 @@ narrow executable field-local `where` validation slice for `UInt24be length`
 and `UInt8 padding_length where padding_length <= length`: it returns both
 fields as ordinary `Int` values when validation passes and reports
 `schema.validation_failed` with field path, predicate, decoded values, and
-nearby bytes when validation fails. The
+structured byte preview fields when validation fails. The
 fixed-width unsigned big-endian write helpers return `Ok(ByteChunk)` for
 values in range and `Err(String)` for negative values or values larger than
 the helper width can encode.

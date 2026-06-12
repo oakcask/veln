@@ -338,25 +338,26 @@ against the built `veln` binary.
   from the mapped record.
 - `run/binary-schema-frame-header-truncated-json/`: frame-header schema decode
   truncation reports `schema.truncated_field` through `run --json` with byte
-  offset, field path, byte counts, readiness, and nearby bytes.
+  offset, field path, byte counts, readiness, and structured byte preview
+  fields.
 - `run/binary-schema-frame-header-reserved-json/`: frame-header reserved-bit
   validation reports `schema.reserved_bits_mismatch` through `run --json`
-  with byte offset, field path, bit width, expected value, actual value, and
-  nearby bytes.
+  with byte offset, field path, bit width, expected value, actual value, and a
+  structured byte preview.
 - `run/binary-schema-width-sample-decode/`: the implemented `UInt16be` and
   `UInt32be` primitive decode slice returns visible exact-width fields as
   ordinary `Int` values.
 - `run/binary-schema-width-sample-truncated-json/`: schema decode truncation
   for a `UInt32be` field reports `schema.truncated_field` through JSON run
-  output with byte offset, field path, byte counts, readiness, and nearby
-  bytes.
+  output with byte offset, field path, byte counts, readiness, and structured
+  byte preview fields.
 - `run/binary-schema-frame-payload-decode/`: HTTP/2 frame decode returns the
   visible header fields plus a bounded payload `ByteView` selected by the
   decoded length.
 - `run/binary-schema-frame-payload-length-json/`: a complete HTTP/2 frame
   header whose decoded length exceeds the available payload bytes reports
   `schema.length_out_of_bounds` through `run --json` with byte offset, field
-  path, expected and available counts, and nearby bytes.
+  path, expected and available counts, and structured byte preview fields.
 - `run/binary-schema-frame-payload-length-human/`: the same payload length
   boundary failure projects focused human `run` diagnostics with related count,
   byte context, and field-path notes.
@@ -364,7 +365,8 @@ against the built `veln` binary.
   validation preserves the decoded record shape when the predicate passes.
 - `run/binary-schema-validation-json/`: field-local schema `where` validation
   failures report `schema.validation_failed` through `run --json` with byte
-  offset, field path, predicate text, decoded values, and nearby bytes.
+  offset, field path, predicate text, decoded values, and structured byte
+  preview fields.
 - `run/binary-schema-validation-human/`: the same validation failure projects a
   focused human `run` diagnostic with predicate, decoded-value, byte-context,
   and field-path notes.

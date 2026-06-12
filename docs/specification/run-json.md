@@ -54,7 +54,7 @@ When the result value is a schema fixed-field mismatch,
 - `field_path`: schema-local path segment objects with `kind` and `name`
 - `expected_value`: the fixed byte value required by the schema field
 - `actual_value`: the decoded byte value that was present
-- `nearby_context`: bounded lowercase hex bytes around the reported offset
+- `byte_preview`: a structured bounded byte preview object
 
 When the result value is a binary schema frame-header truncation,
 `details.byte_diagnostic` includes:
@@ -66,7 +66,7 @@ When the result value is a binary schema frame-header truncation,
 - `expected_count`: the required field byte count
 - `available_count`: the byte count available for that field
 - `readiness: "need_bytes"`
-- `nearby_context`: bounded lowercase hex bytes around the reported offset
+- `byte_preview`: a structured bounded byte preview object
 
 When the result value is a binary schema payload length boundary failure,
 `details.byte_diagnostic` includes:
@@ -77,7 +77,7 @@ When the result value is a binary schema payload length boundary failure,
 - `field_path`: schema-local path segment objects with `kind` and `name`
 - `expected_count`: the decoded payload length
 - `available_count`: the byte count available after the frame header
-- `nearby_context`: bounded lowercase hex bytes around the reported offset
+- `byte_preview`: a structured bounded byte preview object
 
 When the result value is a binary schema reserved-bit mismatch,
 `details.byte_diagnostic` includes:
@@ -89,7 +89,7 @@ When the result value is a binary schema reserved-bit mismatch,
 - `bit_width`: the reserved bit width
 - `expected_value`: the fixed bit pattern required by the schema field
 - `actual_value`: the decoded bit pattern that was present
-- `nearby_context`: bounded lowercase hex bytes around the reported offset
+- `byte_preview`: a structured bounded byte preview object
 
 When the result value is a binary schema field-local validation failure,
 `details.byte_diagnostic` includes:
@@ -103,7 +103,15 @@ When the result value is a binary schema field-local validation failure,
 - `field_value`: the decoded value of the owning field
 - decoded field values referenced by the predicate, such as `length` and
   `padding_length`
-- `nearby_context`: bounded lowercase hex bytes around the reported offset
+- `byte_preview`: a structured bounded byte preview object
+
+For schema-owned byte diagnostics, `byte_preview` includes:
+
+- `encoding: "hex"`
+- `data`: lowercase hex byte pairs for the previewed bytes
+- `preview_byte_count`: the number of bytes present in `data`
+- `total_byte_count`: the total byte count represented by the preview source
+- `truncated`: whether `data` is a shortened prefix of the preview source
 
 Named binary fixture cases can assert the same byte-stream facts after a
 fixture record decodes successfully. Invalid compact hex remains a

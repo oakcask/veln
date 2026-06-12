@@ -59,8 +59,24 @@ path = "error.details.byte_diagnostic.actual_value"
 equals = 255
 
 [[json_assert]]
-path = "error.details.byte_diagnostic.nearby_context"
+path = "error.details.byte_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.data"
 equals = "ff0001"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.truncated"
+equals = false
 
 [[json_assert]]
 path = "stderr"

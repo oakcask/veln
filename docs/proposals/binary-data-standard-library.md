@@ -25,9 +25,10 @@ buffers for flow-control and incremental parsing examples.
 The implemented narrow slice already covers `Byte`, immutable `ByteChunk`,
 immutable `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, pure helpers
 for construction, length, append, bounded take, bounded drop, bounded views,
-and fixed-width unsigned big-endian reads and writes for 8-bit, 16-bit,
-24-bit, 31-bit, and 32-bit values. Current behavior belongs to the
-specification pages, not this proposal.
+fixed-width unsigned big-endian reads and writes for 8-bit, 16-bit, 24-bit,
+31-bit, and 32-bit values, and structured byte previews for the implemented
+schema-owned byte diagnostics. Current behavior belongs to the specification
+pages, not this proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
@@ -141,8 +142,9 @@ bounded by default.
 
 - Specification pages describe the later binary-buffer behavior and any
   schema-facing conversion boundaries not covered by the current byte helpers.
-- Protocol-facing diagnostics cover byte previews, field paths, expected and
-  actual counts, and absolute offsets.
+- Later protocol-facing diagnostics beyond the implemented schema-owned byte
+  slices cover byte previews, field paths, expected and actual counts, and
+  absolute offsets.
 - Runtime support for later buffer APIs preserves bounded data across tasks
   and channels without promising source-visible memory layout.
 - The HTTP/2 design driver can represent pending input and outgoing chunks in
