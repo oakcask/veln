@@ -33,8 +33,8 @@ use crate::analysis::{
 use crate::lowering::lower_surface_module_to_core;
 use crate::types::{
     TypeEnvironment, closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    exact_width_schema_primitive_max_value, schema_decode_function_name,
-    schema_decode_mapping_fields,
+    exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
+    schema_decode_function_name, schema_decode_mapping_fields,
 };
 
 #[derive(Clone, Debug)]
@@ -146,8 +146,14 @@ fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
                     });
                     continue;
                 }
-                let dispatch = closed_dispatch_schema_primitive(&field.ty)?;
-                if !decoded_field_names.contains(&dispatch.tag_field) {
+                let dispatch = closed_dispatch_schema_primitive(&field.ty)
+                    .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
+                if !decoded_field_names.contains(&dispatch.tag_field)
+                    || dispatch
+                        .length_field
+                        .as_ref()
+                        .is_some_and(|length_field| !decoded_field_names.contains(length_field))
+                {
                     return None;
                 }
                 decoded_field_names.push(field.name.clone());
@@ -158,6 +164,7 @@ fn schema_decode_specs(module: &SurfaceModule) -> Vec<IrSchemaDecodeSpec> {
                     predicate: None,
                     dispatch: Some(IrSchemaDecodeDispatch {
                         tag_field: dispatch.tag_field,
+                        length_field: dispatch.length_field,
                         cases: dispatch
                             .cases
                             .into_iter()

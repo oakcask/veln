@@ -218,6 +218,17 @@ selected payload as ordinary `Int` fields. The failing cases assert
 path, decoded tag field and value, expected tag values, structured byte
 preview fields, and focused human related notes.
 
+`../../examples/specification/run/binary-schema-extension-dispatch-decode/`,
+`../../examples/specification/run/binary-schema-extension-dispatch-unknown/`,
+and
+`../../examples/specification/run/binary-schema-extension-dispatch-length-human/`
+pin the narrow extension-tolerant dispatch slice. The known case decodes the
+selected exact-width payload into `SchemaDispatchPayload::Known`. The unknown
+case preserves the decoded tag and a bounded raw `ByteView` without reporting
+`schema.dispatch_unknown_tag`. The malformed structural case still reports
+`schema.length_out_of_bounds` when the decoded length cannot be sliced from
+closed input.
+
 ## HTTP/2 Protocol Core Example
 
 The executable specification case

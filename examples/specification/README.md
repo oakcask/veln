@@ -390,6 +390,15 @@ against the built `veln` binary.
 - `run/binary-schema-closed-dispatch-unknown-human/`: the same closed dispatch
   unknown-tag failure projects focused human `run` diagnostics with related
   tag, byte context, and field-path notes.
+- `run/binary-schema-extension-dispatch-decode/`: a generated binary schema
+  decode helper reads an extension-tolerant dispatch tag, selects a known
+  payload case, and returns `SchemaDispatchPayload::Known`.
+- `run/binary-schema-extension-dispatch-unknown/`: the same extension-tolerant
+  dispatch form preserves an unknown tag and bounded raw payload bytes without
+  reporting `schema.dispatch_unknown_tag`.
+- `run/binary-schema-extension-dispatch-length-human/`: extension-tolerant
+  dispatch still reports a focused `schema.length_out_of_bounds` diagnostic
+  when the decoded unknown-payload length exceeds closed input.
 - `run/binary-schema-decode-step/`: a generated binary schema decode-step
   helper returns `Decoded` with the exact consumed count for complete buffered
   input and `NeedMore(NeedBytes(...))` without consuming bytes for short open

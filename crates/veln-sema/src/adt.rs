@@ -608,6 +608,42 @@ fn builtin_descriptors() -> Vec<AdtDescriptor> {
             visibility: Visibility::Public,
         },
         AdtDescriptor {
+            type_name: "SchemaDispatchPayload".to_string(),
+            module_name: None,
+            type_parameters: vec!["T".to_string()],
+            variants: vec![
+                AdtVariantDescriptor {
+                    name: "Known".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![AdtPayloadField {
+                        name: "value".to_string(),
+                        ty: AdtPayloadType::TypeParameter(0),
+                    }],
+                    coverage_case: "Known(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+                AdtVariantDescriptor {
+                    name: "Unknown".to_string(),
+                    kind: AdtVariantKind::Source,
+                    payload_fields: vec![
+                        AdtPayloadField {
+                            name: "tag".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::int()),
+                        },
+                        AdtPayloadField {
+                            name: "payload".to_string(),
+                            ty: AdtPayloadType::Concrete(Type::named("ByteView", Vec::new())),
+                        },
+                    ],
+                    coverage_case: "Unknown(_)".to_string(),
+                    visibility: Visibility::Public,
+                },
+            ],
+            diagnostic_name: "schemadispatchpayload".to_string(),
+            propagation: None,
+            visibility: Visibility::Public,
+        },
+        AdtDescriptor {
             type_name: "EncodeError".to_string(),
             module_name: None,
             type_parameters: Vec::new(),
@@ -888,6 +924,7 @@ fn standard_prelude_alias_matches(descriptor: &AdtDescriptor, alias: &str) -> bo
                 | "DecodeError"
                 | "DecodeReadiness"
                 | "DecodeStep"
+                | "SchemaDispatchPayload"
                 | "EncodeError"
                 | "EncodeStep"
         )

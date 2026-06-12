@@ -227,6 +227,57 @@ fn generated_schema_decode_helpers_keep_closed_dispatch_metadata() {
         .as_ref()
         .expect("payload should carry dispatch metadata");
     assert_eq!(dispatch.tag_field, "kind");
+    assert_eq!(dispatch.length_field, None);
+    assert_eq!(
+        dispatch
+            .cases
+            .iter()
+            .map(|case| (case.tag, case.width))
+            .collect::<Vec<_>>(),
+        vec![(1, 2), (2, 4)]
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_keep_extension_dispatch_metadata() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ExtensionDispatchPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 1 => UInt16be, 2 => UInt32be)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<Int>}, String>\n",
+            "  byte_decode_extension_dispatch_packet(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "ExtensionDispatchPacket");
+    assert_eq!(
+        schema.function_name,
+        "byte_decode_extension_dispatch_packet"
+    );
+    assert_eq!(schema.fields[2].name, "payload");
+    assert_eq!(schema.fields[2].width, 0);
+    let dispatch = schema.fields[2]
+        .dispatch
+        .as_ref()
+        .expect("payload should carry extension dispatch metadata");
+    assert_eq!(dispatch.tag_field, "kind");
+    assert_eq!(dispatch.length_field.as_deref(), Some("length"));
     assert_eq!(
         dispatch
             .cases

@@ -38,6 +38,11 @@ pub type DecodeStep<T>
 	Invalid(error: DecodeError)
 end
 
+pub type SchemaDispatchPayload<T>
+	Known(value: T)
+	Unknown(tag: Int, payload: ByteView)
+end
+
 pub type EncodeError
 	EncodeError(id: String, field_path: String, reason: String)
 end

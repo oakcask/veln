@@ -97,10 +97,14 @@ unsigned primitive names `UInt8`, `UInt16be`, `UInt24be`, `UInt31be`, and
 ordinary source types or values. Binary schema fields also accept the
 `ReservedBits(width, value)` primitive
 spelling when `width` and `value` are literal non-negative integers, such as
-`ReservedBits(1, 0)`. Exact-width primitive names used outside `format binary`
-schema field type positions report `schema.exact_width_primitive`. Missing
-`ReservedBits` arguments or non-literal arguments report
-`schema.reserved_bits_primitive`.
+`ReservedBits(1, 0)`. Binary schema fields also accept the closed dispatch
+type `Dispatch(tag_field, tag => Primitive, ...)` and the extension-tolerant
+type `ExtensionDispatch(tag_field, length_field, tag => Primitive, ...)`
+when the referenced fields were decoded earlier in the same schema and case
+primitives are implemented exact-width unsigned primitives. Exact-width
+primitive names used outside `format binary` schema field type positions
+report `schema.exact_width_primitive`. Missing `ReservedBits` arguments or
+non-literal arguments report `schema.reserved_bits_primitive`.
 
 A schema may end with one or more structural mapping clauses:
 
@@ -119,10 +123,12 @@ bits and other representation fields are omitted unless explicitly assigned.
 The parser, formatter, lowered AST, and editor token collector preserve mapping
 clauses as source metadata. The generated binary decode helper uses one
 eligible structural mapping clause when all schema fields are implemented
-exact-width unsigned primitives and the target resolves to `Int` record fields.
-Target-field resolution outside that single-record `Int` slice, ADT
-constructor mapping, nested record construction, multiple mapping selection,
-and encode-side mapping are not implemented.
+exact-width unsigned primitives, closed dispatch fields, or extension
+dispatch fields and the target resolves to matching record fields.
+Target-field resolution outside that single-record slice, ADT constructor
+mapping beyond the extension dispatch payload wrapper, nested record
+construction, multiple mapping selection, and encode-side mapping are not
+implemented.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose
@@ -130,12 +136,12 @@ fields are only visible exact-width unsigned primitives expose generated
 `byte_encode_<schema>` helpers routed from `execution.md`. General schema
 encode execution beyond that primitive helper slice and schema decode outside
 the narrow generated binary helper slices are not implemented. The narrow
-primitive, field-local validation, mapped-record decode, and primitive encode
-slices are routed from `execution.md`. Field names must be ordinary
-identifiers; names beginning with `_` remain hole tokens and are rejected as
-schema field names. Schema declarations do not create ordinary value bindings,
-ordinary source ADT types, constructors, or general executable decode or encode
-functions.
+primitive, field-local validation, mapped-record decode, dispatch decode, and
+primitive encode slices are routed from `execution.md`. Field names must be
+ordinary identifiers; names beginning with `_` remain hole tokens and are
+rejected as schema field names. Schema declarations do not create ordinary
+value bindings, ordinary source ADT types, constructors, or general executable
+decode or encode functions.
 
 Codec declarations are top-level source module items. `codec Name for
 SchemaName decode`, `codec Name for imported::SchemaName encode`, and
