@@ -526,7 +526,7 @@ impl<'a> Parser<'a> {
             .range;
         let name = self.expect_ident("codec_declaration", "codec name");
         self.expect(TokenKind::For, "codec_declaration", vec!["for"]);
-        let schema = self.expect_ident("codec_declaration", "schema name");
+        let schema = self.expect_name_path("codec_declaration", "schema name");
         let directions = self.parse_codec_direction_list();
         let header_cursor = self.cursor;
         let header_end = self.expect_newline("codec_declaration").range;
@@ -1460,6 +1460,22 @@ impl<'a> Parser<'a> {
             );
             None
         }
+    }
+
+    fn expect_name_path(
+        &mut self,
+        context: &'static str,
+        expected: &'static str,
+    ) -> Option<String> {
+        let mut segments = vec![self.expect_ident(context, expected)?];
+        while self.eat(TokenKind::DoubleColon).is_some() {
+            if let Some(segment) = self.expect_ident(context, expected) {
+                segments.push(segment);
+            } else {
+                break;
+            }
+        }
+        Some(segments.join("::"))
     }
 
     fn expect_newline(&mut self, context: &'static str) -> Token {

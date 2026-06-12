@@ -37,6 +37,8 @@ The implemented first slice covers:
 - source-surface `ReservedBits(width, value)` declaration checking for literal
   integer arguments in `format binary` schemas
 - schema visibility and module ownership rules for `schema` and `pub schema`
+- schema references from codec declaration heads, including same-module bare
+  references and imported public schema references through written `use` paths
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface
 
@@ -46,8 +48,8 @@ This proposal remains open for:
 - mapping from schema fields to Veln values
 - complete binary primitive semantics beyond the implemented
   `ReservedBits(width, value)` declaration slice
-- schema references from executable codec declarations
-- schema-aware imports and references beyond ordinary public item ownership
+- schema-aware references from later schema composition, fixture, and
+  documentation surfaces beyond codec declaration heads
 
 ## Discussion Result: Codec Binding Direction
 
@@ -117,19 +119,20 @@ span. It also keeps schemas reusable across generated codecs, hand-written
 codecs, fixtures, documentation, and diagnostic tests without forcing every
 schema to commit to one executable direction.
 
-## Discussion Result: Schema Imports And References
+## Implemented Slice: Codec Schema Imports And References
 
-Schema visibility should follow the ordinary source module boundary. A private
-schema is visible only in its declaring module. A `pub schema` declaration is
-part of the declaring module's public API when the module's source file is
-listed by the package manifest's `[lib].exports`.
+The codec declaration head slice is implemented as current behavior under
+`../specification/source-surface.md`. Schema visibility follows the ordinary
+source module boundary for codec schema references. A private schema is visible
+only in its declaring module. A `pub schema` declaration is part of the
+declaring module's public API when the module's source file is listed by the
+package manifest's `[lib].exports`.
 
-References to schemas should use schema-aware name resolution rather than value
-resolution. Codecs, schema composition, fixture helpers, and documentation
-examples may reference a schema by bare name inside the declaring module. From
-another module, they reference public schemas through the written `use` module
-path, such as `http2::FrameHeader`. A `use` declaration does not re-export the
-schema from the importing module.
+References to schemas use schema-aware name resolution rather than value
+resolution. Codec declarations may reference a schema by bare name inside the
+declaring module. From another module, codec declarations reference public
+schemas through the written `use` module path, such as `http2::FrameHeader`. A
+`use` declaration does not re-export the schema from the importing module.
 
 Importing or referencing a schema imports only the schema item. It does not
 import schema-local field names as ordinary bindings, expose a generated record

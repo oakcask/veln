@@ -1,0 +1,37 @@
+use wire
+
+codec PrivateDecode for wire::PrivatePacket decode
+	derive decode
+end
+
+codec MissingDecode for wire::MissingPacket decode
+	derive decode
+end
+
+codec FunctionDecode for wire::make_packet decode
+	derive decode
+end
+
+codec TypeDecode for wire::PacketShape decode
+	derive decode
+end
+
+codec CodecDecode for wire::PacketCodec decode
+	derive decode
+end
+
+codec BareImportedName for PublicPacket decode
+	derive decode
+end
+
+codec MissingUsePath for other::PublicPacket decode
+	derive decode
+end
+
+fn schema_field_is_not_imported() -> Int
+	payload
+end
+
+fn codec_item_is_not_callable() -> Int
+	wire::PacketCodec()
+end

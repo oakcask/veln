@@ -70,15 +70,17 @@ constructor arguments in type positions report invalid type annotations after
 syntax parsing. These cases do not include delimiter replacement candidates.
 
 Name diagnostic `details` are stable for unresolved names, duplicate names,
-and public alias kind mismatches:
+public alias kind mismatches, and codec schema reference diagnostics:
 
 - `phase`
 - `node_id`
 - `symbol` for unresolved references
-- `target` for unresolved public alias targets and public alias kind mismatches
+- `target` for unresolved public alias targets, public alias kind mismatches,
+  and codec schema references
 - `expected_kind` for unresolved public alias targets and public alias kind
-  mismatches
-- `actual_kind` for public alias kind mismatches
+  mismatches, plus codec schema unresolved and kind-mismatch diagnostics
+- `actual_kind` for public alias and codec schema kind mismatches
+- `visibility` for codec schema visibility diagnostics
 - `name` for duplicate declarations
 - `namespace`
 - `resolution_status` and `candidates` for unresolved references

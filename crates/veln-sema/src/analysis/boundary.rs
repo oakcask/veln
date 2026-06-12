@@ -300,12 +300,121 @@ pub(crate) fn check_codec_schema_references(module: &SurfaceModule) -> Vec<Diagn
         let Some(schema_name) = &codec.schema else {
             continue;
         };
-        if schema_for_type_name(module, codec.module_name.as_deref(), schema_name).is_none() {
-            diagnostics.push(unresolved_codec_schema_diagnostic(codec, schema_name));
+        match resolve_codec_schema_reference(module, codec, schema_name) {
+            CodecSchemaResolution::Resolved => {}
+            CodecSchemaResolution::Private => {
+                diagnostics.push(private_codec_schema_diagnostic(codec, schema_name));
+            }
+            CodecSchemaResolution::WrongKind(actual_kind) => {
+                diagnostics.push(codec_schema_kind_mismatch_diagnostic(
+                    codec,
+                    schema_name,
+                    actual_kind,
+                ));
+            }
+            CodecSchemaResolution::Unresolved => {
+                diagnostics.push(unresolved_codec_schema_diagnostic(codec, schema_name));
+            }
         }
     }
 
     diagnostics
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum CodecSchemaResolution {
+    Resolved,
+    Private,
+    WrongKind(&'static str),
+    Unresolved,
+}
+
+fn resolve_codec_schema_reference(
+    module: &SurfaceModule,
+    codec: &CodecDecl,
+    schema_name: &str,
+) -> CodecSchemaResolution {
+    let current_module = codec.module_name.as_deref();
+    let segments = schema_name
+        .split("::")
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    match segments.as_slice() {
+        [name] => resolve_local_codec_schema_reference(module, current_module, name),
+        [_, .., name] => {
+            let Some(use_decl) = imported_use_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            ) else {
+                return CodecSchemaResolution::Unresolved;
+            };
+            resolve_imported_codec_schema_reference(module, use_decl, name)
+        }
+        _ => CodecSchemaResolution::Unresolved,
+    }
+}
+
+fn resolve_local_codec_schema_reference(
+    module: &SurfaceModule,
+    current_module: Option<&str>,
+    name: &str,
+) -> CodecSchemaResolution {
+    if module.schemas.iter().any(|schema| {
+        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == current_module
+    }) {
+        return CodecSchemaResolution::Resolved;
+    }
+    codec_schema_wrong_kind(module, current_module, name).map_or(
+        CodecSchemaResolution::Unresolved,
+        CodecSchemaResolution::WrongKind,
+    )
+}
+
+fn resolve_imported_codec_schema_reference(
+    module: &SurfaceModule,
+    use_decl: &UseDecl,
+    name: &str,
+) -> CodecSchemaResolution {
+    let target_module = Some(use_decl.name.as_str());
+    if let Some(schema) = module.schemas.iter().find(|schema| {
+        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == target_module
+    }) {
+        return if schema.visibility == Visibility::Public {
+            CodecSchemaResolution::Resolved
+        } else {
+            CodecSchemaResolution::Private
+        };
+    }
+    codec_schema_wrong_kind(module, target_module, name).map_or(
+        CodecSchemaResolution::Unresolved,
+        CodecSchemaResolution::WrongKind,
+    )
+}
+
+fn codec_schema_wrong_kind(
+    module: &SurfaceModule,
+    module_name: Option<&str>,
+    name: &str,
+) -> Option<&'static str> {
+    if module.functions.iter().any(|function| {
+        function.kind == FunctionKind::Function
+            && function.name.as_deref() == Some(name)
+            && function.module_name.as_deref() == module_name
+    }) {
+        return Some("function");
+    }
+    if module.types.iter().any(|type_decl| {
+        type_decl.name.as_deref() == Some(name) && type_decl.module_name.as_deref() == module_name
+    }) {
+        return Some("type");
+    }
+    if module.codecs.iter().any(|codec| {
+        codec.name.as_deref() == Some(name) && codec.module_name.as_deref() == module_name
+    }) {
+        return Some("codec");
+    }
+    None
 }
 
 pub(crate) fn check_codec_decode_signatures(module: &SurfaceModule) -> Vec<Diagnostic> {
@@ -586,6 +695,44 @@ fn unresolved_codec_schema_diagnostic(codec: &CodecDecl, schema_name: &str) -> D
             ("phase", JsonValue::string("name")),
             ("node_id", JsonValue::string(codec.node_id.display("codec"))),
             ("expected_kind", JsonValue::string("schema")),
+            ("target", JsonValue::string(schema_name.to_string())),
+        ]),
+    )
+}
+
+fn private_codec_schema_diagnostic(codec: &CodecDecl, schema_name: &str) -> Diagnostic {
+    Diagnostic::new(
+        "name.visibility",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("codec schema `{schema_name}` is private"),
+        Some(codec.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::string(codec.node_id.display("codec"))),
+            ("expected_kind", JsonValue::string("schema")),
+            ("target", JsonValue::string(schema_name.to_string())),
+            ("visibility", JsonValue::string("private")),
+        ]),
+    )
+}
+
+fn codec_schema_kind_mismatch_diagnostic(
+    codec: &CodecDecl,
+    schema_name: &str,
+    actual_kind: &'static str,
+) -> Diagnostic {
+    Diagnostic::new(
+        "name.kind_mismatch",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!("codec schema target `{schema_name}` is a {actual_kind}, not a schema"),
+        Some(codec.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::string(codec.node_id.display("codec"))),
+            ("expected_kind", JsonValue::string("schema")),
+            ("actual_kind", JsonValue::string(actual_kind)),
             ("target", JsonValue::string(schema_name.to_string())),
         ]),
     )
@@ -1053,13 +1200,19 @@ fn imported_module_for_path<'a>(
     segments: &[String],
     current_module: Option<&str>,
 ) -> Option<&'a str> {
+    imported_use_for_path(uses, segments, current_module).map(|use_decl| use_decl.name.as_str())
+}
+
+fn imported_use_for_path<'a>(
+    uses: &'a [UseDecl],
+    segments: &[String],
+    current_module: Option<&str>,
+) -> Option<&'a UseDecl> {
     let module_path = segments.join("::");
-    uses.iter()
-        .find(|use_decl| {
-            use_decl.module_name.as_deref() == current_module
-                && (use_decl.name == module_path || use_decl.alias == module_path)
-        })
-        .map(|use_decl| use_decl.name.as_str())
+    uses.iter().find(|use_decl| {
+        use_decl.module_name.as_deref() == current_module
+            && (use_decl.name == module_path || use_decl.alias == module_path)
+    })
 }
 
 fn unresolved_alias_diagnostic(

@@ -1,0 +1,15 @@
+use wire
+
+schema LocalPacket
+	format binary
+
+	length: UInt8
+end
+
+codec LocalDecode for LocalPacket decode
+	derive decode
+end
+
+codec ImportedDecode for wire::PublicPacket decode
+	derive decode
+end

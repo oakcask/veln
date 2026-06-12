@@ -15,7 +15,8 @@ compare it with `../specification/` before changing behavior.
 - [Schema Declaration Surface](schema-declaration-surface.md): define
   remaining schema declaration behavior beyond the implemented top-level
   `schema` and `pub schema` declarations, field-local `where`, and binary
-  schema primitive declaration slices.
+  schema primitive declaration slices, and codec declaration schema
+  import/reference visibility checks.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed

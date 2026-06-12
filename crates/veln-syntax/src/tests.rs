@@ -313,6 +313,34 @@ fn parses_schema_declarations_and_formats_canonical_layout() {
 }
 
 #[test]
+fn parses_qualified_codec_schema_references() {
+    let source = SourceFile::new(
+        "codec.veln",
+        concat!(
+            "codec ImportedHeader for wire::Http2FrameHeader decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Codec(codec) = &output.tree.items[0] else {
+        panic!("expected codec declaration");
+    };
+    assert_eq!(codec.schema.as_deref(), Some("wire::Http2FrameHeader"));
+    assert_eq!(
+        format_tree(&output.tree),
+        concat!(
+            "codec ImportedHeader for wire::Http2FrameHeader decode\n",
+            "\tderive decode\n",
+            "end\n",
+        )
+    );
+}
+
+#[test]
 fn reports_schema_declaration_syntax_diagnostics() {
     let source = SourceFile::new(
         "bad.veln",

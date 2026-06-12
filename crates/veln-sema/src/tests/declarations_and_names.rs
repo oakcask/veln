@@ -596,6 +596,174 @@ fn codec_declarations_resolve_schema_targets() {
 }
 
 #[test]
+fn codec_declarations_resolve_imported_public_schema_targets() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "codec ImportedDecode for wire::Packet decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: Vec::new(),
+        schemas: wire.schemas,
+        codecs: app.codecs,
+        functions: Vec::new(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn codec_declarations_require_written_use_for_imported_schema_targets() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "codec MissingUseDecode for other::Packet decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let other_source = SourceFile::new(
+        "other.veln",
+        concat!(
+            "mod other\n",
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let other = lower_surface_ast(&parse(&other_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: Vec::new(),
+        schemas: other.schemas,
+        codecs: app.codecs,
+        functions: Vec::new(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    assert_eq!(diagnostics[0].id, "name.unresolved");
+    assert_eq!(
+        diagnostics[0].message,
+        "unresolved codec schema `other::Packet`"
+    );
+}
+
+#[test]
+fn codec_declarations_reject_private_and_wrong_kind_imported_schema_targets() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app\n",
+            "use wire\n",
+            "codec PrivateDecode for wire::PrivatePacket decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "codec FunctionDecode for wire::make_packet decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "codec TypeDecode for wire::PacketShape decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "codec CodecDecode for wire::PacketCodec decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "pub schema PublicPacket\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "schema PrivatePacket\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn make_packet() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "pub type PacketShape\n",
+            "  pub Packet(Int)\n",
+            "end\n",
+            "\n",
+            "pub codec PacketCodec for PublicPacket decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: wire.types,
+        schemas: wire.schemas,
+        codecs: [app.codecs, wire.codecs].concat(),
+        functions: wire.functions,
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.visibility"
+            && diagnostic.message == "codec schema `wire::PrivatePacket` is private"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.kind_mismatch"
+            && diagnostic.message
+                == "codec schema target `wire::make_packet` is a function, not a schema"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.kind_mismatch"
+            && diagnostic.message
+                == "codec schema target `wire::PacketShape` is a type, not a schema"
+    }));
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.kind_mismatch"
+            && diagnostic.message
+                == "codec schema target `wire::PacketCodec` is a codec, not a schema"
+    }));
+}
+
+#[test]
 fn codec_decode_with_accepts_boundary_signature() {
     let source = SourceFile::new(
         "main.veln",
