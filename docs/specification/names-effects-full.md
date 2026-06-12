@@ -381,6 +381,7 @@ byte_read_u8_be(view: ByteView) -> Result<Int, String>
 byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, field_name: String) -> Result<Int, String>
 byte_decode_http2_frame_header(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int}, String>
 byte_decode_http2_frame(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
+byte_decode_schema_width_sample(view: ByteView) -> Result<{short_value: Int, wide_value: Int}, String>
 http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String) -> Result<(), String>
 http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String) -> Result<(), String>
 byte_read_u16_be(view: ByteView) -> Result<Int, String>
@@ -485,6 +486,10 @@ returns `Err(String)` when the high bit would exceed the 31-bit maximum. The
 `byte_expect_fixed_u8_be` helper reads one byte and returns
 `schema.fixed_field_mismatch` diagnostic details when the actual byte differs
 from the expected fixed byte for the supplied schema and field names. The
+`byte_decode_schema_width_sample` helper is the narrow executable schema slice
+for `UInt16be` and `UInt32be`: it reads both fields from a `ByteView`, returns
+ordinary `Int` values, and reports schema truncation with field-path byte
+diagnostic details. The
 fixed-width unsigned big-endian write helpers return `Ok(ByteChunk)` for
 values in range and `Err(String)` for negative values or values larger than
 the helper width can encode.
@@ -500,7 +505,7 @@ The implemented standard symbol table has this current pure-helper split:
   `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`, `byte_take`,
   `byte_drop`, `byte_view`, `byte_view_to_chunk`, `byte_read_u8_be`,
   `byte_expect_fixed_u8_be`, `byte_decode_http2_frame_header`,
-  `byte_decode_http2_frame`,
+  `byte_decode_http2_frame`, `byte_decode_schema_width_sample`,
   `http2_protocol_closed_with_pending`,
   `http2_protocol_continuation_expected`, `byte_read_u16_be`,
   `byte_read_u24_be`, `byte_read_u31_be`, `byte_read_u32_be`,

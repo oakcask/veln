@@ -8,17 +8,20 @@ declaration surface and a byte standard-library vocabulary.
 
 The source-surface `ReservedBits(width, value)` declaration syntax is
 implemented under `../specification/source-surface.md`.
-The declaration-time exact-width primitive names `UInt8`, `UInt24be`, and
-`UInt31be` are also implemented there for `format binary` schema field type
-positions only. The executable frame-header primitive decode slice is
-implemented under `../specification/execution.md`: it consumes `UInt24be`,
-`UInt8`, `UInt8`, `ReservedBits(1, 0)`, and `UInt31be` from a `ByteView`,
-returns ordinary `Int` fields for the visible values, and reports structured
-schema failures for truncated fields and reserved-bit mismatches. The narrow
-HTTP/2 frame helper also returns a bounded payload `ByteView` selected by the
-decoded length and reports `schema.length_out_of_bounds` when closed input
-cannot provide that payload range. General schema decode, encode, dispatch,
-and schema value mapping remain proposal work.
+The declaration-time exact-width primitive names `UInt8`, `UInt16be`,
+`UInt24be`, `UInt31be`, and `UInt32be` are also implemented there for
+`format binary` schema field type positions only. The executable frame-header
+primitive decode slice is implemented under `../specification/execution.md`:
+it consumes `UInt24be`, `UInt8`, `UInt8`, `ReservedBits(1, 0)`, and
+`UInt31be` from a `ByteView`, returns ordinary `Int` fields for the visible
+values, and reports structured schema failures for truncated fields and
+reserved-bit mismatches. The width-sample primitive decode slice consumes
+`UInt16be` and `UInt32be`, returns ordinary `Int` values, and reports the
+same structured truncation shape. The narrow HTTP/2 frame helper also returns
+a bounded payload `ByteView` selected by the decoded length and reports
+`schema.length_out_of_bounds` when closed input cannot provide that payload
+range. General schema decode, encode, dispatch, and schema value mapping
+remain proposal work.
 
 ## Problem
 
@@ -31,8 +34,8 @@ external representation facts, not internal Veln type declarations.
 
 Define remaining binary schema support for:
 
-- executable exact-width unsigned field reads and writes for 8-bit, 24-bit,
-  and 31-bit values
+- executable exact-width unsigned field reads and writes beyond the
+  implemented narrow primitive decode slices
 - endian-aware field reads and writes
 - reserved bits that are consumed but not exposed as ordinary data
 - flags that decode as raw bits, bitsets, or frame-specific ADTs
@@ -74,12 +77,13 @@ ADT, or wrapper through an explicit mapping rule. This keeps schema
 declarations responsible for byte layout while keeping ordinary Veln values
 responsible for protocol meaning.
 
-HTTP/2 frame headers can declare schema fields with primitives such as
-`UInt8`, `UInt24be`, and `UInt31be`. Executable schema support should make
-`UInt24be` consume a three-byte unsigned big-endian field. `UInt31be` should
-represent the 31-bit unsigned value in a big-endian field position whose
-remaining bit is handled as a reserved or fixed schema bit. The 31-bit value
-should not become a general-purpose source type.
+The implemented narrow executable slices already make `UInt8`, `UInt16be`,
+`UInt24be`, `UInt31be`, and `UInt32be` consume fixed-width unsigned
+big-endian fields and return ordinary `Int` values for visible fields.
+General schema-owned decode, encode, dispatch, and mapping remain proposal
+work. A `UInt31be` field represents the 31-bit unsigned value in a big-endian
+field position whose remaining bit is handled as a reserved or fixed schema
+bit. The 31-bit value should not become a general-purpose source type.
 
 ## Discussion Result: Reserved Bit Spelling
 
@@ -203,8 +207,8 @@ author likely referred to an earlier field with a compatible role.
 ## Remaining Completion Criteria
 
 - Executable examples show binary schema writes and general schema-owned
-  fixed-width reads beyond the implemented frame-header primitive decode
-  and HTTP/2 payload boundary helper slices.
+  fixed-width reads beyond the implemented frame-header, width-sample, and
+  HTTP/2 payload boundary helper slices.
 - Examples show tag-based payload dispatch and unknown tag preservation.
 - Invalid fixed fields in general schema decode produce structured
   diagnostics beyond the implemented frame-header truncation and reserved-bit

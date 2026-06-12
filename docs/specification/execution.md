@@ -33,6 +33,11 @@ execution reference.
   mapped record. Truncated schema fields report `schema.truncated_field`;
   invalid reserved bits report `schema.reserved_bits_mismatch`. Both carry
   byte offset and schema field path details.
+- The `SchemaWidthSample` primitive decode slice consumes `UInt16be` followed
+  by `UInt32be` from a `ByteView`. Both visible fields decode to ordinary
+  `Int` values. Truncated fields use the same `schema.truncated_field` byte
+  diagnostic shape as the frame-header slice, including byte offset, field
+  path, expected count, available count, readiness, and nearby bytes.
 - The frame decode helper reuses the frame-header validation and adds a
   bounded `payload: ByteView` over the same bytes. The payload starts after
   the nine-byte frame header and uses the decoded `length` as its count. If

@@ -1,0 +1,16 @@
+# Binary schema UInt32be truncation reports schema field byte details.
+schema SchemaWidthSample
+	format binary
+
+	short_value: UInt16be
+	wide_value: UInt32be
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("1234deadbe")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(5)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {short_value: Int, wide_value: Int} = byte_decode_schema_width_sample(view)?
+	Ok(())
+end

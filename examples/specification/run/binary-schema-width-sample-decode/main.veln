@@ -1,0 +1,25 @@
+# Binary schema UInt16be and UInt32be primitives decode mapped Int fields.
+use stdio
+
+schema SchemaWidthSample
+	format binary
+
+	short_value: UInt16be
+	wide_value: UInt32be
+end
+
+fn emit_sample(sample: {short_value: Int, wide_value: Int}) -> () effects [stdio]
+	stdio::print(int_to_string(sample.short_value))
+	stdio::print(" ")
+	stdio::println(int_to_string(sample.wide_value))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("1234deadbeef")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(6)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let sample: {short_value: Int, wide_value: Int} = byte_decode_schema_width_sample(view)?
+	emit_sample(sample)
+	Ok(())
+end

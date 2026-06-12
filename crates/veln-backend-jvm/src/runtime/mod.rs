@@ -42,6 +42,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "byte_expect_fixed_u8_be" => "byteExpectFixedU8Be",
     "byte_decode_http2_frame_header" => "byteDecodeHttp2FrameHeader",
     "byte_decode_http2_frame" => "byteDecodeHttp2Frame",
+    "byte_decode_schema_width_sample" => "byteDecodeSchemaWidthSample",
     "http2_protocol_closed_with_pending" => "http2ProtocolClosedWithPending",
     "http2_protocol_continuation_expected" => "http2ProtocolContinuationExpected",
     "byte_read_u16_be" => "byteReadU16Be",

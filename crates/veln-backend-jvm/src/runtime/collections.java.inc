@@ -403,6 +403,38 @@
         ));
     }
 
+    public static Object byteDecodeSchemaWidthSample(Object view) {
+        Object shortRead = schemaReadUnsignedBe(
+            view,
+            0,
+            2,
+            0xffffL,
+            "SchemaWidthSample",
+            "short_value"
+        );
+        if (isErr(shortRead)) {
+            return shortRead;
+        }
+        Object wideRead = schemaReadUnsignedBe(
+            view,
+            2,
+            4,
+            0xffffffffL,
+            "SchemaWidthSample",
+            "wide_value"
+        );
+        if (isErr(wideRead)) {
+            return wideRead;
+        }
+
+        return ok(record(
+            "short_value",
+            unwrapOk(shortRead),
+            "wide_value",
+            unwrapOk(wideRead)
+        ));
+    }
+
     public static Object http2ProtocolClosedWithPending(
         Object offset,
         Object pendingCount,

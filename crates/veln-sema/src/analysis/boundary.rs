@@ -994,8 +994,10 @@ fn schema_type_reference_diagnostic(
 pub(in crate::analysis) fn exact_width_binary_primitive_name(name: &str) -> Option<&'static str> {
     match name {
         "UInt8" => Some("UInt8"),
+        "UInt16be" => Some("UInt16be"),
         "UInt24be" => Some("UInt24be"),
         "UInt31be" => Some("UInt31be"),
+        "UInt32be" => Some("UInt32be"),
         _ => None,
     }
 }
