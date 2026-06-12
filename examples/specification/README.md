@@ -360,6 +360,14 @@ against the built `veln` binary.
 - `run/binary-schema-frame-payload-length-human/`: the same payload length
   boundary failure projects focused human `run` diagnostics with related count,
   byte context, and field-path notes.
+- `run/binary-schema-validation-decode/`: field-local schema `where`
+  validation preserves the decoded record shape when the predicate passes.
+- `run/binary-schema-validation-json/`: field-local schema `where` validation
+  failures report `schema.validation_failed` through `run --json` with byte
+  offset, field path, predicate text, decoded values, and nearby bytes.
+- `run/binary-schema-validation-human/`: the same validation failure projects a
+  focused human `run` diagnostic with predicate, decoded-value, byte-context,
+  and field-path notes.
 - `run/codec-decode-step-vocabulary/`: ordinary source constructs and matches
   `DecodeStep<T>`, `DecodeReadiness`, and `DecodeError` values for decoded,
   need-more-input, and invalid-input decoder outcomes.

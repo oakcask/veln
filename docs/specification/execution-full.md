@@ -116,6 +116,15 @@ ordinary `Int` values in the decoded record. Truncation reports the same
 including byte offset, structured field path, expected byte count, available
 byte count, readiness, and nearby lowercase hex context.
 
+The `SchemaValidationSample` decode helper is the first field-local
+validation execution slice. It consumes a `UInt24be length` field followed by
+`UInt8 padding_length where padding_length <= length`. Validation runs after
+`padding_length` is decoded and may read the earlier `length` field. Passing
+validation returns ordinary `Int` values for both fields. Failed validation
+returns `schema.validation_failed` at the `padding_length` byte offset with
+structured field path, predicate text, owning field value, referenced decoded
+values, and nearby lowercase hex context.
+
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header
 fields plus `payload: ByteView`. The payload view shares the input chunk,

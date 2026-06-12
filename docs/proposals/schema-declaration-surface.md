@@ -11,8 +11,9 @@ checked examples under `../../examples/specification/`.
 
 Current source syntax has a first top-level `schema` declaration slice with a
 single `format binary` clause, field declarations, and field-local `where`
-predicate syntax. It does not yet have runtime schema validation, mapping,
-complete binary primitive semantics, or executable codec bindings.
+predicate syntax, plus a narrow executable field-local validation helper. It
+does not yet have general runtime schema validation for arbitrary schemas,
+mapping, complete binary primitive semantics, or executable codec bindings.
 
 The HTTP/2 design driver needs a declaration that can say:
 
@@ -40,12 +41,16 @@ The implemented first slice covers:
 - schema visibility and module ownership rules for `schema` and `pub schema`
 - schema references from codec declaration heads, including same-module bare
   references and imported public schema references through written `use` paths
+- the first narrow executable field-local validation slice for
+  `SchemaValidationSample`, where `padding_length <= length` is checked during
+  binary schema decode after `padding_length` is decoded
 - parser, AST, formatter, editor token, and documentation behavior for the
   implemented source surface
 
 This proposal remains open for:
 
-- runtime evaluation of field-local validation clauses
+- general runtime evaluation of field-local validation clauses for arbitrary
+  schema declarations
 - mapping from schema fields to Veln values
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
@@ -159,12 +164,17 @@ schema PaddedPayload
 end
 ```
 
-The remaining validation semantics are not implemented. At decode time, a
-`where` clause should be checked after its field has been decoded and before
-later fields may reference the validated value. The predicate may name the
-current field and fields decoded earlier in the same schema. It must not name
-later fields, ordinary source bindings, runtime settings, connection state,
-stream state, or imported functions.
+The first narrow executable validation slice is implemented under
+`../specification/execution.md` for `SchemaValidationSample`: after
+`padding_length` is decoded, the runtime checks
+`padding_length <= length` using the current field and the earlier decoded
+`length` field. General validation semantics for arbitrary schema
+declarations remain proposal work. At decode time, a `where` clause should be
+checked after its field has been decoded and before later fields may
+reference the validated value. The predicate may name the current field and
+fields decoded earlier in the same schema. It must not name later fields,
+ordinary source bindings, runtime settings, connection state, stream state, or
+imported functions.
 
 The predicate language should reuse the familiar comparison, boolean, literal,
 field-reference, and arithmetic operators from contract predicates, but with a
@@ -238,11 +248,15 @@ Implemented:
   `use` paths and import aliases, private imported schema diagnostics,
   wrong-kind diagnostics, missing schema diagnostics, and non-reexport
   boundaries.
+- The first narrow executable schema `where` validation slice checks
+  `padding_length <= length` during binary decode for
+  `SchemaValidationSample` and reports `schema.validation_failed` with byte
+  offset, field path, predicate text, decoded values, and nearby bytes.
 
 Remaining:
 
-- Schema validation diagnostics distinguish malformed schema syntax from failed
-  schema validation.
-- Field-local `where` predicates are evaluated during schema decode.
+- General schema validation diagnostics distinguish malformed schema syntax
+  from failed schema validation for arbitrary schema declarations.
+- Field-local `where` predicates are evaluated during general schema decode.
 - The HTTP/2 design driver can express its full frame header boundary without
   placeholder text syntax.

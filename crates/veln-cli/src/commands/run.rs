@@ -309,6 +309,34 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             }
             diagnostic
         }
+        "schema.validation_failed" => {
+            let predicate = json_string(byte_entries, "predicate")?;
+            let field_value = json_number(byte_entries, "field_value")?;
+            let length = json_number(byte_entries, "length")?;
+            let padding_length = json_number(byte_entries, "padding_length")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("schema validation failed at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Predicate `{predicate}` failed for field value {field_value}."
+            )));
+            diagnostic.related.push(note_json(format!(
+                "Decoded values: length={length}, padding_length={padding_length}."
+            )));
+            if let Some(context) = json_string(byte_entries, "nearby_context")
+                && !context.is_empty()
+            {
+                diagnostic
+                    .related
+                    .push(note_json(format!("Nearby bytes: {context}.")));
+            }
+            diagnostic
+        }
         _ => return None,
     };
     if let Some(field_path) = field_path_text(byte_entries) {
@@ -912,6 +940,71 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("schema `Http2FrameHeader` / field `payload`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_validation_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.validation_failed")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(3)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("SchemaValidationSample")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("padding_length")),
+                    ]),
+                ]),
+            ),
+            ("predicate", JsonValue::string("padding_length <= length")),
+            ("field_value", JsonValue::Number(6)),
+            ("length", JsonValue::Number(5)),
+            ("padding_length", JsonValue::Number(6)),
+            ("nearby_context", JsonValue::string("00000506")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "schema validation failed at byte offset 3".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "schema.validation_failed");
+        assert_eq!(
+            diagnostic.message,
+            "schema validation failed at byte offset 3"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("padding_length <= length")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("length=5, padding_length=6")
+        );
+        assert!(diagnostic.related[2].to_json().contains("00000506"));
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("schema `SchemaValidationSample` / field `padding_length`")
         );
     }
 

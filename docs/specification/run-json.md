@@ -91,6 +91,20 @@ When the result value is a binary schema reserved-bit mismatch,
 - `actual_value`: the decoded bit pattern that was present
 - `nearby_context`: bounded lowercase hex bytes around the reported offset
 
+When the result value is a binary schema field-local validation failure,
+`details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "schema.validation_failed"`
+- `byte_offset`: the decoded-stream `ByteOffset` of the field that owns the
+  failed predicate
+- `field_path`: schema-local path segment objects with `kind` and `name`
+- `predicate`: the failed field-local `where` predicate text
+- `field_value`: the decoded value of the owning field
+- decoded field values referenced by the predicate, such as `length` and
+  `padding_length`
+- `nearby_context`: bounded lowercase hex bytes around the reported offset
+
 Named binary fixture cases can assert the same byte-stream facts after a
 fixture record decodes successfully. Invalid compact hex remains a
 `details.fixture_hex` failure. Valid fixture bytes that are too short for a

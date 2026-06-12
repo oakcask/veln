@@ -145,6 +145,20 @@ public final class RuntimeByteViewHarness {
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(6))).value()
         )).value();
         System.out.println(VelnRuntime.byteDecodeSchemaWidthSample(widthSampleView));
+        Object validationSample = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("00000504")).value();
+        Object validationSampleView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            validationSample,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteDecodeSchemaValidationSample(validationSampleView));
+        Object invalidValidationSample = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("00000506")).value();
+        Object invalidValidationSampleView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            invalidValidationSample,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteDecodeSchemaValidationSample(invalidValidationSampleView));
         Object reservedFrame = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("000005010480000001")).value();
         Object reservedView = ((VelnRuntime.Result) VelnRuntime.byteView(
             reservedFrame,
@@ -785,6 +799,8 @@ fn jvm_runtime_reads_and_writes_byte_views_when_java_is_available() {
             "Err(byte_read_u31_be value exceeds maximum 2147483647)\n",
             "Ok({length=5, kind=1, flags=4, stream_id=1})\n",
             "Ok({short_value=4660, wide_value=3735928559})\n",
+            "Ok({length=5, padding_length=4})\n",
+            "Err(schema validation failed at byte offset 3)\n",
             "Err(reserved bits mismatch at byte offset 5)\n",
         )
     );
@@ -1065,6 +1081,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         (
             "byte_decode_schema_width_sample",
             "byteDecodeSchemaWidthSample",
+        ),
+        (
+            "byte_decode_schema_validation_sample",
+            "byteDecodeSchemaValidationSample",
         ),
         ("byte_read_u16_be", "byteReadU16Be"),
         ("byte_read_u24_be", "byteReadU24Be"),

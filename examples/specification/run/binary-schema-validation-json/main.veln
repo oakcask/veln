@@ -1,0 +1,16 @@
+# Binary schema field-local validation reports a failed predicate in JSON.
+schema SchemaValidationSample
+	format binary
+
+	length: UInt24be
+	padding_length: UInt8 where padding_length <= length
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("00000506")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(4)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {length: Int, padding_length: Int} = byte_decode_schema_validation_sample(view)?
+	Ok(())
+end
