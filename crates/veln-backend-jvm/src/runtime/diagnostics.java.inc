@@ -381,6 +381,35 @@
         );
     }
 
+    private static void registerSchemaDispatchUnknownTagDiagnostic(
+        String message,
+        long byteOffset,
+        String schemaName,
+        String fieldName,
+        String tagField,
+        long decodedTagValue,
+        String expectedTags,
+        String nearbyContext
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.dispatch_unknown_tag",
+                byteOffset,
+                java.util.Arrays.asList(
+                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
+                    new ByteDiagnosticFieldPathSegment("field", fieldName)
+                ),
+                java.util.Arrays.asList(
+                    DiagnosticDetail.string("tag_field", tagField),
+                    DiagnosticDetail.number("decoded_tag_value", decodedTagValue),
+                    DiagnosticDetail.string("expected_tags", expectedTags),
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
+                )
+            )
+        );
+    }
+
     private static String formatDecodedSchemaValues(java.util.Map<String, Long> decodedValues) {
         StringBuilder out = new StringBuilder();
         boolean first = true;

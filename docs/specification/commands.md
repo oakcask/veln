@@ -37,10 +37,10 @@ requiring the full command reference on the first read.
   classfile execution without an ordinary Java source compiler requirement,
   human runtime diagnostics for closed-input `ByteView` read truncation,
   schema fixed-field mismatch, binary schema field truncation, reserved-bit
-  mismatch, field-local validation failure, payload length boundary failures,
-  HTTP/2 protocol-core failures including frame-size peer-limit, SETTINGS value
-  range peer-limit, and invalid connection-state and stream-state frame-kind
-  failures, and
+  mismatch, field-local validation failure, closed-dispatch unknown tag
+  failures, payload length boundary failures, HTTP/2 protocol-core failures
+  including frame-size peer-limit, SETTINGS value range peer-limit, and invalid
+  connection-state and stream-state frame-kind failures, and
   run JSON. Use
   [run-json.md](run-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact

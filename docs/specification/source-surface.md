@@ -49,18 +49,22 @@ name, `:`, type text, and an optional field-local `where` predicate. In binary
 schemas, `UInt8`, `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`, and
 `ReservedBits(width, value)` are accepted as schema primitives.
 `ReservedBits` arguments must be literal
-non-negative integers. These primitive names are representation-local field
-vocabulary, not ordinary source types or values. A schema may end with
+non-negative integers. The narrow closed tag-dispatch field type
+`Dispatch(tag_field, tag => Primitive, ...)` is accepted when `tag_field`
+names a previously decoded schema field and each case primitive is one of the
+implemented exact-width unsigned binary primitives. These primitive names are
+representation-local field vocabulary, not ordinary source types or values.
+A schema may end with
 structural `map to Target` clauses whose assignment lines use
 `target_field = schema_field` to map schema-local fields into an ordinary
 source value shape. Mapping clauses are parsed, formatted, lowered, exposed to
 editor support, and used by the generated decode slice described in
 [execution.md](execution.md) when the schema has a single structural mapping
-and all decoded fields use the implemented exact-width unsigned primitive
-slice. The predicate, primitive, and mapping text are parsed and preserved as
-source-surface syntax. General schema decode, encode, dispatch, ADT
-constructor mapping, nested record mapping, and multiple mapping selection are
-not implemented.
+and all decoded fields use the implemented exact-width unsigned primitive or
+closed dispatch slice. The predicate, primitive, dispatch, and mapping text
+are parsed and preserved as source-surface syntax. General schema decode,
+encode, extension-tolerant dispatch, ADT constructor mapping, nested record
+mapping, and multiple mapping selection are not implemented.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 

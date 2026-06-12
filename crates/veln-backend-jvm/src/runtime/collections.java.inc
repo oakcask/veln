@@ -66,12 +66,50 @@
         final int width;
         final long maxValue;
         final SchemaPredicate predicate;
+        final SchemaDispatchSpec dispatch;
 
         SchemaFieldSpec(String name, int width, long maxValue, SchemaPredicate predicate) {
+            this(name, width, maxValue, predicate, null);
+        }
+
+        SchemaFieldSpec(
+            String name,
+            int width,
+            long maxValue,
+            SchemaPredicate predicate,
+            SchemaDispatchSpec dispatch
+        ) {
             this.name = name;
             this.width = width;
             this.maxValue = maxValue;
             this.predicate = predicate;
+            this.dispatch = dispatch;
+        }
+    }
+
+    private static final class SchemaDispatchSpec {
+        final String tagField;
+        final SchemaDispatchCaseSpec[] cases;
+
+        SchemaDispatchSpec(String tagField, SchemaDispatchCaseSpec[] cases) {
+            this.tagField = tagField;
+            this.cases = cases;
+        }
+    }
+
+    private static final class SchemaDispatchCaseSpec {
+        final long tag;
+        final int width;
+        final long maxValue;
+
+        SchemaDispatchCaseSpec(long tag, int width) {
+            this.tag = tag;
+            this.width = width;
+            long value = 0L;
+            for (int index = 0; index < width; index += 1) {
+                value = (value << 8) | 0xffL;
+            }
+            this.maxValue = value;
         }
     }
 
@@ -948,6 +986,9 @@
         Object fieldNames,
         Object widths,
         Object predicates,
+        Object dispatchTagFields,
+        Object dispatchCaseTags,
+        Object dispatchCaseWidths,
         Object mappingTargets,
         Object mappingSources
     ) {
@@ -956,6 +997,9 @@
             fieldNames,
             widths,
             predicates,
+            dispatchTagFields,
+            dispatchCaseTags,
+            dispatchCaseWidths,
             mappingTargets,
             mappingSources
         );
@@ -972,6 +1016,9 @@
         Object fieldNames,
         Object widths,
         Object predicates,
+        Object dispatchTagFields,
+        Object dispatchCaseTags,
+        Object dispatchCaseWidths,
         Object mappingTargets,
         Object mappingSources
     ) {
@@ -980,6 +1027,9 @@
             fieldNames,
             widths,
             predicates,
+            dispatchTagFields,
+            dispatchCaseTags,
+            dispatchCaseWidths,
             mappingTargets,
             mappingSources
         );
@@ -1258,6 +1308,41 @@
         java.util.LinkedHashMap<String, Long> decoded = new java.util.LinkedHashMap<String, Long>();
         long relativeOffset = 0L;
         for (SchemaFieldSpec field : schema.fields) {
+            if (field.dispatch != null) {
+                SchemaDispatchCaseSpec dispatchCase = schemaDispatchCase(field, decoded);
+                if (dispatchCase == null) {
+                    Long tagValue = decoded.get(field.dispatch.tagField);
+                    long byteOffset = diagnosticBaseOffset + relativeOffset;
+                    String message = "unknown dispatch tag at byte offset " + byteOffset;
+                    registerSchemaDispatchUnknownTagDiagnostic(
+                        message,
+                        byteOffset,
+                        schema.name,
+                        field.name,
+                        field.dispatch.tagField,
+                        tagValue == null ? -1L : tagValue.longValue(),
+                        schemaDispatchExpectedTags(field.dispatch),
+                        byteViewContextHex(view, 8)
+                    );
+                    return err(message);
+                }
+                Object dispatchRead = schemaReadUnsignedBeWithBase(
+                    view,
+                    diagnosticBaseOffset,
+                    (int) relativeOffset,
+                    dispatchCase.width,
+                    dispatchCase.maxValue,
+                    schema.name,
+                    field.name
+                );
+                if (isErr(dispatchRead)) {
+                    return dispatchRead;
+                }
+                decoded.put(field.name, Long.valueOf(asLong(unwrapOk(dispatchRead))));
+                relativeOffset += dispatchCase.width;
+                continue;
+            }
+
             Object read = schemaReadUnsignedBeWithBase(
                 view,
                 diagnosticBaseOffset,
@@ -1341,9 +1426,48 @@
     private static long schemaTotalWidth(BinarySchemaSpec schema) {
         long total = 0L;
         for (SchemaFieldSpec field : schema.fields) {
-            total += field.width;
+            if (field.dispatch == null) {
+                total += field.width;
+            } else {
+                total += schemaDispatchMaxWidth(field.dispatch);
+            }
         }
         return total;
+    }
+
+    private static SchemaDispatchCaseSpec schemaDispatchCase(
+        SchemaFieldSpec field,
+        java.util.Map<String, Long> decoded
+    ) {
+        Long tagValue = decoded.get(field.dispatch.tagField);
+        if (tagValue == null) {
+            return null;
+        }
+        for (SchemaDispatchCaseSpec dispatchCase : field.dispatch.cases) {
+            if (dispatchCase.tag == tagValue.longValue()) {
+                return dispatchCase;
+            }
+        }
+        return null;
+    }
+
+    private static long schemaDispatchMaxWidth(SchemaDispatchSpec dispatch) {
+        long width = 0L;
+        for (SchemaDispatchCaseSpec dispatchCase : dispatch.cases) {
+            width = Math.max(width, dispatchCase.width);
+        }
+        return width;
+    }
+
+    private static String schemaDispatchExpectedTags(SchemaDispatchSpec dispatch) {
+        StringBuilder out = new StringBuilder();
+        for (int index = 0; index < dispatch.cases.length; index += 1) {
+            if (index > 0) {
+                out.append(", ");
+            }
+            out.append(dispatch.cases[index].tag);
+        }
+        return out.toString();
     }
 
     private static Object invalidDecodeStep(String id, Object baseOffset, String fieldPath) {
@@ -1385,6 +1509,9 @@
         Object fieldNames,
         Object widths,
         Object predicates,
+        Object dispatchTagFields,
+        Object dispatchCaseTags,
+        Object dispatchCaseWidths,
         Object mappingTargets,
         Object mappingSources
     ) {
@@ -1392,10 +1519,16 @@
         java.util.List<Object> fieldNameValues = asList(fieldNames);
         java.util.List<Object> widthValues = asList(widths);
         java.util.List<Object> predicateValues = asList(predicates);
+        java.util.List<Object> dispatchTagFieldValues = asList(dispatchTagFields);
+        java.util.List<Object> dispatchCaseTagValues = asList(dispatchCaseTags);
+        java.util.List<Object> dispatchCaseWidthValues = asList(dispatchCaseWidths);
         java.util.List<Object> mappingTargetValues = asList(mappingTargets);
         java.util.List<Object> mappingSourceValues = asList(mappingSources);
         if (fieldNameValues.size() != widthValues.size()
-            || fieldNameValues.size() != predicateValues.size()) {
+            || fieldNameValues.size() != predicateValues.size()
+            || fieldNameValues.size() != dispatchTagFieldValues.size()
+            || fieldNameValues.size() != dispatchCaseTagValues.size()
+            || fieldNameValues.size() != dispatchCaseWidthValues.size()) {
             return err("invalid schema decoder metadata for schema `" + name + "`");
         }
         if (mappingTargetValues.size() != mappingSourceValues.size()) {
@@ -1405,6 +1538,27 @@
         for (int index = 0; index < fieldNameValues.size(); index += 1) {
             String fieldName = asString(fieldNameValues.get(index));
             long width = asLong(widthValues.get(index));
+            String tagField = asString(dispatchTagFieldValues.get(index));
+            if (!tagField.isEmpty()) {
+                Object dispatch = declaredSchemaDispatch(
+                    name,
+                    fieldName,
+                    tagField,
+                    dispatchCaseTagValues.get(index),
+                    dispatchCaseWidthValues.get(index)
+                );
+                if (isErr(dispatch)) {
+                    return dispatch;
+                }
+                fields[index] = new SchemaFieldSpec(
+                    fieldName,
+                    0,
+                    0L,
+                    null,
+                    (SchemaDispatchSpec) unwrapOk(dispatch)
+                );
+                continue;
+            }
             if (width < 1L || width > 4L) {
                 return err(
                     "unsupported schema field width "
@@ -1436,6 +1590,43 @@
             );
         }
         return ok(new BinarySchemaSpec(name, fields, mapping));
+    }
+
+    private static Object declaredSchemaDispatch(
+        String schemaName,
+        String fieldName,
+        String tagField,
+        Object caseTags,
+        Object caseWidths
+    ) {
+        java.util.List<Object> tagValues = asList(caseTags);
+        java.util.List<Object> widthValues = asList(caseWidths);
+        if (tagValues.isEmpty() || tagValues.size() != widthValues.size()) {
+            return err(
+                "invalid dispatch metadata for field `"
+                    + fieldName
+                    + "` in schema `"
+                    + schemaName
+                    + "`"
+            );
+        }
+        SchemaDispatchCaseSpec[] cases = new SchemaDispatchCaseSpec[tagValues.size()];
+        for (int index = 0; index < tagValues.size(); index += 1) {
+            long width = asLong(widthValues.get(index));
+            if (width < 1L || width > 4L) {
+                return err(
+                    "unsupported dispatch field width "
+                        + width
+                        + " for field `"
+                        + fieldName
+                        + "` in schema `"
+                        + schemaName
+                        + "`"
+                );
+            }
+            cases[index] = new SchemaDispatchCaseSpec(asLong(tagValues.get(index)), (int) width);
+        }
+        return ok(new SchemaDispatchSpec(tagField, cases));
     }
 
     private static Object unsupportedSchemaPredicate(BinarySchemaSpec schema) {

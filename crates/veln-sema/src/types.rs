@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use veln_ast::{
     BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, FunctionKind,
@@ -565,18 +565,7 @@ fn schema_decode_function_signatures_for_schema(
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return Vec::new();
     }
-    let Some(fields) = schema
-        .fields
-        .iter()
-        .map(|field| {
-            Some((
-                field.name.clone(),
-                Type::int(),
-                exact_width_schema_primitive(&field.ty)?,
-            ))
-        })
-        .collect::<Option<Vec<_>>>()
-    else {
+    let Some(fields) = schema_decode_record_fields(schema) else {
         return Vec::new();
     };
     let byte_view = Type::named("ByteView", Vec::new());
@@ -616,6 +605,25 @@ fn schema_decode_function_signatures_for_schema(
             span: schema.span.clone(),
         },
     ]
+}
+
+fn schema_decode_record_fields(schema: &SchemaDecl) -> Option<Vec<(String, Type, u8)>> {
+    let mut decoded_fields = BTreeSet::new();
+    let mut fields = Vec::new();
+    for field in &schema.fields {
+        let width = if let Some(width) = exact_width_schema_primitive(&field.ty) {
+            width
+        } else {
+            let dispatch = closed_dispatch_schema_primitive(&field.ty)?;
+            if !decoded_fields.contains(&dispatch.tag_field) {
+                return None;
+            }
+            0
+        };
+        decoded_fields.insert(field.name.clone());
+        fields.push((field.name.clone(), Type::int(), width));
+    }
+    Some(fields)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -718,6 +726,67 @@ pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
         "UInt31be" | "UInt32be" => Some(4),
         _ => None,
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SchemaDispatchSpec {
+    pub(crate) tag_field: String,
+    pub(crate) cases: Vec<SchemaDispatchCase>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SchemaDispatchCase {
+    pub(crate) tag: i64,
+    pub(crate) width: u8,
+}
+
+pub(crate) fn closed_dispatch_schema_primitive(ty: &str) -> Option<SchemaDispatchSpec> {
+    let rest = ty.trim().strip_prefix("Dispatch")?;
+    if rest
+        .chars()
+        .next()
+        .is_some_and(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+    {
+        return None;
+    }
+    let rest = rest.trim();
+    let inner = rest.strip_prefix('(')?.strip_suffix(')')?;
+    let mut args = inner
+        .split(',')
+        .map(str::trim)
+        .filter(|arg| !arg.is_empty());
+    let tag_field = args.next()?.to_string();
+    if !is_schema_identifier(&tag_field) {
+        return None;
+    }
+    let cases = args
+        .map(|arg| {
+            let (tag, primitive) = arg.split_once("=>")?;
+            let tag = parse_schema_tag(tag.trim())?;
+            let width = exact_width_schema_primitive(primitive.trim())?;
+            Some(SchemaDispatchCase { tag, width })
+        })
+        .collect::<Option<Vec<_>>>()?;
+    if cases.is_empty() {
+        return None;
+    }
+    Some(SchemaDispatchSpec { tag_field, cases })
+}
+
+fn parse_schema_tag(text: &str) -> Option<i64> {
+    if text.is_empty() || !text.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    text.parse::<i64>().ok()
+}
+
+fn is_schema_identifier(text: &str) -> bool {
+    let mut chars = text.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
 fn snake_case_identifier(name: &str) -> String {

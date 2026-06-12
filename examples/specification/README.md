@@ -372,6 +372,16 @@ against the built `veln` binary.
   helper checks field-local predicates, then maps schema-local exact-width
   fields into the target record field names before returning the decoded
   value.
+- `run/binary-schema-closed-dispatch-decode/`: a generated binary schema
+  decode helper reads a closed dispatch tag, selects the known payload case,
+  and returns the selected payload as an ordinary `Int` field.
+- `run/binary-schema-closed-dispatch-unknown-json/`: a generated binary schema
+  decode helper reports `schema.dispatch_unknown_tag` through `run --json`
+  with byte offset, field path, decoded tag field, decoded tag value, expected
+  tags, and structured byte preview fields.
+- `run/binary-schema-closed-dispatch-unknown-human/`: the same closed dispatch
+  unknown-tag failure projects focused human `run` diagnostics with related
+  tag, byte context, and field-path notes.
 - `run/binary-schema-decode-step/`: a generated binary schema decode-step
   helper returns `Decoded` with the exact consumed count for complete buffered
   input and `NeedMore(NeedBytes(...))` without consuming bytes for short open

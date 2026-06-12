@@ -1,0 +1,16 @@
+# Binary schema closed dispatch reports an unknown tag.
+schema ClosedDispatchPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => UInt16be, 2 => UInt32be)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("03aabbcc")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(4)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {kind: Int, payload: Int} = byte_decode_closed_dispatch_packet(view)?
+	Ok(())
+end

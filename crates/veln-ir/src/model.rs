@@ -21,6 +21,19 @@ pub struct IrSchemaDecodeField {
     pub name: String,
     pub width: u8,
     pub predicate: Option<String>,
+    pub dispatch: Option<IrSchemaDecodeDispatch>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaDecodeDispatch {
+    pub tag_field: String,
+    pub cases: Vec<IrSchemaDecodeDispatchCase>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaDecodeDispatchCase {
+    pub tag: i64,
+    pub width: u8,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

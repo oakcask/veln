@@ -1,0 +1,67 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "unknown dispatch tag at byte offset 1"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.id"
+equals = "schema.dispatch_unknown_tag"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_offset.value"
+equals = 1
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.field_path"
+equals = [{"kind":"schema","name":"ClosedDispatchPacket"},{"kind":"field","name":"payload"}]
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.tag_field"
+equals = "kind"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.decoded_tag_value"
+equals = 3
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.expected_tags"
+equals = "1, 2"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.data"
+equals = "03aabbcc"
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
+equals = 4
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
+equals = 4
+
+[[json_assert]]
+path = "error.details.byte_diagnostic.byte_preview.truncated"
+equals = false
