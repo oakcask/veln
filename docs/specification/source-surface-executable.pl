@@ -98,7 +98,7 @@ grammar_line(104, "SchemaField   ::= Name \":\" SchemaFieldType SchemaFieldWhere
 grammar_line(105, "SchemaFieldType ::= TypeText | ReservedBitsPrimitive").
 grammar_line(106, "ReservedBitsPrimitive ::= \"ReservedBits\" \"(\" IntLiteral \",\" IntLiteral \")\"").
 grammar_line(107, "SchemaFieldWhere ::= \"where\" ContractPredicate").
-grammar_line(107, "CodecDecl     ::= \"pub\"? \"codec\" Name \"for\" Name CodecDirections NL").
+grammar_line(107, "CodecDecl     ::= \"pub\"? \"codec\" Name \"for\" MemberPath CodecDirections NL").
 grammar_line(107, "                  CodecImplementation* \"end\" NL?").
 grammar_line(107, "CodecDirections ::= CodecDirection+").
 grammar_line(107, "CodecDirection ::= \"decode\" | \"encode\"").
@@ -375,7 +375,7 @@ codec_decl -->
     tok(codec),
     ident,
     tok(for),
-    ident,
+    member_path,
     codec_directions(Directions),
     nl,
     codec_implementations(Implementations),

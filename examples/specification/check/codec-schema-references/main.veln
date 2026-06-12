@@ -1,3 +1,4 @@
+use app::wire
 use wire
 
 schema LocalPacket
@@ -10,6 +11,10 @@ codec LocalDecode for LocalPacket decode
 	derive decode
 end
 
-codec ImportedDecode for wire::PublicPacket decode
+codec ImportedDecode for app::wire::PublicPacket decode
+	derive decode
+end
+
+codec ImportedAliasDecode for wire::AliasPacket decode
 	derive decode
 end

@@ -234,6 +234,12 @@ against the built `veln` binary.
 - `check/codec-declaration-diagnostics/`: parser diagnostics for empty,
   duplicate, and unknown codec direction lists plus missing, unlisted, and
   duplicate implementation clauses.
+- `check/codec-schema-references/`: same-module schema references and public
+  imported schema references through written `use` paths and import aliases.
+- `check/codec-schema-reference-diagnostics/`: codec schema references reject
+  missing, private, wrong-kind, bare imported, missing-use, and facade
+  non-reexport targets without importing schema-local fields or executable
+  codec APIs.
 - `check/codec-decode-signature-diagnostics/`: `decode with` checker
   diagnostics for unresolved decoder functions and wrong decode function
   parameter or return shapes.

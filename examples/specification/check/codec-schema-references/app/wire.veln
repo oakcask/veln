@@ -1,4 +1,4 @@
-pub schema AliasPacket
+pub schema PublicPacket
 	format binary
 
 	length: UInt8
