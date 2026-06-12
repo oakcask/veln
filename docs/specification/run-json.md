@@ -68,6 +68,17 @@ When the result value is a binary schema frame-header truncation,
 - `readiness: "need_bytes"`
 - `nearby_context`: bounded lowercase hex bytes around the reported offset
 
+When the result value is a binary schema payload length boundary failure,
+`details.byte_diagnostic` includes:
+
+- `kind: "byte_diagnostic"`
+- `id: "schema.length_out_of_bounds"`
+- `byte_offset`: the first missing decoded-stream `ByteOffset`
+- `field_path`: schema-local path segment objects with `kind` and `name`
+- `expected_count`: the decoded payload length
+- `available_count`: the byte count available after the frame header
+- `nearby_context`: bounded lowercase hex bytes around the reported offset
+
 When the result value is a binary schema reserved-bit mismatch,
 `details.byte_diagnostic` includes:
 

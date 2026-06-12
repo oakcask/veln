@@ -151,6 +151,10 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             vec![byte_view.clone()],
             adt::result_type(http2_frame_header_type(), Type::string()),
         )),
+        "byte_decode_http2_frame" => Some((
+            vec![byte_view.clone()],
+            adt::result_type(http2_frame_type(), Type::string()),
+        )),
         "http2_protocol_closed_with_pending" => Some((
             vec![Type::int(), Type::int(), Type::string()],
             adt::result_type(Type::unit(), Type::string()),
@@ -197,6 +201,16 @@ fn http2_frame_header_type() -> Type {
         ("kind".to_string(), Type::int()),
         ("flags".to_string(), Type::int()),
         ("stream_id".to_string(), Type::int()),
+    ])
+}
+
+fn http2_frame_type() -> Type {
+    Type::Record(vec![
+        ("length".to_string(), Type::int()),
+        ("kind".to_string(), Type::int()),
+        ("flags".to_string(), Type::int()),
+        ("stream_id".to_string(), Type::int()),
+        ("payload".to_string(), Type::named("ByteView", Vec::new())),
     ])
 }
 
@@ -748,6 +762,10 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             vec![byte_view.clone()],
             adt::core_result_type(core_http2_frame_header_type(), CoreType::string()),
         )),
+        "byte_decode_http2_frame" => Some((
+            vec![byte_view.clone()],
+            adt::core_result_type(core_http2_frame_type(), CoreType::string()),
+        )),
         "http2_protocol_closed_with_pending" => Some((
             vec![CoreType::int(), CoreType::int(), CoreType::string()],
             adt::core_result_type(CoreType::unit(), CoreType::string()),
@@ -794,6 +812,19 @@ fn core_http2_frame_header_type() -> CoreType {
         ("kind".to_string(), CoreType::int()),
         ("flags".to_string(), CoreType::int()),
         ("stream_id".to_string(), CoreType::int()),
+    ])
+}
+
+fn core_http2_frame_type() -> CoreType {
+    CoreType::Record(vec![
+        ("length".to_string(), CoreType::int()),
+        ("kind".to_string(), CoreType::int()),
+        ("flags".to_string(), CoreType::int()),
+        ("stream_id".to_string(), CoreType::int()),
+        (
+            "payload".to_string(),
+            CoreType::named("ByteView", Vec::new()),
+        ),
     ])
 }
 

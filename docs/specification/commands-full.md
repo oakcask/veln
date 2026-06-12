@@ -214,6 +214,10 @@ related notes. When a schema fixed-field check returns
 `schema.fixed_field_mismatch`, human mode reports the fixed-field mismatch at
 the decoded byte offset as the primary diagnostic fact and puts expected
 value, actual value, nearby byte context, and field path in related notes.
+When binary schema frame decode returns `schema.length_out_of_bounds`, human
+mode reports the failed payload boundary at the first missing byte offset and
+puts expected payload count, available payload count, nearby byte context, and
+field path in related notes.
 
 With `--json`, `run` captures process stdout and stderr into the run JSON
 record instead of forwarding them separately. Runtime contract failures are

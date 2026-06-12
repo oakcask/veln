@@ -262,6 +262,29 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             }
             diagnostic
         }
+        "schema.length_out_of_bounds" => {
+            let expected_count = json_number(byte_entries, "expected_count")?;
+            let available_count = json_number(byte_entries, "available_count")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("payload length out of bounds at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Payload length expected {expected_count} byte(s); {available_count} byte(s) were available."
+            )));
+            if let Some(context) = json_string(byte_entries, "nearby_context")
+                && !context.is_empty()
+            {
+                diagnostic
+                    .related
+                    .push(note_json(format!("Nearby bytes: {context}.")));
+            }
+            diagnostic
+        }
         "schema.reserved_bits_mismatch" => {
             let bit_width = json_number(byte_entries, "bit_width")?;
             let expected_value = json_number(byte_entries, "expected_value")?;
@@ -829,6 +852,66 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("schema `Http2FrameHeader` / field `stream_reserved`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_payload_length_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.length_out_of_bounds")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(11)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("Http2FrameHeader")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("payload")),
+                    ]),
+                ]),
+            ),
+            ("expected_count", JsonValue::Number(5)),
+            ("available_count", JsonValue::Number(2)),
+            (
+                "nearby_context",
+                JsonValue::string("000005010400000001aabb"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "payload length out of bounds at byte offset 11".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "schema.length_out_of_bounds");
+        assert_eq!(
+            diagnostic.message,
+            "payload length out of bounds at byte offset 11"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("expected 5 byte(s); 2 byte(s) were available")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("schema `Http2FrameHeader` / field `payload`")
         );
     }
 

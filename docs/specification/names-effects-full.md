@@ -363,6 +363,7 @@ byte_view_to_chunk(view: ByteView) -> ByteChunk
 byte_read_u8_be(view: ByteView) -> Result<Int, String>
 byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, field_name: String) -> Result<Int, String>
 byte_decode_http2_frame_header(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int}, String>
+byte_decode_http2_frame(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int, payload: ByteView}, String>
 http2_protocol_closed_with_pending(offset: Int, pending_count: Int, active_continuation: String) -> Result<(), String>
 http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_stream: Int, expected_stream: Int, started_kind: Int, started_offset: Int, active_continuation: String) -> Result<(), String>
 byte_read_u16_be(view: ByteView) -> Result<Int, String>
@@ -482,6 +483,7 @@ The implemented standard symbol table has this current pure-helper split:
   `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`, `byte_take`,
   `byte_drop`, `byte_view`, `byte_view_to_chunk`, `byte_read_u8_be`,
   `byte_expect_fixed_u8_be`, `byte_decode_http2_frame_header`,
+  `byte_decode_http2_frame`,
   `http2_protocol_closed_with_pending`,
   `http2_protocol_continuation_expected`, `byte_read_u16_be`,
   `byte_read_u24_be`, `byte_read_u31_be`, `byte_read_u32_be`,

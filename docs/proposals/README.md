@@ -23,15 +23,15 @@ compare it with `../specification/` before changing behavior.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining binary schema primitive and dispatch behavior beyond the
   implemented source-surface `UInt8`, `UInt24be`, `UInt31be`, and
-  `ReservedBits(width, value)` declaration slices and the frame-header
-  primitive decode slice.
+  `ReservedBits(width, value)` declaration slices, the frame-header primitive
+  decode slice, and the narrow HTTP/2 payload boundary helper.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice and decode function signature boundary.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
-  truncation, and reserved-bit mismatch details.
+  truncation, reserved-bit mismatch, and payload length boundary details.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice.

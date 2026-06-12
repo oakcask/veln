@@ -336,6 +336,16 @@ against the built `veln` binary.
   validation reports `schema.reserved_bits_mismatch` through `run --json`
   with byte offset, field path, bit width, expected value, actual value, and
   nearby bytes.
+- `run/binary-schema-frame-payload-decode/`: HTTP/2 frame decode returns the
+  visible header fields plus a bounded payload `ByteView` selected by the
+  decoded length.
+- `run/binary-schema-frame-payload-length-json/`: a complete HTTP/2 frame
+  header whose decoded length exceeds the available payload bytes reports
+  `schema.length_out_of_bounds` through `run --json` with byte offset, field
+  path, expected and available counts, and nearby bytes.
+- `run/binary-schema-frame-payload-length-human/`: the same payload length
+  boundary failure projects focused human `run` diagnostics with related count,
+  byte context, and field-path notes.
 - `run/codec-decode-step-vocabulary/`: ordinary source constructs and matches
   `DecodeStep<T>`, `DecodeReadiness`, and `DecodeError` values for decoded,
   need-more-input, and invalid-input decoder outcomes.

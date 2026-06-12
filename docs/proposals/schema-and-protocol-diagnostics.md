@@ -21,6 +21,10 @@ specified under `../specification/run-json.md` and
 `../specification/commands.md` and checked by
 `../../examples/specification/run/binary-fixed-field-mismatch-json/` and
 `../../examples/specification/run/binary-fixed-field-mismatch-human/`. The
+implemented frame-header schema truncation, reserved-bit mismatch, and payload
+length boundary slices are specified under `../specification/run-json.md` and
+`../specification/commands.md` and checked by the binary schema frame-header
+and frame-payload cases under `../../examples/specification/run/`. The
 remaining proposal work covers broader schema and codec diagnostics plus
 protocol-state diagnostic projection.
 
@@ -267,11 +271,13 @@ to stable human and JSON diagnostics.
 
 ## Completion Criteria
 
-The implemented first slice covers closed-input `ByteView` read truncation as
-`codec.incomplete_input`. `run --json` examples assert the stable byte
-diagnostic detail fields documented in `../specification/run-json.md`; human
-`run` examples assert the primary missing-byte message and related readiness
-and byte-count notes documented in `../specification/commands.md`.
+The implemented diagnostic slices cover closed-input `ByteView` read
+truncation as `codec.incomplete_input`, fixed-field mismatches, frame-header
+schema truncation, reserved-bit mismatches, and payload length boundary
+failures. `run --json` examples assert the stable byte diagnostic detail
+fields documented in `../specification/run-json.md`; human `run` examples
+assert the focused primary messages and related notes documented in
+`../specification/commands.md`.
 
 The remaining proposal work is complete when:
 

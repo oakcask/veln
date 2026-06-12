@@ -33,6 +33,12 @@ execution reference.
   mapped record. Truncated schema fields report `schema.truncated_field`;
   invalid reserved bits report `schema.reserved_bits_mismatch`. Both carry
   byte offset and schema field path details.
+- The frame decode helper reuses the frame-header validation and adds a
+  bounded `payload: ByteView` over the same bytes. The payload starts after
+  the nine-byte frame header and uses the decoded `length` as its count. If
+  the closed input cannot provide that payload range, the helper returns
+  `schema.length_out_of_bounds` with byte offset, schema field path, expected
+  payload count, available payload count, and nearby byte context.
 - Executable specification cases may keep named binary fixture records in the
   example tree; the harness checks complete lowercase hex output without
   promoting a production fixture API. Named fixture records can also represent
