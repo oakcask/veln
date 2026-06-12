@@ -483,7 +483,10 @@ against the built `veln` binary.
   into stable ids and related context. The case keeps local receive-limit
   provenance separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state and
   range-checks received `SETTINGS_MAX_FRAME_SIZE` before updating that
-  peer-advertised state.
+  peer-advertised state. The case also accepts DATA on an open stream,
+  decrements both connection and stream receive-window credit by payload
+  length, and reports stream-window and connection-window credit exhaustion as
+  `http2.peer_limit.flow_control_window_exceeded`.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation
@@ -499,6 +502,15 @@ against the built `veln` binary.
   failure reports `http2.peer_limit.frame_size_exceeded` through `run --json`
   with byte offset, observed and allowed lengths, frame kind, stream
   reference, and local-configuration receive-limit provenance.
+- `run/http2-protocol-core-flow-control-human/`: a DATA payload that exceeds
+  available stream receive-window credit reports
+  `http2.peer_limit.flow_control_window_exceeded` through human `run` stderr
+  with focused window-credit, active-state, and provenance notes.
+- `run/http2-protocol-core-flow-control-json/`: the same flow-control
+  peer-limit failure reports
+  `http2.peer_limit.flow_control_window_exceeded` through `run --json` with
+  byte offset, observed payload length, allowed window credit, frame kind,
+  stream reference, active state, and rule provenance.
 - `run/http2-protocol-core-settings-value-human/`: a received
   `SETTINGS_MAX_FRAME_SIZE` value below the accepted range reports
   `http2.peer_limit.settings_value_out_of_range` through human `run` stderr

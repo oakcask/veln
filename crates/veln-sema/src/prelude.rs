@@ -213,6 +213,18 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             ],
             adt::result_type(Type::unit(), Type::string()),
         )),
+        "http2_peer_limit_flow_control_window_exceeded" => Some((
+            vec![
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::string(),
+                Type::string(),
+            ],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
         "http2_peer_limit_settings_value_out_of_range" => Some((
             vec![
                 Type::int(),
@@ -888,6 +900,18 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
                 CoreType::int(),
                 CoreType::int(),
                 CoreType::int(),
+                CoreType::string(),
+            ],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
+        )),
+        "http2_peer_limit_flow_control_window_exceeded" => Some((
+            vec![
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::string(),
                 CoreType::string(),
             ],
             adt::core_result_type(CoreType::unit(), CoreType::string()),

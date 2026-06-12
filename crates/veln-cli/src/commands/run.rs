@@ -469,6 +469,33 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             )));
             Some(diagnostic)
         }
+        "http2.peer_limit.flow_control_window_exceeded" => {
+            let observed_length = json_number(protocol_entries, "observed_payload_length")?;
+            let allowed_credit = json_number(protocol_entries, "allowed_window_credit")?;
+            let frame_kind = json_number(protocol_entries, "frame_kind")?;
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("flow-control window exceeded at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Frame kind {frame_kind} on {stream_ref} {stream_id} declared {observed_length} byte(s); available receive window credit is {allowed_credit} byte(s)."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {provenance}.")));
+            Some(diagnostic)
+        }
         "http2.peer_limit.settings_value_out_of_range" => {
             let setting_identifier = json_number(protocol_entries, "setting_identifier")?;
             let setting_name = json_string(protocol_entries, "setting_name")?;
@@ -1278,6 +1305,69 @@ mod tests {
                 .contains("active receive maximum is 16384 byte(s)")
         );
         assert!(diagnostic.related[1].to_json().contains("protocol_default"));
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_flow_control_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.peer_limit.flow_control_window_exceeded"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("observed_payload_length", JsonValue::Number(4)),
+            ("allowed_window_credit", JsonValue::Number(3)),
+            ("frame_kind", JsonValue::Number(0)),
+            ("stream_id", JsonValue::Number(1)),
+            ("stream_ref", JsonValue::string("stream")),
+            ("active_state", JsonValue::string("open-stream")),
+            (
+                "rule_provenance",
+                JsonValue::string("stream_receive_window"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 flow-control window exceeded at byte offset 0".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.id,
+            "http2.peer_limit.flow_control_window_exceeded"
+        );
+        assert_eq!(
+            diagnostic.message,
+            "flow-control window exceeded at byte offset 0"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("declared 4 byte(s)")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("available receive window credit is 3 byte(s)")
+        );
+        assert!(diagnostic.related[1].to_json().contains("open-stream"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("stream_receive_window")
+        );
     }
 
     #[test]

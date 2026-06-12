@@ -217,6 +217,34 @@
         );
     }
 
+    private static void registerHttp2PeerLimitFlowControlWindowExceededDiagnostic(
+        String message,
+        long byteOffset,
+        long observedLength,
+        long allowedWindowCredit,
+        long frameKind,
+        long streamId,
+        String activeState,
+        String ruleProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.peer_limit.flow_control_window_exceeded",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("observed_payload_length", observedLength),
+                    DiagnosticDetail.number("allowed_window_credit", allowedWindowCredit),
+                    DiagnosticDetail.number("frame_kind", frameKind),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2PeerLimitSettingsValueOutOfRangeDiagnostic(
         String message,
         long byteOffset,

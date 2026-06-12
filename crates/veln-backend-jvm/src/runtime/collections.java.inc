@@ -1309,6 +1309,37 @@
         return err(message);
     }
 
+    public static Object http2PeerLimitFlowControlWindowExceeded(
+        Object offset,
+        Object observedLength,
+        Object allowedWindowCredit,
+        Object frameKind,
+        Object streamId,
+        Object activeState,
+        Object ruleProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long observed = asLong(observedLength);
+        long allowed = asLong(allowedWindowCredit);
+        long kind = asLong(frameKind);
+        long stream = asLong(streamId);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 flow-control window exceeded at byte offset "
+            + byteOffset;
+        registerHttp2PeerLimitFlowControlWindowExceededDiagnostic(
+            message,
+            byteOffset,
+            observed,
+            allowed,
+            kind,
+            stream,
+            state,
+            provenance
+        );
+        return err(message);
+    }
+
     public static Object http2PeerLimitSettingsValueOutOfRange(
         Object offset,
         Object settingIdentifier,

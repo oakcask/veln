@@ -3863,6 +3863,43 @@ mod tests {
     }
 
     #[test]
+    fn flow_control_protocol_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f3220666c6f772d636f6e74726f6c2077696e646f772065786365656465642061742062797465206f66667365742030",
+            "\tprotocol_diagnostic\thttp2.peer_limit.flow_control_window_exceeded\t0",
+            "\t7\tobserved_payload_length\tnumber\t4",
+            "\tallowed_window_credit\tnumber\t3",
+            "\tframe_kind\tnumber\t0",
+            "\tstream_id\tnumber\t1",
+            "\tstream_ref\tstring\t73747265616d",
+            "\tactive_state\tstring\t6f70656e2d73747265616d",
+            "\trule_provenance\tstring\t73747265616d5f726563656976655f77696e646f77\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 flow-control window exceeded at byte offset 0\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.peer_limit.flow_control_window_exceeded\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":0},",
+                "\"observed_payload_length\":4,",
+                "\"allowed_window_credit\":3,",
+                "\"frame_kind\":0,",
+                "\"stream_id\":1,",
+                "\"stream_ref\":\"stream\",",
+                "\"active_state\":\"open-stream\",",
+                "\"rule_provenance\":\"stream_receive_window\"}}"
+            )
+        );
+    }
+
+    #[test]
     fn invalid_frame_kind_protocol_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",
