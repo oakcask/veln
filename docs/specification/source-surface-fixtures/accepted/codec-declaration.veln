@@ -1,3 +1,5 @@
+use app::wire
+
 schema Header
   format binary
 
@@ -11,4 +13,8 @@ end
 pub codec HeaderRoundTrip for Header decode encode
   decode with decode_header
   derive encode
+end
+
+codec ImportedHeaderDecode for app::wire::Header decode
+  derive decode
 end

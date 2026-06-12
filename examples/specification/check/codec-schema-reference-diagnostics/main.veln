@@ -1,4 +1,5 @@
 use app::wire
+use facade
 
 codec PrivateDecode for app::wire::PrivatePacket decode
 	derive decode
@@ -25,6 +26,10 @@ codec BareImportedName for PublicPacket decode
 end
 
 codec MissingUsePath for other::PublicPacket decode
+	derive decode
+end
+
+codec FacadeReexportDecode for facade::PublicPacket decode
 	derive decode
 end
 

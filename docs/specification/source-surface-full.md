@@ -29,7 +29,7 @@ SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | ReservedBitsPrimitive
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 SchemaFieldWhere ::= "where" ContractPredicate
-CodecDecl     ::= "pub"? "codec" Name "for" Name CodecDirections NL
+CodecDecl     ::= "pub"? "codec" Name "for" MemberPath CodecDirections NL
                   CodecImplementation* "end" NL?
 CodecDirections ::= CodecDirection+
 CodecDirection ::= "decode" | "encode"
@@ -107,15 +107,15 @@ value bindings, ordinary source ADT types, constructors, or general executable
 decode or encode functions.
 
 Codec declarations are top-level source module items. `codec Name for
-SchemaName decode`, `codec Name for SchemaName encode`, and `codec Name for
-SchemaName decode encode` are accepted, with optional leading `pub` for public
-module ownership. The direction list must be non-empty and cannot repeat
-`decode` or `encode`; other direction words are rejected. A codec body contains
-one implementation clause for each listed direction: `derive decode`,
-`derive encode`, `decode with function_name`, or
+SchemaName decode`, `codec Name for imported::SchemaName encode`, and
+`codec Name for SchemaName decode encode` are accepted, with optional leading
+`pub` for public module ownership. The direction list must be non-empty and
+cannot repeat `decode` or `encode`; other direction words are rejected. A codec
+body contains one implementation clause for each listed direction:
+`derive decode`, `derive encode`, `decode with function_name`, or
 `encode with function_name`. A missing clause, a clause for an unlisted
 direction, or a duplicate clause is a parse diagnostic. The parser and AST
-preserve the codec name, referenced schema name, directions, visibility, and
+preserve the codec name, referenced schema path, directions, visibility, and
 body clauses for formatting, editor support, source metadata, and checker
 boundaries.
 

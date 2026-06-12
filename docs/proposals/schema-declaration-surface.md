@@ -139,10 +139,9 @@ import schema-local field names as ordinary bindings, expose a generated record
 type, or make any decoder or encoder available. Executable APIs remain owned
 by public codec declarations that explicitly cite the schema.
 
-The first surface should not add schema member aliases. Facade modules can
-publish selected executable codecs, and a later alias proposal can add schema
-aliases with explicit wrong-kind diagnostics if real packages need that API
-shape.
+The implemented surface does not add schema member aliases. Facade modules can
+publish selected executable codecs. Schema aliases remain later proposal work
+with explicit wrong-kind diagnostics if real packages need that API shape.
 
 ## Discussion Result: Field Validation Semantics
 
@@ -233,6 +232,11 @@ Implemented:
 - Examples show schema declarations as boundary contracts, not ordinary types.
 - Parser diagnostics distinguish malformed schema syntax from ordinary type and
   value use.
+- Codec declaration heads resolve schemas through schema-aware lookup,
+  including same-module references, imported public schemas through written
+  `use` paths and import aliases, private imported schema diagnostics,
+  wrong-kind diagnostics, missing schema diagnostics, and non-reexport
+  boundaries.
 
 Remaining:
 
