@@ -236,8 +236,10 @@ execution reference.
   and graceful shutdown state. It validates the
   client connection preface before frame-header decode and represents partial
   or mismatched prefaces, closed-input truncation, continuation ordering
-  failures, completed HEADERS and CONTINUATION header-block output, incoming
-  frame payloads that exceed the active receive maximum frame size, received
+  failures for different frame kinds and stream ids, closed input while a
+  header block remains pending, completed HEADERS and CONTINUATION
+  header-block output, incoming frame payloads that exceed the active receive
+  maximum frame size, received
   `SETTINGS_MAX_FRAME_SIZE` and `SETTINGS_INITIAL_WINDOW_SIZE` values outside
   their accepted SETTINGS ranges, stream id domain failures, invalid
   stream-state frame kinds, wrong-length PING and GOAWAY payloads, accepted
