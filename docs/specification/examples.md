@@ -322,10 +322,11 @@ bytes, continuation state after a non-final CONTINUATION appending those bytes,
 completion after a final CONTINUATION with combined header-block hex/count
 output, single-frame HEADERS completion when END_HEADERS is set alongside
 another flag, one continuation ordering failure, an accepted unknown extension
-frame that preserves flags, stream id, and bounded payload bytes in an
-ordinary `UnknownFrame` value, an unknown frame rejected by active continuation
-state, and an incoming frame whose payload length exceeds the active receive
-maximum frame size, plus stream id domain failures for zero, even, and
+frame after the client preface gate that preserves flags, stream id, and
+bounded payload bytes in an ordinary `UnknownFrame` value, an unknown frame
+rejected by active continuation state, and an incoming frame whose payload
+length exceeds the active receive maximum frame size, plus stream id domain
+failures for zero, even, and
 connection-only stream ids and a DATA frame kind rejected for idle-stream
 state. It also pins PING frames with and without ACK, wrong-length PING
 failures, a GOAWAY frame that moves the connection into graceful shutdown with

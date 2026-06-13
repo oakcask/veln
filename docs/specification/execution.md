@@ -251,12 +251,13 @@ execution reference.
   DATA payload length from connection and stream windows, accepts
   connection-level and open-stream `WINDOW_UPDATE` increments, and keeps
   wrong-length, idle-stream, zero, concurrent-stream-limit, and overflow cases
-  as typed protocol failures. Structurally complete unknown extension frame
-  types decode to ordinary `UnknownFrame` values that preserve frame type,
-  flags, stream id, payload length, and each bounded payload byte; an active
-  continuation sequence still rejects an unknown frame through the existing
-  continuation protocol-state failure before projecting stable diagnostic ids
-  and related context into fixture output, human runtime diagnostics, and
+  as typed protocol failures. After the client preface gate, structurally
+  complete unknown extension frame types decode to ordinary `UnknownFrame`
+  values that preserve frame type, flags, stream id, payload length, and each
+  bounded payload byte; an active continuation sequence still rejects an
+  unknown frame through the existing continuation protocol-state failure before
+  projecting stable diagnostic ids and related context into fixture output,
+  human runtime diagnostics, and
   `run --json`
   `protocol_diagnostic` details.
 - The same HTTP/2 protocol-core example also covers the narrow outbound frame

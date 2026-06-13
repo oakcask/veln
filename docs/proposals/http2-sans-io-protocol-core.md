@@ -244,11 +244,11 @@ out-of-range values as
 `http2.peer_limit.settings_value_out_of_range` with setting identity, observed
 value, accepted range, item byte offset, and peer-limit provenance in
 executable output, human diagnostics, and JSON details.
-It also accepts a structurally complete unknown extension frame as an ordinary
-`UnknownFrame` value preserving frame type, flags, stream id, and bounded
-payload bytes, and keeps active continuation ownership by rejecting an unknown
-frame with the existing continuation protocol-state failure when CONTINUATION
-is required next.
+It also accepts structurally complete unknown extension frames after the
+client preface gate as ordinary `UnknownFrame` values preserving frame type,
+flags, stream id, and bounded payload bytes, and keeps active continuation
+ownership by rejecting an unknown frame with the existing continuation
+protocol-state failure when CONTINUATION is required next.
 It validates the stream id domain for received frame headers after structural
 decode and before frame-specific state updates. In the server-side fixture
 core, SETTINGS, PING, and GOAWAY require stream id zero, while HEADERS, DATA,

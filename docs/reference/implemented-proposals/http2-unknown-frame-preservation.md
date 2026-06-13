@@ -12,10 +12,10 @@ checked executable case
 
 The ordinary-source protocol core decodes a structurally complete unknown
 HTTP/2 frame type into `UnknownFrame(kind, flags, stream_id, payload)` after
-the frame header and payload length are structurally valid. The payload is a
-bounded `ByteView` over exactly the decoded payload bytes, so the ordinary
-value preserves frame type, flags, stream id, payload length, and payload byte
-contents.
+the client preface gate and after the frame header and payload length are
+structurally valid. The payload is a bounded `ByteView` over exactly the
+decoded payload bytes, so the ordinary value preserves frame type, flags,
+stream id, payload length, and payload byte contents.
 
 Unknown HTTP/2 frame types do not report `schema.dispatch_unknown_tag`; closed
 binary schema dispatch behavior remains unchanged for schema declarations that
@@ -27,6 +27,7 @@ failure shape.
 ## Evidence
 
 - `../../../examples/specification/run/http2-protocol-core/` includes an
+  accepted unknown frame after the client preface gate, a direct frame-state
   accepted unknown frame that preserves payload bytes `170`, `187`, and `204`,
   and an unknown frame rejected while continuation state is active.
 - `../../specification/execution.md` routes the HTTP/2 protocol-core behavior
