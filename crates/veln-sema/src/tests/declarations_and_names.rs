@@ -1218,6 +1218,185 @@ fn codec_encode_with_reports_mapped_value_parameter_mismatch_at_clause() {
 }
 
 #[test]
+fn codec_derive_decode_reports_mapping_value_type_that_generated_decode_cannot_expose() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Packet\n",
+            "  Packet {body: {code: Int}}\n",
+            "end\n",
+            "\n",
+            "schema PayloadWire\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => PayloadWire)\n",
+            "\n",
+            "  map to Packet\n",
+            "    body = payload\n",
+            "end\n",
+            "\n",
+            "codec PacketCodec for PacketWire decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "codec.decode_value_type");
+    assert_eq!(
+        diagnostic.message,
+        "derived decode value type is `{kind: Int, payload: {code: Int}}`, but schema mapping value type is `{body: {code: Int}}`"
+    );
+    assert!(
+        diagnostic
+            .span
+            .as_ref()
+            .is_some_and(|span| span.start.line == 20)
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"reason\":\"generated_decode_value_type\"")
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"expected_value_type\":\"{body: {code: Int}}\"")
+    );
+    assert!(diagnostic.related.is_empty());
+}
+
+#[test]
+fn codec_derive_encode_reports_mapping_value_type_that_generated_encode_cannot_accept() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {length: Int, kind: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "  wire_length: UInt16be\n",
+            "  wire_kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    length = wire_length\n",
+            "    kind = wire_kind\n",
+            "end\n",
+            "\n",
+            "codec HeaderCodec for HeaderWire encode\n",
+            "  derive encode\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "codec.encode_value_type");
+    assert_eq!(
+        diagnostic.message,
+        "derived encode value parameter must match schema mapping value type"
+    );
+    assert!(
+        diagnostic
+            .span
+            .as_ref()
+            .is_some_and(|span| span.start.line == 16)
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"reason\":\"generated_encode_value_type\"")
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"expected_value_type\":\"{length: Int, kind: Int}\"")
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"actual_value_type\":\"{wire_length: Int, wire_kind: Int}\"")
+    );
+    assert!(diagnostic.related.is_empty());
+}
+
+#[test]
+fn codec_derive_encode_reports_nested_mapping_value_type_that_generated_encode_cannot_accept() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Packet\n",
+            "  Packet {body: {code: Int}}\n",
+            "end\n",
+            "\n",
+            "schema PayloadWire\n",
+            "  format binary\n",
+            "  code: UInt8\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => PayloadWire)\n",
+            "\n",
+            "  map to Packet\n",
+            "    body = payload\n",
+            "end\n",
+            "\n",
+            "codec PacketCodec for PacketWire encode\n",
+            "  derive encode\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
+    let diagnostic = &diagnostics[0];
+    assert_eq!(diagnostic.id, "codec.encode_value_type");
+    assert_eq!(
+        diagnostic.message,
+        "derived encode value parameter must match schema mapping value type"
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"expected_value_type\":\"{body: {code: Int}}\"")
+    );
+    assert!(
+        diagnostic
+            .details
+            .to_json()
+            .contains("\"actual_value_type\":\"{kind: Int, payload: {code: Int}}\"")
+    );
+    assert!(diagnostic.related.is_empty());
+}
+
+#[test]
 fn codec_with_skips_mapped_value_boundary_outside_implemented_schema_slice() {
     let source = SourceFile::new(
         "main.veln",

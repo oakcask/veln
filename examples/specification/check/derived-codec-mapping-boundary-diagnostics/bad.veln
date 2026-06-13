@@ -1,0 +1,42 @@
+type Packet
+	Packet {body: {code: Int}}
+end
+
+schema PayloadWire
+	format binary
+
+	code: UInt8
+end
+
+schema PacketWire
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => PayloadWire)
+
+	map to Packet
+		body = payload
+end
+
+codec PacketCodec for PacketWire decode
+	derive decode
+end
+
+type Header
+	Header {length: Int, kind: Int}
+end
+
+schema HeaderWire
+	format binary
+
+	wire_length: UInt16be
+	wire_kind: UInt8
+
+	map to Header
+		length = wire_length
+		kind = wire_kind
+end
+
+codec HeaderCodec for HeaderWire encode
+	derive encode
+end

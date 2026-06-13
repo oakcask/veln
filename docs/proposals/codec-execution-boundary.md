@@ -158,11 +158,14 @@ unchanged. A declaration that lists both directions may share schema-derived
 checks and mapping facts, but each direction still has its own result shape
 and diagnostics.
 
-Remaining checker work should reject directions that the named schema cannot
-support. For example, encoding is unavailable when schema mapping is not total
-or when a field can be decoded but cannot be reconstructed from the mapped
-value without an explicit encoder body. Importing or exporting the codec
-declaration must not silently add directions that are missing from its head.
+The checker rejects mapped `derive decode` and `derive encode` clauses when
+the generated direction cannot expose or accept the schema mapping target value
+type. Remaining checker work should reject other directions that the named
+schema cannot support. For example, encoding is unavailable when schema
+mapping is not total or when a field can be decoded but cannot be
+reconstructed from the mapped value without an explicit encoder body.
+Importing or exporting the codec declaration must not silently add directions
+that are missing from its head.
 
 ## Discussion Result: Codec Body Form
 
@@ -212,11 +215,11 @@ slices.
 
 The implemented parser rejects a missing implementation clause for a listed
 direction, a body clause for a direction absent from the declaration head, and
-duplicate implementation clauses. Remaining checker work should reject a
-derived function whose decoded or encoded value type does not match the schema
-mapping. Keeping hand-written logic in ordinary functions avoids nested
-function syntax inside `codec` while still giving modules one named codec item
-for imports, exports, fixtures, and diagnostics.
+duplicate implementation clauses. The checker rejects a derived function whose
+decoded or encoded value type does not match the schema mapping. Keeping
+hand-written logic in ordinary functions avoids nested function syntax inside
+`codec` while still giving modules one named codec item for imports, exports,
+fixtures, and diagnostics.
 
 ## Discussion Result: Codec Names And Imports
 

@@ -136,8 +136,11 @@ the codec is `pub`. That call takes the same `ByteView` and `ByteOffset`
 arguments and returns the referenced function's `DecodeStep<T>` unchanged.
 `derive decode` codecs are callable through the same visibility and import
 rules when their schema is eligible for `byte_decode_step_<schema>`, and the
-call returns that generated helper's `DecodeStep<T>` result. Bare imported
-codec names are not ordinary call targets.
+call returns that generated helper's `DecodeStep<T>` result. When a schema
+mapping is valid but the generated decode helper cannot expose that mapping
+target as its value type, the `derive decode` clause reports
+`codec.decode_value_type`. Bare imported codec names are not ordinary call
+targets.
 
 An `encode with function_name` clause must resolve to an ordinary function in
 the codec's module with an `EncodeStep<TState>` return type. When the
@@ -159,6 +162,8 @@ their `byte_decode_step_<schema>` incremental decode-step counterparts,
 derived decode codec calls over that decode-step slice, and derived encode
 codec calls over that encode helper slice are covered by
 [execution.md](execution.md).
+When a mapped schema cannot expose the mapping target through a generated
+encode boundary, the `derive encode` clause reports `codec.encode_value_type`.
 
 ## Expressions
 

@@ -109,6 +109,10 @@ derived codec decode boundary for the same eligible generated binary schema
 decode-step slice: a codec item call observes the generated helper's
 `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the codec
 item name while preserving mapped record fields and no-consumption outcomes.
+The executable specification case
+`../../examples/specification/check/derived-codec-mapping-boundary-diagnostics/`
+covers mapped derived decode and encode clauses whose generated helper
+boundary cannot expose or accept the schema mapping target value type.
 
 ## Codec Encode Step Vocabulary
 
@@ -132,6 +136,8 @@ derived codec encode boundary for the eligible generated binary schema encode
 helper slice: a codec item call observes successful helper output as
 `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated helper
 failures as `Invalid(EncodeError)`.
+The derived mapping-boundary diagnostics case listed above pins the matching
+`codec.encode_value_type` rejection for generated encode boundaries.
 
 ## Binary Schema Frame Header
 
