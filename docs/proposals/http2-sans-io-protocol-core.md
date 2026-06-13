@@ -19,9 +19,10 @@ ordinary Veln values.
 Define the remaining HTTP/2 core behavior beyond the implemented
 ordinary-source decode-state slices. Planned coverage still includes:
 
-- remaining SETTINGS values and settings interactions beyond the implemented
-  enable-push, maximum-frame-size, maximum-concurrent-streams, and
-  initial-window-size peer-advertised state and SETTINGS ACK receive handling
+- remaining settings interactions beyond the implemented enable-push,
+  maximum-frame-size, maximum-concurrent-streams, initial-window-size,
+  header-table-size, and maximum-header-list-size peer-advertised state and
+  SETTINGS ACK receive handling
 - remaining DATA behavior beyond the implemented receive-window accounting
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
@@ -202,7 +203,8 @@ payload is structurally decoded and each value passes protocol range checks.
 Invalid SETTINGS values use `http2.peer_limit.settings_value_out_of_range` at
 the offending setting item. Received peer-advertised SETTINGS such as
 SETTINGS_ENABLE_PUSH, SETTINGS_MAX_FRAME_SIZE,
-SETTINGS_MAX_CONCURRENT_STREAMS, and SETTINGS_INITIAL_WINDOW_SIZE must not be
+SETTINGS_MAX_CONCURRENT_STREAMS, SETTINGS_INITIAL_WINDOW_SIZE,
+SETTINGS_HEADER_TABLE_SIZE, and SETTINGS_MAX_HEADER_LIST_SIZE must not be
 cited as the reason an incoming frame from that same peer violates this
 endpoint's inbound limits, because they describe the peer's receive capacity
 for frames this endpoint may send.
@@ -242,7 +244,8 @@ peer-advertised SETTINGS state. The checked example keeps protocol-default,
 local-configuration, and local-SETTINGS receive-limit provenance visible in
 frame-size failures, stores received `SETTINGS_ENABLE_PUSH`,
 `SETTINGS_MAX_FRAME_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`, and
-`SETTINGS_INITIAL_WINDOW_SIZE` values as peer-advertised state, and confirms
+`SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_HEADER_TABLE_SIZE`, and
+`SETTINGS_MAX_HEADER_LIST_SIZE` values as peer-advertised state, and confirms
 that those peer-advertised values are not used as inbound limits for later
 incoming frame-size, concurrent-stream receive-limit, or DATA receive-window
 checks. It range-checks received values for constrained settings before

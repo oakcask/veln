@@ -67,8 +67,8 @@ compare it with `../specification/` before changing behavior.
   ordinary-source decode-state fixture slice, client connection preface
   validation slice, frame-size peer-limit diagnostic slice with receive-limit
   provenance, peer-received SETTINGS state for enable push, maximum frame size,
-  maximum concurrent streams, and initial window size, SETTINGS value range
-  diagnostic slice, SETTINGS ACK
+  maximum concurrent streams, initial window size, header table size, and
+  maximum header list size, SETTINGS value range diagnostic slice, SETTINGS ACK
   receive slice, invalid frame-kind diagnostic slice, HEADERS/CONTINUATION opaque
   header-block preservation slice, unknown extension-frame preservation slice,
   PING/GOAWAY receive slice, DATA and `WINDOW_UPDATE` receive flow-control

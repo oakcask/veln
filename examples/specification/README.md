@@ -594,8 +594,10 @@ against the built `veln` binary.
   keeps the local concurrent-stream receive limit separate from
   peer-advertised `SETTINGS_MAX_CONCURRENT_STREAMS` state, keeps inbound
   receive-window credit separate from peer-advertised
-  `SETTINGS_INITIAL_WINDOW_SIZE` state, and range-checks constrained settings
-  before updating peer-advertised state. It also
+  `SETTINGS_INITIAL_WINDOW_SIZE` state, stores peer-advertised
+  `SETTINGS_HEADER_TABLE_SIZE` and `SETTINGS_MAX_HEADER_LIST_SIZE` state with
+  item byte offsets, and range-checks constrained settings before updating
+  peer-advertised state. It also
   accepts a structurally complete
   unknown extension frame as an ordinary value preserving frame type, flags,
   stream id, and bounded payload bytes, with the preserved payload bytes also

@@ -164,7 +164,8 @@ peer-limit slice uses id
 provenance names the active receive-limit entry used for the failed inbound
 frame-size check, such as protocol default, local configuration, or local
 SETTINGS. Peer-received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`,
-`SETTINGS_MAX_CONCURRENT_STREAMS`, and `SETTINGS_INITIAL_WINDOW_SIZE` values
+`SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_INITIAL_WINDOW_SIZE`,
+`SETTINGS_HEADER_TABLE_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE` values
 belong to peer-advertised state for outbound decisions and are not reported as
 the receive-limit provenance for later inbound frame-size, concurrent-stream,
 or DATA receive-window failures. Received
