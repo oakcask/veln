@@ -531,10 +531,10 @@ against the built `veln` binary.
   failure while projecting typed
   protocol failures, including partial and mismatched preface failures, an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
-  failure, invalid connection-state and stream-state frame kinds, wrong-length
-  PING and GOAWAY payloads, stream-targeted PING and GOAWAY frames, valid PING
-  ACK distinction, and valid GOAWAY graceful shutdown facts, into stable ids
-  and related context. The case keeps local receive-limit
+  failure, stream id domain failures, invalid stream-state frame kinds,
+  wrong-length PING and GOAWAY payloads, valid PING ACK distinction, and valid
+  GOAWAY graceful shutdown facts, into stable ids and related context. The
+  case keeps local receive-limit
   provenance separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state,
   keeps inbound receive-window credit separate from peer-advertised
   `SETTINGS_INITIAL_WINDOW_SIZE` state, and range-checks both settings before
@@ -611,6 +611,14 @@ against the built `veln` binary.
   `http2.peer_limit.settings_value_out_of_range` through `run --json` with
   structured setting identity, observed value, accepted range, and
   peer-limit provenance fields.
+- `run/http2-protocol-core-invalid-stream-id-human/`: a stream frame on
+  connection stream id zero reports `http2.protocol.invalid_stream_id` through
+  human `run` stderr with focused stream id domain, endpoint role, state, and
+  provenance notes.
+- `run/http2-protocol-core-invalid-stream-id-json/`: an even client stream id
+  reports `http2.protocol.invalid_stream_id` through `run --json` with byte
+  offset, frame kind, stream reference, required stream id domain, endpoint
+  role, active state, and rule provenance.
 - `run/http2-protocol-core-invalid-frame-kind-human/`: a DATA frame kind on
   the connection stream reports `http2.protocol.invalid_frame_kind` through
   human `run` stderr with a focused primary message and related frame-kind,

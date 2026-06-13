@@ -48,8 +48,9 @@ compare it with `../specification/` before changing behavior.
   truncation, reserved-bit mismatch, payload length boundary, field-local
   schema validation details, structured schema byte previews, and the HTTP/2
   client connection preface failures, frame-size and flow-control peer-limits,
-  SETTINGS value range peer-limit, invalid connection-state and stream-state
-  frame-kind failures, and fixed payload-length protocol projections.
+  SETTINGS value range peer-limit, stream id domain failures, invalid
+  connection-state and stream-state frame-kind failures, and fixed
+  payload-length protocol projections.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, client connection preface
@@ -59,8 +60,8 @@ compare it with `../specification/` before changing behavior.
   diagnostic slice, HEADERS/CONTINUATION opaque header-block preservation
   slice, unknown extension-frame preservation slice, PING/GOAWAY receive
   slice, DATA and `WINDOW_UPDATE` receive flow-control slices, peer-created
-  stream admission with concurrent-stream receive-limit diagnostics, and
-  outbound frame-header encode slice.
+  stream admission with concurrent-stream receive-limit diagnostics, stream id
+  domain diagnostic slice, and outbound frame-header encode slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, socket, stream-routing, deadline,
   cancellation, channel, and task behavior beyond the implemented

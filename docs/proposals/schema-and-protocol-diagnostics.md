@@ -32,7 +32,10 @@ implemented HTTP/2 protocol-state projections use
 client connection preface failures,
 `http2.peer_limit.frame_size_exceeded` for frame-size peer-limit failures and
 `http2.protocol.invalid_frame_kind` for invalid connection-state and
-stream-state frame kinds. The fixed payload-length projection uses
+stream-state frame kinds. Stream id domain failures use
+`http2.protocol.invalid_stream_id` with frame kind, stream id, required stream
+id domain, endpoint role, active state, and rule provenance. The fixed
+payload-length projection uses
 `http2.protocol.invalid_payload_length` for PING and GOAWAY payload-length
 failures. These protocol projections are checked by the HTTP/2 protocol-core
 cases under `../../examples/specification/run/`. The remaining proposal work
@@ -288,7 +291,8 @@ schema truncation, reserved-bit mismatches, and payload length boundary
 failures, plus HTTP/2 protocol-state projections for frame-size peer-limit,
 SETTINGS value range peer-limit, DATA receive flow-control peer-limit, client
 connection preface failures, and invalid connection-state and stream-state
-frame-kind failures, plus fixed payload-length failures for PING and GOAWAY.
+frame-kind failures, stream id domain failures, plus fixed payload-length
+failures for PING and GOAWAY.
 `run --json` examples assert the stable byte and protocol diagnostic detail
 fields documented in `../specification/run-json.md`; human `run` examples
 assert the focused primary messages and related notes documented in
@@ -296,9 +300,9 @@ assert the focused primary messages and related notes documented in
 
 The implemented protocol-state diagnostic projection slice covers:
 
-- Protocol-state examples that cover invalid frame kind for a connection or
-  stream state, including the idle-stream rule that expects HEADERS before
-  DATA.
+- Protocol-state examples that cover invalid stream id domains and invalid
+  frame kind for a connection or stream state, including the idle-stream rule
+  that expects HEADERS before DATA.
 - Schema and protocol diagnostics that keep the primary message focused on the
   failed fact at the reported span or byte position.
 - Related notes that carry provenance, settings, limits, and state-transition

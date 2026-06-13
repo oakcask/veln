@@ -208,6 +208,34 @@
         );
     }
 
+    private static void registerHttp2ProtocolInvalidStreamIdDiagnostic(
+        String message,
+        long byteOffset,
+        long frameKind,
+        long streamId,
+        String requiredDomain,
+        String endpointRole,
+        String activeState,
+        String ruleProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.invalid_stream_id",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("frame_kind", frameKind),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.string("required_stream_id_domain", requiredDomain),
+                    DiagnosticDetail.string("endpoint_role", endpointRole),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2ProtocolInvalidPayloadLengthDiagnostic(
         String message,
         long byteOffset,

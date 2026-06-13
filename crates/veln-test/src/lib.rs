@@ -4038,6 +4038,43 @@ mod tests {
     }
 
     #[test]
+    fn invalid_stream_id_protocol_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f3220696e76616c69642073747265616d2069642061742062797465206f66667365742030",
+            "\tprotocol_diagnostic\thttp2.protocol.invalid_stream_id\t0",
+            "\t7\tframe_kind\tnumber\t1",
+            "\tstream_id\tnumber\t2",
+            "\tstream_ref\tstring\t73747265616d",
+            "\trequired_stream_id_domain\tstring\t6e6f6e7a65726f20636c69656e742d696e697469617465642073747265616d206964",
+            "\tendpoint_role\tstring\t736572766572",
+            "\tactive_state\tstring\t73747265616d2d69642d646f6d61696e",
+            "\trule_provenance\tstring\t7365727665725f72656365697665735f636c69656e745f696e697469617465645f73747265616d73\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 invalid stream id at byte offset 0\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.protocol.invalid_stream_id\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":0},",
+                "\"frame_kind\":1,",
+                "\"stream_id\":2,",
+                "\"stream_ref\":\"stream\",",
+                "\"required_stream_id_domain\":\"nonzero client-initiated stream id\",",
+                "\"endpoint_role\":\"server\",",
+                "\"active_state\":\"stream-id-domain\",",
+                "\"rule_provenance\":\"server_receives_client_initiated_streams\"}}"
+            )
+        );
+    }
+
+    #[test]
     fn stream_invalid_frame_kind_protocol_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",

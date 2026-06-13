@@ -151,6 +151,10 @@ pub fn http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_i
 	prelude_builtin::http2_protocol_invalid_frame_kind(offset, actual_kind, stream_id, expected_kind, active_state, rule_provenance)
 end
 
+pub fn http2_protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String) -> Result<(), String>
+	prelude_builtin::http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance)
+end
+
 pub fn http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String) -> Result<(), String>
 	prelude_builtin::http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance)
 end

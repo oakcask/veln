@@ -40,8 +40,8 @@ requiring the full command reference on the first read.
   mismatch, field-local validation failure, closed-dispatch unknown tag
   failures, payload length boundary failures, HTTP/2 protocol-core failures
   including partial and invalid client connection prefaces, frame-size and
-  flow-control peer-limits, SETTINGS value range peer-limit, invalid
-  connection-state and stream-state frame-kind failures, and
+  flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
+  failures, invalid connection-state and stream-state frame-kind failures, and
   run JSON. Use
   [run-json.md](run-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact

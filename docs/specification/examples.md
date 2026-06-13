@@ -307,7 +307,6 @@ preface is consumed.
 The case pins a valid preface followed by a SETTINGS frame, partial preface
 input that waits for more bytes, end-of-stream with a partial preface, a
 mismatched preface byte, valid frame arrival after the preface gate,
-incomplete frame input that waits for more bytes, closed input with pending
 frame bytes, continuation state after HEADERS retaining opaque header-block
 bytes, continuation state after a non-final CONTINUATION appending those bytes,
 completion after a final CONTINUATION with combined header-block hex/count
@@ -316,11 +315,11 @@ another flag, one continuation ordering failure, an accepted unknown extension
 frame that preserves flags, stream id, and bounded payload bytes in an
 ordinary `UnknownFrame` value, an unknown frame rejected by active continuation
 state, and an incoming frame whose payload length exceeds the active receive
-maximum frame size, plus a DATA frame kind rejected for connection-control
-state and idle-stream state. It also pins PING frames
-with and without ACK, wrong-length and stream-targeted PING failures, a GOAWAY
-frame that moves the connection into graceful shutdown with last-stream-id and
-error-code facts, and wrong-length and stream-targeted GOAWAY failures.
+maximum frame size, plus stream id domain failures for zero, even, and
+connection-only stream ids and a DATA frame kind rejected for idle-stream
+state. It also pins PING frames with and without ACK, wrong-length PING
+failures, a GOAWAY frame that moves the connection into graceful shutdown with
+last-stream-id and error-code facts, and wrong-length GOAWAY failures.
 Pending continuation state records the owning stream, starting frame kind,
 starting byte offset, and accumulated opaque header-block bytes.
 Receive-limit state records the active maximum frame size with
@@ -350,8 +349,8 @@ into stable diagnostic ids and related context fields for byte offset,
 observed and allowed lengths, actual and expected frame kind, stream reference,
 active continuation, connection state, or stream state, setting identity, accepted
 SETTINGS range, receive-limit provenance, peer-limit provenance, payload length
-expectations, matched preface prefix count, expected and actual preface byte,
-and rule provenance.
+expectations, required stream id domain, endpoint role, matched preface prefix
+count, expected and actual preface byte, and rule provenance.
 The same case also pins outbound frame header encoding from an ordinary
 record-shaped frame description through the generated binary schema encode
 helper. The checked `[[output_chunk_list]]` fixtures cover a SETTINGS header
@@ -368,6 +367,7 @@ and reason text visible without converting it into a protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-settings-value-human/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-human/`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
+`../../examples/specification/run/http2-protocol-core-invalid-stream-id-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
@@ -378,6 +378,7 @@ and reason text visible without converting it into a protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-settings-value-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
 `../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
+`../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
@@ -390,7 +391,8 @@ frame sizes, setting identity, observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
 expected payload length, flow-control window credit, expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
-concurrent-stream attempted and allowed counts, and rule provenance. The
+concurrent-stream attempted and allowed counts, required stream id domain,
+endpoint role, and rule provenance. The
 concurrent-stream command fixtures cover the focused peer-created stream limit
 projection, and the flow-control command fixtures cover stream
 receive-window provenance while the ordinary protocol-core case also covers
