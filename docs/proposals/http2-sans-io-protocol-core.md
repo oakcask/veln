@@ -222,8 +222,9 @@ continuation header-block assembly through a valid final CONTINUATION frame,
 the combined opaque header-block payload bytes from that completed block,
 single-frame HEADERS completion when END_HEADERS is set alongside another
 flag, one continuation ordering failure, and one incoming frame-size
-peer-limit failure, plus one invalid connection-state frame kind and one
-invalid idle-stream frame kind. It keeps parser state as undecoded suffix bytes
+peer-limit failure, plus one invalid idle-stream frame kind and stream id
+domain failures for zero, even, and connection-only stream ids. It keeps
+parser state as undecoded suffix bytes
 plus the next absolute byte offset after each consumed preface or frame, reuses
 the implemented frame-header primitive after the preface gate, checks the
 active receive maximum frame size after structural header decode, and projects
@@ -246,6 +247,15 @@ It also accepts a structurally complete unknown extension frame as an ordinary
 payload bytes, and keeps active continuation ownership by rejecting an unknown
 frame with the existing continuation protocol-state failure when CONTINUATION
 is required next.
+It validates the stream id domain for received frame headers after structural
+decode and before frame-specific state updates. In the server-side fixture
+core, SETTINGS, PING, and GOAWAY require stream id zero, while HEADERS, DATA,
+CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
+client-initiated stream id. Domain failures use
+`http2.protocol.invalid_stream_id` with frame kind, stream id, required
+domain, endpoint role, active state, and rule provenance. Representation
+failures for the generated `UInt31be` helper remain schema or codec failures
+instead of protocol diagnostics.
 The same executable example now includes the outbound frame-header encode
 slice. Ordinary source builds record-shaped frame descriptions with `length`,
 `kind`, `flags`, and `stream_id`, invokes the generated binary schema encode
@@ -260,14 +270,15 @@ accepted only on the connection stream with an eight-byte payload, and the
 observable output preserves the ACK flag distinction. GOAWAY is accepted only
 on the connection stream with the fixed eight-byte prefix needed to expose the
 last stream id and error code, then transitions the decode state into graceful
-shutdown. Stream-targeted PING and GOAWAY frames remain typed frame-kind
+shutdown. Stream-targeted PING and GOAWAY frames are stream id domain
 failures, while wrong-length PING and GOAWAY payloads use
 `http2.protocol.invalid_payload_length` in ordinary output, human diagnostics,
 and JSON `protocol_diagnostic` details.
 The implemented slice also accepts DATA frames on an already-open stream and
 decrements both connection and stream receive-window credit by the payload
-length. DATA on the connection stream or on an idle stream remains
-`http2.protocol.invalid_frame_kind`, and DATA payloads that exceed the
+length. DATA on the connection stream is a stream id domain failure, DATA on
+an idle stream remains `http2.protocol.invalid_frame_kind`, and DATA payloads
+that exceed the
 available stream or connection receive-window credit use
 `http2.peer_limit.flow_control_window_exceeded` with byte offset, stream
 reference, observed payload length, allowed window credit, active state, and

@@ -198,6 +198,18 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             ],
             adt::result_type(Type::unit(), Type::string()),
         )),
+        "http2_protocol_invalid_stream_id" => Some((
+            vec![
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::string(),
+                Type::string(),
+                Type::string(),
+                Type::string(),
+            ],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
         "http2_protocol_invalid_payload_length" => Some((
             vec![
                 Type::int(),
@@ -909,6 +921,18 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
                 CoreType::int(),
                 CoreType::int(),
                 CoreType::int(),
+                CoreType::string(),
+                CoreType::string(),
+            ],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
+        )),
+        "http2_protocol_invalid_stream_id" => Some((
+            vec![
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::string(),
+                CoreType::string(),
                 CoreType::string(),
                 CoreType::string(),
             ],

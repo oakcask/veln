@@ -49,6 +49,7 @@ runtime_method_table!(prelude_method, "vecLen", {
     "http2_protocol_invalid_preface" => "http2ProtocolInvalidPreface",
     "http2_protocol_continuation_expected" => "http2ProtocolContinuationExpected",
     "http2_protocol_invalid_frame_kind" => "http2ProtocolInvalidFrameKind",
+    "http2_protocol_invalid_stream_id" => "http2ProtocolInvalidStreamId",
     "http2_protocol_invalid_payload_length" => "http2ProtocolInvalidPayloadLength",
     "http2_peer_limit_frame_size_exceeded" => "http2PeerLimitFrameSizeExceeded",
     "http2_peer_limit_flow_control_window_exceeded" => "http2PeerLimitFlowControlWindowExceeded",

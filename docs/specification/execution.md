@@ -225,23 +225,25 @@ execution reference.
   failures, completed HEADERS and CONTINUATION header-block output, incoming
   frame payloads that exceed the active receive maximum frame size, received
   `SETTINGS_MAX_FRAME_SIZE` and `SETTINGS_INITIAL_WINDOW_SIZE` values outside
-  their accepted SETTINGS ranges, invalid connection-state and stream-state
-  frame kinds,
-  wrong-length PING and GOAWAY payloads, accepted PING ACK distinction, and
-  accepted GOAWAY last-stream-id and error-code facts as typed protocol
-  values. The receive flow-control state opens an idle peer-created stream on
-  an admitted HEADERS frame, counts the tracked open peer-created stream for
-  the active concurrent-stream receive limit, consumes DATA payload length from
-  connection and stream windows, accepts connection-level and open-stream
-  `WINDOW_UPDATE` increments, and keeps wrong-length, idle-stream, zero,
-  concurrent-stream-limit, and overflow cases as typed protocol failures.
-  Structurally
-  complete unknown extension frame types decode to ordinary `UnknownFrame`
-  values that preserve frame type, flags, stream id, payload length, and each
-  bounded payload byte; an active continuation sequence still rejects an
-  unknown frame through the existing continuation protocol-state failure
-  before projecting stable diagnostic ids and related context into fixture
-  output, human runtime diagnostics, and `run --json`
+  their accepted SETTINGS ranges, stream id domain failures, invalid
+  stream-state frame kinds, wrong-length PING and GOAWAY payloads, accepted
+  PING ACK distinction, and accepted GOAWAY last-stream-id and error-code
+  facts as typed protocol values. In the server-side fixture core, SETTINGS,
+  PING, and GOAWAY require stream id zero; HEADERS, DATA,
+  CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
+  client-initiated stream id. The receive flow-control state opens an idle
+  peer-created stream on an admitted HEADERS frame, counts the tracked open
+  peer-created stream for the active concurrent-stream receive limit, consumes
+  DATA payload length from connection and stream windows, accepts
+  connection-level and open-stream `WINDOW_UPDATE` increments, and keeps
+  wrong-length, idle-stream, zero, concurrent-stream-limit, and overflow cases
+  as typed protocol failures. Structurally complete unknown extension frame
+  types decode to ordinary `UnknownFrame` values that preserve frame type,
+  flags, stream id, payload length, and each bounded payload byte; an active
+  continuation sequence still rejects an unknown frame through the existing
+  continuation protocol-state failure before projecting stable diagnostic ids
+  and related context into fixture output, human runtime diagnostics, and
+  `run --json`
   `protocol_diagnostic` details.
 - The same HTTP/2 protocol-core example also covers the narrow outbound frame
   header encode slice. Ordinary source builds a record-shaped frame

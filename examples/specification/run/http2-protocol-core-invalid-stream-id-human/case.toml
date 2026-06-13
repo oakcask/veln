@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.invalid_stream_id]: invalid stream id at byte offset 0", "note: Frame kind 1 on connection 0 requires nonzero client-initiated stream id for server.", "note: Active protocol state: stream-id-domain.", "note: Rule provenance: server_receives_client_initiated_streams."]

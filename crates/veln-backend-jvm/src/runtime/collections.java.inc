@@ -1397,6 +1397,36 @@
         return err(message);
     }
 
+    public static Object http2ProtocolInvalidStreamId(
+        Object offset,
+        Object frameKind,
+        Object streamId,
+        Object requiredDomain,
+        Object endpointRole,
+        Object activeState,
+        Object ruleProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long kind = asLong(frameKind);
+        long stream = asLong(streamId);
+        String domain = asString(requiredDomain);
+        String role = asString(endpointRole);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 invalid stream id at byte offset " + byteOffset;
+        registerHttp2ProtocolInvalidStreamIdDiagnostic(
+            message,
+            byteOffset,
+            kind,
+            stream,
+            domain,
+            role,
+            state,
+            provenance
+        );
+        return err(message);
+    }
+
     public static Object http2ProtocolInvalidPayloadLength(
         Object offset,
         Object frameKind,

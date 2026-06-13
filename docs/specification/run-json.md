@@ -172,6 +172,11 @@ SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record
 `byte_offset.value`, `setting_identifier`, `setting_name`, `observed_value`,
 `accepted_min_value`, `accepted_max_value`, and `peer_limit_provenance`. The
+stream id domain slice uses id `http2.protocol.invalid_stream_id` and records
+`byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
+`required_stream_id_domain`, `endpoint_role`, `active_state`, and
+`rule_provenance`; the checked HTTP/2 examples cover invalid zero stream ids,
+even client stream ids, and nonzero stream ids on connection-only frames. The
 invalid frame-kind state slice uses id `http2.protocol.invalid_frame_kind` and
 records `byte_offset.value`, `actual_frame_kind`, `stream_id`, `stream_ref`,
 `expected_frame_kind`, `active_state`, and `rule_provenance`; the checked

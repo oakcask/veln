@@ -1115,6 +1115,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2ProtocolInvalidFrameKind",
         ),
         (
+            "http2_protocol_invalid_stream_id",
+            "http2ProtocolInvalidStreamId",
+        ),
+        (
             "http2_protocol_invalid_payload_length",
             "http2ProtocolInvalidPayloadLength",
         ),
