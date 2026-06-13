@@ -45,8 +45,13 @@ type PeerAdvertisedEnablePush
 	PeerEnablePush(Int, Int)
 end
 
+type PeerAdvertisedMaxConcurrentStreams
+	NoPeerMaxConcurrentStreams
+	PeerMaxConcurrentStreams(Int, Int)
+end
+
 type PeerSettingsState
-	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize, PeerAdvertisedEnablePush)
+	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize, PeerAdvertisedEnablePush, PeerAdvertisedMaxConcurrentStreams)
 end
 
 type ConnectionShutdownState
@@ -332,7 +337,7 @@ fn protocol_default_frame_size_limit() -> ReceiveLimitEntry
 end
 
 fn empty_peer_settings() -> PeerSettingsState
-	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush)
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize, NoPeerEnablePush, NoPeerMaxConcurrentStreams)
 end
 
 fn default_receive_flow_control() -> ReceiveFlowControl
@@ -630,13 +635,16 @@ fn update_single_settings_item(pending: ByteChunk, next_offset: Int, peer_settin
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
 	match peer_settings
-		PeerSettings(max_frame_size, initial_window_size, enable_push) => match identifier == 5
-			true => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + 9), initial_window_size, enable_push))
+		PeerSettings(max_frame_size, initial_window_size, enable_push, max_concurrent_streams) => match identifier == 5
+			true => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + 9), initial_window_size, enable_push, max_concurrent_streams))
 			false => match identifier == 4
-				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + 9), enable_push))
+				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + 9), enable_push, max_concurrent_streams))
 				false => match identifier == 2
-					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + 9)))
-					false => Ok(peer_settings)
+					true => Ok(PeerSettings(max_frame_size, initial_window_size, PeerEnablePush(value, next_offset + 9), max_concurrent_streams))
+					false => match identifier == 3
+						true => Ok(PeerSettings(max_frame_size, initial_window_size, enable_push, PeerMaxConcurrentStreams(value, next_offset + 9)))
+						false => Ok(peer_settings)
+					end
 				end
 			end
 		end
@@ -1046,43 +1054,57 @@ end
 
 fn state_peer_max_frame_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _), _, _) => 0
-		State(_, _, _, _, _, PeerSettings(PeerMaxFrameSize(value, _), _, _), _, _) => value
+		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _, _), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(PeerMaxFrameSize(value, _), _, _, _), _, _) => value
 	end
 end
 
 fn state_peer_max_frame_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _), _, _) => 0
-		State(_, _, _, _, _, PeerSettings(PeerMaxFrameSize(_, item_offset), _, _), _, _) => item_offset
+		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _, _, _), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(PeerMaxFrameSize(_, item_offset), _, _, _), _, _) => item_offset
 	end
 end
 
 fn state_peer_initial_window_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _), _, _) => 0
-		State(_, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(value, _), _), _, _) => value
+		State(_, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _, _), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(value, _), _, _), _, _) => value
 	end
 end
 
 fn state_peer_initial_window_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _), _, _) => 0
-		State(_, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(_, item_offset), _), _, _) => item_offset
+		State(_, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize, _, _), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(_, item_offset), _, _), _, _) => item_offset
 	end
 end
 
 fn state_peer_enable_push(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush), _, _) => 0
-		State(_, _, _, _, _, PeerSettings(_, _, PeerEnablePush(value, _)), _, _) => value
+		State(_, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(_, _, PeerEnablePush(value, _), _), _, _) => value
 	end
 end
 
 fn state_peer_enable_push_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush), _, _) => 0
-		State(_, _, _, _, _, PeerSettings(_, _, PeerEnablePush(_, item_offset)), _, _) => item_offset
+		State(_, _, _, _, _, PeerSettings(_, _, NoPeerEnablePush, _), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(_, _, PeerEnablePush(_, item_offset), _), _, _) => item_offset
+	end
+end
+
+fn state_peer_max_concurrent_streams(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, _, _, PeerSettings(_, _, _, NoPeerMaxConcurrentStreams), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(_, _, _, PeerMaxConcurrentStreams(value, _)), _, _) => value
+	end
+end
+
+fn state_peer_max_concurrent_streams_offset(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, _, _, PeerSettings(_, _, _, NoPeerMaxConcurrentStreams), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(_, _, _, PeerMaxConcurrentStreams(_, item_offset)), _, _) => item_offset
 	end
 end
 
@@ -1709,7 +1731,11 @@ fn print_peer_settings(label: String, state: Http2DecodeState) -> () effects [st
 	stdio::print(" peer_enable_push ")
 	stdio::print(int_to_string(state_peer_enable_push(state)))
 	stdio::print(" peer_enable_push_offset ")
-	stdio::println(int_to_string(state_peer_enable_push_offset(state)))
+	stdio::print(int_to_string(state_peer_enable_push_offset(state)))
+	stdio::print(" peer_max_concurrent_streams ")
+	stdio::print(int_to_string(state_peer_max_concurrent_streams(state)))
+	stdio::print(" peer_max_concurrent_streams_offset ")
+	stdio::println(int_to_string(state_peer_max_concurrent_streams_offset(state)))
 end
 
 fn print_settings_failure(label: String, step: Http2Step) -> () effects [stdio]
@@ -2008,6 +2034,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let enable_push_settings_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000000")?), step_state(peer_enable_push))?
 	print_step("enable-push-settings-ack", enable_push_settings_ack)
 	print_peer_settings("enable-push-settings-ack", step_state(enable_push_settings_ack))
+	let peer_max_concurrent_streams: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000300000002")?), frame_state())?
+	print_step("peer-max-concurrent-streams", peer_max_concurrent_streams)
+	print_peer_settings("peer-max-concurrent-streams", step_state(peer_max_concurrent_streams))
+	let max_concurrent_streams_settings_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000000")?), step_state(peer_max_concurrent_streams))?
+	print_step("max-concurrent-streams-settings-ack", max_concurrent_streams_settings_ack)
+	print_peer_settings("max-concurrent-streams-settings-ack", step_state(max_concurrent_streams_settings_ack))
 	let settings_ack_nonzero_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040100000000000500008000")?), frame_state())?
 	print_failure("settings-ack-length", settings_ack_nonzero_length)
 	let settings_ack_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000001")?), frame_state())?

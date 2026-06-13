@@ -591,9 +591,11 @@ against the built `veln` binary.
   stable ids and related context. The
   case keeps local receive-limit
   provenance separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state,
-  keeps inbound receive-window credit separate from peer-advertised
-  `SETTINGS_INITIAL_WINDOW_SIZE` state, and range-checks those settings plus
-  `SETTINGS_ENABLE_PUSH` before updating peer-advertised state. It also
+  keeps the local concurrent-stream receive limit separate from
+  peer-advertised `SETTINGS_MAX_CONCURRENT_STREAMS` state, keeps inbound
+  receive-window credit separate from peer-advertised
+  `SETTINGS_INITIAL_WINDOW_SIZE` state, and range-checks constrained settings
+  before updating peer-advertised state. It also
   accepts a structurally complete
   unknown extension frame as an ordinary value preserving frame type, flags,
   stream id, and bounded payload bytes, with the preserved payload bytes also
