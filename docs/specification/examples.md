@@ -339,9 +339,12 @@ an unknown frame rejected by active continuation state, and an incoming frame
 whose payload length exceeds the active receive maximum frame size, plus stream
 id domain failures for zero, even, and
 connection-only stream ids and a DATA frame kind rejected for idle-stream
-state. It also pins PING frames with and without ACK, wrong-length PING
-failures, a GOAWAY frame that moves the connection into graceful shutdown with
-last-stream-id and error-code facts, and wrong-length GOAWAY failures.
+state. It also pins zero-length SETTINGS ACK on the connection stream,
+wrong-length SETTINGS ACK as a typed payload-length failure, SETTINGS ACK on a
+nonzero stream as a stream id domain failure, PING frames with and without ACK,
+wrong-length PING failures, a GOAWAY frame that moves the connection into
+graceful shutdown with last-stream-id and error-code facts, and wrong-length
+GOAWAY failures.
 Pending continuation state records the owning stream, starting frame kind,
 starting byte offset, and accumulated opaque header-block bytes, and the
 closed-input continuation failure projects that context into the stable output.
@@ -364,7 +367,8 @@ frame-size checks, and the peer-advertised initial window size does not
 replace the inbound receive-window credit used by later DATA checks. Received
 values for both settings are range-checked before updating peer-advertised
 state; out-of-range values stay as typed peer-limit failures at the offending
-SETTINGS item byte offset. A
+SETTINGS item byte offset. SETTINGS ACK frames do not update peer-advertised
+state. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
 completed accumulated header-block bytes in observable example output.
 Protocol failures stay as ordinary ADT values and are projected by source code
@@ -413,7 +417,8 @@ check `protocol_diagnostic` details for byte offset, frame kind, stream id,
 active continuation, connection state, or stream state, observed and allowed
 frame sizes, setting identity, observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
-expected payload length, flow-control window credit, expected and actual
+expected payload length including SETTINGS ACK length zero, flow-control
+window credit, expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
 structured bounded preface byte preview fields, concurrent-stream attempted
 and allowed counts, required stream id domain, endpoint role, and rule

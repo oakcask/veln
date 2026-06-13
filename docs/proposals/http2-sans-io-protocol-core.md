@@ -20,7 +20,8 @@ Define the remaining HTTP/2 core behavior beyond the implemented
 ordinary-source decode-state slices. Planned coverage still includes:
 
 - remaining SETTINGS values and settings interactions beyond the implemented
-  maximum-frame-size and initial-window-size peer-advertised state
+  maximum-frame-size and initial-window-size peer-advertised state and
+  SETTINGS ACK receive handling
 - remaining DATA behavior beyond the implemented receive-window accounting
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
@@ -245,6 +246,10 @@ out-of-range values as
 `http2.peer_limit.settings_value_out_of_range` with setting identity, observed
 value, accepted range, item byte offset, and peer-limit provenance in
 executable output, human diagnostics, and JSON details.
+It accepts zero-length SETTINGS ACK frames on the connection stream without
+updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
+frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on
+nonzero streams on the existing `http2.protocol.invalid_stream_id` path.
 It also accepts structurally complete unknown extension frames after the
 client preface gate as ordinary `UnknownFrame` values preserving frame type,
 flags, stream id, and bounded payload bytes, and keeps active continuation
