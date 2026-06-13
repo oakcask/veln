@@ -166,10 +166,16 @@ fields.
 `../../examples/specification/run/binary-schema-u16le-decode/`,
 `../../examples/specification/run/binary-schema-u16le-encode/`, and
 `../../examples/specification/run/binary-schema-u16le-encode-out-of-range/`
-cover the implemented `UInt16le` primitive slice. The source case pins
-accepted `format binary` field use. The runtime cases prove little-endian
-decode and encode byte order, preserve structural mapping during decode, and
-pin the generated encode helper's unsigned 16-bit range failure shape.
+cover the implemented `UInt16le` primitive slice. The source case also pins
+accepted `UInt24le` and `UInt32le` `format binary` field use.
+`../../examples/specification/run/binary-schema-little-endian-widths-decode/`,
+`../../examples/specification/run/binary-schema-little-endian-widths-encode/`,
+and
+`../../examples/specification/run/binary-schema-little-endian-widths-encode-out-of-range/`
+cover the `UInt24le` and `UInt32le` slice. The runtime cases prove
+little-endian decode and encode byte order, preserve structural mapping during
+decode, and pin generated encode helper range failures with maximum values
+derived from each primitive width.
 
 `../../examples/specification/run/binary-schema-integer-out-of-range-json/`
 and

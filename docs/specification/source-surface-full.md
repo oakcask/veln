@@ -94,9 +94,9 @@ one `format binary` clause before any schema fields, followed by one or more
 predicate after the type text, such as `padding_length: UInt8 where
 padding_length <= length`. Binary schema fields also accept exact-width
 unsigned primitive names `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
-`UInt31be`, and `UInt32be`; those names are schema-local representation
-vocabulary, not ordinary source types or values. Binary schema fields also
-accept the
+`UInt24le`, `UInt31be`, `UInt32be`, and `UInt32le`; those names are
+schema-local representation vocabulary, not ordinary source types or values.
+Binary schema fields also accept the
 `ReservedBits(width, value)` primitive
 spelling when `width` and `value` are literal non-negative integers, such as
 `ReservedBits(1, 0)`. Binary schema fields also accept the closed dispatch

@@ -44,6 +44,8 @@ compiler-known calls.
   same-module or imported public nested dispatch payload slices accept
   schema-local visible fields, using `SchemaDispatchPayload<T>` for extension
   dispatch payload fields, and return `Result<ByteChunk, EncodeError>`.
+  `UInt16le`, `UInt24le`, and `UInt32le` fields use little-endian byte order
+  in generated decode and encode helpers.
   HTTP/2 frame-header decoding,
   bounded payload frame decoding, and protocol diagnostic projection helpers
   including stream id domain and post-GOAWAY stream failure projection are

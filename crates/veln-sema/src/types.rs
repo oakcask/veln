@@ -1505,23 +1505,23 @@ pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
     match ty.trim() {
         "UInt8" => Some(1),
         "UInt16be" | "UInt16le" => Some(2),
-        "UInt24be" => Some(3),
-        "UInt31be" | "UInt32be" => Some(4),
+        "UInt24be" | "UInt24le" => Some(3),
+        "UInt31be" | "UInt32be" | "UInt32le" => Some(4),
         _ => None,
     }
 }
 
 pub(crate) fn exact_width_schema_primitive_little_endian(ty: &str) -> bool {
-    matches!(ty.trim(), "UInt16le")
+    matches!(ty.trim(), "UInt16le" | "UInt24le" | "UInt32le")
 }
 
 pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
     match ty.trim() {
         "UInt8" => Some(0xff),
         "UInt16be" | "UInt16le" => Some(0xffff),
-        "UInt24be" => Some(0xffffff),
+        "UInt24be" | "UInt24le" => Some(0xffffff),
         "UInt31be" => Some(0x7fffffff),
-        "UInt32be" => Some(0xffffffff),
+        "UInt32be" | "UInt32le" => Some(0xffffffff),
         _ => None,
     }
 }

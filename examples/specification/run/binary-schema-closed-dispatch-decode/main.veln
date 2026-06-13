@@ -5,7 +5,7 @@ schema ClosedDispatchPacket
 	format binary
 
 	kind: UInt8
-	payload: Dispatch(kind, 1 => UInt16be, 2 => UInt32be)
+	payload: Dispatch(kind, 1 => UInt16be, 2 => UInt32be, 3 => UInt24le, 4 => UInt32le)
 end
 
 fn emit_packet(packet: {kind: Int, payload: Int}) -> () effects [stdio]
@@ -15,11 +15,17 @@ fn emit_packet(packet: {kind: Int, payload: Int}) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let bytes: ByteChunk = byte_chunk_from_hex("02000000ff")?
+	let bytes: ByteChunk = byte_chunk_from_hex("03563412")?
 	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(5)?
+	let count: ByteCount = byte_count(4)?
 	let view: ByteView = byte_view(bytes, offset, count)?
 	let packet: {kind: Int, payload: Int} = byte_decode_closed_dispatch_packet(view)?
 	emit_packet(packet)
+
+	let wide_bytes: ByteChunk = byte_chunk_from_hex("04efbeadde")?
+	let wide_count: ByteCount = byte_count(5)?
+	let wide_view: ByteView = byte_view(wide_bytes, offset, wide_count)?
+	let wide_packet: {kind: Int, payload: Int} = byte_decode_closed_dispatch_packet(wide_view)?
+	emit_packet(wide_packet)
 	Ok(())
 end

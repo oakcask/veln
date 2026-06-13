@@ -4,7 +4,7 @@ schema ClosedDispatchWritePacket
 	format binary
 
 	kind: UInt8
-	payload: Dispatch(kind, 1 => UInt8, 2 => UInt16be, 3 => UInt24be, 4 => UInt32be)
+	payload: Dispatch(kind, 1 => UInt8, 2 => UInt16be, 3 => UInt24be, 4 => UInt32be, 5 => UInt24le, 6 => UInt32le)
 end
 
 fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
@@ -49,4 +49,10 @@ pub fn main() -> () effects [stdio]
 
 	let four: Result<ByteChunk, EncodeError> = byte_encode_closed_dispatch_write_packet({kind: 4, payload: 3735928559})
 	emit_encoded("dispatch-u32", four, "04deadbeef")
+
+	let five: Result<ByteChunk, EncodeError> = byte_encode_closed_dispatch_write_packet({kind: 5, payload: 1193046})
+	emit_encoded("dispatch-u24le", five, "05563412")
+
+	let six: Result<ByteChunk, EncodeError> = byte_encode_closed_dispatch_write_packet({kind: 6, payload: 3735928559})
+	emit_encoded("dispatch-u32le", six, "06efbeadde")
 end

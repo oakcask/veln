@@ -36,8 +36,8 @@ The implemented first slice covers:
 - top-level `schema` declarations
 - named schema fields
 - field type annotations that may name `UInt8`, `UInt16be`, `UInt16le`,
-  `UInt24be`, `UInt31be`, `UInt32be`, and `ReservedBits(width, value)` as
-  binary schema primitives
+  `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`, `UInt32le`, and
+  `ReservedBits(width, value)` as binary schema primitives
 - source-surface `ReservedBits(width, value)` declaration checking for literal
   integer arguments in `format binary` schemas
 - schema visibility and module ownership rules for `schema` and `pub schema`

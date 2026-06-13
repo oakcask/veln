@@ -116,9 +116,9 @@ value, structured byte preview fields, byte offset, and schema field path.
 The `SchemaWidthSample` primitive decode helper consumes one `UInt16be` field
 followed by one `UInt32be` field from a `ByteView`. Both fields produce
 ordinary `Int` values in the decoded record. Generated binary schema decode
-helpers also support `UInt16le` as a two-byte little-endian unsigned
-primitive, decode it to ordinary `Int`, and preserve structural `map to`
-runtime mappings. Truncation reports the same `schema.truncated_field`
+helpers also support `UInt16le`, `UInt24le`, and `UInt32le` as little-endian
+unsigned primitives, decode them to ordinary `Int`, and preserve structural
+`map to` runtime mappings. Truncation reports the same `schema.truncated_field`
 diagnostic shape as the frame-header helper, including byte offset,
 structured field path, expected byte count, available byte count, readiness,
 and structured byte preview fields.
@@ -245,9 +245,9 @@ earlier length field with `codec.dispatch_length_mismatch`. Visible tag and
 payload variant disagreements report `codec.dispatch_mismatch`.
 The helper writes fields in declaration order into one immutable `ByteChunk`,
 using each primitive's declared byte order, and returns
-`Result<ByteChunk, EncodeError>`. `UInt16le` emits two little-endian bytes and
-uses the same unsigned 16-bit representability boundary as `UInt16be`. Values
-outside the primitive range return
+`Result<ByteChunk, EncodeError>`. `UInt16le`, `UInt24le`, and `UInt32le` emit
+little-endian bytes and use the same representability boundaries as their
+matching unsigned widths. Values outside the primitive range return
 `Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`;
 nested schema encode failures keep the nested schema field path. `UInt31be`
 uses the 31-bit maximum even though it occupies four bytes.
