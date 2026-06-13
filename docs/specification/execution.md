@@ -188,6 +188,16 @@ execution reference.
   stable diagnostic ids and related context into fixture output, human runtime
   diagnostics, and `run --json`
   `protocol_diagnostic` details.
+- The same HTTP/2 protocol-core example also covers the narrow outbound frame
+  header encode slice. Ordinary source builds a record-shaped frame
+  description with `length`, `kind`, `flags`, and `stream_id`, passes it to an
+  eligible generated binary schema encode helper, and observes one nine-byte
+  immutable `ByteChunk` with the `ReservedBits(1, 0)` plus `UInt31be` stream
+  identifier layout. The checked case pins complete lowercase hex output for a
+  SETTINGS header on the connection stream, a DATA header on a nonzero stream,
+  and the maximum valid `UInt31be` stream id. A stream id outside the generated
+  helper's range returns `EncodeError("codec.out_of_range", field_path,
+  reason)` without adding an HTTP/2-specific diagnostic.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior

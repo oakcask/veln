@@ -1,5 +1,15 @@
-# A pure HTTP/2 decode state consumes frame headers from explicit input events.
+# A pure HTTP/2 core consumes frame headers from explicit input events and emits encoded headers.
 use stdio
+
+schema Http2FrameHeaderWire
+	format binary
+
+	length: UInt24be
+	kind: UInt8
+	flags: UInt8
+	stream_reserved: ReservedBits(1, 0)
+	stream_id: UInt31be
+end
 
 type PendingContinuation
 	NoContinuation
@@ -108,6 +118,10 @@ end
 
 fn receive_window_state(connection_window: Int, stream_id: Int, stream_window: Int) -> Http2DecodeState
 	State(byte_chunk([]), 0, AfterPreface, NoContinuation, protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window)))
+end
+
+fn encode_frame_header(header: {length: Int, kind: Int, flags: Int, stream_id: Int}) -> Result<ByteChunk, EncodeError>
+	byte_encode_http2_frame_header_wire(header)
 end
 
 fn receive(input: Http2Input, state: Http2DecodeState) -> Result<Http2Step, String>
@@ -1175,6 +1189,71 @@ fn print_goaway(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::println(int_to_string(state_shutdown_error_code(state)))
 end
 
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded_header(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, bytes, expected_hex)
+end
+
+fn print_encoded_header(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded_header(name, bytes, expected_hex)
+		Err(_) => stdio::println("unexpected frame header encode failure")
+	end
+end
+
+fn encode_error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn encode_error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn encode_error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn print_encode_error_detail(label: String, error: EncodeError) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" encode_error ")
+	stdio::print(encode_error_id(error))
+	stdio::print(" ")
+	stdio::print(encode_error_path(error))
+	stdio::print(" ")
+	stdio::println(encode_error_reason(error))
+end
+
+fn print_encode_error(label: String, encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(_) => stdio::println("unexpected frame header encode success")
+		Err(error) => print_encode_error_detail(label, error)
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let preface_valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000000040000000000")?), empty_state())?
 	print_step("preface-valid", preface_valid)
@@ -1262,5 +1341,13 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("goaway-length", goaway_bad_length)
 	let goaway_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000001000000050000000b")?), frame_state())?
 	print_failure("goaway-stream", goaway_bad_stream)
+	let encoded_settings_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 0, kind: 4, flags: 0, stream_id: 0})
+	print_encoded_header("http2-settings-header", encoded_settings_header, "000000040000000000")
+	let encoded_data_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 5, kind: 0, flags: 1, stream_id: 1})
+	print_encoded_header("http2-data-header", encoded_data_header, "000005000100000001")
+	let encoded_max_stream_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 0, kind: 8, flags: 0, stream_id: 2147483647})
+	print_encoded_header("http2-max-stream-header", encoded_max_stream_header, "00000008007fffffff")
+	let invalid_stream_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 0, kind: 0, flags: 0, stream_id: 2147483648})
+	print_encode_error("http2-stream-id-range", invalid_stream_header)
 	Ok(())
 end
