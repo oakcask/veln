@@ -99,7 +99,8 @@ schema-local representation vocabulary, not ordinary source types or values.
 Binary schema fields also accept the
 `ReservedBits(width, value)` primitive
 spelling when `width` and `value` are literal non-negative integers, such as
-`ReservedBits(1, 0)`. Binary schema fields also accept the closed dispatch
+`ReservedBits(1, 0)` or a byte-aligned reserved field. Binary schema fields
+also accept the closed dispatch
 type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
 type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
 the referenced fields were decoded earlier in the same schema and case
@@ -154,6 +155,7 @@ arity, and constructor payload type diagnostics executable.
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose
 fields are visible exact-width unsigned primitives, plus the supported
+byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, closed dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier
 visible exact-width fields and whose cases are exact-width unsigned primitive

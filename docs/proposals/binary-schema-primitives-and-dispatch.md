@@ -16,7 +16,12 @@ primitive decode slice is implemented under `../specification/execution.md`:
 it consumes `UInt24be`, `UInt8`, `UInt8`, `ReservedBits(1, 0)`, and
 `UInt31be` from a `ByteView`, returns ordinary `Int` fields for the visible
 values, and reports structured schema failures for truncated fields and
-reserved-bit mismatches. The width-sample primitive decode slice consumes
+reserved-bit mismatches. Generated schema helpers also consume byte-aligned
+`ReservedBits(width, value)` fields up to four bytes wide as
+representation-only fields, omit those fields from decoded records and
+mapping source values, encode them from the declared fixed value, and report
+the same reserved-bit mismatch and truncation diagnostic shapes. The
+width-sample primitive decode slice consumes
 `UInt16be` and `UInt32be`, returns ordinary `Int` values, and reports the
 same structured truncation shape. The narrow HTTP/2 frame helper also returns
 a bounded payload `ByteView` selected by the decoded length and reports
@@ -76,7 +81,8 @@ for:
 - executable exact-width unsigned field reads and writes beyond the
   implemented narrow primitive decode slices
 - endian-aware field reads and writes
-- reserved bits that are consumed but not exposed as ordinary data
+- reserved-bit forms beyond the implemented byte-aligned representation-only
+  fields and `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
 - flags that decode as raw bits, bitsets, or frame-specific ADTs
 - general schema-declared length-prefixed payloads
 - field references inside later field definitions
@@ -126,9 +132,11 @@ The implemented exact-width primitive encode helper slice emits those visible
 ordinary `Int` fields in their declared byte order as `ByteChunk` output and
 reports structured `EncodeError` range failures. The implemented reserved-bit
 encode slice also
-accepts `ReservedBits(1, 0)` immediately before `UInt31be`, omits the reserved
-field from the encoder value record, and writes the required zero high bit in
-the shared four-byte stream identifier position. The implemented
+accepts byte-aligned `ReservedBits(width, value)` fields, omits the reserved
+field from the encoder value record, and writes the declared fixed value. It
+also accepts `ReservedBits(1, 0)` immediately before `UInt31be` and writes
+the required zero high bit in the shared four-byte stream identifier
+position. The implemented
 closed-dispatch primitive encode slice accepts an earlier visible exact-width
 unsigned tag field and exact-width unsigned primitive payload cases, chooses
 the payload case from the encoded tag value, and reports structured
@@ -159,9 +167,13 @@ should not become a general-purpose source type.
 
 ## Discussion Result: Reserved Bit Spelling
 
-Reserved bits should be spelled as schema-local fixed fields that are consumed
-from the external representation but omitted from the mapped Veln value by
-default.
+Reserved bits are spelled as schema-local fixed fields that are consumed from
+the external representation but omitted from the mapped Veln value by default.
+The byte-aligned `ReservedBits(width, value)` slice and the
+`ReservedBits(1, 0)` plus `UInt31be` shared-bit layout are implemented under
+`../specification/execution.md`. Remaining proposal work is limited to
+non-byte-aligned shapes outside that stream-id layout and any later opt-in
+mapping exposure.
 
 Use a `ReservedBits(width, value)` binary schema primitive for this purpose.
 The field still has a schema-local name so diagnostics can report a stable
@@ -289,7 +301,7 @@ author likely referred to an earlier field with a compatible role.
 - Executable examples show binary schema writes and general schema-owned
   fixed-width reads beyond the implemented frame-header, width-sample,
   little-endian primitive widths, primitive encode helper, reserved-bit
-  encode helper, closed-dispatch
+  decode and encode helper, closed-dispatch
   primitive plus same-module and imported public nested encode helper,
   extension-dispatch primitive plus same-module and imported public nested
   encode helper, HTTP/2 payload boundary helper, and narrow closed-dispatch
@@ -298,8 +310,8 @@ author likely referred to an earlier field with a compatible role.
   and generalized dispatch payload schemas can encode nested known payload
   shapes, while keeping extension-tolerant unknown payload bytes opaque.
 - Invalid fixed fields in general schema decode produce structured
-  diagnostics beyond the implemented frame-header truncation and reserved-bit
-  mismatch details.
+  diagnostics beyond the implemented frame-header truncation and byte-aligned
+  reserved-bit mismatch details.
 - The schema vocabulary is general enough for another binary protocol example.
 - The HTTP/2 design driver can express frame header and payload boundaries
   through general schema declarations instead of the current narrow helper.

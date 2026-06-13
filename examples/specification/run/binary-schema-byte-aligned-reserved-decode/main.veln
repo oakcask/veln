@@ -1,0 +1,26 @@
+# Binary schema reserved byte fields decode without exposing record fields.
+use stdio
+
+schema ReservedPaddedHeader
+	format binary
+
+	prefix: UInt8
+	padding: ReservedBits(16, 43981)
+	kind: UInt8
+end
+
+fn emit_header(header: {prefix: Int, kind: Int}) -> () effects [stdio]
+	stdio::print(int_to_string(header.prefix))
+	stdio::print(" ")
+	stdio::println(int_to_string(header.kind))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("12abcd34")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(4)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let header: {prefix: Int, kind: Int} = byte_decode_reserved_padded_header(view)?
+	emit_header(header)
+	Ok(())
+end

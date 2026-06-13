@@ -61,6 +61,13 @@ execution reference.
   ordinary `Int` fields, preserve structural `map to` runtime mappings, and
   use the same truncation diagnostic shape as the other exact-width
   primitives.
+- Generated binary schema decode helpers support byte-aligned
+  `ReservedBits(width, value)` fields up to four bytes wide as
+  representation-only fields. The helper consumes the reserved bytes in
+  declaration order, validates the declared fixed value, omits the field from
+  the decoded value and structural mapping source values, and reports
+  `schema.truncated_field` or `schema.reserved_bits_mismatch` at the reserved
+  field path when the input is short or the fixed value differs.
 - Exact-width generated binary schema decode helpers preserve each field's
   schema-owned external integer maximum while decoding. A structurally present
   field whose decoded value exceeds that maximum reports
@@ -153,9 +160,12 @@ execution reference.
 - Eligible generated binary schema encode helpers named
   `byte_encode_<schema>` accept one record whose fields match the schema-local
   visible exact-width unsigned primitive fields as ordinary `Int` values. A
-  `ReservedBits(1, 0)` field immediately before a `UInt31be` field is
-  representation-only: it is omitted from the record and the helper emits the
-  required zero high bit in the shared four-byte stream identifier position.
+  byte-aligned `ReservedBits(width, value)` field is representation-only: it
+  is omitted from the record and the helper emits the declared fixed value in
+  declaration order. A `ReservedBits(1, 0)` field immediately before a
+  `UInt31be` field keeps the shared stream-identifier layout: it is omitted
+  from the record and the helper emits the required zero high bit in the
+  shared four-byte position.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
   `tag_field` names an earlier visible exact-width unsigned field and every
   case payload is an implemented exact-width unsigned primitive payload or an
@@ -190,10 +200,11 @@ execution reference.
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))`; nested schema encode failures keep the nested schema field path.
   `UInt31be` uses the 31-bit maximum even though it occupies four bytes.
-  Unsupported reserved-bit encode shapes report `schema.reserved_bits_encode`.
+  Unsupported non-byte-aligned reserved-bit encode shapes report
+  `schema.reserved_bits_encode`.
   This slice excludes schema mappings, field-local validation, generalized
-  dispatch payload schemas, other reserved or fixed fields, nested mappings,
-  and derived codec encode execution for unsupported schemas.
+  dispatch payload schemas, other fixed fields, nested mappings, and derived
+  codec encode execution for unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,

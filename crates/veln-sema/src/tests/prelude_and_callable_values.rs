@@ -223,6 +223,61 @@ fn generated_schema_encode_helpers_omit_reserved_bits_from_value_record() {
 }
 
 #[test]
+fn generated_schema_helpers_accept_byte_aligned_reserved_bits() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ReservedPaddedHeader\n",
+            "  format binary\n",
+            "\n",
+            "  prefix: UInt8\n",
+            "  padding: ReservedBits(16, 43981)\n",
+            "  kind: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn read_header(view: ByteView) -> Result<{prefix: Int, kind: Int}, String>\n",
+            "  byte_decode_reserved_padded_header(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write_header(packet: {prefix: Int, kind: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_reserved_padded_header(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(
+        schema
+            .fields
+            .iter()
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field
+                        .reserved_bits
+                        .as_ref()
+                        .map(|reserved| (reserved.bit_width, reserved.expected_value)),
+                )
+            })
+            .collect::<Vec<_>>(),
+        vec![
+            ("prefix", 1, 0xff, None),
+            ("padding", 0, 0, Some((16, 43981))),
+            ("kind", 1, 0xff, None),
+        ]
+    );
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_for_closed_dispatch_binary_schemas() {
     let source = SourceFile::new(
         "main.veln",

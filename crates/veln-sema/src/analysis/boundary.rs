@@ -2793,7 +2793,7 @@ fn reserved_bits_encode_shape_diagnostic(
         "schema.reserved_bits_encode",
         Severity::Error,
         DiagnosticKind::Type,
-        "`ReservedBits` encode support requires `ReservedBits(1, 0)` followed by `UInt31be`",
+        "`ReservedBits` encode support requires a byte-aligned width or `ReservedBits(1, 0)` followed by `UInt31be`",
         Some(field.span.clone()),
         JsonValue::object([
             (

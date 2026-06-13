@@ -34,10 +34,10 @@ compare it with `../specification/` before changing behavior.
   Implemented slices include source-surface exact-width and
   `ReservedBits(width, value)` declarations, frame-header and width-sample
   primitive decode, `UInt16le`, `UInt24le`, and `UInt32le` little-endian
-  primitive decode and encode, exact-width and supported reserved-bit
-  primitive encode, the narrow HTTP/2 payload boundary helper, and narrow
-  closed-dispatch and extension-dispatch primitive, same-module nested, and
-  imported public nested payload helpers.
+  primitive decode and encode, byte-aligned reserved-bit decode and encode,
+  exact-width primitive encode, the narrow HTTP/2 payload boundary helper,
+  and narrow closed-dispatch and extension-dispatch primitive, same-module
+  nested, and imported public nested payload helpers.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

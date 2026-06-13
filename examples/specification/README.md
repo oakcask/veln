@@ -381,6 +381,16 @@ against the built `veln` binary.
   validation reports `schema.reserved_bits_mismatch` through `run --json`
   with byte offset, field path, bit width, expected value, actual value, and a
   structured byte preview.
+- `run/binary-schema-byte-aligned-reserved-decode/`: generated schema decode
+  helpers consume byte-aligned `ReservedBits(width, value)` fields without
+  exposing them in the decoded record.
+- `run/binary-schema-byte-aligned-reserved-json/`: generated schema decode
+  helpers report `schema.reserved_bits_mismatch` for byte-aligned reserved
+  fields with field path, byte offset, bit width, expected value, actual
+  value, and byte preview details.
+- `run/binary-schema-byte-aligned-reserved-truncated-json/`: generated schema
+  decode helpers report `schema.truncated_field` at the byte-aligned reserved
+  field path when input ends before the reserved field is complete.
 - `run/binary-schema-u16le-decode/`: generated schema decode helpers read
   `UInt16le` as two little-endian bytes, return an ordinary `Int`, and keep a
   structural `map to` target record shape.
@@ -442,8 +452,11 @@ against the built `veln` binary.
   slice writes `ReservedBits(1, 0)` followed by `UInt31be` as one shared
   four-byte stream identifier position, omits the reserved field from the
   source value record, and checks both ordinary and maximum stream ids.
+- `run/binary-schema-byte-aligned-reserved-encode/`: generated schema encode
+  helpers write byte-aligned `ReservedBits(width, value)` fields from the
+  declared fixed value without requiring source value record fields.
 - `check/schema-reserved-bit-encode-diagnostics/`: valid `ReservedBits`
-  syntax outside the implemented encode layout reports
+  syntax outside the implemented non-byte-aligned encode layout reports
   `schema.reserved_bits_encode` with the unsupported bit width and expected
   value.
 - `run/binary-schema-closed-dispatch-encode/`: a generated binary schema

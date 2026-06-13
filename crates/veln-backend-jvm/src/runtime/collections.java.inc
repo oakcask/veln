@@ -135,6 +135,24 @@
         }
     }
 
+    private static int reservedByteWidth(int bitWidth) {
+        return bitWidth > 0 && bitWidth % 8 == 0 ? bitWidth / 8 : 0;
+    }
+
+    private static long reservedMaxValue(int bitWidth) {
+        return bitWidth == 32 ? 0xffffffffL : (1L << bitWidth) - 1L;
+    }
+
+    private static boolean supportedReservedBits(int bitWidth, long reservedValue) {
+        if (bitWidth == 1 && reservedValue == 0L) {
+            return true;
+        }
+        if (bitWidth <= 0 || bitWidth > 32 || bitWidth % 8 != 0) {
+            return false;
+        }
+        return reservedValue >= 0L && reservedValue <= reservedMaxValue(bitWidth);
+    }
+
     private static final class SchemaDispatchSpec {
         final String tagField;
         final String lengthField;
@@ -1351,12 +1369,27 @@
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
         for (SchemaFieldSpec field : schema.fields) {
             if (field.isReserved()) {
-                if (field.reservedBitWidth != 1 || field.reservedValue != 0L) {
+                if (!supportedReservedBits(field.reservedBitWidth, field.reservedValue)) {
                     return err(encodeError(
                         "codec.metadata",
                         schema.name + "." + field.name,
                         "unsupported reserved bits encode field"
                     ));
+                }
+                int reservedByteWidth = reservedByteWidth(field.reservedBitWidth);
+                if (reservedByteWidth > 0) {
+                    Object encoded = schemaWriteUnsigned(
+                        Long.valueOf(field.reservedValue),
+                        reservedByteWidth,
+                        reservedMaxValue(field.reservedBitWidth),
+                        false,
+                        schema.name,
+                        field.name
+                    );
+                    if (isErr(encoded)) {
+                        return encoded;
+                    }
+                    bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
                 }
                 continue;
             }
@@ -1922,17 +1955,19 @@
         if (boundsError != null) {
             return boundsError;
         }
-        if (bitWidth != 1 || expectedValue != 0L) {
+        if (!supportedReservedBits(bitWidth, expectedValue)) {
             return err(
-                "unsupported reserved bits encode field `"
+                "unsupported reserved bits field `"
                     + fieldName
                     + "` in schema `"
                     + schemaName
                     + "`"
             );
         }
+        int byteWidth = reservedByteWidth(bitWidth);
+        int requiredBytes = byteWidth > 0 ? byteWidth : 1;
         long available = Math.max(0L, count - relativeOffset);
-        if (available < 1L) {
+        if (available < requiredBytes) {
             long byteOffset = diagnosticBaseOffset + count;
             String message = "truncated schema field `" + fieldName + "` at byte offset " + byteOffset;
             registerSchemaTruncatedFieldDiagnostic(
@@ -1940,13 +1975,22 @@
                 byteOffset,
                 schemaName,
                 fieldName,
-                1,
+                requiredBytes,
                 available,
                 byteViewPreviewTrace(view, 8)
             );
             return err(message);
         }
-        long actualValue = (byteValueLong(bytes.get((int) baseOffset + relativeOffset)) >> 7) & 1L;
+        long actualValue = 0L;
+        if (byteWidth > 0) {
+            for (int index = 0; index < byteWidth; index += 1) {
+                actualValue =
+                    (actualValue << 8)
+                        | byteValueLong(bytes.get((int) baseOffset + relativeOffset + index));
+            }
+        } else {
+            actualValue = (byteValueLong(bytes.get((int) baseOffset + relativeOffset)) >> 7) & 1L;
+        }
         if (actualValue != expectedValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
             String message = "reserved bits mismatch at byte offset " + byteOffset;
@@ -2005,6 +2049,7 @@
                 if (isErr(read)) {
                     return read;
                 }
+                relativeOffset += reservedByteWidth(field.reservedBitWidth);
                 continue;
             }
             if (field.isLengthBoundedView()) {
@@ -2292,6 +2337,7 @@
         long relativeOffset = 0L;
         for (SchemaFieldSpec field : schema.fields) {
             if (field.isReserved()) {
+                relativeOffset += reservedByteWidth(field.reservedBitWidth);
                 continue;
             }
             if (field.isLengthBoundedView()) {
@@ -2347,6 +2393,7 @@
         long total = 0L;
         for (SchemaFieldSpec field : schema.fields) {
             if (field.isReserved()) {
+                total += reservedByteWidth(field.reservedBitWidth);
                 continue;
             } else if (field.isLengthBoundedView()) {
                 continue;
@@ -2533,7 +2580,8 @@
             boolean littleEndian =
                 littleEndianValueList != null && asBool(littleEndianValueList.get(index));
             if (reservedBitWidth > 0L) {
-                if (reservedBitWidth != 1L || reservedValue != 0L) {
+                if (reservedBitWidth > Integer.MAX_VALUE
+                    || !supportedReservedBits((int) reservedBitWidth, reservedValue)) {
                     return err(
                         "unsupported reserved bits encode field `"
                             + fieldName
