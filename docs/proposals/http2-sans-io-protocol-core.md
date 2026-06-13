@@ -19,7 +19,6 @@ ordinary Veln values.
 Define the remaining HTTP/2 core behavior beyond the implemented
 ordinary-source decode-state slices. Planned coverage still includes:
 
-- frame header encode
 - remaining SETTINGS values and settings interactions beyond the implemented
   maximum-frame-size receive and peer-advertised state
 - remaining DATA behavior beyond the implemented receive-window accounting
@@ -258,6 +257,15 @@ peer-advertised state and projects out-of-range values as
 `http2.peer_limit.settings_value_out_of_range` with setting identity, observed
 value, accepted range, item byte offset, and peer-limit provenance in
 executable output, human diagnostics, and JSON details.
+The same executable example now includes the outbound frame-header encode
+slice. Ordinary source builds record-shaped frame descriptions with `length`,
+`kind`, `flags`, and `stream_id`, invokes the generated binary schema encode
+helper for the HTTP/2 wire header layout, and checks one nine-byte output
+chunk for a SETTINGS header on the connection stream, a DATA header on a
+nonzero stream, and the maximum valid `UInt31be` stream id. It also keeps the
+generated helper's `codec.out_of_range` error visible for an out-of-range
+stream id instead of projecting that representation failure into a protocol
+diagnostic.
 It now also handles structurally decoded PING and GOAWAY frames. PING is
 accepted only on the connection stream with an eight-byte payload, and the
 observable output preserves the ACK flag distinction. GOAWAY is accepted only

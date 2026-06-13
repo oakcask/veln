@@ -306,6 +306,13 @@ continuation, connection state, or stream state, setting identity, accepted
 SETTINGS range, receive-limit provenance, peer-limit provenance, payload length
 expectations, matched preface prefix count, expected and actual preface byte,
 and rule provenance.
+The same case also pins outbound frame header encoding from an ordinary
+record-shaped frame description through the generated binary schema encode
+helper. The checked `[[output_chunk_list]]` fixtures cover a SETTINGS header
+on the connection stream, a DATA header on a nonzero stream, and the maximum
+valid `UInt31be` stream id. The source output also matches a generated helper
+`codec.out_of_range` failure for an out-of-range stream id, keeping field path
+and reason text visible without converting it into a protocol diagnostic.
 
 `../../examples/specification/run/http2-protocol-core-closed-human/`,
 `../../examples/specification/run/http2-protocol-core-preface-partial-human/`,
