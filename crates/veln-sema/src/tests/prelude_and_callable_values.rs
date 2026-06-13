@@ -518,6 +518,153 @@ fn generated_schema_decode_helpers_return_mapped_record_shape() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_return_mapped_byte_view_field_shape() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Packet\n",
+            "  Packet {length: Int, body: ByteView}\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt8\n",
+            "  payload: ByteView(wire_length)\n",
+            "\n",
+            "  map to Packet\n",
+            "    length = wire_length\n",
+            "    body = payload\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{length: Int, body: ByteView}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+            "\n",
+            "pub fn step(view: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, body: ByteView}>\n",
+            "  byte_decode_step_packet_wire(view, base)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet decoder should be emitted");
+    assert_eq!(schema.fields[1].name, "payload");
+    assert_eq!(
+        schema.fields[1].length_field.as_deref(),
+        Some("wire_length")
+    );
+    assert_eq!(
+        schema
+            .mapping
+            .iter()
+            .map(|field| (field.target.as_str(), field.source.as_str()))
+            .collect::<Vec<_>>(),
+        vec![("length", "wire_length"), ("body", "payload")]
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_require_int_byte_view_length_field() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  wire_length: UInt8\n",
+            "  first_payload: ByteView(wire_length)\n",
+            "  second_payload: ByteView(first_payload)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert!(
+        ir.schema_decoders
+            .iter()
+            .all(|schema| schema.schema_name != "PacketWire"),
+        "unsupported ByteView length field should not emit a decoder"
+    );
+}
+
+#[test]
+fn generated_schema_decode_helpers_return_mapped_nested_dispatch_field_shape() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Settings\n",
+            "  Settings {code: Int, value: Int}\n",
+            "end\n",
+            "\n",
+            "type Packet\n",
+            "  Packet {kind: Int, body: {code: Int, value: Int}}\n",
+            "end\n",
+            "\n",
+            "schema SettingsPayload\n",
+            "  format binary\n",
+            "\n",
+            "  wire_code: UInt8\n",
+            "  wire_value: UInt16be\n",
+            "\n",
+            "  map to Settings\n",
+            "    code = wire_code\n",
+            "    value = wire_value\n",
+            "end\n",
+            "\n",
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => SettingsPayload)\n",
+            "\n",
+            "  map to Packet\n",
+            "    kind = kind\n",
+            "    body = payload\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{kind: Int, body: {code: Int, value: Int}}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "PacketWire")
+        .expect("packet decoder should be emitted");
+    assert_eq!(
+        schema
+            .mapping
+            .iter()
+            .map(|field| (field.target.as_str(), field.source.as_str()))
+            .collect::<Vec<_>>(),
+        vec![("kind", "kind"), ("body", "payload")]
+    );
+}
+
+#[test]
 fn generated_schema_decode_helpers_keep_closed_dispatch_metadata() {
     let source = SourceFile::new(
         "main.veln",

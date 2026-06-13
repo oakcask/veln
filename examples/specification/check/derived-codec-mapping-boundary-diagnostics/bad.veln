@@ -1,27 +1,3 @@
-type Packet
-	Packet {body: {code: Int}}
-end
-
-schema PayloadWire
-	format binary
-
-	code: UInt8
-end
-
-schema PacketWire
-	format binary
-
-	kind: UInt8
-	payload: Dispatch(kind, 1 => PayloadWire)
-
-	map to Packet
-		body = payload
-end
-
-codec PacketCodec for PacketWire decode
-	derive decode
-end
-
 type Header
 	Header {length: Int, kind: Int}
 end

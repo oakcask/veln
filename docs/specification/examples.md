@@ -111,8 +111,8 @@ decode-step slice: a codec item call observes the generated helper's
 item name while preserving mapped record fields and no-consumption outcomes.
 The executable specification case
 `../../examples/specification/check/derived-codec-mapping-boundary-diagnostics/`
-covers mapped derived decode and encode clauses whose generated helper
-boundary cannot expose or accept the schema mapping target value type.
+covers mapped derived encode clauses whose generated helper boundary cannot
+accept the schema mapping target value type.
 
 ## Codec Encode Step Vocabulary
 

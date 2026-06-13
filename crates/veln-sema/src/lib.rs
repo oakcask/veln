@@ -33,11 +33,11 @@ use crate::analysis::{
 };
 use crate::lowering::lower_surface_module_to_core;
 use crate::types::{
-    SchemaDispatchCasePayload, TypeEnvironment, closed_dispatch_schema_primitive,
-    exact_width_schema_primitive, exact_width_schema_primitive_max_value,
-    extension_dispatch_schema_primitive, reserved_bits_schema_primitive,
-    schema_decode_function_name, schema_decode_mapping_fields, schema_dispatch_payload_schema,
-    supported_encode_reserved_bits,
+    SchemaDispatchCasePayload, SchemaDispatchSpec, Type, TypeEnvironment,
+    byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
+    exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
+    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
+    schema_decode_value_type, schema_dispatch_payload_schema, supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -162,7 +162,7 @@ fn schema_decode_spec_inner_after_push(
     stack: &mut Vec<String>,
 ) -> Option<IrSchemaDecodeSpec> {
     let schema_name = schema.name.as_ref()?;
-    let mut decoded_field_names = Vec::new();
+    let mut decoded_field_types = std::collections::BTreeMap::<String, Type>::new();
     let mut fields = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
@@ -173,6 +173,7 @@ fn schema_decode_spec_inner_after_push(
                 width: 0,
                 max_value: 0,
                 predicate: None,
+                length_field: None,
                 dispatch: None,
                 reserved_bits: Some(IrSchemaReservedBits {
                     bit_width,
@@ -182,7 +183,7 @@ fn schema_decode_spec_inner_after_push(
             continue;
         }
         if let Some(width) = exact_width_schema_primitive(&field.ty) {
-            decoded_field_names.push(field.name.clone());
+            decoded_field_types.insert(field.name.clone(), Type::int());
             fields.push(IrSchemaDecodeField {
                 name: field.name.clone(),
                 width,
@@ -191,6 +192,23 @@ fn schema_decode_spec_inner_after_push(
                     .where_clause
                     .as_ref()
                     .map(|where_clause| where_clause.predicate.clone()),
+                length_field: None,
+                dispatch: None,
+                reserved_bits: None,
+            });
+            continue;
+        }
+        if let Some(length_field) = byte_view_schema_primitive(&field.ty) {
+            if decoded_field_types.get(&length_field) != Some(&Type::int()) {
+                return None;
+            }
+            decoded_field_types.insert(field.name.clone(), Type::named("ByteView", Vec::new()));
+            fields.push(IrSchemaDecodeField {
+                name: field.name.clone(),
+                width: 0,
+                max_value: 0,
+                predicate: None,
+                length_field: Some(length_field),
                 dispatch: None,
                 reserved_bits: None,
             });
@@ -198,20 +216,21 @@ fn schema_decode_spec_inner_after_push(
         }
         let dispatch = closed_dispatch_schema_primitive(&field.ty)
             .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
-        if !decoded_field_names.contains(&dispatch.tag_field)
-            || dispatch
-                .length_field
-                .as_ref()
-                .is_some_and(|length_field| !decoded_field_names.contains(length_field))
+        if decoded_field_types.get(&dispatch.tag_field) != Some(&Type::int())
+            || dispatch.length_field.as_ref().is_some_and(|length_field| {
+                decoded_field_types.get(length_field) != Some(&Type::int())
+            })
         {
             return None;
         }
-        decoded_field_names.push(field.name.clone());
+        let field_ty = schema_dispatch_field_type(module, schema, &dispatch)?;
+        decoded_field_types.insert(field.name.clone(), field_ty);
         fields.push(IrSchemaDecodeField {
             name: field.name.clone(),
             width: 0,
             max_value: 0,
             predicate: None,
+            length_field: None,
             dispatch: Some(IrSchemaDecodeDispatch {
                 tag_field: dispatch.tag_field,
                 length_field: dispatch.length_field,
@@ -265,4 +284,31 @@ fn ir_schema_dispatch_case(
         width,
         payload_schema,
     })
+}
+
+fn schema_dispatch_field_type(
+    module: &SurfaceModule,
+    schema: &veln_ast::SchemaDecl,
+    dispatch: &SchemaDispatchSpec,
+) -> Option<Type> {
+    let mut payload_types = dispatch
+        .cases
+        .iter()
+        .map(|case| match &case.payload {
+            SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
+            SchemaDispatchCasePayload::Schema { schema_name } => {
+                let payload_schema = schema_dispatch_payload_schema(module, schema, schema_name)?;
+                schema_decode_value_type(module, payload_schema)
+            }
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let payload_ty = payload_types.pop()?;
+    if payload_types.iter().any(|ty| ty != &payload_ty) {
+        return None;
+    }
+    if dispatch.length_field.is_some() {
+        Some(Type::named("SchemaDispatchPayload", vec![payload_ty]))
+    } else {
+        Some(payload_ty)
+    }
 }

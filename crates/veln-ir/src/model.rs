@@ -22,6 +22,7 @@ pub struct IrSchemaDecodeField {
     pub width: u8,
     pub max_value: i64,
     pub predicate: Option<String>,
+    pub length_field: Option<String>,
     pub dispatch: Option<IrSchemaDecodeDispatch>,
     pub reserved_bits: Option<IrSchemaReservedBits>,
 }

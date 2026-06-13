@@ -73,15 +73,18 @@ structural `map to Target` clauses whose assignment lines use
 source value shape. Mapping clauses are parsed, formatted, lowered, exposed to
 editor support, and used by the generated decode slice described in
 [execution.md](execution.md) when the schema has a single structural mapping
-and all decoded fields use the implemented exact-width unsigned primitive or
-closed or extension-tolerant dispatch slice. The predicate, primitive,
-dispatch, and mapping text are parsed and preserved as source-surface syntax.
+and all assignment sources use implemented decoded field types: exact-width
+unsigned primitive fields as `Int`, length-bounded `ByteView(length_field)`
+payload fields as `ByteView`, closed nested dispatch payload fields as the
+nested schema record shape, and extension dispatch payload fields as
+`SchemaDispatchPayload<T>`. The predicate, primitive, dispatch, and mapping
+text are parsed and preserved as source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
 primitive, supported reserved-bit, closed dispatch, extension dispatch, and
 same-module nested dispatch payload helper slices, general ADT constructor
 mapping beyond the extension dispatch payload wrapper, imported dispatch
-payload schema encode, nested record mapping, and multiple mapping selection
-are not implemented.
+payload schema encode, mapping expressions beyond direct field assignment,
+and multiple mapping selection are not implemented.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, plus the supported `ReservedBits(1, 0)` before `UInt31be` layout,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and
@@ -136,11 +139,10 @@ the codec is `pub`. That call takes the same `ByteView` and `ByteOffset`
 arguments and returns the referenced function's `DecodeStep<T>` unchanged.
 `derive decode` codecs are callable through the same visibility and import
 rules when their schema is eligible for `byte_decode_step_<schema>`, and the
-call returns that generated helper's `DecodeStep<T>` result. When a schema
-mapping is valid but the generated decode helper cannot expose that mapping
-target as its value type, the `derive decode` clause reports
-`codec.decode_value_type`. Bare imported codec names are not ordinary call
-targets.
+call returns that generated helper's `DecodeStep<T>` result. For the
+implemented single structural mapping slice, `T` is the mapping target record
+shape when each assignment source has the same implemented decoded field type
+as the target field. Bare imported codec names are not ordinary call targets.
 
 An `encode with function_name` clause must resolve to an ordinary function in
 the codec's module with an `EncodeStep<TState>` return type. When the

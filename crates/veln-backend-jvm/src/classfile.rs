@@ -954,6 +954,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     .dispatch
                     .as_ref()
                     .and_then(|dispatch| dispatch.length_field.as_deref())
+                    .or(schema.fields[index].length_field.as_deref())
                     .unwrap_or(""),
             );
         });

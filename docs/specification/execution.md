@@ -99,7 +99,15 @@ execution reference.
   the helper returns the mapped ordinary record shape instead of the
   schema-local field shape. Mapping assignment sources must name decoded
   schema fields. Mapping assignment targets must name target fields, and every
-  target field must be assigned once before execution.
+  target field must be assigned once before execution. The implemented mapped
+  decoded field types are exact-width unsigned primitive fields as `Int`,
+  length-bounded `ByteView(length_field)` payload fields as `ByteView`, closed
+  nested dispatch payload fields as the nested schema record shape, and
+  extension dispatch payload fields as `SchemaDispatchPayload<T>`. The checked
+  examples are
+  `examples/specification/run/binary-schema-mapped-record-decode/`,
+  `examples/specification/run/binary-schema-mapped-byteview-decode/`, and
+  `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`.
 - Eligible generated binary schema decode-step helpers named
   `byte_decode_step_<schema>` accept a bounded `ByteView` and explicit base
   `ByteOffset`. When the view has at least the schema's exact-width byte
@@ -182,8 +190,9 @@ execution reference.
   same `DecodeStep<T>` value as `byte_decode_step_<schema>`, including mapped
   record values, `NeedMore(NeedBytes(count))`, and `Invalid` without consumed
   bytes.
-  A mapped schema is rejected with `codec.decode_value_type` when the generated
-  decode-step helper cannot expose the mapping target value type.
+  For the implemented single structural mapping slice, `T` is the mapping
+  target record shape when each assignment source has the same implemented
+  decoded field type as the target field.
 - A codec declaration with a valid hand-written `decode with function_name`
   clause exposes the codec item name as the executable decode boundary for
   ordinary source calls. The call accepts a bounded `ByteView` and explicit

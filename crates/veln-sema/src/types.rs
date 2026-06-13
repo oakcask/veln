@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use veln_ast::{
     BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, FunctionKind,
@@ -605,13 +605,7 @@ fn schema_decode_function_signatures_for_schema(
     };
     let byte_view = Type::named("ByteView", Vec::new());
     let byte_offset = Type::named("ByteOffset", Vec::new());
-    let mapped_fields = schema_decode_mapping_fields(module, schema)
-        .map(|fields| {
-            fields
-                .into_iter()
-                .map(|field| (field.target, Type::int()))
-                .collect::<Vec<_>>()
-        })
+    let mapped_fields = schema_decode_mapping_record_fields(module, schema, &fields)
         .unwrap_or_else(|| fields.into_iter().map(|(name, ty, _)| (name, ty)).collect());
     let decoded_type = Type::Record(mapped_fields);
     let result = Type::named("Result", vec![decoded_type.clone(), Type::string()]);
@@ -684,7 +678,7 @@ fn schema_decode_record_fields_inner_after_push(
     schema: &SchemaDecl,
     stack: &mut Vec<String>,
 ) -> Option<Vec<(String, Type, u8)>> {
-    let mut decoded_fields = BTreeSet::new();
+    let mut decoded_fields = BTreeMap::<String, Type>::new();
     let mut fields = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
@@ -693,14 +687,18 @@ fn schema_decode_record_fields_inner_after_push(
         }
         let (width, ty) = if let Some(width) = exact_width_schema_primitive(&field.ty) {
             (width, Type::int())
+        } else if let Some(length_field) = byte_view_schema_primitive(&field.ty) {
+            if decoded_fields.get(&length_field) != Some(&Type::int()) {
+                return None;
+            }
+            (0, Type::named("ByteView", Vec::new()))
         } else {
             let dispatch = closed_dispatch_schema_primitive(&field.ty)
                 .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
-            if !decoded_fields.contains(&dispatch.tag_field)
-                || dispatch
-                    .length_field
-                    .as_ref()
-                    .is_some_and(|length_field| !decoded_fields.contains(length_field))
+            if decoded_fields.get(&dispatch.tag_field) != Some(&Type::int())
+                || dispatch.length_field.as_ref().is_some_and(|length_field| {
+                    decoded_fields.get(length_field) != Some(&Type::int())
+                })
             {
                 return None;
             }
@@ -720,7 +718,7 @@ fn schema_decode_record_fields_inner_after_push(
             };
             (0, field_ty)
         };
-        decoded_fields.insert(field.name.clone());
+        decoded_fields.insert(field.name.clone(), ty.clone());
         fields.push((field.name.clone(), ty, width));
     }
     Some(fields)
@@ -747,13 +745,7 @@ fn schema_decode_value_type_inner(
     stack: &mut Vec<String>,
 ) -> Option<Type> {
     let fields = schema_decode_record_fields_inner(module, schema, stack)?;
-    let mapped_fields = schema_decode_mapping_fields(module, schema)
-        .map(|fields| {
-            fields
-                .into_iter()
-                .map(|field| (field.target, Type::int()))
-                .collect::<Vec<_>>()
-        })
+    let mapped_fields = schema_decode_mapping_record_fields(module, schema, &fields)
         .unwrap_or_else(|| fields.into_iter().map(|(name, ty, _)| (name, ty)).collect());
     Some(Type::Record(mapped_fields))
 }
@@ -924,26 +916,52 @@ pub(crate) fn schema_decode_mapping_fields(
     module: &SurfaceModule,
     schema: &SchemaDecl,
 ) -> Option<Vec<SchemaDecodeMappingField>> {
+    let decoded_fields = schema_decode_record_fields(module, schema)?;
+    schema_decode_mapping_fields_from_decoded_fields(module, schema, &decoded_fields)
+}
+
+fn schema_decode_mapping_record_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    decoded_fields: &[(String, Type, u8)],
+) -> Option<Vec<(String, Type)>> {
+    let fields = schema_decode_mapping_fields_from_decoded_fields(module, schema, decoded_fields)?;
+    let source_field_types = decoded_fields
+        .iter()
+        .map(|(name, ty, _)| (name.as_str(), ty))
+        .collect::<BTreeMap<_, _>>();
+    fields
+        .into_iter()
+        .map(|field| {
+            let ty = source_field_types.get(field.source.as_str())?;
+            Some((field.target, (*ty).clone()))
+        })
+        .collect::<Option<Vec<_>>>()
+}
+
+fn schema_decode_mapping_fields_from_decoded_fields(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    decoded_fields: &[(String, Type, u8)],
+) -> Option<Vec<SchemaDecodeMappingField>> {
     let [mapping] = schema.mappings.as_slice() else {
         return None;
     };
     let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
+    let source_field_types = decoded_fields
+        .iter()
+        .map(|(name, ty, _)| (name.as_str(), ty))
+        .collect::<BTreeMap<_, _>>();
     let mut fields = Vec::new();
     for (target, target_ty) in target_fields {
-        if target_ty != Type::int() {
-            return None;
-        }
         let source = mapping
             .assignments
             .iter()
             .find(|assignment| assignment.target == target)?
             .source
             .clone();
-        if !schema
-            .fields
-            .iter()
-            .any(|schema_field| schema_field.name == source)
-        {
+        let source_ty = source_field_types.get(source.as_str())?;
+        if source_ty != &&target_ty {
             return None;
         }
         fields.push(SchemaDecodeMappingField { target, source });
@@ -1029,6 +1047,27 @@ pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
         "UInt32be" => Some(0xffffffff),
         _ => None,
     }
+}
+
+pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<String> {
+    let text = ty.trim();
+    let inner = text.strip_prefix("ByteView(")?.strip_suffix(')')?.trim();
+    if is_simple_schema_field_reference(inner) {
+        Some(inner.to_string())
+    } else {
+        None
+    }
+}
+
+fn is_simple_schema_field_reference(text: &str) -> bool {
+    let mut chars = text.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !(first.is_ascii_alphabetic() || first == '_') {
+        return false;
+    }
+    chars.all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
 }
 
 pub(crate) fn reserved_bits_schema_primitive(ty: &str) -> Option<(i64, i64)> {

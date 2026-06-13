@@ -158,12 +158,14 @@ unchanged. A declaration that lists both directions may share schema-derived
 checks and mapping facts, but each direction still has its own result shape
 and diagnostics.
 
-The checker rejects mapped `derive decode` and `derive encode` clauses when
-the generated direction cannot expose or accept the schema mapping target value
-type. Remaining checker work should reject other directions that the named
-schema cannot support. For example, encoding is unavailable when schema
-mapping is not total or when a field can be decoded but cannot be
-reconstructed from the mapped value without an explicit encoder body.
+The checker accepts mapped `derive decode` clauses when the generated
+decode-step helper can expose the schema mapping target value type, and
+rejects mapped `derive encode` clauses when the generated direction cannot
+accept that target value type. Remaining checker work should reject other
+directions that the named schema cannot support. For example, encoding is
+unavailable when schema mapping is not total or when a field can be decoded
+but cannot be reconstructed from the mapped value without an explicit encoder
+body.
 Importing or exporting the codec declaration must not silently add directions
 that are missing from its head.
 
