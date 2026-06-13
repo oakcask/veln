@@ -204,6 +204,16 @@
         }
     }
 
+    public static final class RuntimeFailure extends RuntimeException {
+        private RuntimeFailure(String message) {
+            super(message);
+        }
+
+        private RuntimeFailure(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
     public interface Fn {
         Object call(Object... args);
     }

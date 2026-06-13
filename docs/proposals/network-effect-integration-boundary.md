@@ -101,6 +101,12 @@ replacement for it.
 
 ## Discussion Result: Transport Error Boundary
 
+Implemented first slice: descriptor-backed `net::receive_chunk` reports
+malformed host-fed `VELN_NET_CHUNK_HEX` as a runtime failure, and
+descriptor-backed `net::send_chunk` reports failed outgoing event recording as
+a runtime failure. Successful descriptor-backed `net` and `time` calls remain
+current behavior under `../specification/names-effects.md`.
+
 Transport failures should enter the system as host or runtime errors owned by
 the transport adapter. Socket read failures, write failures, accept failures,
 deadline expiry, cancellation, and local resource exhaustion are not peer

@@ -1,0 +1,6 @@
+# Transport send recording failures are runtime failures, not peer protocol errors.
+pub fn main() -> Result<(), String> effects [net]
+	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
+	net::send_chunk(outgoing)
+	Ok(())
+end

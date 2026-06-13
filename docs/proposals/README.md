@@ -67,7 +67,8 @@ compare it with `../specification/` before changing behavior.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, socket, stream-routing, deadline,
   cancellation, channel, and task behavior beyond the implemented
-  descriptor-backed `net` and `time` boundary calls.
+  descriptor-backed `net` and `time` boundary calls plus their first
+  transport-error runtime failure slice.
 
 ## Update When
 

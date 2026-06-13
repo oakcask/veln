@@ -341,6 +341,9 @@ Network and time boundary intrinsics are backend-owned runtime operations.
 `net::send_chunk` exposes an outgoing immutable `ByteChunk` to the host
 runtime and returns `()`. `time::timeout_ms` waits for a non-negative
 millisecond duration at the runtime boundary and returns `()`.
+Malformed host-fed receive bytes and failed outgoing event recording stop the
+entry as runtime failures. They do not produce schema, codec, or HTTP/2 peer
+protocol diagnostics.
 
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of

@@ -21,6 +21,11 @@ Runtime contract failures use `error.kind: "contract"`. The error details use
 - `node_id`: the contract node identifier
 - `span`: the source span for the failed clause
 
+Host runtime failures use `error.kind: "runtime"`, `details.phase:
+"runtime"`, and the first captured runtime stderr line as `error.message`.
+Descriptor-backed transport failures such as malformed host-fed receive bytes
+and failed outgoing event recording use this shape.
+
 An entry returning `Err(value)` uses `error.kind: "result"`. The error details
 use `kind: "result"`, `phase: "runtime"`, and `value` with the rendered error
 value. When the result value is a compact fixture hex failure from

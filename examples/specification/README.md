@@ -705,6 +705,10 @@ against the built `veln` binary.
   lookups.
 - `run/transport-boundary/`: descriptor-backed `net` and `time` boundary
   calls with host-fed input chunks, outgoing chunks, and timeout use.
+- `run/transport-receive-malformed-json/`: malformed host-fed transport bytes
+  fail as run JSON runtime errors, not schema, codec, or protocol diagnostics.
+- `run/transport-send-record-failure-json/`: failed outgoing transport event
+  recording fails as a run JSON runtime error.
 - `run/concurrency-boundary/`: task and channel standard calls with declared
   concurrency effects, including explicit and inferred item types, sender
   closing, closed receives, and failed sends.
