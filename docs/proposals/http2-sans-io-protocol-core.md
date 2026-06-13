@@ -30,9 +30,9 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining stream lifecycle beyond the implemented peer-created stream
   admission, receive-limit, inbound reset slice, and GOAWAY last-stream-id
   enforcement for later peer-created HEADERS
-- initial-window-size changes, outbound flow control, and broader
-  stream-window interactions beyond the implemented inbound DATA and
-  `WINDOW_UPDATE` receive-window accounting
+- outbound flow control and broader stream-window interactions beyond the
+  implemented inbound DATA, stream-level `WINDOW_UPDATE`, and
+  `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state
   and later peer-created HEADERS rejection
 
@@ -246,10 +246,13 @@ frame-size failures, stores received `SETTINGS_ENABLE_PUSH`,
 `SETTINGS_MAX_FRAME_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`, and
 `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_HEADER_TABLE_SIZE`, and
 `SETTINGS_MAX_HEADER_LIST_SIZE` values as peer-advertised state, and confirms
-that those peer-advertised values are not used as inbound limits for later
-incoming frame-size, concurrent-stream receive-limit, or DATA receive-window
-checks. It range-checks received values for constrained settings before
-updating peer-advertised state and projects
+that those peer-advertised values are not used as inbound frame-size or
+concurrent-stream receive limits. For `SETTINGS_INITIAL_WINDOW_SIZE`, it
+applies the delta from the previous active value to the tracked open-stream
+receive-window credit while keeping that setting out of receive-limit
+provenance. It range-checks received values for constrained settings before
+updating peer-advertised state or open-stream receive-window credit and
+projects
 out-of-range values as
 `http2.peer_limit.settings_value_out_of_range` with setting identity, observed
 value, accepted range, item byte offset, and peer-limit provenance in
@@ -309,6 +312,12 @@ receive-window credit. Wrong-length `WINDOW_UPDATE` payloads use
 `http2.protocol.invalid_frame_kind` shape, and zero or overflowing increments
 use `http2.peer_limit.flow_control_window_exceeded` without changing receive
 window state.
+The implemented slice also applies received `SETTINGS_INITIAL_WINDOW_SIZE`
+values to the tracked open stream's receive-window credit by the delta between
+the previous active peer setting and the new value. The adjusted stream credit
+can become negative, in which case later DATA remains blocked by
+`http2.peer_limit.flow_control_window_exceeded` until stream-level
+`WINDOW_UPDATE` restores enough credit.
 The implemented slice also admits peer-created streams narrowly. A HEADERS
 frame on an idle, nonzero stream opens the tracked peer-created stream when
 the active concurrent-stream receive limit allows it. A HEADERS frame that

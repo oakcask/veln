@@ -475,7 +475,7 @@ end
 fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, next_offset, length, kind, stream_id, shutdown_state, receive_flow_control)?
 	match flow_control_decision
-		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, AfterPreface, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, flags, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, next_receive_flow_control), next_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
+		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, AfterPreface, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, flags, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, update_initial_window_receive_credit(pending, next_offset, length, kind, flags, peer_settings, next_receive_flow_control)?), next_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
 		ReceiveFlowControlFailed(error) => Ok(Failed(consumed_state, error))
 	end
 end
@@ -664,6 +664,49 @@ fn update_single_settings_item(pending: ByteChunk, next_offset: Int, peer_settin
 				end
 			end
 		end
+	end
+end
+
+fn update_initial_window_receive_credit(pending: ByteChunk, next_offset: Int, length: Int, kind: Int, flags: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControl, String>
+	match kind == 4
+		true => match settings_ack_set(flags)
+			true => Ok(receive_flow_control)
+			false => match length == 6
+				true => update_single_initial_window_receive_credit(pending, next_offset, peer_settings, receive_flow_control)
+				false => Ok(receive_flow_control)
+			end
+		end
+		false => Ok(receive_flow_control)
+	end
+end
+
+fn update_single_initial_window_receive_credit(pending: ByteChunk, next_offset: Int, peer_settings: PeerSettingsState, receive_flow_control: ReceiveFlowControl) -> Result<ReceiveFlowControl, String>
+	let item_offset: ByteOffset = byte_offset(9)?
+	let item_count: ByteCount = byte_count(6)?
+	let item: ByteView = byte_view(pending, item_offset, item_count)?
+	let identifier_count: ByteCount = byte_count(2)?
+	let value_offset: ByteOffset = byte_offset(2)?
+	let value_count: ByteCount = byte_count(4)?
+	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
+	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
+	match identifier == 4
+		true => Ok(apply_initial_window_delta(value - active_peer_initial_window_size(peer_settings), receive_flow_control))
+		false => Ok(receive_flow_control)
+	end
+end
+
+fn active_peer_initial_window_size(peer_settings: PeerSettingsState) -> Int
+	match peer_settings
+		PeerSettings(_, NoPeerInitialWindowSize, _, _, _, _) => 65535
+		PeerSettings(_, PeerInitialWindowSize(value, _), _, _, _, _) => value
+	end
+end
+
+fn apply_initial_window_delta(delta: Int, receive_flow_control: ReceiveFlowControl) -> ReceiveFlowControl
+	match receive_flow_control
+		ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow) => ReceiveFlowControl(connection_window, NoOpenStreamReceiveWindow)
+		ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window)) => ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window + delta))
+		ReceiveFlowControl(connection_window, ResetStreamReceiveWindow(stream_id, error_code)) => ReceiveFlowControl(connection_window, ResetStreamReceiveWindow(stream_id, error_code))
 	end
 end
 
@@ -2029,6 +2072,30 @@ fn print_encode_error(label: String, encoded: Result<ByteChunk, EncodeError>) ->
 	end
 end
 
+fn print_initial_window_update_cases() -> Result<(), String> effects [stdio]
+	let initial_window_open: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), frame_state())?
+	let initial_window_adjust: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000400000003")?), step_state(initial_window_open))?
+	print_step("initial-window-adjust", initial_window_adjust)
+	print_peer_settings("initial-window-adjust", step_state(initial_window_adjust))
+	print_receive_windows("initial-window-adjust", step_state(initial_window_adjust))
+	let initial_window_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003000000000001010203")?), step_state(initial_window_adjust))?
+	print_step("initial-window-data", initial_window_data)
+	print_receive_windows("initial-window-data", step_state(initial_window_data))
+	let initial_window_after_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000400000000000101020304")?), step_state(initial_window_open))?
+	let initial_window_negative: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000400000003")?), step_state(initial_window_after_data))?
+	print_step("initial-window-negative", initial_window_negative)
+	print_receive_windows("initial-window-negative", step_state(initial_window_negative))
+	let initial_window_negative_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001000000000001ff")?), step_state(initial_window_negative))?
+	print_failure("initial-window-negative-data", initial_window_negative_data)
+	let initial_window_restore: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000100000002")?), step_state(initial_window_negative))?
+	print_step("initial-window-restore", initial_window_restore)
+	print_receive_windows("initial-window-restore", step_state(initial_window_restore))
+	let initial_window_restored_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001000000000001ff")?), step_state(initial_window_restore))?
+	print_step("initial-window-restored-data", initial_window_restored_data)
+	print_receive_windows("initial-window-restored-data", step_state(initial_window_restored_data))
+	Ok(())
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let preface_valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000000040000000000")?), empty_state())?
 	print_step("preface-valid", preface_valid)
@@ -2131,6 +2198,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("peer-initial-window-data", peer_initial_window_data)
 	print_peer_settings("peer-initial-window-data", step_state(peer_initial_window_data))
 	print_receive_windows("peer-initial-window-data", step_state(peer_initial_window_data))
+	let ignored_initial_window_update_cases: () = print_initial_window_update_cases()?
 	let headers_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000000")?), frame_state())?
 	print_stream_id_failure("headers-zero-stream", headers_zero_stream)
 	let headers_even_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000002")?), frame_state())?
