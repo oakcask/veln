@@ -223,9 +223,10 @@ earlier length field with `codec.dispatch_length_mismatch`. Visible tag and
 payload variant disagreements report `codec.dispatch_mismatch`.
 The helper writes fields in declaration order into one immutable big-endian
 `ByteChunk` and returns `Result<ByteChunk, EncodeError>`. Values outside the
-primitive range return `Err(EncodeError("codec.out_of_range", field_path,
-reason))`; nested schema encode failures keep the nested schema field path.
-`UInt31be` uses the 31-bit maximum even though it occupies four bytes.
+primitive range return
+`Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`;
+nested schema encode failures keep the nested schema field path. `UInt31be`
+uses the 31-bit maximum even though it occupies four bytes.
 Unsupported reserved-bit encode shapes report `schema.reserved_bits_encode`.
 This slice excludes schema mappings, field-local validation, imported or
 generalized dispatch payload schemas, other reserved or fixed fields, nested

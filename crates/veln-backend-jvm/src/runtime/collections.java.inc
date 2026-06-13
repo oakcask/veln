@@ -2729,7 +2729,7 @@
         long unsigned = asLong(value);
         if (unsigned < 0 || unsigned > maxValue) {
             return err(encodeError(
-                "codec.out_of_range",
+                "codec.encode_value_unrepresentable",
                 schemaName + "." + fieldName,
                 "value must be between 0 and " + maxValue
             ));

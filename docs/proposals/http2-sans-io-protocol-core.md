@@ -264,9 +264,9 @@ slice. Ordinary source builds record-shaped frame descriptions with `length`,
 helper for the HTTP/2 wire header layout, and checks one nine-byte output
 chunk for a SETTINGS header on the connection stream, a DATA header on a
 nonzero stream, and the maximum valid `UInt31be` stream id. It also keeps the
-generated helper's `codec.out_of_range` error visible for an out-of-range
-stream id instead of projecting that representation failure into a protocol
-diagnostic.
+generated helper's `codec.encode_value_unrepresentable` error visible for an
+out-of-range stream id instead of projecting that representation failure into
+a protocol diagnostic.
 It now also handles structurally decoded PING and GOAWAY frames. PING is
 accepted only on the connection stream with an eight-byte payload, and the
 observable output preserves the ACK flag distinction. GOAWAY is accepted only

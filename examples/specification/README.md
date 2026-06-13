@@ -386,9 +386,9 @@ against the built `veln` binary.
   declaration order and checks complete lowercase hex output for one
   `ByteChunk`.
 - `run/binary-schema-primitive-encode-out-of-range/`: the same encode helper
-  slice returns a structured `EncodeError` with `codec.out_of_range`, schema
-  field path, and primitive range reason when a `UInt31be` value exceeds its
-  maximum.
+  slice returns a structured `EncodeError` with
+  `codec.encode_value_unrepresentable`, schema field path, and primitive range
+  reason when a `UInt31be` value exceeds its maximum.
 - `run/binary-schema-reserved-bit-encode/`: the reserved-bit encode helper
   slice writes `ReservedBits(1, 0)` followed by `UInt31be` as one shared
   four-byte stream identifier position, omits the reserved field from the
@@ -408,7 +408,8 @@ against the built `veln` binary.
   helper reports `codec.dispatch_unknown_tag` when the tag value has no
   closed dispatch case.
 - `run/binary-schema-closed-dispatch-encode-out-of-range/`: the same encode
-  helper range-checks the selected dispatch payload case before writing it.
+  helper reports `codec.encode_value_unrepresentable` when the selected
+  dispatch payload case is outside its primitive range.
 - `run/binary-schema-extension-dispatch-encode/`: a generated binary schema
   encode helper writes a known extension-tolerant primitive payload selected
   by the earlier visible tag field and preserves matching unknown raw bounded
@@ -423,14 +424,14 @@ against the built `veln` binary.
   encode helper reports `codec.dispatch_mismatch` when an unknown payload
   variant carries a tag that differs from the visible tag field.
 - `run/binary-schema-extension-dispatch-encode-out-of-range/`: the same
-  encode helper range-checks the selected known primitive payload case before
-  writing it.
+  encode helper reports `codec.encode_value_unrepresentable` when the
+  selected known primitive payload case is outside its primitive range.
 - `run/binary-schema-extension-dispatch-encode-length-mismatch/`: the same
   encode helper reports `codec.dispatch_length_mismatch` when the earlier
   length field does not match the emitted payload byte count.
 - `run/binary-schema-dispatch-nested-encode-failure/`: nested payload encode
-  failures keep the nested schema field path in structured `EncodeError`
-  output.
+  failures report `codec.encode_value_unrepresentable` and keep the nested
+  schema field path in structured `EncodeError` output.
 - `run/binary-schema-closed-dispatch-decode/`: a generated binary schema
   decode helper reads a closed dispatch tag, selects the known payload case,
   and returns the selected payload as an ordinary `Int` field.

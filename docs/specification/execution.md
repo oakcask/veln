@@ -149,7 +149,8 @@ execution reference.
   `Err(EncodeError("codec.dispatch_mismatch", field_path, reason))`.
   The helper writes fields in declaration order into one immutable big-endian
   `ByteChunk` and returns `Result<ByteChunk, EncodeError>`. Values outside the
-  primitive range return `Err(EncodeError("codec.out_of_range", field_path,
+  primitive range return
+  `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))`; nested schema encode failures keep the nested schema field path.
   `UInt31be` uses the 31-bit maximum even though it occupies four bytes.
   Unsupported reserved-bit encode shapes report `schema.reserved_bits_encode`.
@@ -266,8 +267,9 @@ execution reference.
   identifier layout. The checked case pins complete lowercase hex output for a
   SETTINGS header on the connection stream, a DATA header on a nonzero stream,
   and the maximum valid `UInt31be` stream id. A stream id outside the generated
-  helper's range returns `EncodeError("codec.out_of_range", field_path,
-  reason)` without adding an HTTP/2-specific diagnostic.
+  helper's range returns
+  `EncodeError("codec.encode_value_unrepresentable", field_path, reason)`
+  without adding an HTTP/2-specific diagnostic.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior

@@ -217,8 +217,8 @@ record field names rather than the schema-local field names.
 pin the generated exact-width primitive encode helper slice. The passing case
 encodes `UInt16be` followed by `UInt32be` into one immutable `ByteChunk` and
 checks complete lowercase hex output. The failing case matches the returned
-`EncodeError` and asserts `codec.out_of_range`, the schema field path, and the
-`UInt31be` maximum.
+`EncodeError` and asserts `codec.encode_value_unrepresentable`, the schema
+field path, and the `UInt31be` maximum.
 
 `../../examples/specification/run/binary-schema-reserved-bit-encode/` pins the
 reserved-bit encode slice for `ReservedBits(1, 0)` followed by `UInt31be`.
@@ -238,7 +238,8 @@ pins same-module nested payload encode for a closed dispatch case.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`
 asserts `codec.dispatch_unknown_tag` when the tag value has no closed case.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`
-asserts `codec.out_of_range` against the selected `UInt8` payload case.
+asserts `codec.encode_value_unrepresentable` against the selected `UInt8`
+payload case.
 
 `../../examples/specification/run/binary-schema-extension-dispatch-encode/`
 pins the extension-tolerant dispatch encode helper slice. The passing cases
@@ -255,12 +256,15 @@ case but the payload field supplies `Unknown`.
 asserts `codec.dispatch_mismatch` when an unknown payload variant carries a
 tag that differs from the visible tag field.
 `../../examples/specification/run/binary-schema-extension-dispatch-encode-out-of-range/`
-asserts `codec.out_of_range` against the selected `UInt16be` payload case.
+asserts `codec.encode_value_unrepresentable` against the selected `UInt16be`
+payload case.
 `../../examples/specification/run/binary-schema-extension-dispatch-encode-length-mismatch/`
 asserts `codec.dispatch_length_mismatch` when the earlier length field does
 not match the emitted payload byte count.
 `../../examples/specification/run/binary-schema-dispatch-nested-encode-failure/`
-asserts that nested payload encode failures keep the nested schema field path.
+asserts that nested payload encode failures report
+`codec.encode_value_unrepresentable` while keeping the nested schema field
+path.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
@@ -362,8 +366,9 @@ record-shaped frame description through the generated binary schema encode
 helper. The checked `[[output_chunk_list]]` fixtures cover a SETTINGS header
 on the connection stream, a DATA header on a nonzero stream, and the maximum
 valid `UInt31be` stream id. The source output also matches a generated helper
-`codec.out_of_range` failure for an out-of-range stream id, keeping field path
-and reason text visible without converting it into a protocol diagnostic.
+`codec.encode_value_unrepresentable` failure for an out-of-range stream id,
+keeping field path and reason text visible without converting it into a
+protocol diagnostic.
 
 `../../examples/specification/run/http2-protocol-core-closed-human/`,
 `../../examples/specification/run/http2-protocol-core-preface-partial-human/`,
