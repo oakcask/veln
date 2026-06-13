@@ -24,9 +24,10 @@ compare it with `../specification/` before changing behavior.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
-  big-endian read/write, bounded view buffer helper, outgoing chunk-list,
-  stream-input, and schema byte-preview diagnostic slices plus HTTP/2 client
-  connection preface protocol byte previews.
+  big-endian and little-endian read/write, bounded view buffer helper,
+  outgoing chunk-list, stream-input, pending input and outgoing immutable
+  chunk collection for protocol examples, and schema byte-preview diagnostic
+  slices plus HTTP/2 client connection preface protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining binary schema primitive and dispatch behavior beyond the
   implemented source-surface exact-width and `ReservedBits(width, value)`

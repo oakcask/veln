@@ -1,0 +1,138 @@
+# Pending input uses immutable byte chunks and absolute offsets.
+use stdio
+
+type ProtocolAction
+	Emit(bytes: ByteChunk)
+	Ignore
+end
+
+fn pending_count(state: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }) -> Int
+	byte_count_to_int(byte_chunk_count(state.pending))
+end
+
+fn append_chunk(bytes: ByteChunk, state: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }) -> Result<{ pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, String>
+	let combined: ByteChunk = byte_append(state.pending, bytes)
+	match byte_count_to_int(byte_chunk_count(combined)) > byte_count_to_int(state.limit)
+		true => Err("pending input exceeds retained byte limit")
+		false => Ok({ pending: combined, next_offset: state.next_offset, limit: state.limit })
+	end
+end
+
+fn append_input(event: StreamInput, state: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }) -> Result<{ pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, String>
+	match event
+		Chunk(bytes) => append_chunk(bytes, state)
+		End => Ok(state)
+	end
+end
+
+fn consume_pending(state: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, count: ByteCount) -> Result<{ view : ByteView, taken : ByteChunk, next_state : { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, base_offset : ByteOffset }, String>
+	let taken: ByteChunk = byte_take(state.pending, count)?
+	let view: ByteView = byte_view(state.pending, byte_offset(0)?, count)?
+	let rest: ByteChunk = byte_drop(state.pending, count)?
+	let advanced: ByteOffset = byte_offset(byte_offset_to_int(state.next_offset) + byte_count_to_int(count))?
+	Ok({ view: view, taken: taken, next_state: { pending: rest, next_offset: advanced, limit: state.limit }, base_offset: state.next_offset })
+end
+
+fn collect_outputs(actions: List<ProtocolAction>) -> List<ByteChunk>
+	match actions
+		Nil => list_nil()
+		Cons(action, tail) => match action
+			Emit(bytes) => list_cons(bytes, collect_outputs(tail))
+			Ignore => collect_outputs(tail)
+		end
+	end
+end
+
+fn chunk_list_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_list_count(tail)
+	end
+end
+
+fn chunk_list_total(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(chunk, tail) => byte_count_to_int(byte_chunk_count(chunk)) + chunk_list_total(tail)
+	end
+end
+
+fn first_chunk(chunks: List<ByteChunk>) -> Result<ByteChunk, String>
+	match chunks
+		Nil => Err("missing output chunk")
+		Cons(chunk, _) => Ok(chunk)
+	end
+end
+
+fn second_chunk(chunks: List<ByteChunk>) -> Result<ByteChunk, String>
+	match chunks
+		Nil => Err("missing output chunk")
+		Cons(_, tail) => first_chunk(tail)
+	end
+end
+
+fn chunk_first_byte(chunk: ByteChunk) -> Result<Int, String>
+	byte_read_u8_be(byte_view(chunk, byte_offset(0)?, byte_count(1)?)?)
+end
+
+fn emit_pending(name: String, state: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }) -> () effects [stdio]
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::print(int_to_string(pending_count(state)))
+	stdio::print(" base ")
+	stdio::println(int_to_string(byte_offset_to_int(state.next_offset)))
+end
+
+fn emit_outputs(chunks: List<ByteChunk>) -> Result<(), String> effects [stdio]
+	let first: ByteChunk = first_chunk(chunks)?
+	let second: ByteChunk = second_chunk(chunks)?
+	stdio::print("outgoing chunks ")
+	stdio::print(int_to_string(chunk_list_count(chunks)))
+	stdio::print(" total ")
+	stdio::print(int_to_string(chunk_list_total(chunks)))
+	stdio::print(" first ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(first))))
+	stdio::print("/")
+	stdio::print(int_to_string(chunk_first_byte(first)?))
+	stdio::print(" second ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(second))))
+	stdio::print("/")
+	stdio::println(int_to_string(chunk_first_byte(second)?))
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let empty: ByteChunk = byte_chunk_from_hex("")?
+	let initial_offset: ByteOffset = byte_offset(1024)?
+	let limit: ByteCount = byte_count(5)?
+	let initial: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount } = { pending: empty, next_offset: initial_offset, limit: limit }
+	let first_chunk: ByteChunk = byte_chunk_from_hex("000102")?
+	let first: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount } = append_input(Chunk(first_chunk), initial)?
+	let second_chunk: ByteChunk = byte_chunk_from_hex("0304")?
+	let ready: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount } = append_input(Chunk(second_chunk), first)?
+	let ended: { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount } = append_input(End, ready)?
+	emit_pending("pending", ended)
+
+	let consumed_count: ByteCount = byte_count(2)?
+	let consumed: { view : ByteView, taken : ByteChunk, next_state : { pending : ByteChunk, next_offset : ByteOffset, limit : ByteCount }, base_offset : ByteOffset } = consume_pending(ended, consumed_count)?
+	stdio::print("view count ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(byte_view_to_chunk(consumed.view)))))
+	stdio::print(" base ")
+	stdio::print(int_to_string(byte_offset_to_int(consumed.base_offset)))
+	stdio::print(" first16 ")
+	stdio::println(int_to_string(byte_read_u16_be(consumed.view)?))
+	emit_pending("after-drop", consumed.next_state)
+
+	let overflowing_chunk: ByteChunk = byte_chunk_from_hex("050607")?
+	let limit_result = append_input(Chunk(overflowing_chunk), consumed.next_state)
+	let _ = match limit_result
+		Ok(_) => stdio::println("limit ok")
+		Err(error) => stdio::println(error)
+	end
+
+	let first_output: ByteChunk = byte_chunk_from_hex("aabb")?
+	let second_output: ByteChunk = byte_chunk_from_hex("cc")?
+	let actions: List<ProtocolAction> = list_cons(Emit(first_output), list_cons(Ignore, list_cons(Emit(second_output), list_nil())))
+	let _ = emit_outputs(collect_outputs(actions))?
+	Ok(())
+end

@@ -26,6 +26,10 @@ execution reference.
   ordinary immutable `List<ByteChunk>` values. Standard `StreamInput`,
   `DecodeStep<T>`, `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and
   `EncodeError` values execute as ordinary immutable ADT values.
+- Pending-input examples append immutable `StreamInput.Chunk` bytes, enforce a
+  source-owned retained `ByteCount` limit, take and drop bounded `ByteView`
+  ranges, preserve absolute `ByteOffset` facts separately, and collect
+  outgoing immutable `ByteChunk` values without socket calls.
 - Descriptor-backed `net` and `time` calls are host runtime boundaries:
   malformed received bytes, failed outgoing event recording, and forced
   timeout expiry stop the entry as runtime failures rather than schema,
