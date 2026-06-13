@@ -290,6 +290,34 @@
         );
     }
 
+    private static void registerHttp2PeerLimitConcurrentStreamsExceededDiagnostic(
+        String message,
+        long byteOffset,
+        long streamId,
+        long attemptedCount,
+        long allowedCount,
+        String activeState,
+        String receiveLimitProvenance,
+        String ruleProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.peer_limit.concurrent_streams_exceeded",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.number("attempted_concurrent_stream_count", attemptedCount),
+                    DiagnosticDetail.number("allowed_concurrent_stream_count", allowedCount),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2PeerLimitSettingsValueOutOfRangeDiagnostic(
         String message,
         long byteOffset,

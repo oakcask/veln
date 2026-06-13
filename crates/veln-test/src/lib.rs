@@ -3966,6 +3966,43 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_streams_protocol_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f3220636f6e63757272656e742073747265616d2072656365697665206c696d69742065786365656465642061742062797465206f66667365742039",
+            "\tprotocol_diagnostic\thttp2.peer_limit.concurrent_streams_exceeded\t9",
+            "\t7\tstream_id\tnumber\t3",
+            "\tstream_ref\tstring\t73747265616d",
+            "\tattempted_concurrent_stream_count\tnumber\t2",
+            "\tallowed_concurrent_stream_count\tnumber\t1",
+            "\tactive_state\tstring\t6f70656e2d73747265616d",
+            "\treceive_limit_provenance\tstring\t6c6f63616c5f636f6e66696775726174696f6e",
+            "\trule_provenance\tstring\t706565725f637265617465645f73747265616d5f726563656976655f6c696d6974\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 concurrent stream receive limit exceeded at byte offset 9\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.peer_limit.concurrent_streams_exceeded\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":9},",
+                "\"stream_id\":3,",
+                "\"stream_ref\":\"stream\",",
+                "\"attempted_concurrent_stream_count\":2,",
+                "\"allowed_concurrent_stream_count\":1,",
+                "\"active_state\":\"open-stream\",",
+                "\"receive_limit_provenance\":\"local_configuration\",",
+                "\"rule_provenance\":\"peer_created_stream_receive_limit\"}}"
+            )
+        );
+    }
+
+    #[test]
     fn invalid_frame_kind_protocol_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",

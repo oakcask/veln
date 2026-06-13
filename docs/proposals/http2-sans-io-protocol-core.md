@@ -25,7 +25,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
 - stream identifiers
-- stream lifecycle
+- remaining stream lifecycle beyond the implemented peer-created stream
+  admission and receive-limit slice
 - initial-window-size changes, outbound flow control, and broader
   stream-window interactions beyond the implemented inbound DATA and
   `WINDOW_UPDATE` receive-window accounting
@@ -281,6 +282,15 @@ receive-window credit. Wrong-length `WINDOW_UPDATE` payloads use
 `http2.protocol.invalid_frame_kind` shape, and zero or overflowing increments
 use `http2.peer_limit.flow_control_window_exceeded` without changing receive
 window state.
+The implemented slice also admits peer-created streams narrowly. A HEADERS
+frame on an idle, nonzero stream opens the tracked peer-created stream when
+the active concurrent-stream receive limit allows it. A HEADERS frame that
+would open another peer-created stream beyond that receive limit fails as
+`http2.peer_limit.concurrent_streams_exceeded`, with byte offset, stream
+reference, attempted and allowed concurrent-stream counts, active protocol
+state, receive-limit provenance, and rule provenance in ordinary output, human
+diagnostics, and JSON `protocol_diagnostic` details. Non-HEADERS frames on
+idle streams keep using the existing invalid frame-kind failure.
 
 The remaining scope below is still planned work for the full protocol core.
 

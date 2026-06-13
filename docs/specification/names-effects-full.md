@@ -414,6 +414,7 @@ http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int,
 http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String) -> Result<(), String>
 http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String) -> Result<(), String>
 http2_peer_limit_flow_control_window_exceeded(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String) -> Result<(), String>
+http2_peer_limit_concurrent_streams_exceeded(offset: Int, stream_id: Int, attempted_count: Int, allowed_count: Int, active_state: String, receive_limit_provenance: String, rule_provenance: String) -> Result<(), String>
 http2_peer_limit_settings_value_out_of_range(offset: Int, setting_identifier: Int, setting_name: String, observed_value: Int, accepted_min_value: Int, accepted_max_value: Int, peer_limit_provenance: String) -> Result<(), String>
 byte_read_u16_be(view: ByteView) -> Result<Int, String>
 byte_read_u24_be(view: ByteView) -> Result<Int, String>
@@ -578,6 +579,7 @@ The implemented standard symbol table has this current pure-helper split:
   `http2_protocol_invalid_payload_length`,
   `http2_peer_limit_frame_size_exceeded`,
   `http2_peer_limit_flow_control_window_exceeded`,
+  `http2_peer_limit_concurrent_streams_exceeded`,
   `http2_peer_limit_settings_value_out_of_range`, `byte_read_u16_be`,
   `byte_read_u24_be`, `byte_read_u31_be`, `byte_read_u32_be`,
   `byte_write_u8_be`, `byte_write_u16_be`, `byte_write_u24_be`,
