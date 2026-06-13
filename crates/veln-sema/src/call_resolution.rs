@@ -11,7 +11,8 @@ use crate::prelude::{
     qualified_core_prelude_signature,
 };
 use crate::types::{
-    CallOrigin, FunctionSignature, SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_DECODE_TARGET_PREFIX,
+    CallOrigin, CodecCallBoundary, CodecCallSignature, FunctionSignature,
+    SCHEMA_DECODE_STEP_TARGET_PREFIX, SCHEMA_DECODE_TARGET_PREFIX,
     SCHEMA_ENCODE_STEP_TARGET_PREFIX, SCHEMA_ENCODE_TARGET_PREFIX, Type, TypeEnvironment,
     core_type, is_assignable,
 };
@@ -384,10 +385,20 @@ fn core_codec_call_signature(
     };
     let codec = select_codec_core_call(codecs, expected)?;
     Some(CoreCallSignature {
-        target: core_target_from_signature_name(&codec.target_name),
+        target: core_codec_call_target(codec),
         params: codec.params.iter().map(core_type).collect(),
         return_type: core_type(&codec.return_type),
     })
+}
+
+fn core_codec_call_target(codec: &CodecCallSignature) -> CoreCallTarget {
+    match codec.boundary {
+        CodecCallBoundary::Direct => core_target_from_signature_name(&codec.target_name),
+        CodecCallBoundary::HandWrittenDecode => CoreCallTarget::CodecDecode {
+            function: codec.target_name.clone(),
+            codec: codec.name.clone(),
+        },
+    }
 }
 
 fn select_codec_type_call<'a>(

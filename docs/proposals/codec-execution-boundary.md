@@ -201,10 +201,12 @@ checker verifies the hand-written encoder result boundary as
 encoder parameter is the mapped target record shape. The implemented
 hand-written decode execution boundary exposes the codec item name as an
 ordinary source call that forwards `ByteView` and `ByteOffset` to the
-referenced function and returns its `DecodeStep<T>` unchanged. The implemented
-hand-written encode execution boundary exposes the codec item name as an
-ordinary source call that invokes the referenced encoder function with that
-function's parameters and returns its `EncodeStep<TState>` unchanged. The
+referenced function, returns valid `Decoded`, `NeedMore`, and `Invalid`
+results unchanged, and projects an oversized consumed count to
+`codec.consumed_count_invalid`. The implemented hand-written encode execution
+boundary exposes the codec item name as an ordinary source call that invokes
+the referenced encoder function with that function's parameters and returns
+its `EncodeStep<TState>` unchanged. The
 implemented derived decode execution slice exposes the codec item name as an
 ordinary source call to the generated `byte_decode_step_<schema>` behavior
 when the schema is in the currently implemented exact-width binary schema

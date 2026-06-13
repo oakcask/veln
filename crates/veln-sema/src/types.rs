@@ -35,6 +35,7 @@ pub(crate) struct FunctionSignature {
 pub(crate) struct CodecCallSignature {
     pub(crate) name: String,
     pub(crate) target_name: String,
+    pub(crate) boundary: CodecCallBoundary,
     pub(crate) module_name: Option<String>,
     pub(crate) visibility: Visibility,
     pub(crate) params: Vec<Type>,
@@ -42,6 +43,12 @@ pub(crate) struct CodecCallSignature {
     pub(crate) effects: Vec<String>,
     pub(crate) node_id: NodeId,
     pub(crate) span: SourceSpan,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CodecCallBoundary {
+    Direct,
+    HandWrittenDecode,
 }
 
 pub(crate) const SCHEMA_DECODE_TARGET_PREFIX: &str = "schema-decode:";
@@ -446,13 +453,29 @@ fn codec_call_signatures(
                     .filter_map(move |implementation| {
                         match (&implementation.direction, &implementation.kind) {
                             (
-                                CodecDirection::Decode | CodecDirection::Encode,
+                                CodecDirection::Decode,
                                 CodecImplementationKind::With {
                                     function: Some(function_name),
                                 },
-                            ) => {
-                                codec_with_signature(codec, functions, name.clone(), function_name)
-                            }
+                            ) => codec_with_signature(
+                                codec,
+                                functions,
+                                name.clone(),
+                                function_name,
+                                CodecCallBoundary::HandWrittenDecode,
+                            ),
+                            (
+                                CodecDirection::Encode,
+                                CodecImplementationKind::With {
+                                    function: Some(function_name),
+                                },
+                            ) => codec_with_signature(
+                                codec,
+                                functions,
+                                name.clone(),
+                                function_name,
+                                CodecCallBoundary::Direct,
+                            ),
                             (CodecDirection::Decode, CodecImplementationKind::Derive) => {
                                 codec_derive_decode_signature(
                                     module,
@@ -483,6 +506,7 @@ fn codec_with_signature(
     functions: &[FunctionSignature],
     name: String,
     function_name: &str,
+    boundary: CodecCallBoundary,
 ) -> Option<CodecCallSignature> {
     let function = functions.iter().find(|function| {
         function.name == function_name && function.module_name == codec.module_name
@@ -490,6 +514,7 @@ fn codec_with_signature(
     Some(CodecCallSignature {
         name,
         target_name: function.target_name.clone(),
+        boundary,
         module_name: codec.module_name.clone(),
         visibility: codec.visibility,
         params: function.params.clone(),
@@ -515,6 +540,7 @@ fn codec_derive_decode_signature(
     Some(CodecCallSignature {
         name,
         target_name: function.target_name.clone(),
+        boundary: CodecCallBoundary::Direct,
         module_name: codec.module_name.clone(),
         visibility: codec.visibility,
         params: function.params.clone(),
@@ -540,6 +566,7 @@ fn codec_derive_encode_signature(
     Some(CodecCallSignature {
         name,
         target_name: format!("{SCHEMA_ENCODE_STEP_TARGET_PREFIX}{schema_name}"),
+        boundary: CodecCallBoundary::Direct,
         module_name: codec.module_name.clone(),
         visibility: codec.visibility,
         params: function.params.clone(),
@@ -964,8 +991,8 @@ pub(crate) enum SchemaMappingExprError {
         span: SourceSpan,
     },
     TypeMismatch {
-        expected: Type,
-        actual: Type,
+        expected: Box<Type>,
+        actual: Box<Type>,
         text: String,
         span: SourceSpan,
     },
@@ -1063,8 +1090,8 @@ pub(crate) fn schema_mapping_expr_typed(
     )?;
     if !is_assignable(expected, &typed.ty) {
         return Err(SchemaMappingExprError::TypeMismatch {
-            expected: expected.clone(),
-            actual: typed.ty,
+            expected: Box::new(expected.clone()),
+            actual: Box::new(typed.ty),
             text: schema_mapping_expr_render(expr),
             span: expr.span.clone(),
         });
@@ -1093,8 +1120,8 @@ fn schema_mapping_expr_typed_unchecked(
         ExprKind::Record(fields) => {
             let Type::Record(expected_fields) = expected else {
                 return Err(SchemaMappingExprError::TypeMismatch {
-                    expected: expected.clone(),
-                    actual: Type::Record(Vec::new()),
+                    expected: Box::new(expected.clone()),
+                    actual: Box::new(Type::Record(Vec::new())),
                     text: schema_mapping_expr_render(expr),
                     span: expr.span.clone(),
                 });
@@ -1198,16 +1225,15 @@ fn schema_mapping_name_expr(
         }
         if let Some(constructor) =
             schema_mapping_constructor(registry, module, schema, segments, expected)
+            && constructor.variant.payload_fields.is_empty()
         {
-            if constructor.variant.payload_fields.is_empty() {
-                return Ok(SchemaMappingTypedExpr {
-                    ty: expected.clone(),
-                    expr: SchemaDecodeMappingExpr::Constructor {
-                        name: schema_mapping_constructor_name(constructor),
-                        args: Vec::new(),
-                    },
-                });
-            }
+            return Ok(SchemaMappingTypedExpr {
+                ty: expected.clone(),
+                expr: SchemaDecodeMappingExpr::Constructor {
+                    name: schema_mapping_constructor_name(constructor),
+                    args: Vec::new(),
+                },
+            });
         }
         return Err(SchemaMappingExprError::UnknownSchemaField {
             name: name.clone(),

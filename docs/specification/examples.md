@@ -100,9 +100,10 @@ generated schema-derived decode-step helper: complete buffered input returns
 The executable specification case
 `../../examples/specification/run/codec-decode-boundary/` covers a
 hand-written codec decode boundary: a codec item call passes `ByteView` and
-`ByteOffset` to the referenced decoder and observes its returned `Decoded`,
-`NeedMore`, and `Invalid` `DecodeStep<T>` values unchanged while the schema
-mapping pins the accepted value type.
+`ByteOffset` to the referenced decoder, observes valid `Decoded`,
+`NeedMore`, and `Invalid` `DecodeStep<T>` values, and projects an oversized
+consumed count to `codec.consumed_count_invalid` while the schema mapping pins
+the accepted value type.
 The executable specification case
 `../../examples/specification/run/derived-codec-decode-boundary/` covers a
 derived codec decode boundary for the same eligible generated binary schema

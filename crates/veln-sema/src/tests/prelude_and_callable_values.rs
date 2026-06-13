@@ -1025,9 +1025,9 @@ fn codec_decode_with_resolves_as_named_decode_boundary() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::Function(name),
+            target: CoreCallTarget::CodecDecode { function: name, codec },
             ..
-        } if name == "decode_packet"
+        } if name == "decode_packet" && codec == "PacketCodec"
     ));
 
     let ir = lowered.ir.expect("typed IR should be built");
@@ -1042,9 +1042,9 @@ fn codec_decode_with_resolves_as_named_decode_boundary() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::Function(name),
+            target: IrCallTarget::CodecDecode { function: name, codec },
             ..
-        } if name == "decode_packet"
+        } if name == "decode_packet" && codec == "PacketCodec"
     ));
 }
 
@@ -1294,9 +1294,9 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::Function(name),
+            target: CoreCallTarget::CodecDecode { function: name, codec },
             ..
-        } if name == "decode_packet"
+        } if name == "decode_packet" && codec == "PacketCodec"
     ));
 }
 

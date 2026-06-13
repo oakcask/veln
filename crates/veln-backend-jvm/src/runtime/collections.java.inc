@@ -1120,6 +1120,26 @@
         );
     }
 
+    public static Object validateCodecDecodeStep(
+        Object view,
+        Object baseOffset,
+        Object step,
+        Object codecName
+    ) {
+        if (!isAdt(step, "DecodeStep::Decoded")) {
+            return step;
+        }
+        long consumed = byteCountLong(adtPayload(step, 1));
+        if (consumed >= 0L && consumed <= byteViewCount(view)) {
+            return step;
+        }
+        return invalidDecodeStep(
+            "codec.consumed_count_invalid",
+            baseOffset,
+            asString(codecName)
+        );
+    }
+
     public static Object byteEncodeDeclaredBinarySchema(
         Object value,
         Object schemaName,
@@ -2183,7 +2203,7 @@
             "DecodeStep::Invalid",
             new Object[] {
                 adt(
-                    "DecodeError",
+                    "DecodeError::DecodeError",
                     new Object[] { id, baseOffset, fieldPath }
                 )
             }

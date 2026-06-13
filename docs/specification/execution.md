@@ -202,8 +202,12 @@ execution reference.
 - A codec declaration with a valid hand-written `decode with function_name`
   clause exposes the codec item name as the executable decode boundary for
   ordinary source calls. The call accepts a bounded `ByteView` and explicit
-  base `ByteOffset`, invokes the referenced same-module function, and returns
-  its `DecodeStep<T>` unchanged.
+  base `ByteOffset` and invokes the referenced same-module function.
+  `NeedMore(readiness)` and `Invalid(error)` return unchanged.
+  `Decoded(value, consumed)` returns unchanged when `consumed` is within the
+  supplied view length; when `consumed` is outside the supplied view, the codec
+  boundary returns `Invalid(DecodeError("codec.consumed_count_invalid",
+  base_offset, codec_name))`.
 - A codec declaration with a valid hand-written `encode with function_name`
   clause exposes the codec item name as the executable encode boundary for
   ordinary source calls. The call invokes the referenced same-module function

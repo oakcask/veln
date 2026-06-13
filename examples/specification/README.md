@@ -497,8 +497,9 @@ against the built `veln` binary.
   input.
 - `run/codec-decode-boundary/`: a hand-written `decode with` codec item call
   passes `ByteView` and `ByteOffset` to the referenced decoder and observes
-  its returned `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values
-  unchanged while the schema mapping pins the accepted value type.
+  valid `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values while the
+  schema mapping pins the accepted value type. It projects an oversized
+  consumed count to `codec.consumed_count_invalid`.
 - `run/codec-encode-boundary/`: a hand-written `encode with` codec item call
   passes the mapped record value and ordinary encoder parameters to the
   referenced encoder and observes its returned `Encoded` and

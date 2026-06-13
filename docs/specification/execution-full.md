@@ -164,12 +164,16 @@ the same implemented decoded field type as the target field.
 A codec declaration with a valid hand-written `decode with function_name`
 clause also exposes the codec item name as an executable decode boundary in
 ordinary source calls. The call accepts the bounded `ByteView` and explicit
-base `ByteOffset`, invokes the already-checked same-module decode function, and
-returns that function's `DecodeStep<T>` value unchanged. The implemented
-mapped-record checker still requires `T` to match the referenced schema's
-single structural mapping target shape. Same-module private decode codecs are
-callable only inside their declaring module; imported calls require a written
-qualified module path to a `pub codec`.
+base `ByteOffset` and invokes the already-checked same-module decode function.
+`NeedMore(readiness)` and `Invalid(error)` return unchanged.
+`Decoded(value, consumed)` returns unchanged when `consumed` is within the
+supplied view length; when `consumed` is outside the supplied view, the codec
+boundary returns `Invalid(DecodeError("codec.consumed_count_invalid",
+base_offset, codec_name))`. The implemented mapped-record checker still
+requires `T` to match the referenced schema's single structural mapping target
+shape. Same-module private decode codecs are callable only inside their
+declaring module; imported calls require a written qualified module path to a
+`pub codec`.
 
 A codec declaration with a valid hand-written `encode with function_name`
 clause exposes the codec item name as an executable encode boundary in

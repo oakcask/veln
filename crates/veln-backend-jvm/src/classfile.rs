@@ -662,6 +662,29 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
                     &object_method_descriptor(args.len()),
                 );
             }
+            IrCallTarget::CodecDecode { function, codec } => {
+                let [view, base_offset] = args else {
+                    panic!(
+                        "codec decode boundary call should receive ByteView and ByteOffset arguments"
+                    );
+                };
+                self.emit_expr(code, view);
+                self.emit_expr(code, base_offset);
+                for arg in args {
+                    self.emit_expr(code, arg);
+                }
+                code.invokestatic(
+                    &self.program.options.program_class,
+                    &self.program.function_name(function),
+                    &object_method_descriptor(args.len()),
+                );
+                code.ldc_string(codec);
+                code.invokestatic(
+                    &self.program.options.runtime_class,
+                    "validateCodecDecodeStep",
+                    "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+                );
+            }
             IrCallTarget::SchemaDecode(name) => {
                 self.emit_schema_decode_call(code, name, args);
             }
@@ -1883,6 +1906,9 @@ fn scan_expr_tail_recursion(
                     facts.has_tail_self_call = true;
                 }
                 IrCallTarget::Function(name) if name == function => {
+                    facts.has_non_tail_self_call = true;
+                }
+                IrCallTarget::CodecDecode { function: name, .. } if name == function => {
                     facts.has_non_tail_self_call = true;
                 }
                 IrCallTarget::Value(_) => {
