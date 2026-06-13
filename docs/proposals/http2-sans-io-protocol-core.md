@@ -79,25 +79,6 @@ out of the schema language. The initial slice may use opaque header blocks or
 a deliberately small fixture codec, but it should not introduce a
 schema-backed HPACK special case.
 
-## Discussion Result: Unknown Frame Handling
-
-The first core should decode unknown HTTP/2 frame types into an explicit
-unknown-frame value instead of dropping them at the codec boundary. That value
-preserves the numeric frame type, flags, stream id, and bounded payload bytes
-after the normal frame-header and payload-length checks succeed.
-
-Unknown frames have no built-in protocol semantics in the initial core. The
-state transition may emit an ignored-unknown event or otherwise make the value
-available to the caller, but it must not treat the unknown type as a schema
-dispatch failure. If current connection state imposes a rule that only a
-specific known frame can appear next, that rule remains a protocol-state check
-with a typed protocol error rather than a schema error.
-
-This separates extension tolerance from state-machine ownership. Fixtures can
-assert that unknown frame bytes round-trip through decoding, while long-lived
-connections can discard the preserved payload as soon as the caller decides it
-does not need the extension frame.
-
 ## Discussion Result: Protocol Numeric Domain Types
 
 Stream identifiers and flow-control counters should be protocol-domain values

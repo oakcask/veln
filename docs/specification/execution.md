@@ -199,11 +199,11 @@ execution reference.
   `WINDOW_UPDATE` increments, and keeps wrong-length, idle-stream, zero, and
   overflow `WINDOW_UPDATE` cases as typed protocol failures. Structurally
   complete unknown extension frame types decode to ordinary `UnknownFrame`
-  values that preserve frame type, flags, stream id, and bounded payload
-  bytes; an active continuation sequence still rejects an unknown frame through
-  the existing continuation protocol-state failure before projecting stable
-  diagnostic ids and related context into fixture output, human runtime
-  diagnostics, and `run --json`
+  values that preserve frame type, flags, stream id, payload length, and each
+  bounded payload byte; an active continuation sequence still rejects an
+  unknown frame through the existing continuation protocol-state failure
+  before projecting stable diagnostic ids and related context into fixture
+  output, human runtime diagnostics, and `run --json`
   `protocol_diagnostic` details.
 - The same HTTP/2 protocol-core example also covers the narrow outbound frame
   header encode slice. Ordinary source builds a record-shaped frame
