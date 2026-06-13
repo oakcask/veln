@@ -30,16 +30,13 @@ compare it with `../specification/` before changing behavior.
   schema byte-preview diagnostic slices plus HTTP/2 client connection preface
   protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
-  define remaining binary schema primitive and dispatch behavior beyond the
-  implemented source-surface exact-width and `ReservedBits(width, value)`
-  declaration slices, the frame-header and width-sample primitive decode
-  slices, the exact-width and supported reserved-bit primitive encode helper
-  slices, the narrow closed-dispatch and extension-dispatch primitive and
-  same-module and imported public nested payload encode helper slices, the
-  narrow HTTP/2 payload boundary helper, the narrow closed dispatch failure
-  plus same-module and imported nested payload slices, and the narrow
-  extension-tolerant dispatch preservation plus same-module and imported
-  nested payload slices.
+  define remaining general binary schema primitive and dispatch behavior.
+  Implemented slices include source-surface exact-width and
+  `ReservedBits(width, value)` declarations, frame-header and width-sample
+  primitive decode, `UInt16le` little-endian primitive decode and encode,
+  exact-width and supported reserved-bit primitive encode, the narrow HTTP/2
+  payload boundary helper, and narrow closed-dispatch and extension-dispatch
+  primitive, same-module nested, and imported public nested payload helpers.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

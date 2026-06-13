@@ -1,0 +1,11 @@
+schema LittleEndianField
+	format binary
+
+	value: UInt16le
+end
+
+pub schema PublicLittleEndianField
+	format binary
+
+	value: UInt16le
+end

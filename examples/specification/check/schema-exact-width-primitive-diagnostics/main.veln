@@ -1,3 +1,3 @@
-fn ordinary_use(value: UInt16be, another: UInt8) -> {short: UInt24be, wide: UInt32be}
+fn ordinary_use(value: UInt16be, little: UInt16le, another: UInt8) -> {short: UInt24be, wide: UInt32be}
   UInt31be
 end

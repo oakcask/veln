@@ -162,6 +162,15 @@ truncated `UInt32be` field, including byte offset, schema field path, expected
 byte count, available byte count, readiness, and structured byte preview
 fields.
 
+`../../examples/specification/check/binary-schema-u16le/`,
+`../../examples/specification/run/binary-schema-u16le-decode/`,
+`../../examples/specification/run/binary-schema-u16le-encode/`, and
+`../../examples/specification/run/binary-schema-u16le-encode-out-of-range/`
+cover the implemented `UInt16le` primitive slice. The source case pins
+accepted `format binary` field use. The runtime cases prove little-endian
+decode and encode byte order, preserve structural mapping during decode, and
+pin the generated encode helper's unsigned 16-bit range failure shape.
+
 `../../examples/specification/run/binary-schema-integer-out-of-range-json/`
 and
 `../../examples/specification/run/binary-schema-integer-out-of-range-human/`

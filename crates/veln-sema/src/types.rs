@@ -1504,17 +1504,21 @@ pub(crate) fn schema_encode_function_name(schema_name: &str) -> String {
 pub(crate) fn exact_width_schema_primitive(ty: &str) -> Option<u8> {
     match ty.trim() {
         "UInt8" => Some(1),
-        "UInt16be" => Some(2),
+        "UInt16be" | "UInt16le" => Some(2),
         "UInt24be" => Some(3),
         "UInt31be" | "UInt32be" => Some(4),
         _ => None,
     }
 }
 
+pub(crate) fn exact_width_schema_primitive_little_endian(ty: &str) -> bool {
+    matches!(ty.trim(), "UInt16le")
+}
+
 pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {
     match ty.trim() {
         "UInt8" => Some(0xff),
-        "UInt16be" => Some(0xffff),
+        "UInt16be" | "UInt16le" => Some(0xffff),
         "UInt24be" => Some(0xffffff),
         "UInt31be" => Some(0x7fffffff),
         "UInt32be" => Some(0xffffffff),
@@ -1604,7 +1608,7 @@ pub(crate) struct SchemaDispatchCase {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum SchemaDispatchCasePayload {
-    Primitive { width: u8 },
+    Primitive { width: u8, little_endian: bool },
     Schema { schema_name: String },
 }
 
@@ -1667,7 +1671,10 @@ pub(crate) fn extension_dispatch_schema_primitive(ty: &str) -> Option<SchemaDisp
 
 fn schema_dispatch_case_payload(text: &str) -> Option<SchemaDispatchCasePayload> {
     if let Some(width) = exact_width_schema_primitive(text) {
-        return Some(SchemaDispatchCasePayload::Primitive { width });
+        return Some(SchemaDispatchCasePayload::Primitive {
+            width,
+            little_endian: exact_width_schema_primitive_little_endian(text),
+        });
     }
     schema_payload_name_is_path(text).then(|| SchemaDispatchCasePayload::Schema {
         schema_name: text.to_string(),

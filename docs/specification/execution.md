@@ -56,6 +56,10 @@ execution reference.
   diagnostic shape as the frame-header slice, including byte offset, field
   path, expected count, available count, readiness, and structured byte
   preview fields.
+- Generated binary schema decode helpers also support `UInt16le` as a
+  two-byte little-endian unsigned primitive. It decodes to an ordinary `Int`,
+  preserves structural `map to` runtime mappings, and uses the same
+  truncation diagnostic shape as the other exact-width primitives.
 - Exact-width generated binary schema decode helpers preserve each field's
   schema-owned external integer maximum while decoding. A structurally present
   field whose decoded value exceeds that maximum reports
@@ -177,9 +181,11 @@ execution reference.
   `Err(EncodeError("codec.dispatch_length_mismatch", field_path, reason))`.
   Visible tag and payload variant disagreements return
   `Err(EncodeError("codec.dispatch_mismatch", field_path, reason))`.
-  The helper writes fields in declaration order into one immutable big-endian
-  `ByteChunk` and returns `Result<ByteChunk, EncodeError>`. Values outside the
-  primitive range return
+  The helper writes fields in declaration order into one immutable
+  `ByteChunk`, using each primitive's declared byte order, and returns
+  `Result<ByteChunk, EncodeError>`. `UInt16le` emits two little-endian bytes
+  and uses the same unsigned 16-bit representability boundary as `UInt16be`.
+  Values outside the primitive range return
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))`; nested schema encode failures keep the nested schema field path.
   `UInt31be` uses the 31-bit maximum even though it occupies four bytes.

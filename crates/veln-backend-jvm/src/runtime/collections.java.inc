@@ -65,6 +65,7 @@
         final String name;
         final int width;
         final long maxValue;
+        final boolean littleEndian;
         final SchemaPredicate predicate;
         final SchemaDispatchSpec dispatch;
         final String lengthField;
@@ -72,7 +73,17 @@
         final long reservedValue;
 
         SchemaFieldSpec(String name, int width, long maxValue, SchemaPredicate predicate) {
-            this(name, width, maxValue, predicate, null, "", 0, 0L);
+            this(name, width, maxValue, false, predicate, null, "", 0, 0L);
+        }
+
+        SchemaFieldSpec(
+            String name,
+            int width,
+            long maxValue,
+            boolean littleEndian,
+            SchemaPredicate predicate
+        ) {
+            this(name, width, maxValue, littleEndian, predicate, null, "", 0, 0L);
         }
 
         SchemaFieldSpec(
@@ -82,21 +93,22 @@
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch
         ) {
-            this(name, width, maxValue, predicate, dispatch, "", 0, 0L);
+            this(name, width, maxValue, false, predicate, dispatch, "", 0, 0L);
         }
 
         SchemaFieldSpec(String name, String lengthField) {
-            this(name, 0, 0L, null, null, lengthField, 0, 0L);
+            this(name, 0, 0L, false, null, null, lengthField, 0, 0L);
         }
 
         SchemaFieldSpec(String name, int reservedBitWidth, long reservedValue) {
-            this(name, 0, 0L, null, null, "", reservedBitWidth, reservedValue);
+            this(name, 0, 0L, false, null, null, "", reservedBitWidth, reservedValue);
         }
 
         SchemaFieldSpec(
             String name,
             int width,
             long maxValue,
+            boolean littleEndian,
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch,
             String lengthField,
@@ -106,6 +118,7 @@
             this.name = name;
             this.width = width;
             this.maxValue = maxValue;
+            this.littleEndian = littleEndian;
             this.predicate = predicate;
             this.dispatch = dispatch;
             this.lengthField = lengthField;
@@ -142,11 +155,17 @@
         final long tag;
         final int width;
         final long maxValue;
+        final boolean littleEndian;
         final BinarySchemaSpec payloadSchema;
 
         SchemaDispatchCaseSpec(long tag, int width) {
+            this(tag, width, false);
+        }
+
+        SchemaDispatchCaseSpec(long tag, int width, boolean littleEndian) {
             this.tag = tag;
             this.width = width;
+            this.littleEndian = littleEndian;
             this.payloadSchema = null;
             long value = 0L;
             for (int index = 0; index < width; index += 1) {
@@ -159,6 +178,7 @@
             this.tag = tag;
             this.width = 0;
             this.maxValue = 0L;
+            this.littleEndian = false;
             this.payloadSchema = payloadSchema;
         }
 
@@ -1112,6 +1132,7 @@
         Object fieldNames,
         Object widths,
         Object maxValues,
+        Object littleEndianValues,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -1119,6 +1140,7 @@
         Object dispatchLengthFields,
         Object dispatchCaseTags,
         Object dispatchCaseWidths,
+        Object dispatchCaseLittleEndianValues,
         Object dispatchCaseSchemaSpecs,
         Object mappingTargets,
         Object mappingSources
@@ -1128,6 +1150,7 @@
             fieldNames,
             widths,
             maxValues,
+            littleEndianValues,
             reservedBitWidths,
             reservedValues,
             predicates,
@@ -1135,6 +1158,7 @@
             dispatchLengthFields,
             dispatchCaseTags,
             dispatchCaseWidths,
+            dispatchCaseLittleEndianValues,
             dispatchCaseSchemaSpecs,
             mappingTargets,
             mappingSources
@@ -1152,6 +1176,7 @@
         Object fieldNames,
         Object widths,
         Object maxValues,
+        Object littleEndianValues,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -1159,6 +1184,7 @@
         Object dispatchLengthFields,
         Object dispatchCaseTags,
         Object dispatchCaseWidths,
+        Object dispatchCaseLittleEndianValues,
         Object dispatchCaseSchemaSpecs,
         Object mappingTargets,
         Object mappingSources
@@ -1168,6 +1194,7 @@
             fieldNames,
             widths,
             maxValues,
+            littleEndianValues,
             reservedBitWidths,
             reservedValues,
             predicates,
@@ -1175,6 +1202,7 @@
             dispatchLengthFields,
             dispatchCaseTags,
             dispatchCaseWidths,
+            dispatchCaseLittleEndianValues,
             dispatchCaseSchemaSpecs,
             mappingTargets,
             mappingSources
@@ -1219,33 +1247,40 @@
         Object fieldNames,
         Object widths,
         Object maxValues,
+        Object littleEndianValues,
         Object reservedBitWidths,
         Object reservedValues,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
         Object dispatchCaseWidths,
+        Object dispatchCaseLittleEndianValues,
         Object dispatchCaseSchemaSpecs
     ) {
         String name = asString(schemaName);
         java.util.List<Object> fieldNameValues = asList(fieldNames);
         java.util.List<Object> widthValues = asList(widths);
         java.util.List<Object> maxValueValues = asList(maxValues);
+        java.util.List<Object> littleEndianValueList = asList(littleEndianValues);
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
         java.util.List<Object> reservedValueValues = asList(reservedValues);
         java.util.List<Object> dispatchTagFieldValues = asList(dispatchTagFields);
         java.util.List<Object> dispatchLengthFieldValues = asList(dispatchLengthFields);
         java.util.List<Object> dispatchCaseTagValues = asList(dispatchCaseTags);
         java.util.List<Object> dispatchCaseWidthValues = asList(dispatchCaseWidths);
+        java.util.List<Object> dispatchCaseLittleEndianValueList =
+            asList(dispatchCaseLittleEndianValues);
         java.util.List<Object> dispatchCaseSchemaSpecValues = asList(dispatchCaseSchemaSpecs);
         if (fieldNameValues.size() != widthValues.size()
             || fieldNameValues.size() != maxValueValues.size()
+            || fieldNameValues.size() != littleEndianValueList.size()
             || fieldNameValues.size() != reservedBitWidthValues.size()
             || fieldNameValues.size() != reservedValueValues.size()
             || fieldNameValues.size() != dispatchTagFieldValues.size()
             || fieldNameValues.size() != dispatchLengthFieldValues.size()
             || fieldNameValues.size() != dispatchCaseTagValues.size()
             || fieldNameValues.size() != dispatchCaseWidthValues.size()
+            || fieldNameValues.size() != dispatchCaseLittleEndianValueList.size()
             || fieldNameValues.size() != dispatchCaseSchemaSpecValues.size()) {
             return err(encodeError(
                 "codec.metadata",
@@ -1264,6 +1299,7 @@
             long reservedValue = asLong(reservedValueValues.get(index));
             String tagField = asString(dispatchTagFieldValues.get(index));
             String lengthField = asString(dispatchLengthFieldValues.get(index));
+            boolean littleEndian = asBool(littleEndianValueList.get(index));
             if (reservedBitWidth > 0) {
                 schemaFields[index] = new SchemaFieldSpec(
                     fieldName,
@@ -1280,6 +1316,7 @@
                     lengthField,
                     dispatchCaseTagValues.get(index),
                     dispatchCaseWidthValues.get(index),
+                    dispatchCaseLittleEndianValueList.get(index),
                     dispatchCaseSchemaSpecValues.get(index)
                 );
                 if (isErr(dispatch)) {
@@ -1298,7 +1335,13 @@
                 );
                 continue;
             }
-            schemaFields[index] = new SchemaFieldSpec(fieldName, width, maxValue, null);
+            schemaFields[index] = new SchemaFieldSpec(
+                fieldName,
+                width,
+                maxValue,
+                littleEndian,
+                null
+            );
         }
         return byteEncodeBinarySchema(value, new BinarySchemaSpec(name, schemaFields));
     }
@@ -1337,10 +1380,11 @@
                     "unsupported schema field width " + field.width
                 ));
             }
-            Object encoded = schemaWriteUnsignedBe(
+            Object encoded = schemaWriteUnsigned(
                 fields.get(field.name),
                 field.width,
                 field.maxValue,
+                field.littleEndian,
                 schema.name,
                 field.name
             );
@@ -1358,12 +1402,14 @@
         Object fieldNames,
         Object widths,
         Object maxValues,
+        Object littleEndianValues,
         Object reservedBitWidths,
         Object reservedValues,
         Object dispatchTagFields,
         Object dispatchLengthFields,
         Object dispatchCaseTags,
         Object dispatchCaseWidths,
+        Object dispatchCaseLittleEndianValues,
         Object dispatchCaseSchemaSpecs
     ) {
         Object encoded = byteEncodeDeclaredBinarySchema(
@@ -1372,12 +1418,14 @@
             fieldNames,
             widths,
             maxValues,
+            littleEndianValues,
             reservedBitWidths,
             reservedValues,
             dispatchTagFields,
             dispatchLengthFields,
             dispatchCaseTags,
             dispatchCaseWidths,
+            dispatchCaseLittleEndianValues,
             dispatchCaseSchemaSpecs
         );
         if (isErr(encoded)) {
@@ -1788,23 +1836,25 @@
         String schemaName,
         String fieldName
     ) {
-        return schemaReadUnsignedBeWithBase(
+        return schemaReadUnsignedWithBase(
             view,
             byteViewOffset(view),
             relativeOffset,
             width,
             maxValue,
+            false,
             schemaName,
             fieldName
         );
     }
 
-    private static Object schemaReadUnsignedBeWithBase(
+    private static Object schemaReadUnsignedWithBase(
         Object view,
         long diagnosticBaseOffset,
         int relativeOffset,
         int width,
         long maxValue,
+        boolean littleEndian,
         String schemaName,
         String fieldName
     ) {
@@ -1833,7 +1883,9 @@
 
         long value = 0;
         for (int index = 0; index < width; index += 1) {
-            value = (value << 8) | byteValueLong(bytes.get((int) baseOffset + relativeOffset + index));
+            int byteIndex = littleEndian ? width - 1 - index : index;
+            value = (value << 8)
+                | byteValueLong(bytes.get((int) baseOffset + relativeOffset + byteIndex));
         }
         if (value > maxValue) {
             long byteOffset = diagnosticBaseOffset + relativeOffset;
@@ -2114,12 +2166,13 @@
                         readBaseOffset = diagnosticBaseOffset + relativeOffset;
                         readRelativeOffset = 0;
                     }
-                    Object dispatchRead = schemaReadUnsignedBeWithBase(
+                    Object dispatchRead = schemaReadUnsignedWithBase(
                         readView,
                         readBaseOffset,
                         readRelativeOffset,
                         dispatchCase.width,
                         dispatchCase.maxValue,
+                        dispatchCase.littleEndian,
                         schema.name,
                         field.name
                     );
@@ -2147,12 +2200,13 @@
                 continue;
             }
 
-            Object read = schemaReadUnsignedBeWithBase(
+            Object read = schemaReadUnsignedWithBase(
                 view,
                 diagnosticBaseOffset,
                 (int) relativeOffset,
                 field.width,
                 field.maxValue,
+                field.littleEndian,
                 schema.name,
                 field.name
             );
@@ -2270,12 +2324,13 @@
                 relativeOffset += payloadWidth;
                 continue;
             }
-            Object read = schemaReadUnsignedBeWithBase(
+            Object read = schemaReadUnsignedWithBase(
                 view,
                 diagnosticBaseOffset,
                 (int) relativeOffset,
                 field.width,
                 field.maxValue,
+                field.littleEndian,
                 schema.name,
                 field.name
             );
@@ -2378,6 +2433,7 @@
         Object fieldNames,
         Object widths,
         Object maxValues,
+        Object littleEndianValues,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -2385,6 +2441,7 @@
         Object dispatchLengthFields,
         Object dispatchCaseTags,
         Object dispatchCaseWidths,
+        Object dispatchCaseLittleEndianValues,
         Object dispatchCaseSchemaSpecs,
         Object mappingTargets,
         Object mappingSources
@@ -2394,6 +2451,7 @@
             fieldNames,
             widths,
             maxValues,
+            littleEndianValues,
             reservedBitWidths,
             reservedValues,
             predicates,
@@ -2401,6 +2459,7 @@
             dispatchLengthFields,
             dispatchCaseTags,
             dispatchCaseWidths,
+            dispatchCaseLittleEndianValues,
             dispatchCaseSchemaSpecs,
             mappingTargets,
             mappingSources
@@ -2412,6 +2471,7 @@
         Object fieldNames,
         Object widths,
         Object maxValues,
+        Object littleEndianValues,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -2419,6 +2479,7 @@
         Object dispatchLengthFields,
         Object dispatchCaseTags,
         Object dispatchCaseWidths,
+        Object dispatchCaseLittleEndianValues,
         Object dispatchCaseSchemaSpecs,
         Object mappingTargets,
         Object mappingSources
@@ -2428,6 +2489,8 @@
         java.util.List<Object> widthValues = asList(widths);
         java.util.List<Object> maxValueValues =
             maxValues == null ? null : asList(maxValues);
+        java.util.List<Object> littleEndianValueList =
+            littleEndianValues == null ? null : asList(littleEndianValues);
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
         java.util.List<Object> reservedValueValues = asList(reservedValues);
         java.util.List<Object> predicateValues = asList(predicates);
@@ -2435,6 +2498,8 @@
         java.util.List<Object> dispatchLengthFieldValues = asList(dispatchLengthFields);
         java.util.List<Object> dispatchCaseTagValues = asList(dispatchCaseTags);
         java.util.List<Object> dispatchCaseWidthValues = asList(dispatchCaseWidths);
+        java.util.List<Object> dispatchCaseLittleEndianValueList =
+            dispatchCaseLittleEndianValues == null ? null : asList(dispatchCaseLittleEndianValues);
         java.util.List<Object> dispatchCaseSchemaSpecValues = asList(dispatchCaseSchemaSpecs);
         java.util.List<Object> mappingTargetValues = asList(mappingTargets);
         java.util.List<Object> mappingSourceValues = asList(mappingSources);
@@ -2446,6 +2511,10 @@
             || fieldNameValues.size() != dispatchLengthFieldValues.size()
             || fieldNameValues.size() != dispatchCaseTagValues.size()
             || fieldNameValues.size() != dispatchCaseWidthValues.size()
+            || (littleEndianValueList != null
+                && fieldNameValues.size() != littleEndianValueList.size())
+            || (dispatchCaseLittleEndianValueList != null
+                && fieldNameValues.size() != dispatchCaseLittleEndianValueList.size())
             || (maxValueValues != null && fieldNameValues.size() != maxValueValues.size())
             || fieldNameValues.size() != dispatchCaseSchemaSpecValues.size()) {
             return err("invalid schema decoder metadata for schema `" + name + "`");
@@ -2461,6 +2530,8 @@
             long reservedValue = asLong(reservedValueValues.get(index));
             String tagField = asString(dispatchTagFieldValues.get(index));
             String lengthField = asString(dispatchLengthFieldValues.get(index));
+            boolean littleEndian =
+                littleEndianValueList != null && asBool(littleEndianValueList.get(index));
             if (reservedBitWidth > 0L) {
                 if (reservedBitWidth != 1L || reservedValue != 0L) {
                     return err(
@@ -2486,6 +2557,9 @@
                     lengthField,
                     dispatchCaseTagValues.get(index),
                     dispatchCaseWidthValues.get(index),
+                    dispatchCaseLittleEndianValueList == null
+                        ? null
+                        : dispatchCaseLittleEndianValueList.get(index),
                     dispatchCaseSchemaSpecValues.get(index)
                 );
                 if (isErr(dispatch)) {
@@ -2531,6 +2605,7 @@
                     fieldName,
                     (int) width,
                     asLong(maxValueValues.get(index)),
+                    littleEndian,
                     predicate
                 );
             }
@@ -2587,13 +2662,17 @@
         String lengthField,
         Object caseTags,
         Object caseWidths,
+        Object caseLittleEndianValues,
         Object caseSchemaSpecs
     ) {
         java.util.List<Object> tagValues = asList(caseTags);
         java.util.List<Object> widthValues = asList(caseWidths);
+        java.util.List<Object> littleEndianValues =
+            caseLittleEndianValues == null ? null : asList(caseLittleEndianValues);
         java.util.List<Object> schemaSpecValues = asList(caseSchemaSpecs);
         if (tagValues.isEmpty()
             || tagValues.size() != widthValues.size()
+            || (littleEndianValues != null && tagValues.size() != littleEndianValues.size())
             || tagValues.size() != schemaSpecValues.size()) {
             return err(
                 "invalid dispatch metadata for field `"
@@ -2629,14 +2708,20 @@
                         + "`"
                 );
             }
-            cases[index] = new SchemaDispatchCaseSpec(asLong(tagValues.get(index)), (int) width);
+            boolean littleEndian =
+                littleEndianValues != null && asBool(littleEndianValues.get(index));
+            cases[index] = new SchemaDispatchCaseSpec(
+                asLong(tagValues.get(index)),
+                (int) width,
+                littleEndian
+            );
         }
         return ok(new SchemaDispatchSpec(tagField, lengthField, cases));
     }
 
     private static Object declaredBinarySchemaSpecFromMetadata(Object metadata) {
         java.util.List<Object> values = asList(metadata);
-        if (values.size() != 14) {
+        if (values.size() != 16) {
             return err("invalid nested schema decoder metadata");
         }
         return declaredBinarySchemaSpecWithMaxValues(
@@ -2653,7 +2738,9 @@
             values.get(10),
             values.get(11),
             values.get(12),
-            values.get(13)
+            values.get(13),
+            values.get(14),
+            values.get(15)
         );
     }
 
@@ -2815,10 +2902,11 @@
             if (dispatchCase.payloadSchema != null) {
                 return byteEncodeBinarySchema(fields.get(fieldName), dispatchCase.payloadSchema);
             }
-            return schemaWriteUnsignedBe(
+            return schemaWriteUnsigned(
                 fields.get(fieldName),
                 dispatchCase.width,
                 dispatchCase.maxValue,
+                dispatchCase.littleEndian,
                 schemaName,
                 fieldName
             );
@@ -2876,10 +2964,11 @@
                     fieldPath
                 );
             }
-            Object encoded = schemaWriteUnsignedBe(
+            Object encoded = schemaWriteUnsigned(
                 asAdt(payload, "SchemaDispatchPayload::Known").payloads[0],
                 selectedCase.width,
                 selectedCase.maxValue,
+                selectedCase.littleEndian,
                 schemaName,
                 fieldName
             );
@@ -2942,10 +3031,11 @@
         return ok(chunk);
     }
 
-    private static Object schemaWriteUnsignedBe(
+    private static Object schemaWriteUnsigned(
         Object value,
         int width,
         long maxValue,
+        boolean littleEndian,
         String schemaName,
         String fieldName
     ) {
@@ -2959,7 +3049,8 @@
         }
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>(width);
         for (int index = width - 1; index >= 0; index -= 1) {
-            bytes.add(byteObject((unsigned >> (index * 8)) & 0xffL));
+            int shiftIndex = littleEndian ? width - 1 - index : index;
+            bytes.add(byteObject((unsigned >> (shiftIndex * 8)) & 0xffL));
         }
         return ok(byteChunkObject(bytes));
     }

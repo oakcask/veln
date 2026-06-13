@@ -219,6 +219,8 @@ against the built `veln` binary.
   `ReservedBits(width, value)` primitive fields, and field-local `where`
   predicates, plus structural `map to Target` clauses that assign schema-local
   fields to target fields.
+- `check/binary-schema-u16le/`: `UInt16le` is accepted as a `format binary`
+  schema field primitive on private and public schema declarations.
 - `check/schema-declaration-diagnostics/`: parser diagnostics for malformed
   schema headers, missing `end`, fields before `format`, multiple `format`
   clauses, `_`-prefixed fields, malformed field-local `where` predicates,
@@ -378,6 +380,14 @@ against the built `veln` binary.
   validation reports `schema.reserved_bits_mismatch` through `run --json`
   with byte offset, field path, bit width, expected value, actual value, and a
   structured byte preview.
+- `run/binary-schema-u16le-decode/`: generated schema decode helpers read
+  `UInt16le` as two little-endian bytes, return an ordinary `Int`, and keep a
+  structural `map to` target record shape.
+- `run/binary-schema-u16le-encode/`: generated schema encode helpers write
+  `UInt16le` as two little-endian bytes in the emitted `ByteChunk`.
+- `run/binary-schema-u16le-encode-out-of-range/`: generated schema encode
+  helpers reject `UInt16le` values outside the unsigned 16-bit range with the
+  usual `EncodeError` id, field path, and reason shape.
 - `run/binary-schema-width-sample-decode/`: the implemented `UInt16be` and
   `UInt32be` primitive decode slice returns visible exact-width fields as
   ordinary `Int` values.

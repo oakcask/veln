@@ -559,7 +559,10 @@ from the expected fixed byte for the supplied schema and field names. The
 `byte_decode_schema_width_sample` helper is the narrow executable schema slice
 for `UInt16be` and `UInt32be`: it reads both fields from a `ByteView`, returns
 ordinary `Int` values, and reports schema truncation with field-path byte
-diagnostic details. Source `format binary` schema declarations whose fields
+diagnostic details. Generated binary schema helpers also accept `UInt16le` as
+a two-byte little-endian unsigned field that decodes to ordinary `Int` and
+encodes with the same unsigned 16-bit representability boundary as `UInt16be`.
+Source `format binary` schema declarations whose fields
 all use implemented exact-width unsigned primitives expose generated
 `byte_decode_<schema>` helpers in their declaring module. Those helpers decode
 fields in schema order, check supported field-local `where` predicates after
@@ -583,9 +586,9 @@ payloads, earlier same-module binary schema payloads, or public imported
 binary schema payloads named through written `use` paths. Those helpers accept
 a schema-local visible record, using ordinary `Int` fields for visible
 primitives and `SchemaDispatchPayload<T>` for extension dispatch payload
-fields, and return `Result<ByteChunk, EncodeError>` with field-order
-big-endian output or a structured encode error. The supported reserved-bit
-encode layout omits
+fields, and return `Result<ByteChunk, EncodeError>` with field-order output
+using each primitive's declared byte order or a structured encode error. The
+supported reserved-bit encode layout omits
 `ReservedBits(1, 0)` from the value record when it immediately precedes
 `UInt31be`; the closed dispatch encode layout selects the payload width from
 the earlier visible tag field and reports `codec.dispatch_unknown_tag` when no
