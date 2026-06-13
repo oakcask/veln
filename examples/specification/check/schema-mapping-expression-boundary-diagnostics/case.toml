@@ -3,16 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = [
-  "\"id\":\"schema.mapping_constructor\"",
-  "schema mapping constructor `Missing` is not resolved",
-  "\"id\":\"schema.mapping_constructor_arity\"",
-  "schema mapping constructor `FrameKind::FrameKind` expects 1 argument(s), but got 2",
-  "\"id\":\"schema.mapping_type\"",
-  "expression `{ value: kind }` has type `{}`",
-  "\"id\":\"schema.mapping_expression_unsupported\"",
-  "schema mapping expression `helper(kind)` is not supported"
-]
+contains = ["\"id\":\"schema.mapping_constructor\"", "schema mapping constructor `Missing` is not resolved", "\"id\":\"schema.mapping_constructor_arity\"", "schema mapping constructor `FrameKind::FrameKind` expects 1 argument(s), but got 2", "\"id\":\"schema.mapping_type\"", "expression `{ value: kind }` has type `{}`", "\"id\":\"schema.mapping_expression_unsupported\"", "schema mapping expression `helper(kind)` is not supported"]
 
 [stderr]
 format = "empty"

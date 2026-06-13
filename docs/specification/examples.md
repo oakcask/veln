@@ -100,9 +100,10 @@ generated schema-derived decode-step helper: complete buffered input returns
 The executable specification case
 `../../examples/specification/run/codec-decode-boundary/` covers a
 hand-written codec decode boundary: a codec item call passes `ByteView` and
-`ByteOffset` to the referenced decoder and observes its returned `Decoded`,
-`NeedMore`, and `Invalid` `DecodeStep<T>` values unchanged while the schema
-mapping pins the accepted value type.
+`ByteOffset` to the referenced decoder, observes valid `Decoded`,
+`NeedMore`, and `Invalid` `DecodeStep<T>` values, and projects an oversized
+consumed count to `codec.consumed_count_invalid` while the schema mapping pins
+the accepted value type.
 The executable specification case
 `../../examples/specification/run/derived-codec-decode-boundary/` covers a
 derived codec decode boundary for the same eligible generated binary schema
@@ -329,19 +330,21 @@ frame bytes, continuation state after HEADERS retaining opaque header-block
 bytes, continuation state after a non-final CONTINUATION appending those bytes,
 completion after a final CONTINUATION with combined header-block hex/count
 output, single-frame HEADERS completion when END_HEADERS is set alongside
-another flag, one continuation ordering failure, an accepted unknown extension
-frame after the client preface gate that preserves flags, stream id, and
-bounded payload bytes in an ordinary `UnknownFrame` value, with the preserved
-payload also pinned as complete lowercase hex output, an unknown frame
-rejected by active continuation state, and an incoming frame whose payload
-length exceeds the active receive maximum frame size, plus stream id domain
-failures for zero, even, and
+another flag, continuation ordering failures for a different frame kind and a
+different stream id, closed input while a header block remains pending, an
+accepted unknown extension frame after the client preface gate that preserves
+flags, stream id, and bounded payload bytes in an ordinary `UnknownFrame`
+value, with the preserved payload also pinned as complete lowercase hex output,
+an unknown frame rejected by active continuation state, and an incoming frame
+whose payload length exceeds the active receive maximum frame size, plus stream
+id domain failures for zero, even, and
 connection-only stream ids and a DATA frame kind rejected for idle-stream
 state. It also pins PING frames with and without ACK, wrong-length PING
 failures, a GOAWAY frame that moves the connection into graceful shutdown with
 last-stream-id and error-code facts, and wrong-length GOAWAY failures.
 Pending continuation state records the owning stream, starting frame kind,
-starting byte offset, and accumulated opaque header-block bytes.
+starting byte offset, and accumulated opaque header-block bytes, and the
+closed-input continuation failure projects that context into the stable output.
 Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
 Receive flow-control state records connection receive-window credit and the

@@ -247,6 +247,28 @@ fn bytecode_backend_classfiles_run_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_reports_forced_timeout_expiry_when_java_is_available() {
+    let ir = lower_to_ir("pub fn main() -> () effects [time]\n  time::timeout_ms(5)\nend\n");
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+        "bytecode-timeout-expiry",
+        &program,
+        &[("VELN_TIME_TIMEOUT_EXPIRED", "1")],
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "transport timeout expired: VELN_TIME_TIMEOUT_EXPIRED\n"
+    );
+}
+
+#[test]
 fn bytecode_backend_runs_result_try_collections_and_function_values_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn parse(raw: String) -> Result<Int, {message: String}>\n",
@@ -1266,6 +1288,15 @@ fn run_jvm_program_when_java_is_available(
     program: &JvmProgram,
     args: &[&str],
 ) -> Option<std::process::Output> {
+    run_jvm_program_with_env_when_java_is_available(name, program, &[], args)
+}
+
+fn run_jvm_program_with_env_when_java_is_available(
+    name: &str,
+    program: &JvmProgram,
+    env: &[(&str, &str)],
+    args: &[&str],
+) -> Option<std::process::Output> {
     if Command::new("java").arg("-version").output().is_err() {
         return None;
     }
@@ -1279,6 +1310,9 @@ fn run_jvm_program_when_java_is_available(
         .arg(&root)
         .arg("VelnEntry")
         .current_dir(&root);
+    for (key, value) in env {
+        command.env(key, value);
+    }
     for arg in args {
         command.arg(arg);
     }

@@ -497,8 +497,9 @@ against the built `veln` binary.
   input.
 - `run/codec-decode-boundary/`: a hand-written `decode with` codec item call
   passes `ByteView` and `ByteOffset` to the referenced decoder and observes
-  its returned `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values
-  unchanged while the schema mapping pins the accepted value type.
+  valid `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values while the
+  schema mapping pins the accepted value type. It projects an oversized
+  consumed count to `codec.consumed_count_invalid`.
 - `run/codec-encode-boundary/`: a hand-written `encode with` codec item call
   passes the mapped record value and ordinary encoder parameters to the
   referenced encoder and observes its returned `Encoded` and
@@ -550,9 +551,10 @@ against the built `veln` binary.
   handles chunk arrival, client connection preface validation, incomplete
   input, end-of-stream truncation, valid CONTINUATION completion for an opaque
   header block with preserved payload bytes, single-frame HEADERS completion
-  when END_HEADERS is combined with another flag, and a continuation ordering
-  failure while projecting typed
-  protocol failures, including partial and mismatched preface failures, an
+  when END_HEADERS is combined with another flag, continuation ordering
+  failures for a different frame kind and a different stream id, and closed
+  input while a header block remains pending. It projects typed protocol
+  failures, including partial and mismatched preface failures, an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
   failure, stream id domain failures, invalid stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, valid PING ACK distinction, and valid
@@ -721,6 +723,8 @@ against the built `veln` binary.
   fail as run JSON runtime errors, not schema, codec, or protocol diagnostics.
 - `run/transport-send-record-failure-json/`: failed outgoing transport event
   recording fails as a run JSON runtime error.
+- `run/transport-timeout-expired-json/`: host-fixture-forced timeout expiry
+  through `time::timeout_ms` fails as a run JSON runtime error.
 - `run/concurrency-boundary/`: task and channel standard calls with declared
   concurrency effects, including explicit and inferred item types, sender
   closing, closed receives, and failed sends.

@@ -2190,7 +2190,7 @@ fn schema_mapping_expr_diagnostic(
             text,
             span,
         } => schema_mapping_type_diagnostic(
-            schema, mapping, assignment, expected, actual, text, span,
+            schema, mapping, assignment, &expected, &actual, text, span,
         ),
     }
 }
@@ -2255,8 +2255,8 @@ fn schema_mapping_type_diagnostic(
     schema: &SchemaDecl,
     mapping: &SchemaMappingClause,
     assignment: &SchemaMappingAssignment,
-    target_ty: Type,
-    source_ty: Type,
+    target_ty: &Type,
+    source_ty: &Type,
     source_text: String,
     span: SourceSpan,
 ) -> Diagnostic {

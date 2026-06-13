@@ -5,8 +5,10 @@ Status: proposed
 This proposal tracks remaining work between a pure sans-I/O protocol core and
 transport integration. The first descriptor-backed `net` and `time`
 boundary calls are current behavior under
-`../specification/names-effects.md`; this page keeps the larger transport
-adapter, routing, deadline, cancellation, and socket work open.
+`../specification/names-effects.md`, including host-runtime failures for
+malformed received bytes, failed outgoing event recording, and forced timeout
+expiry. This page keeps the larger transport adapter, routing, deadline API,
+cancellation, and socket work open.
 
 ## Problem
 
@@ -30,7 +32,8 @@ boundary calls for:
 - composed use of `net`, `time`, and `concurrency` effects
 - channel-first stream event routing
 - per-stream task handling
-- deadline and timeout vocabulary
+- richer deadline, timeout, and cancellation adapter APIs beyond
+  `time::timeout_ms`
 - ownership of frame ordering, flow control, and transport writes
 
 ## Discussion Result: Network Effect Labels
@@ -134,9 +137,10 @@ adapter surface with related connection and stream context when available.
 
 ## Discussion Result: Deadline And Timeout API
 
-Deadlines and timeouts should use the existing `time` effect label plus
-ordinary standard-library values and functions, not a separate richer timer
-effect or timer-specific source construct.
+Implemented first slice: `time::timeout_ms(milliseconds)` uses the existing
+`time` effect label, waits at the runtime boundary, and can be forced by a
+host fixture to report timeout expiry as a runtime failure. It does not add a
+separate richer timer effect or timer-specific source construct.
 
 The transport adapter should own wall-clock interaction. It can compute
 deadlines, wait for timeouts, cancel pending transport work, and translate
@@ -162,8 +166,8 @@ than introduce deadline behavior into schemas or the pure protocol core.
 
 - Specification work distinguishes pure protocol functions from transport
   effectful adapter functions.
-- Examples show adapter-owned socket reads, writes, stream routing, deadline
-  expiry, and cancellation once those runtime APIs exist.
+- Examples show adapter-owned socket reads, writes, stream routing, richer
+  deadline APIs, and cancellation once those runtime APIs exist.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

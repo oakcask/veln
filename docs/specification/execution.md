@@ -25,6 +25,10 @@ execution reference.
   conversion overflow. Standard `StreamInput`, `DecodeStep<T>`,
   `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
   values execute as ordinary immutable ADT values.
+- Descriptor-backed `net` and `time` calls are host runtime boundaries:
+  malformed received bytes, failed outgoing event recording, and forced
+  timeout expiry stop the entry as runtime failures rather than schema,
+  codec, or peer protocol diagnostics.
 - The implemented binary schema primitive execution slice decodes the
   `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
   `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes
@@ -202,8 +206,12 @@ execution reference.
 - A codec declaration with a valid hand-written `decode with function_name`
   clause exposes the codec item name as the executable decode boundary for
   ordinary source calls. The call accepts a bounded `ByteView` and explicit
-  base `ByteOffset`, invokes the referenced same-module function, and returns
-  its `DecodeStep<T>` unchanged.
+  base `ByteOffset` and invokes the referenced same-module function.
+  `NeedMore(readiness)` and `Invalid(error)` return unchanged.
+  `Decoded(value, consumed)` returns unchanged when `consumed` is within the
+  supplied view length; when `consumed` is outside the supplied view, the codec
+  boundary returns `Invalid(DecodeError("codec.consumed_count_invalid",
+  base_offset, codec_name))`.
 - A codec declaration with a valid hand-written `encode with function_name`
   clause exposes the codec item name as the executable encode boundary for
   ordinary source calls. The call invokes the referenced same-module function
@@ -241,8 +249,10 @@ execution reference.
   and graceful shutdown state. It validates the
   client connection preface before frame-header decode and represents partial
   or mismatched prefaces, closed-input truncation, continuation ordering
-  failures, completed HEADERS and CONTINUATION header-block output, incoming
-  frame payloads that exceed the active receive maximum frame size, received
+  failures for different frame kinds and stream ids, closed input while a
+  header block remains pending, completed HEADERS and CONTINUATION
+  header-block output, incoming frame payloads that exceed the active receive
+  maximum frame size, received
   `SETTINGS_MAX_FRAME_SIZE` and `SETTINGS_INITIAL_WINDOW_SIZE` values outside
   their accepted SETTINGS ranges, stream id domain failures, invalid
   stream-state frame kinds, wrong-length PING and GOAWAY payloads, accepted

@@ -200,10 +200,11 @@ must declare the matching effect in its `effects [...]` list.
 This boundary is intentionally descriptor-backed and narrow. `net::receive_chunk`
 returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
 chunk to the host runtime; `time::timeout_ms` waits at the runtime boundary.
-Malformed host-fed receive bytes and failed outgoing event recording are
-transport runtime failures, not schema, codec, or peer protocol diagnostics.
-These calls do not define sockets, stream routing, deadlines, cancellation,
-TLS, ALPN, or an HTTP application framework.
+Malformed host-fed receive bytes, failed outgoing event recording, and
+host-fixture-forced timeout expiry are transport runtime failures, not schema,
+codec, or peer protocol diagnostics. These calls do not define sockets,
+stream routing, timer handles, cancellation, TLS, ALPN, or an HTTP application
+framework.
 
 ## Process Calls
 

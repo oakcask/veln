@@ -74,6 +74,41 @@ fn readiness_count(step: DecodeStep<{length: Int, kind: Int}>) -> Int
 	end
 end
 
+fn decode_oversized(input: ByteView, base: ByteOffset) -> DecodeStep<{length: Int, kind: Int}>
+	match byte_count(4)
+		Ok(count) => Decoded({length: 1, kind: 1}, count)
+		Err(message) => Invalid(DecodeError(message, base, "OversizedPacketCodec"))
+	end
+end
+
+codec OversizedPacketCodec for PacketWire decode
+	decode with decode_oversized
+end
+
+fn invalid_error_id(step: DecodeStep<{length: Int, kind: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(id, _, _)) => id
+	end
+end
+
+fn invalid_error_offset(step: DecodeStep<{length: Int, kind: Int}>) -> Int
+	match step
+		Decoded(_, _) => -1
+		NeedMore(_) => -1
+		Invalid(DecodeError(_, offset, _)) => byte_offset_to_int(offset)
+	end
+end
+
+fn invalid_error_path(step: DecodeStep<{length: Int, kind: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(_) => "none"
+		Invalid(DecodeError(_, _, field_path)) => field_path
+	end
+end
+
 pub fn main() -> Result<(), String> effects [stdio]
 	let complete_bytes: ByteChunk = byte_chunk_from_hex("000703")?
 	let complete_view: ByteView = byte_view(complete_bytes, byte_offset(0)?, byte_count(3)?)?
@@ -96,5 +131,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let invalid_view: ByteView = byte_view(invalid_bytes, byte_offset(0)?, byte_count(3)?)?
 	let invalid: DecodeStep<{length: Int, kind: Int}> = PacketCodec(invalid_view, byte_offset(2)?)
 	stdio::println(step_kind(invalid))
+
+	let oversized: DecodeStep<{length: Int, kind: Int}> = OversizedPacketCodec(complete_view, byte_offset(5)?)
+	stdio::println(step_kind(oversized))
+	stdio::println(invalid_error_id(oversized))
+	stdio::println(int_to_string(invalid_error_offset(oversized)))
+	stdio::println(invalid_error_path(oversized))
 	Ok(())
 end

@@ -104,6 +104,10 @@
 
     public static Object timeTimeoutMs(Object milliseconds) {
         long value = asLong(milliseconds);
+        String forcedExpiry = System.getenv("VELN_TIME_TIMEOUT_EXPIRED");
+        if ("1".equals(forcedExpiry)) {
+            throw new RuntimeFailure("transport timeout expired: VELN_TIME_TIMEOUT_EXPIRED");
+        }
         if (value <= 0L) {
             return UNIT;
         }
