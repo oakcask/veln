@@ -9,8 +9,8 @@ declaration surface and a byte standard-library vocabulary.
 The source-surface `ReservedBits(width, value)` declaration syntax is
 implemented under `../specification/source-surface.md`.
 The declaration-time exact-width primitive names `UInt8`, `UInt16be`,
-`UInt24be`, `UInt31be`, and `UInt32be` are also implemented there for
-`format binary` schema field type positions only. The executable frame-header
+`UInt16le`, `UInt24be`, `UInt31be`, and `UInt32be` are also implemented there
+for `format binary` schema field type positions only. The executable frame-header
 primitive decode slice is implemented under `../specification/execution.md`:
 it consumes `UInt24be`, `UInt8`, `UInt8`, `ReservedBits(1, 0)`, and
 `UInt31be` from a `ByteView`, returns ordinary `Int` fields for the visible
@@ -20,7 +20,11 @@ reserved-bit mismatches. The width-sample primitive decode slice consumes
 same structured truncation shape. The narrow HTTP/2 frame helper also returns
 a bounded payload `ByteView` selected by the decoded length and reports
 `schema.length_out_of_bounds` when closed input cannot provide that payload
-range. The narrow closed dispatch slice implements
+range. The generated helper slice also implements `UInt16le` as a two-byte
+little-endian unsigned primitive for schema decode and encode helpers, returns
+ordinary `Int` values, preserves structural decode mappings, and reports the
+same unsigned 16-bit encode range failures as `UInt16be`. The narrow closed
+dispatch slice implements
 `Dispatch(tag_field, tag => Primitive, ...)` for generated binary schema
 decode helpers, decodes known case payloads as `Int`, and reports
 `schema.dispatch_unknown_tag` with structured tag and byte context for unknown
@@ -114,10 +118,12 @@ responsible for protocol meaning.
 
 The implemented narrow executable slices already make `UInt8`, `UInt16be`,
 `UInt24be`, `UInt31be`, and `UInt32be` consume fixed-width unsigned
-big-endian fields and return ordinary `Int` values for visible fields.
+big-endian fields, and `UInt16le` consume a fixed-width unsigned
+little-endian field, then return ordinary `Int` values for visible fields.
 The implemented exact-width primitive encode helper slice emits those visible
-ordinary `Int` fields as big-endian `ByteChunk` output and reports structured
-`EncodeError` range failures. The implemented reserved-bit encode slice also
+ordinary `Int` fields in their declared byte order as `ByteChunk` output and
+reports structured `EncodeError` range failures. The implemented reserved-bit
+encode slice also
 accepts `ReservedBits(1, 0)` immediately before `UInt31be`, omits the reserved
 field from the encoder value record, and writes the required zero high bit in
 the shared four-byte stream identifier position. The implemented
@@ -280,7 +286,8 @@ author likely referred to an earlier field with a compatible role.
 
 - Executable examples show binary schema writes and general schema-owned
   fixed-width reads beyond the implemented frame-header, width-sample,
-  primitive encode helper, reserved-bit encode helper, closed-dispatch
+  `UInt16le` little-endian primitive, primitive encode helper, reserved-bit
+  encode helper, closed-dispatch
   primitive plus same-module and imported public nested encode helper,
   extension-dispatch primitive plus same-module and imported public nested
   encode helper, HTTP/2 payload boundary helper, and narrow closed-dispatch

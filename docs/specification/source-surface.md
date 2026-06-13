@@ -46,8 +46,8 @@ Top-level `schema Name` and `pub schema Name` declarations are implemented as
 source module items. The implemented schema body slice requires a single
 `format binary` clause before schema fields. Schema field lines contain a field
 name, `:`, type text, and an optional field-local `where` predicate. In binary
-schemas, `UInt8`, `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`, and
-`ReservedBits(width, value)` are accepted as schema primitives.
+schemas, `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt31be`, `UInt32be`,
+and `ReservedBits(width, value)` are accepted as schema primitives.
 `ReservedBits` arguments must be literal
 non-negative integers. The narrow closed tag-dispatch field type
 `Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names a

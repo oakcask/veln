@@ -35,9 +35,10 @@ use crate::lowering::lower_surface_module_to_core;
 use crate::types::{
     SchemaDecodeMappingExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, Type, TypeEnvironment,
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
-    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
-    schema_decode_value_type, schema_dispatch_payload_schema, supported_encode_reserved_bits,
+    exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
+    extension_dispatch_schema_primitive, reserved_bits_schema_primitive,
+    schema_decode_function_name, schema_decode_mapping_fields, schema_decode_value_type,
+    schema_dispatch_payload_schema, supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -172,6 +173,7 @@ fn schema_decode_spec_inner_after_push(
                 name: field.name.clone(),
                 width: 0,
                 max_value: 0,
+                little_endian: false,
                 predicate: None,
                 length_field: None,
                 dispatch: None,
@@ -188,6 +190,7 @@ fn schema_decode_spec_inner_after_push(
                 name: field.name.clone(),
                 width,
                 max_value: exact_width_schema_primitive_max_value(&field.ty)?,
+                little_endian: exact_width_schema_primitive_little_endian(&field.ty),
                 predicate: field
                     .where_clause
                     .as_ref()
@@ -207,6 +210,7 @@ fn schema_decode_spec_inner_after_push(
                 name: field.name.clone(),
                 width: 0,
                 max_value: 0,
+                little_endian: false,
                 predicate: None,
                 length_field: Some(length_field),
                 dispatch: None,
@@ -229,6 +233,7 @@ fn schema_decode_spec_inner_after_push(
             name: field.name.clone(),
             width: 0,
             max_value: 0,
+            little_endian: false,
             predicate: None,
             length_field: None,
             dispatch: Some(IrSchemaDecodeDispatch {
@@ -287,8 +292,12 @@ fn ir_schema_dispatch_case(
     stack: &mut Vec<String>,
 ) -> Option<IrSchemaDecodeDispatchCase> {
     let width = match &case.payload {
-        SchemaDispatchCasePayload::Primitive { width } => *width,
+        SchemaDispatchCasePayload::Primitive { width, .. } => *width,
         SchemaDispatchCasePayload::Schema { .. } => 0,
+    };
+    let little_endian = match &case.payload {
+        SchemaDispatchCasePayload::Primitive { little_endian, .. } => *little_endian,
+        SchemaDispatchCasePayload::Schema { .. } => false,
     };
     let payload_schema = match case.payload {
         SchemaDispatchCasePayload::Primitive { .. } => None,
@@ -304,6 +313,7 @@ fn ir_schema_dispatch_case(
     Some(IrSchemaDecodeDispatchCase {
         tag: case.tag,
         width,
+        little_endian,
         payload_schema,
     })
 }

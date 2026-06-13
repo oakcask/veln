@@ -21,6 +21,7 @@ pub struct IrSchemaDecodeField {
     pub name: String,
     pub width: u8,
     pub max_value: i64,
+    pub little_endian: bool,
     pub predicate: Option<String>,
     pub length_field: Option<String>,
     pub dispatch: Option<IrSchemaDecodeDispatch>,
@@ -44,6 +45,7 @@ pub struct IrSchemaDecodeDispatch {
 pub struct IrSchemaDecodeDispatchCase {
     pub tag: i64,
     pub width: u8,
+    pub little_endian: bool,
     pub payload_schema: Option<Box<IrSchemaDecodeSpec>>,
 }
 

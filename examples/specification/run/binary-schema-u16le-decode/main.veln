@@ -1,0 +1,25 @@
+# Binary schema UInt16le decodes little-endian bytes into an ordinary Int.
+use stdio
+
+type LittleEndianValue
+	LittleEndianValue {number: Int}
+end
+
+schema LittleEndianWire
+	format binary
+
+	value: UInt16le
+
+	map to LittleEndianValue
+		number = value
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("3412")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(2)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let decoded: {number: Int} = byte_decode_little_endian_wire(view)?
+	stdio::println(int_to_string(decoded.number))
+	Ok(())
+end
