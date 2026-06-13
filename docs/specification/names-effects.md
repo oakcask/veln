@@ -29,7 +29,12 @@ compiler-known calls.
   `ByteOffset`, compact hex fixture decoding, bounded `ByteView` slicing,
   outgoing `List<ByteChunk>` construction, fixed-width unsigned big-endian and
   little-endian reads and writes, fixed U8 field checks, and the narrow schema
-  width-sample decode helper. Generated binary schema decode helpers
+  width-sample decode helper. The implemented pending-input slice
+  appends incoming `StreamInput.Chunk` bytes into immutable retained
+  `ByteChunk` values, bounds retention with `ByteCount`, uses `ByteView`
+  prefixes for parsing, tracks absolute `ByteOffset` separately, and collects
+  outgoing immutable chunks in `List<ByteChunk>` action values. Generated
+  binary schema decode helpers
   return schema-local
   `Int` record fields unless the eligible single structural `map to Target`
   slice resolves a mapped `Int` record shape; generated decode-step helpers

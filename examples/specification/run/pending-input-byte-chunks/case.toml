@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "pending count 5 base 1024\nview count 2 base 1024 first16 1\nafter-drop count 3 base 1026\npending input exceeds retained byte limit\noutgoing chunks 2 total 3 first 2/170 second 1/204\n"
+
+[[json_assert]]
+path = "error"
+equals = null

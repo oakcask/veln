@@ -372,6 +372,14 @@ end
 carries an ordinary immutable `ByteChunk`, including empty chunks, and `End`
 is the explicit end-of-stream event.
 
+Source code can model retained pending input by appending incoming
+`StreamInput.Chunk` bytes into an immutable `ByteChunk`, checking a
+source-owned `ByteCount` limit, taking bounded `ByteView` prefixes for parsing,
+dropping consumed bytes, and tracking the next absolute `ByteOffset`
+separately for diagnostics. Source code can also collect outgoing immutable
+`ByteChunk` values in `List<ByteChunk>` protocol action values without a
+separate output chunk type.
+
 `DecodeStep<T>` is the source-visible incremental decode transition type.
 `Decoded` carries the decoded value and consumed `ByteCount`, `NeedMore`
 carries `DecodeReadiness`, and `Invalid` carries a structured `DecodeError`.

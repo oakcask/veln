@@ -254,6 +254,14 @@ Standard `StreamInput` values execute as ordinary immutable source ADT values:
 `Chunk(bytes)` preserves the supplied `ByteChunk`, including an empty chunk,
 and `End` is a separate nullary variant.
 
+The pending-input byte chunk example appends `StreamInput.Chunk` bytes into an
+ordinary immutable retained `ByteChunk`, rejects appends that would exceed the
+source-owned retained-input `ByteCount` limit, takes a bounded `ByteView` over
+the consumed prefix, drops that prefix from the retained chunk, and advances
+the separately tracked absolute `ByteOffset`. Outgoing protocol action values
+collect immutable `ByteChunk` values into a `List<ByteChunk>` in source code;
+they do not perform socket writes or introduce a new output storage type.
+
 Executable specification cases may define named binary fixture records inside
 their example source or helper files. These test-owned records can carry the
 fixture name, decoded `ByteChunk`, optional consumed `ByteCount`, and expected
