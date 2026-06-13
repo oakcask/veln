@@ -19,8 +19,8 @@ use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{
     IrSchemaDecodeDispatch, IrSchemaDecodeDispatchCase, IrSchemaDecodeField,
-    IrSchemaDecodeMappingField, IrSchemaDecodeSpec, IrSchemaReservedBits, TypedProgram,
-    lower_checked_core,
+    IrSchemaDecodeMappingExpr, IrSchemaDecodeMappingField, IrSchemaDecodeMappingRecordField,
+    IrSchemaDecodeSpec, IrSchemaReservedBits, TypedProgram, lower_checked_core,
 };
 
 use crate::analysis::{
@@ -33,7 +33,7 @@ use crate::analysis::{
 };
 use crate::lowering::lower_surface_module_to_core;
 use crate::types::{
-    SchemaDispatchCasePayload, SchemaDispatchSpec, Type, TypeEnvironment,
+    SchemaDecodeMappingExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, Type, TypeEnvironment,
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
@@ -253,9 +253,31 @@ fn schema_decode_spec_inner_after_push(
             .map(|field| IrSchemaDecodeMappingField {
                 target: field.target,
                 source: field.source,
+                expr: ir_schema_mapping_expr(field.expr),
             })
             .collect(),
     })
+}
+
+fn ir_schema_mapping_expr(expr: SchemaDecodeMappingExpr) -> IrSchemaDecodeMappingExpr {
+    match expr {
+        SchemaDecodeMappingExpr::Field(name) => IrSchemaDecodeMappingExpr::Field(name),
+        SchemaDecodeMappingExpr::Record(fields) => IrSchemaDecodeMappingExpr::Record(
+            fields
+                .into_iter()
+                .map(|field| IrSchemaDecodeMappingRecordField {
+                    name: field.name,
+                    expr: ir_schema_mapping_expr(field.expr),
+                })
+                .collect(),
+        ),
+        SchemaDecodeMappingExpr::Constructor { name, args } => {
+            IrSchemaDecodeMappingExpr::Constructor {
+                name,
+                args: args.into_iter().map(ir_schema_mapping_expr).collect(),
+            }
+        }
+    }
 }
 
 fn ir_schema_dispatch_case(

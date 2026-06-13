@@ -6,7 +6,7 @@ use veln_ast::{BinaryOp, ContractKind, PrefixOp};
 use veln_ir::{
     ContractObligationStatus, IrCallTarget, IrContract, IrDictEntry, IrExpr, IrExprKind,
     IrFunction, IrMatchArm, IrPattern, IrPatternField, IrPatternKind, IrRecordField,
-    IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
+    IrSchemaDecodeMappingExpr, IrSchemaDecodeSpec, IrStmt, IrStmtKind, TypedProgram,
 };
 
 use crate::api::{EntryArgType, JvmClassFile, JvmProgram, SanitizedOptions};
@@ -1085,9 +1085,73 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_schema_mapping_sources(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
-        self.emit_object_array(code, schema.mapping.len(), |_, code, index| {
-            code.ldc_string(&schema.mapping[index].source);
+        self.emit_object_array(code, schema.mapping.len(), |this, code, index| {
+            this.emit_schema_mapping_expr_spec(code, &schema.mapping[index].expr);
         });
+        code.invokestatic(
+            &self.program.options.runtime_class,
+            "list",
+            "([Ljava/lang/Object;)Ljava/util/List;",
+        );
+    }
+
+    fn emit_schema_mapping_expr_spec(
+        &mut self,
+        code: &mut MethodCode,
+        expr: &IrSchemaDecodeMappingExpr,
+    ) {
+        match expr {
+            IrSchemaDecodeMappingExpr::Field(name) => {
+                self.emit_object_array(code, 2, |_, code, index| match index {
+                    0 => code.ldc_string("field"),
+                    1 => code.ldc_string(name),
+                    _ => unreachable!(),
+                });
+            }
+            IrSchemaDecodeMappingExpr::Record(fields) => {
+                self.emit_object_array(code, 3, |this, code, index| match index {
+                    0 => code.ldc_string("record"),
+                    1 => {
+                        this.emit_object_array(code, fields.len(), |_, code, field_index| {
+                            code.ldc_string(&fields[field_index].name);
+                        });
+                        code.invokestatic(
+                            &this.program.options.runtime_class,
+                            "list",
+                            "([Ljava/lang/Object;)Ljava/util/List;",
+                        );
+                    }
+                    2 => {
+                        this.emit_object_array(code, fields.len(), |this, code, field_index| {
+                            this.emit_schema_mapping_expr_spec(code, &fields[field_index].expr);
+                        });
+                        code.invokestatic(
+                            &this.program.options.runtime_class,
+                            "list",
+                            "([Ljava/lang/Object;)Ljava/util/List;",
+                        );
+                    }
+                    _ => unreachable!(),
+                });
+            }
+            IrSchemaDecodeMappingExpr::Constructor { name, args } => {
+                self.emit_object_array(code, 3, |this, code, index| match index {
+                    0 => code.ldc_string("constructor"),
+                    1 => code.ldc_string(&name.join("::")),
+                    2 => {
+                        this.emit_object_array(code, args.len(), |this, code, arg_index| {
+                            this.emit_schema_mapping_expr_spec(code, &args[arg_index]);
+                        });
+                        code.invokestatic(
+                            &this.program.options.runtime_class,
+                            "list",
+                            "([Ljava/lang/Object;)Ljava/util/List;",
+                        );
+                    }
+                    _ => unreachable!(),
+                });
+            }
+        }
         code.invokestatic(
             &self.program.options.runtime_class,
             "list",

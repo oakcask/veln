@@ -18,7 +18,8 @@ compare it with `../specification/` before changing behavior.
   schema primitive declaration slices, structural mapping clauses, codec
   declaration schema import/reference visibility checks, and generated
   field-local validation plus decoded-field single-record mapping decode
-  helper slices.
+  helper slices with schema-local field reference, record construction, and
+  ADT constructor construction mapping expressions.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed

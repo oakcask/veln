@@ -615,13 +615,32 @@ impl<'a> Parser<'a> {
             );
         }
         self.expect(TokenKind::Equal, "schema_mapping", vec!["="]);
-        let source = self
-            .expect_ident("schema_mapping", "schema field")
-            .unwrap_or_else(|| "<missing>".to_string());
-        let end = self.expect_newline("schema_mapping").range;
+        let expr = if self.at(TokenKind::Newline) || self.at(TokenKind::Eof) {
+            self.error_current(
+                "parse.schema_mapping_expression",
+                "schema mapping assignment value is missing",
+                "schema_mapping",
+                vec!["schema mapping expression"],
+                RecoveryStrategy::InsertToken,
+                Some("newline"),
+            );
+            let token = self.current().clone();
+            if self.at(TokenKind::Newline) {
+                self.bump();
+            }
+            Expr {
+                kind: ExprKind::Missing,
+                span: self.source.span(token.range),
+            }
+        } else {
+            self.parse_expr_until_newline("schema_mapping").0
+        };
+        let source = schema_mapping_expr_text(&expr);
+        let end = TextRange::new(expr.span.start.offset, expr.span.end.offset);
         SchemaMappingAssignment {
             target,
             source,
+            expr,
             span: self.source.span(start.cover(end)),
         }
     }
@@ -3265,6 +3284,100 @@ fn lhs_range(expr: &Expr) -> TextRange {
 
 fn pattern_range(pattern: &Pattern) -> TextRange {
     TextRange::new(pattern.span.start.offset, pattern.span.end.offset)
+}
+
+fn schema_mapping_expr_text(expr: &Expr) -> String {
+    match &expr.kind {
+        ExprKind::Missing => "<missing>".to_string(),
+        ExprKind::NamePath(segments) => segments.join("::"),
+        ExprKind::StringLiteral(value)
+        | ExprKind::IntLiteral(value)
+        | ExprKind::FloatLiteral(value) => value.clone(),
+        ExprKind::BoolLiteral(true) => "true".to_string(),
+        ExprKind::BoolLiteral(false) => "false".to_string(),
+        ExprKind::Unit => "()".to_string(),
+        ExprKind::Call { callee, args } => {
+            let args = args
+                .iter()
+                .map(schema_mapping_expr_text)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{}({args})", schema_mapping_expr_text(callee))
+        }
+        ExprKind::Record(fields) => {
+            let fields = fields
+                .iter()
+                .map(|field| format!("{}: {}", field.name, schema_mapping_expr_text(&field.expr)))
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{{ {fields} }}")
+        }
+        ExprKind::FieldAccess { base, field, .. } => {
+            format!("{}.{field}", schema_mapping_expr_text(base))
+        }
+        ExprKind::Try(inner) => format!("{}?", schema_mapping_expr_text(inner)),
+        ExprKind::List(items) => {
+            let items = items
+                .iter()
+                .map(schema_mapping_expr_text)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("[{items}]")
+        }
+        ExprKind::Dict(entries) => {
+            let entries = entries
+                .iter()
+                .map(|entry| {
+                    format!(
+                        "{}: {}",
+                        schema_mapping_expr_text(&entry.key),
+                        schema_mapping_expr_text(&entry.value)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{{ {entries} }}")
+        }
+        ExprKind::Match { .. } => "match".to_string(),
+        ExprKind::TypeApply { callee, type_args } => {
+            format!(
+                "{}<{}>",
+                schema_mapping_expr_text(callee),
+                type_args.join(", ")
+            )
+        }
+        ExprKind::Prefix { op, expr } => match op {
+            PrefixOp::Not => format!("not {}", schema_mapping_expr_text(expr)),
+            PrefixOp::Negate => format!("-{}", schema_mapping_expr_text(expr)),
+        },
+        ExprKind::Binary { op, left, right } => {
+            format!(
+                "{} {} {}",
+                schema_mapping_expr_text(left),
+                binary_op_text(*op),
+                schema_mapping_expr_text(right)
+            )
+        }
+        ExprKind::Hole { name, .. } => format!("_{}", name.as_deref().unwrap_or("")),
+    }
+}
+
+fn binary_op_text(op: BinaryOp) -> &'static str {
+    match op {
+        BinaryOp::PipeGreater => "|>",
+        BinaryOp::Or => "or",
+        BinaryOp::And => "and",
+        BinaryOp::Equal => "==",
+        BinaryOp::NotEqual => "!=",
+        BinaryOp::Less => "<",
+        BinaryOp::LessEqual => "<=",
+        BinaryOp::Greater => ">",
+        BinaryOp::GreaterEqual => ">=",
+        BinaryOp::Add => "+",
+        BinaryOp::Subtract => "-",
+        BinaryOp::Multiply => "*",
+        BinaryOp::Divide => "/",
+    }
 }
 
 fn return_type_can_take_effects(ty: &str) -> bool {

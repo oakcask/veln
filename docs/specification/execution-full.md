@@ -127,12 +127,15 @@ a predicate return an unsupported schema predicate reference error. Passing
 validation returns ordinary `Int` values for decoded fields unless the schema
 has one eligible structural `map to Target` clause. In that mapped slice, the
 generated helper constructs the target record field names from decoded schema
-fields after all field-local `where` predicates pass. Mapping diagnostics
+fields, record construction expressions, and ADT constructor construction
+expressions after all field-local `where` predicates pass. Mapping diagnostics
 reject unknown source fields, unknown target fields, duplicate or missing
-target fields, and decoded source fields whose types do not match their target
-fields before execution. Failed validation returns `schema.validation_failed`
-at the owning field byte offset with structured field path, predicate text,
-owning field value, decoded values, and structured byte preview fields.
+target fields, unsupported expression forms, unresolved constructors,
+constructor arity mismatches, and expression types that do not match their
+target fields or constructor payload fields before execution. Failed
+validation returns `schema.validation_failed` at the owning field byte offset
+with structured field path, predicate text, owning field value, decoded values,
+and structured byte preview fields.
 
 The same eligible generated binary schema slice also exposes
 `byte_decode_step_<schema>` helpers. A decode-step helper receives the bounded

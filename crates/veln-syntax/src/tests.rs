@@ -459,6 +459,44 @@ fn reports_schema_declaration_syntax_diagnostics() {
 }
 
 #[test]
+fn parses_schema_mapping_expression_values() {
+    let source = SourceFile::new(
+        "mapping.veln",
+        concat!(
+            "schema HeaderWire\n",
+            "\tformat binary\n",
+            "\tlength: UInt16be\n",
+            "\tkind: UInt8\n",
+            "\n",
+            "\tmap to Header\n",
+            "\t\tlength = {value: length}\n",
+            "\t\tkind = Wrap(kind)\n",
+            "end\n",
+        ),
+    );
+
+    let output = parse(&source);
+
+    assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
+    let SyntaxItem::Schema(schema) = &output.tree.items[0] else {
+        panic!("expected schema declaration");
+    };
+    assert_eq!(
+        schema.mappings[0].assignments[0].source,
+        "{ value: length }"
+    );
+    assert!(matches!(
+        schema.mappings[0].assignments[0].expr.kind,
+        ExprKind::Record(_)
+    ));
+    assert_eq!(schema.mappings[0].assignments[1].source, "Wrap(kind)");
+    assert!(matches!(
+        schema.mappings[0].assignments[1].expr.kind,
+        ExprKind::Call { .. }
+    ));
+}
+
+#[test]
 fn parses_codec_declarations_and_formats_canonical_layout() {
     let source = SourceFile::new(
         "codec.veln",

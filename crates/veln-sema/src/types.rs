@@ -8,7 +8,7 @@ use veln_ast::{
 use veln_core::CoreType;
 use veln_source::SourceSpan;
 
-use crate::adt::AdtRegistry;
+use crate::adt::{self, AdtConstructor, AdtRegistry, ConstructorLookup};
 use crate::effects::{is_concurrency_call, is_stdio_call, standard_library_effects};
 
 pub(crate) struct TypeEnvironment {
@@ -910,6 +910,65 @@ fn schema_encode_function_signature_for_schema(
 pub(crate) struct SchemaDecodeMappingField {
     pub(crate) target: String,
     pub(crate) source: String,
+    pub(crate) expr: SchemaDecodeMappingExpr,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum SchemaDecodeMappingExpr {
+    Field(String),
+    Record(Vec<SchemaDecodeMappingRecordField>),
+    Constructor {
+        name: Vec<String>,
+        args: Vec<SchemaDecodeMappingExpr>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SchemaDecodeMappingRecordField {
+    pub(crate) name: String,
+    pub(crate) expr: SchemaDecodeMappingExpr,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SchemaMappingTypedExpr {
+    pub(crate) ty: Type,
+    pub(crate) expr: SchemaDecodeMappingExpr,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum SchemaMappingExprError {
+    Unsupported {
+        text: String,
+        span: SourceSpan,
+    },
+    UnknownSchemaField {
+        name: String,
+        span: SourceSpan,
+    },
+    UnresolvedConstructor {
+        name: String,
+        span: SourceSpan,
+    },
+    ConstructorArity {
+        name: String,
+        expected: usize,
+        actual: usize,
+        span: SourceSpan,
+    },
+    RecordField {
+        name: String,
+        span: SourceSpan,
+    },
+    MissingRecordField {
+        name: String,
+        span: SourceSpan,
+    },
+    TypeMismatch {
+        expected: Type,
+        actual: Type,
+        text: String,
+        span: SourceSpan,
+    },
 }
 
 pub(crate) fn schema_decode_mapping_fields(
@@ -925,18 +984,29 @@ fn schema_decode_mapping_record_fields(
     schema: &SchemaDecl,
     decoded_fields: &[(String, Type, u8)],
 ) -> Option<Vec<(String, Type)>> {
-    let fields = schema_decode_mapping_fields_from_decoded_fields(module, schema, decoded_fields)?;
+    let [mapping] = schema.mappings.as_slice() else {
+        return None;
+    };
+    let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
     let source_field_types = decoded_fields
         .iter()
-        .map(|(name, ty, _)| (name.as_str(), ty))
+        .map(|(name, ty, _)| (name.clone(), ty.clone()))
         .collect::<BTreeMap<_, _>>();
-    fields
-        .into_iter()
-        .map(|field| {
-            let ty = source_field_types.get(field.source.as_str())?;
-            Some((field.target, (*ty).clone()))
-        })
-        .collect::<Option<Vec<_>>>()
+    for (target, target_ty) in &target_fields {
+        let assignment = mapping
+            .assignments
+            .iter()
+            .find(|assignment| assignment.target == *target)?;
+        schema_mapping_expr_typed(
+            module,
+            schema,
+            &source_field_types,
+            &assignment.expr,
+            target_ty,
+        )
+        .ok()?;
+    }
+    Some(target_fields)
 }
 
 fn schema_decode_mapping_fields_from_decoded_fields(
@@ -950,23 +1020,400 @@ fn schema_decode_mapping_fields_from_decoded_fields(
     let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
     let source_field_types = decoded_fields
         .iter()
-        .map(|(name, ty, _)| (name.as_str(), ty))
+        .map(|(name, ty, _)| (name.clone(), ty.clone()))
         .collect::<BTreeMap<_, _>>();
     let mut fields = Vec::new();
     for (target, target_ty) in target_fields {
-        let source = mapping
+        let assignment = mapping
             .assignments
             .iter()
-            .find(|assignment| assignment.target == target)?
-            .source
-            .clone();
-        let source_ty = source_field_types.get(source.as_str())?;
-        if source_ty != &&target_ty {
-            return None;
-        }
-        fields.push(SchemaDecodeMappingField { target, source });
+            .find(|assignment| assignment.target == target)?;
+        let typed = schema_mapping_expr_typed(
+            module,
+            schema,
+            &source_field_types,
+            &assignment.expr,
+            &target_ty,
+        )
+        .ok()?;
+        fields.push(SchemaDecodeMappingField {
+            target,
+            source: assignment.source.clone(),
+            expr: typed.expr,
+        });
     }
     Some(fields)
+}
+
+pub(crate) fn schema_mapping_expr_typed(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_fields: &BTreeMap<String, Type>,
+    expr: &Expr,
+    expected: &Type,
+) -> Result<SchemaMappingTypedExpr, SchemaMappingExprError> {
+    let registry = AdtRegistry::from_module(module);
+    let typed = schema_mapping_expr_typed_unchecked(
+        module,
+        schema,
+        &registry,
+        schema_fields,
+        expr,
+        expected,
+    )?;
+    if !is_assignable(expected, &typed.ty) {
+        return Err(SchemaMappingExprError::TypeMismatch {
+            expected: expected.clone(),
+            actual: typed.ty,
+            text: schema_mapping_expr_render(expr),
+            span: expr.span.clone(),
+        });
+    }
+    Ok(typed)
+}
+
+fn schema_mapping_expr_typed_unchecked(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    registry: &AdtRegistry,
+    schema_fields: &BTreeMap<String, Type>,
+    expr: &Expr,
+    expected: &Type,
+) -> Result<SchemaMappingTypedExpr, SchemaMappingExprError> {
+    match &expr.kind {
+        ExprKind::NamePath(segments) => schema_mapping_name_expr(
+            module,
+            schema,
+            registry,
+            schema_fields,
+            expr,
+            segments,
+            expected,
+        ),
+        ExprKind::Record(fields) => {
+            let Type::Record(expected_fields) = expected else {
+                return Err(SchemaMappingExprError::TypeMismatch {
+                    expected: expected.clone(),
+                    actual: Type::Record(Vec::new()),
+                    text: schema_mapping_expr_render(expr),
+                    span: expr.span.clone(),
+                });
+            };
+            let mut seen = BTreeMap::<String, SourceSpan>::new();
+            let mut record_fields = Vec::new();
+            for field in fields {
+                if seen
+                    .insert(field.name.clone(), field.span.clone())
+                    .is_some()
+                {
+                    return Err(SchemaMappingExprError::RecordField {
+                        name: field.name.clone(),
+                        span: field.span.clone(),
+                    });
+                }
+                let Some((_, field_ty)) =
+                    expected_fields.iter().find(|(name, _)| name == &field.name)
+                else {
+                    return Err(SchemaMappingExprError::RecordField {
+                        name: field.name.clone(),
+                        span: field.span.clone(),
+                    });
+                };
+                let typed = schema_mapping_expr_typed(
+                    module,
+                    schema,
+                    schema_fields,
+                    &field.expr,
+                    field_ty,
+                )?;
+                record_fields.push(SchemaDecodeMappingRecordField {
+                    name: field.name.clone(),
+                    expr: typed.expr,
+                });
+            }
+            for (name, _) in expected_fields {
+                if !seen.contains_key(name) {
+                    return Err(SchemaMappingExprError::MissingRecordField {
+                        name: name.clone(),
+                        span: expr.span.clone(),
+                    });
+                }
+            }
+            Ok(SchemaMappingTypedExpr {
+                ty: expected.clone(),
+                expr: SchemaDecodeMappingExpr::Record(record_fields),
+            })
+        }
+        ExprKind::Call { callee, args } => {
+            let ExprKind::NamePath(segments) = &callee.kind else {
+                return Err(SchemaMappingExprError::Unsupported {
+                    text: schema_mapping_expr_render(expr),
+                    span: expr.span.clone(),
+                });
+            };
+            if !schema_mapping_name_can_be_constructor(segments) {
+                return Err(SchemaMappingExprError::Unsupported {
+                    text: schema_mapping_expr_render(expr),
+                    span: expr.span.clone(),
+                });
+            }
+            let constructor =
+                schema_mapping_constructor(registry, module, schema, segments, expected)
+                    .ok_or_else(|| SchemaMappingExprError::UnresolvedConstructor {
+                        name: segments.join("::"),
+                        span: callee.span.clone(),
+                    })?;
+            schema_mapping_constructor_expr(
+                module,
+                schema,
+                schema_fields,
+                expr,
+                args,
+                expected,
+                constructor,
+            )
+        }
+        _ => Err(SchemaMappingExprError::Unsupported {
+            text: schema_mapping_expr_render(expr),
+            span: expr.span.clone(),
+        }),
+    }
+}
+
+fn schema_mapping_name_expr(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    registry: &AdtRegistry,
+    schema_fields: &BTreeMap<String, Type>,
+    expr: &Expr,
+    segments: &[String],
+    expected: &Type,
+) -> Result<SchemaMappingTypedExpr, SchemaMappingExprError> {
+    if let [name] = segments {
+        if let Some(ty) = schema_fields.get(name) {
+            return Ok(SchemaMappingTypedExpr {
+                ty: ty.clone(),
+                expr: SchemaDecodeMappingExpr::Field(name.clone()),
+            });
+        }
+        if let Some(constructor) =
+            schema_mapping_constructor(registry, module, schema, segments, expected)
+        {
+            if constructor.variant.payload_fields.is_empty() {
+                return Ok(SchemaMappingTypedExpr {
+                    ty: expected.clone(),
+                    expr: SchemaDecodeMappingExpr::Constructor {
+                        name: schema_mapping_constructor_name(constructor),
+                        args: Vec::new(),
+                    },
+                });
+            }
+        }
+        return Err(SchemaMappingExprError::UnknownSchemaField {
+            name: name.clone(),
+            span: expr.span.clone(),
+        });
+    }
+    let constructor = schema_mapping_constructor(registry, module, schema, segments, expected)
+        .ok_or_else(|| SchemaMappingExprError::UnresolvedConstructor {
+            name: segments.join("::"),
+            span: expr.span.clone(),
+        })?;
+    if !constructor.variant.payload_fields.is_empty() {
+        return Err(SchemaMappingExprError::ConstructorArity {
+            name: segments.join("::"),
+            expected: constructor.variant.payload_fields.len(),
+            actual: 0,
+            span: expr.span.clone(),
+        });
+    }
+    Ok(SchemaMappingTypedExpr {
+        ty: expected.clone(),
+        expr: SchemaDecodeMappingExpr::Constructor {
+            name: schema_mapping_constructor_name(constructor),
+            args: Vec::new(),
+        },
+    })
+}
+
+fn schema_mapping_constructor_expr(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    schema_fields: &BTreeMap<String, Type>,
+    expr: &Expr,
+    args: &[Expr],
+    expected: &Type,
+    constructor: AdtConstructor<'_>,
+) -> Result<SchemaMappingTypedExpr, SchemaMappingExprError> {
+    let expected_count = constructor.variant.payload_fields.len();
+    if args.len() != expected_count {
+        return Err(SchemaMappingExprError::ConstructorArity {
+            name: schema_mapping_constructor_name(constructor).join("::"),
+            expected: expected_count,
+            actual: args.len(),
+            span: expr.span.clone(),
+        });
+    }
+    let mut payload_exprs = Vec::new();
+    let mut payload_types = Vec::new();
+    for (index, arg) in args.iter().enumerate() {
+        let payload_ty = adt::payload_type(expected, constructor, index).unwrap_or(Type::Unknown);
+        let typed = schema_mapping_expr_typed(module, schema, schema_fields, arg, &payload_ty)?;
+        payload_types.push(typed.ty);
+        payload_exprs.push(typed.expr);
+    }
+    let ty = if adt::adt_args(expected, constructor.descriptor).is_some() {
+        expected.clone()
+    } else {
+        adt::constructed_type(constructor, &payload_types)
+    };
+    Ok(SchemaMappingTypedExpr {
+        ty,
+        expr: SchemaDecodeMappingExpr::Constructor {
+            name: schema_mapping_constructor_name(constructor),
+            args: payload_exprs,
+        },
+    })
+}
+
+fn schema_mapping_constructor<'a>(
+    registry: &'a AdtRegistry,
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+    segments: &[String],
+    expected: &Type,
+) -> Option<AdtConstructor<'a>> {
+    match registry.constructor(segments, schema.module_name.as_deref(), &module.uses) {
+        ConstructorLookup::Found(constructor) => Some(constructor),
+        ConstructorLookup::Ambiguous => {
+            registry
+                .descriptor_for_type(expected)
+                .and_then(|descriptor| {
+                    registry.constructor_for_descriptor(
+                        segments,
+                        descriptor,
+                        schema.module_name.as_deref(),
+                        &module.uses,
+                    )
+                })
+        }
+        ConstructorLookup::Missing => None,
+    }
+}
+
+fn schema_mapping_constructor_name(constructor: AdtConstructor<'_>) -> Vec<String> {
+    vec![
+        constructor.descriptor.type_name.clone(),
+        constructor.variant.name.clone(),
+    ]
+}
+
+fn schema_mapping_name_can_be_constructor(segments: &[String]) -> bool {
+    segments.len() > 1
+        || segments
+            .last()
+            .and_then(|name| name.chars().next())
+            .is_some_and(char::is_uppercase)
+}
+
+fn schema_mapping_expr_render(expr: &Expr) -> String {
+    match &expr.kind {
+        ExprKind::Missing => "<missing>".to_string(),
+        ExprKind::Hole { name, .. } => format!("_{}", name.as_deref().unwrap_or("")),
+        ExprKind::NamePath(segments) => segments.join("::"),
+        ExprKind::StringLiteral(value)
+        | ExprKind::IntLiteral(value)
+        | ExprKind::FloatLiteral(value) => value.clone(),
+        ExprKind::BoolLiteral(true) => "true".to_string(),
+        ExprKind::BoolLiteral(false) => "false".to_string(),
+        ExprKind::Unit => "()".to_string(),
+        ExprKind::TypeApply { callee, type_args } => {
+            format!(
+                "{}<{}>",
+                schema_mapping_expr_render(callee),
+                type_args.join(", ")
+            )
+        }
+        ExprKind::Call { callee, args } => {
+            let args = args
+                .iter()
+                .map(schema_mapping_expr_render)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{}({args})", schema_mapping_expr_render(callee))
+        }
+        ExprKind::FieldAccess { base, field, .. } => {
+            format!("{}.{field}", schema_mapping_expr_render(base))
+        }
+        ExprKind::Try(inner) => format!("{}?", schema_mapping_expr_render(inner)),
+        ExprKind::Record(fields) => {
+            let fields = fields
+                .iter()
+                .map(|field| {
+                    format!(
+                        "{}: {}",
+                        field.name,
+                        schema_mapping_expr_render(&field.expr)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{{ {fields} }}")
+        }
+        ExprKind::Dict(entries) => {
+            let entries = entries
+                .iter()
+                .map(|entry| {
+                    format!(
+                        "{}: {}",
+                        schema_mapping_expr_render(&entry.key),
+                        schema_mapping_expr_render(&entry.value)
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("{{ {entries} }}")
+        }
+        ExprKind::List(items) => {
+            let items = items
+                .iter()
+                .map(schema_mapping_expr_render)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("[{items}]")
+        }
+        ExprKind::Match { .. } => "match".to_string(),
+        ExprKind::Prefix { op, expr } => match op {
+            veln_ast::PrefixOp::Not => format!("not {}", schema_mapping_expr_render(expr)),
+            veln_ast::PrefixOp::Negate => format!("-{}", schema_mapping_expr_render(expr)),
+        },
+        ExprKind::Binary { op, left, right } => {
+            format!(
+                "{} {} {}",
+                schema_mapping_expr_render(left),
+                schema_mapping_binary_op_text(*op),
+                schema_mapping_expr_render(right)
+            )
+        }
+    }
+}
+
+fn schema_mapping_binary_op_text(op: veln_ast::BinaryOp) -> &'static str {
+    match op {
+        veln_ast::BinaryOp::PipeGreater => "|>",
+        veln_ast::BinaryOp::Or => "or",
+        veln_ast::BinaryOp::And => "and",
+        veln_ast::BinaryOp::Equal => "==",
+        veln_ast::BinaryOp::NotEqual => "!=",
+        veln_ast::BinaryOp::Less => "<",
+        veln_ast::BinaryOp::LessEqual => "<=",
+        veln_ast::BinaryOp::Greater => ">",
+        veln_ast::BinaryOp::GreaterEqual => ">=",
+        veln_ast::BinaryOp::Add => "+",
+        veln_ast::BinaryOp::Subtract => "-",
+        veln_ast::BinaryOp::Multiply => "*",
+        veln_ast::BinaryOp::Divide => "/",
+    }
 }
 
 pub(crate) fn schema_mapping_target_record_fields(

@@ -279,6 +279,7 @@ impl AstBuilder {
                             node_id: self.alloc(),
                             target: assignment.target.clone(),
                             source: assignment.source.clone(),
+                            expr: self.lower_expr(&assignment.expr),
                             span: assignment.span.clone(),
                         })
                         .collect(),

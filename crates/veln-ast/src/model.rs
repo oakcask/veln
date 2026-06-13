@@ -138,6 +138,7 @@ pub struct SchemaMappingAssignment {
     pub node_id: NodeId,
     pub target: String,
     pub source: String,
+    pub expr: Expr,
     pub span: SourceSpan,
 }
 

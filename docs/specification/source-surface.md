@@ -69,22 +69,30 @@ decodes to an incompatible payload shape. The checked diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`.
 A schema may end with
 structural `map to Target` clauses whose assignment lines use
-`target_field = schema_field` to map schema-local fields into an ordinary
-source value shape. Mapping clauses are parsed, formatted, lowered, exposed to
-editor support, and used by the generated decode slice described in
+`target_field = expression` to map schema-local fields into an ordinary
+source value shape. The implemented mapping expression slice supports
+schema-local field references, record construction, and ADT constructor
+construction resolved through ordinary source module rules. Other ordinary
+calls, effects, runtime settings, stream state, and recovery behavior are not
+mapping expressions. Mapping clauses are parsed, formatted, lowered, exposed
+to editor support, and used by the generated decode slice described in
 [execution.md](execution.md) when the schema has a single structural mapping
-and all assignment sources use implemented decoded field types: exact-width
-unsigned primitive fields as `Int`, length-bounded `ByteView(length_field)`
-payload fields as `ByteView`, closed nested dispatch payload fields as the
-nested schema record shape, and extension dispatch payload fields as
-`SchemaDispatchPayload<T>`. The predicate, primitive, dispatch, and mapping
-text are parsed and preserved as source-surface syntax.
+and all assignment expressions use implemented decoded field types:
+exact-width unsigned primitive fields as `Int`, length-bounded
+`ByteView(length_field)` payload fields as `ByteView`, closed nested dispatch
+payload fields as the nested schema record shape, and extension dispatch
+payload fields as `SchemaDispatchPayload<T>`. The predicate, primitive,
+dispatch, and mapping text are parsed and preserved as source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
 primitive, supported reserved-bit, closed dispatch, extension dispatch, and
 same-module nested dispatch payload helper slices, general ADT constructor
-mapping beyond the extension dispatch payload wrapper, imported dispatch
-payload schema encode, mapping expressions beyond direct field assignment,
-and multiple mapping selection are not implemented.
+mapping beyond schema-local structural expressions, imported dispatch payload
+schema encode, arbitrary mapping expressions, and multiple mapping selection
+are not implemented.
+The checked diagnostics case
+`../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
+pins unsupported mapping expression, unresolved constructor, constructor
+arity, and constructor payload type diagnostics.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, plus the supported `ReservedBits(1, 0)` before `UInt31be` layout,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and

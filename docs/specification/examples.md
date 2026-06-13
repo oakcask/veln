@@ -211,6 +211,14 @@ schema field name.
 the generated schema mapping slice. The helper decodes exact-width schema
 fields, checks the field-local predicate, and returns the mapped ordinary
 record field names rather than the schema-local field names.
+`../../examples/specification/run/binary-schema-mapped-record-expression-decode/`
+and
+`../../examples/specification/run/binary-schema-mapped-constructor-expression-decode/`
+pin the structural mapping expression slice. The helper constructs nested
+record and ADT target fields from decoded schema-local values.
+`../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
+pins unsupported mapping expression, unresolved constructor, constructor
+arity, and constructor payload type diagnostics.
 
 `../../examples/specification/run/binary-schema-primitive-encode/` and
 `../../examples/specification/run/binary-schema-primitive-encode-out-of-range/`

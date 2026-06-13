@@ -1,0 +1,33 @@
+# Binary schema mapping can construct a nested target record from schema-local fields.
+use stdio
+
+type Header
+	Header {summary: {value: Int}, kind: Int}
+end
+
+schema HeaderWire
+	format binary
+
+	length: UInt16be
+	kind: UInt8
+
+	map to Header
+		summary = {value: length}
+		kind = kind
+end
+
+fn emit_header(header: {summary: {value: Int}, kind: Int}) -> () effects [stdio]
+	stdio::print(int_to_string(header.summary.value))
+	stdio::print(" ")
+	stdio::println(int_to_string(header.kind))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("123405")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(3)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let header: {summary: {value: Int}, kind: Int} = byte_decode_header_wire(view)?
+	emit_header(header)
+	Ok(())
+end

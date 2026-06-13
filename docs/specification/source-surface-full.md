@@ -30,7 +30,8 @@ SchemaFieldType ::= TypeText | ReservedBitsPrimitive
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 SchemaFieldWhere ::= "where" ContractPredicate
 SchemaMapping ::= "map" "to" MemberPath NL SchemaMappingAssignment+
-SchemaMappingAssignment ::= Name "=" Name NL
+SchemaMappingAssignment ::= Name "=" SchemaMappingExpr NL
+SchemaMappingExpr ::= Name | RecordExpr | ConstructorExpr
 CodecDecl     ::= "pub"? "codec" Name "for" MemberPath CodecDirections NL
                   CodecImplementation* "end" NL?
 CodecDirections ::= CodecDirection+
@@ -124,18 +125,23 @@ map to FrameHeader
 
 The mapping target is a member path naming an ordinary source value shape. Each
 assignment line must explicitly name a target field on the left and a
-schema-local field on the right. Duplicate left-hand targets, missing
-left-hand targets, and bare schema-field lines are parse diagnostics; reserved
-bits and other representation fields are omitted unless explicitly assigned.
-The parser, formatter, lowered AST, and editor token collector preserve mapping
-clauses as source metadata. The generated binary decode helper uses one
-eligible structural mapping clause when all schema fields are implemented
-exact-width unsigned primitives, closed dispatch fields, or extension
-dispatch fields and the target resolves to matching record fields.
-Target-field resolution outside that single-record slice, ADT constructor
-mapping beyond the extension dispatch payload wrapper, nested record
-construction, multiple mapping selection, and encode-side mapping are not
-implemented.
+schema mapping expression on the right. The implemented expression slice
+supports schema-local field references, record construction, and ADT
+constructor construction resolved through ordinary source module rules.
+Duplicate left-hand targets, missing left-hand targets, and bare schema-field
+lines are parse diagnostics; reserved bits and other representation fields are
+omitted unless explicitly assigned. The parser, formatter, lowered AST, and
+editor token collector preserve mapping clauses as source metadata. The
+generated binary decode helper uses one eligible structural mapping clause
+when all schema fields are implemented exact-width unsigned primitives, closed
+dispatch fields, or extension dispatch fields and the target resolves to
+matching record fields.
+Target-field resolution outside that single-record slice, arbitrary calls,
+multiple mapping selection, and encode-side mapping are not implemented.
+The executable diagnostics case
+`../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
+keeps unsupported mapping expression, unresolved constructor, constructor
+arity, and constructor payload type diagnostics executable.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose
