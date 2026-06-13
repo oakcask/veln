@@ -254,9 +254,10 @@ execution reference.
   header-block output, incoming frame payloads that exceed the active receive
   maximum frame size, received
   `SETTINGS_MAX_FRAME_SIZE` and `SETTINGS_INITIAL_WINDOW_SIZE` values outside
-  their accepted SETTINGS ranges, stream id domain failures, invalid
-  stream-state frame kinds, wrong-length PING and GOAWAY payloads, accepted
-  PING ACK distinction, and accepted GOAWAY last-stream-id and error-code
+  their accepted SETTINGS ranges, zero-length SETTINGS ACK frames, wrong-length
+  SETTINGS ACK payloads, stream id domain failures, invalid stream-state frame
+  kinds, wrong-length PING and GOAWAY payloads, accepted PING ACK distinction,
+  and accepted GOAWAY last-stream-id and error-code
   facts as typed protocol values. In the server-side fixture core, SETTINGS,
   PING, and GOAWAY require stream id zero; HEADERS, DATA,
   CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero

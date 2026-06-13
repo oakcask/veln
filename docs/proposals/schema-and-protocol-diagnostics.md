@@ -36,10 +36,11 @@ stream-state frame kinds. Stream id domain failures use
 `http2.protocol.invalid_stream_id` with frame kind, stream id, required stream
 id domain, endpoint role, active state, and rule provenance. The fixed
 payload-length projection uses
-`http2.protocol.invalid_payload_length` for PING and GOAWAY payload-length
-failures. These protocol projections are checked by the HTTP/2 protocol-core
-cases under `../../examples/specification/run/`. Generated exact-width binary
-schema encode range failures use `codec.encode_value_unrepresentable` through
+`http2.protocol.invalid_payload_length` for SETTINGS ACK, PING, GOAWAY, and
+`WINDOW_UPDATE` payload-length failures. These protocol projections are
+checked by the HTTP/2 protocol-core cases under
+`../../examples/specification/run/`. Generated exact-width binary schema
+encode range failures use `codec.encode_value_unrepresentable` through
 direct `byte_encode_<schema>` helpers, derived codec encode calls, and the
 HTTP/2 frame-header encode fixture, including selected dispatch payload encode
 paths that surface the same generated helper failure; the current behavior is
@@ -303,7 +304,7 @@ failures, plus HTTP/2 protocol-state projections for frame-size peer-limit,
 SETTINGS value range peer-limit, DATA receive flow-control peer-limit, client
 connection preface failures, and invalid connection-state and stream-state
 frame-kind failures, stream id domain failures, plus fixed payload-length
-failures for PING and GOAWAY.
+failures for SETTINGS ACK, PING, GOAWAY, and `WINDOW_UPDATE`.
 `run --json` examples assert the stable byte and protocol diagnostic detail
 fields documented in `../specification/run-json.md`; human `run` examples
 assert the focused primary messages and related notes documented in
