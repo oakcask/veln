@@ -53,7 +53,8 @@ compare it with `../specification/` before changing behavior.
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, client connection preface
   validation slice, frame-size peer-limit diagnostic slice with receive-limit
-  provenance, SETTINGS value range diagnostic slice, invalid frame-kind
+  provenance, peer-received SETTINGS state for maximum frame size and initial
+  window size, SETTINGS value range diagnostic slice, invalid frame-kind
   diagnostic slice, PING/GOAWAY receive slice, DATA and `WINDOW_UPDATE`
   receive flow-control slices, and outbound frame-header encode slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):

@@ -11,5 +11,5 @@ fn project(failure: Http2ProtocolFailure) -> Result<(), String>
 end
 
 pub fn main() -> Result<(), String>
-	project(SettingsValueOutOfRange(9, 5, "SETTINGS_MAX_FRAME_SIZE", 16383, 16384, 16777215, "peer_settings"))
+	project(SettingsValueOutOfRange(9, 4, "SETTINGS_INITIAL_WINDOW_SIZE", 2147483648, 0, 2147483647, "peer_settings"))
 end

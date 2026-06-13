@@ -148,9 +148,10 @@ client connection preface uses id `http2.protocol.partial_preface` and records
 `frame_kind`, `stream_id`, `stream_ref`, and `receive_limit_provenance`. The
 provenance names the active receive-limit entry used for the failed inbound
 frame-size check, such as protocol default, local configuration, or local
-SETTINGS. Peer-received `SETTINGS_MAX_FRAME_SIZE` values belong to
-peer-advertised state for outbound decisions and are not reported as the
-receive-limit provenance for later inbound frame-size failures. Received
+SETTINGS. Peer-received `SETTINGS_MAX_FRAME_SIZE` and
+`SETTINGS_INITIAL_WINDOW_SIZE` values belong to peer-advertised state for
+outbound decisions and are not reported as the receive-limit provenance for
+later inbound frame-size or DATA receive-window failures. Received
 DATA frames that exceed available inbound receive-window credit, and
 `WINDOW_UPDATE` increments that would exceed available inbound receive-window
 growth, use id

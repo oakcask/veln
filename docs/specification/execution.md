@@ -177,8 +177,9 @@ execution reference.
   client connection preface before frame-header decode and represents partial
   or mismatched prefaces, closed-input truncation, continuation ordering
   failures, incoming frame payloads that exceed the active receive maximum
-  frame size, received `SETTINGS_MAX_FRAME_SIZE` values outside the accepted
-  SETTINGS range, invalid connection-state and stream-state frame kinds,
+  frame size, received `SETTINGS_MAX_FRAME_SIZE` and
+  `SETTINGS_INITIAL_WINDOW_SIZE` values outside their accepted SETTINGS
+  ranges, invalid connection-state and stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, accepted PING ACK distinction, and
   accepted GOAWAY last-stream-id and error-code facts as typed protocol
   values. The receive flow-control state consumes DATA payload length from

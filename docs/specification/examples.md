@@ -292,11 +292,14 @@ stream increases that stream's receive-window credit. Wrong-length
 or overflowing increments remain typed peer-limit failures without changing
 window state. DATA payloads larger than the available stream or connection
 receive-window credit also remain typed peer-limit failures.
-Peer-received `SETTINGS_MAX_FRAME_SIZE` is stored as peer-advertised state for
-outbound decisions and does not replace the inbound receive maximum used by
-later frame-size checks. Received `SETTINGS_MAX_FRAME_SIZE` values are
-range-checked before updating peer-advertised state; out-of-range values stay
-as typed peer-limit failures at the offending SETTINGS item byte offset. A
+Peer-received `SETTINGS_MAX_FRAME_SIZE` and `SETTINGS_INITIAL_WINDOW_SIZE` are
+stored as peer-advertised state for outbound decisions. The peer-advertised
+maximum frame size does not replace the inbound receive maximum used by later
+frame-size checks, and the peer-advertised initial window size does not
+replace the inbound receive-window credit used by later DATA checks. Received
+values for both settings are range-checked before updating peer-advertised
+state; out-of-range values stay as typed peer-limit failures at the offending
+SETTINGS item byte offset. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
 completed accumulated byte count in the observable example output. Protocol
 failures stay as ordinary ADT values and are projected by source code into
@@ -348,5 +351,6 @@ connection receive-window provenance and the `WINDOW_UPDATE` receive-credit
 slice.
 The frame-size command fixtures cover local-configuration provenance while the
 ordinary protocol-core case keeps the protocol-default, local-configuration,
-local-SETTINGS, peer-advertised SETTINGS, and rejected peer-advertised SETTINGS
-distinctions visible in executable output.
+local-SETTINGS, peer-advertised SETTINGS, rejected peer-advertised SETTINGS,
+and peer-advertised initial-window receive-window distinctions visible in
+executable output.

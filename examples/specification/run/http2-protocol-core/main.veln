@@ -35,8 +35,13 @@ type PeerAdvertisedMaxFrameSize
 	PeerMaxFrameSize(Int, Int)
 end
 
+type PeerAdvertisedInitialWindowSize
+	NoPeerInitialWindowSize
+	PeerInitialWindowSize(Int, Int)
+end
+
 type PeerSettingsState
-	PeerSettings(PeerAdvertisedMaxFrameSize)
+	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize)
 end
 
 type ConnectionShutdownState
@@ -305,7 +310,7 @@ fn protocol_default_frame_size_limit() -> ReceiveLimitEntry
 end
 
 fn empty_peer_settings() -> PeerSettingsState
-	PeerSettings(NoPeerMaxFrameSize)
+	PeerSettings(NoPeerMaxFrameSize, NoPeerInitialWindowSize)
 end
 
 fn default_receive_flow_control() -> ReceiveFlowControl
@@ -400,7 +405,10 @@ fn validate_single_settings_value(pending: ByteChunk, next_offset: Int) -> Resul
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
 	match identifier == 5
 		true => validate_max_frame_size_setting(next_offset + 9, value)
-		false => Ok(SettingsValueOk)
+		false => match identifier == 4
+			true => validate_initial_window_size_setting(next_offset + 9, value)
+			false => Ok(SettingsValueOk)
+		end
 	end
 end
 
@@ -414,6 +422,13 @@ fn validate_max_frame_size_setting(item_offset: Int, value: Int) -> Result<Setti
 	end
 end
 
+fn validate_initial_window_size_setting(item_offset: Int, value: Int) -> Result<SettingsRangeDecision, String>
+	match value > 2147483647
+		true => Ok(SettingsValueFailed(SettingsValueOutOfRange(item_offset, 4, "SETTINGS_INITIAL_WINDOW_SIZE", value, 0, 2147483647, "peer_settings")))
+		false => Ok(SettingsValueOk)
+	end
+end
+
 fn update_peer_settings(pending: ByteChunk, next_offset: Int, length: Int, kind: Int, peer_settings: PeerSettingsState) -> Result<PeerSettingsState, String>
 	match kind == 4
 		true => update_settings_frame(pending, next_offset, length, peer_settings)
@@ -423,12 +438,12 @@ end
 
 fn update_settings_frame(pending: ByteChunk, next_offset: Int, length: Int, peer_settings: PeerSettingsState) -> Result<PeerSettingsState, String>
 	match length == 6
-		true => update_single_settings_item(pending, next_offset)
+		true => update_single_settings_item(pending, next_offset, peer_settings)
 		false => Ok(peer_settings)
 	end
 end
 
-fn update_single_settings_item(pending: ByteChunk, next_offset: Int) -> Result<PeerSettingsState, String>
+fn update_single_settings_item(pending: ByteChunk, next_offset: Int, peer_settings: PeerSettingsState) -> Result<PeerSettingsState, String>
 	let item_offset: ByteOffset = byte_offset(9)?
 	let item_count: ByteCount = byte_count(6)?
 	let item: ByteView = byte_view(pending, item_offset, item_count)?
@@ -437,9 +452,14 @@ fn update_single_settings_item(pending: ByteChunk, next_offset: Int) -> Result<P
 	let value_count: ByteCount = byte_count(4)?
 	let identifier: Int = byte_read_u16_be(byte_view(byte_view_to_chunk(item), byte_offset(0)?, identifier_count)?)?
 	let value: Int = byte_read_u32_be(byte_view(byte_view_to_chunk(item), value_offset, value_count)?)?
-	match identifier == 5
-		true => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + 9)))
-		false => Ok(PeerSettings(NoPeerMaxFrameSize))
+	match peer_settings
+		PeerSettings(max_frame_size, initial_window_size) => match identifier == 5
+			true => Ok(PeerSettings(PeerMaxFrameSize(value, next_offset + 9), initial_window_size))
+			false => match identifier == 4
+				true => Ok(PeerSettings(max_frame_size, PeerInitialWindowSize(value, next_offset + 9)))
+				false => Ok(peer_settings)
+			end
+		end
 	end
 end
 
@@ -718,15 +738,29 @@ end
 
 fn state_peer_max_frame_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize), _, _) => 0
-		State(_, _, _, _, _, PeerSettings(PeerMaxFrameSize(value, _)), _, _) => value
+		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(PeerMaxFrameSize(value, _), _), _, _) => value
 	end
 end
 
 fn state_peer_max_frame_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize), _, _) => 0
-		State(_, _, _, _, _, PeerSettings(PeerMaxFrameSize(_, item_offset)), _, _) => item_offset
+		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(PeerMaxFrameSize(_, item_offset), _), _, _) => item_offset
+	end
+end
+
+fn state_peer_initial_window_size(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(value, _)), _, _) => value
+	end
+end
+
+fn state_peer_initial_window_size_offset(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, _, _, PeerSettings(_, NoPeerInitialWindowSize), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(_, PeerInitialWindowSize(_, item_offset)), _, _) => item_offset
 	end
 end
 
@@ -1117,7 +1151,11 @@ fn print_peer_settings(label: String, state: Http2DecodeState) -> () effects [st
 	stdio::print(" peer_max_frame_size ")
 	stdio::print(int_to_string(state_peer_max_frame_size(state)))
 	stdio::print(" peer_max_frame_size_offset ")
-	stdio::println(int_to_string(state_peer_max_frame_size_offset(state)))
+	stdio::print(int_to_string(state_peer_max_frame_size_offset(state)))
+	stdio::print(" peer_initial_window_size ")
+	stdio::print(int_to_string(state_peer_initial_window_size(state)))
+	stdio::print(" peer_initial_window_size_offset ")
+	stdio::println(int_to_string(state_peer_initial_window_size_offset(state)))
 end
 
 fn print_settings_failure(label: String, step: Http2Step) -> () effects [stdio]
@@ -1297,6 +1335,17 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let peer_advertised_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("004001000000000003")?), step_state(peer_settings))?
 	print_failure("frame-size-peer-advertised", peer_advertised_too_large)
 	print_peer_settings("frame-size-peer-advertised", step_state(peer_advertised_too_large))
+	let peer_initial_window: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000400000003")?), frame_state())?
+	print_step("peer-initial-window", peer_initial_window)
+	print_peer_settings("peer-initial-window", step_state(peer_initial_window))
+	let peer_initial_window_high: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000480000000")?), frame_state())?
+	print_settings_failure("settings-initial-window-high", peer_initial_window_high)
+	print_peer_settings("settings-initial-window-high", step_state(peer_initial_window_high))
+	let peer_initial_window_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), step_state(peer_initial_window))?
+	let peer_initial_window_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000400000000000101020304")?), step_state(peer_initial_window_headers))?
+	print_step("peer-initial-window-data", peer_initial_window_data)
+	print_peer_settings("peer-initial-window-data", step_state(peer_initial_window_data))
+	print_receive_windows("peer-initial-window-data", step_state(peer_initial_window_data))
 	let bad_connection_kind: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000000")?), frame_state())?
 	print_failure("invalid-kind", bad_connection_kind)
 	let bad_stream_kind: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), frame_state())?
