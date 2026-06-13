@@ -59,8 +59,8 @@ compare it with `../specification/` before changing behavior.
   SETTINGS value range peer-limit, stream id domain failures, invalid
   connection-state and stream-state frame-kind failures, fixed payload-length
   protocol projections, post-GOAWAY stream rejection projection, and generated
-  binary schema encode
-  value-representation failures plus hand-written codec decode consumed-count
+  binary schema encode value-representation failures, generated binary schema
+  decode integer range failures, plus hand-written codec decode consumed-count
   failures.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented

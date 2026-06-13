@@ -385,6 +385,14 @@ against the built `veln` binary.
   for a `UInt32be` field reports `schema.truncated_field` through JSON run
   output with byte offset, field path, byte counts, readiness, and structured
   byte preview fields.
+- `run/binary-schema-integer-out-of-range-json/`: schema decode reports
+  `schema.integer_out_of_range` through JSON run output when a structurally
+  present `UInt31be` field exceeds its external integer range, including byte
+  offset, field path, byte width, accepted range, actual value, and structured
+  byte preview fields.
+- `run/binary-schema-integer-out-of-range-human/`: the same failure reports a
+  focused human diagnostic with the integer range fact, nearby bytes, and
+  schema field path.
 - `run/binary-schema-mapped-record-decode/`: a generated binary schema decode
   helper checks field-local predicates, then maps schema-local exact-width
   fields into the target record field names before returning the decoded

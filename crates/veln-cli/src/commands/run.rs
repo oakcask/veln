@@ -267,6 +267,25 @@ fn byte_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnostic> {
             push_byte_preview_note(&mut diagnostic, byte_entries);
             diagnostic
         }
+        "schema.integer_out_of_range" => {
+            let byte_width = json_number(byte_entries, "byte_width")?;
+            let min_value = json_number(byte_entries, "min_value")?;
+            let max_value = json_number(byte_entries, "max_value")?;
+            let actual_value = json_number(byte_entries, "actual_value")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("schema integer out of range at byte offset {byte_offset}"),
+                None,
+                byte_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "{byte_width}-byte schema integer expected value between {min_value} and {max_value}; actual value was {actual_value}."
+            )));
+            push_byte_preview_note(&mut diagnostic, byte_entries);
+            diagnostic
+        }
         "schema.reserved_bits_mismatch" => {
             let bit_width = json_number(byte_entries, "bit_width")?;
             let expected_value = json_number(byte_entries, "expected_value")?;
@@ -1286,6 +1305,65 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("schema `Http2FrameHeader` / field `payload`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_integer_range_context() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.integer_out_of_range")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("StreamIdentifierSample")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("stream_id")),
+                    ]),
+                ]),
+            ),
+            ("byte_width", JsonValue::Number(4)),
+            ("min_value", JsonValue::Number(0)),
+            ("max_value", JsonValue::Number(2147483647)),
+            ("actual_value", JsonValue::Number(2147483648)),
+            ("byte_preview", byte_preview("80000000")),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "schema integer out of range at byte offset 0".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert_eq!(diagnostic.id, "schema.integer_out_of_range");
+        assert_eq!(
+            diagnostic.message,
+            "schema integer out of range at byte offset 0"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("expected value between 0 and 2147483647; actual value was 2147483648")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("schema `StreamIdentifierSample` / field `stream_id`")
         );
     }
 

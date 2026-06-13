@@ -37,7 +37,8 @@ requiring the full command reference on the first read.
   classfile execution without an ordinary Java source compiler requirement,
   human runtime diagnostics for closed-input `ByteView` read truncation,
   schema fixed-field mismatch, binary schema field truncation, reserved-bit
-  mismatch, field-local validation failure, closed-dispatch unknown tag
+  mismatch, integer range failure, field-local validation failure,
+  closed-dispatch unknown tag
   failures, payload length boundary failures, HTTP/2 protocol-core failures
   including partial and invalid client connection prefaces, frame-size and
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
@@ -48,8 +49,9 @@ requiring the full command reference on the first read.
   command rules. Human schema-owned byte diagnostics and HTTP/2 client
   connection preface protocol diagnostics render preview bytes as bounded
   lowercase hex pairs grouped with spaces and keep byte offsets, field paths,
-  expected counts, actual counts, matched prefix counts, byte values, and rule
-  provenance in separate notes or structured details.
+  expected counts, actual counts, accepted ranges, actual values, matched
+  prefix counts, byte values, and rule provenance in separate notes or
+  structured details.
 - `test`: test and doctest selection, static gates, direct JVM classfile
   execution without an ordinary Java source compiler requirement,
   `runtime=contract`, `runtime=ensure`, and `runtime=result` doctest

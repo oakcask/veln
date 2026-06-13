@@ -56,6 +56,12 @@ execution reference.
   diagnostic shape as the frame-header slice, including byte offset, field
   path, expected count, available count, readiness, and structured byte
   preview fields.
+- Exact-width generated binary schema decode helpers preserve each field's
+  schema-owned external integer maximum while decoding. A structurally present
+  field whose decoded value exceeds that maximum reports
+  `schema.integer_out_of_range` at the field byte offset with schema field
+  path, byte width, accepted range, actual value, and structured byte preview
+  fields.
 - The binary schema field-local validation slice decodes fields in declaration
   order for generated `byte_decode_<schema>` helpers when every field uses an
   implemented exact-width unsigned binary primitive. It checks each supported

@@ -52,9 +52,17 @@ encode cases under `../../examples/specification/run/`. Hand-written
 `decode with` codec item calls project decoded results whose consumed count is
 outside the supplied `ByteView` to `codec.consumed_count_invalid`; the current
 behavior is specified under `../specification/execution.md` and checked by
-`../../examples/specification/run/codec-decode-boundary/`. The remaining
-proposal work covers broader schema and codec diagnostics beyond these
-implemented slices.
+`../../examples/specification/run/codec-decode-boundary/`. Generated
+exact-width binary schema decode helpers report
+`schema.integer_out_of_range` when a structurally decoded integer exceeds the
+schema-owned external integer range; the current behavior is specified under
+`../specification/run-json.md` and `../specification/execution.md` and checked
+by
+`../../examples/specification/run/binary-schema-integer-out-of-range-json/`
+and
+`../../examples/specification/run/binary-schema-integer-out-of-range-human/`.
+The remaining proposal work covers broader schema and codec diagnostics beyond
+these implemented slices.
 
 ## Problem
 
@@ -201,7 +209,8 @@ that name the failed representation fact. The first canonical ids are:
 - `schema.length_out_of_bounds` for a decoded length or count that cannot be
   sliced from the available bounded input
 - `schema.integer_out_of_range` for a value that cannot be represented by the
-  schema-owned external integer width
+  schema-owned external integer width; the generated exact-width binary schema
+  decode slice is implemented under `../specification/run-json.md`
 
 Codec-owned failures should use `codec.*` ids only when the failed fact belongs
 to executable decode or encode behavior rather than to the schema

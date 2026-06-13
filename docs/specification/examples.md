@@ -162,6 +162,14 @@ truncated `UInt32be` field, including byte offset, schema field path, expected
 byte count, available byte count, readiness, and structured byte preview
 fields.
 
+`../../examples/specification/run/binary-schema-integer-out-of-range-json/`
+and
+`../../examples/specification/run/binary-schema-integer-out-of-range-human/`
+pin `schema.integer_out_of_range` for a structurally decoded `UInt31be` field
+whose raw integer exceeds that primitive's external range. The cases assert
+byte offset, schema field path, byte width, accepted range, actual value, and
+structured or rendered byte preview fields.
+
 The executable specification cases
 `../../examples/specification/run/binary-schema-frame-header-decode/`,
 `../../examples/specification/run/binary-schema-frame-header-truncated-json/`,
