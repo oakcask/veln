@@ -592,8 +592,9 @@ against the built `veln` binary.
   case keeps local receive-limit
   provenance separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state,
   keeps inbound receive-window credit separate from peer-advertised
-  `SETTINGS_INITIAL_WINDOW_SIZE` state, and range-checks both settings before
-  updating peer-advertised state. It also accepts a structurally complete
+  `SETTINGS_INITIAL_WINDOW_SIZE` state, and range-checks those settings plus
+  `SETTINGS_ENABLE_PUSH` before updating peer-advertised state. It also
+  accepts a structurally complete
   unknown extension frame as an ordinary value preserving frame type, flags,
   stream id, and bounded payload bytes, with the preserved payload bytes also
   checked as complete lowercase hex output, while active continuation state
@@ -668,7 +669,7 @@ against the built `veln` binary.
   byte offset, stream reference, attempted and allowed counts, active state,
   receive-limit provenance, and rule provenance.
 - `run/http2-protocol-core-settings-value-human/`: a received
-  `SETTINGS_INITIAL_WINDOW_SIZE` value above the accepted range reports
+  `SETTINGS_ENABLE_PUSH` value above the accepted range reports
   `http2.peer_limit.settings_value_out_of_range` through human `run` stderr
   with the offending item byte offset, setting identity, observed value,
   accepted range, and peer-limit provenance.

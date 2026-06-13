@@ -20,8 +20,8 @@ Define the remaining HTTP/2 core behavior beyond the implemented
 ordinary-source decode-state slices. Planned coverage still includes:
 
 - remaining SETTINGS values and settings interactions beyond the implemented
-  maximum-frame-size and initial-window-size peer-advertised state and
-  SETTINGS ACK receive handling
+  enable-push, maximum-frame-size, and initial-window-size peer-advertised
+  state and SETTINGS ACK receive handling
 - remaining DATA behavior beyond the implemented receive-window accounting
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
@@ -201,10 +201,10 @@ Received SETTINGS frames still update peer-advertised settings after their
 payload is structurally decoded and each value passes protocol range checks.
 Invalid SETTINGS values use `http2.peer_limit.settings_value_out_of_range` at
 the offending setting item. Received peer-advertised SETTINGS such as
-SETTINGS_MAX_FRAME_SIZE and SETTINGS_INITIAL_WINDOW_SIZE must not be cited as
-the reason an incoming frame from that same peer violates this endpoint's
-inbound limits, because they describe the peer's receive capacity for frames
-this endpoint may send.
+SETTINGS_ENABLE_PUSH, SETTINGS_MAX_FRAME_SIZE, and
+SETTINGS_INITIAL_WINDOW_SIZE must not be cited as the reason an incoming frame
+from that same peer violates this endpoint's inbound limits, because they
+describe the peer's receive capacity for frames this endpoint may send.
 
 ## Required Design Decisions
 
@@ -239,11 +239,12 @@ by the preface check.
 It also splits the active receive-limit entry and receive-window credit from
 peer-advertised SETTINGS state. The checked example keeps protocol-default,
 local-configuration, and local-SETTINGS receive-limit provenance visible in
-frame-size failures, stores received `SETTINGS_MAX_FRAME_SIZE` and
-`SETTINGS_INITIAL_WINDOW_SIZE` values as peer-advertised state, and confirms
-that those peer-advertised values are not used as inbound limits for later
-incoming frame-size or DATA receive-window checks. It range-checks received
-values for both settings before updating peer-advertised state and projects
+frame-size failures, stores received `SETTINGS_ENABLE_PUSH`,
+`SETTINGS_MAX_FRAME_SIZE`, and `SETTINGS_INITIAL_WINDOW_SIZE` values as
+peer-advertised state, and confirms that those peer-advertised values are not
+used as inbound limits for later incoming frame-size or DATA receive-window
+checks. It range-checks received values for all three settings before updating
+peer-advertised state and projects
 out-of-range values as
 `http2.peer_limit.settings_value_out_of_range` with setting identity, observed
 value, accepted range, item byte offset, and peer-limit provenance in
