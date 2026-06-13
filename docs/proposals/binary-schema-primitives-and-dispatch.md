@@ -41,16 +41,17 @@ paths are accepted by those same dispatch decode helper slices and decode to
 the imported schema's record shape. Imported private, missing, wrong-kind,
 non-binary, recursive, or otherwise ineligible payload schemas use the
 existing `schema.dispatch_payload` diagnostic shape.
-The same-module nested payload encode slice implements known
+The same-module and imported public nested payload encode slice implements known
 `Dispatch(..., tag => SchemaName, ...)` and
 `ExtensionDispatch(..., tag => SchemaName, ...)` cases for generated binary
 schema encode helpers, uses the nested schema decoded record shape for closed
 payload fields and `SchemaDispatchPayload<NestedRecord>` for
-extension-tolerant payload fields, preserves extension-tolerant unknown raw
+extension-tolerant payload fields, accepts public imported payload schemas
+named through written `use` paths, preserves extension-tolerant unknown raw
 payload bytes, and keeps nested schema encode failures on the nested schema
 field path. General schema decode, general schema encode, generalized
-dispatch payload decode, imported or generalized dispatch payload encode, and
-schema value mapping remain proposal work.
+dispatch payload decode, generalized dispatch payload encode, and schema value
+mapping remain proposal work.
 
 ## Problem
 
@@ -63,8 +64,8 @@ external representation facts, not internal Veln type declarations.
 
 Define remaining binary schema support beyond the implemented narrow
 primitive, payload-boundary, closed-dispatch, extension-dispatch,
-same-module nested dispatch payload, and imported nested dispatch payload
-slices
+same-module nested dispatch payload, imported nested dispatch payload decode,
+and imported nested dispatch payload encode slices
 for:
 
 - executable exact-width unsigned field reads and writes beyond the
@@ -135,13 +136,18 @@ the same earlier-schema eligibility boundary as nested dispatch decode, writes
 selected nested records for closed dispatch, writes
 `SchemaDispatchPayload::Known` nested records for extension-tolerant dispatch,
 keeps unknown extension-tolerant raw payload preservation unchanged, and
-reports nested field failures through structured `EncodeError` values.
-General schema-owned decode and encode beyond the implemented slices, imported
-or generalized dispatch payload encode, and mapping beyond the implemented
-slices remain proposal work. A `UInt31be` field represents the 31-bit unsigned
-value in a big-endian field position whose remaining bit is handled as a
-reserved or fixed schema bit. The 31-bit value should not become a
-general-purpose source type.
+reports nested field failures through structured `EncodeError` values. The
+implemented imported nested dispatch payload encode slice accepts public
+imported payload schemas named through written `use` paths in the same closed
+and extension-tolerant encode helper shapes, writes selected imported nested
+records through the imported schema helper, keeps unknown extension-tolerant
+raw payload preservation unchanged, and reports nested imported field failures
+through structured `EncodeError` values. General schema-owned decode and
+encode beyond the implemented slices, generalized dispatch payload encode, and
+mapping beyond the implemented slices remain proposal work. A `UInt31be` field
+represents the 31-bit unsigned value in a big-endian field position whose
+remaining bit is handled as a reserved or fixed schema bit. The 31-bit value
+should not become a general-purpose source type.
 
 ## Discussion Result: Reserved Bit Spelling
 
@@ -275,13 +281,13 @@ author likely referred to an earlier field with a compatible role.
 - Executable examples show binary schema writes and general schema-owned
   fixed-width reads beyond the implemented frame-header, width-sample,
   primitive encode helper, reserved-bit encode helper, closed-dispatch
-  primitive and same-module nested encode helper, extension-dispatch primitive
-  and same-module nested encode helper, HTTP/2 payload boundary helper, and
-  narrow closed-dispatch and extension-dispatch decode slices.
+  primitive plus same-module and imported public nested encode helper,
+  extension-dispatch primitive plus same-module and imported public nested
+  encode helper, HTTP/2 payload boundary helper, and narrow closed-dispatch
+  and extension-dispatch decode slices.
 - Generalized dispatch payload schemas can decode nested known payload shapes,
-  and imported or generalized dispatch payload schemas can encode nested known
-  payload shapes, while keeping extension-tolerant unknown payload bytes
-  opaque.
+  and generalized dispatch payload schemas can encode nested known payload
+  shapes, while keeping extension-tolerant unknown payload bytes opaque.
 - Invalid fixed fields in general schema decode produce structured
   diagnostics beyond the implemented frame-header truncation and reserved-bit
   mismatch details.

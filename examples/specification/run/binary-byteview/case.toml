@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "1\n258\n66051\n513\n197121\n66051\n2147483647\n4294967295\n2147483647\n4294967295\n2\n4660\n2\n4660\n13330\n197121\n67305985\nbyte read requires 3 bytes but view has 2\nbyte read requires 3 bytes but view has 2\nbyte view range exceeds chunk length\nbyte_write_u8_be value must be between 0 and 255\nbyte_write_u32_le value must be between 0 and 4294967295\nbyte_read_u31_be value exceeds maximum 2147483647\nbyte_read_u31_le value exceeds maximum 2147483647\n1\n"
+equals = "1\n258\n66051\n513\n197121\n66051\n66051\n2147483647\n4294967295\n2147483647\n4294967295\n2\n4660\n2\n4660\n13330\n197121\n67305985\nbyte read requires 3 bytes but view has 2\nbyte read requires 3 bytes but view has 2\nbyte view range exceeds chunk length\nbyte_write_u8_be value must be between 0 and 255\nbyte_write_u32_le value must be between 0 and 4294967295\nbyte_read_u31_be value exceeds maximum 2147483647\nbyte_read_u31_le value exceeds maximum 2147483647\n1\n"
 
 [[json_assert]]
 path = "error"

@@ -85,20 +85,22 @@ appends chunks without mutating inputs, decodes compact ASCII hex fixture
 text, constructs bounded `ByteView` values, materializes bounded views as
 chunks, derives bounded views within existing views, constructs outgoing
 `List<ByteChunk>` values, and reads or writes fixed-width unsigned big-endian
-integer representations. These helpers return `Result` failures for invalid
-byte values, invalid hex fixture text, negative counts or offsets, slice or
-drop counts that exceed the chunk or view length, view ranges that exceed the
-chunk or view length, truncated reads, and fixed-width unsigned conversion
-overflow. Hex fixture
-decoding accepts ASCII hex byte pairs with ASCII whitespace between complete
-bytes only; invalid characters and dangling nibbles return stable fixture hex
-error ids with decoded byte offset and nibble position in the error text. When
-such a failure propagates out of a `run --json` entry as an `Err(String)`, the
+and little-endian integer representations. These helpers return `Result`
+failures for invalid byte values, invalid hex fixture text, negative counts or
+offsets, slice or drop counts that exceed the chunk or view length, view ranges
+that exceed the chunk or view length, truncated reads, and fixed-width unsigned
+conversion overflow. Hex fixture decoding accepts ASCII hex byte pairs with
+ASCII whitespace between complete bytes only; invalid characters and dangling
+nibbles return stable fixture hex error ids with decoded byte offset and nibble
+position in the error text. When such a failure propagates out of a
+`run --json` entry as an `Err(String)`, the
 result failure details also include the fixture text span, decoded
 `ByteOffset`, nibble position, and nearby fixture text context. Byte views
-cross task and channel freeze boundaries as ordinary immutable ADT values. The
-exact host representation of byte chunks, byte views, counts, offsets, and
-bytes is backend-owned.
+cross task and channel freeze boundaries as ordinary immutable ADT values;
+`byte_view_to_chunk` exposes the same owned-byte semantics directly by
+returning an immutable `ByteChunk` containing exactly the bounded view bytes.
+The exact host representation of byte chunks, byte views, counts, offsets,
+and bytes is backend-owned.
 
 The binary schema primitive execution slice exposes a narrow frame-header
 decode helper over `ByteView`. It consumes a `UInt24be` length field, two
@@ -154,14 +156,16 @@ closed truncation still reports `schema.truncated_field` through
 
 A codec declaration with a valid `derive decode` clause for the same eligible
 generated binary schema decode-step slice exposes the codec item name as an
-executable decode boundary in ordinary source calls. The call accepts the
-bounded `ByteView` and explicit base `ByteOffset` and returns the same
-`DecodeStep<T>` value as `byte_decode_step_<schema>`, including a mapped record
-value when the schema has the implemented single structural `map to Target`
-record mapping. `Decoded` reports the exact consumed byte count; `NeedMore`
-and `Invalid` consume no bytes. For the implemented single structural mapping
-slice, `T` is the mapping target record shape when each assignment source has
-the same implemented decoded field type as the target field.
+executable decode boundary in ordinary source calls, including same-module
+nested dispatch payload schemas already accepted by
+`byte_decode_step_<schema>`. The call accepts the bounded `ByteView` and
+explicit base `ByteOffset` and returns the same `DecodeStep<T>` value as
+`byte_decode_step_<schema>`, including a mapped record value when the schema
+has the implemented single structural `map to Target` record mapping.
+`Decoded` reports the exact consumed byte count; `NeedMore` and `Invalid`
+consume no bytes. For the implemented single structural mapping slice, `T` is
+the mapping target record shape when each assignment source has the same
+implemented decoded field type as the target field.
 
 A codec declaration with a valid hand-written `decode with function_name`
 clause also exposes the codec item name as an executable decode boundary in
@@ -189,16 +193,20 @@ module path to a `pub codec`.
 
 A codec declaration with a valid `derive encode` clause for the same eligible
 generated binary schema encode helper slice exposes the codec item name as an
-executable encode boundary in ordinary source calls. The call accepts the
-generated helper's value record, invokes the generated schema encode helper,
-and returns `EncodeStep<()>`. Successful helper output is projected from
-`Ok(ByteChunk)` to `Encoded(List<ByteChunk>)` with one immutable output chunk.
-Helper `Err(EncodeError)` output is projected to `Invalid(EncodeError)`.
+executable encode boundary in ordinary source calls, including same-module
+nested dispatch payload schemas and public imported nested dispatch payload
+schemas already accepted by `byte_encode_<schema>`.
+The call accepts the generated helper's value record, invokes the generated
+schema encode helper, and returns `EncodeStep<()>`. Successful helper output
+is projected from `Ok(ByteChunk)` to `Encoded(List<ByteChunk>)` with one
+immutable output chunk. Helper `Err(EncodeError)` output is projected to
+`Invalid(EncodeError)`.
 Same-module private derived encode codecs are callable only inside their
 declaring module; imported calls require a written qualified module path to a
 `pub codec`. General generated encode helper behavior outside the exact-width
 primitive, supported reserved-bit, closed dispatch, extension dispatch, and
-same-module nested dispatch payload slices remains unimplemented. When a
+same-module or imported public nested dispatch payload slices remains
+unimplemented. When a
 mapped schema would require the codec item to accept the mapping target rather
 than the generated helper's schema-local value record, the `derive encode`
 clause is rejected with `codec.encode_value_type`.
@@ -212,21 +220,23 @@ required zero high bit in the shared four-byte stream identifier position.
 Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
 `tag_field` names an earlier visible exact-width unsigned field and every case
 payload is an implemented exact-width unsigned primitive payload or an earlier
-same-module binary schema payload. The record contains the visible tag field
-and one payload field; nested schema payload fields use the selected nested
-schema decoded record shape. The helper chooses the case from the encoded tag
-value, writes the selected payload in declaration order, and reports
+same-module binary schema payload or public imported binary schema named
+through a written `use` path. The record contains the visible tag field and
+one payload field; nested schema payload fields use the selected nested schema
+decoded record shape. The helper chooses the case from the encoded tag value,
+writes the selected payload in declaration order, and reports
 `codec.dispatch_unknown_tag` when the tag value has no case.
 Extension-tolerant
 `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` fields are
-eligible for the same exact-width unsigned primitive or same-module nested
-binary schema payload cases when both the tag and length fields are earlier
-visible exact-width unsigned fields. The payload record field is
-`SchemaDispatchPayload<T>`, where `T` is the selected primitive `Int` or nested
-schema decoded record shape. `Known(value)` writes the payload selected by the
-visible tag field. `Unknown(tag, payload)` writes the bounded raw bytes from
-the `ByteView` only when the visible tag value is not a known case and matches
-the unknown payload tag. The supplied length field remains explicit: the
+eligible for the same exact-width unsigned primitive, same-module nested
+binary schema, or public imported nested binary schema payload cases when both
+the tag and length fields are earlier visible exact-width unsigned fields. The
+payload record field is `SchemaDispatchPayload<T>`, where `T` is the selected
+primitive `Int` or nested schema decoded record shape. `Known(value)` writes
+the payload selected by the visible tag field. `Unknown(tag, payload)` writes
+the bounded raw bytes from the `ByteView` only when the visible tag value is
+not a known case and matches the unknown payload tag. The supplied length
+field remains explicit: the
 helper rejects values whose encoded payload byte count differs from the
 earlier length field with `codec.dispatch_length_mismatch`. Visible tag and
 payload variant disagreements report `codec.dispatch_mismatch`.
@@ -237,9 +247,9 @@ primitive range return
 nested schema encode failures keep the nested schema field path. `UInt31be`
 uses the 31-bit maximum even though it occupies four bytes.
 Unsupported reserved-bit encode shapes report `schema.reserved_bits_encode`.
-This slice excludes schema mappings, field-local validation, imported or
-generalized dispatch payload schemas, other reserved or fixed fields, nested
-mappings, and derived codec encode execution for unsupported schemas.
+This slice excludes schema mappings, field-local validation, generalized
+dispatch payload schemas, other reserved or fixed fields, nested mappings, and
+derived codec encode execution for unsupported schemas.
 
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header
@@ -258,9 +268,11 @@ The pending-input byte chunk example appends `StreamInput.Chunk` bytes into an
 ordinary immutable retained `ByteChunk`, rejects appends that would exceed the
 source-owned retained-input `ByteCount` limit, takes a bounded `ByteView` over
 the consumed prefix, drops that prefix from the retained chunk, and advances
-the separately tracked absolute `ByteOffset`. Outgoing protocol action values
-collect immutable `ByteChunk` values into a `List<ByteChunk>` in source code;
-they do not perform socket writes or introduce a new output storage type.
+the separately tracked absolute `ByteOffset`. The example also materializes
+the consumed view into an owned `ByteChunk` and reads it after the retained
+pending input has advanced. Outgoing protocol action values collect immutable
+`ByteChunk` values into a `List<ByteChunk>` in source code; they do not perform
+socket writes or introduce a new output storage type.
 
 Executable specification cases may define named binary fixture records inside
 their example source or helper files. These test-owned records can carry the
@@ -363,6 +375,17 @@ host-fixture-forced timeout expiry stop the entry as runtime failures. They do
 not produce schema, codec, or HTTP/2 peer protocol diagnostics. The timeout
 boundary does not add a source timer handle, cancellation token, socket API,
 or new effect label.
+
+The stream adapter event boundary is source-level in the current executable
+specification. Example-owned `StreamEvent` and `ResponseAction` ADTs model
+decoded stream work and protocol response intent as immutable values. A plain
+handler receives one event and an explicit state record, then returns a list of
+response actions and the next state. The same handler can be called directly
+by a fixture or after an event crosses a standard channel under the existing
+`concurrency` effect. Sending response actions, ending streams, resetting
+streams, and declining work are represented as values for the adapter to
+interpret; the handler does not call `net::send_chunk`, own sockets, or add
+new listen, read, write, routing, or deadline effect labels.
 
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of

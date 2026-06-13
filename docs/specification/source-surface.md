@@ -88,10 +88,10 @@ primitive, dispatch, and mapping text are parsed and preserved as
 source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
 primitive, supported reserved-bit, closed dispatch, extension dispatch, and
-same-module nested dispatch payload helper slices, general ADT constructor
-mapping beyond schema-local structural expressions, imported dispatch payload
-schema encode, arbitrary mapping expressions, and multiple mapping selection
-are not implemented.
+same-module or imported public nested dispatch payload helper slices, general
+ADT constructor mapping beyond schema-local structural expressions,
+generalized dispatch payload schema encode, arbitrary mapping expressions, and
+multiple mapping selection are not implemented.
 The checked diagnostics case
 `../../examples/specification/check/schema-mapping-multiple-clause-diagnostics/`
 pins the multiple mapping clause boundary. The checked diagnostics case
@@ -104,11 +104,12 @@ closed `Dispatch(tag_field, tag => Payload, ...)` fields, and
 extension-tolerant `ExtensionDispatch(tag_field, length_field, tag => Payload,
 ...)` fields whose tag and length names are earlier visible exact-width fields
 and whose cases are exact-width unsigned primitive payloads or earlier
-same-module binary schema payloads, also expose generated
+same-module binary schema payloads or public imported binary schema payloads
+named through written `use` paths, also expose generated
 `byte_encode_<schema>` helpers described in [execution.md](execution.md);
-schema mappings, field-local validation, imported or generalized dispatch
-payload schemas, other reserved or fixed fields, and derived codec encode
-execution over unsupported schemas are outside that encode helper slice.
+schema mappings, field-local validation, generalized dispatch payload schemas,
+other reserved or fixed fields, and derived codec encode execution over
+unsupported schemas are outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 

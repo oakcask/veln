@@ -21,19 +21,27 @@ execution reference.
 - Standard byte chunk and byte view helpers execute as pure prelude runtime
   operations and return immutable byte values or `Result` failures for invalid
   values, invalid compact hex fixture text, out-of-bounds counts and ranges,
-  bounded view slicing, truncation, schema fixed-field mismatches, and
-  fixed-width unsigned conversion overflow. Outgoing chunk-list helpers return
-  ordinary immutable `List<ByteChunk>` values. Standard `StreamInput`,
-  `DecodeStep<T>`, `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and
-  `EncodeError` values execute as ordinary immutable ADT values.
+  big-endian and little-endian fixed-width unsigned read truncation, schema
+  fixed-field mismatches, bounded view slicing, and conversion overflow.
+  Outgoing chunk-list helpers return ordinary immutable `List<ByteChunk>`
+  values. Standard `StreamInput`, `DecodeStep<T>`, `DecodeReadiness`,
+  `DecodeError`, `EncodeStep<TState>`, and `EncodeError` values execute as
+  ordinary immutable ADT values.
 - Pending-input examples append immutable `StreamInput.Chunk` bytes, enforce a
   source-owned retained `ByteCount` limit, take and drop bounded `ByteView`
-  ranges, preserve absolute `ByteOffset` facts separately, and collect
-  outgoing immutable `ByteChunk` values without socket calls.
+  ranges, preserve absolute `ByteOffset` facts separately, materialize
+  consumed views as owned `ByteChunk` values that remain readable after
+  retained input advances, and collect outgoing immutable `ByteChunk` values
+  without socket calls.
 - Descriptor-backed `net` and `time` calls are host runtime boundaries:
   malformed received bytes, failed outgoing event recording, and forced
   timeout expiry stop the entry as runtime failures rather than schema,
   codec, or peer protocol diagnostics.
+- Stream adapter event-boundary examples use ordinary source ADT, record, and
+  list values for decoded stream events and response actions. A handler
+  receives an event plus explicit state and returns action intent values plus
+  the next state. Channel routing uses existing `concurrency` calls; response
+  actions do not perform socket writes or introduce new effect labels.
 - The implemented binary schema primitive execution slice decodes the
   `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
   `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes
@@ -140,22 +148,24 @@ execution reference.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
   `tag_field` names an earlier visible exact-width unsigned field and every
   case payload is an implemented exact-width unsigned primitive payload or an
-  earlier same-module binary schema payload. The record contains the visible
-  tag field and one payload field; for nested payload schemas the payload
-  field uses the nested schema decoded record shape. The helper chooses the
-  case from the encoded tag value, writes the selected payload in declaration
+  earlier same-module binary schema payload or public imported binary schema
+  named through a written `use` path. The record contains the visible tag
+  field and one payload field; for nested payload schemas the payload field
+  uses the nested schema decoded record shape. The helper chooses the case
+  from the encoded tag value, writes the selected payload in declaration
   order, and returns `Err(EncodeError("codec.dispatch_unknown_tag",
   field_path, reason))` when the tag value has no case.
   Extension-tolerant
   `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` fields are
-  eligible for the same exact-width unsigned primitive or same-module nested
-  binary schema payload cases when both the tag and length fields are earlier
-  visible exact-width unsigned fields. The payload record field is
-  `SchemaDispatchPayload<T>`, where `T` is the selected primitive `Int` or
-  nested schema decoded record shape. `Known(value)` writes the payload
-  selected by the visible tag field. `Unknown(tag, payload)` writes the
-  bounded raw bytes from the `ByteView` only when the visible tag value is not
-  a known case and matches the unknown payload tag.
+  eligible for the same exact-width unsigned primitive, same-module nested
+  binary schema, or public imported nested binary schema payload cases when
+  both the tag and length fields are earlier visible exact-width unsigned
+  fields. The payload record field is `SchemaDispatchPayload<T>`, where `T`
+  is the selected primitive `Int` or nested schema decoded record shape.
+  `Known(value)` writes the payload selected by the visible tag field.
+  `Unknown(tag, payload)` writes the bounded raw bytes from the `ByteView`
+  only when the visible tag value is not a known case and matches the unknown
+  payload tag.
   The supplied length field remains explicit: the helper rejects values whose
   encoded payload byte count differs from the earlier length field with
   `Err(EncodeError("codec.dispatch_length_mismatch", field_path, reason))`.
@@ -168,43 +178,54 @@ execution reference.
   reason))`; nested schema encode failures keep the nested schema field path.
   `UInt31be` uses the 31-bit maximum even though it occupies four bytes.
   Unsupported reserved-bit encode shapes report `schema.reserved_bits_encode`.
-  This slice excludes schema mappings, field-local validation, imported or
-  generalized dispatch payload schemas, other reserved or fixed fields, nested
-  mappings, and derived codec encode execution for unsupported schemas.
+  This slice excludes schema mappings, field-local validation, generalized
+  dispatch payload schemas, other reserved or fixed fields, nested mappings,
+  and derived codec encode execution for unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-encode/`,
+  `examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode/`,
   `examples/specification/run/binary-schema-extension-dispatch-nested-encode/`,
+  `examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode/`,
+  `examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode-unknown/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-mismatch/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-tag-mismatch/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-out-of-range/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-dispatch-nested-encode-failure/`,
+  `examples/specification/run/binary-schema-imported-dispatch-nested-encode-failure/`,
   and
   `examples/specification/check/schema-reserved-bit-encode-diagnostics/`.
 - A codec declaration with a valid `derive encode` clause for the same
   eligible generated binary schema encode helper slice exposes the codec item
-  name as the executable encode boundary for ordinary source calls. The call
-  accepts the generated helper's value record, invokes the schema encode
-  helper, returns `EncodeStep<()>`, projects helper `Ok(ByteChunk)` output to
-  `Encoded(List<ByteChunk>)` with one chunk, and projects helper
-  `Err(EncodeError)` output to `Invalid(EncodeError)`. The checked example is
-  `examples/specification/run/derived-codec-encode-boundary/`.
+  name as the executable encode boundary for ordinary source calls, including
+  same-module and public imported nested dispatch payload schemas already
+  accepted by `byte_encode_<schema>`. The call accepts the generated helper's value
+  record, invokes the schema encode helper, returns `EncodeStep<()>`, projects
+  helper `Ok(ByteChunk)` output to `Encoded(List<ByteChunk>)` with one chunk,
+  and projects helper `Err(EncodeError)` output to `Invalid(EncodeError)`.
+  The checked examples are
+  `examples/specification/run/derived-codec-encode-boundary/` and
+  `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`.
   A mapped schema is rejected with `codec.encode_value_type` when the generated
   encode helper cannot accept the mapping target value type.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
-  name as the executable decode boundary for ordinary source calls. The call
-  accepts a bounded `ByteView` and explicit base `ByteOffset` and returns the
-  same `DecodeStep<T>` value as `byte_decode_step_<schema>`, including mapped
-  record values, `NeedMore(NeedBytes(count))`, and `Invalid` without consumed
-  bytes.
+  name as the executable decode boundary for ordinary source calls, including
+  same-module nested dispatch payload schemas already accepted by
+  `byte_decode_step_<schema>`. The call accepts a bounded `ByteView` and
+  explicit base `ByteOffset` and returns the same `DecodeStep<T>` value as
+  `byte_decode_step_<schema>`, including mapped record values,
+  `NeedMore(NeedBytes(count))`, and `Invalid` without consumed bytes. The
+  checked examples are
+  `examples/specification/run/derived-codec-decode-boundary/` and
+  `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`.
   For the implemented single structural mapping slice, `T` is the mapping
   target record shape when each assignment source has the same implemented
   decoded field type as the target field.

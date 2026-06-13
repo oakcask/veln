@@ -538,7 +538,8 @@ the non-negative offset and count describe a range within the chunk, and
 returns `Err(String)` when the range exceeds the chunk length. `byte_view` and
 byte reads report negative direct-constructor payloads with the same
 non-negative offset and count error strings as the construction helpers.
-`byte_view_to_chunk(view)` materializes the bounded bytes as a `ByteChunk`.
+`byte_view_to_chunk(view)` materializes exactly the bounded bytes as an
+immutable owned `ByteChunk`.
 `byte_view_count(view)` returns the view length as `ByteCount`.
 `byte_view_take(view, count)`, `byte_view_drop(view, count)`, and
 `byte_view_slice(view, offset, count)` derive bounded immutable views within
@@ -571,14 +572,15 @@ that accept `ByteView` plus `ByteOffset` and return `DecodeStep<T>` with
 `Decoded(value, consumed)` for a complete buffered value or
 `NeedMore(NeedBytes(count))` for an open view that is too short to decide. The
 exact-width, supported reserved-bit, closed dispatch, extension dispatch, and
-same-module nested dispatch payload encode slices expose
+same-module or imported public nested dispatch payload encode slices expose
 `byte_encode_<schema>` helpers for eligible binary schemas whose
 source-visible fields are exact-width unsigned primitives, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, closed dispatch fields, or
 extension-tolerant dispatch fields with earlier visible exact-width tag and
 length fields. Dispatch payload cases may be exact-width unsigned primitive
-payloads or earlier same-module binary schema payloads. Those helpers accept a
-schema-local visible record, using ordinary `Int` fields for visible
+payloads, earlier same-module binary schema payloads, or public imported
+binary schema payloads named through written `use` paths. Those helpers accept
+a schema-local visible record, using ordinary `Int` fields for visible
 primitives and `SchemaDispatchPayload<T>` for extension dispatch payload
 fields, and return `Result<ByteChunk, EncodeError>` with field-order
 big-endian output or a structured encode error. The supported reserved-bit

@@ -209,13 +209,14 @@ the referenced encoder function with that function's parameters and returns
 its `EncodeStep<TState>` unchanged. The
 implemented derived decode execution slice exposes the codec item name as an
 ordinary source call to the generated `byte_decode_step_<schema>` behavior
-when the schema is in the currently implemented exact-width binary schema
-decode-step slice. The implemented derived encode execution slice exposes the
-codec item name as an ordinary source call to the generated
-`byte_encode_<schema>` behavior when the schema is in the currently
-implemented binary schema encode helper slice. Remaining work should extend
-generated decode and encode execution beyond the currently implemented helper
-slices.
+when the schema is in the currently implemented generated binary schema
+decode-step slice, including same-module nested dispatch payload helper
+schemas. The implemented derived encode execution slice exposes the codec item
+name as an ordinary source call to the generated `byte_encode_<schema>`
+behavior when the schema is in the currently implemented binary schema encode
+helper slice, including same-module nested dispatch payload helper schemas.
+Remaining work should extend generated decode and encode execution beyond the
+currently implemented helper slices.
 
 The implemented parser rejects a missing implementation clause for a listed
 direction, a body clause for a direction absent from the declaration head, and
@@ -294,9 +295,10 @@ encoder state owns only the remaining encode work.
 ## Completion Criteria
 
 - Remaining proposal work starts after the implemented source-surface
-  declaration slice, generated exact-width binary schema decode-step helper
-  slice, hand-written plus eligible derived codec decode execution boundaries,
-  and hand-written codec encode execution boundary.
+  declaration slice, generated binary schema decode-step helper slice for the
+  implemented exact-width and same-module nested dispatch payload boundaries,
+  hand-written plus eligible derived codec decode execution boundaries, and
+  hand-written plus eligible derived codec encode execution boundaries.
 - Examples show decode, encode, consumed byte counts, and `NeedMore` behavior.
 - Codec failures include structured diagnostic data.
 - Incremental examples keep only undecoded suffix bytes in parser state.

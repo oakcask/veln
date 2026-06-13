@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "pending count 5 base 1024\nview count 2 base 1024 first16 1\nafter-drop count 3 base 1026\nmaterialized count 2 first16 1\npending input exceeds retained byte limit\noutgoing chunks 2 total 3 first 2/170 second 1/204\n"
+equals = "direct actions 2 state 1 first send-bytes stream 1 bytes 2\ndirect second end-stream\nrouted actions 1 state 2 first send-bytes stream 3 bytes 1\nrouted second decline\nclosed actions 1 state 2 first decline stream 5 bytes 0\nclosed second decline\n"
 
 [[json_assert]]
 path = "error"
