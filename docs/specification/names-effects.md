@@ -17,6 +17,9 @@ compiler-known calls.
   [network and time](names-effects-full.md#network-and-time-boundary-calls),
   [process](names-effects-full.md#process-calls), and
   [concurrency](names-effects-full.md#concurrency-calls).
+  The network and time boundary keeps the coarse `net` and `time` effect
+  labels and treats malformed receive fixtures, failed send recording, and
+  forced timeout expiry as runtime failures.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).

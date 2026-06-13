@@ -25,6 +25,10 @@ execution reference.
   conversion overflow. Standard `StreamInput`, `DecodeStep<T>`,
   `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
   values execute as ordinary immutable ADT values.
+- Descriptor-backed `net` and `time` calls are host runtime boundaries:
+  malformed received bytes, failed outgoing event recording, and forced
+  timeout expiry stop the entry as runtime failures rather than schema,
+  codec, or peer protocol diagnostics.
 - The implemented binary schema primitive execution slice decodes the
   `Http2FrameHeader` field sequence from a `ByteView`: `UInt24be`, `UInt8`,
   `UInt8`, `ReservedBits(1, 0)`, and `UInt31be`. The decoded value exposes

@@ -106,11 +106,11 @@ checks against the target field. The implemented expression slice supports
 schema-local field references, record construction, and ADT constructor
 construction resolved through ordinary source module rules.
 
-The remaining runtime mapping work is to map schema field values through
-structural expressions beyond direct field assignment and into ADTs.
-A schema does not implicitly publish a record type just because it names
-fields, and importing a schema does not make its schema-local field names
-available as ordinary source bindings.
+The implemented runtime mapping slice maps schema field values through
+schema-local field references, record construction, and ADT constructor
+construction. A schema does not implicitly publish a record type just because
+it names fields, and importing a schema does not make its schema-local field
+names available as ordinary source bindings.
 
 The runtime checker should resolve the target value shape and assign
 schema-local fields to the target's record fields or ADT constructor payload
@@ -128,11 +128,11 @@ against the target field. Schema primitive values may use the primitive's
 declared ordinary value type, such as `Int` for exact-width unsigned fields, or
 a field-local representation conversion when the schema vocabulary defines one.
 
-Mapping expressions should stay structural in the first surface: field
-selection, record construction, ADT construction, and schema-declared
-representation conversions. Arbitrary function calls, runtime settings, stream
-state, and recovery behavior belong in explicit codec functions rather than in
-schema mapping.
+Mapping expressions stay structural in the first surface: field selection,
+record construction, and ADT construction are implemented. Schema-declared
+representation conversions remain planned work. Arbitrary function calls,
+runtime settings, stream state, and recovery behavior belong in explicit codec
+functions rather than in schema mapping.
 
 ## Discussion Result: Top-Level Schema Declarations
 

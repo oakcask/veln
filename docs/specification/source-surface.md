@@ -144,7 +144,10 @@ must match the mapping target record shape; mismatches report
 hand-written `decode with` clause is callable through the codec item name in
 its declaring module, or through a written import-qualified module path when
 the codec is `pub`. That call takes the same `ByteView` and `ByteOffset`
-arguments and returns the referenced function's `DecodeStep<T>` unchanged.
+arguments as the referenced function. It returns valid `Decoded`,
+`NeedMore`, and `Invalid` results unchanged, and projects an oversized
+consumed count to `codec.consumed_count_invalid` as specified in
+`execution.md`.
 `derive decode` codecs are callable through the same visibility and import
 rules when their schema is eligible for `byte_decode_step_<schema>`, and the
 call returns that generated helper's `DecodeStep<T>` result. For the

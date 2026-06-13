@@ -1,0 +1,6 @@
+# Transport timeout expiry is a runtime failure, not schema or protocol blame.
+pub fn main() -> Result<(), String> effects [time, stdio]
+	time::timeout_ms(5)
+	stdio::println("unreachable")
+	Ok(())
+end

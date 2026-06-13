@@ -723,6 +723,8 @@ against the built `veln` binary.
   fail as run JSON runtime errors, not schema, codec, or protocol diagnostics.
 - `run/transport-send-record-failure-json/`: failed outgoing transport event
   recording fails as a run JSON runtime error.
+- `run/transport-timeout-expired-json/`: host-fixture-forced timeout expiry
+  through `time::timeout_ms` fails as a run JSON runtime error.
 - `run/concurrency-boundary/`: task and channel standard calls with declared
   concurrency effects, including explicit and inferred item types, sender
   closing, closed receives, and failed sends.

@@ -68,10 +68,10 @@ compare it with `../specification/` before changing behavior.
   stream admission with concurrent-stream receive-limit diagnostics, stream id
   domain diagnostic slice, and outbound frame-header encode slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
-  define remaining transport adapter, socket, stream-routing, deadline,
+  define remaining transport adapter, socket, stream-routing, deadline API,
   cancellation, channel, and task behavior beyond the implemented
   descriptor-backed `net` and `time` boundary calls plus their first
-  transport-error runtime failure slice.
+  transport-error and timeout-expiry runtime failure slices.
 
 ## Update When
 

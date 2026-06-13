@@ -190,7 +190,9 @@ When the clause is valid, the codec item name is an ordinary call target for
 the hand-written decode boundary in the declaring module. A `pub codec` can
 also be called through a written import-qualified module path. The call
 expects the same `ByteView` and `ByteOffset` arguments as the referenced
-function and returns that function's `DecodeStep<T>` value unchanged.
+function. It returns valid `Decoded`, `NeedMore`, and `Invalid` results
+unchanged, and projects an oversized consumed count to
+`codec.consumed_count_invalid` as specified in `execution.md`.
 
 When a codec has `derive decode` and the referenced schema is eligible for the
 generated `byte_decode_step_<schema>` helper, the codec item name is also an
