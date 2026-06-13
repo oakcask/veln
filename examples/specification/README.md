@@ -498,7 +498,11 @@ against the built `veln` binary.
   provenance separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state,
   keeps inbound receive-window credit separate from peer-advertised
   `SETTINGS_INITIAL_WINDOW_SIZE` state, and range-checks both settings before
-  updating peer-advertised state. The case also accepts DATA on an open stream,
+  updating peer-advertised state. It also accepts a structurally complete
+  unknown extension frame as an ordinary value preserving frame type, flags,
+  stream id, and bounded payload bytes, while active continuation state still
+  reports the existing continuation protocol failure for an unknown frame. The
+  case also accepts DATA on an open stream,
   decrements both connection and stream receive-window credit by payload
   length, accepts `WINDOW_UPDATE` receive-credit increments for the connection
   and open stream, and reports zero increments, receive-window overflow, and
