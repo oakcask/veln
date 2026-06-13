@@ -613,6 +613,8 @@ against the built `veln` binary.
 - `run/standard-effects/`: process and file-system standard calls with
   declared effect boundaries, including present and missing environment
   lookups.
+- `run/transport-boundary/`: descriptor-backed `net` and `time` boundary
+  calls with host-fed input chunks, outgoing chunks, and timeout use.
 - `run/concurrency-boundary/`: task and channel standard calls with declared
   concurrency effects, including explicit and inferred item types, sender
   closing, closed receives, and failed sends.

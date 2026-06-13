@@ -58,7 +58,7 @@ subset:
 - record field access
 - stdio builtins, prelude helpers, ordinary function calls, and function-value
   calls
-- file-system and current-process standard library intrinsics
+- file-system, network, time, and current-process standard library intrinsics
 - bounded channel construction, sender clone, send, receive, and close calls
 - two-receiver channel selection calls with optional timeout
 - task spawn, join, and cancellation calls
@@ -306,6 +306,12 @@ reads UTF-encoded text and returns `Ok(text)` or `Err(FsError)`.
 `Ok(Vec<Path>)` containing backend-owned path values for directory entries or
 `Err(FsError)`. These operations use `Result` at the Veln boundary instead of
 exposing host exceptions.
+
+Network and time boundary intrinsics are backend-owned runtime operations.
+`net::receive_chunk` returns a host-fed immutable `ByteChunk`.
+`net::send_chunk` exposes an outgoing immutable `ByteChunk` to the host
+runtime and returns `()`. `time::timeout_ms` waits for a non-negative
+millisecond duration at the runtime boundary and returns `()`.
 
 Current-process intrinsics are also backend-owned runtime operations.
 `process::args` returns the selected entry arguments as a frozen vec of

@@ -49,6 +49,19 @@
         }
     }
 
+    public static Object netReceiveChunk() {
+        String input = System.getenv("VELN_NET_CHUNK_HEX");
+        if (input == null) {
+            input = "";
+        }
+        return unwrapOk(byteChunkFromHex(input));
+    }
+
+    public static Object netSendChunk(Object bytes) {
+        writeNetEvent("send " + format(bytes));
+        return UNIT;
+    }
+
     public static Object processArgs() {
         return processArgs;
     }
@@ -76,4 +89,35 @@
         }
         System.exit((int) code);
         return UNIT;
+    }
+
+    public static Object timeTimeoutMs(Object milliseconds) {
+        long value = asLong(milliseconds);
+        if (value <= 0L) {
+            return UNIT;
+        }
+        try {
+            Thread.sleep(value);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+        }
+        return UNIT;
+    }
+
+    private static void writeNetEvent(String line) {
+        String path = System.getenv("VELN_NET_EVENTS");
+        if (path == null || path.isEmpty()) {
+            return;
+        }
+        try {
+            java.nio.file.Files.write(
+                java.nio.file.Paths.get(path),
+                java.util.Collections.singletonList(line),
+                java.nio.charset.StandardCharsets.UTF_8,
+                java.nio.file.StandardOpenOption.CREATE,
+                java.nio.file.StandardOpenOption.APPEND
+            );
+        } catch (java.io.IOException error) {
+            throw new RuntimeException(error);
+        }
     }

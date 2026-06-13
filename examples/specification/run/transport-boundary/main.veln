@@ -1,0 +1,15 @@
+# Transport-boundary calls expose host-fed chunks, outgoing chunks, and timeouts.
+fn receive_host_chunk() -> ByteChunk effects [net]
+	net::receive_chunk()
+end
+
+pub fn main() -> Result<(), String> effects [net, time, stdio]
+	let incoming = receive_host_chunk()
+	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
+	net::send_chunk(outgoing)
+	time::timeout_ms(0)
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(outgoing))))
+	stdio::println("timeout")
+	Ok(())
+end

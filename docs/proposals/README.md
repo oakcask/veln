@@ -58,8 +58,9 @@ compare it with `../specification/` before changing behavior.
   diagnostic slice, PING/GOAWAY receive slice, DATA and `WINDOW_UPDATE`
   receive flow-control slices, and outbound frame-header encode slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
-  define the later route from pure protocol code to transport effects,
-  deadlines, channels, and stream tasks.
+  define remaining transport adapter, socket, stream-routing, deadline,
+  cancellation, channel, and task behavior beyond the implemented
+  descriptor-backed `net` and `time` boundary calls.
 
 ## Update When
 

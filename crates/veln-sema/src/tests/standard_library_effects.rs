@@ -474,13 +474,66 @@ fn process_calls_require_process_effect_with_descriptor_provenance() {
 }
 
 #[test]
-fn fs_and_process_calls_lower_to_standard_library_builtins() {
+fn net_calls_require_net_effect_with_descriptor_provenance() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
-            "pub fn main(path: Path, key: String) -> Result<String, FsError> effects [fs, process]\n",
+            "pub fn main() -> ByteChunk\n",
+            "  net::receive_chunk()\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `net`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"net\""));
+    assert!(details.contains("\"inferred_effects\":[\"net\"]"));
+    assert!(details.contains("\"symbol\":\"net::receive_chunk\""));
+}
+
+#[test]
+fn time_calls_require_time_effect_with_descriptor_provenance() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!("pub fn main() -> ()\n", "  time::timeout_ms(10)\n", "end\n",),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert_eq!(diagnostics.len(), 1);
+    assert_eq!(diagnostics[0].id, "effect.missing_public");
+    assert_eq!(
+        diagnostics[0].message,
+        "public function uses undeclared effect `time`"
+    );
+    let details = diagnostics[0].details.to_json();
+    assert!(details.contains("\"effect\":\"time\""));
+    assert!(details.contains("\"inferred_effects\":[\"time\"]"));
+    assert!(details.contains("\"symbol\":\"time::timeout_ms\""));
+}
+
+#[test]
+fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "pub fn main(path: Path, key: String) -> Result<String, FsError> effects [fs, process, net, time]\n",
             "  let cwd: Result<Path, ProcessError> = process::cwd()\n",
             "  let present: Option<String> = process::env(key)\n",
+            "  let chunk: ByteChunk = net::receive_chunk()\n",
+            "  net::send_chunk(chunk)\n",
+            "  time::timeout_ms(1)\n",
             "  fs::read_to_string(path)\n",
             "end\n",
         ),
@@ -507,7 +560,37 @@ fn fs_and_process_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "process::cwd"
     ));
-    let IrStmtKind::Return { value } = &main.body[2].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[2].kind else {
+        panic!("net receive call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "net::receive_chunk"
+    ));
+    let IrStmtKind::Expr { value } = &main.body[3].kind else {
+        panic!("net send call should lower as an expression");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "net::send_chunk"
+    ));
+    let IrStmtKind::Expr { value } = &main.body[4].kind else {
+        panic!("time call should lower as an expression");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "time::timeout_ms"
+    ));
+    let IrStmtKind::Return { value } = &main.body[5].kind else {
         panic!("fs call should lower as tail return");
     };
     assert!(matches!(

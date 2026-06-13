@@ -1,0 +1,5 @@
+# Public transport-boundary functions must declare inferred net and time effects.
+pub fn receive_host_chunk() -> ByteChunk effects [time]
+	time::timeout_ms(0)
+	net::receive_chunk()
+end

@@ -25,7 +25,9 @@ pub(crate) enum StandardSymbolStability {
 const STDIO_EFFECTS: &[&str] = &["stdio"];
 const CONCURRENCY_EFFECTS: &[&str] = &["concurrency"];
 const FS_EFFECTS: &[&str] = &["fs"];
+const NET_EFFECTS: &[&str] = &["net"];
 const PROCESS_EFFECTS: &[&str] = &["process"];
+const TIME_EFFECTS: &[&str] = &["time"];
 const PURE_EFFECTS: &[&str] = &[];
 #[cfg(test)]
 const SOURCE_BACKED_PRIVATE_HELPERS: &[&str] = &[
@@ -131,10 +133,23 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
     runtime_symbol("fs", "write_string", FS_EFFECTS, "runtime.fs.write_string"),
     runtime_symbol("fs", "exists", FS_EFFECTS, "runtime.fs.exists"),
     runtime_symbol("fs", "read_dir", FS_EFFECTS, "runtime.fs.read_dir"),
+    runtime_symbol(
+        "net",
+        "receive_chunk",
+        NET_EFFECTS,
+        "runtime.net.receive_chunk",
+    ),
+    runtime_symbol("net", "send_chunk", NET_EFFECTS, "runtime.net.send_chunk"),
     runtime_symbol("process", "args", PROCESS_EFFECTS, "runtime.process.args"),
     runtime_symbol("process", "env", PROCESS_EFFECTS, "runtime.process.env"),
     runtime_symbol("process", "cwd", PROCESS_EFFECTS, "runtime.process.cwd"),
     runtime_symbol("process", "exit", PROCESS_EFFECTS, "runtime.process.exit"),
+    runtime_symbol(
+        "time",
+        "timeout_ms",
+        TIME_EFFECTS,
+        "runtime.time.timeout_ms",
+    ),
 ];
 
 const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[

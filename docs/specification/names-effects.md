@@ -14,6 +14,7 @@ compiler-known calls.
 - Compiler-known calls:
   [stdio](names-effects-full.md#stdio-calls),
   [file-system](names-effects-full.md#file-system-calls),
+  [network and time](names-effects-full.md#network-and-time-boundary-calls),
   [process](names-effects-full.md#process-calls), and
   [concurrency](names-effects-full.md#concurrency-calls).
 - Prelude helper signatures, value semantics, source-backed helper set, and
