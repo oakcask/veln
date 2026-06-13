@@ -814,11 +814,14 @@ fn schema_encode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSign
     module
         .schemas
         .iter()
-        .filter_map(schema_encode_function_signature_for_schema)
+        .filter_map(|schema| schema_encode_function_signature_for_schema(module, schema))
         .collect()
 }
 
-fn schema_encode_function_signature_for_schema(schema: &SchemaDecl) -> Option<FunctionSignature> {
+fn schema_encode_function_signature_for_schema(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
+) -> Option<FunctionSignature> {
     let schema_name = schema.name.as_ref()?;
     if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
         return None;
@@ -851,20 +854,22 @@ fn schema_encode_function_signature_for_schema(schema: &SchemaDecl) -> Option<Fu
         {
             return None;
         }
-        if dispatch
+        let mut payload_types = dispatch
             .cases
             .iter()
-            .any(|case| !matches!(case.payload, SchemaDispatchCasePayload::Primitive { .. }))
-        {
+            .map(|case| schema_dispatch_case_type(module, schema, case, &mut Vec::new()))
+            .collect::<Option<Vec<_>>>()?;
+        let payload_ty = payload_types.pop()?;
+        if payload_types.iter().any(|ty| ty != &payload_ty) {
             return None;
         }
         if dispatch.length_field.is_some() {
             fields.push((
                 field.name.clone(),
-                Type::named("SchemaDispatchPayload", vec![Type::int()]),
+                Type::named("SchemaDispatchPayload", vec![payload_ty]),
             ));
         } else {
-            fields.push((field.name.clone(), Type::int()));
+            fields.push((field.name.clone(), payload_ty));
         }
     }
     let byte_chunk = Type::named("ByteChunk", Vec::new());

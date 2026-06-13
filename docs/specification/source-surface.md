@@ -76,22 +76,22 @@ and all decoded fields use the implemented exact-width unsigned primitive or
 closed or extension-tolerant dispatch slice. The predicate, primitive,
 dispatch, and mapping text are parsed and preserved as source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
-primitive, supported reserved-bit, closed primitive dispatch helper, and
-extension primitive dispatch helper slices, general ADT constructor mapping
-beyond the extension dispatch payload wrapper, imported dispatch payload
-schemas, nested record mapping, and multiple mapping selection are not
+primitive, supported reserved-bit, closed dispatch, extension dispatch, and
+same-module nested dispatch payload helper slices, general ADT constructor
+mapping beyond the extension dispatch payload wrapper, imported dispatch
+payload schemas, nested record mapping, and multiple mapping selection are not
 implemented.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, plus the supported `ReservedBits(1, 0)` before `UInt31be` layout,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and
 extension-tolerant `ExtensionDispatch(tag_field, length_field, tag => Payload,
 ...)` fields whose tag and length names are earlier visible exact-width fields
-and whose cases are exact-width unsigned primitive payloads, also expose
-generated `byte_encode_<schema>` helpers described in
-[execution.md](execution.md); schema mappings, field-local validation, nested
-dispatch payload schemas, other reserved or fixed fields, and derived codec
-encode execution over unsupported schemas are outside that encode helper
-slice.
+and whose cases are exact-width unsigned primitive payloads or earlier
+same-module binary schema payloads, also expose generated
+`byte_encode_<schema>` helpers described in [execution.md](execution.md);
+schema mappings, field-local validation, imported or generalized dispatch
+payload schemas, other reserved or fixed fields, and derived codec encode
+execution over unsupported schemas are outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 
@@ -152,7 +152,8 @@ returns its `EncodeStep<TState>` value unchanged. General codec-generated
 decode functions are not implemented. Generated
 `byte_decode_<schema>` helpers for the eligible binary schema slice, generated
 `byte_encode_<schema>` helpers for the exact-width, supported reserved-bit,
-closed primitive dispatch, and extension primitive dispatch encode slices,
+closed dispatch, extension dispatch, and same-module nested dispatch payload
+encode slices,
 their `byte_decode_step_<schema>` incremental decode-step counterparts,
 derived decode codec calls over that decode-step slice, and derived encode
 codec calls over that encode helper slice are covered by

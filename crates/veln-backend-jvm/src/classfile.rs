@@ -1024,20 +1024,21 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
     }
 
     fn emit_schema_metadata(&mut self, code: &mut MethodCode, schema: &IrSchemaDecodeSpec) {
-        self.emit_object_array(code, 13, |this, code, index| match index {
+        self.emit_object_array(code, 14, |this, code, index| match index {
             0 => code.ldc_string(&schema.schema_name),
             1 => this.emit_schema_field_names(code, schema),
             2 => this.emit_schema_field_widths(code, schema),
-            3 => this.emit_schema_reserved_bit_widths(code, schema),
-            4 => this.emit_schema_reserved_values(code, schema),
-            5 => this.emit_schema_field_predicates(code, schema),
-            6 => this.emit_schema_dispatch_tag_fields(code, schema),
-            7 => this.emit_schema_dispatch_length_fields(code, schema),
-            8 => this.emit_schema_dispatch_case_tags(code, schema),
-            9 => this.emit_schema_dispatch_case_widths(code, schema),
-            10 => this.emit_schema_dispatch_case_schema_specs(code, schema),
-            11 => this.emit_schema_mapping_targets(code, schema),
-            12 => this.emit_schema_mapping_sources(code, schema),
+            3 => this.emit_schema_field_max_values(code, schema),
+            4 => this.emit_schema_reserved_bit_widths(code, schema),
+            5 => this.emit_schema_reserved_values(code, schema),
+            6 => this.emit_schema_field_predicates(code, schema),
+            7 => this.emit_schema_dispatch_tag_fields(code, schema),
+            8 => this.emit_schema_dispatch_length_fields(code, schema),
+            9 => this.emit_schema_dispatch_case_tags(code, schema),
+            10 => this.emit_schema_dispatch_case_widths(code, schema),
+            11 => this.emit_schema_dispatch_case_schema_specs(code, schema),
+            12 => this.emit_schema_mapping_targets(code, schema),
+            13 => this.emit_schema_mapping_sources(code, schema),
             _ => unreachable!(),
         });
         code.invokestatic(

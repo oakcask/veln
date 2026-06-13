@@ -392,6 +392,9 @@ against the built `veln` binary.
   encode helper selects a closed dispatch primitive payload from an earlier
   tag field, writes the selected `UInt8`, `UInt16be`, `UInt24be`, or
   `UInt32be` payload width, and returns one `ByteChunk`.
+- `run/binary-schema-closed-dispatch-nested-encode/`: a generated binary
+  schema encode helper selects a closed dispatch same-module nested payload
+  schema and writes the nested record fields in schema order.
 - `run/binary-schema-closed-dispatch-encode-unknown-tag/`: the same encode
   helper reports `codec.dispatch_unknown_tag` when the tag value has no
   closed dispatch case.
@@ -401,6 +404,9 @@ against the built `veln` binary.
   encode helper writes a known extension-tolerant primitive payload selected
   by the earlier visible tag field and preserves matching unknown raw bounded
   payload bytes.
+- `run/binary-schema-extension-dispatch-nested-encode/`: a generated binary
+  schema encode helper writes a known extension-tolerant same-module nested
+  payload schema through `SchemaDispatchPayload::Known`.
 - `run/binary-schema-extension-dispatch-encode-mismatch/`: the same encode
   helper reports `codec.dispatch_mismatch` when a known tag is paired with an
   unknown payload variant.
@@ -413,6 +419,9 @@ against the built `veln` binary.
 - `run/binary-schema-extension-dispatch-encode-length-mismatch/`: the same
   encode helper reports `codec.dispatch_length_mismatch` when the earlier
   length field does not match the emitted payload byte count.
+- `run/binary-schema-dispatch-nested-encode-failure/`: nested payload encode
+  failures keep the nested schema field path in structured `EncodeError`
+  output.
 - `run/binary-schema-closed-dispatch-decode/`: a generated binary schema
   decode helper reads a closed dispatch tag, selects the known payload case,
   and returns the selected payload as an ordinary `Int` field.

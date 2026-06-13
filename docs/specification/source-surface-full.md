@@ -142,13 +142,14 @@ fields are visible exact-width unsigned primitives, plus the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, closed dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier
 visible exact-width fields and whose cases are exact-width unsigned primitive
-payloads, expose generated `byte_encode_<schema>` helpers routed from
-`execution.md`. General schema encode execution beyond those helper slices and
-schema decode outside the narrow generated binary helper slices are not
-implemented. The narrow primitive, field-local validation, mapped-record
-decode, dispatch decode, and primitive, reserved-bit, closed primitive
-dispatch, or extension primitive dispatch encode slices are routed from
-`execution.md`. Field names must be ordinary identifiers; names
+payloads or earlier same-module binary schema payloads, expose generated
+`byte_encode_<schema>` helpers routed from `execution.md`. General schema
+encode execution beyond those helper slices and schema decode outside the
+narrow generated binary helper slices are not implemented. The narrow
+primitive, field-local validation, mapped-record decode, dispatch decode, and
+primitive, reserved-bit, closed dispatch, extension dispatch, or same-module
+nested dispatch payload encode slices are routed from `execution.md`. Field
+names must be ordinary identifiers; names
 beginning with `_` remain hole tokens and are rejected as schema field names.
 Schema declarations do not create ordinary value bindings, ordinary source ADT
 types, constructors, or general executable decode or encode functions.
