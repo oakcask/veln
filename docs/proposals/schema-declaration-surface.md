@@ -56,6 +56,8 @@ The implemented first slice covers:
 - generated runtime mapping for one structural `map to Target` clause when
   each assignment expression uses the implemented structural expression slice
   and type checks against the target record field
+- semantic rejection for `format binary` schemas that declare more than one
+  structural `map to Target` clause
 - schema mapping expressions that reference schema-local fields, construct
   records, or construct ADT payloads through ordinary source module
   constructor resolution
@@ -69,8 +71,7 @@ This proposal remains open for:
   closed dispatch, and extension dispatch slices
 - runtime mapping beyond the implemented schema-local field reference, record
   construction, and ADT constructor construction expression slice, including
-  multiple mapping clauses or mapping selection and representation conversion
-  hooks
+  mapping selection and representation conversion hooks
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition, fixture, and
@@ -294,15 +295,17 @@ Implemented:
   when assignment expressions type check against target record fields, rejects
   invalid mapping assignments before execution, and returns the mapped record
   shape after field-local validation passes.
+- Binary schemas that declare more than one structural `map to Target` clause
+  report `schema.mapping_multiple_clauses` at the later clause instead of
+  selecting among mappings.
 
 Remaining:
 
 - General schema validation diagnostics distinguish malformed schema syntax
   from failed schema validation for arbitrary schema declarations.
 - Runtime schema value mapping beyond schema-local field reference, record
-  construction, and ADT constructor construction resolves multiple mapping
-  clauses or mapping selection, representation conversion hooks, and
-  codec-selected mapping.
+  construction, and ADT constructor construction resolves mapping selection,
+  representation conversion hooks, and codec-selected mapping.
 - General schema decode can synthesize executable bindings for fields outside
   the implemented exact-width unsigned primitive, length-bounded `ByteView`,
   closed dispatch, and extension dispatch slices.

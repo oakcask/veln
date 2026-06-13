@@ -1971,6 +1971,13 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     for schema in &module.schemas {
+        let multiple_mapping_diagnostics = schema_multiple_mapping_clause_diagnostics(schema);
+        let has_multiple_mappings = !multiple_mapping_diagnostics.is_empty();
+        diagnostics.extend(multiple_mapping_diagnostics);
+        if has_multiple_mappings {
+            continue;
+        }
+
         let Some(schema_fields) = generated_schema_field_types(module, schema) else {
             continue;
         };
@@ -2027,6 +2034,69 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
     }
 
     diagnostics
+}
+
+fn schema_multiple_mapping_clause_diagnostics(schema: &SchemaDecl) -> Vec<Diagnostic> {
+    if schema.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
+        return Vec::new();
+    }
+
+    let Some(first_mapping) = schema.mappings.first() else {
+        return Vec::new();
+    };
+    if schema.mappings.len() <= 1 {
+        return Vec::new();
+    }
+
+    let mut previous_mapping = first_mapping;
+    let mut diagnostics = Vec::new();
+    for mapping in schema.mappings.iter().skip(1) {
+        diagnostics.push(schema_mapping_multiple_clauses_diagnostic(
+            schema,
+            mapping,
+            previous_mapping,
+        ));
+        previous_mapping = mapping;
+    }
+    diagnostics
+}
+
+fn schema_mapping_multiple_clauses_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    previous_mapping: &SchemaMappingClause,
+) -> Diagnostic {
+    let mut diagnostic = Diagnostic::new(
+        "schema.mapping_multiple_clauses",
+        Severity::Error,
+        DiagnosticKind::Type,
+        "schema declaration has multiple mapping clauses",
+        Some(mapping.span.clone()),
+        schema_mapping_details(
+            mapping.node_id.display("schema-mapping"),
+            schema,
+            mapping,
+            [
+                ("reason", JsonValue::string("multiple_mapping_clauses")),
+                (
+                    "selected_mapping_target",
+                    JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                ),
+                (
+                    "previous_mapping_target",
+                    JsonValue::string(previous_mapping.target.clone().unwrap_or_default()),
+                ),
+            ],
+        ),
+    );
+    diagnostic.related.push(JsonValue::object([
+        ("span", span_json(&previous_mapping.span)),
+        (
+            "message",
+            JsonValue::string("Previous mapping clause is here."),
+        ),
+    ]));
+    diagnostic
 }
 
 fn generated_schema_field_types(

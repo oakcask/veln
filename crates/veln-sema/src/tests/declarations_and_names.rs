@@ -1482,6 +1482,66 @@ fn generated_schema_mappings_report_source_target_and_type_diagnostics() {
 }
 
 #[test]
+fn generated_schema_mappings_report_multiple_mapping_clauses() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type Header\n",
+            "  Header {length: Int, kind: Int}\n",
+            "end\n",
+            "\n",
+            "type AlternateHeader\n",
+            "  AlternateHeader {length: Int, kind: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt16be\n",
+            "  kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "\n",
+            "  map to AlternateHeader\n",
+            "    length = length\n",
+            "    kind = kind\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.id == "schema.mapping_multiple_clauses")
+        .unwrap_or_else(|| panic!("{diagnostics:#?}"));
+    assert_eq!(
+        diagnostic.message,
+        "schema declaration has multiple mapping clauses"
+    );
+    let details = diagnostic.details.to_json();
+    assert!(details.contains("\"schema\":\"HeaderWire\""), "{details}");
+    assert!(
+        details.contains("\"selected_mapping_target\":\"AlternateHeader\""),
+        "{details}"
+    );
+    assert!(
+        details.contains("\"previous_mapping_target\":\"Header\""),
+        "{details}"
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "schema.mapping_target"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn generated_schema_mappings_report_expression_diagnostics() {
     let source = SourceFile::new(
         "main.veln",

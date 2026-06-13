@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[schema.mapping_multiple_clauses]: schema declaration has multiple mapping clauses", "Previous mapping clause is here."]
+
+[stderr]
+format = "empty"
