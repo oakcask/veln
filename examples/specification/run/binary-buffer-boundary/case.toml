@@ -1,0 +1,31 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "view-count 4\nprefix 2 3\nsuffix 4 5\nmiddle 3 4\nreceived 4 5\nslice-error byte view range exceeds view length\noutput_chunk_list buffer-output count 2\noutput_chunk buffer-output index 0 hex \"0203\" count 2\noutput_chunk buffer-output index 1 hex \"0405\" count 2\noutput_chunk_list empty-output count 0\n"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "buffer-output"
+chunks = ["0203", "0405"]
+
+[[output_chunk_list]]
+name = "empty-output"
+chunks = []

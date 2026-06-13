@@ -107,6 +107,37 @@ pub fn byte_view_to_chunk(view: ByteView) -> ByteChunk
 	prelude_builtin::byte_view_to_chunk(view)
 end
 
+pub fn byte_view_count(view: ByteView) -> ByteCount
+	prelude_builtin::byte_view_count(view)
+end
+
+pub fn byte_view_take(view: ByteView, count: ByteCount) -> Result<ByteView, String>
+	prelude_builtin::byte_view_take(view, count)
+end
+
+pub fn byte_view_drop(view: ByteView, count: ByteCount) -> Result<ByteView, String>
+	prelude_builtin::byte_view_drop(view, count)
+end
+
+pub fn byte_view_slice(view: ByteView, offset: ByteCount, count: ByteCount) -> Result<ByteView, String>
+	prelude_builtin::byte_view_slice(view, offset, count)
+end
+
+pub fn byte_chunks_empty() -> List<ByteChunk>
+	Nil
+end
+
+pub fn byte_chunks_one(chunk: ByteChunk) -> List<ByteChunk>
+	Cons(chunk, Nil)
+end
+
+pub fn byte_chunks_append(left: List<ByteChunk>, right: List<ByteChunk>) -> List<ByteChunk>
+	match left
+		Nil => right
+		Cons(head, tail) => Cons(head, byte_chunks_append(tail, right))
+	end
+end
+
 pub fn byte_read_u8_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u8_be(view)
 end

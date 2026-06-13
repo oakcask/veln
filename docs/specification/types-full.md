@@ -42,8 +42,10 @@ with `Chunk(bytes: ByteChunk)` and `End` variants. A zero-length `ByteChunk`
 inside `Chunk` remains a chunk arrival and is not equivalent to `End`.
 `EncodeStep<TState>` is a public ADT with `Encoded`, `Partial`, and `Invalid`
 variants; its output payloads use `List<ByteChunk>` and its `Partial` variant
-carries the encoder state as `TState`. `DecodeError` and `EncodeError` are
-public structured error ADTs for matching and inspection by ordinary source.
+carries the encoder state as `TState`. Prelude helpers also construct and
+append outgoing `List<ByteChunk>` values without adding a separate output-only
+byte type. `DecodeError` and `EncodeError` are public structured error ADTs for
+matching and inspection by ordinary source.
 The constructor layout of the other byte vocabulary types is not a public
 source contract; programs construct and inspect those values through the
 prelude helpers in

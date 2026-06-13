@@ -41,7 +41,7 @@
         return byteOffsetLong(asAdt(view, "ByteView").payloads[1]);
     }
 
-    private static long byteViewCount(Object view) {
+    private static long byteViewCountLong(Object view) {
         return byteCountLong(asAdt(view, "ByteView").payloads[2]);
     }
 
@@ -831,11 +831,80 @@
     public static Object byteViewToChunk(Object view) {
         java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
         long offset = byteViewOffset(view);
-        long count = byteViewCount(view);
+        long count = byteViewCountLong(view);
         if (offset < 0 || count < 0 || offset > bytes.size() || count > bytes.size() - offset) {
             return byteChunkObject(java.util.Collections.emptyList());
         }
         return byteChunkObject(bytes.subList((int) offset, (int) (offset + count)));
+    }
+
+    public static Object byteViewCount(Object view) {
+        return byteCountObject(byteViewCountLong(view));
+    }
+
+    public static Object byteViewTake(Object view, Object count) {
+        long requested = byteCountLong(count);
+        if (requested < 0) {
+            return err("byte count must be non-negative");
+        }
+        long available = byteViewCountLong(view);
+        if (requested > available) {
+            return err("byte view count exceeds view length");
+        }
+        return ok(byteViewObject(byteViewChunk(view), byteViewOffset(view), requested));
+    }
+
+    public static Object byteViewDrop(Object view, Object count) {
+        long requested = byteCountLong(count);
+        if (requested < 0) {
+            return err("byte count must be non-negative");
+        }
+        long available = byteViewCountLong(view);
+        if (requested > available) {
+            return err("byte view count exceeds view length");
+        }
+        return ok(byteViewObject(byteViewChunk(view), byteViewOffset(view) + requested, available - requested));
+    }
+
+    public static Object byteViewSlice(Object view, Object offset, Object count) {
+        long requestedOffset = byteCountLong(offset);
+        long requestedCount = byteCountLong(count);
+        if (requestedOffset < 0 || requestedCount < 0) {
+            return err("byte count must be non-negative");
+        }
+        long available = byteViewCountLong(view);
+        if (requestedOffset > available || requestedCount > available - requestedOffset) {
+            return err("byte view range exceeds view length");
+        }
+        return ok(byteViewObject(
+            byteViewChunk(view),
+            byteViewOffset(view) + requestedOffset,
+            requestedCount
+        ));
+    }
+
+    public static Object byteChunksEmpty() {
+        return listNil();
+    }
+
+    public static Object byteChunksOne(Object chunk) {
+        return listCons(chunk, listNil());
+    }
+
+    public static Object byteChunksAppend(Object left, Object right) {
+        Object reversed = listNil();
+        ListValue current = asListValue(left);
+        while (current.cons) {
+            reversed = listCons(current.head, reversed);
+            current = asListValue(current.tail);
+        }
+        Object appended = right;
+        current = asListValue(reversed);
+        while (current.cons) {
+            appended = listCons(current.head, appended);
+            current = asListValue(current.tail);
+        }
+        return appended;
     }
 
     public static Object byteReadU8Be(Object view) {
@@ -881,7 +950,7 @@
         Object boundsError = byteViewBoundsError(
             byteChunkBytes(byteViewChunk(view)),
             byteViewOffset(view),
-            byteViewCount(view)
+            byteViewCountLong(view)
         );
         if (boundsError != null) {
             return boundsError;
@@ -971,7 +1040,7 @@
         java.util.Map<Object, Object> header = asMap(unwrapOk(headerRead));
         long length = asLong(header.get("length"));
         long baseOffset = byteViewOffset(view);
-        long count = byteViewCount(view);
+        long count = byteViewCountLong(view);
         long headerCount = 9L;
         long availablePayload = Math.max(0L, count - headerCount);
         if (length > availablePayload) {
@@ -1130,7 +1199,7 @@
             return step;
         }
         long consumed = byteCountLong(adtPayload(step, 1));
-        if (consumed >= 0L && consumed <= byteViewCount(view)) {
+        if (consumed >= 0L && consumed <= byteViewCountLong(view)) {
             return step;
         }
         return invalidDecodeStep(
@@ -1654,7 +1723,7 @@
     ) {
         java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
         long offset = byteViewOffset(view);
-        long count = byteViewCount(view);
+        long count = byteViewCountLong(view);
         Object boundsError = byteViewBoundsError(bytes, offset, count);
         if (boundsError != null) {
             return boundsError;
@@ -1709,7 +1778,7 @@
     ) {
         java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
         long baseOffset = byteViewOffset(view);
-        long count = byteViewCount(view);
+        long count = byteViewCountLong(view);
         Object boundsError = byteViewBoundsError(bytes, baseOffset, count);
         if (boundsError != null) {
             return boundsError;
@@ -1751,7 +1820,7 @@
     ) {
         java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
         long baseOffset = byteViewOffset(view);
-        long count = byteViewCount(view);
+        long count = byteViewCountLong(view);
         Object boundsError = byteViewBoundsError(bytes, baseOffset, count);
         if (boundsError != null) {
             return boundsError;
@@ -1811,7 +1880,7 @@
         Object boundsError = byteViewBoundsError(
             byteChunkBytes(byteViewChunk(view)),
             byteViewOffset(view),
-            byteViewCount(view)
+            byteViewCountLong(view)
         );
         if (boundsError != null) {
             return boundsError;
@@ -1852,7 +1921,7 @@
                             + "`"
                     );
                 }
-                long availablePayload = Math.max(0L, byteViewCount(view) - relativeOffset);
+                long availablePayload = Math.max(0L, byteViewCountLong(view) - relativeOffset);
                 if (payloadLength.longValue() > availablePayload) {
                     long byteOffset = diagnosticBaseOffset + relativeOffset + availablePayload;
                     String message = "payload length out of bounds at byte offset " + byteOffset;
@@ -1891,7 +1960,7 @@
                                     + "`"
                             );
                         }
-                        long availablePayload = Math.max(0L, byteViewCount(view) - relativeOffset);
+                        long availablePayload = Math.max(0L, byteViewCountLong(view) - relativeOffset);
                         if (payloadLength.longValue() > availablePayload) {
                             long byteOffset =
                                 diagnosticBaseOffset + relativeOffset + availablePayload;
@@ -1950,7 +2019,7 @@
                                 + "`"
                         );
                     }
-                    long availablePayload = Math.max(0L, byteViewCount(view) - relativeOffset);
+                    long availablePayload = Math.max(0L, byteViewCountLong(view) - relativeOffset);
                     if (payloadLength.longValue() > availablePayload) {
                         long byteOffset =
                             diagnosticBaseOffset + relativeOffset + availablePayload;
@@ -1971,7 +2040,7 @@
                 }
                 Object dispatchValue;
                 if (dispatchCase.payloadSchema != null) {
-                    long availablePayload = Math.max(0L, byteViewCount(view) - relativeOffset);
+                    long availablePayload = Math.max(0L, byteViewCountLong(view) - relativeOffset);
                     long payloadViewCount = Math.min(payloadWidth, availablePayload);
                     Object payloadView = byteViewObject(
                         byteViewChunk(view),
@@ -2087,14 +2156,14 @@
         Object boundsError = byteViewBoundsError(
             byteChunkBytes(byteViewChunk(view)),
             byteViewOffset(view),
-            byteViewCount(view)
+            byteViewCountLong(view)
         );
         if (boundsError != null) {
             return invalidDecodeStep("schema.byte_view", baseOffset, schema.name);
         }
 
         long totalWidth = schemaTotalWidth(schema);
-        if (byteViewCount(view) < totalWidth) {
+        if (byteViewCountLong(view) < totalWidth) {
             return adt(
                 "DecodeStep::NeedMore",
                 new Object[] {
@@ -2581,7 +2650,7 @@
     private static String byteViewPreviewTrace(Object view, int maxPreviewBytes) {
         java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
         long offset = byteViewOffset(view);
-        long count = byteViewCount(view);
+        long count = byteViewCountLong(view);
         Object boundsError = byteViewBoundsError(bytes, offset, count);
         if (boundsError != null) {
             return ":0:0:false";

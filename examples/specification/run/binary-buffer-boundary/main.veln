@@ -1,0 +1,91 @@
+# Bounded byte buffers use ByteView for pending input and List<ByteChunk> for output.
+use stdio
+
+fn view_byte_at(view: ByteView, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view_slice(view, byte_count(index)?, byte_count(1)?)?)
+end
+
+fn print_view_pair(label: String, view: ByteView) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(int_to_string(view_byte_at(view, 0)?))
+	stdio::print(" ")
+	stdio::println(int_to_string(view_byte_at(view, 1)?))
+	Ok(())
+end
+
+fn error_text(result: Result<ByteView, String>) -> String
+	match result
+		Ok(_) => "ok"
+		Err(message) => message
+	end
+end
+
+fn chunk_list_count(chunks: List<ByteChunk>) -> Int
+	match chunks
+		Nil => 0
+		Cons(_, tail) => 1 + chunk_list_count(tail)
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_two_chunk_values(name: String, first: ByteChunk, second: ByteChunk, count: Int) -> Result<(), String> effects [stdio]
+	emit_output_chunk_list_header(name, count)
+	emit_output_chunk(name, 0, first, "0203")
+	emit_output_chunk(name, 1, second, "0405")
+	Ok(())
+end
+
+fn emit_two_chunks(name: String, chunks: List<ByteChunk>) -> Result<(), String> effects [stdio]
+	match chunks
+		Cons(first, Cons(second, Nil)) => emit_two_chunk_values(name, first, second, chunk_list_count(chunks))
+		_ => Err("expected two output chunks")
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio, concurrency]
+	let bytes: ByteChunk = byte_chunk_from_hex("010203040506")?
+	let pending: ByteView = byte_view(bytes, byte_offset(1)?, byte_count(4)?)?
+	stdio::print("view-count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_view_count(pending))))
+
+	let consumed: ByteCount = byte_count(2)?
+	let prefix: ByteView = byte_view_take(pending, consumed)?
+	let suffix: ByteView = byte_view_drop(pending, consumed)?
+	let middle: ByteView = byte_view_slice(pending, byte_count(1)?, consumed)?
+	let _ = print_view_pair("prefix", prefix)?
+	let _ = print_view_pair("suffix", suffix)?
+	let _ = print_view_pair("middle", middle)?
+
+	let pair = channel::bounded<ByteView>(1)
+	let _ = channel::send(pair.tx, suffix)
+	let received: ByteView = match channel::recv(pair.rx)
+		Some(value) => value
+		None => suffix
+	end
+	let _ = print_view_pair("received", received)?
+	stdio::print("slice-error ")
+	stdio::println(error_text(byte_view_slice(pending, byte_count(3)?, consumed)))
+
+	let outputs: List<ByteChunk> = byte_chunks_append(byte_chunks_one(byte_view_to_chunk(prefix)), byte_chunks_one(byte_view_to_chunk(suffix)))
+	let _ = emit_two_chunks("buffer-output", outputs)?
+	emit_output_chunk_list_header("empty-output", chunk_list_count(byte_chunks_empty()))
+	Ok(())
+end

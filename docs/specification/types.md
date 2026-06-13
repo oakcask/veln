@@ -19,7 +19,8 @@ full type reference.
   `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, `DecodeStep<T>`,
   `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
   named types for small immutable byte values, bounded byte views,
-  byte-counted helper APIs, and incremental codec boundary values.
+  byte-counted helper APIs, outgoing chunk lists, and incremental codec
+  boundary values.
 - `match` expressions over `Bool`, `Option<T>`, `Result<T, E>`, `List<T>`, and
   source-declared ADTs must be exhaustive unless a catch-all arm is present.
 - Assignment compatibility treats `unknown` as compatible with any type and
