@@ -276,12 +276,14 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             adt::result_type(Type::unit(), Type::string()),
         )),
         "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
-        | "byte_read_u32_be" => Some((
+        | "byte_read_u32_be" | "byte_read_u16_le" | "byte_read_u24_le" | "byte_read_u31_le"
+        | "byte_read_u32_le" => Some((
             vec![byte_view.clone()],
             adt::result_type(Type::int(), Type::string()),
         )),
         "byte_write_u8_be" | "byte_write_u16_be" | "byte_write_u24_be" | "byte_write_u31_be"
-        | "byte_write_u32_be" => Some((
+        | "byte_write_u32_be" | "byte_write_u16_le" | "byte_write_u24_le" | "byte_write_u31_le"
+        | "byte_write_u32_le" => Some((
             vec![Type::int()],
             adt::result_type(byte_chunk.clone(), Type::string()),
         )),
@@ -1005,12 +1007,14 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             adt::core_result_type(CoreType::unit(), CoreType::string()),
         )),
         "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
-        | "byte_read_u32_be" => Some((
+        | "byte_read_u32_be" | "byte_read_u16_le" | "byte_read_u24_le" | "byte_read_u31_le"
+        | "byte_read_u32_le" => Some((
             vec![byte_view.clone()],
             adt::core_result_type(CoreType::int(), CoreType::string()),
         )),
         "byte_write_u8_be" | "byte_write_u16_be" | "byte_write_u24_be" | "byte_write_u31_be"
-        | "byte_write_u32_be" => Some((
+        | "byte_write_u32_be" | "byte_write_u16_le" | "byte_write_u24_le" | "byte_write_u31_le"
+        | "byte_write_u32_le" => Some((
             vec![CoreType::int()],
             adt::core_result_type(byte_chunk.clone(), CoreType::string()),
         )),

@@ -27,8 +27,9 @@ compiler-known calls.
   `DecodeError`, `EncodeStep<TState>`, and `EncodeError` ADTs plus pure byte
   vocabulary helpers for `Byte`, `ByteChunk`, `ByteView`, `ByteCount`,
   `ByteOffset`, compact hex fixture decoding, fixed-width unsigned big-endian
-  reads and writes, fixed U8 field checks, and the narrow schema width-sample
-  decode helper. Generated binary schema decode helpers return schema-local
+  and little-endian reads and writes, fixed U8 field checks, and the narrow
+  schema width-sample decode helper. Generated binary schema decode helpers
+  return schema-local
   `Int` record fields unless the eligible single structural `map to Target`
   slice resolves a mapped `Int` record shape; generated decode-step helpers
   expose the same value shape through `DecodeStep<T>` for open input.

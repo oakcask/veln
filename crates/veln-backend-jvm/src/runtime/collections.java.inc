@@ -1614,22 +1614,44 @@
     }
 
     public static Object byteReadU16Be(Object view) {
-        return byteReadUnsignedBe(view, 2, 0xffffL, "byte_read_u16_be");
+        return byteReadUnsigned(view, 2, 0xffffL, "byte_read_u16_be", false);
     }
 
     public static Object byteReadU24Be(Object view) {
-        return byteReadUnsignedBe(view, 3, 0xffffffL, "byte_read_u24_be");
+        return byteReadUnsigned(view, 3, 0xffffffL, "byte_read_u24_be", false);
     }
 
     public static Object byteReadU31Be(Object view) {
-        return byteReadUnsignedBe(view, 4, 0x7fffffffL, "byte_read_u31_be");
+        return byteReadUnsigned(view, 4, 0x7fffffffL, "byte_read_u31_be", false);
     }
 
     public static Object byteReadU32Be(Object view) {
-        return byteReadUnsignedBe(view, 4, 0xffffffffL, "byte_read_u32_be");
+        return byteReadUnsigned(view, 4, 0xffffffffL, "byte_read_u32_be", false);
     }
 
-    private static Object byteReadUnsignedBe(Object view, int width, long maxValue, String name) {
+    public static Object byteReadU16Le(Object view) {
+        return byteReadUnsigned(view, 2, 0xffffL, "byte_read_u16_le", true);
+    }
+
+    public static Object byteReadU24Le(Object view) {
+        return byteReadUnsigned(view, 3, 0xffffffL, "byte_read_u24_le", true);
+    }
+
+    public static Object byteReadU31Le(Object view) {
+        return byteReadUnsigned(view, 4, 0x7fffffffL, "byte_read_u31_le", true);
+    }
+
+    public static Object byteReadU32Le(Object view) {
+        return byteReadUnsigned(view, 4, 0xffffffffL, "byte_read_u32_le", true);
+    }
+
+    private static Object byteReadUnsigned(
+        Object view,
+        int width,
+        long maxValue,
+        String name,
+        boolean littleEndian
+    ) {
         java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
         long offset = byteViewOffset(view);
         long count = byteViewCount(view);
@@ -1644,12 +1666,17 @@
         }
         long value = 0;
         for (int index = 0; index < width; index += 1) {
-            value = (value << 8) | byteValueLong(bytes.get((int) offset + index));
+            int byteIndex = littleEndian ? width - 1 - index : index;
+            value = (value << 8) | byteValueLong(bytes.get((int) offset + byteIndex));
         }
         if (value > maxValue) {
             return err(name + " value exceeds maximum " + maxValue);
         }
         return ok(Long.valueOf(value));
+    }
+
+    private static Object byteReadUnsignedBe(Object view, int width, long maxValue, String name) {
+        return byteReadUnsigned(view, width, maxValue, name, false);
     }
 
     private static Object schemaReadUnsignedBe(
@@ -2602,31 +2629,58 @@
     }
 
     public static Object byteWriteU16Be(Object value) {
-        return byteWriteUnsignedBe(value, 2, 0xffffL, "byte_write_u16_be");
+        return byteWriteUnsigned(value, 2, 0xffffL, "byte_write_u16_be", false);
     }
 
     public static Object byteWriteU24Be(Object value) {
-        return byteWriteUnsignedBe(value, 3, 0xffffffL, "byte_write_u24_be");
+        return byteWriteUnsigned(value, 3, 0xffffffL, "byte_write_u24_be", false);
     }
 
     public static Object byteWriteU31Be(Object value) {
-        return byteWriteUnsignedBe(value, 4, 0x7fffffffL, "byte_write_u31_be");
+        return byteWriteUnsigned(value, 4, 0x7fffffffL, "byte_write_u31_be", false);
     }
 
     public static Object byteWriteU32Be(Object value) {
-        return byteWriteUnsignedBe(value, 4, 0xffffffffL, "byte_write_u32_be");
+        return byteWriteUnsigned(value, 4, 0xffffffffL, "byte_write_u32_be", false);
     }
 
-    private static Object byteWriteUnsignedBe(Object value, int width, long maxValue, String name) {
+    public static Object byteWriteU16Le(Object value) {
+        return byteWriteUnsigned(value, 2, 0xffffL, "byte_write_u16_le", true);
+    }
+
+    public static Object byteWriteU24Le(Object value) {
+        return byteWriteUnsigned(value, 3, 0xffffffL, "byte_write_u24_le", true);
+    }
+
+    public static Object byteWriteU31Le(Object value) {
+        return byteWriteUnsigned(value, 4, 0x7fffffffL, "byte_write_u31_le", true);
+    }
+
+    public static Object byteWriteU32Le(Object value) {
+        return byteWriteUnsigned(value, 4, 0xffffffffL, "byte_write_u32_le", true);
+    }
+
+    private static Object byteWriteUnsigned(
+        Object value,
+        int width,
+        long maxValue,
+        String name,
+        boolean littleEndian
+    ) {
         long unsigned = asLong(value);
         if (unsigned < 0 || unsigned > maxValue) {
             return err(name + " value must be between 0 and " + maxValue);
         }
         java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>(width);
         for (int index = width - 1; index >= 0; index -= 1) {
-            bytes.add(byteObject((unsigned >> (index * 8)) & 0xffL));
+            int shiftIndex = littleEndian ? width - 1 - index : index;
+            bytes.add(byteObject((unsigned >> (shiftIndex * 8)) & 0xffL));
         }
         return ok(byteChunkObject(bytes));
+    }
+
+    private static Object byteWriteUnsignedBe(Object value, int width, long maxValue, String name) {
+        return byteWriteUnsigned(value, width, maxValue, name, false);
     }
 
     private static Object schemaWriteDispatchPayload(

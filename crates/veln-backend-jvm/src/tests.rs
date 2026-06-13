@@ -104,6 +104,8 @@ public final class RuntimeByteViewHarness {
         System.out.println(VelnRuntime.byteReadU8Be(view));
         System.out.println(VelnRuntime.byteReadU16Be(view));
         System.out.println(VelnRuntime.byteReadU24Be(view));
+        System.out.println(VelnRuntime.byteReadU16Le(view));
+        System.out.println(VelnRuntime.byteReadU24Le(view));
         System.out.println(VelnRuntime.byteReadU31Be(wideView));
         Object maxU31 = ((VelnRuntime.Result) VelnRuntime.byteWriteU31Be(Long.valueOf(2147483647))).value();
         Object maxU31View = ((VelnRuntime.Result) VelnRuntime.byteView(
@@ -119,7 +121,29 @@ public final class RuntimeByteViewHarness {
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
         )).value();
         System.out.println(VelnRuntime.byteReadU32Be(maxU32View));
+        Object maxU31Le = ((VelnRuntime.Result) VelnRuntime.byteWriteU31Le(Long.valueOf(2147483647))).value();
+        Object maxU31LeView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            maxU31Le,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteReadU31Le(maxU31LeView));
+        Object maxU32Le = ((VelnRuntime.Result) VelnRuntime.byteWriteU32Le(Long.valueOf(4294967295L))).value();
+        Object maxU32LeView = ((VelnRuntime.Result) VelnRuntime.byteView(
+            maxU32Le,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
+        )).value();
+        System.out.println(VelnRuntime.byteReadU32Le(maxU32LeView));
+        System.out.println(VelnRuntime.byteWriteU16Le(Long.valueOf(4660)));
+        System.out.println(VelnRuntime.byteWriteU24Le(Long.valueOf(66051)));
+        System.out.println(VelnRuntime.byteWriteU32Le(Long.valueOf(16909060)));
         System.out.println(VelnRuntime.byteReadU24Be(((VelnRuntime.Result) VelnRuntime.byteView(
+            chunk,
+            ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(2))).value()
+        )).value()));
+        System.out.println(VelnRuntime.byteReadU24Le(((VelnRuntime.Result) VelnRuntime.byteView(
             chunk,
             ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(0))).value(),
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(2))).value()
@@ -130,7 +154,9 @@ public final class RuntimeByteViewHarness {
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(2))).value()
         ));
         System.out.println(VelnRuntime.byteWriteU8Be(Long.valueOf(256)));
+        System.out.println(VelnRuntime.byteWriteU32Le(Long.valueOf(4294967296L)));
         System.out.println(VelnRuntime.byteReadU31Be(maxU32View));
+        System.out.println(VelnRuntime.byteReadU31Le(maxU32LeView));
         Object frame = ((VelnRuntime.Result) VelnRuntime.byteChunkFromHex("000005010400000001")).value();
         Object frameView = ((VelnRuntime.Result) VelnRuntime.byteView(
             frame,
@@ -812,13 +838,23 @@ fn jvm_runtime_reads_and_writes_byte_views_when_java_is_available() {
             "Ok(1)\n",
             "Ok(258)\n",
             "Ok(66051)\n",
+            "Ok(513)\n",
+            "Ok(197121)\n",
             "Ok(16909311)\n",
             "Ok(2147483647)\n",
             "Ok(4294967295)\n",
+            "Ok(2147483647)\n",
+            "Ok(4294967295)\n",
+            "Ok(ByteChunk([Byte(52), Byte(18)]))\n",
+            "Ok(ByteChunk([Byte(3), Byte(2), Byte(1)]))\n",
+            "Ok(ByteChunk([Byte(4), Byte(3), Byte(2), Byte(1)]))\n",
+            "Err(byte read requires 3 bytes but view has 2)\n",
             "Err(byte read requires 3 bytes but view has 2)\n",
             "Err(byte view range exceeds chunk length)\n",
             "Err(byte_write_u8_be value must be between 0 and 255)\n",
+            "Err(byte_write_u32_le value must be between 0 and 4294967295)\n",
             "Err(byte_read_u31_be value exceeds maximum 2147483647)\n",
+            "Err(byte_read_u31_le value exceeds maximum 2147483647)\n",
             "Ok({length=5, kind=1, flags=4, stream_id=1})\n",
             "Ok({short_value=4660, wide_value=3735928559})\n",
             "Ok({length=5, padding_length=4})\n",
@@ -1148,11 +1184,19 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("byte_read_u24_be", "byteReadU24Be"),
         ("byte_read_u31_be", "byteReadU31Be"),
         ("byte_read_u32_be", "byteReadU32Be"),
+        ("byte_read_u16_le", "byteReadU16Le"),
+        ("byte_read_u24_le", "byteReadU24Le"),
+        ("byte_read_u31_le", "byteReadU31Le"),
+        ("byte_read_u32_le", "byteReadU32Le"),
         ("byte_write_u8_be", "byteWriteU8Be"),
         ("byte_write_u16_be", "byteWriteU16Be"),
         ("byte_write_u24_be", "byteWriteU24Be"),
         ("byte_write_u31_be", "byteWriteU31Be"),
         ("byte_write_u32_be", "byteWriteU32Be"),
+        ("byte_write_u16_le", "byteWriteU16Le"),
+        ("byte_write_u24_le", "byteWriteU24Le"),
+        ("byte_write_u31_le", "byteWriteU31Le"),
+        ("byte_write_u32_le", "byteWriteU32Le"),
         ("byte_count", "byteCount"),
         ("byte_count_to_int", "byteCountToInt"),
         ("byte_offset", "byteOffset"),

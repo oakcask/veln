@@ -424,11 +424,19 @@ byte_read_u16_be(view: ByteView) -> Result<Int, String>
 byte_read_u24_be(view: ByteView) -> Result<Int, String>
 byte_read_u31_be(view: ByteView) -> Result<Int, String>
 byte_read_u32_be(view: ByteView) -> Result<Int, String>
+byte_read_u16_le(view: ByteView) -> Result<Int, String>
+byte_read_u24_le(view: ByteView) -> Result<Int, String>
+byte_read_u31_le(view: ByteView) -> Result<Int, String>
+byte_read_u32_le(view: ByteView) -> Result<Int, String>
 byte_write_u8_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u16_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u24_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u31_be(value: Int) -> Result<ByteChunk, String>
 byte_write_u32_be(value: Int) -> Result<ByteChunk, String>
+byte_write_u16_le(value: Int) -> Result<ByteChunk, String>
+byte_write_u24_le(value: Int) -> Result<ByteChunk, String>
+byte_write_u31_le(value: Int) -> Result<ByteChunk, String>
+byte_write_u32_le(value: Int) -> Result<ByteChunk, String>
 byte_count(value: Int) -> Result<ByteCount, String>
 byte_count_to_int(value: ByteCount) -> Int
 byte_offset(value: Int) -> Result<ByteOffset, String>
@@ -558,9 +566,14 @@ case matches. The extension dispatch encode layout writes `Known` selected
 payloads, preserves matching unknown raw payload bytes, reports
 `codec.dispatch_mismatch` for tag or variant disagreements, and reports
 `codec.dispatch_length_mismatch` when the explicit length field differs from
-the emitted payload byte count. The fixed-width unsigned big-endian write
-helpers return `Ok(ByteChunk)` for values in range and `Err(String)` for
-negative values or values larger than the helper width can encode.
+the emitted payload byte count. The fixed-width unsigned big-endian and
+little-endian read helpers return `Ok(Int)` when the bounded `ByteView`
+contains enough bytes and the decoded unsigned value fits the helper width;
+they return `Err(String)` for short views or values larger than the helper
+width can represent, such as the 31-bit maximum check. The fixed-width
+unsigned big-endian and little-endian write helpers return `Ok(ByteChunk)` for
+values in range and `Err(String)` for negative values or values larger than
+the helper width can encode.
 `byte_count(value)` and `byte_offset(value)` accept non-negative integers.
 The `*_to_int` helpers expose the stored integer value for ordinary source
 logic and display.
@@ -587,9 +600,12 @@ The implemented standard symbol table has this current pure-helper split:
   `http2_peer_limit_concurrent_streams_exceeded`,
   `http2_peer_limit_settings_value_out_of_range`, `byte_read_u16_be`,
   `byte_read_u24_be`, `byte_read_u31_be`, `byte_read_u32_be`,
-  `byte_write_u8_be`, `byte_write_u16_be`, `byte_write_u24_be`,
-  `byte_write_u31_be`, `byte_write_u32_be`, `byte_count`,
-  `byte_count_to_int`, `byte_offset`, `byte_offset_to_int`,
+  `byte_read_u16_le`, `byte_read_u24_le`, `byte_read_u31_le`,
+  `byte_read_u32_le`, `byte_write_u8_be`, `byte_write_u16_be`,
+  `byte_write_u24_be`, `byte_write_u31_be`, `byte_write_u32_be`,
+  `byte_write_u16_le`, `byte_write_u24_le`, `byte_write_u31_le`,
+  `byte_write_u32_le`, `byte_count`, `byte_count_to_int`, `byte_offset`,
+  `byte_offset_to_int`,
   `vec_len`, `vec_is_empty`, `vec_push`, `vec_concat`, `vec_map`,
   `vec_filter`, `vec_fold`, `vec_try_map`, `vec_try_map_with`,
   `list_nil`, `list_cons`, `list_is_empty`, `list_fold`, `list_reverse`,
