@@ -1,0 +1,15 @@
+# Binary schema UInt31be decode reports out-of-range decoded integers.
+schema StreamIdentifierSample
+	format binary
+
+	stream_id: UInt31be
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("80000000")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(4)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {stream_id: Int} = byte_decode_stream_identifier_sample(view)?
+	Ok(())
+end

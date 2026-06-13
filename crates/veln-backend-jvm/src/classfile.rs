@@ -747,6 +747,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.ldc_string(&schema.schema_name);
         self.emit_schema_field_names(code, schema);
         self.emit_schema_field_widths(code, schema);
+        self.emit_schema_field_max_values(code, schema);
         self.emit_schema_reserved_bit_widths(code, schema);
         self.emit_schema_reserved_values(code, schema);
         self.emit_schema_field_predicates(code, schema);
@@ -760,7 +761,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeDeclaredBinarySchema",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            &object_method_descriptor(15),
         );
     }
 
@@ -780,6 +781,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.ldc_string(&schema.schema_name);
         self.emit_schema_field_names(code, schema);
         self.emit_schema_field_widths(code, schema);
+        self.emit_schema_field_max_values(code, schema);
         self.emit_schema_reserved_bit_widths(code, schema);
         self.emit_schema_reserved_values(code, schema);
         self.emit_schema_field_predicates(code, schema);
@@ -793,7 +795,7 @@ impl<'a, 'program> FunctionBytecodeEmitter<'a, 'program> {
         code.invokestatic(
             &self.program.options.runtime_class,
             "byteDecodeStepDeclaredBinarySchema",
-            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;",
+            &object_method_descriptor(16),
         );
     }
 

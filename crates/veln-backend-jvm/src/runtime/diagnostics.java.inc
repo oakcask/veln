@@ -536,6 +536,37 @@
         );
     }
 
+    private static void registerSchemaIntegerOutOfRangeDiagnostic(
+        String message,
+        long byteOffset,
+        String schemaName,
+        String fieldName,
+        long byteWidth,
+        long minValue,
+        long maxValue,
+        long actualValue,
+        String nearbyContext
+    ) {
+        byteDiagnostics.get().put(
+            message,
+            new ByteDiagnostic(
+                "schema.integer_out_of_range",
+                byteOffset,
+                java.util.Arrays.asList(
+                    new ByteDiagnosticFieldPathSegment("schema", schemaName),
+                    new ByteDiagnosticFieldPathSegment("field", fieldName)
+                ),
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("byte_width", byteWidth),
+                    DiagnosticDetail.number("min_value", minValue),
+                    DiagnosticDetail.number("max_value", maxValue),
+                    DiagnosticDetail.number("actual_value", actualValue),
+                    DiagnosticDetail.bytePreview("byte_preview", nearbyContext)
+                )
+            )
+        );
+    }
+
     private static void registerSchemaValidationFailedDiagnostic(
         String message,
         long byteOffset,

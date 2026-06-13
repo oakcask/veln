@@ -1111,6 +1111,7 @@
         Object schemaName,
         Object fieldNames,
         Object widths,
+        Object maxValues,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -1126,6 +1127,7 @@
             schemaName,
             fieldNames,
             widths,
+            maxValues,
             reservedBitWidths,
             reservedValues,
             predicates,
@@ -1149,6 +1151,7 @@
         Object schemaName,
         Object fieldNames,
         Object widths,
+        Object maxValues,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -1164,6 +1167,7 @@
             schemaName,
             fieldNames,
             widths,
+            maxValues,
             reservedBitWidths,
             reservedValues,
             predicates,
@@ -1832,7 +1836,20 @@
             value = (value << 8) | byteValueLong(bytes.get((int) baseOffset + relativeOffset + index));
         }
         if (value > maxValue) {
-            return err("schema field `" + fieldName + "` value exceeds maximum " + maxValue);
+            long byteOffset = diagnosticBaseOffset + relativeOffset;
+            String message = "schema integer out of range at byte offset " + byteOffset;
+            registerSchemaIntegerOutOfRangeDiagnostic(
+                message,
+                byteOffset,
+                schemaName,
+                fieldName,
+                width,
+                0L,
+                maxValue,
+                value,
+                byteViewPreviewTrace(view, 8)
+            );
+            return err(message);
         }
         return ok(Long.valueOf(value));
     }
@@ -2360,6 +2377,7 @@
         Object schemaName,
         Object fieldNames,
         Object widths,
+        Object maxValues,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -2375,7 +2393,7 @@
             schemaName,
             fieldNames,
             widths,
-            null,
+            maxValues,
             reservedBitWidths,
             reservedValues,
             predicates,
