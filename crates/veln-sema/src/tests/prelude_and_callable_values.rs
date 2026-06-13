@@ -93,11 +93,13 @@ fn generated_schema_encode_helpers_resolve_for_exact_width_binary_schemas() {
             "  format binary\n",
             "\n",
             "  short_value: UInt16be\n",
+            "  little_length: UInt24le\n",
             "  stream_id: UInt31be\n",
+            "  little_wide: UInt32le\n",
             "  wide_value: UInt32be\n",
             "end\n",
             "\n",
-            "pub fn main(packet: {short_value: Int, stream_id: Int, wide_value: Int}) -> Result<ByteChunk, EncodeError>\n",
+            "pub fn main(packet: {short_value: Int, little_length: Int, stream_id: Int, little_wide: Int, wide_value: Int}) -> Result<ByteChunk, EncodeError>\n",
             "  byte_encode_write_packet(packet)\n",
             "end\n",
         ),
@@ -133,12 +135,21 @@ fn generated_schema_encode_helpers_resolve_for_exact_width_binary_schemas() {
         schema
             .fields
             .iter()
-            .map(|field| (field.name.as_str(), field.width, field.max_value))
+            .map(|field| {
+                (
+                    field.name.as_str(),
+                    field.width,
+                    field.max_value,
+                    field.little_endian,
+                )
+            })
             .collect::<Vec<_>>(),
         vec![
-            ("short_value", 2, 0xffff),
-            ("stream_id", 4, 0x7fffffff),
-            ("wide_value", 4, 0xffffffff),
+            ("short_value", 2, 0xffff, false),
+            ("little_length", 3, 0xffffff, true),
+            ("stream_id", 4, 0x7fffffff, false),
+            ("little_wide", 4, 0xffffffff, true),
+            ("wide_value", 4, 0xffffffff, false),
         ]
     );
 }
@@ -220,7 +231,7 @@ fn generated_schema_encode_helpers_resolve_for_closed_dispatch_binary_schemas() 
             "  format binary\n",
             "\n",
             "  kind: UInt8\n",
-            "  payload: Dispatch(kind, 1 => UInt8, 2 => UInt16be, 3 => UInt24be, 4 => UInt32be)\n",
+            "  payload: Dispatch(kind, 1 => UInt8, 2 => UInt16be, 3 => UInt24le, 4 => UInt32le)\n",
             "end\n",
             "\n",
             "pub fn main(packet: {kind: Int, payload: Int}) -> Result<ByteChunk, EncodeError>\n",
@@ -268,9 +279,9 @@ fn generated_schema_encode_helpers_resolve_for_closed_dispatch_binary_schemas() 
         dispatch
             .cases
             .iter()
-            .map(|case| (case.tag, case.width))
+            .map(|case| (case.tag, case.width, case.little_endian))
             .collect::<Vec<_>>(),
-        vec![(1, 1), (2, 2), (3, 3), (4, 4)]
+        vec![(1, 1, false), (2, 2, false), (3, 3, true), (4, 4, true)]
     );
 }
 
@@ -284,7 +295,7 @@ fn generated_schema_encode_helpers_resolve_for_extension_dispatch_binary_schemas
             "\n",
             "  length: UInt8\n",
             "  kind: UInt8\n",
-            "  payload: ExtensionDispatch(kind, length, 1 => UInt16be, 2 => UInt32be)\n",
+            "  payload: ExtensionDispatch(kind, length, 1 => UInt24le, 2 => UInt32le)\n",
             "end\n",
             "\n",
             "pub fn main(packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<Int>}) -> Result<ByteChunk, EncodeError>\n",
@@ -332,9 +343,9 @@ fn generated_schema_encode_helpers_resolve_for_extension_dispatch_binary_schemas
         dispatch
             .cases
             .iter()
-            .map(|case| (case.tag, case.width))
+            .map(|case| (case.tag, case.width, case.little_endian))
             .collect::<Vec<_>>(),
-        vec![(1, 2), (2, 4)]
+        vec![(1, 3, true), (2, 4, true)]
     );
 }
 
@@ -815,7 +826,7 @@ fn generated_schema_decode_helpers_keep_closed_dispatch_metadata() {
             "  format binary\n",
             "\n",
             "  kind: UInt8\n",
-            "  payload: Dispatch(kind, 1 => UInt16be, 2 => UInt32be)\n",
+            "  payload: Dispatch(kind, 1 => UInt24le, 2 => UInt32le)\n",
             "end\n",
             "\n",
             "pub fn main(view: ByteView) -> Result<{kind: Int, payload: Int}, String>\n",
@@ -849,9 +860,9 @@ fn generated_schema_decode_helpers_keep_closed_dispatch_metadata() {
         dispatch
             .cases
             .iter()
-            .map(|case| (case.tag, case.width))
+            .map(|case| (case.tag, case.width, case.little_endian))
             .collect::<Vec<_>>(),
-        vec![(1, 2), (2, 4)]
+        vec![(1, 3, true), (2, 4, true)]
     );
 }
 
@@ -865,7 +876,7 @@ fn generated_schema_decode_helpers_keep_extension_dispatch_metadata() {
             "\n",
             "  length: UInt8\n",
             "  kind: UInt8\n",
-            "  payload: ExtensionDispatch(kind, length, 1 => UInt16be, 2 => UInt32be)\n",
+            "  payload: ExtensionDispatch(kind, length, 1 => UInt24le, 2 => UInt32le)\n",
             "end\n",
             "\n",
             "pub fn main(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<Int>}, String>\n",
@@ -899,9 +910,9 @@ fn generated_schema_decode_helpers_keep_extension_dispatch_metadata() {
         dispatch
             .cases
             .iter()
-            .map(|case| (case.tag, case.width))
+            .map(|case| (case.tag, case.width, case.little_endian))
             .collect::<Vec<_>>(),
-        vec![(1, 2), (2, 4)]
+        vec![(1, 3, true), (2, 4, true)]
     );
 }
 

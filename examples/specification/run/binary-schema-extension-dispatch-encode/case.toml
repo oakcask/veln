@@ -23,5 +23,13 @@ name = "extension-known-u16"
 chunks = ["02011234"]
 
 [[output_chunk_list]]
+name = "extension-known-u24le"
+chunks = ["0303563412"]
+
+[[output_chunk_list]]
+name = "extension-known-u32le"
+chunks = ["0404efbeadde"]
+
+[[output_chunk_list]]
 name = "extension-unknown-raw"
 chunks = ["0307aabbcc"]

@@ -5,7 +5,7 @@ schema ExtensionDispatchWritePacket
 
 	length: UInt8
 	kind: UInt8
-	payload: ExtensionDispatch(kind, length, 1 => UInt16be, 2 => UInt32be)
+	payload: ExtensionDispatch(kind, length, 1 => UInt16be, 2 => UInt32be, 3 => UInt24le, 4 => UInt32le)
 end
 
 fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
@@ -41,6 +41,12 @@ end
 pub fn main() -> Result<(), String> effects [stdio]
 	let known: Result<ByteChunk, EncodeError> = byte_encode_extension_dispatch_write_packet({length: 2, kind: 1, payload: Known(4660)})
 	emit_encoded("extension-known-u16", known, "02011234")
+
+	let known_length: Result<ByteChunk, EncodeError> = byte_encode_extension_dispatch_write_packet({length: 3, kind: 3, payload: Known(1193046)})
+	emit_encoded("extension-known-u24le", known_length, "0303563412")
+
+	let known_wide: Result<ByteChunk, EncodeError> = byte_encode_extension_dispatch_write_packet({length: 4, kind: 4, payload: Known(3735928559)})
+	emit_encoded("extension-known-u32le", known_wide, "0404efbeadde")
 
 	let raw: ByteChunk = byte_chunk_from_hex("aabbcc")?
 	let view: ByteView = byte_view(raw, byte_offset(0)?, byte_count(3)?)?

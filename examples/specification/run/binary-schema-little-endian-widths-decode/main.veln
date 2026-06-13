@@ -1,0 +1,37 @@
+# Binary schema little-endian widths decode into ordinary Int fields.
+use stdio
+
+type LittleEndianWidths
+	LittleEndianWidths {short_number: Int, length_number: Int, wide_number: Int}
+end
+
+schema LittleEndianWidthsWire
+	format binary
+
+	short_value: UInt16le
+	length_value: UInt24le
+	wide_value: UInt32le
+
+	map to LittleEndianWidths
+		short_number = short_value
+		length_number = length_value
+		wide_number = wide_value
+end
+
+fn emit_widths(widths: {short_number: Int, length_number: Int, wide_number: Int}) -> () effects [stdio]
+	stdio::print(int_to_string(widths.short_number))
+	stdio::print(" ")
+	stdio::print(int_to_string(widths.length_number))
+	stdio::print(" ")
+	stdio::println(int_to_string(widths.wide_number))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("3412563412efbeadde")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(9)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let decoded: {short_number: Int, length_number: Int, wide_number: Int} = byte_decode_little_endian_widths_wire(view)?
+	emit_widths(decoded)
+	Ok(())
+end

@@ -219,8 +219,9 @@ against the built `veln` binary.
   `ReservedBits(width, value)` primitive fields, and field-local `where`
   predicates, plus structural `map to Target` clauses that assign schema-local
   fields to target fields.
-- `check/binary-schema-u16le/`: `UInt16le` is accepted as a `format binary`
-  schema field primitive on private and public schema declarations.
+- `check/binary-schema-u16le/`: `UInt16le`, `UInt24le`, and `UInt32le` are
+  accepted as `format binary` schema field primitives on private and public
+  schema declarations.
 - `check/schema-declaration-diagnostics/`: parser diagnostics for malformed
   schema headers, missing `end`, fields before `format`, multiple `format`
   clauses, `_`-prefixed fields, malformed field-local `where` predicates,
@@ -388,6 +389,16 @@ against the built `veln` binary.
 - `run/binary-schema-u16le-encode-out-of-range/`: generated schema encode
   helpers reject `UInt16le` values outside the unsigned 16-bit range with the
   usual `EncodeError` id, field path, and reason shape.
+- `run/binary-schema-little-endian-widths-decode/`: generated schema decode
+  helpers read `UInt16le`, `UInt24le`, and `UInt32le` in little-endian byte
+  order, return ordinary `Int` fields, and keep a structural `map to` target
+  record shape.
+- `run/binary-schema-little-endian-widths-encode/`: generated schema encode
+  helpers write `UInt16le`, `UInt24le`, and `UInt32le` in little-endian byte
+  order in the emitted `ByteChunk`.
+- `run/binary-schema-little-endian-widths-encode-out-of-range/`: generated
+  schema encode helpers reject `UInt24le` and `UInt32le` values outside their
+  unsigned ranges with width-specific maximum values.
 - `run/binary-schema-width-sample-decode/`: the implemented `UInt16be` and
   `UInt32be` primitive decode slice returns visible exact-width fields as
   ordinary `Int` values.
@@ -437,8 +448,8 @@ against the built `veln` binary.
   value.
 - `run/binary-schema-closed-dispatch-encode/`: a generated binary schema
   encode helper selects a closed dispatch primitive payload from an earlier
-  tag field, writes the selected `UInt8`, `UInt16be`, `UInt24be`, or
-  `UInt32be` payload width, and returns one `ByteChunk`.
+  tag field, writes the selected big-endian or little-endian payload width,
+  and returns one `ByteChunk`.
 - `run/binary-schema-closed-dispatch-nested-encode/`: a generated binary
   schema encode helper selects a closed dispatch same-module nested payload
   schema and writes the nested record fields in schema order.

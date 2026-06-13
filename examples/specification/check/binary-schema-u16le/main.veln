@@ -1,11 +1,15 @@
 schema LittleEndianField
 	format binary
 
-	value: UInt16le
+	short_value: UInt16le
+	length_value: UInt24le
+	wide_value: UInt32le
 end
 
 pub schema PublicLittleEndianField
 	format binary
 
-	value: UInt16le
+	short_value: UInt16le
+	length_value: UInt24le
+	wide_value: UInt32le
 end

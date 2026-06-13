@@ -33,3 +33,11 @@ chunks = ["03abcdef"]
 [[output_chunk_list]]
 name = "dispatch-u32"
 chunks = ["04deadbeef"]
+
+[[output_chunk_list]]
+name = "dispatch-u24le"
+chunks = ["05563412"]
+
+[[output_chunk_list]]
+name = "dispatch-u32le"
+chunks = ["06efbeadde"]

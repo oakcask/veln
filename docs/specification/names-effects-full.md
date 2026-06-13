@@ -559,9 +559,10 @@ from the expected fixed byte for the supplied schema and field names. The
 `byte_decode_schema_width_sample` helper is the narrow executable schema slice
 for `UInt16be` and `UInt32be`: it reads both fields from a `ByteView`, returns
 ordinary `Int` values, and reports schema truncation with field-path byte
-diagnostic details. Generated binary schema helpers also accept `UInt16le` as
-a two-byte little-endian unsigned field that decodes to ordinary `Int` and
-encodes with the same unsigned 16-bit representability boundary as `UInt16be`.
+diagnostic details. Generated binary schema helpers also accept `UInt16le`,
+`UInt24le`, and `UInt32le` as little-endian unsigned fields that decode to
+ordinary `Int` and encode with the same representability boundaries as their
+matching unsigned widths.
 Source `format binary` schema declarations whose fields
 all use implemented exact-width unsigned primitives expose generated
 `byte_decode_<schema>` helpers in their declaring module. Those helpers decode

@@ -1,0 +1,51 @@
+use stdio
+
+schema LittleEndianLengthWire
+	format binary
+
+	value: UInt24le
+end
+
+schema LittleEndianWideWire
+	format binary
+
+	value: UInt32le
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+pub fn main() -> () effects [stdio]
+	let length_encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_length_wire({value: 16777216})
+	match length_encoded
+		Ok(_) => stdio::println("unexpected UInt24le encode success")
+		Err(error) => emit_error(error)
+	end
+
+	let wide_encoded: Result<ByteChunk, EncodeError> = byte_encode_little_endian_wide_wire({value: 4294967296})
+	match wide_encoded
+		Ok(_) => stdio::println("unexpected UInt32le encode success")
+		Err(error) => emit_error(error)
+	end
+end

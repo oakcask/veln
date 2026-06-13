@@ -15,9 +15,9 @@ path = "status"
 equals = "passed"
 
 [[json_assert]]
-path = "stdout"
-equals = "3 3 1193046\n4 4 3735928559\n"
-
-[[json_assert]]
 path = "error"
 equals = null
+
+[[output_chunk_list]]
+name = "little-endian-widths"
+chunks = ["3412563412efbeadde"]
