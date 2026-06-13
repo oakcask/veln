@@ -56,8 +56,9 @@ compare it with `../specification/` before changing behavior.
   validation slice, frame-size peer-limit diagnostic slice with receive-limit
   provenance, peer-received SETTINGS state for maximum frame size and initial
   window size, SETTINGS value range diagnostic slice, invalid frame-kind
-  diagnostic slice, PING/GOAWAY receive slice, DATA and `WINDOW_UPDATE`
-  receive flow-control slices, and outbound frame-header encode slice.
+  diagnostic slice, unknown extension-frame preservation slice, PING/GOAWAY
+  receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices, and
+  outbound frame-header encode slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, socket, stream-routing, deadline,
   cancellation, channel, and task behavior beyond the implemented
