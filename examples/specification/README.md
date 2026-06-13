@@ -264,6 +264,10 @@ against the built `veln` binary.
   `encode with` functions report `codec.decode_value_type` and
   `codec.encode_value_type` when their value boundaries do not match the
   schema mapping target record shape.
+- `check/derived-codec-mapping-boundary-diagnostics/`: mapped `derive decode`
+  and `derive encode` clauses report `codec.decode_value_type` and
+  `codec.encode_value_type` when the generated boundary cannot expose or
+  accept the schema mapping target value type.
 - `doc/generated-markdown/`: generated documentation from package and tool
   metadata, module identity, imports, public functions, contracts, doctest
   fences, hidden doctest setup, and ADR-lite records.
@@ -487,6 +491,9 @@ against the built `veln` binary.
   over an eligible binary schema observes successful generated helper output
   as `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated
   helper failures as `Invalid(EncodeError)`.
+- `check/derived-codec-mapping-boundary-diagnostics/`: mapped derived codec
+  clauses reject generated boundaries that cannot use the mapping target value
+  type.
 - `run/derived-codec-decode-boundary/`: a `derive decode` codec item call
   over an eligible binary schema observes the generated decode-step helper's
   `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the

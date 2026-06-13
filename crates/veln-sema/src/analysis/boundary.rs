@@ -426,32 +426,42 @@ pub(crate) fn check_codec_decode_signatures(module: &SurfaceModule) -> Vec<Diagn
     let mut diagnostics = Vec::new();
 
     for codec in &module.codecs {
-        for implementation in codec.implementations.iter().filter(|implementation| {
-            implementation.direction == CodecDirection::Decode
-                && matches!(implementation.kind, CodecImplementationKind::With { .. })
-        }) {
-            let CodecImplementationKind::With { function } = &implementation.kind else {
-                continue;
-            };
-            let Some(function_name) = function else {
-                continue;
-            };
-            let Some(function) = codec_same_module_function(module, codec, function_name) else {
-                diagnostics.push(unresolved_codec_decode_function_diagnostic(
-                    codec,
-                    implementation,
-                    function_name,
-                ));
-                continue;
-            };
+        for implementation in codec
+            .implementations
+            .iter()
+            .filter(|implementation| implementation.direction == CodecDirection::Decode)
+        {
+            match &implementation.kind {
+                CodecImplementationKind::With { function } => {
+                    let Some(function_name) = function else {
+                        continue;
+                    };
+                    let Some(function) = codec_same_module_function(module, codec, function_name)
+                    else {
+                        diagnostics.push(unresolved_codec_decode_function_diagnostic(
+                            codec,
+                            implementation,
+                            function_name,
+                        ));
+                        continue;
+                    };
 
-            diagnostics.extend(codec_decode_signature_diagnostics(
-                module,
-                codec,
-                implementation,
-                function,
-                function_name,
-            ));
+                    diagnostics.extend(codec_decode_signature_diagnostics(
+                        module,
+                        codec,
+                        implementation,
+                        function,
+                        function_name,
+                    ));
+                }
+                CodecImplementationKind::Derive => {
+                    diagnostics.extend(codec_derive_decode_value_type_diagnostics(
+                        module,
+                        codec,
+                        implementation,
+                    ));
+                }
+            }
         }
     }
 
@@ -462,32 +472,42 @@ pub(crate) fn check_codec_encode_signatures(module: &SurfaceModule) -> Vec<Diagn
     let mut diagnostics = Vec::new();
 
     for codec in &module.codecs {
-        for implementation in codec.implementations.iter().filter(|implementation| {
-            implementation.direction == CodecDirection::Encode
-                && matches!(implementation.kind, CodecImplementationKind::With { .. })
-        }) {
-            let CodecImplementationKind::With { function } = &implementation.kind else {
-                continue;
-            };
-            let Some(function_name) = function else {
-                continue;
-            };
-            let Some(function) = codec_same_module_function(module, codec, function_name) else {
-                diagnostics.push(unresolved_codec_encode_function_diagnostic(
-                    codec,
-                    implementation,
-                    function_name,
-                ));
-                continue;
-            };
+        for implementation in codec
+            .implementations
+            .iter()
+            .filter(|implementation| implementation.direction == CodecDirection::Encode)
+        {
+            match &implementation.kind {
+                CodecImplementationKind::With { function } => {
+                    let Some(function_name) = function else {
+                        continue;
+                    };
+                    let Some(function) = codec_same_module_function(module, codec, function_name)
+                    else {
+                        diagnostics.push(unresolved_codec_encode_function_diagnostic(
+                            codec,
+                            implementation,
+                            function_name,
+                        ));
+                        continue;
+                    };
 
-            diagnostics.extend(codec_encode_signature_diagnostics(
-                module,
-                codec,
-                implementation,
-                function,
-                function_name,
-            ));
+                    diagnostics.extend(codec_encode_signature_diagnostics(
+                        module,
+                        codec,
+                        implementation,
+                        function,
+                        function_name,
+                    ));
+                }
+                CodecImplementationKind::Derive => {
+                    diagnostics.extend(codec_derive_encode_value_type_diagnostics(
+                        module,
+                        codec,
+                        implementation,
+                    ));
+                }
+            }
         }
     }
 
@@ -675,6 +695,54 @@ fn codec_encode_signature_diagnostics(
     diagnostics
 }
 
+fn codec_derive_decode_value_type_diagnostics(
+    module: &SurfaceModule,
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+) -> Vec<Diagnostic> {
+    let Some(expected_value_type) = codec_declared_mapping_value_type(module, codec) else {
+        return Vec::new();
+    };
+    let Some(schema) = codec_referenced_schema(module, codec) else {
+        return Vec::new();
+    };
+    let actual_value_type = schema_decode_value_type(module, schema).unwrap_or(Type::Unknown);
+    if types_match(&expected_value_type, &actual_value_type) {
+        return Vec::new();
+    }
+
+    vec![codec_derive_decode_value_type_diagnostic(
+        codec,
+        implementation,
+        &expected_value_type,
+        &actual_value_type,
+    )]
+}
+
+fn codec_derive_encode_value_type_diagnostics(
+    module: &SurfaceModule,
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+) -> Vec<Diagnostic> {
+    let Some(expected_value_type) = codec_declared_mapping_value_type(module, codec) else {
+        return Vec::new();
+    };
+    let Some(schema) = codec_referenced_schema(module, codec) else {
+        return Vec::new();
+    };
+    let actual_value_type = schema_decode_record_type(module, schema).unwrap_or(Type::Unknown);
+    if types_match(&expected_value_type, &actual_value_type) {
+        return Vec::new();
+    }
+
+    vec![codec_derive_encode_value_type_diagnostic(
+        codec,
+        implementation,
+        &expected_value_type,
+        &actual_value_type,
+    )]
+}
+
 fn is_encode_step_return(ty: &Type) -> bool {
     matches!(
         ty,
@@ -683,16 +751,96 @@ fn is_encode_step_return(ty: &Type) -> bool {
 }
 
 fn codec_mapping_value_type(module: &SurfaceModule, codec: &CodecDecl) -> Option<Type> {
+    let parts = codec_single_mapping_value_type_parts(
+        module,
+        codec,
+        MappingValueTypeEligibility::ImplementedRuntimeSlice,
+    )?;
+    if !mapping_is_implemented_value_slice(
+        &parts.schema_fields,
+        parts.mapping,
+        &parts.target_fields,
+    ) {
+        return None;
+    }
+    Some(Type::Record(parts.target_fields))
+}
+
+fn codec_declared_mapping_value_type(module: &SurfaceModule, codec: &CodecDecl) -> Option<Type> {
+    let parts = codec_single_mapping_value_type_parts(
+        module,
+        codec,
+        MappingValueTypeEligibility::Declared,
+    )?;
+    Some(Type::Record(parts.target_fields))
+}
+
+struct CodecMappingValueTypeParts<'a> {
+    schema_fields: BTreeMap<String, Type>,
+    target_fields: Vec<(String, Type)>,
+    mapping: &'a SchemaMappingClause,
+}
+
+fn codec_single_mapping_value_type_parts<'a>(
+    module: &'a SurfaceModule,
+    codec: &CodecDecl,
+    eligibility: MappingValueTypeEligibility,
+) -> Option<CodecMappingValueTypeParts<'a>> {
     let schema = codec_referenced_schema(module, codec)?;
     let [mapping] = schema.mappings.as_slice() else {
         return None;
     };
     let schema_fields = generated_schema_field_types(module, schema)?;
     let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
-    if !mapping_is_implemented_value_slice(&schema_fields, mapping, &target_fields) {
+    if eligibility == MappingValueTypeEligibility::Declared
+        && !mapping_matches_declared_value_type(&schema_fields, mapping, &target_fields)
+    {
         return None;
     }
-    Some(Type::Record(target_fields))
+    Some(CodecMappingValueTypeParts {
+        schema_fields,
+        target_fields,
+        mapping,
+    })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MappingValueTypeEligibility {
+    Declared,
+    ImplementedRuntimeSlice,
+}
+
+fn mapping_matches_declared_value_type(
+    schema_fields: &BTreeMap<String, Type>,
+    mapping: &SchemaMappingClause,
+    target_fields: &[(String, Type)],
+) -> bool {
+    let target_field_types = target_fields
+        .iter()
+        .cloned()
+        .collect::<BTreeMap<String, Type>>();
+    let mut seen_targets = BTreeMap::<&str, ()>::new();
+    for assignment in &mapping.assignments {
+        let Some(source_ty) = schema_fields.get(&assignment.source) else {
+            return false;
+        };
+        let Some(target_ty) = target_field_types.get(&assignment.target) else {
+            return false;
+        };
+        if source_ty != target_ty {
+            return false;
+        }
+        if seen_targets
+            .insert(assignment.target.as_str(), ())
+            .is_some()
+        {
+            return false;
+        }
+    }
+
+    target_fields
+        .iter()
+        .all(|(target_field, _)| seen_targets.contains_key(target_field.as_str()))
 }
 
 fn mapping_is_implemented_value_slice(
@@ -1009,6 +1157,58 @@ fn codec_encode_value_type_diagnostic(
         .related
         .push(codec_function_related(function, function_name));
     diagnostic
+}
+
+fn codec_derive_decode_value_type_diagnostic(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    expected_value_type: &Type,
+    actual_value_type: &Type,
+) -> Diagnostic {
+    Diagnostic::new(
+        "codec.decode_value_type",
+        Severity::Error,
+        DiagnosticKind::Type,
+        format!(
+            "derived decode value type is `{}`, but schema mapping value type is `{}`",
+            actual_value_type.render(),
+            expected_value_type.render()
+        ),
+        Some(implementation.span.clone()),
+        codec_mapping_value_details(
+            implementation,
+            codec,
+            "decode",
+            "<derived>",
+            "generated_decode_value_type",
+            expected_value_type,
+            actual_value_type,
+        ),
+    )
+}
+
+fn codec_derive_encode_value_type_diagnostic(
+    codec: &CodecDecl,
+    implementation: &CodecImplementationClause,
+    expected_value_type: &Type,
+    actual_value_type: &Type,
+) -> Diagnostic {
+    Diagnostic::new(
+        "codec.encode_value_type",
+        Severity::Error,
+        DiagnosticKind::Type,
+        "derived encode value parameter must match schema mapping value type",
+        Some(implementation.span.clone()),
+        codec_mapping_value_details(
+            implementation,
+            codec,
+            "encode",
+            "<derived>",
+            "generated_encode_value_type",
+            expected_value_type,
+            actual_value_type,
+        ),
+    )
 }
 
 struct EncodeValueTypeMismatch<'a> {

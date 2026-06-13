@@ -173,6 +173,8 @@ execution reference.
   `Encoded(List<ByteChunk>)` with one chunk, and projects helper
   `Err(EncodeError)` output to `Invalid(EncodeError)`. The checked example is
   `examples/specification/run/derived-codec-encode-boundary/`.
+  A mapped schema is rejected with `codec.encode_value_type` when the generated
+  encode helper cannot accept the mapping target value type.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls. The call
@@ -180,6 +182,8 @@ execution reference.
   same `DecodeStep<T>` value as `byte_decode_step_<schema>`, including mapped
   record values, `NeedMore(NeedBytes(count))`, and `Invalid` without consumed
   bytes.
+  A mapped schema is rejected with `codec.decode_value_type` when the generated
+  decode-step helper cannot expose the mapping target value type.
 - A codec declaration with a valid hand-written `decode with function_name`
   clause exposes the codec item name as the executable decode boundary for
   ordinary source calls. The call accepts a bounded `ByteView` and explicit

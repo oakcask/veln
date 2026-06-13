@@ -154,7 +154,9 @@ bounded `ByteView` and explicit base `ByteOffset` and returns the same
 `DecodeStep<T>` value as `byte_decode_step_<schema>`, including a mapped record
 value when the schema has the implemented single structural `map to Target`
 record mapping. `Decoded` reports the exact consumed byte count; `NeedMore`
-and `Invalid` consume no bytes.
+and `Invalid` consume no bytes. When a declared mapping is valid but the
+generated decode-step helper cannot expose the mapping target as `T`, the
+`derive decode` clause is rejected with `codec.decode_value_type`.
 
 A codec declaration with a valid hand-written `decode with function_name`
 clause also exposes the codec item name as an executable decode boundary in
@@ -187,7 +189,10 @@ Same-module private derived encode codecs are callable only inside their
 declaring module; imported calls require a written qualified module path to a
 `pub codec`. General generated encode helper behavior outside the exact-width
 primitive, supported reserved-bit, closed dispatch, extension dispatch, and
-same-module nested dispatch payload slices remains unimplemented.
+same-module nested dispatch payload slices remains unimplemented. When a
+mapped schema would require the codec item to accept the mapping target rather
+than the generated helper's schema-local value record, the `derive encode`
+clause is rejected with `codec.encode_value_type`.
 
 Eligible generated binary schema encode helpers named
 `byte_encode_<schema>` accept one record whose fields match the schema-local
