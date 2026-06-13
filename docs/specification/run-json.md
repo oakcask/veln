@@ -162,7 +162,12 @@ growth, use id
 `frame_kind`, `stream_id`, `stream_ref`, `active_state`, and
 `rule_provenance`; the checked HTTP/2 examples cover both stream-window and
 connection-window receive credit failures. The ordinary protocol-core example
-also covers zero `WINDOW_UPDATE` increments as peer-limit failures. Received
+also covers zero `WINDOW_UPDATE` increments as peer-limit failures. A
+peer-created stream that would exceed the active concurrent-stream receive
+limit uses id `http2.peer_limit.concurrent_streams_exceeded` and records
+`byte_offset.value`, `stream_id`, `stream_ref`,
+`attempted_concurrent_stream_count`, `allowed_concurrent_stream_count`,
+`active_state`, `receive_limit_provenance`, and `rule_provenance`. Received
 SETTINGS range failures use id
 `http2.peer_limit.settings_value_out_of_range` and record
 `byte_offset.value`, `setting_identifier`, `setting_name`, `observed_value`,

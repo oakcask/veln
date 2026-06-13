@@ -58,8 +58,9 @@ compare it with `../specification/` before changing behavior.
   window size, SETTINGS value range diagnostic slice, invalid frame-kind
   diagnostic slice, HEADERS/CONTINUATION opaque header-block preservation
   slice, unknown extension-frame preservation slice, PING/GOAWAY receive
-  slice, DATA and `WINDOW_UPDATE` receive flow-control slices, and outbound
-  frame-header encode slice.
+  slice, DATA and `WINDOW_UPDATE` receive flow-control slices, peer-created
+  stream admission with concurrent-stream receive-limit diagnostics, and
+  outbound frame-header encode slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, socket, stream-routing, deadline,
   cancellation, channel, and task behavior beyond the implemented

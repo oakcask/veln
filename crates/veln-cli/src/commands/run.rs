@@ -548,6 +548,37 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Rule provenance: {provenance}.")));
             Some(diagnostic)
         }
+        "http2.peer_limit.concurrent_streams_exceeded" => {
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let attempted_count =
+                json_number(protocol_entries, "attempted_concurrent_stream_count")?;
+            let allowed_count = json_number(protocol_entries, "allowed_concurrent_stream_count")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let limit_provenance = json_string(protocol_entries, "receive_limit_provenance")?;
+            let rule_provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("concurrent stream receive limit exceeded at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Opening {stream_ref} {stream_id} would make {attempted_count} concurrent peer-created stream(s); active receive limit is {allowed_count}."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic.related.push(note_json(format!(
+                "Receive limit provenance: {limit_provenance}."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {rule_provenance}.")));
+            Some(diagnostic)
+        }
         "http2.peer_limit.settings_value_out_of_range" => {
             let setting_identifier = json_number(protocol_entries, "setting_identifier")?;
             let setting_name = json_string(protocol_entries, "setting_name")?;
@@ -1682,6 +1713,77 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("stream_receive_window")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_concurrent_stream_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.peer_limit.concurrent_streams_exceeded"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("stream_id", JsonValue::Number(3)),
+            ("stream_ref", JsonValue::string("stream")),
+            ("attempted_concurrent_stream_count", JsonValue::Number(2)),
+            ("allowed_concurrent_stream_count", JsonValue::Number(1)),
+            ("active_state", JsonValue::string("open-stream")),
+            (
+                "receive_limit_provenance",
+                JsonValue::string("local_configuration"),
+            ),
+            (
+                "rule_provenance",
+                JsonValue::string("peer_created_stream_receive_limit"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 concurrent stream receive limit exceeded at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(
+            diagnostic.id,
+            "http2.peer_limit.concurrent_streams_exceeded"
+        );
+        assert_eq!(
+            diagnostic.message,
+            "concurrent stream receive limit exceeded at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 4);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("make 2 concurrent peer-created stream(s)")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("active receive limit is 1")
+        );
+        assert!(diagnostic.related[1].to_json().contains("open-stream"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("local_configuration")
+        );
+        assert!(
+            diagnostic.related[3]
+                .to_json()
+                .contains("peer_created_stream_receive_limit")
         );
     }
 

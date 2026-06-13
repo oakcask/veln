@@ -1486,6 +1486,37 @@
         return err(message);
     }
 
+    public static Object http2PeerLimitConcurrentStreamsExceeded(
+        Object offset,
+        Object streamId,
+        Object attemptedCount,
+        Object allowedCount,
+        Object activeState,
+        Object receiveLimitProvenance,
+        Object ruleProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long stream = asLong(streamId);
+        long attempted = asLong(attemptedCount);
+        long allowed = asLong(allowedCount);
+        String state = asString(activeState);
+        String limitProvenance = asString(receiveLimitProvenance);
+        String rule = asString(ruleProvenance);
+        String message = "HTTP/2 concurrent stream receive limit exceeded at byte offset "
+            + byteOffset;
+        registerHttp2PeerLimitConcurrentStreamsExceededDiagnostic(
+            message,
+            byteOffset,
+            stream,
+            attempted,
+            allowed,
+            state,
+            limitProvenance,
+            rule
+        );
+        return err(message);
+    }
+
     public static Object http2PeerLimitSettingsValueOutOfRange(
         Object offset,
         Object settingIdentifier,

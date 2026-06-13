@@ -221,10 +221,13 @@ execution reference.
   frame kinds,
   wrong-length PING and GOAWAY payloads, accepted PING ACK distinction, and
   accepted GOAWAY last-stream-id and error-code facts as typed protocol
-  values. The receive flow-control state consumes DATA payload length from
+  values. The receive flow-control state opens an idle peer-created stream on
+  an admitted HEADERS frame, counts the tracked open peer-created stream for
+  the active concurrent-stream receive limit, consumes DATA payload length from
   connection and stream windows, accepts connection-level and open-stream
-  `WINDOW_UPDATE` increments, and keeps wrong-length, idle-stream, zero, and
-  overflow `WINDOW_UPDATE` cases as typed protocol failures. Structurally
+  `WINDOW_UPDATE` increments, and keeps wrong-length, idle-stream, zero,
+  concurrent-stream-limit, and overflow cases as typed protocol failures.
+  Structurally
   complete unknown extension frame types decode to ordinary `UnknownFrame`
   values that preserve frame type, flags, stream id, payload length, and each
   bounded payload byte; an active continuation sequence still rejects an
