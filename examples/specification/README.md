@@ -490,8 +490,9 @@ against the built `veln` binary.
   range-checks received `SETTINGS_MAX_FRAME_SIZE` before updating that
   peer-advertised state. It also accepts a structurally complete unknown
   extension frame as an ordinary value preserving frame type, flags, stream id,
-  and bounded payload bytes, while active continuation state still reports the
-  existing continuation protocol failure for an unknown frame. The case also
+  payload length, and each bounded payload byte, while active continuation
+  state still reports the existing continuation protocol failure for an
+  unknown frame. The case also
   accepts DATA on an open stream,
   decrements both connection and stream receive-window credit by payload
   length, accepts `WINDOW_UPDATE` receive-credit increments for the connection

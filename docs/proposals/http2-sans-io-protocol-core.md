@@ -79,17 +79,6 @@ out of the schema language. The initial slice may use opaque header blocks or
 a deliberately small fixture codec, but it should not introduce a
 schema-backed HPACK special case.
 
-## Implemented Slice: Unknown Frame Handling
-
-This discussion result is current behavior under `../specification/` and the
-checked `../../examples/specification/run/http2-protocol-core/` case. The
-ordinary-source core decodes structurally complete unknown HTTP/2 frame types
-into an explicit `UnknownFrame` value that preserves the numeric frame type,
-flags, stream id, and bounded payload bytes after the normal frame-header and
-payload-length checks succeed. Unknown extension frame types are not schema
-dispatch failures, while active continuation state still reports the existing
-typed protocol-state failure when the next frame must be CONTINUATION.
-
 ## Discussion Result: Protocol Numeric Domain Types
 
 Stream identifiers and flow-control counters should be protocol-domain values
@@ -238,11 +227,6 @@ implemented frame-header primitive after the preface gate, checks the active
 receive maximum frame size after structural header decode, and projects typed
 protocol failures into stable fixture output ids,
 `protocol_diagnostic` JSON details, and human related context.
-It also accepts a structurally complete unknown extension frame as an ordinary
-`UnknownFrame` value preserving frame type, flags, stream id, and bounded
-payload bytes, and keeps active continuation ownership by rejecting an unknown
-frame with the existing continuation protocol-state failure when CONTINUATION
-is required next.
 It also splits the active receive-limit entry from peer-advertised SETTINGS
 state for maximum frame size. The checked example keeps protocol-default,
 local-configuration, and local-SETTINGS receive-limit provenance visible in
