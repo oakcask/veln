@@ -428,6 +428,9 @@ against the built `veln` binary.
 - `run/binary-schema-closed-dispatch-nested-decode/`: a closed dispatch known
   case may select a same-module nested binary schema payload and return the
   decoded nested record shape.
+- `run/binary-schema-imported-closed-dispatch-nested-decode/`: a closed
+  dispatch known case may select a public imported binary schema payload
+  through a written `use` path and return the decoded nested record shape.
 - `run/binary-schema-closed-dispatch-unknown-json/`: a generated binary schema
   decode helper reports `schema.dispatch_unknown_tag` through `run --json`
   with byte offset, field path, decoded tag field, decoded tag value, expected
@@ -436,14 +439,18 @@ against the built `veln` binary.
   unknown-tag failure projects focused human `run` diagnostics with related
   tag, byte context, and field-path notes.
 - `check/binary-schema-dispatch-payload-diagnostics/`: nested dispatch payload
-  schema names are checked against the narrow same-module boundary, with
-  diagnostics for missing names, non-schema names, imported schemas, self
-  references, forward references, and incompatible payload shapes.
+  schema names are checked against the narrow eligible schema boundary, with
+  diagnostics for missing names, non-schema names, private imported schemas,
+  self references, forward references, and incompatible payload shapes.
 - `run/binary-schema-extension-dispatch-decode/`: a generated binary schema
   decode helper reads an extension-tolerant dispatch tag, selects a known
   payload case, and returns `SchemaDispatchPayload::Known`.
 - `run/binary-schema-extension-dispatch-nested-decode/`: an
   extension-tolerant known case may decode a same-module nested binary schema
+  payload and wrap the decoded record shape in
+  `SchemaDispatchPayload::Known`.
+- `run/binary-schema-imported-extension-dispatch-nested-decode/`: an
+  extension-tolerant known case may decode a public imported binary schema
   payload and wrap the decoded record shape in
   `SchemaDispatchPayload::Known`.
 - `run/binary-schema-extension-dispatch-unknown/`: the same extension-tolerant
@@ -452,6 +459,12 @@ against the built `veln` binary.
 - `run/binary-schema-extension-dispatch-nested-unknown/`: unknown
   extension-tolerant tags stay opaque even when known cases name nested
   payload schemas.
+- `run/binary-schema-imported-extension-dispatch-nested-unknown/`: unknown
+  extension-tolerant tags stay opaque when known cases name imported nested
+  payload schemas.
+- `run/binary-schema-imported-dispatch-nested-failure-json/`: imported nested
+  payload failures preserve the nested schema field path and absolute byte
+  offset in JSON output.
 - `run/binary-schema-dispatch-nested-failure-json/`: nested payload schema
   failures keep the nested schema field path and absolute byte offset in
   `run --json`.

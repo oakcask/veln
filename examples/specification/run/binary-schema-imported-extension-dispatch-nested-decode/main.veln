@@ -1,0 +1,44 @@
+# Binary schema extension dispatch decodes an imported known payload schema.
+use stdio
+use wire
+
+schema ImportedExtensionNestedPacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => wire::SettingsPayload)
+end
+
+fn emit_payload(payload: SchemaDispatchPayload<{code: Int, value: Int}>) -> Result<(), String> effects [stdio]
+	match payload
+		Known(value) => emit_known(value)
+		Unknown(_, _) => emit_unknown_marker()
+	end
+end
+
+fn emit_known(value: {code: Int, value: Int}) -> Result<(), String> effects [stdio]
+	stdio::print(int_to_string(value.code))
+	stdio::print(" ")
+	stdio::println(int_to_string(value.value))
+	Ok(())
+end
+
+fn emit_unknown_marker() -> Result<(), String> effects [stdio]
+	stdio::println("unknown")
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("03010700ff")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(5)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<{code: Int, value: Int}>} = byte_decode_imported_extension_nested_packet(view)?
+	stdio::print(int_to_string(packet.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.kind))
+	stdio::print(" ")
+	emit_payload(packet.payload)
+	Ok(())
+end

@@ -52,8 +52,9 @@ schemas, `UInt8`, `UInt16be`, `UInt24be`, `UInt31be`, `UInt32be`, and
 non-negative integers. The narrow closed tag-dispatch field type
 `Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names a
 previously decoded schema field and each case payload is either one of the
-implemented exact-width unsigned binary primitives or a same-module binary
-schema item. The extension-tolerant field type
+implemented exact-width unsigned binary primitives, a same-module binary
+schema item, or a public imported binary schema named through a written `use`
+path. The extension-tolerant field type
 `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` is accepted
 when both referenced fields were decoded earlier in the same schema. Its known
 cases use the same payload vocabulary, and its unknown cases preserve a
@@ -62,9 +63,9 @@ representation-local field vocabulary, not ordinary source types or values.
 Dispatch reference diagnostics report `schema.dispatch_reference` when the tag
 or length field is missing, forward, or not an `Int`-decoded schema field.
 Nested dispatch payload diagnostics report `schema.dispatch_payload` when a
-payload name is missing, resolves to a non-schema item, names a private or
-unsupported imported schema, refers forward or recursively, or decodes to an
-incompatible payload shape. The checked diagnostics case is
+payload name is missing, resolves to a non-schema item, names a private
+imported schema, names a non-binary schema, refers forward or recursively, or
+decodes to an incompatible payload shape. The checked diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`.
 A schema may end with
 structural `map to Target` clauses whose assignment lines use
@@ -79,8 +80,8 @@ General schema decode, general schema encode beyond the exact-width
 primitive, supported reserved-bit, closed dispatch, extension dispatch, and
 same-module nested dispatch payload helper slices, general ADT constructor
 mapping beyond the extension dispatch payload wrapper, imported dispatch
-payload schemas, nested record mapping, and multiple mapping selection are not
-implemented.
+payload schema encode, nested record mapping, and multiple mapping selection
+are not implemented.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, plus the supported `ReservedBits(1, 0)` before `UInt31be` layout,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and

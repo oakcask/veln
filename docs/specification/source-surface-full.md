@@ -101,13 +101,14 @@ spelling when `width` and `value` are literal non-negative integers, such as
 type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
 type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
 the referenced fields were decoded earlier in the same schema and case
-payloads are implemented exact-width unsigned primitives or same-module binary
-schema items. Exact-width primitive names used outside `format binary` schema
+payloads are implemented exact-width unsigned primitives, same-module binary
+schema items, or public imported binary schemas named through written `use`
+paths. Exact-width primitive names used outside `format binary` schema
 field type positions report `schema.exact_width_primitive`. Missing
 `ReservedBits` arguments or non-literal arguments report
 `schema.reserved_bits_primitive`. Missing, forward, or non-`Int` tag and
 length references report `schema.dispatch_reference`. Nested payload names
-that are missing, non-schema, private imported, unsupported imported, forward,
+that are missing, non-schema, private imported, non-binary, forward,
 recursive, or incompatible report `schema.dispatch_payload`. The checked
 diagnostics case is
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`.

@@ -1357,10 +1357,28 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
             "  payload: Dispatch(kind, 1 => wire::PrivatePayload)\n",
             "end\n",
             "\n",
+            "schema ImportedMissingPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => wire::MissingPayload)\n",
+            "end\n",
+            "\n",
+            "schema ImportedWrongKindPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => wire::WireShape)\n",
+            "end\n",
+            "\n",
             "schema ImportedPublicPacket\n",
             "  format binary\n",
             "  kind: UInt8\n",
             "  payload: Dispatch(kind, 1 => wire::PublicPayload)\n",
+            "end\n",
+            "\n",
+            "schema ImportedTextPacket\n",
+            "  format binary\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => wire::TextPayload)\n",
             "end\n",
             "\n",
             "schema SelfPacket\n",
@@ -1402,9 +1420,17 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
             "  code: UInt8\n",
             "end\n",
             "\n",
+            "pub type WireShape\n",
+            "  WireShape(Int)\n",
+            "end\n",
+            "\n",
             "pub schema PublicPayload\n",
             "  format binary\n",
             "  code: UInt8\n",
+            "end\n",
+            "\n",
+            "pub schema TextPayload\n",
+            "  code: Int\n",
             "end\n",
         ),
     );
@@ -1416,7 +1442,7 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
         module: app.module,
         uses: app.uses,
         aliases: Vec::new(),
-        types: app.types,
+        types: [app.types, wire.types].concat(),
         schemas,
         codecs: Vec::new(),
         functions: Vec::new(),
@@ -1438,8 +1464,16 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
             "imported dispatch payload schema `wire::PrivatePayload` is private",
         ),
         (
-            "imported_payload_schema",
-            "imported dispatch payload schema `wire::PublicPayload` is not supported",
+            "unknown_payload_schema",
+            "dispatch payload schema `wire::MissingPayload` is not declared",
+        ),
+        (
+            "non_schema_payload",
+            "dispatch payload `wire::WireShape` resolves to a type, not a schema",
+        ),
+        (
+            "non_binary_payload_schema",
+            "dispatch payload schema `wire::TextPayload` must use `format binary`",
         ),
         (
             "self_payload_schema",
@@ -1466,6 +1500,13 @@ fn dispatch_payload_schema_references_report_resolution_diagnostics() {
             "{diagnostics:#?}"
         );
     }
+    assert!(
+        diagnostics.iter().all(|diagnostic| {
+            diagnostic.id != "schema.dispatch_payload"
+                || !diagnostic.message.contains("wire::PublicPayload")
+        }),
+        "{diagnostics:#?}"
+    );
 }
 
 #[test]

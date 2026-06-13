@@ -4,6 +4,10 @@ schema PrivatePayload
 	code: UInt8
 end
 
+pub type WireShape
+	WireShape(Int)
+end
+
 pub schema PublicPayload
 	format binary
 
