@@ -50,8 +50,9 @@ compare it with `../specification/` before changing behavior.
   schema validation details, structured schema byte previews, and the HTTP/2
   client connection preface failures, frame-size and flow-control peer-limits,
   SETTINGS value range peer-limit, stream id domain failures, invalid
-  connection-state and stream-state frame-kind failures, and fixed
-  payload-length protocol projections.
+  connection-state and stream-state frame-kind failures, fixed payload-length
+  protocol projections, and generated binary schema encode
+  value-representation failures.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, client connection preface

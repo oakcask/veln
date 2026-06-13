@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "codec.out_of_range\nStreamIdentifierSample.stream_id\nvalue must be between 0 and 2147483647\n"
+equals = "codec.encode_value_unrepresentable\nStreamIdentifierSample.stream_id\nvalue must be between 0 and 2147483647\n"
 
 [[json_assert]]
 path = "error"

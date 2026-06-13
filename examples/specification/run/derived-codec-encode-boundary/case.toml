@@ -16,7 +16,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "encoded\noutput_chunk_list derived-header count 1\noutput_chunk derived-header index 0 hex \"000005010400000001\" count 9\ninvalid\ncodec.out_of_range\nHeaderWire.stream_id\nvalue must be between 0 and 2147483647\n"
+equals = "encoded\noutput_chunk_list derived-header count 1\noutput_chunk derived-header index 0 hex \"000005010400000001\" count 9\ninvalid\ncodec.encode_value_unrepresentable\nHeaderWire.stream_id\nvalue must be between 0 and 2147483647\n"
 
 [[json_assert]]
 path = "error"

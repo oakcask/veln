@@ -38,8 +38,15 @@ id domain, endpoint role, active state, and rule provenance. The fixed
 payload-length projection uses
 `http2.protocol.invalid_payload_length` for PING and GOAWAY payload-length
 failures. These protocol projections are checked by the HTTP/2 protocol-core
-cases under `../../examples/specification/run/`. The remaining proposal work
-covers broader schema and codec diagnostics beyond these implemented slices.
+cases under `../../examples/specification/run/`. Generated exact-width binary
+schema encode range failures use `codec.encode_value_unrepresentable` through
+direct `byte_encode_<schema>` helpers, derived codec encode calls, and the
+HTTP/2 frame-header encode fixture, including selected dispatch payload encode
+paths that surface the same generated helper failure; the current behavior is
+specified under `../specification/execution.md` and checked by the generated
+encode cases under `../../examples/specification/run/`. The remaining proposal
+work covers broader schema and codec diagnostics beyond these implemented
+slices.
 
 ## Problem
 
