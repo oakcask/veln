@@ -513,7 +513,9 @@ against the built `veln` binary.
 - `run/http2-protocol-core/`: an ordinary-source HTTP/2 sans-I/O decode state
   handles chunk arrival, client connection preface validation, incomplete
   input, end-of-stream truncation, valid CONTINUATION completion for an opaque
-  header block, and a continuation ordering failure while projecting typed
+  header block with preserved payload bytes, single-frame HEADERS completion
+  when END_HEADERS is combined with another flag, and a continuation ordering
+  failure while projecting typed
   protocol failures, including partial and mismatched preface failures, an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
   failure, invalid connection-state and stream-state frame kinds, wrong-length

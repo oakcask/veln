@@ -13,11 +13,11 @@ end
 
 type PendingContinuation
 	NoContinuation
-	Continuation(Int, Int, Int, Int)
+	Continuation(Int, Int, Int, ByteChunk)
 end
 
 type ContinuationDecision
-	Decision(PendingContinuation, Int)
+	Decision(PendingContinuation, ByteChunk)
 end
 
 type ReceiveLimitProvenance
@@ -105,7 +105,7 @@ type ReceiveFlowControlDecision
 end
 
 type Http2Step
-	FrameDecoded(Http2DecodeState, Int, Int, Int, Int, Int, Int, Http2Frame)
+	FrameDecoded(Http2DecodeState, Int, Int, Int, Int, Int, ByteChunk, Http2Frame)
 	Waiting(Http2DecodeState)
 	Failed(Http2DecodeState, Http2ProtocolFailure)
 end
@@ -347,12 +347,13 @@ end
 fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, frame_count_int: Int) -> Result<Http2Step, String>
 	let frame_count: ByteCount = byte_count(frame_count_int)?
 	let suffix: ByteChunk = byte_drop(pending, frame_count)?
+	let payload: ByteChunk = frame_payload_chunk(pending, length)?
 	let consumed_state: Http2DecodeState = State(suffix, next_offset + frame_count_int, AfterPreface, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
 	let settings_decision: SettingsRangeDecision = validate_settings_value(pending, next_offset, length, kind)?
 	match settings_decision
 		SettingsValueOk => match validate_protocol_payload(next_offset, length, kind, stream_id)
-			ProtocolPayloadOk => match validate_continuation(continuation, next_offset, length, kind, flags, stream_id, receive_flow_control)
-				Ok(Decision(next_continuation, completed_count)) => complete_receive_flow_control_update(pending, suffix, next_offset, frame_count_int, next_continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_count, consumed_state)
+			ProtocolPayloadOk => match validate_continuation(continuation, next_offset, payload, kind, flags, stream_id, receive_flow_control)
+				Ok(Decision(next_continuation, completed_header_block)) => complete_receive_flow_control_update(pending, suffix, next_offset, frame_count_int, next_continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_header_block, consumed_state)
 				Err(error) => Ok(Failed(consumed_state, error))
 			end
 			ProtocolPayloadFailed(error) => Ok(Failed(consumed_state, error))
@@ -361,10 +362,16 @@ fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: Pen
 	end
 end
 
-fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_count: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
+fn frame_payload_chunk(frame: ByteChunk, length: Int) -> Result<ByteChunk, String>
+	let payload_offset: ByteOffset = byte_offset(9)?
+	let payload_count: ByteCount = byte_count(length)?
+	Ok(byte_view_to_chunk(byte_view(frame, payload_offset, payload_count)?))
+end
+
+fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, next_offset, length, kind, stream_id, receive_flow_control)?
 	match flow_control_decision
-		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, AfterPreface, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, next_receive_flow_control), next_offset, length, kind, flags, stream_id, completed_count, frame_value(pending, length, kind, flags, stream_id)?))
+		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, AfterPreface, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, next_receive_flow_control), next_offset, length, kind, flags, stream_id, completed_header_block, frame_value(pending, length, kind, flags, stream_id)?))
 		ReceiveFlowControlFailed(error) => Ok(Failed(consumed_state, error))
 	end
 end
@@ -529,35 +536,47 @@ fn decode_goaway_state(pending: ByteChunk) -> Result<ConnectionShutdownState, St
 	Ok(GracefulShutdown(last_stream_id, error_code))
 end
 
-fn validate_continuation(continuation: PendingContinuation, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
+fn validate_continuation(continuation: PendingContinuation, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match continuation
-		NoContinuation => validate_without_continuation(offset, length, kind, flags, stream_id, receive_flow_control)
-		Continuation(expected_stream, started_kind, started_offset, accumulated) => validate_with_continuation(expected_stream, started_kind, started_offset, accumulated, offset, length, kind, flags, stream_id)
+		NoContinuation => validate_without_continuation(offset, payload, kind, flags, stream_id, receive_flow_control)
+		Continuation(expected_stream, started_kind, started_offset, accumulated) => validate_with_continuation(expected_stream, started_kind, started_offset, accumulated, offset, payload, kind, flags, stream_id)
 	end
 end
 
-fn validate_without_continuation(offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
+fn validate_without_continuation(offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match kind == 1
-		true => match flags == 4
-			true => Ok(Decision(NoContinuation, length))
-			false => Ok(Decision(Continuation(stream_id, kind, offset, length), 0))
+		true => match end_headers_set(flags)
+			true => Ok(Decision(NoContinuation, payload))
+			false => Ok(Decision(Continuation(stream_id, kind, offset, payload), empty_header_block()))
 		end
 		false => validate_connection_frame_kind(offset, kind, stream_id, receive_flow_control)
 	end
 end
 
+fn end_headers_set(flags: Int) -> Bool
+	let low_three_bits: Int = flags - (flags / 8) * 8
+	match low_three_bits < 4
+		true => false
+		false => true
+	end
+end
+
+fn empty_header_block() -> ByteChunk
+	byte_chunk([])
+end
+
 fn validate_connection_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match stream_id == 0
 		true => match kind == 4
-			true => Ok(Decision(NoContinuation, 0))
+			true => Ok(Decision(NoContinuation, empty_header_block()))
 			false => match kind == 6
-				true => Ok(Decision(NoContinuation, 0))
+				true => Ok(Decision(NoContinuation, empty_header_block()))
 				false => match kind == 7
-					true => Ok(Decision(NoContinuation, 0))
+					true => Ok(Decision(NoContinuation, empty_header_block()))
 					false => match kind == 8
-						true => Ok(Decision(NoContinuation, 0))
+						true => Ok(Decision(NoContinuation, empty_header_block()))
 						false => match is_unknown_frame_kind(kind)
-							true => Ok(Decision(NoContinuation, 0))
+							true => Ok(Decision(NoContinuation, empty_header_block()))
 							false => Err(InvalidFrameKind(offset, kind, stream_id, 4, "connection-control", "connection_frames_require_settings"))
 						end
 					end
@@ -570,7 +589,7 @@ end
 
 fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match kind == 1
-		true => Ok(Decision(NoContinuation, 0))
+		true => Ok(Decision(NoContinuation, empty_header_block()))
 		false => match kind == 0
 			true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
 			false => match kind == 8
@@ -588,7 +607,7 @@ fn validate_unknown_stream_state(offset: Int, kind: Int, stream_id: Int, receive
 	match receive_flow_control
 		ReceiveFlowControl(_, NoOpenStreamReceiveWindow) => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		ReceiveFlowControl(_, OpenStreamReceiveWindow(open_stream_id, _)) => match stream_id == open_stream_id
-			true => Ok(Decision(NoContinuation, 0))
+			true => Ok(Decision(NoContinuation, empty_header_block()))
 			false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		end
 	end
@@ -598,24 +617,24 @@ fn validate_data_stream_state(offset: Int, kind: Int, stream_id: Int, receive_fl
 	match receive_flow_control
 		ReceiveFlowControl(_, NoOpenStreamReceiveWindow) => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		ReceiveFlowControl(_, OpenStreamReceiveWindow(open_stream_id, _)) => match stream_id == open_stream_id
-			true => Ok(Decision(NoContinuation, 0))
+			true => Ok(Decision(NoContinuation, empty_header_block()))
 			false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		end
 	end
 end
 
-fn validate_with_continuation(expected_stream: Int, started_kind: Int, started_offset: Int, accumulated: Int, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
+fn validate_with_continuation(expected_stream: Int, started_kind: Int, started_offset: Int, accumulated: ByteChunk, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match kind == 9
-		true => validate_continuation_stream(expected_stream, started_kind, started_offset, accumulated, offset, length, kind, flags, stream_id)
+		true => validate_continuation_stream(expected_stream, started_kind, started_offset, accumulated, offset, payload, kind, flags, stream_id)
 		false => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset))
 	end
 end
 
-fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started_offset: Int, accumulated: Int, offset: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
+fn validate_continuation_stream(expected_stream: Int, started_kind: Int, started_offset: Int, accumulated: ByteChunk, offset: Int, payload: ByteChunk, kind: Int, flags: Int, stream_id: Int) -> Result<ContinuationDecision, Http2ProtocolFailure>
 	match stream_id == expected_stream
-		true => match flags == 4
-			true => Ok(Decision(NoContinuation, accumulated + length))
-			false => Ok(Decision(Continuation(expected_stream, started_kind, started_offset, accumulated + length), 0))
+		true => match end_headers_set(flags)
+			true => Ok(Decision(NoContinuation, byte_append(accumulated, payload)))
+			false => Ok(Decision(Continuation(expected_stream, started_kind, started_offset, byte_append(accumulated, payload)), empty_header_block()))
 		end
 		false => Err(ContinuationExpected(offset, kind, stream_id, expected_stream, started_kind, started_offset))
 	end
@@ -758,9 +777,17 @@ end
 
 fn step_completed_count(step: Http2Step) -> Int
 	match step
-		FrameDecoded(_, _, _, _, _, _, completed_count, _) => completed_count
+		FrameDecoded(_, _, _, _, _, _, completed_header_block, _) => byte_count_to_int(byte_chunk_count(completed_header_block))
 		Waiting(_) => 0
 		Failed(_, _) => 0
+	end
+end
+
+fn step_completed_header_block(step: Http2Step) -> ByteChunk
+	match step
+		FrameDecoded(_, _, _, _, _, _, completed_header_block, _) => completed_header_block
+		Waiting(_) => empty_header_block()
+		Failed(_, _) => empty_header_block()
 	end
 end
 
@@ -793,7 +820,7 @@ end
 fn state_continuation_count(state: Http2DecodeState) -> Int
 	match state
 		State(_, _, _, NoContinuation, _, _, _, _) => 0
-		State(_, _, _, Continuation(_, _, _, accumulated), _, _, _, _) => accumulated
+		State(_, _, _, Continuation(_, _, _, accumulated), _, _, _, _) => byte_count_to_int(byte_chunk_count(accumulated))
 	end
 end
 
@@ -1328,15 +1355,44 @@ fn print_unknown_frame(label: String, step: Http2Step) -> Result<(), String> eff
 	end
 end
 
-fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+fn byte_chunks_equal(left: ByteChunk, right: ByteChunk) -> Result<Bool, String>
+	let left_count: Int = byte_count_to_int(byte_chunk_count(left))
+	let right_count: Int = byte_count_to_int(byte_chunk_count(right))
+	match left_count == right_count
+		true => byte_chunks_equal_at(left, right, 0, left_count)
+		false => Ok(false)
+	end
+end
+
+fn byte_chunks_equal_at(left: ByteChunk, right: ByteChunk, index: Int, count: Int) -> Result<Bool, String>
+	match index == count
+		true => Ok(true)
+		false => match read_byte(left, index)? == read_byte(right, index)?
+			true => byte_chunks_equal_at(left, right, index + 1, count)
+			false => Ok(false)
+		end
+	end
+end
+
+fn checked_hex_label(chunk: ByteChunk, expected_hex: String) -> Result<String, String>
+	let expected: ByteChunk = byte_chunk_from_hex(expected_hex)?
+	let matches_expected: Bool = byte_chunks_equal(chunk, expected)?
+	match matches_expected
+		true => Ok(expected_hex)
+		false => Ok("mismatch")
+	end
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
 	stdio::print("output_chunk ")
 	stdio::print(name)
 	stdio::print(" index ")
 	stdio::print(int_to_string(index))
 	stdio::print(" hex \"")
-	stdio::print(expected_hex)
+	stdio::print(checked_hex_label(chunk, expected_hex)?)
 	stdio::print("\" count ")
 	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+	Ok(())
 end
 
 fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
@@ -1346,15 +1402,25 @@ fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
 	stdio::println(int_to_string(count))
 end
 
-fn emit_encoded_header(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+fn emit_encoded_header(name: String, bytes: ByteChunk, expected_hex: String) -> Result<(), String> effects [stdio]
 	emit_output_chunk_list_header(name, 1)
 	emit_output_chunk(name, 0, bytes, expected_hex)
 end
 
-fn print_encoded_header(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+fn emit_header_block(name: String, step: Http2Step, expected_hex: String) -> Result<(), String> effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, step_completed_header_block(step), expected_hex)
+end
+
+fn unexpected_frame_header_encode_failure() -> Result<(), String> effects [stdio]
+	stdio::println("unexpected frame header encode failure")
+	Ok(())
+end
+
+fn print_encoded_header(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> Result<(), String> effects [stdio]
 	match encoded
 		Ok(bytes) => emit_encoded_header(name, bytes, expected_hex)
-		Err(_) => stdio::println("unexpected frame header encode failure")
+		Err(_) => unexpected_frame_header_encode_failure()
 	end
 end
 
@@ -1414,6 +1480,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("continuation-more", continuation_more)
 	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000409040000000101020304")?), step_state(continuation_more))?
 	print_step("continuation-done", continuation_done)
+	let ignored_continuation_header_block: () = emit_header_block("http2-continuation-header-block", continuation_done, "aabbccddee01020304")?
+	let headers_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010500000001102030")?), frame_state())?
+	print_step("headers-done", headers_done)
+	let ignored_headers_header_block: () = emit_header_block("http2-headers-header-block", headers_done, "102030")?
 	let bad_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(header_start))?
 	print_failure("continuation", bad_continuation)
 	let unknown_extension: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030a2300000000aabbcc")?), frame_state())?
@@ -1496,11 +1566,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let goaway_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000001000000050000000b")?), frame_state())?
 	print_failure("goaway-stream", goaway_bad_stream)
 	let encoded_settings_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 0, kind: 4, flags: 0, stream_id: 0})
-	print_encoded_header("http2-settings-header", encoded_settings_header, "000000040000000000")
+	let ignored_settings_header: () = print_encoded_header("http2-settings-header", encoded_settings_header, "000000040000000000")?
 	let encoded_data_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 5, kind: 0, flags: 1, stream_id: 1})
-	print_encoded_header("http2-data-header", encoded_data_header, "000005000100000001")
+	let ignored_data_header: () = print_encoded_header("http2-data-header", encoded_data_header, "000005000100000001")?
 	let encoded_max_stream_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 0, kind: 8, flags: 0, stream_id: 2147483647})
-	print_encoded_header("http2-max-stream-header", encoded_max_stream_header, "00000008007fffffff")
+	let ignored_max_stream_header: () = print_encoded_header("http2-max-stream-header", encoded_max_stream_header, "00000008007fffffff")?
 	let invalid_stream_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 0, kind: 0, flags: 0, stream_id: 2147483648})
 	print_encode_error("http2-stream-id-range", invalid_stream_header)
 	Ok(())

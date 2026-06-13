@@ -303,19 +303,21 @@ The case pins a valid preface followed by a SETTINGS frame, partial preface
 input that waits for more bytes, end-of-stream with a partial preface, a
 mismatched preface byte, valid frame arrival after the preface gate,
 incomplete frame input that waits for more bytes, closed input with pending
-frame bytes, continuation state after HEADERS, continuation state after a
-non-final CONTINUATION, completion after a final CONTINUATION, one
-continuation ordering failure, an accepted unknown extension frame that
-preserves flags, stream id, and bounded payload bytes in an ordinary
-`UnknownFrame` value, an unknown frame rejected by active continuation state,
-and an incoming frame whose payload length exceeds the active receive maximum
-frame size, plus a DATA frame kind rejected for connection-control state and
-idle-stream state. It also pins PING frames
+frame bytes, continuation state after HEADERS retaining opaque header-block
+bytes, continuation state after a non-final CONTINUATION appending those bytes,
+completion after a final CONTINUATION with combined header-block hex/count
+output, single-frame HEADERS completion when END_HEADERS is set alongside
+another flag, one continuation ordering failure, an accepted unknown extension
+frame that preserves flags, stream id, and bounded payload bytes in an
+ordinary `UnknownFrame` value, an unknown frame rejected by active continuation
+state, and an incoming frame whose payload length exceeds the active receive
+maximum frame size, plus a DATA frame kind rejected for connection-control
+state and idle-stream state. It also pins PING frames
 with and without ACK, wrong-length and stream-targeted PING failures, a GOAWAY
 frame that moves the connection into graceful shutdown with last-stream-id and
 error-code facts, and wrong-length and stream-targeted GOAWAY failures.
 Pending continuation state records the owning stream, starting frame kind,
-starting byte offset, and accumulated opaque header-block byte count.
+starting byte offset, and accumulated opaque header-block bytes.
 Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
 Receive flow-control state records connection receive-window credit and the
@@ -337,11 +339,11 @@ values for both settings are range-checked before updating peer-advertised
 state; out-of-range values stay as typed peer-limit failures at the offending
 SETTINGS item byte offset. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
-completed accumulated byte count in the observable example output. Protocol
-failures stay as ordinary ADT values and are projected by source code into
-stable diagnostic ids and related context fields for byte offset, observed and
-allowed lengths, actual and expected frame kind, stream reference, active
-continuation, connection state, or stream state, setting identity, accepted
+completed accumulated header-block bytes in observable example output.
+Protocol failures stay as ordinary ADT values and are projected by source code
+into stable diagnostic ids and related context fields for byte offset,
+observed and allowed lengths, actual and expected frame kind, stream reference,
+active continuation, connection state, or stream state, setting identity, accepted
 SETTINGS range, receive-limit provenance, peer-limit provenance, payload length
 expectations, matched preface prefix count, expected and actual preface byte,
 and rule provenance.
