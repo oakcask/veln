@@ -35,8 +35,9 @@ use crate::lowering::lower_surface_module_to_core;
 use crate::types::{
     SchemaDispatchCasePayload, TypeEnvironment, closed_dispatch_schema_primitive,
     exact_width_schema_primitive, exact_width_schema_primitive_max_value,
-    extension_dispatch_schema_primitive, reserved_bits_schema_primitive, same_module_schema,
-    schema_decode_function_name, schema_decode_mapping_fields, supported_encode_reserved_bits,
+    extension_dispatch_schema_primitive, reserved_bits_schema_primitive,
+    schema_decode_function_name, schema_decode_mapping_fields, schema_dispatch_payload_schema,
+    supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -251,7 +252,7 @@ fn ir_schema_dispatch_case(
     let payload_schema = match case.payload {
         SchemaDispatchCasePayload::Primitive { .. } => None,
         SchemaDispatchCasePayload::Schema { schema_name } => {
-            let nested_schema = same_module_schema(module, schema, &schema_name)?;
+            let nested_schema = schema_dispatch_payload_schema(module, schema, &schema_name)?;
             Some(Box::new(schema_decode_spec_inner(
                 module,
                 nested_schema,

@@ -1629,16 +1629,19 @@ fn resolve_imported_schema_dispatch_payload_schema<'a>(
             ));
             return None;
         }
-        diagnostics.push(schema_dispatch_payload_diagnostic(
-            context.schema,
-            context.field,
-            context.tag,
-            payload_name,
-            "imported_payload_schema",
-            format!("imported dispatch payload schema `{payload_name}` is not supported"),
-            [],
-        ));
-        return None;
+        if candidate.format.as_ref().map(|format| format.name.as_str()) != Some("binary") {
+            diagnostics.push(schema_dispatch_payload_diagnostic(
+                context.schema,
+                context.field,
+                context.tag,
+                payload_name,
+                "non_binary_payload_schema",
+                format!("dispatch payload schema `{payload_name}` must use `format binary`"),
+                [],
+            ));
+            return None;
+        }
+        return Some(candidate);
     }
     if let Some(kind) = codec_schema_wrong_kind(module, target_module, name) {
         diagnostics.push(schema_dispatch_payload_diagnostic(

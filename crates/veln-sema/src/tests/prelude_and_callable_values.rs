@@ -676,6 +676,94 @@ fn generated_schema_decode_helpers_keep_nested_dispatch_schema_metadata() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_imported_dispatch_schema_metadata() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.wire\n",
+            "\n",
+            "schema ClosedImportedPacket\n",
+            "  format binary\n",
+            "\n",
+            "  kind: UInt8\n",
+            "  payload: Dispatch(kind, 1 => wire::SettingsPayload)\n",
+            "end\n",
+            "\n",
+            "schema ExtensionImportedPacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 1 => wire::SettingsPayload)\n",
+            "end\n",
+            "\n",
+            "pub fn closed(view: ByteView) -> Result<{kind: Int, payload: {code: Int, value: Int}}, String>\n",
+            "  byte_decode_closed_imported_packet(view)\n",
+            "end\n",
+            "\n",
+            "pub fn extension(view: ByteView) -> Result<{length: Int, kind: Int, payload: SchemaDispatchPayload<{code: Int, value: Int}>}, String>\n",
+            "  byte_decode_extension_imported_packet(view)\n",
+            "end\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod app.wire\n",
+            "\n",
+            "pub schema SettingsPayload\n",
+            "  format binary\n",
+            "\n",
+            "  code: UInt8\n",
+            "  value: UInt16be\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: app.uses,
+        aliases: Vec::new(),
+        types: [app.types, wire.types].concat(),
+        schemas: [app.schemas, wire.schemas].concat(),
+        codecs: Vec::new(),
+        functions: [app.functions, wire.functions].concat(),
+    };
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    for (schema_name, field_index) in [("ClosedImportedPacket", 1), ("ExtensionImportedPacket", 2)]
+    {
+        let schema = ir
+            .schema_decoders
+            .iter()
+            .find(|schema| schema.schema_name == schema_name)
+            .expect("imported dispatch packet decoder should be emitted");
+        let dispatch = schema.fields[field_index]
+            .dispatch
+            .as_ref()
+            .expect("payload should carry dispatch metadata");
+        let nested = dispatch.cases[0]
+            .payload_schema
+            .as_ref()
+            .expect("dispatch case should carry imported nested schema metadata");
+        assert_eq!(nested.schema_name, "SettingsPayload");
+        assert_eq!(
+            nested
+                .fields
+                .iter()
+                .map(|field| (field.name.as_str(), field.width))
+                .collect::<Vec<_>>(),
+            vec![("code", 1), ("value", 2)]
+        );
+    }
+}
+
+#[test]
 fn codec_decode_with_resolves_as_named_decode_boundary() {
     let source = SourceFile::new(
         "main.veln",

@@ -258,35 +258,40 @@ asserts that nested payload encode failures keep the nested schema field path.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
+`../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
+`../../examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
+`../../examples/specification/run/binary-schema-imported-dispatch-nested-failure-json/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
 and
 `../../examples/specification/run/binary-schema-closed-dispatch-unknown-human/`
 pin the narrow closed dispatch slice. The passing case decodes a known tag and
-selected primitive payload as ordinary `Int` fields; the nested passing case
-decodes the selected same-module payload schema as a record-shaped field. The
-failing cases assert
-`schema.dispatch_unknown_tag`, the dispatch byte offset, structured field
-path, decoded tag field and value, expected tag values, structured byte
-preview fields, and focused human related notes.
+selected primitive payload as ordinary `Int` fields; the nested passing cases
+decode selected same-module and public imported payload schemas as
+record-shaped fields. The nested failure cases pin the nested schema field
+path and absolute byte offset. The unknown-tag failing cases assert
+`schema.dispatch_unknown_tag`, the dispatch byte offset, structured field path,
+decoded tag field and value, expected tag values, structured byte preview
+fields, and focused human related notes.
 `../../examples/specification/check/binary-schema-dispatch-payload-diagnostics/`
 pins the static boundary for nested dispatch payload schema names, including
-missing names, non-schema names, imported schemas, self references, forward
-references, and incompatible payload shapes.
+missing names, non-schema names, private imported schemas, self references,
+forward references, and incompatible payload shapes.
 
 `../../examples/specification/run/binary-schema-extension-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-decode/`,
+`../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-decode/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-unknown/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-unknown/`,
-`../../examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
+`../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-unknown/`,
 and
 `../../examples/specification/run/binary-schema-extension-dispatch-length-human/`
 pin the narrow extension-tolerant dispatch slice. The known case decodes the
-selected exact-width or same-module nested schema payload into
-`SchemaDispatchPayload::Known`. The unknown cases preserve the decoded tag and
-a bounded raw `ByteView` without reporting `schema.dispatch_unknown_tag`. The
-nested failure case pins the nested schema field path and absolute byte offset.
-The malformed structural case still reports `schema.length_out_of_bounds` when
-the decoded length cannot be sliced from closed input.
+selected exact-width, same-module nested, or public imported nested schema
+payload into `SchemaDispatchPayload::Known`. The unknown cases preserve the
+decoded tag and a bounded raw `ByteView` without reporting
+`schema.dispatch_unknown_tag`. The malformed structural case still reports
+`schema.length_out_of_bounds` when the decoded length cannot be sliced from
+closed input.
 
 ## HTTP/2 Protocol Core Example
 

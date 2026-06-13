@@ -1,0 +1,24 @@
+# Binary schema closed dispatch decodes an imported nested payload schema.
+use stdio
+use wire
+
+schema ImportedClosedNestedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::SettingsPayload)
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("010700ff")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(4)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let packet: {kind: Int, payload: {code: Int, value: Int}} = byte_decode_imported_closed_nested_packet(view)?
+	stdio::print(int_to_string(packet.kind))
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.payload.code))
+	stdio::print(" ")
+	stdio::println(int_to_string(packet.payload.value))
+	Ok(())
+end

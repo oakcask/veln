@@ -26,6 +26,20 @@ schema ImportedPrivatePacket
 	payload: Dispatch(kind, 1 => wire::PrivatePayload)
 end
 
+schema ImportedMissingPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::MissingPayload)
+end
+
+schema ImportedWrongKindPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => wire::WireShape)
+end
+
 schema ImportedPublicPacket
 	format binary
 

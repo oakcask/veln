@@ -735,7 +735,7 @@ fn schema_dispatch_case_type(
     match &case.payload {
         SchemaDispatchCasePayload::Primitive { .. } => Some(Type::int()),
         SchemaDispatchCasePayload::Schema { schema_name } => {
-            let nested = same_module_schema(module, schema, schema_name)?;
+            let nested = schema_dispatch_payload_schema(module, schema, schema_name)?;
             schema_decode_value_type_inner(module, nested, stack)
         }
     }
@@ -781,6 +781,33 @@ pub(crate) fn same_module_schema<'a>(
                 && index < current_index)
                 .then_some(candidate)
         })
+}
+
+pub(crate) fn schema_dispatch_payload_schema<'a>(
+    module: &'a SurfaceModule,
+    schema: &SchemaDecl,
+    schema_name: &str,
+) -> Option<&'a SchemaDecl> {
+    let segments = schema_payload_name_path(schema_name)?;
+    match segments.as_slice() {
+        [name] => same_module_schema(module, schema, name),
+        [_, .., name] => {
+            let use_decl = imported_use_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                schema.module_name.as_deref(),
+            )?;
+            let target_module = Some(use_decl.name.as_str());
+            module.schemas.iter().find(|candidate| {
+                candidate.name.as_deref() == Some(name)
+                    && candidate.module_name.as_deref() == target_module
+                    && candidate.visibility == Visibility::Public
+                    && candidate.format.as_ref().map(|format| format.name.as_str())
+                        == Some("binary")
+            })
+        }
+        _ => None,
+    }
 }
 
 pub(crate) fn schema_decode_value_type(
