@@ -553,8 +553,10 @@ against the built `veln` binary.
   `SETTINGS_INITIAL_WINDOW_SIZE` state, and range-checks both settings before
   updating peer-advertised state. It also accepts a structurally complete
   unknown extension frame as an ordinary value preserving frame type, flags,
-  stream id, and bounded payload bytes, while active continuation state still
-  reports the existing continuation protocol failure for an unknown frame. The
+  stream id, and bounded payload bytes, with the preserved payload bytes also
+  checked as complete lowercase hex output, while active continuation state
+  still reports the existing continuation protocol failure for an unknown
+  frame. The
   case also admits an idle peer-created stream on HEADERS, counts the tracked
   open peer-created stream against the active concurrent-stream receive limit,
   and reports limit exhaustion as
