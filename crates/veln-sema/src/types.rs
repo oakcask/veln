@@ -841,8 +841,13 @@ fn schema_encode_function_signature_for_schema(schema: &SchemaDecl) -> Option<Fu
             fields.push((field.name.clone(), Type::int()));
             continue;
         }
-        let dispatch = closed_dispatch_schema_primitive(&field.ty)?;
-        if dispatch.length_field.is_some() || !exact_width_field_names.contains(&dispatch.tag_field)
+        let dispatch = closed_dispatch_schema_primitive(&field.ty)
+            .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
+        if !exact_width_field_names.contains(&dispatch.tag_field)
+            || dispatch
+                .length_field
+                .as_ref()
+                .is_some_and(|length_field| !exact_width_field_names.contains(length_field))
         {
             return None;
         }
@@ -853,7 +858,14 @@ fn schema_encode_function_signature_for_schema(schema: &SchemaDecl) -> Option<Fu
         {
             return None;
         }
-        fields.push((field.name.clone(), Type::int()));
+        if dispatch.length_field.is_some() {
+            fields.push((
+                field.name.clone(),
+                Type::named("SchemaDispatchPayload", vec![Type::int()]),
+            ));
+        } else {
+            fields.push((field.name.clone(), Type::int()));
+        }
     }
     let byte_chunk = Type::named("ByteChunk", Vec::new());
     let encode_error = Type::named("EncodeError", Vec::new());

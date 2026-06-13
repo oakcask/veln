@@ -275,6 +275,70 @@ fn generated_schema_encode_helpers_resolve_for_closed_dispatch_binary_schemas() 
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_for_extension_dispatch_binary_schemas() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema ExtensionDispatchWritePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 1 => UInt16be, 2 => UInt32be)\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<Int>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_extension_dispatch_write_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "ExtensionDispatchWritePacket"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "ExtensionDispatchWritePacket");
+    assert_eq!(schema.fields[0].name, "length");
+    assert_eq!(schema.fields[1].name, "kind");
+    assert_eq!(schema.fields[2].name, "payload");
+    let dispatch = schema.fields[2]
+        .dispatch
+        .as_ref()
+        .expect("payload should carry extension dispatch metadata");
+    assert_eq!(dispatch.tag_field, "kind");
+    assert_eq!(dispatch.length_field.as_deref(), Some("length"));
+    assert_eq!(
+        dispatch
+            .cases
+            .iter()
+            .map(|case| (case.tag, case.width))
+            .collect::<Vec<_>>(),
+        vec![(1, 2), (2, 4)]
+    );
+}
+
+#[test]
 fn derived_codec_encode_resolves_to_schema_encode_step_boundary() {
     let source = SourceFile::new(
         "main.veln",
