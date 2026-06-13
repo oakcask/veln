@@ -1,0 +1,15 @@
+# HTTP/2 streams opened after GOAWAY project to human diagnostics.
+
+type Http2ProtocolFailure
+	StreamAfterGoaway(Int, Int, Int, String, String, String)
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		StreamAfterGoaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance) => http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	project(StreamAfterGoaway(9, 7, 5, "graceful_shutdown", "server", "goaway_last_stream_id"))
+end

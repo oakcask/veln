@@ -268,6 +268,33 @@
         );
     }
 
+    private static void registerHttp2ProtocolStreamAfterGoawayDiagnostic(
+        String message,
+        long byteOffset,
+        long streamId,
+        long lastStreamId,
+        String shutdownState,
+        String endpointRole,
+        String ruleProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.stream_after_goaway",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", "stream"),
+                    DiagnosticDetail.number("last_stream_id", lastStreamId),
+                    DiagnosticDetail.string("shutdown_state", shutdownState),
+                    DiagnosticDetail.string("endpoint_role", endpointRole),
+                    DiagnosticDetail.string("active_state", shutdownState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2PeerLimitFrameSizeExceededDiagnostic(
         String message,
         long byteOffset,

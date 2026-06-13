@@ -58,7 +58,8 @@ compare it with `../specification/` before changing behavior.
   client connection preface failures, frame-size and flow-control peer-limits,
   SETTINGS value range peer-limit, stream id domain failures, invalid
   connection-state and stream-state frame-kind failures, fixed payload-length
-  protocol projections, and generated binary schema encode
+  protocol projections, post-GOAWAY stream rejection projection, and generated
+  binary schema encode
   value-representation failures plus hand-written codec decode consumed-count
   failures.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
@@ -71,8 +72,9 @@ compare it with `../specification/` before changing behavior.
   header-block preservation slice, unknown extension-frame preservation slice,
   PING/GOAWAY receive slice, DATA and `WINDOW_UPDATE` receive flow-control
   slices, peer-created stream admission with concurrent-stream receive-limit
-  diagnostics, stream id domain diagnostic slice, `RST_STREAM` receive slice,
-  and outbound frame-header encode slice.
+  diagnostics, stream id domain diagnostic slice, GOAWAY last-stream-id
+  enforcement for later peer-created HEADERS, `RST_STREAM` receive slice, and
+  outbound frame-header encode slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, socket, stream-routing, deadline API,
   cancellation, channel, and task behavior beyond the implemented

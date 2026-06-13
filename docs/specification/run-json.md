@@ -194,6 +194,10 @@ invalid frame-kind state slice uses id `http2.protocol.invalid_frame_kind` and
 records `byte_offset.value`, `actual_frame_kind`, `stream_id`, `stream_ref`,
 `expected_frame_kind`, `active_state`, and `rule_provenance`; the checked
 HTTP/2 examples cover both connection-control and idle-stream state failures.
+After receiving GOAWAY, a peer-created HEADERS stream greater than the
+recorded last stream id uses id `http2.protocol.stream_after_goaway` and
+records `byte_offset.value`, `stream_id`, `stream_ref`, `last_stream_id`,
+`shutdown_state`, `endpoint_role`, `active_state`, and `rule_provenance`.
 Wrong-length protocol payloads use id
 `http2.protocol.invalid_payload_length` and record `byte_offset.value`,
 `frame_kind`, `stream_id`, `stream_ref`, `observed_payload_length`,

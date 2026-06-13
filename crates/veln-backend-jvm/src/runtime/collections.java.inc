@@ -1561,6 +1561,34 @@
         return err(message);
     }
 
+    public static Object http2ProtocolStreamAfterGoaway(
+        Object offset,
+        Object streamId,
+        Object lastStreamId,
+        Object shutdownState,
+        Object endpointRole,
+        Object ruleProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long stream = asLong(streamId);
+        long lastStream = asLong(lastStreamId);
+        String shutdown = asString(shutdownState);
+        String role = asString(endpointRole);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 stream opened after graceful shutdown at byte offset "
+            + byteOffset;
+        registerHttp2ProtocolStreamAfterGoawayDiagnostic(
+            message,
+            byteOffset,
+            stream,
+            lastStream,
+            shutdown,
+            role,
+            provenance
+        );
+        return err(message);
+    }
+
     public static Object http2PeerLimitFrameSizeExceeded(
         Object offset,
         Object observedLength,

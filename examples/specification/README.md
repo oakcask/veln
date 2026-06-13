@@ -587,7 +587,8 @@ against the built `veln` binary.
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
   failure, stream id domain failures, invalid stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, valid PING ACK distinction, and valid
-  GOAWAY graceful shutdown facts, into stable ids and related context. The
+  GOAWAY graceful shutdown facts plus post-GOAWAY stream rejection, into
+  stable ids and related context. The
   case keeps local receive-limit
   provenance separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state,
   keeps inbound receive-window credit separate from peer-advertised
@@ -602,6 +603,10 @@ against the built `veln` binary.
   open peer-created stream against the active concurrent-stream receive limit,
   and reports limit exhaustion as
   `http2.peer_limit.concurrent_streams_exceeded`. It also accepts
+  peer-created HEADERS at or below the recorded GOAWAY last stream id and
+  rejects larger later HEADERS with `http2.protocol.stream_after_goaway`.
+  Stream id domain failures still report before the GOAWAY-specific check. It
+  also accepts
   `RST_STREAM` on the tracked open stream, records the reset error code,
   clears the open stream, and rejects later DATA or stream-level
   `WINDOW_UPDATE` for that reset stream through the existing invalid
@@ -721,6 +726,15 @@ against the built `veln` binary.
   `http2.protocol.invalid_payload_length` through `run --json` with byte
   offset, frame kind, stream reference, observed and expected payload lengths,
   active state, and rule provenance.
+- `run/http2-protocol-core-stream-after-goaway-human/`: a peer-created
+  HEADERS stream greater than a recorded GOAWAY last stream id reports
+  `http2.protocol.stream_after_goaway` through human `run` stderr with
+  attempted stream id, recorded last stream id, shutdown state, endpoint role,
+  and rule provenance notes.
+- `run/http2-protocol-core-stream-after-goaway-json/`: the same post-GOAWAY
+  stream-state failure reports `http2.protocol.stream_after_goaway` through
+  `run --json` with byte offset, stream reference, last stream id, shutdown
+  state, endpoint role, active state, and rule provenance.
 - `run/stream-input-vocabulary/`: `StreamInput` construction and matching for
   chunk arrivals, empty chunks, explicit end events, and qualified prelude
   constructor paths.

@@ -431,6 +431,7 @@ http2_protocol_continuation_expected(offset: Int, actual_kind: Int, actual_strea
 http2_protocol_invalid_frame_kind(offset: Int, actual_kind: Int, stream_id: Int, expected_kind: Int, active_state: String, rule_provenance: String) -> Result<(), String>
 http2_protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id: Int, required_domain: String, endpoint_role: String, active_state: String, rule_provenance: String) -> Result<(), String>
 http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String) -> Result<(), String>
+http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String) -> Result<(), String>
 http2_peer_limit_frame_size_exceeded(offset: Int, observed_length: Int, allowed_length: Int, frame_kind: Int, stream_id: Int, receive_limit_provenance: String) -> Result<(), String>
 http2_peer_limit_flow_control_window_exceeded(offset: Int, observed_length: Int, allowed_window_credit: Int, frame_kind: Int, stream_id: Int, active_state: String, rule_provenance: String) -> Result<(), String>
 http2_peer_limit_concurrent_streams_exceeded(offset: Int, stream_id: Int, attempted_count: Int, allowed_count: Int, active_state: String, receive_limit_provenance: String, rule_provenance: String) -> Result<(), String>
@@ -624,6 +625,7 @@ The implemented standard symbol table has this current pure-helper split:
   `http2_protocol_invalid_frame_kind`,
   `http2_protocol_invalid_stream_id`,
   `http2_protocol_invalid_payload_length`,
+  `http2_protocol_stream_after_goaway`,
   `http2_peer_limit_frame_size_exceeded`,
   `http2_peer_limit_flow_control_window_exceeded`,
   `http2_peer_limit_concurrent_streams_exceeded`,
