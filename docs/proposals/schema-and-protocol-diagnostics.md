@@ -37,8 +37,11 @@ stream-state frame kinds. Stream id domain failures use
 id domain, endpoint role, active state, and rule provenance. The fixed
 payload-length projection uses
 `http2.protocol.invalid_payload_length` for SETTINGS ACK, PING, GOAWAY,
-`RST_STREAM`, and `WINDOW_UPDATE` payload-length failures. These protocol
-projections are checked by the HTTP/2 protocol-core cases under
+`RST_STREAM`, and `WINDOW_UPDATE` payload-length failures. Post-GOAWAY
+peer-created stream failures use `http2.protocol.stream_after_goaway` with
+attempted stream id, recorded last stream id, shutdown state, endpoint role,
+active state, and rule provenance. These protocol projections are checked by
+the HTTP/2 protocol-core cases under
 `../../examples/specification/run/`. Generated exact-width binary schema
 encode range failures use `codec.encode_value_unrepresentable` through
 direct `byte_encode_<schema>` helpers, derived codec encode calls, and the
@@ -303,8 +306,9 @@ schema truncation, reserved-bit mismatches, and payload length boundary
 failures, plus HTTP/2 protocol-state projections for frame-size peer-limit,
 SETTINGS value range peer-limit, DATA receive flow-control peer-limit, client
 connection preface failures, and invalid connection-state and stream-state
-frame-kind failures, stream id domain failures, plus fixed payload-length
-failures for SETTINGS ACK, PING, GOAWAY, `RST_STREAM`, and `WINDOW_UPDATE`.
+frame-kind failures, stream id domain failures, post-GOAWAY stream failures,
+plus fixed payload-length failures for SETTINGS ACK, PING, GOAWAY,
+`RST_STREAM`, and `WINDOW_UPDATE`.
 `run --json` examples assert the stable byte and protocol diagnostic detail
 fields documented in `../specification/run-json.md`; human `run` examples
 assert the focused primary messages and related notes documented in
@@ -315,6 +319,8 @@ The implemented protocol-state diagnostic projection slice covers:
 - Protocol-state examples that cover invalid stream id domains and invalid
   frame kind for a connection or stream state, including the idle-stream rule
   that expects HEADERS before DATA.
+- Post-GOAWAY stream-state examples that reject new peer-created streams above
+  the recorded last stream id.
 - Schema and protocol diagnostics that keep the primary message focused on the
   failed fact at the reported span or byte position.
 - Related notes that carry provenance, settings, limits, and state-transition

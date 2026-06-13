@@ -283,8 +283,9 @@ execution reference.
   their accepted SETTINGS ranges, zero-length SETTINGS ACK frames, wrong-length
   SETTINGS ACK payloads, stream id domain failures, invalid stream-state frame
   kinds, wrong-length PING, GOAWAY, and `RST_STREAM` payloads, accepted PING
-  ACK distinction, accepted GOAWAY last-stream-id and error-code, and accepted
-  `RST_STREAM` error-code
+  ACK distinction, accepted GOAWAY last-stream-id and error-code, GOAWAY
+  last-stream-id enforcement for later peer-created HEADERS streams, and
+  accepted `RST_STREAM` error-code
   facts as typed protocol values. In the server-side fixture core, SETTINGS,
   PING, and GOAWAY require stream id zero; HEADERS, DATA, `RST_STREAM`,
   CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero

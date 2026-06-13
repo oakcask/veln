@@ -197,6 +197,7 @@ source_prelude_symbol_set! {
     "http2_protocol_invalid_frame_kind" => veln_stdlib::prelude_source("http2_protocol_invalid_frame_kind"),
     "http2_protocol_invalid_stream_id" => veln_stdlib::prelude_source("http2_protocol_invalid_stream_id"),
     "http2_protocol_invalid_payload_length" => veln_stdlib::prelude_source("http2_protocol_invalid_payload_length"),
+    "http2_protocol_stream_after_goaway" => veln_stdlib::prelude_source("http2_protocol_stream_after_goaway"),
     "http2_peer_limit_frame_size_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_frame_size_exceeded"),
     "http2_peer_limit_flow_control_window_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_flow_control_window_exceeded"),
     "http2_peer_limit_concurrent_streams_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_concurrent_streams_exceeded"),

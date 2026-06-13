@@ -4117,6 +4117,43 @@ mod tests {
     }
 
     #[test]
+    fn stream_after_goaway_protocol_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f322073747265616d206f70656e656420616674657220677261636566756c2073687574646f776e2061742062797465206f66667365742039",
+            "\tprotocol_diagnostic\thttp2.protocol.stream_after_goaway\t9",
+            "\t7\tstream_id\tnumber\t7",
+            "\tstream_ref\tstring\t73747265616d",
+            "\tlast_stream_id\tnumber\t5",
+            "\tshutdown_state\tstring\t677261636566756c5f73687574646f776e",
+            "\tendpoint_role\tstring\t736572766572",
+            "\tactive_state\tstring\t677261636566756c5f73687574646f776e",
+            "\trule_provenance\tstring\t676f617761795f6c6173745f73747265616d5f6964\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 stream opened after graceful shutdown at byte offset 9\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.protocol.stream_after_goaway\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":9},",
+                "\"stream_id\":7,",
+                "\"stream_ref\":\"stream\",",
+                "\"last_stream_id\":5,",
+                "\"shutdown_state\":\"graceful_shutdown\",",
+                "\"endpoint_role\":\"server\",",
+                "\"active_state\":\"graceful_shutdown\",",
+                "\"rule_provenance\":\"goaway_last_stream_id\"}}"
+            )
+        );
+    }
+
+    #[test]
     fn stream_invalid_frame_kind_protocol_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",

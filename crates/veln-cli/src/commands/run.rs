@@ -525,6 +525,39 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Rule provenance: {provenance}.")));
             Some(diagnostic)
         }
+        "http2.protocol.stream_after_goaway" => {
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let last_stream_id = json_number(protocol_entries, "last_stream_id")?;
+            let shutdown_state = json_string(protocol_entries, "shutdown_state")?;
+            let endpoint_role = json_string(protocol_entries, "endpoint_role")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("stream opened after graceful shutdown at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Peer opened {stream_ref} {stream_id}; graceful shutdown recorded last stream id {last_stream_id}."
+            )));
+            diagnostic.related.push(note_json(format!(
+                "Active shutdown state: {shutdown_state}."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Endpoint role: {endpoint_role}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {provenance}.")));
+            Some(diagnostic)
+        }
         "http2.peer_limit.frame_size_exceeded" => {
             let observed_length = json_number(protocol_entries, "observed_payload_length")?;
             let allowed_length = json_number(protocol_entries, "allowed_max_frame_size")?;
@@ -2067,6 +2100,63 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("rfc9113_ping_payload_length")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_stream_after_goaway_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.stream_after_goaway"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(9)),
+                ]),
+            ),
+            ("stream_id", JsonValue::Number(7)),
+            ("stream_ref", JsonValue::string("stream")),
+            ("last_stream_id", JsonValue::Number(5)),
+            ("shutdown_state", JsonValue::string("graceful_shutdown")),
+            ("endpoint_role", JsonValue::string("server")),
+            ("active_state", JsonValue::string("graceful_shutdown")),
+            (
+                "rule_provenance",
+                JsonValue::string("goaway_last_stream_id"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 stream opened after graceful shutdown at byte offset 9".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.stream_after_goaway");
+        assert_eq!(
+            diagnostic.message,
+            "stream opened after graceful shutdown at byte offset 9"
+        );
+        assert_eq!(diagnostic.related.len(), 5);
+        assert!(diagnostic.related[0].to_json().contains("stream 7"));
+        assert!(diagnostic.related[0].to_json().contains("last stream id 5"));
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("graceful_shutdown")
+        );
+        assert!(diagnostic.related[2].to_json().contains("server"));
+        assert!(
+            diagnostic.related[4]
+                .to_json()
+                .contains("goaway_last_stream_id")
         );
     }
 

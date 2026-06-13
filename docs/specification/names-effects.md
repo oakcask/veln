@@ -46,7 +46,7 @@ compiler-known calls.
   dispatch payload fields, and return `Result<ByteChunk, EncodeError>`.
   HTTP/2 frame-header decoding,
   bounded payload frame decoding, and protocol diagnostic projection helpers
-  including stream id domain failure projection are
+  including stream id domain and post-GOAWAY stream failure projection are
   listed with those signatures:
   [standard byte ADTs](names-effects-full.md#standard-byte-adts) and
   [helper signatures](names-effects-full.md#helper-signatures).

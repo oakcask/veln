@@ -1211,6 +1211,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2_protocol_invalid_payload_length",
             "http2ProtocolInvalidPayloadLength",
         ),
+        (
+            "http2_protocol_stream_after_goaway",
+            "http2ProtocolStreamAfterGoaway",
+        ),
         ("byte_read_u16_be", "byteReadU16Be"),
         ("byte_read_u24_be", "byteReadU24Be"),
         ("byte_read_u31_be", "byteReadU31Be"),

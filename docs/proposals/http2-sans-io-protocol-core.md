@@ -27,11 +27,13 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - connection settings beyond maximum frame size
 - stream identifiers
 - remaining stream lifecycle beyond the implemented peer-created stream
-  admission, receive-limit, and inbound reset slice
+  admission, receive-limit, inbound reset slice, and GOAWAY last-stream-id
+  enforcement for later peer-created HEADERS
 - initial-window-size changes, outbound flow control, and broader
   stream-window interactions beyond the implemented inbound DATA and
   `WINDOW_UPDATE` receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state
+  and later peer-created HEADERS rejection
 
 ## Discussion Result: Limit Placement
 
