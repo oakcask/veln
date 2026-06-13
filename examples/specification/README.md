@@ -349,6 +349,10 @@ against the built `veln` binary.
 - `run/binary-byteview/`: `ByteView` slices, fixed-width unsigned big-endian
   reads and writes, truncation failures, range failures, and conversion
   overflow failures, plus channel freeze preservation for bounded views.
+- `run/binary-buffer-boundary/`: bounded `ByteView` count, take, drop, and
+  slice helpers represent pending input, preserve bounded views across channel
+  freeze, and construct outgoing `List<ByteChunk>` values without an
+  output-only byte type.
 - `run/binary-byteview-read-failure-json/`: ByteView read truncation propagates
   as a runtime `Result` failure through `run --json` with
   `codec.incomplete_input` byte diagnostic details, including byte offset,

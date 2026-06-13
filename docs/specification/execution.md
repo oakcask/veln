@@ -21,10 +21,11 @@ execution reference.
 - Standard byte chunk and byte view helpers execute as pure prelude runtime
   operations and return immutable byte values or `Result` failures for invalid
   values, invalid compact hex fixture text, out-of-bounds counts and ranges,
-  truncation, schema fixed-field mismatches, and fixed-width unsigned
-  conversion overflow. Standard `StreamInput`, `DecodeStep<T>`,
-  `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and `EncodeError`
-  values execute as ordinary immutable ADT values.
+  bounded view slicing, truncation, schema fixed-field mismatches, and
+  fixed-width unsigned conversion overflow. Outgoing chunk-list helpers return
+  ordinary immutable `List<ByteChunk>` values. Standard `StreamInput`,
+  `DecodeStep<T>`, `DecodeReadiness`, `DecodeError`, `EncodeStep<TState>`, and
+  `EncodeError` values execute as ordinary immutable ADT values.
 - Descriptor-backed `net` and `time` calls are host runtime boundaries:
   malformed received bytes, failed outgoing event recording, and forced
   timeout expiry stop the entry as runtime failures rather than schema,

@@ -403,6 +403,13 @@ byte_take(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 byte_drop(chunk: ByteChunk, count: ByteCount) -> Result<ByteChunk, String>
 byte_view(chunk: ByteChunk, offset: ByteOffset, count: ByteCount) -> Result<ByteView, String>
 byte_view_to_chunk(view: ByteView) -> ByteChunk
+byte_view_count(view: ByteView) -> ByteCount
+byte_view_take(view: ByteView, count: ByteCount) -> Result<ByteView, String>
+byte_view_drop(view: ByteView, count: ByteCount) -> Result<ByteView, String>
+byte_view_slice(view: ByteView, offset: ByteCount, count: ByteCount) -> Result<ByteView, String>
+byte_chunks_empty() -> List<ByteChunk>
+byte_chunks_one(chunk: ByteChunk) -> List<ByteChunk>
+byte_chunks_append(left: List<ByteChunk>, right: List<ByteChunk>) -> List<ByteChunk>
 byte_read_u8_be(view: ByteView) -> Result<Int, String>
 byte_expect_fixed_u8_be(view: ByteView, expected: Int, schema_name: String, field_name: String) -> Result<Int, String>
 byte_decode_http2_frame_header(view: ByteView) -> Result<{length: Int, kind: Int, flags: Int, stream_id: Int}, String>
@@ -524,6 +531,15 @@ returns `Err(String)` when the range exceeds the chunk length. `byte_view` and
 byte reads report negative direct-constructor payloads with the same
 non-negative offset and count error strings as the construction helpers.
 `byte_view_to_chunk(view)` materializes the bounded bytes as a `ByteChunk`.
+`byte_view_count(view)` returns the view length as `ByteCount`.
+`byte_view_take(view, count)`, `byte_view_drop(view, count)`, and
+`byte_view_slice(view, offset, count)` derive bounded immutable views within
+the supplied view and return `Err(String)` when the requested local range
+exceeds the view length. These helpers let source code represent pending input
+as bounded `ByteView` values while keeping the absolute `ByteOffset` carried by
+the view. `byte_chunks_empty()`, `byte_chunks_one(chunk)`, and
+`byte_chunks_append(left, right)` construct and combine `List<ByteChunk>`
+values for outgoing chunks without introducing an output-only byte type.
 The fixed-width unsigned big-endian read helpers read from the start of the
 view and return `Err(String)` when the view is too short. The `u31` read also
 returns `Err(String)` when the high bit would exceed the 31-bit maximum. The
@@ -584,7 +600,10 @@ The implemented standard symbol table has this current pure-helper split:
 
 - source-backed pure helpers: `byte`, `byte_to_int`, `byte_chunk`,
   `byte_chunk_count`, `byte_append`, `byte_chunk_from_hex`, `byte_take`,
-  `byte_drop`, `byte_view`, `byte_view_to_chunk`, `byte_read_u8_be`,
+  `byte_drop`, `byte_view`, `byte_view_to_chunk`, `byte_view_count`,
+  `byte_view_take`, `byte_view_drop`, `byte_view_slice`,
+  `byte_chunks_empty`, `byte_chunks_one`, `byte_chunks_append`,
+  `byte_read_u8_be`,
   `byte_expect_fixed_u8_be`, `byte_decode_http2_frame_header`,
   `byte_decode_http2_frame`, `byte_decode_schema_width_sample`,
   `byte_decode_schema_validation_sample`,

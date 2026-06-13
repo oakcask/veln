@@ -138,6 +138,24 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             adt::result_type(byte_view.clone(), Type::string()),
         )),
         "byte_view_to_chunk" => Some((vec![byte_view.clone()], byte_chunk.clone())),
+        "byte_view_count" => Some((vec![byte_view.clone()], byte_count.clone())),
+        "byte_view_take" | "byte_view_drop" => Some((
+            vec![byte_view.clone(), byte_count.clone()],
+            adt::result_type(byte_view.clone(), Type::string()),
+        )),
+        "byte_view_slice" => Some((
+            vec![byte_view.clone(), byte_count.clone(), byte_count.clone()],
+            adt::result_type(byte_view.clone(), Type::string()),
+        )),
+        "byte_chunks_empty" => Some((Vec::new(), adt::list_type(byte_chunk.clone()))),
+        "byte_chunks_one" => Some((vec![byte_chunk.clone()], adt::list_type(byte_chunk.clone()))),
+        "byte_chunks_append" => Some((
+            vec![
+                adt::list_type(byte_chunk.clone()),
+                adt::list_type(byte_chunk.clone()),
+            ],
+            adt::list_type(byte_chunk.clone()),
+        )),
         "byte_expect_fixed_u8_be" => Some((
             vec![
                 byte_view.clone(),
@@ -869,6 +887,27 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             adt::core_result_type(byte_view.clone(), CoreType::string()),
         )),
         "byte_view_to_chunk" => Some((vec![byte_view.clone()], byte_chunk.clone())),
+        "byte_view_count" => Some((vec![byte_view.clone()], byte_count.clone())),
+        "byte_view_take" | "byte_view_drop" => Some((
+            vec![byte_view.clone(), byte_count.clone()],
+            adt::core_result_type(byte_view.clone(), CoreType::string()),
+        )),
+        "byte_view_slice" => Some((
+            vec![byte_view.clone(), byte_count.clone(), byte_count.clone()],
+            adt::core_result_type(byte_view.clone(), CoreType::string()),
+        )),
+        "byte_chunks_empty" => Some((Vec::new(), adt::core_list_type(byte_chunk.clone()))),
+        "byte_chunks_one" => Some((
+            vec![byte_chunk.clone()],
+            adt::core_list_type(byte_chunk.clone()),
+        )),
+        "byte_chunks_append" => Some((
+            vec![
+                adt::core_list_type(byte_chunk.clone()),
+                adt::core_list_type(byte_chunk.clone()),
+            ],
+            adt::core_list_type(byte_chunk.clone()),
+        )),
         "byte_expect_fixed_u8_be" => Some((
             vec![
                 byte_view.clone(),

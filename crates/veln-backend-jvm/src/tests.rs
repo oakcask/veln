@@ -101,11 +101,29 @@ public final class RuntimeByteViewHarness {
             ((VelnRuntime.Result) VelnRuntime.byteOffset(Long.valueOf(1))).value(),
             ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()
         )).value();
+        Object two = ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(2))).value();
+        Object viewPrefix = ((VelnRuntime.Result) VelnRuntime.byteViewTake(view, two)).value();
+        Object viewSuffix = ((VelnRuntime.Result) VelnRuntime.byteViewDrop(view, two)).value();
+        Object viewSlice = ((VelnRuntime.Result) VelnRuntime.byteViewSlice(
+            wideView,
+            ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(1))).value(),
+            two
+        )).value();
+        Object outputChunks = VelnRuntime.byteChunksAppend(
+            VelnRuntime.byteChunksOne(VelnRuntime.byteViewToChunk(viewPrefix)),
+            VelnRuntime.byteChunksOne(VelnRuntime.byteViewToChunk(viewSuffix))
+        );
         System.out.println(VelnRuntime.byteReadU8Be(view));
         System.out.println(VelnRuntime.byteReadU16Be(view));
         System.out.println(VelnRuntime.byteReadU24Be(view));
         System.out.println(VelnRuntime.byteReadU16Le(view));
         System.out.println(VelnRuntime.byteReadU24Le(view));
+        System.out.println(VelnRuntime.byteViewCount(view));
+        System.out.println(VelnRuntime.byteReadU16Be(viewPrefix));
+        System.out.println(VelnRuntime.byteReadU8Be(viewSuffix));
+        System.out.println(VelnRuntime.byteReadU16Be(viewSlice));
+        System.out.println(outputChunks);
+        System.out.println(VelnRuntime.byteViewDrop(view, ((VelnRuntime.Result) VelnRuntime.byteCount(Long.valueOf(4))).value()));
         System.out.println(VelnRuntime.byteReadU31Be(wideView));
         Object maxU31 = ((VelnRuntime.Result) VelnRuntime.byteWriteU31Be(Long.valueOf(2147483647))).value();
         Object maxU31View = ((VelnRuntime.Result) VelnRuntime.byteView(
@@ -840,6 +858,12 @@ fn jvm_runtime_reads_and_writes_byte_views_when_java_is_available() {
             "Ok(66051)\n",
             "Ok(513)\n",
             "Ok(197121)\n",
+            "ByteCount(3)\n",
+            "Ok(258)\n",
+            "Ok(3)\n",
+            "Ok(515)\n",
+            "Cons(ByteChunk([Byte(1), Byte(2)]), Cons(ByteChunk([Byte(3)]), Nil))\n",
+            "Err(byte view count exceeds view length)\n",
             "Ok(16909311)\n",
             "Ok(2147483647)\n",
             "Ok(4294967295)\n",
@@ -1129,6 +1153,13 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("byte_drop", "byteDrop"),
         ("byte_view", "byteView"),
         ("byte_view_to_chunk", "byteViewToChunk"),
+        ("byte_view_count", "byteViewCount"),
+        ("byte_view_take", "byteViewTake"),
+        ("byte_view_drop", "byteViewDrop"),
+        ("byte_view_slice", "byteViewSlice"),
+        ("byte_chunks_empty", "byteChunksEmpty"),
+        ("byte_chunks_one", "byteChunksOne"),
+        ("byte_chunks_append", "byteChunksAppend"),
         ("byte_read_u8_be", "byteReadU8Be"),
         ("byte_expect_fixed_u8_be", "byteExpectFixedU8Be"),
         (

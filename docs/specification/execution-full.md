@@ -83,11 +83,13 @@ Standard byte chunk and byte view helpers are pure prelude runtime operations.
 The runtime constructs immutable `ByteChunk` values, computes `ByteCount`,
 appends chunks without mutating inputs, decodes compact ASCII hex fixture
 text, constructs bounded `ByteView` values, materializes bounded views as
-chunks, and reads or writes fixed-width unsigned big-endian integer
-representations. These helpers return `Result` failures for invalid byte
-values, invalid hex fixture text, negative counts or offsets, slice or drop
-counts that exceed the chunk length, view ranges that exceed the chunk length,
-truncated reads, and fixed-width unsigned conversion overflow. Hex fixture
+chunks, derives bounded views within existing views, constructs outgoing
+`List<ByteChunk>` values, and reads or writes fixed-width unsigned big-endian
+integer representations. These helpers return `Result` failures for invalid
+byte values, invalid hex fixture text, negative counts or offsets, slice or
+drop counts that exceed the chunk or view length, view ranges that exceed the
+chunk or view length, truncated reads, and fixed-width unsigned conversion
+overflow. Hex fixture
 decoding accepts ASCII hex byte pairs with ASCII whitespace between complete
 bytes only; invalid characters and dangling nibbles return stable fixture hex
 error ids with decoded byte offset and nibble position in the error text. When
