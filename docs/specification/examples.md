@@ -362,6 +362,7 @@ and reason text visible without converting it into a protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-human/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-human/`,
+`../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
@@ -371,6 +372,7 @@ and reason text visible without converting it into a protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-preface-invalid-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
+`../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
@@ -383,7 +385,9 @@ frame sizes, setting identity, observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
 expected payload length, flow-control window credit, expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
-and rule provenance. The flow-control command fixtures cover stream
+concurrent-stream attempted and allowed counts, and rule provenance. The
+concurrent-stream command fixtures cover the focused peer-created stream limit
+projection, and the flow-control command fixtures cover stream
 receive-window provenance while the ordinary protocol-core case also covers
 connection receive-window provenance and the `WINDOW_UPDATE` receive-credit
 slice.
