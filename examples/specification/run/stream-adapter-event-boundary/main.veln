@@ -1,0 +1,112 @@
+# Stream adapter handlers exchange ordinary event and action values.
+use stdio
+
+type StreamEvent
+	Request {stream_id: Int, payload: ByteChunk, end_stream: Bool}
+	PeerClosed {stream_id: Int}
+end
+
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	ResetStream {stream_id: Int, code: Int}
+	Decline {stream_id: Int}
+end
+
+fn handle_stream_event(event: StreamEvent, state: { request_count : Int }) -> { actions : List<ResponseAction>, next_state : { request_count : Int } }
+	match event
+		Request(stream_id, payload, end_stream) => match end_stream
+			true => { actions: list_cons(SendBytes(stream_id, payload), list_cons(EndStream(stream_id), list_nil())), next_state: { request_count: state.request_count + 1 } }
+			false => { actions: list_cons(SendBytes(stream_id, payload), list_nil()), next_state: { request_count: state.request_count + 1 } }
+		end
+		PeerClosed(stream_id) => { actions: list_cons(Decline(stream_id), list_nil()), next_state: state }
+	end
+end
+
+fn action_count(actions: List<ResponseAction>) -> Int
+	match actions
+		Nil => 0
+		Cons(_, tail) => 1 + action_count(tail)
+	end
+end
+
+fn first_action(actions: List<ResponseAction>) -> ResponseAction
+	match actions
+		Nil => Decline(-1)
+		Cons(action, _) => action
+	end
+end
+
+fn second_action(actions: List<ResponseAction>) -> ResponseAction
+	match actions
+		Nil => Decline(-1)
+		Cons(_, tail) => first_action(tail)
+	end
+end
+
+fn action_kind(action: ResponseAction) -> String
+	match action
+		SendBytes(_, _) => "send-bytes"
+		EndStream(_) => "end-stream"
+		ResetStream(_, _) => "reset-stream"
+		Decline(_) => "decline"
+	end
+end
+
+fn action_stream_id(action: ResponseAction) -> Int
+	match action
+		SendBytes(stream_id, _) => stream_id
+		EndStream(stream_id) => stream_id
+		ResetStream(stream_id, _) => stream_id
+		Decline(stream_id) => stream_id
+	end
+end
+
+fn action_byte_count(action: ResponseAction) -> Int
+	match action
+		SendBytes(_, bytes) => byte_count_to_int(byte_chunk_count(bytes))
+		EndStream(_) => 0
+		ResetStream(_, _) => 0
+		Decline(_) => 0
+	end
+end
+
+fn emit_result(name: String, result: { actions : List<ResponseAction>, next_state : { request_count : Int } }) -> () effects [stdio]
+	let first = first_action(result.actions)
+	let second = second_action(result.actions)
+	stdio::print(name)
+	stdio::print(" actions ")
+	stdio::print(int_to_string(action_count(result.actions)))
+	stdio::print(" state ")
+	stdio::print(int_to_string(result.next_state.request_count))
+	stdio::print(" first ")
+	stdio::print(action_kind(first))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(action_stream_id(first)))
+	stdio::print(" bytes ")
+	stdio::println(int_to_string(action_byte_count(first)))
+	stdio::print(name)
+	stdio::print(" second ")
+	stdio::println(action_kind(second))
+end
+
+pub fn main() -> Result<(), String> effects [stdio, concurrency]
+	let initial = { request_count: 0 }
+	let direct_payload: ByteChunk = byte_chunk_from_hex("6869")?
+	let direct = handle_stream_event(Request(1, direct_payload, true), initial)
+	emit_result("direct", direct)
+
+	let routed_payload: ByteChunk = byte_chunk_from_hex("00")?
+	let routed_channel = channel::bounded<StreamEvent>(1)
+	let _ = channel::send(routed_channel.tx, Request(3, routed_payload, false))
+	let routed_event: StreamEvent = match channel::recv(routed_channel.rx)
+		Some(event) => event
+		None => PeerClosed(3)
+	end
+	let routed = handle_stream_event(routed_event, direct.next_state)
+	emit_result("routed", routed)
+
+	let closed = handle_stream_event(PeerClosed(5), routed.next_state)
+	emit_result("closed", closed)
+	Ok(())
+end

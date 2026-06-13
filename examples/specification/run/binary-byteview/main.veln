@@ -44,6 +44,8 @@ pub fn main() -> Result<(), String> effects [stdio, concurrency]
 		None => slice
 	end
 	stdio::println(int_result_text(byte_read_u24_be(received)))
+	let received_chunk: ByteChunk = byte_view_to_chunk(received)
+	stdio::println(int_result_text(byte_read_u24_be(byte_view(received_chunk, zero_offset, three)?)))
 	stdio::println(int_result_text(byte_read_u31_be(byte_view(byte_write_u31_be(2147483647)?, zero_offset, four)?)))
 	stdio::println(int_result_text(byte_read_u32_be(byte_view(byte_write_u32_be(4294967295)?, zero_offset, four)?)))
 	stdio::println(int_result_text(byte_read_u31_le(byte_view(byte_write_u31_le(2147483647)?, zero_offset, four)?)))

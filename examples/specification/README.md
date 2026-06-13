@@ -347,8 +347,9 @@ against the built `veln` binary.
   valid compact hex bytes and records a test-owned invalid field check with a
   diagnostic id, byte offset, structured field path, and consumed count.
 - `run/binary-byteview/`: `ByteView` slices, fixed-width unsigned big-endian
-  reads and writes, truncation failures, range failures, and conversion
-  overflow failures, plus channel freeze preservation for bounded views.
+  and little-endian reads and writes, truncation failures, range failures, and
+  conversion overflow failures, plus channel freeze preservation for bounded
+  views and materialized chunks.
 - `run/binary-buffer-boundary/`: bounded `ByteView` count, take, drop, and
   slice helpers represent pending input, preserve bounded views across channel
   freeze, and construct outgoing `List<ByteChunk>` values without an
@@ -423,6 +424,9 @@ against the built `veln` binary.
 - `run/binary-schema-closed-dispatch-nested-encode/`: a generated binary
   schema encode helper selects a closed dispatch same-module nested payload
   schema and writes the nested record fields in schema order.
+- `run/binary-schema-imported-closed-dispatch-nested-encode/`: a generated
+  binary schema encode helper selects a closed dispatch public imported nested
+  payload schema and writes the nested record fields in schema order.
 - `run/binary-schema-closed-dispatch-encode-unknown-tag/`: the same encode
   helper reports `codec.dispatch_unknown_tag` when the tag value has no
   closed dispatch case.
@@ -436,6 +440,12 @@ against the built `veln` binary.
 - `run/binary-schema-extension-dispatch-nested-encode/`: a generated binary
   schema encode helper writes a known extension-tolerant same-module nested
   payload schema through `SchemaDispatchPayload::Known`.
+- `run/binary-schema-imported-extension-dispatch-nested-encode/`: a generated
+  binary schema encode helper writes a known extension-tolerant public
+  imported nested payload schema through `SchemaDispatchPayload::Known`.
+- `run/binary-schema-imported-extension-dispatch-nested-encode-unknown/`: the
+  same imported-case extension dispatch encode helper preserves matching
+  unknown raw bounded payload bytes.
 - `run/binary-schema-extension-dispatch-encode-mismatch/`: the same encode
   helper reports `codec.dispatch_mismatch` when a known tag is paired with an
   unknown payload variant.
@@ -451,6 +461,9 @@ against the built `veln` binary.
 - `run/binary-schema-dispatch-nested-encode-failure/`: nested payload encode
   failures report `codec.encode_value_unrepresentable` and keep the nested
   schema field path in structured `EncodeError` output.
+- `run/binary-schema-imported-dispatch-nested-encode-failure/`: imported
+  nested payload encode failures keep the same nested schema field path in
+  structured `EncodeError` output.
 - `run/binary-schema-closed-dispatch-decode/`: a generated binary schema
   decode helper reads a closed dispatch tag, selects the known payload case,
   and returns the selected payload as an ordinary `Int` field.
@@ -517,6 +530,9 @@ against the built `veln` binary.
   over an eligible binary schema observes successful generated helper output
   as `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated
   helper failures as `Invalid(EncodeError)`.
+- `run/derived-codec-nested-dispatch-encode-boundary/`: the same `derive
+  encode` codec item boundary over a same-module nested dispatch payload
+  schema, including generated helper dispatch selection failure projection.
 - `check/derived-codec-mapping-boundary-diagnostics/`: mapped derived encode
   clauses reject generated boundaries that cannot accept the mapping target
   value type.
@@ -525,6 +541,10 @@ against the built `veln` binary.
   `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the
   codec item name while preserving mapped record fields and no-consumption
   outcomes.
+- `run/derived-codec-nested-dispatch-decode-boundary/`: the same `derive
+  decode` codec item boundary over a same-module nested dispatch payload
+  schema, including the generated helper's nested record value and consumed
+  count.
 - `run/binary-schema-frame-payload-decode/`: HTTP/2 frame decode returns the
   visible header fields plus a bounded payload `ByteView` selected by the
   decoded length.
@@ -673,6 +693,14 @@ against the built `veln` binary.
   stream-state frame-kind failure reports `http2.protocol.invalid_frame_kind`
   through `run --json` with byte offset, actual and expected frame kinds,
   stream reference, active state, and rule provenance.
+- `run/http2-protocol-core-settings-ack-length-human/`: a non-empty SETTINGS
+  ACK payload reports `http2.protocol.invalid_payload_length` through human
+  `run` stderr with observed and expected payload length plus protocol state
+  and provenance notes.
+- `run/http2-protocol-core-settings-ack-length-json/`: the same SETTINGS ACK
+  payload-length failure reports `http2.protocol.invalid_payload_length`
+  through `run --json` with byte offset, frame kind, stream reference,
+  observed and expected payload lengths, active state, and rule provenance.
 - `run/http2-protocol-core-ping-length-human/`: a wrong-length PING payload
   reports `http2.protocol.invalid_payload_length` through human `run` stderr
   with observed and expected payload length plus protocol state and provenance
@@ -734,6 +762,15 @@ against the built `veln` binary.
   recording fails as a run JSON runtime error.
 - `run/transport-timeout-expired-json/`: host-fixture-forced timeout expiry
   through `time::timeout_ms` fails as a run JSON runtime error.
+- `run/stream-adapter-event-boundary/`: source-owned stream event and response
+  action ADTs model handler inputs and protocol intent, with direct fixture
+  invocation and existing channel routing under the `concurrency` effect.
+- `run/pending-input-byte-chunks/`: `StreamInput.Chunk` events append immutable
+  `ByteChunk` values into bounded pending input, `End` remains distinct,
+  bounded `ByteView` consumption preserves absolute `ByteOffset` facts,
+  materialized consumed bytes remain readable after retained input advances,
+  and protocol action values collect outgoing immutable chunks without socket
+  calls.
 - `run/concurrency-boundary/`: task and channel standard calls with declared
   concurrency effects, including explicit and inferred item types, sender
   closing, closed receives, and failed sends.

@@ -82,6 +82,14 @@ HTTP/2 design driver to define a Web-service framework.
 
 ## Discussion Result: Stream Adapter Event Boundary
 
+Implemented first slice: source-level executable examples model decoded stream
+work as ordinary event values and response intent as ordinary action values.
+A plain handler receives one stream event and explicit application state, then
+returns response-action values plus the next state. The same handler is called
+directly by a fixture and after an event crosses an existing channel under the
+`concurrency` effect. This slice does not add socket ownership, transport
+handles, listen/read/write/routing effect labels, or a service interface.
+
 The transport adapter should expose decoded stream work to application code as
 plain event values and response-action values, not as transport handles,
 connection tasks, or mutable stream objects.

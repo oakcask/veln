@@ -25,29 +25,31 @@ compare it with `../specification/` before changing behavior.
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
   big-endian and little-endian read/write, bounded view buffer helper,
-  outgoing chunk-list, stream-input, pending input and outgoing immutable
-  chunk collection for protocol examples, and schema byte-preview diagnostic
-  slices plus HTTP/2 client connection preface protocol byte previews.
+  view-to-chunk materialization, outgoing chunk-list, stream-input, pending
+  input and outgoing immutable chunk collection for protocol examples, and
+  schema byte-preview diagnostic slices plus HTTP/2 client connection preface
+  protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining binary schema primitive and dispatch behavior beyond the
   implemented source-surface exact-width and `ReservedBits(width, value)`
   declaration slices, the frame-header and width-sample primitive decode
   slices, the exact-width and supported reserved-bit primitive encode helper
   slices, the narrow closed-dispatch and extension-dispatch primitive and
-  same-module nested payload encode helper slices, the narrow HTTP/2 payload
-  boundary helper, the narrow closed dispatch failure plus same-module and
-  imported nested payload slices, and the narrow extension-tolerant dispatch
-  preservation plus same-module and imported nested payload slices.
+  same-module and imported public nested payload encode helper slices, the
+  narrow HTTP/2 payload boundary helper, the narrow closed dispatch failure
+  plus same-module and imported nested payload slices, and the narrow
+  extension-tolerant dispatch preservation plus same-module and imported
+  nested payload slices.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,
   mapped decode value boundary, encode function return and mapped value
   parameter boundaries, derived codec mapping value boundary rejections,
-  source-visible decode and encode result vocabulary, generated exact-width
-  binary schema decode-step helper slice, hand-written codec decode
-  consumed-count validation, and hand-written codec encode and decode
-  execution boundaries plus eligible derived codec decode and encode execution
-  boundaries.
+  source-visible decode and encode result vocabulary, generated binary schema
+  decode-step helper slice for implemented exact-width and same-module nested
+  dispatch payload boundaries, hand-written codec decode consumed-count
+  validation, and hand-written codec encode and decode execution boundaries
+  plus eligible derived codec decode and encode execution boundaries.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
@@ -75,7 +77,8 @@ compare it with `../specification/` before changing behavior.
   define remaining transport adapter, socket, stream-routing, deadline API,
   cancellation, channel, and task behavior beyond the implemented
   descriptor-backed `net` and `time` boundary calls plus their first
-  transport-error and timeout-expiry runtime failure slices.
+  transport-error and timeout-expiry runtime failure slices, and the
+  source-level stream event/action handler boundary examples.
 
 ## Update When
 

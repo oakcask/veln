@@ -68,11 +68,12 @@ field path separate from the `codec.incomplete_input` JSON assertion.
 
 The executable specification case
 `../../examples/specification/run/binary-byteview/` covers source-visible
-`ByteView` slices, checked unsigned big-endian reads, checked unsigned
-big-endian writes, truncation failures, range failures, and conversion
-overflow failures without relying on HTTP/2 or codec declarations. It also
-passes a `ByteView` through a channel and reads the received view to cover the
-ordinary immutable freeze boundary.
+`ByteView` slices, checked unsigned big-endian and little-endian reads,
+checked unsigned big-endian and little-endian writes, truncation failures,
+range failures, and conversion overflow failures without relying on HTTP/2 or
+codec declarations. It also passes a `ByteView` through a channel and reads
+the received view, then materializes the received view as `ByteChunk`, to
+cover the ordinary immutable freeze boundary.
 
 The sibling failure cases under `../../examples/specification/run/` pin the
 runtime `Result` propagation shape for ByteView read truncation, ByteView range
@@ -111,6 +112,10 @@ decode-step slice: a codec item call observes the generated helper's
 `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values through the codec
 item name while preserving mapped record fields and no-consumption outcomes.
 The executable specification case
+`../../examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`
+covers the same derived codec call boundary when the generated decode-step
+helper decodes a same-module nested dispatch payload schema.
+The executable specification case
 `../../examples/specification/check/derived-codec-mapping-boundary-diagnostics/`
 covers mapped derived encode clauses whose generated helper boundary cannot
 accept the schema mapping target value type.
@@ -137,6 +142,11 @@ derived codec encode boundary for the eligible generated binary schema encode
 helper slice: a codec item call observes successful helper output as
 `Encoded(List<ByteChunk>)` with one chunk and out-of-range generated helper
 failures as `Invalid(EncodeError)`.
+The executable specification case
+`../../examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`
+covers the same derived codec call boundary when the generated encode helper
+writes a same-module nested dispatch payload schema and projects dispatch
+selection failures as `Invalid(EncodeError)`.
 The derived mapping-boundary diagnostics case listed above pins the matching
 `codec.encode_value_type` rejection for generated encode boundaries.
 
@@ -249,6 +259,8 @@ pins the closed dispatch encode helper slice. The passing cases select
 tag field and write one `ByteChunk` in declaration order.
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-encode/`
 pins same-module nested payload encode for a closed dispatch case.
+`../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`
+pins public imported nested payload encode for a closed dispatch case.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`
 asserts `codec.dispatch_unknown_tag` when the tag value has no closed case.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`
@@ -263,6 +275,12 @@ visible tag value.
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-encode/`
 pins same-module nested payload encode through
 `SchemaDispatchPayload::Known`.
+`../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode/`
+pins public imported nested payload encode through
+`SchemaDispatchPayload::Known`.
+`../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode-unknown/`
+pins unknown raw payload preservation when the known cases name public
+imported nested payload schemas.
 `../../examples/specification/run/binary-schema-extension-dispatch-encode-mismatch/`
 asserts `codec.dispatch_mismatch` when the visible tag field selects a known
 case but the payload field supplies `Unknown`.
@@ -279,6 +297,9 @@ not match the emitted payload byte count.
 asserts that nested payload encode failures report
 `codec.encode_value_unrepresentable` while keeping the nested schema field
 path.
+`../../examples/specification/run/binary-schema-imported-dispatch-nested-encode-failure/`
+asserts the same nested field path behavior through a public imported payload
+schema.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
@@ -316,6 +337,33 @@ decoded tag and a bounded raw `ByteView` without reporting
 `schema.dispatch_unknown_tag`. The malformed structural case still reports
 `schema.length_out_of_bounds` when the decoded length cannot be sliced from
 closed input.
+
+## Stream Adapter Event Boundary
+
+The executable specification case
+`../../examples/specification/run/stream-adapter-event-boundary/` covers the
+implemented source-level adapter boundary for decoded stream work. The example
+declares ordinary `StreamEvent` and `ResponseAction` ADTs, calls a plain
+handler directly with a synthesized event and explicit state record, routes
+another event through an existing channel under the `concurrency` effect, and
+checks that the handler returns response-action intent values plus the next
+state. The actions describe send-bytes, end-stream, reset-stream, and decline
+intent as values for an adapter to interpret; the handler does not call socket
+or `net::send_chunk` APIs.
+
+## Pending Input Byte Chunks
+
+The executable specification case
+`../../examples/specification/run/pending-input-byte-chunks/` covers the
+source-visible pending-input and outgoing-byte chunk slice used by protocol
+examples. The example appends `StreamInput.Chunk` byte chunks into a bounded
+pending buffer, treats `StreamInput.End` as a distinct event, takes a bounded
+`ByteView` while reporting the absolute base `ByteOffset`, drops consumed
+bytes while advancing the next absolute offset, reports a retained-input
+size-limit failure, materializes the consumed view into an owned `ByteChunk`
+that remains readable after the retained pending input advances, and collects
+outgoing immutable `ByteChunk` values from ordinary protocol action values
+without socket calls.
 
 ## HTTP/2 Protocol Core Example
 
@@ -403,6 +451,7 @@ protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-human/`,
+`../../examples/specification/run/http2-protocol-core-settings-ack-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
@@ -414,6 +463,7 @@ protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
+`../../examples/specification/run/http2-protocol-core-settings-ack-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
 and `../../examples/specification/run/http2-protocol-core-goaway-length-json/case.toml`
 pin the command-facing projection path for those typed failures. The human

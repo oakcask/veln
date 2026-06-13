@@ -122,6 +122,12 @@ pub fn main() -> Result<(), String> effects [stdio]
 	stdio::print(" first16 ")
 	stdio::println(int_to_string(byte_read_u16_be(consumed.view)?))
 	emit_pending("after-drop", consumed.next_state)
+	let materialized: ByteChunk = byte_view_to_chunk(consumed.view)
+	let materialized_view: ByteView = byte_view(materialized, byte_offset(0)?, consumed_count)?
+	stdio::print("materialized count ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(materialized))))
+	stdio::print(" first16 ")
+	stdio::println(int_to_string(byte_read_u16_be(materialized_view)?))
 
 	let overflowing_chunk: ByteChunk = byte_chunk_from_hex("050607")?
 	let limit_result = append_input(Chunk(overflowing_chunk), consumed.next_state)

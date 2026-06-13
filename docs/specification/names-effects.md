@@ -40,10 +40,11 @@ compiler-known calls.
   slice resolves a mapped `Int` record shape; generated decode-step helpers
   expose the same value shape through `DecodeStep<T>` for open input.
   Generated binary schema encode helpers for the exact-width primitive,
-  supported reserved-bit, closed dispatch, extension dispatch, and same-module
-  nested dispatch payload slices accept schema-local visible fields, using
-  `SchemaDispatchPayload<T>` for extension dispatch payload fields, and return
-  `Result<ByteChunk, EncodeError>`. HTTP/2 frame-header decoding,
+  supported reserved-bit, closed dispatch, extension dispatch, and
+  same-module or imported public nested dispatch payload slices accept
+  schema-local visible fields, using `SchemaDispatchPayload<T>` for extension
+  dispatch payload fields, and return `Result<ByteChunk, EncodeError>`.
+  HTTP/2 frame-header decoding,
   bounded payload frame decoding, and protocol diagnostic projection helpers
   including stream id domain failure projection are
   listed with those signatures:
