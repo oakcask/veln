@@ -114,15 +114,28 @@ execution reference.
   chooses the case from the encoded tag value, writes the selected payload in
   declaration order, and returns `Err(EncodeError("codec.dispatch_unknown_tag",
   field_path, reason))` when the tag value has no case.
+  Extension-tolerant
+  `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` fields are
+  eligible for the same exact-width unsigned primitive payload cases when both
+  the tag and length fields are earlier visible exact-width unsigned fields.
+  The payload record field is `SchemaDispatchPayload<Int>`. `Known(value)`
+  writes the primitive selected by the visible tag field. `Unknown(tag,
+  payload)` writes the bounded raw bytes from the `ByteView` only when the
+  visible tag value is not a known case and matches the unknown payload tag.
+  The supplied length field remains explicit: the helper rejects values whose
+  encoded payload byte count differs from the earlier length field with
+  `Err(EncodeError("codec.dispatch_length_mismatch", field_path, reason))`.
+  Visible tag and payload variant disagreements return
+  `Err(EncodeError("codec.dispatch_mismatch", field_path, reason))`.
   The helper writes fields in declaration order into one immutable big-endian
   `ByteChunk` and returns `Result<ByteChunk, EncodeError>`. Values outside the
   primitive range return `Err(EncodeError("codec.out_of_range", field_path,
   reason))`; `UInt31be` uses the 31-bit maximum even though it occupies four
   bytes. Unsupported reserved-bit encode shapes report
   `schema.reserved_bits_encode`. This slice excludes schema mappings,
-  field-local validation, extension dispatch, nested dispatch payload schemas,
-  other reserved or fixed fields, nested mappings, and derived codec encode
-  execution for unsupported schemas.
+  field-local validation, nested dispatch payload schemas, other reserved or
+  fixed fields, nested mappings, and derived codec encode execution for
+  unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
@@ -130,6 +143,11 @@ execution reference.
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-extension-dispatch-encode/`,
+  `examples/specification/run/binary-schema-extension-dispatch-encode-mismatch/`,
+  `examples/specification/run/binary-schema-extension-dispatch-encode-tag-mismatch/`,
+  `examples/specification/run/binary-schema-extension-dispatch-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-extension-dispatch-encode-length-mismatch/`,
   and
   `examples/specification/check/schema-reserved-bit-encode-diagnostics/`.
 - A codec declaration with a valid `derive encode` clause for the same

@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "codec.dispatch_length_mismatch\nExtensionDispatchWritePacket.payload\nlength field `length` value 3 does not match encoded payload byte count 2\n"
+
+[[json_assert]]
+path = "error"
+equals = null

@@ -29,10 +29,11 @@ compare it with `../specification/` before changing behavior.
   implemented source-surface exact-width and `ReservedBits(width, value)`
   declaration slices, the frame-header and width-sample primitive decode
   slices, the exact-width and supported reserved-bit primitive encode helper
-  slices, the narrow closed-dispatch primitive encode helper slice, the narrow
-  HTTP/2 payload boundary helper, the narrow closed dispatch failure and
-  same-module nested payload slices, and the narrow extension-tolerant
-  dispatch preservation and same-module nested payload slices.
+  slices, the narrow closed-dispatch and extension-dispatch primitive encode
+  helper slices, the narrow HTTP/2 payload boundary helper, the narrow closed
+  dispatch failure and same-module nested payload slices, and the narrow
+  extension-tolerant dispatch preservation and same-module nested payload
+  slices.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

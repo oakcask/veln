@@ -232,6 +232,23 @@ asserts `codec.dispatch_unknown_tag` when the tag value has no closed case.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`
 asserts `codec.out_of_range` against the selected `UInt8` payload case.
 
+`../../examples/specification/run/binary-schema-extension-dispatch-encode/`
+pins the extension-tolerant dispatch encode helper slice. The passing cases
+write a known primitive payload selected by the visible tag field and preserve
+unknown raw bounded payload bytes when the unknown payload tag matches the
+visible tag value.
+`../../examples/specification/run/binary-schema-extension-dispatch-encode-mismatch/`
+asserts `codec.dispatch_mismatch` when the visible tag field selects a known
+case but the payload field supplies `Unknown`.
+`../../examples/specification/run/binary-schema-extension-dispatch-encode-tag-mismatch/`
+asserts `codec.dispatch_mismatch` when an unknown payload variant carries a
+tag that differs from the visible tag field.
+`../../examples/specification/run/binary-schema-extension-dispatch-encode-out-of-range/`
+asserts `codec.out_of_range` against the selected `UInt16be` payload case.
+`../../examples/specification/run/binary-schema-extension-dispatch-encode-length-mismatch/`
+asserts `codec.dispatch_length_mismatch` when the earlier length field does
+not match the emitted payload byte count.
+
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,

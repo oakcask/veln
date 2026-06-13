@@ -1188,7 +1188,7 @@
                     ));
                 }
                 SchemaDispatchSpec dispatchSpec = (SchemaDispatchSpec) unwrapOk(dispatch);
-                Object encoded = schemaWriteClosedDispatchPayload(
+                Object encoded = schemaWriteDispatchPayload(
                     fields,
                     dispatchSpec,
                     name,
@@ -2319,18 +2319,14 @@
         return ok(byteChunkObject(bytes));
     }
 
-    private static Object schemaWriteClosedDispatchPayload(
+    private static Object schemaWriteDispatchPayload(
         java.util.Map<Object, Object> fields,
         SchemaDispatchSpec dispatch,
         String schemaName,
         String fieldName
     ) {
         if (!dispatch.lengthField.isEmpty()) {
-            return err(encodeError(
-                "codec.metadata",
-                schemaName + "." + fieldName,
-                "extension dispatch encode is not supported"
-            ));
+            return schemaWriteExtensionDispatchPayload(fields, dispatch, schemaName, fieldName);
         }
         long tagValue = asLong(fields.get(dispatch.tagField));
         for (SchemaDispatchCaseSpec dispatchCase : dispatch.cases) {
@@ -2362,6 +2358,105 @@
                 + " must be one of "
                 + schemaDispatchExpectedTags(dispatch)
         ));
+    }
+
+    private static Object schemaWriteExtensionDispatchPayload(
+        java.util.Map<Object, Object> fields,
+        SchemaDispatchSpec dispatch,
+        String schemaName,
+        String fieldName
+    ) {
+        String fieldPath = schemaName + "." + fieldName;
+        long tagValue = asLong(fields.get(dispatch.tagField));
+        long suppliedLength = asLong(fields.get(dispatch.lengthField));
+        Object payload = fields.get(fieldName);
+        SchemaDispatchCaseSpec selectedCase = null;
+        for (SchemaDispatchCaseSpec dispatchCase : dispatch.cases) {
+            if (dispatchCase.tag == tagValue) {
+                selectedCase = dispatchCase;
+                break;
+            }
+        }
+        if (selectedCase != null) {
+            if (!isAdtNamed(payload, "SchemaDispatchPayload::Known")) {
+                return err(encodeError(
+                    "codec.dispatch_mismatch",
+                    fieldPath,
+                    "tag field `" + dispatch.tagField + "` value " + tagValue
+                        + " selects a known payload case"
+                ));
+            }
+            if (selectedCase.payloadSchema != null) {
+                return err(encodeError(
+                    "codec.metadata",
+                    fieldPath,
+                    "nested dispatch payload encode is not supported"
+                ));
+            }
+            Object encoded = schemaWriteUnsignedBe(
+                asAdt(payload, "SchemaDispatchPayload::Known").payloads[0],
+                selectedCase.width,
+                selectedCase.maxValue,
+                schemaName,
+                fieldName
+            );
+            if (isErr(encoded)) {
+                return encoded;
+            }
+            return schemaDispatchLengthCheckedChunk(
+                unwrapOk(encoded),
+                suppliedLength,
+                dispatch.lengthField,
+                fieldPath
+            );
+        }
+        if (!isAdtNamed(payload, "SchemaDispatchPayload::Unknown")) {
+            return err(encodeError(
+                "codec.dispatch_mismatch",
+                fieldPath,
+                "tag field `" + dispatch.tagField + "` value " + tagValue
+                    + " requires an unknown payload variant"
+            ));
+        }
+        Adt unknown = asAdt(payload, "SchemaDispatchPayload::Unknown");
+        long payloadTag = asLong(unknown.payloads[0]);
+        if (payloadTag != tagValue) {
+            return err(encodeError(
+                "codec.dispatch_mismatch",
+                fieldPath,
+                "tag field `" + dispatch.tagField + "` value " + tagValue
+                    + " does not match unknown payload tag " + payloadTag
+            ));
+        }
+        Object chunk = byteViewToChunk(unknown.payloads[1]);
+        return schemaDispatchLengthCheckedChunk(
+            chunk,
+            suppliedLength,
+            dispatch.lengthField,
+            fieldPath
+        );
+    }
+
+    private static boolean isAdtNamed(Object value, String name) {
+        return value instanceof Adt && ((Adt) value).name.equals(name);
+    }
+
+    private static Object schemaDispatchLengthCheckedChunk(
+        Object chunk,
+        long suppliedLength,
+        String lengthField,
+        String fieldPath
+    ) {
+        long actualLength = byteChunkBytes(chunk).size();
+        if (actualLength != suppliedLength) {
+            return err(encodeError(
+                "codec.dispatch_length_mismatch",
+                fieldPath,
+                "length field `" + lengthField + "` value " + suppliedLength
+                    + " does not match encoded payload byte count " + actualLength
+            ));
+        }
+        return ok(chunk);
     }
 
     private static Object schemaWriteUnsignedBe(

@@ -110,12 +110,18 @@ closed-dispatch primitive encode slice accepts an earlier visible exact-width
 unsigned tag field and exact-width unsigned primitive payload cases, chooses
 the payload case from the encoded tag value, and reports structured
 `EncodeError` failures for unknown tags or selected payload values outside the
-primitive range. General schema-owned decode, encode, extension-dispatch
-encode, nested dispatch payload encode, and mapping beyond the implemented
-slices remain proposal work. A `UInt31be` field represents the 31-bit unsigned
-value in a big-endian field position whose remaining bit is handled as a
-reserved or fixed schema bit. The 31-bit value should not become a
-general-purpose source type.
+primitive range. The implemented extension-dispatch primitive encode slice
+accepts earlier visible exact-width unsigned tag and length fields plus a
+`SchemaDispatchPayload<Int>` payload field, writes known primitive payloads,
+preserves unknown raw bounded payload bytes, rejects tag or payload variant
+disagreements, rejects length fields that do not match the emitted payload byte
+count, and reports primitive range failures through structured `EncodeError`
+values. General schema-owned decode and encode beyond the implemented slices,
+nested dispatch payload encode, and mapping beyond the implemented slices
+remain proposal work. A `UInt31be` field represents the 31-bit unsigned value
+in a big-endian field position whose remaining bit is handled as a reserved or
+fixed schema bit. The 31-bit value should not become a general-purpose source
+type.
 
 ## Discussion Result: Reserved Bit Spelling
 
@@ -249,8 +255,9 @@ author likely referred to an earlier field with a compatible role.
 - Executable examples show binary schema writes and general schema-owned
   fixed-width reads beyond the implemented frame-header, width-sample,
   primitive encode helper, reserved-bit encode helper, closed-dispatch
-  primitive encode helper, HTTP/2 payload boundary helper, and narrow
-  closed-dispatch and extension-dispatch decode slices.
+  primitive encode helper, extension-dispatch primitive encode helper, HTTP/2
+  payload boundary helper, and narrow closed-dispatch and extension-dispatch
+  decode slices.
 - Imported or generalized dispatch payload schemas can decode nested known
   payload shapes while keeping extension-tolerant unknown payload bytes
   opaque.

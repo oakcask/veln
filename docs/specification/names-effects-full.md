@@ -533,21 +533,28 @@ eligible schema declarations also expose `byte_decode_step_<schema>` helpers
 that accept `ByteView` plus `ByteOffset` and return `DecodeStep<T>` with
 `Decoded(value, consumed)` for a complete buffered value or
 `NeedMore(NeedBytes(count))` for an open view that is too short to decide. The
-exact-width, supported reserved-bit, and closed primitive dispatch encode
-slices expose
-`byte_encode_<schema>` helpers for eligible binary schemas whose source-visible
-fields are exact-width unsigned primitives, the supported `ReservedBits(1, 0)`
-before `UInt31be` layout, or closed dispatch fields whose cases are
-exact-width unsigned primitive payloads. Those helpers accept a schema-local
-visible `Int` record and return `Result<ByteChunk, EncodeError>` with
-field-order big-endian output or a structured `codec.out_of_range` encode
-error. The supported reserved-bit encode layout omits `ReservedBits(1, 0)` from
-the value record when it immediately precedes `UInt31be`; the closed dispatch
-encode layout selects the payload width from the earlier visible tag field and
-reports `codec.dispatch_unknown_tag` when no case matches. The fixed-width
-unsigned big-endian write helpers return `Ok(ByteChunk)` for values in range
-and `Err(String)` for negative values or values larger than the helper width
-can encode.
+exact-width, supported reserved-bit, closed primitive dispatch, and extension
+primitive dispatch encode slices expose `byte_encode_<schema>` helpers for
+eligible binary schemas whose source-visible fields are exact-width unsigned
+primitives, the supported `ReservedBits(1, 0)` before `UInt31be` layout,
+closed dispatch fields whose cases are exact-width unsigned primitive
+payloads, or extension-tolerant dispatch fields with earlier visible
+exact-width tag and length fields and exact-width unsigned primitive payload
+cases. Those helpers accept a schema-local visible record, using ordinary
+`Int` fields for visible primitives and `SchemaDispatchPayload<Int>` for
+extension dispatch payload fields, and return
+`Result<ByteChunk, EncodeError>` with field-order big-endian output or a
+structured encode error. The supported reserved-bit encode layout omits
+`ReservedBits(1, 0)` from the value record when it immediately precedes
+`UInt31be`; the closed dispatch encode layout selects the payload width from
+the earlier visible tag field and reports `codec.dispatch_unknown_tag` when no
+case matches. The extension dispatch encode layout writes `Known` primitive
+payloads, preserves matching unknown raw payload bytes, reports
+`codec.dispatch_mismatch` for tag or variant disagreements, and reports
+`codec.dispatch_length_mismatch` when the explicit length field differs from
+the emitted payload byte count. The fixed-width unsigned big-endian write
+helpers return `Ok(ByteChunk)` for values in range and `Err(String)` for
+negative values or values larger than the helper width can encode.
 `byte_count(value)` and `byte_offset(value)` accept non-negative integers.
 The `*_to_int` helpers expose the stored integer value for ordinary source
 logic and display.
