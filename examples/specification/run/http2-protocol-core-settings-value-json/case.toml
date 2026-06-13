@@ -36,15 +36,15 @@ equals = 9
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.setting_identifier"
-equals = 4
+equals = 2
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.setting_name"
-equals = "SETTINGS_INITIAL_WINDOW_SIZE"
+equals = "SETTINGS_ENABLE_PUSH"
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.observed_value"
-equals = 2147483648
+equals = 2
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.accepted_min_value"
@@ -52,7 +52,7 @@ equals = 0
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.accepted_max_value"
-equals = 2147483647
+equals = 1
 
 [[json_assert]]
 path = "error.details.protocol_diagnostic.peer_limit_provenance"
