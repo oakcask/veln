@@ -417,15 +417,17 @@ receive-window credit also remain typed peer-limit failures. `RST_STREAM` on
 the open stream decodes its four-byte error code into reset state, clears the
 open stream, and leaves later DATA or stream-level `WINDOW_UPDATE` for that
 reset stream on the existing invalid frame-kind path.
-Peer-received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`, and
-`SETTINGS_INITIAL_WINDOW_SIZE` are stored as peer-advertised state for outbound
-decisions. The peer-advertised maximum frame size does not replace the inbound
-receive maximum used by later frame-size checks, and the peer-advertised
+Peer-received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`,
+`SETTINGS_MAX_CONCURRENT_STREAMS`, and `SETTINGS_INITIAL_WINDOW_SIZE` are
+stored as peer-advertised state for outbound decisions. The peer-advertised
+maximum frame size does not replace the inbound receive maximum used by later
+frame-size checks, the peer-advertised maximum concurrent streams value does
+not replace the local concurrent-stream receive limit, and the peer-advertised
 initial window size does not replace the inbound receive-window credit used by
-later DATA checks. Received values for all three settings are range-checked
-before updating peer-advertised state; out-of-range values stay as typed
-peer-limit failures at the offending SETTINGS item byte offset. SETTINGS ACK
-frames do not update peer-advertised state. A
+later DATA checks. Received values for settings with protocol range
+constraints are checked before updating peer-advertised state; out-of-range
+values stay as typed peer-limit failures at the offending SETTINGS item byte
+offset. SETTINGS ACK frames do not update peer-advertised state. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
 completed accumulated header-block bytes in observable example output.
 Protocol failures stay as ordinary ADT values and are projected by source code

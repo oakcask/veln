@@ -278,9 +278,10 @@ execution reference.
   failures for different frame kinds and stream ids, closed input while a
   header block remains pending, completed HEADERS and CONTINUATION
   header-block output, incoming frame payloads that exceed the active receive
-  maximum frame size, received
-  `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`, and
-  `SETTINGS_INITIAL_WINDOW_SIZE` values outside their accepted SETTINGS ranges,
+  maximum frame size, received `SETTINGS_MAX_CONCURRENT_STREAMS`
+  peer-advertised state, received `SETTINGS_ENABLE_PUSH`,
+  `SETTINGS_MAX_FRAME_SIZE`, and `SETTINGS_INITIAL_WINDOW_SIZE` values outside
+  their accepted SETTINGS ranges,
   zero-length SETTINGS ACK frames, wrong-length SETTINGS ACK payloads, stream
   id domain failures, invalid stream-state frame kinds, wrong-length PING,
   GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction, accepted
