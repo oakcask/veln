@@ -788,18 +788,22 @@ fn run_json(
             } else if let Some(failure) = result_failure_from_trace(&result_error_trace) {
                 RunJsonReport::failed(exit_code, stdout, stderr, failure)
             } else {
-                RunJsonReport::runtime_error(
-                    exit_code,
-                    stdout,
-                    stderr,
-                    format!("run process exited with status {}", output.status),
-                )
+                let message = runtime_error_message(&stderr, output.status);
+                RunJsonReport::runtime_error(exit_code, stdout, stderr, message)
             }
         }
     };
     let exit_code = report.exit_code();
     println!("{}", report.to_json());
     Ok(exit_code)
+}
+
+fn runtime_error_message(stderr: &str, status: std::process::ExitStatus) -> String {
+    stderr
+        .lines()
+        .find(|line| !line.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("run process exited with status {status}"))
 }
 
 struct RunJsonReport {

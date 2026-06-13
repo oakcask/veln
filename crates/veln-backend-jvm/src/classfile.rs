@@ -145,6 +145,7 @@ impl<'a> ClassfileEmitter<'a> {
         code.op(0xb1);
 
         self.emit_entry_contract_failure_handler(&mut code, try_start, try_end);
+        self.emit_entry_runtime_failure_handler(&mut code, try_start, try_end);
         self.add_entry_main_method(&mut class, code);
         class.finish()
     }
@@ -247,6 +248,29 @@ impl<'a> ClassfileEmitter<'a> {
             end_pc: try_end,
             handler_pc: handler,
             catch_type: self.runtime_nested("ContractFailure"),
+        });
+    }
+
+    fn emit_entry_runtime_failure_handler(
+        &self,
+        code: &mut MethodCode,
+        try_start: usize,
+        try_end: usize,
+    ) {
+        let handler = code.mark();
+        code.astore(2);
+        code.getstatic("java/lang/System", "err", "Ljava/io/PrintStream;");
+        code.aload(2);
+        code.invokevirtual("java/lang/Throwable", "getMessage", "()Ljava/lang/String;");
+        code.invokevirtual("java/io/PrintStream", "println", "(Ljava/lang/String;)V");
+        code.push_i32(1);
+        code.invokestatic("java/lang/System", "exit", "(I)V");
+        code.op(0xb1);
+        code.exceptions.push(ExceptionHandler {
+            start_pc: try_start,
+            end_pc: try_end,
+            handler_pc: handler,
+            catch_type: self.runtime_nested("RuntimeFailure"),
         });
     }
 

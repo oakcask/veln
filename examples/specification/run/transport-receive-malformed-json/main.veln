@@ -1,0 +1,6 @@
+# Transport receive failures are runtime failures, not schema or protocol diagnostics.
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let incoming = net::receive_chunk()
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
+	Ok(())
+end

@@ -54,11 +54,22 @@
         if (input == null) {
             input = "";
         }
-        return unwrapOk(byteChunkFromHex(input));
+        Object chunk = byteChunkFromHex(input);
+        if (isErr(chunk)) {
+            throw new RuntimeFailure("transport receive failed: malformed VELN_NET_CHUNK_HEX");
+        }
+        return unwrapOk(chunk);
     }
 
     public static Object netSendChunk(Object bytes) {
-        writeNetEvent("send " + format(bytes));
+        try {
+            writeNetEvent("send " + format(bytes));
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport send failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
         return UNIT;
     }
 
@@ -104,20 +115,16 @@
         return UNIT;
     }
 
-    private static void writeNetEvent(String line) {
+    private static void writeNetEvent(String line) throws java.io.IOException {
         String path = System.getenv("VELN_NET_EVENTS");
         if (path == null || path.isEmpty()) {
             return;
         }
-        try {
-            java.nio.file.Files.write(
-                java.nio.file.Paths.get(path),
-                java.util.Collections.singletonList(line),
-                java.nio.charset.StandardCharsets.UTF_8,
-                java.nio.file.StandardOpenOption.CREATE,
-                java.nio.file.StandardOpenOption.APPEND
-            );
-        } catch (java.io.IOException error) {
-            throw new RuntimeException(error);
-        }
+        java.nio.file.Files.write(
+            java.nio.file.Paths.get(path),
+            java.util.Collections.singletonList(line),
+            java.nio.charset.StandardCharsets.UTF_8,
+            java.nio.file.StandardOpenOption.CREATE,
+            java.nio.file.StandardOpenOption.APPEND
+        );
     }
