@@ -132,6 +132,7 @@ pub enum CoreExprKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CoreCallTarget {
     Function(String),
+    CodecDecode { function: String, codec: String },
     SchemaDecode(String),
     SchemaDecodeStep(String),
     SchemaEncode(String),

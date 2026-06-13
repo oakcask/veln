@@ -51,6 +51,23 @@ pub struct IrSchemaDecodeDispatchCase {
 pub struct IrSchemaDecodeMappingField {
     pub target: String,
     pub source: String,
+    pub expr: IrSchemaDecodeMappingExpr,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum IrSchemaDecodeMappingExpr {
+    Field(String),
+    Record(Vec<IrSchemaDecodeMappingRecordField>),
+    Constructor {
+        name: Vec<String>,
+        args: Vec<IrSchemaDecodeMappingExpr>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaDecodeMappingRecordField {
+    pub name: String,
+    pub expr: IrSchemaDecodeMappingExpr,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -163,6 +180,7 @@ pub enum IrExprKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum IrCallTarget {
     Function(String),
+    CodecDecode { function: String, codec: String },
     SchemaDecode(String),
     SchemaDecodeStep(String),
     SchemaEncode(String),

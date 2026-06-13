@@ -1,0 +1,20 @@
+type Header
+	Header {wrapped: FrameKind, bad_arity: FrameKind, bad_type: FrameKind, unsupported: Int}
+end
+
+type FrameKind
+	FrameKind(Int)
+end
+
+schema HeaderWire
+	format binary
+
+	length: UInt16be
+	kind: UInt8
+
+	map to Header
+		wrapped = Missing(kind)
+		bad_arity = FrameKind(kind, length)
+		bad_type = FrameKind({value: kind})
+		unsupported = helper(kind)
+end

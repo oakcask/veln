@@ -44,9 +44,13 @@ direct `byte_encode_<schema>` helpers, derived codec encode calls, and the
 HTTP/2 frame-header encode fixture, including selected dispatch payload encode
 paths that surface the same generated helper failure; the current behavior is
 specified under `../specification/execution.md` and checked by the generated
-encode cases under `../../examples/specification/run/`. The remaining proposal
-work covers broader schema and codec diagnostics beyond these implemented
-slices.
+encode cases under `../../examples/specification/run/`. Hand-written
+`decode with` codec item calls project decoded results whose consumed count is
+outside the supplied `ByteView` to `codec.consumed_count_invalid`; the current
+behavior is specified under `../specification/execution.md` and checked by
+`../../examples/specification/run/codec-decode-boundary/`. The remaining
+proposal work covers broader schema and codec diagnostics beyond these
+implemented slices.
 
 ## Problem
 

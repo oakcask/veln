@@ -18,7 +18,8 @@ compare it with `../specification/` before changing behavior.
   schema primitive declaration slices, structural mapping clauses, codec
   declaration schema import/reference visibility checks, and generated
   field-local validation plus decoded-field single-record mapping decode
-  helper slices.
+  helper slices with schema-local field reference, record construction, and
+  ADT constructor construction mapping expressions.
 - [Binary Data Standard Library](binary-data-standard-library.md): define the
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
@@ -40,9 +41,10 @@ compare it with `../specification/` before changing behavior.
   mapped decode value boundary, encode function return and mapped value
   parameter boundaries, derived codec mapping value boundary rejections,
   source-visible decode and encode result vocabulary, generated exact-width
-  binary schema decode-step helper slice, and hand-written codec encode and
-  decode execution boundaries plus eligible derived codec decode and encode
-  execution boundaries.
+  binary schema decode-step helper slice, hand-written codec decode
+  consumed-count validation, and hand-written codec encode and decode
+  execution boundaries plus eligible derived codec decode and encode execution
+  boundaries.
 - [Schema And Protocol Diagnostics](schema-and-protocol-diagnostics.md):
   define remaining structured diagnostics beyond the implemented closed-input
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
@@ -52,7 +54,8 @@ compare it with `../specification/` before changing behavior.
   SETTINGS value range peer-limit, stream id domain failures, invalid
   connection-state and stream-state frame-kind failures, fixed payload-length
   protocol projections, and generated binary schema encode
-  value-representation failures.
+  value-representation failures plus hand-written codec decode consumed-count
+  failures.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, client connection preface

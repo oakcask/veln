@@ -574,6 +574,79 @@ fn generated_schema_decode_helpers_return_mapped_byte_view_field_shape() {
 }
 
 #[test]
+fn generated_schema_decode_helpers_keep_structural_mapping_expressions() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type FrameKind\n",
+            "  FrameKind(Int)\n",
+            "end\n",
+            "\n",
+            "type Header\n",
+            "  Header {summary: {value: Int}, kind: FrameKind}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt16be\n",
+            "  kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    summary = {value: length}\n",
+            "    kind = FrameKind(kind)\n",
+            "end\n",
+            "\n",
+            "pub fn main(view: ByteView) -> Result<{summary: {value: Int}, kind: FrameKind}, String>\n",
+            "  byte_decode_header_wire(view)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "HeaderWire")
+        .expect("header decoder should be emitted");
+    let summary = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "summary")
+        .expect("summary mapping should be emitted");
+    assert!(matches!(
+        &summary.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Record(fields)
+            if fields.len() == 1
+                && fields[0].name == "value"
+                && matches!(
+                    fields[0].expr,
+                    veln_ir::IrSchemaDecodeMappingExpr::Field(ref name) if name == "length"
+                )
+    ));
+    let kind = schema
+        .mapping
+        .iter()
+        .find(|field| field.target == "kind")
+        .expect("kind mapping should be emitted");
+    assert!(matches!(
+        &kind.expr,
+        veln_ir::IrSchemaDecodeMappingExpr::Constructor { name, args }
+            if name == &vec!["FrameKind".to_string(), "FrameKind".to_string()]
+                && args.len() == 1
+                && matches!(
+                    args[0],
+                    veln_ir::IrSchemaDecodeMappingExpr::Field(ref field) if field == "kind"
+                )
+    ));
+}
+
+#[test]
 fn generated_schema_decode_helpers_require_int_byte_view_length_field() {
     let source = SourceFile::new(
         "main.veln",
@@ -952,9 +1025,9 @@ fn codec_decode_with_resolves_as_named_decode_boundary() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::Function(name),
+            target: CoreCallTarget::CodecDecode { function: name, codec },
             ..
-        } if name == "decode_packet"
+        } if name == "decode_packet" && codec == "PacketCodec"
     ));
 
     let ir = lowered.ir.expect("typed IR should be built");
@@ -969,9 +1042,9 @@ fn codec_decode_with_resolves_as_named_decode_boundary() {
     assert!(matches!(
         &value.kind,
         IrExprKind::Call {
-            target: IrCallTarget::Function(name),
+            target: IrCallTarget::CodecDecode { function: name, codec },
             ..
-        } if name == "decode_packet"
+        } if name == "decode_packet" && codec == "PacketCodec"
     ));
 }
 
@@ -1221,9 +1294,9 @@ fn imported_public_codec_decode_resolves_through_qualified_module_path() {
     assert!(matches!(
         &expr.kind,
         CoreExprKind::Call {
-            target: CoreCallTarget::Function(name),
+            target: CoreCallTarget::CodecDecode { function: name, codec },
             ..
-        } if name == "decode_packet"
+        } if name == "decode_packet" && codec == "PacketCodec"
     ));
 }
 

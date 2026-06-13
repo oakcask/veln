@@ -1482,6 +1482,70 @@ fn generated_schema_mappings_report_source_target_and_type_diagnostics() {
 }
 
 #[test]
+fn generated_schema_mappings_report_expression_diagnostics() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "type FrameKind\n",
+            "  FrameKind(Int)\n",
+            "end\n",
+            "\n",
+            "type Header\n",
+            "  Header {wrapped: FrameKind, bad_arity: FrameKind, bad_type: FrameKind, unsupported: Int}\n",
+            "end\n",
+            "\n",
+            "schema HeaderWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt16be\n",
+            "  kind: UInt8\n",
+            "\n",
+            "  map to Header\n",
+            "    wrapped = Missing(kind)\n",
+            "    bad_arity = FrameKind(kind, length)\n",
+            "    bad_type = FrameKind({value: kind})\n",
+            "    unsupported = helper(kind)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_constructor"
+                && diagnostic.message == "schema mapping constructor `Missing` is not resolved"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_constructor_arity"
+                && diagnostic.message
+                    == "schema mapping constructor `FrameKind::FrameKind` expects 1 argument(s), but got 2"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_type"
+                && diagnostic.message
+                    == "schema mapping target field `bad_type` expects `Int`, but expression `{ value: kind }` has type `{}`"
+        }),
+        "{diagnostics:#?}"
+    );
+    assert!(
+        diagnostics.iter().any(|diagnostic| {
+            diagnostic.id == "schema.mapping_expression_unsupported"
+                && diagnostic.message == "schema mapping expression `helper(kind)` is not supported"
+        }),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn dispatch_payload_schema_references_report_resolution_diagnostics() {
     let app_source = SourceFile::new(
         "app.veln",

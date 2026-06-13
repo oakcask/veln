@@ -172,11 +172,11 @@
 
     private static final class SchemaMappingFieldSpec {
         final String target;
-        final String source;
+        final Object expr;
 
-        SchemaMappingFieldSpec(String target, String source) {
+        SchemaMappingFieldSpec(String target, Object expr) {
             this.target = target;
-            this.source = source;
+            this.expr = expr;
         }
     }
 
@@ -1117,6 +1117,26 @@
             view,
             baseOffset,
             (BinarySchemaSpec) unwrapOk(schema)
+        );
+    }
+
+    public static Object validateCodecDecodeStep(
+        Object view,
+        Object baseOffset,
+        Object step,
+        Object codecName
+    ) {
+        if (!isAdt(step, "DecodeStep::Decoded")) {
+            return step;
+        }
+        long consumed = byteCountLong(adtPayload(step, 1));
+        if (consumed >= 0L && consumed <= byteViewCount(view)) {
+            return step;
+        }
+        return invalidDecodeStep(
+            "codec.consumed_count_invalid",
+            baseOffset,
+            asString(codecName)
         );
     }
 
@@ -2183,7 +2203,7 @@
             "DecodeStep::Invalid",
             new Object[] {
                 adt(
-                    "DecodeError",
+                    "DecodeError::DecodeError",
                     new Object[] { id, baseOffset, fieldPath }
                 )
             }
@@ -2199,7 +2219,7 @@
                 new java.util.ArrayList<Object>(schema.mapping.length * 2);
             for (SchemaMappingFieldSpec field : schema.mapping) {
                 entries.add(field.target);
-                entries.add(decoded.get(field.source));
+                entries.add(schemaMappingExprValue(decoded, field.expr));
             }
             return record(entries.toArray(new Object[entries.size()]));
         }
@@ -2378,10 +2398,44 @@
         for (int index = 0; index < mappingTargetValues.size(); index += 1) {
             mapping[index] = new SchemaMappingFieldSpec(
                 asString(mappingTargetValues.get(index)),
-                asString(mappingSourceValues.get(index))
+                mappingSourceValues.get(index)
             );
         }
         return ok(new BinarySchemaSpec(name, fields, mapping));
+    }
+
+    private static Object schemaMappingExprValue(
+        java.util.LinkedHashMap<String, Object> decoded,
+        Object expr
+    ) {
+        if (expr instanceof String) {
+            return decoded.get(asString(expr));
+        }
+        java.util.List<Object> spec = asList(expr);
+        String tag = asString(spec.get(0));
+        if (tag.equals("field")) {
+            return decoded.get(asString(spec.get(1)));
+        }
+        if (tag.equals("record")) {
+            java.util.List<Object> names = asList(spec.get(1));
+            java.util.List<Object> values = asList(spec.get(2));
+            java.util.ArrayList<Object> entries = new java.util.ArrayList<Object>(names.size() * 2);
+            for (int index = 0; index < names.size(); index += 1) {
+                entries.add(asString(names.get(index)));
+                entries.add(schemaMappingExprValue(decoded, values.get(index)));
+            }
+            return record(entries.toArray(new Object[entries.size()]));
+        }
+        if (tag.equals("constructor")) {
+            String name = asString(spec.get(1));
+            java.util.List<Object> args = asList(spec.get(2));
+            Object[] payloads = new Object[args.size()];
+            for (int index = 0; index < args.size(); index += 1) {
+                payloads[index] = schemaMappingExprValue(decoded, args.get(index));
+            }
+            return adt(name, payloads);
+        }
+        throw new IllegalStateException("unsupported schema mapping expression metadata");
     }
 
     private static Object declaredSchemaDispatch(

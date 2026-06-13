@@ -95,18 +95,23 @@ execution reference.
   `examples/specification/run/binary-schema-extension-dispatch-length-human/`.
 - When an eligible generated binary schema decode helper has one structural
   `map to Target` clause and the target resolves to a single record-shaped
-  source type whose mapped fields match the schema-local decoded field types,
-  the helper returns the mapped ordinary record shape instead of the
-  schema-local field shape. Mapping assignment sources must name decoded
-  schema fields. Mapping assignment targets must name target fields, and every
-  target field must be assigned once before execution. The implemented mapped
-  decoded field types are exact-width unsigned primitive fields as `Int`,
-  length-bounded `ByteView(length_field)` payload fields as `ByteView`, closed
-  nested dispatch payload fields as the nested schema record shape, and
-  extension dispatch payload fields as `SchemaDispatchPayload<T>`. The checked
-  examples are
+  source type whose mapped expressions match the target field types, the
+  helper returns the mapped ordinary record shape instead of the schema-local
+  field shape. Mapping assignment expressions may reference decoded schema
+  fields, construct records, or construct ADT payloads resolved through the
+  ordinary source module rules. Mapping assignment targets must name target
+  fields, and every target field must be assigned once before execution. The
+  implemented mapped decoded field types are exact-width unsigned primitive
+  fields as `Int`, length-bounded `ByteView(length_field)` payload fields as
+  `ByteView`, closed nested dispatch payload fields as the nested schema
+  record shape, and extension dispatch payload fields as
+  `SchemaDispatchPayload<T>`. Mapping expressions cannot call ordinary
+  functions, read runtime settings, inspect stream state, recover from decode
+  failures, or perform effects. The checked examples are
   `examples/specification/run/binary-schema-mapped-record-decode/`,
-  `examples/specification/run/binary-schema-mapped-byteview-decode/`, and
+  `examples/specification/run/binary-schema-mapped-byteview-decode/`,
+  `examples/specification/run/binary-schema-mapped-record-expression-decode/`,
+  `examples/specification/run/binary-schema-mapped-constructor-expression-decode/`, and
   `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`.
 - Eligible generated binary schema decode-step helpers named
   `byte_decode_step_<schema>` accept a bounded `ByteView` and explicit base
@@ -197,8 +202,12 @@ execution reference.
 - A codec declaration with a valid hand-written `decode with function_name`
   clause exposes the codec item name as the executable decode boundary for
   ordinary source calls. The call accepts a bounded `ByteView` and explicit
-  base `ByteOffset`, invokes the referenced same-module function, and returns
-  its `DecodeStep<T>` unchanged.
+  base `ByteOffset` and invokes the referenced same-module function.
+  `NeedMore(readiness)` and `Invalid(error)` return unchanged.
+  `Decoded(value, consumed)` returns unchanged when `consumed` is within the
+  supplied view length; when `consumed` is outside the supplied view, the codec
+  boundary returns `Invalid(DecodeError("codec.consumed_count_invalid",
+  base_offset, codec_name))`.
 - A codec declaration with a valid hand-written `encode with function_name`
   clause exposes the codec item name as the executable encode boundary for
   ordinary source calls. The call invokes the referenced same-module function

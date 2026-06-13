@@ -757,6 +757,8 @@ fn codec_mapping_value_type(module: &SurfaceModule, codec: &CodecDecl) -> Option
         MappingValueTypeEligibility::ImplementedRuntimeSlice,
     )?;
     if !mapping_is_implemented_value_slice(
+        module,
+        parts.schema,
         &parts.schema_fields,
         parts.mapping,
         &parts.target_fields,
@@ -778,6 +780,7 @@ fn codec_declared_mapping_value_type(module: &SurfaceModule, codec: &CodecDecl) 
 struct CodecMappingValueTypeParts<'a> {
     schema_fields: BTreeMap<String, Type>,
     target_fields: Vec<(String, Type)>,
+    schema: &'a SchemaDecl,
     mapping: &'a SchemaMappingClause,
 }
 
@@ -793,13 +796,20 @@ fn codec_single_mapping_value_type_parts<'a>(
     let schema_fields = generated_schema_field_types(module, schema)?;
     let target_fields = schema_mapping_target_record_fields(module, schema, mapping)?;
     if eligibility == MappingValueTypeEligibility::Declared
-        && !mapping_matches_declared_value_type(&schema_fields, mapping, &target_fields)
+        && !mapping_matches_declared_value_type(
+            module,
+            schema,
+            &schema_fields,
+            mapping,
+            &target_fields,
+        )
     {
         return None;
     }
     Some(CodecMappingValueTypeParts {
         schema_fields,
         target_fields,
+        schema,
         mapping,
     })
 }
@@ -811,6 +821,8 @@ enum MappingValueTypeEligibility {
 }
 
 fn mapping_matches_declared_value_type(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
     schema_fields: &BTreeMap<String, Type>,
     mapping: &SchemaMappingClause,
     target_fields: &[(String, Type)],
@@ -821,13 +833,12 @@ fn mapping_matches_declared_value_type(
         .collect::<BTreeMap<String, Type>>();
     let mut seen_targets = BTreeMap::<&str, ()>::new();
     for assignment in &mapping.assignments {
-        let Some(source_ty) = schema_fields.get(&assignment.source) else {
-            return false;
-        };
         let Some(target_ty) = target_field_types.get(&assignment.target) else {
             return false;
         };
-        if source_ty != target_ty {
+        if schema_mapping_expr_typed(module, schema, schema_fields, &assignment.expr, target_ty)
+            .is_err()
+        {
             return false;
         }
         if seen_targets
@@ -844,22 +855,23 @@ fn mapping_matches_declared_value_type(
 }
 
 fn mapping_is_implemented_value_slice(
+    module: &SurfaceModule,
+    schema: &SchemaDecl,
     schema_fields: &BTreeMap<String, Type>,
     mapping: &SchemaMappingClause,
     target_fields: &[(String, Type)],
 ) -> bool {
     let mut seen_targets = BTreeMap::<&str, ()>::new();
     for assignment in &mapping.assignments {
-        let Some(source_ty) = schema_fields.get(&assignment.source) else {
-            return false;
-        };
         let Some((_, target_ty)) = target_fields
             .iter()
             .find(|(target_field, _)| target_field == &assignment.target)
         else {
             return false;
         };
-        if source_ty != target_ty {
+        if schema_mapping_expr_typed(module, schema, schema_fields, &assignment.expr, target_ty)
+            .is_err()
+        {
             return false;
         }
         if seen_targets
@@ -1974,21 +1986,21 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
             let target_field_types = target_fields.into_iter().collect::<BTreeMap<_, _>>();
             let mut assigned_targets = BTreeMap::<String, SourceSpan>::new();
             for assignment in &mapping.assignments {
-                let source_ty = schema_fields.get(&assignment.source);
-                if source_ty.is_none() {
-                    diagnostics.push(schema_mapping_source_diagnostic(schema, assignment));
-                }
                 let Some(target_ty) = target_field_types.get(&assignment.target) else {
                     diagnostics.push(schema_mapping_target_field_diagnostic(
                         schema, mapping, assignment,
                     ));
                     continue;
                 };
-                if let Some(source_ty) = source_ty
-                    && target_ty != source_ty
-                {
-                    diagnostics.push(schema_mapping_type_diagnostic(
-                        schema, mapping, assignment, target_ty, source_ty,
+                if let Err(error) = schema_mapping_expr_typed(
+                    module,
+                    schema,
+                    &schema_fields,
+                    &assignment.expr,
+                    target_ty,
+                ) {
+                    diagnostics.push(schema_mapping_expr_diagnostic(
+                        schema, mapping, assignment, error,
                     ));
                 }
                 if let Some(first_span) =
@@ -2050,24 +2062,162 @@ fn schema_mapping_target_diagnostic(
     )
 }
 
+fn schema_mapping_expr_diagnostic(
+    schema: &SchemaDecl,
+    mapping: &SchemaMappingClause,
+    assignment: &SchemaMappingAssignment,
+    error: SchemaMappingExprError,
+) -> Diagnostic {
+    match error {
+        SchemaMappingExprError::UnknownSchemaField { name, span } => {
+            schema_mapping_source_diagnostic(schema, assignment, &name, span)
+        }
+        SchemaMappingExprError::Unsupported { text, span } => Diagnostic::new(
+            "schema.mapping_expression_unsupported",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!("schema mapping expression `{text}` is not supported"),
+            Some(span),
+            schema_mapping_assignment_details(
+                assignment.node_id.display("schema-mapping-assignment"),
+                schema,
+                assignment,
+                [
+                    ("reason", JsonValue::string("unsupported_expression")),
+                    (
+                        "mapping_target",
+                        JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                    ),
+                    ("expression", JsonValue::string(text)),
+                ],
+            ),
+        ),
+        SchemaMappingExprError::UnresolvedConstructor { name, span } => Diagnostic::new(
+            "schema.mapping_constructor",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("schema mapping constructor `{name}` is not resolved"),
+            Some(span),
+            schema_mapping_assignment_details(
+                assignment.node_id.display("schema-mapping-assignment"),
+                schema,
+                assignment,
+                [
+                    ("reason", JsonValue::string("unresolved_constructor")),
+                    (
+                        "mapping_target",
+                        JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                    ),
+                    ("constructor", JsonValue::string(name)),
+                ],
+            ),
+        ),
+        SchemaMappingExprError::ConstructorArity {
+            name,
+            expected,
+            actual,
+            span,
+        } => Diagnostic::new(
+            "schema.mapping_constructor_arity",
+            Severity::Error,
+            DiagnosticKind::Type,
+            format!(
+                "schema mapping constructor `{name}` expects {expected} argument(s), but got {actual}"
+            ),
+            Some(span),
+            schema_mapping_assignment_details(
+                assignment.node_id.display("schema-mapping-assignment"),
+                schema,
+                assignment,
+                [
+                    ("reason", JsonValue::string("constructor_arity_mismatch")),
+                    (
+                        "mapping_target",
+                        JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                    ),
+                    ("constructor", JsonValue::string(name)),
+                    (
+                        "expected_argument_count",
+                        JsonValue::Number(expected as i64),
+                    ),
+                    ("actual_argument_count", JsonValue::Number(actual as i64)),
+                ],
+            ),
+        ),
+        SchemaMappingExprError::RecordField { name, span } => Diagnostic::new(
+            "schema.mapping_record_field",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("schema mapping record field `{name}` is not expected"),
+            Some(span),
+            schema_mapping_assignment_details(
+                assignment.node_id.display("schema-mapping-assignment"),
+                schema,
+                assignment,
+                [
+                    ("reason", JsonValue::string("unexpected_record_field")),
+                    (
+                        "mapping_target",
+                        JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                    ),
+                    ("record_field", JsonValue::string(name)),
+                ],
+            ),
+        ),
+        SchemaMappingExprError::MissingRecordField { name, span } => Diagnostic::new(
+            "schema.mapping_record_field",
+            Severity::Error,
+            DiagnosticKind::Name,
+            format!("schema mapping record expression does not assign field `{name}`"),
+            Some(span),
+            schema_mapping_assignment_details(
+                assignment.node_id.display("schema-mapping-assignment"),
+                schema,
+                assignment,
+                [
+                    ("reason", JsonValue::string("missing_record_field")),
+                    (
+                        "mapping_target",
+                        JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                    ),
+                    ("record_field", JsonValue::string(name)),
+                ],
+            ),
+        ),
+        SchemaMappingExprError::TypeMismatch {
+            expected,
+            actual,
+            text,
+            span,
+        } => schema_mapping_type_diagnostic(
+            schema, mapping, assignment, &expected, &actual, text, span,
+        ),
+    }
+}
+
 fn schema_mapping_source_diagnostic(
     schema: &SchemaDecl,
     assignment: &SchemaMappingAssignment,
+    source: &str,
+    span: SourceSpan,
 ) -> Diagnostic {
     Diagnostic::new(
         "schema.mapping_source_field",
         Severity::Error,
         DiagnosticKind::Name,
-        format!(
-            "schema mapping source field `{}` is not declared",
-            assignment.source
-        ),
-        Some(assignment.span.clone()),
+        format!("schema mapping source field `{source}` is not declared"),
+        Some(span),
         schema_mapping_assignment_details(
             assignment.node_id.display("schema-mapping-assignment"),
             schema,
             assignment,
-            [("reason", JsonValue::string("unknown_source_field"))],
+            [
+                ("reason", JsonValue::string("unknown_source_field")),
+                (
+                    "missing_source_field",
+                    JsonValue::string(source.to_string()),
+                ),
+            ],
         ),
     )
 }
@@ -2107,19 +2257,32 @@ fn schema_mapping_type_diagnostic(
     assignment: &SchemaMappingAssignment,
     target_ty: &Type,
     source_ty: &Type,
+    source_text: String,
+    span: SourceSpan,
 ) -> Diagnostic {
-    Diagnostic::new(
-        "schema.mapping_type",
-        Severity::Error,
-        DiagnosticKind::Type,
+    let message = if assignment.source == source_text {
         format!(
             "schema mapping target field `{}` expects `{}`, but source field `{}` decodes as `{}`",
             assignment.target,
             target_ty.render(),
-            assignment.source,
+            source_text,
             source_ty.render()
-        ),
-        Some(assignment.span.clone()),
+        )
+    } else {
+        format!(
+            "schema mapping target field `{}` expects `{}`, but expression `{}` has type `{}`",
+            assignment.target,
+            target_ty.render(),
+            source_text,
+            source_ty.render()
+        )
+    };
+    Diagnostic::new(
+        "schema.mapping_type",
+        Severity::Error,
+        DiagnosticKind::Type,
+        message,
+        Some(span),
         schema_mapping_assignment_details(
             assignment.node_id.display("schema-mapping-assignment"),
             schema,
@@ -2132,6 +2295,7 @@ fn schema_mapping_type_diagnostic(
                 ),
                 ("expected", JsonValue::string(target_ty.render())),
                 ("actual", JsonValue::string(source_ty.render())),
+                ("expression", JsonValue::string(source_text)),
             ],
         ),
     )

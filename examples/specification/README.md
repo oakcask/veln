@@ -226,6 +226,10 @@ against the built `veln` binary.
 - `check/schema-mapping-diagnostics/`: generated binary schema mapping
   diagnostics for mapping assignments that name schema-local source fields
   not decoded by the schema.
+- `check/schema-mapping-expression-boundary-diagnostics/`: record and
+  constructor-shaped schema mapping assignment values report unsupported
+  expression, unresolved constructor, constructor arity, and payload type
+  diagnostics when they exceed the implemented structural expression slice.
 - `check/schema-reserved-bits-diagnostics/`: declaration diagnostics for
   malformed `ReservedBits(width, value)` primitive arguments.
 - `check/schema-exact-width-primitive-diagnostics/`: declaration diagnostics
@@ -375,6 +379,12 @@ against the built `veln` binary.
   helper checks field-local predicates, then maps schema-local exact-width
   fields into the target record field names before returning the decoded
   value.
+- `run/binary-schema-mapped-record-expression-decode/`: a generated binary
+  schema decode helper constructs a nested target record field from
+  schema-local fields before returning the decoded value.
+- `run/binary-schema-mapped-constructor-expression-decode/`: a generated
+  binary schema decode helper constructs an ADT target field from
+  schema-local fields before returning the decoded value.
 - `run/binary-schema-mapped-byteview-decode/`: generated closed decode,
   decode-step, and derived decode codec boundaries carry a mapped
   length-bounded `ByteView` payload and preserve the consumed byte count.
@@ -487,8 +497,9 @@ against the built `veln` binary.
   input.
 - `run/codec-decode-boundary/`: a hand-written `decode with` codec item call
   passes `ByteView` and `ByteOffset` to the referenced decoder and observes
-  its returned `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values
-  unchanged while the schema mapping pins the accepted value type.
+  valid `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values while the
+  schema mapping pins the accepted value type. It projects an oversized
+  consumed count to `codec.consumed_count_invalid`.
 - `run/codec-encode-boundary/`: a hand-written `encode with` codec item call
   passes the mapped record value and ordinary encoder parameters to the
   referenced encoder and observes its returned `Encoded` and

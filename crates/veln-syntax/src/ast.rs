@@ -134,6 +134,7 @@ pub struct SchemaMappingClause {
 pub struct SchemaMappingAssignment {
     pub target: String,
     pub source: String,
+    pub expr: Expr,
     pub span: SourceSpan,
 }
 
