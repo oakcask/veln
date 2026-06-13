@@ -67,6 +67,11 @@ type Http2Input
 	InputEnd
 end
 
+type Http2Frame
+	KnownFrame(Int, Int, Int, ByteView)
+	UnknownFrame(Int, Int, Int, ByteView)
+end
+
 type Http2ProtocolFailure
 	ClosedWithPending(Int, Int)
 	ClosedWithPartialPreface(Int, Int)
@@ -95,7 +100,7 @@ type ReceiveFlowControlDecision
 end
 
 type Http2Step
-	FrameDecoded(Http2DecodeState, Int, Int, Int, Int, Int, Int)
+	FrameDecoded(Http2DecodeState, Int, Int, Int, Int, Int, Int, Http2Frame)
 	Waiting(Http2DecodeState)
 	Failed(Http2DecodeState, Http2ProtocolFailure)
 end
@@ -354,8 +359,48 @@ end
 fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_count: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, next_offset, length, kind, stream_id, receive_flow_control)?
 	match flow_control_decision
-		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, AfterPreface, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, next_receive_flow_control), next_offset, length, kind, flags, stream_id, completed_count))
+		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, AfterPreface, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, next_receive_flow_control), next_offset, length, kind, flags, stream_id, completed_count, frame_value(pending, length, kind, flags, stream_id)?))
 		ReceiveFlowControlFailed(error) => Ok(Failed(consumed_state, error))
+	end
+end
+
+fn frame_value(pending: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<Http2Frame, String>
+	let payload: ByteView = byte_view(pending, byte_offset(9)?, byte_count(length)?)?
+	match is_known_frame_kind(kind)
+		true => Ok(KnownFrame(kind, flags, stream_id, payload))
+		false => Ok(UnknownFrame(kind, flags, stream_id, payload))
+	end
+end
+
+fn is_known_frame_kind(kind: Int) -> Bool
+	match kind == 0
+		true => true
+		false => match kind == 1
+			true => true
+			false => match kind == 4
+				true => true
+				false => match kind == 6
+					true => true
+					false => match kind == 7
+						true => true
+						false => match kind == 8
+							true => true
+							false => match kind == 9
+								true => true
+								false => false
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
+fn is_unknown_frame_kind(kind: Int) -> Bool
+	match is_known_frame_kind(kind)
+		true => false
+		false => true
 	end
 end
 
@@ -491,7 +536,10 @@ fn validate_connection_frame_kind(offset: Int, kind: Int, stream_id: Int, receiv
 					true => Ok(Decision(NoContinuation, 0))
 					false => match kind == 8
 						true => Ok(Decision(NoContinuation, 0))
-						false => Err(InvalidFrameKind(offset, kind, stream_id, 4, "connection-control", "connection_frames_require_settings"))
+						false => match is_unknown_frame_kind(kind)
+							true => Ok(Decision(NoContinuation, 0))
+							false => Err(InvalidFrameKind(offset, kind, stream_id, 4, "connection-control", "connection_frames_require_settings"))
+						end
 					end
 				end
 			end
@@ -507,8 +555,21 @@ fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_fl
 			true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
 			false => match kind == 8
 				true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
-				false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+				false => match is_unknown_frame_kind(kind)
+					true => validate_unknown_stream_state(offset, kind, stream_id, receive_flow_control)
+					false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+				end
 			end
+		end
+	end
+end
+
+fn validate_unknown_stream_state(offset: Int, kind: Int, stream_id: Int, receive_flow_control: ReceiveFlowControl) -> Result<ContinuationDecision, Http2ProtocolFailure>
+	match receive_flow_control
+		ReceiveFlowControl(_, NoOpenStreamReceiveWindow) => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+		ReceiveFlowControl(_, OpenStreamReceiveWindow(open_stream_id, _)) => match stream_id == open_stream_id
+			true => Ok(Decision(NoContinuation, 0))
+			false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
 		end
 	end
 end
@@ -621,7 +682,7 @@ end
 
 fn step_kind(step: Http2Step) -> String
 	match step
-		FrameDecoded(_, _, _, _, _, _, _) => "frame"
+		FrameDecoded(_, _, _, _, _, _, _, _) => "frame"
 		Waiting(_) => "waiting"
 		Failed(_, _) => "failed"
 	end
@@ -629,7 +690,7 @@ end
 
 fn step_state(step: Http2Step) -> Http2DecodeState
 	match step
-		FrameDecoded(state, _, _, _, _, _, _) => state
+		FrameDecoded(state, _, _, _, _, _, _, _) => state
 		Waiting(state) => state
 		Failed(state, _) => state
 	end
@@ -637,7 +698,7 @@ end
 
 fn step_failure(step: Http2Step) -> Http2ProtocolFailure
 	match step
-		FrameDecoded(_, _, _, _, _, _, _) => ClosedWithPending(0, 0)
+		FrameDecoded(_, _, _, _, _, _, _, _) => ClosedWithPending(0, 0)
 		Waiting(_) => ClosedWithPending(0, 0)
 		Failed(_, failure) => failure
 	end
@@ -645,7 +706,7 @@ end
 
 fn step_offset(step: Http2Step) -> Int
 	match step
-		FrameDecoded(_, offset, _, _, _, _, _) => offset
+		FrameDecoded(_, offset, _, _, _, _, _, _) => offset
 		Waiting(_) => 0
 		Failed(_, _) => 0
 	end
@@ -653,7 +714,7 @@ end
 
 fn step_kind_value(step: Http2Step) -> Int
 	match step
-		FrameDecoded(_, _, _, kind, _, _, _) => kind
+		FrameDecoded(_, _, _, kind, _, _, _, _) => kind
 		Waiting(_) => 0
 		Failed(_, _) => 0
 	end
@@ -661,7 +722,7 @@ end
 
 fn step_stream_id(step: Http2Step) -> Int
 	match step
-		FrameDecoded(_, _, _, _, _, stream_id, _) => stream_id
+		FrameDecoded(_, _, _, _, _, stream_id, _, _) => stream_id
 		Waiting(_) => 0
 		Failed(_, _) => 0
 	end
@@ -669,7 +730,7 @@ end
 
 fn step_flags(step: Http2Step) -> Int
 	match step
-		FrameDecoded(_, _, _, _, flags, _, _) => flags
+		FrameDecoded(_, _, _, _, flags, _, _, _) => flags
 		Waiting(_) => 0
 		Failed(_, _) => 0
 	end
@@ -677,7 +738,7 @@ end
 
 fn step_completed_count(step: Http2Step) -> Int
 	match step
-		FrameDecoded(_, _, _, _, _, _, completed_count) => completed_count
+		FrameDecoded(_, _, _, _, _, _, completed_count, _) => completed_count
 		Waiting(_) => 0
 		Failed(_, _) => 0
 	end
@@ -1189,6 +1250,44 @@ fn print_goaway(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::println(int_to_string(state_shutdown_error_code(state)))
 end
 
+fn payload_byte_at(payload: ByteView, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(byte_view_to_chunk(payload), byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn print_unknown_frame_value(label: String, frame: Http2Frame) -> Result<(), String> effects [stdio]
+	match frame
+		KnownFrame(_, _, _, _) => Err("expected unknown frame")
+		UnknownFrame(kind, flags, stream_id, payload) => print_unknown_frame_payload(label, kind, flags, stream_id, payload)
+	end
+end
+
+fn print_unknown_frame_payload(label: String, kind: Int, flags: Int, stream_id: Int, payload: ByteView) -> Result<(), String> effects [stdio]
+	let payload_chunk: ByteChunk = byte_view_to_chunk(payload)
+	let payload_count: Int = byte_count_to_int(byte_chunk_count(payload_chunk))
+	stdio::print(label)
+	stdio::print(" result unknown kind ")
+	stdio::print(int_to_string(kind))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(stream_id))
+	stdio::print(" flags ")
+	stdio::print(int_to_string(flags))
+	stdio::print(" payload_count ")
+	stdio::print(int_to_string(payload_count))
+	stdio::print(" payload_first ")
+	stdio::print(int_to_string(payload_byte_at(payload, 0)?))
+	stdio::print(" payload_last ")
+	stdio::println(int_to_string(payload_byte_at(payload, payload_count - 1)?))
+	Ok(())
+end
+
+fn print_unknown_frame(label: String, step: Http2Step) -> Result<(), String> effects [stdio]
+	match step
+		FrameDecoded(_, _, _, _, _, _, _, frame) => print_unknown_frame_value(label, frame)
+		Waiting(_) => Err("expected unknown frame but step was waiting")
+		Failed(_, _) => Err("expected unknown frame but step failed")
+	end
+end
+
 fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
 	stdio::print("output_chunk ")
 	stdio::print(name)
@@ -1277,6 +1376,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("continuation-done", continuation_done)
 	let bad_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(header_start))?
 	print_failure("continuation", bad_continuation)
+	let unknown_extension: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030a2300000000aabbcc")?), frame_state())?
+	let ignored_unknown: () = print_unknown_frame("unknown-extension", unknown_extension)?
+	let unknown_during_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030a2300000001aabbcc")?), step_state(header_start))?
+	print_failure("unknown-continuation", unknown_during_continuation)
 	let max_allowed_incomplete: Http2Step = receive(InputChunk(byte_chunk_from_hex("004000000000000003")?), frame_state())?
 	print_step("frame-size-at-limit", max_allowed_incomplete)
 	let too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("004001000000000003")?), frame_state())?

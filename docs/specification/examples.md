@@ -272,9 +272,12 @@ mismatched preface byte, valid frame arrival after the preface gate,
 incomplete frame input that waits for more bytes, closed input with pending
 frame bytes, continuation state after HEADERS, continuation state after a
 non-final CONTINUATION, completion after a final CONTINUATION, one
-continuation ordering failure, and an incoming frame whose payload length
-exceeds the active receive maximum frame size, plus a DATA frame kind rejected
-for connection-control state and idle-stream state. It also pins PING frames
+continuation ordering failure, an accepted unknown extension frame that
+preserves flags, stream id, and bounded payload bytes in an ordinary
+`UnknownFrame` value, an unknown frame rejected by active continuation state,
+and an incoming frame whose payload length exceeds the active receive maximum
+frame size, plus a DATA frame kind rejected for connection-control state and
+idle-stream state. It also pins PING frames
 with and without ACK, wrong-length and stream-targeted PING failures, a GOAWAY
 frame that moves the connection into graceful shutdown with last-stream-id and
 error-code facts, and wrong-length and stream-targeted GOAWAY failures.

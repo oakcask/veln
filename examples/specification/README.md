@@ -488,7 +488,11 @@ against the built `veln` binary.
   and related context. The case keeps local receive-limit
   provenance separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state and
   range-checks received `SETTINGS_MAX_FRAME_SIZE` before updating that
-  peer-advertised state. The case also accepts DATA on an open stream,
+  peer-advertised state. It also accepts a structurally complete unknown
+  extension frame as an ordinary value preserving frame type, flags, stream id,
+  and bounded payload bytes, while active continuation state still reports the
+  existing continuation protocol failure for an unknown frame. The case also
+  accepts DATA on an open stream,
   decrements both connection and stream receive-window credit by payload
   length, accepts `WINDOW_UPDATE` receive-credit increments for the connection
   and open stream, and reports zero increments, receive-window overflow, and
