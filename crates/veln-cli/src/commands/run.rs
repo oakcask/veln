@@ -386,6 +386,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic.related.push(note_json(format!(
                 "Input end arrived after {pending_count} of {expected_count} preface byte(s)."
             )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             diagnostic
                 .related
                 .push(note_json(format!("Active protocol state: {active_state}.")));
@@ -412,6 +413,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic.related.push(note_json(format!(
                 "Observed byte {actual_byte}; expected byte {expected_byte} after {matched_count} of {expected_count} preface byte(s)."
             )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             diagnostic
                 .related
                 .push(note_json(format!("Active protocol state: {active_state}.")));
@@ -1476,6 +1478,7 @@ mod tests {
             ),
             ("pending_count", JsonValue::Number(6)),
             ("expected_count", JsonValue::Number(24)),
+            ("byte_preview", byte_preview("505249202a20")),
             ("active_state", JsonValue::string("connection-preface")),
             (
                 "rule_provenance",
@@ -1498,7 +1501,7 @@ mod tests {
             diagnostic.message,
             "input ended with partial client connection preface at byte offset 0"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -1507,10 +1510,20 @@ mod tests {
         assert!(
             diagnostic.related[1]
                 .to_json()
-                .contains("connection-preface")
+                .contains("50 52 49 20 2a 20")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("showing 6 of 6 byte(s), complete")
         );
         assert!(
             diagnostic.related[2]
+                .to_json()
+                .contains("connection-preface")
+        );
+        assert!(
+            diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_client_connection_preface")
         );
@@ -1532,6 +1545,7 @@ mod tests {
             ("actual_byte", JsonValue::Number(43)),
             ("matched_prefix_count", JsonValue::Number(4)),
             ("expected_count", JsonValue::Number(24)),
+            ("byte_preview", byte_preview("505249202b")),
             ("active_state", JsonValue::string("connection-preface")),
             (
                 "rule_provenance",
@@ -1553,7 +1567,7 @@ mod tests {
             diagnostic.message,
             "invalid client connection preface at byte offset 4"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -1564,13 +1578,19 @@ mod tests {
                 .to_json()
                 .contains("4 of 24 preface byte(s)")
         );
+        assert!(diagnostic.related[1].to_json().contains("50 52 49 20 2b"));
         assert!(
             diagnostic.related[1]
+                .to_json()
+                .contains("showing 5 of 5 byte(s), complete")
+        );
+        assert!(
+            diagnostic.related[2]
                 .to_json()
                 .contains("connection-preface")
         );
         assert!(
-            diagnostic.related[2]
+            diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_client_connection_preface")
         );

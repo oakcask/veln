@@ -113,7 +113,8 @@
     private static void registerHttp2ProtocolPartialPrefaceDiagnostic(
         String message,
         long byteOffset,
-        long pendingCount
+        long pendingCount,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -124,6 +125,7 @@
                     DiagnosticDetail.number("pending_count", pendingCount),
                     DiagnosticDetail.number("expected_count", 24),
                     DiagnosticDetail.string("input_event", "end"),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                     DiagnosticDetail.string("active_state", "connection-preface"),
                     DiagnosticDetail.string("rule_provenance", "rfc9113_client_connection_preface")
                 )
@@ -136,7 +138,8 @@
         long byteOffset,
         long expectedByte,
         long actualByte,
-        long matchedCount
+        long matchedCount,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -148,6 +151,7 @@
                     DiagnosticDetail.number("actual_byte", actualByte),
                     DiagnosticDetail.number("matched_prefix_count", matchedCount),
                     DiagnosticDetail.number("expected_count", 24),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                     DiagnosticDetail.string("active_state", "connection-preface"),
                     DiagnosticDetail.string("rule_provenance", "rfc9113_client_connection_preface")
                 )
@@ -711,6 +715,10 @@
                 "byte_preview_v2",
                 value
             );
+        }
+
+        static DiagnosticDetail bytePreviewV2(String key, String value) {
+            return new DiagnosticDetail(key, "byte_preview_v2", value);
         }
 
         DiagnosticDetail(String key, String valueKind, String encodedValue) {

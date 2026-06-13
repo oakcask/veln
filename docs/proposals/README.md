@@ -23,7 +23,7 @@ compare it with `../specification/` before changing behavior.
   remaining binary-buffer, schema-facing conversion, and protocol-facing
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
   big-endian read/write, stream-input, and schema byte-preview diagnostic
-  slices.
+  slices plus HTTP/2 client connection preface protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining binary schema primitive and dispatch behavior beyond the
   implemented source-surface exact-width and `ReservedBits(width, value)`

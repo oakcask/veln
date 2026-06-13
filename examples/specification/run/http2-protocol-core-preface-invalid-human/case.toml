@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[http2.protocol.invalid_preface]: invalid client connection preface at byte offset 4", "note: Observed byte 43; expected byte 42 after 4 of 24 preface byte(s).", "note: Active protocol state: connection-preface.", "note: Rule provenance: rfc9113_client_connection_preface."]
+contains = ["error[http2.protocol.invalid_preface]: invalid client connection preface at byte offset 4", "note: Observed byte 43; expected byte 42 after 4 of 24 preface byte(s).", "note: Nearby bytes: 50 52 49 20 2b (showing 5 of 5 byte(s), complete).", "note: Active protocol state: connection-preface.", "note: Rule provenance: rfc9113_client_connection_preface."]

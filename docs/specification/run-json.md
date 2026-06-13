@@ -141,10 +141,18 @@ HTTP/2 protocol-core failures that originate from a source-visible projection
 helper attach `details.protocol_diagnostic`. End-of-stream with a partial
 client connection preface uses id `http2.protocol.partial_preface` and records
 `byte_offset.value`, `pending_count`, `expected_count`, `active_state`, and
-`rule_provenance`. A mismatched client connection preface byte uses id
+`rule_provenance`, plus a structured bounded `byte_preview` for the pending
+raw input bytes. A mismatched client connection preface byte uses id
 `http2.protocol.invalid_preface` and records `byte_offset.value`,
 `expected_byte`, `actual_byte`, `matched_prefix_count`, `expected_count`,
-`active_state`, and `rule_provenance`. The frame-size peer-limit slice uses id
+`active_state`, and `rule_provenance`, plus a structured bounded
+`byte_preview` for the raw input bytes inspected by the preface check. These
+protocol-owned byte previews use the same `encoding`, `data`,
+`preview_byte_count`, `total_byte_count`, and `truncated` object shape as
+schema-owned byte diagnostics, while byte offset, expected byte count, actual
+pending count, matched prefix count, expected byte, actual byte, active
+protocol state, and rule provenance stay in their own fields. The frame-size
+peer-limit slice uses id
 `http2.peer_limit.frame_size_exceeded` and records
 `byte_offset.value`, `observed_payload_length`, `allowed_max_frame_size`,
 `frame_kind`, `stream_id`, `stream_ref`, and `receive_limit_provenance`. The

@@ -224,12 +224,14 @@ single-frame HEADERS completion when END_HEADERS is set alongside another
 flag, one continuation ordering failure, and one incoming frame-size
 peer-limit failure, plus one invalid idle-stream frame kind and stream id
 domain failures for zero, even, and connection-only stream ids. It keeps
-parser state as undecoded suffix bytes
-plus the next absolute byte offset after each consumed preface or frame, reuses
-the implemented frame-header primitive after the preface gate, checks the
-active receive maximum frame size after structural header decode, and projects
-typed protocol failures into stable fixture output ids,
-`protocol_diagnostic` JSON details, and human related context.
+parser state as undecoded suffix bytes plus the next absolute byte offset
+after each consumed preface or frame, reuses the implemented frame-header
+primitive after the preface gate, checks the active receive maximum frame size
+after structural header decode, and projects typed protocol failures into
+stable fixture output ids, `protocol_diagnostic` JSON details, and human
+related context. The partial and invalid client connection preface projections
+also include bounded protocol-owned byte previews for the raw bytes inspected
+by the preface check.
 It also splits the active receive-limit entry and receive-window credit from
 peer-advertised SETTINGS state. The checked example keeps protocol-default,
 local-configuration, and local-SETTINGS receive-limit provenance visible in

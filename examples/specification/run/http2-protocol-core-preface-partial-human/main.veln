@@ -1,15 +1,17 @@
 # HTTP/2 partial connection preface failures project to human runtime diagnostics.
 
 type Http2ProtocolFailure
-	ClosedWithPartialPreface(Int, Int)
+	ClosedWithPartialPreface(Int, Int, ByteView)
 end
 
 fn project(failure: Http2ProtocolFailure) -> Result<(), String>
 	match failure
-		ClosedWithPartialPreface(offset, pending_count) => http2_protocol_partial_preface(offset, pending_count)
+		ClosedWithPartialPreface(offset, pending_count, preview) => http2_protocol_partial_preface(offset, pending_count, preview)
 	end
 end
 
 pub fn main() -> Result<(), String>
-	project(ClosedWithPartialPreface(0, 6))
+	let bytes: ByteChunk = byte_chunk_from_hex("505249202a20485454502f32")?
+	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(12)?)?
+	project(ClosedWithPartialPreface(0, 12, preview))
 end
