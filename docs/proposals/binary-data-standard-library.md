@@ -26,9 +26,10 @@ The implemented narrow slice already covers `Byte`, immutable `ByteChunk`,
 immutable `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, pure helpers
 for construction, length, append, bounded take, bounded drop, bounded views,
 fixed-width unsigned big-endian reads and writes for 8-bit, 16-bit, 24-bit,
-31-bit, and 32-bit values, and structured byte previews for the implemented
-schema-owned byte diagnostics and HTTP/2 client connection preface
-protocol-owned byte diagnostics. Current behavior belongs to the
+31-bit, and 32-bit values, fixed-width unsigned little-endian reads and writes
+for 16-bit, 24-bit, 31-bit, and 32-bit values, and structured byte previews
+for the implemented schema-owned byte diagnostics and HTTP/2 client connection
+preface protocol-owned byte diagnostics. Current behavior belongs to the
 specification pages, not this proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names

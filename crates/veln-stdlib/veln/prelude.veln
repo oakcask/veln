@@ -191,6 +191,22 @@ pub fn byte_read_u32_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u32_be(view)
 end
 
+pub fn byte_read_u16_le(view: ByteView) -> Result<Int, String>
+	prelude_builtin::byte_read_u16_le(view)
+end
+
+pub fn byte_read_u24_le(view: ByteView) -> Result<Int, String>
+	prelude_builtin::byte_read_u24_le(view)
+end
+
+pub fn byte_read_u31_le(view: ByteView) -> Result<Int, String>
+	prelude_builtin::byte_read_u31_le(view)
+end
+
+pub fn byte_read_u32_le(view: ByteView) -> Result<Int, String>
+	prelude_builtin::byte_read_u32_le(view)
+end
+
 pub fn byte_write_u8_be(value: Int) -> Result<ByteChunk, String>
 	prelude_builtin::byte_write_u8_be(value)
 end
@@ -209,6 +225,22 @@ end
 
 pub fn byte_write_u32_be(value: Int) -> Result<ByteChunk, String>
 	prelude_builtin::byte_write_u32_be(value)
+end
+
+pub fn byte_write_u16_le(value: Int) -> Result<ByteChunk, String>
+	prelude_builtin::byte_write_u16_le(value)
+end
+
+pub fn byte_write_u24_le(value: Int) -> Result<ByteChunk, String>
+	prelude_builtin::byte_write_u24_le(value)
+end
+
+pub fn byte_write_u31_le(value: Int) -> Result<ByteChunk, String>
+	prelude_builtin::byte_write_u31_le(value)
+end
+
+pub fn byte_write_u32_le(value: Int) -> Result<ByteChunk, String>
+	prelude_builtin::byte_write_u32_le(value)
 end
 
 pub fn byte_count(value: Int) -> Result<ByteCount, String>

@@ -1,4 +1,4 @@
-# ByteView reads and writes fixed-width unsigned big-endian values.
+# ByteView reads and writes fixed-width unsigned values.
 use stdio
 
 fn int_result_text(result: Result<Int, String>) -> String
@@ -35,6 +35,8 @@ pub fn main() -> Result<(), String> effects [stdio, concurrency]
 	stdio::println(int_result_text(byte_read_u8_be(slice)))
 	stdio::println(int_result_text(byte_read_u16_be(slice)))
 	stdio::println(int_result_text(byte_read_u24_be(slice)))
+	stdio::println(int_result_text(byte_read_u16_le(slice)))
+	stdio::println(int_result_text(byte_read_u24_le(slice)))
 	let pair = channel::bounded<ByteView>(1)
 	let _ = channel::send(pair.tx, slice)
 	let received: ByteView = match channel::recv(pair.rx)
@@ -44,12 +46,22 @@ pub fn main() -> Result<(), String> effects [stdio, concurrency]
 	stdio::println(int_result_text(byte_read_u24_be(received)))
 	stdio::println(int_result_text(byte_read_u31_be(byte_view(byte_write_u31_be(2147483647)?, zero_offset, four)?)))
 	stdio::println(int_result_text(byte_read_u32_be(byte_view(byte_write_u32_be(4294967295)?, zero_offset, four)?)))
+	stdio::println(int_result_text(byte_read_u31_le(byte_view(byte_write_u31_le(2147483647)?, zero_offset, four)?)))
+	stdio::println(int_result_text(byte_read_u32_le(byte_view(byte_write_u32_le(4294967295)?, zero_offset, four)?)))
 	stdio::println(chunk_result_text(byte_write_u16_be(4660)))
 	stdio::println(int_result_text(byte_read_u16_be(byte_view(byte_write_u16_be(4660)?, zero_offset, two)?)))
+	stdio::println(chunk_result_text(byte_write_u16_le(4660)))
+	stdio::println(int_result_text(byte_read_u16_le(byte_view(byte_write_u16_le(4660)?, zero_offset, two)?)))
+	stdio::println(int_result_text(byte_read_u16_be(byte_view(byte_write_u16_le(4660)?, zero_offset, two)?)))
+	stdio::println(int_result_text(byte_read_u24_be(byte_view(byte_write_u24_le(66051)?, zero_offset, three)?)))
+	stdio::println(int_result_text(byte_read_u32_be(byte_view(byte_write_u32_le(16909060)?, zero_offset, four)?)))
 	stdio::println(int_result_text(byte_read_u24_be(byte_view(chunk, zero_offset, two)?)))
+	stdio::println(int_result_text(byte_read_u24_le(byte_view(chunk, zero_offset, two)?)))
 	stdio::println(view_result_text(byte_view(chunk, four_offset, two)))
 	stdio::println(chunk_result_text(byte_write_u8_be(256)))
+	stdio::println(chunk_result_text(byte_write_u32_le(4294967296)))
 	stdio::println(int_result_text(byte_read_u31_be(byte_view(byte_write_u32_be(4294967295)?, zero_offset, four)?)))
+	stdio::println(int_result_text(byte_read_u31_le(byte_view(byte_write_u32_le(4294967295)?, zero_offset, four)?)))
 	stdio::println(int_to_string(byte_count_to_int(one)))
 	Ok(())
 end
