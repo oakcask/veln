@@ -81,8 +81,11 @@ and all assignment expressions use implemented decoded field types:
 exact-width unsigned primitive fields as `Int`, length-bounded
 `ByteView(length_field)` payload fields as `ByteView`, closed nested dispatch
 payload fields as the nested schema record shape, and extension dispatch
-payload fields as `SchemaDispatchPayload<T>`. The predicate, primitive,
-dispatch, and mapping text are parsed and preserved as source-surface syntax.
+payload fields as `SchemaDispatchPayload<T>`. A `format binary` schema with
+more than one structural mapping clause reports
+`schema.mapping_multiple_clauses` at each later `map to` clause. The predicate,
+primitive, dispatch, and mapping text are parsed and preserved as
+source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
 primitive, supported reserved-bit, closed dispatch, extension dispatch, and
 same-module nested dispatch payload helper slices, general ADT constructor
@@ -90,6 +93,8 @@ mapping beyond schema-local structural expressions, imported dispatch payload
 schema encode, arbitrary mapping expressions, and multiple mapping selection
 are not implemented.
 The checked diagnostics case
+`../../examples/specification/check/schema-mapping-multiple-clause-diagnostics/`
+pins the multiple mapping clause boundary. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
 arity, and constructor payload type diagnostics.

@@ -136,8 +136,15 @@ generated binary decode helper uses one eligible structural mapping clause
 when all schema fields are implemented exact-width unsigned primitives, closed
 dispatch fields, or extension dispatch fields and the target resolves to
 matching record fields.
-Target-field resolution outside that single-record slice, arbitrary calls,
-multiple mapping selection, and encode-side mapping are not implemented.
+`format binary` schemas with more than one structural mapping clause report
+`schema.mapping_multiple_clauses` at each later `map to` clause, with details
+naming the schema, the selected mapping target, and the previous mapping
+target. Target-field resolution outside that single-record slice, arbitrary
+calls, multiple mapping selection, and encode-side mapping are not
+implemented.
+The executable diagnostics case
+`../../examples/specification/check/schema-mapping-multiple-clause-diagnostics/`
+keeps the multiple mapping clause boundary executable.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 keeps unsupported mapping expression, unresolved constructor, constructor

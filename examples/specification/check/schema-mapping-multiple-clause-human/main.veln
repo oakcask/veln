@@ -1,0 +1,22 @@
+type FrameHeader
+	FrameHeader {length: Int, kind: Int}
+end
+
+type AlternateFrameHeader
+	AlternateFrameHeader {length: Int, kind: Int}
+end
+
+schema FrameHeaderWire
+	format binary
+
+	length: UInt16be
+	kind: UInt8
+
+	map to FrameHeader
+		length = length
+		kind = kind
+
+	map to AlternateFrameHeader
+		length = length
+		kind = kind
+end

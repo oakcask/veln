@@ -1,0 +1,33 @@
+command = ["check", "--json", "main.veln"]
+exit = 1
+
+[stdout]
+format = "json"
+contains = ["\"id\":\"schema.mapping_multiple_clauses\"", "schema declaration has multiple mapping clauses", "\"selected_mapping_target\":\"AlternateFrameHeader\"", "\"previous_mapping_target\":\"FrameHeader\""]
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "error"
+
+[[json_assert]]
+path = "diagnostics.0.id"
+equals = "schema.mapping_multiple_clauses"
+
+[[json_assert]]
+path = "diagnostics.0.message"
+equals = "schema declaration has multiple mapping clauses"
+
+[[json_assert]]
+path = "diagnostics.0.details.schema"
+equals = "FrameHeaderWire"
+
+[[json_assert]]
+path = "diagnostics.0.details.selected_mapping_target"
+equals = "AlternateFrameHeader"
+
+[[json_assert]]
+path = "diagnostics.0.details.previous_mapping_target"
+equals = "FrameHeader"

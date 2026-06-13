@@ -226,6 +226,11 @@ against the built `veln` binary.
 - `check/schema-mapping-diagnostics/`: generated binary schema mapping
   diagnostics for mapping assignments that name schema-local source fields
   not decoded by the schema.
+- `check/schema-mapping-multiple-clause-diagnostics/`: binary schema
+  diagnostics for later structural `map to Target` clauses when a schema has
+  more than one mapping clause.
+- `check/schema-mapping-multiple-clause-human/`: human rendering for the same
+  multiple mapping clause boundary.
 - `check/schema-mapping-expression-boundary-diagnostics/`: record and
   constructor-shaped schema mapping assignment values report unsupported
   expression, unresolved constructor, constructor arity, and payload type
