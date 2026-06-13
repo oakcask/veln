@@ -282,18 +282,22 @@ execution reference.
   `SETTINGS_MAX_FRAME_SIZE` and `SETTINGS_INITIAL_WINDOW_SIZE` values outside
   their accepted SETTINGS ranges, zero-length SETTINGS ACK frames, wrong-length
   SETTINGS ACK payloads, stream id domain failures, invalid stream-state frame
-  kinds, wrong-length PING and GOAWAY payloads, accepted PING ACK distinction,
-  and accepted GOAWAY last-stream-id and error-code
+  kinds, wrong-length PING, GOAWAY, and `RST_STREAM` payloads, accepted PING
+  ACK distinction, accepted GOAWAY last-stream-id and error-code, and accepted
+  `RST_STREAM` error-code
   facts as typed protocol values. In the server-side fixture core, SETTINGS,
-  PING, and GOAWAY require stream id zero; HEADERS, DATA,
+  PING, and GOAWAY require stream id zero; HEADERS, DATA, `RST_STREAM`,
   CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
   client-initiated stream id. The receive flow-control state opens an idle
   peer-created stream on an admitted HEADERS frame, counts the tracked open
   peer-created stream for the active concurrent-stream receive limit, consumes
   DATA payload length from connection and stream windows, accepts
   connection-level and open-stream `WINDOW_UPDATE` increments, and keeps
-  wrong-length, idle-stream, zero, concurrent-stream-limit, and overflow cases
-  as typed protocol failures. After the client preface gate, structurally
+  wrong-length, idle-stream, zero, reset-stream, concurrent-stream-limit, and
+  overflow cases as typed protocol failures. A received `RST_STREAM` on the
+  open stream clears that stream and stores the reset error code so later DATA
+  or stream-level `WINDOW_UPDATE` cannot treat the stream as open. After the
+  client preface gate, structurally
   complete unknown extension frame types decode to ordinary `UnknownFrame`
   values that preserve frame type, flags, stream id, payload length, and each
   bounded payload byte, with the preserved payload also checked as complete
