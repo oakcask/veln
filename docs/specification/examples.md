@@ -323,7 +323,8 @@ completion after a final CONTINUATION with combined header-block hex/count
 output, single-frame HEADERS completion when END_HEADERS is set alongside
 another flag, one continuation ordering failure, an accepted unknown extension
 frame after the client preface gate that preserves flags, stream id, and
-bounded payload bytes in an ordinary `UnknownFrame` value, an unknown frame
+bounded payload bytes in an ordinary `UnknownFrame` value, with the preserved
+payload also pinned as complete lowercase hex output, an unknown frame
 rejected by active continuation state, and an incoming frame whose payload
 length exceeds the active receive maximum frame size, plus stream id domain
 failures for zero, even, and

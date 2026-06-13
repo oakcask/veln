@@ -254,7 +254,8 @@ execution reference.
   as typed protocol failures. After the client preface gate, structurally
   complete unknown extension frame types decode to ordinary `UnknownFrame`
   values that preserve frame type, flags, stream id, payload length, and each
-  bounded payload byte; an active continuation sequence still rejects an
+  bounded payload byte, with the preserved payload also checked as complete
+  lowercase hex output; an active continuation sequence still rejects an
   unknown frame through the existing continuation protocol-state failure before
   projecting stable diagnostic ids and related context into fixture output,
   human runtime diagnostics, and

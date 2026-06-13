@@ -1532,6 +1532,7 @@ fn print_unknown_frame_payload(label: String, kind: Int, flags: Int, stream_id: 
 	stdio::print(int_to_string(payload_byte_at(payload, 1)?))
 	stdio::print(" payload_last ")
 	stdio::println(int_to_string(payload_byte_at(payload, payload_count - 1)?))
+	emit_encoded_header(label, payload_chunk, "aabbcc")
 	Ok(())
 end
 
