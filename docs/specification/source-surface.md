@@ -100,7 +100,8 @@ pins the multiple mapping clause boundary. The checked diagnostics case
 pins unsupported mapping expression, unresolved constructor, constructor
 arity, and constructor payload type diagnostics.
 Eligible binary schemas whose fields are visible exact-width unsigned
-primitives, plus the supported `ReservedBits(1, 0)` before `UInt31be` layout,
+primitives, supported byte-aligned `ReservedBits(width, value)` fields,
+the supported `ReservedBits(1, 0)` before `UInt31be` layout,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and
 extension-tolerant `ExtensionDispatch(tag_field, length_field, tag => Payload,
 ...)` fields whose tag and length names are earlier visible exact-width fields
@@ -109,8 +110,9 @@ same-module binary schema payloads or public imported binary schema payloads
 named through written `use` paths, also expose generated
 `byte_encode_<schema>` helpers described in [execution.md](execution.md);
 schema mappings, field-local validation, generalized dispatch payload schemas,
-other reserved or fixed fields, and derived codec encode execution over
-unsupported schemas are outside that encode helper slice.
+non-byte-aligned reserved fields except the `UInt31be` shared-bit layout,
+other fixed fields, and derived codec encode execution over unsupported
+schemas are outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 

@@ -1,0 +1,17 @@
+# Binary schema reserved byte fields report mismatched fixed values.
+schema ReservedPaddedHeader
+	format binary
+
+	prefix: UInt8
+	padding: ReservedBits(16, 43981)
+	kind: UInt8
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("12abce34")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(4)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {prefix: Int, kind: Int} = byte_decode_reserved_padded_header(view)?
+	Ok(())
+end

@@ -203,6 +203,17 @@ pin the focused primary messages and related notes for readiness, expected
 versus available bytes, reserved-bit values, nearby bytes, and schema field
 paths.
 
+`../../examples/specification/run/binary-schema-byte-aligned-reserved-decode/`,
+`../../examples/specification/run/binary-schema-byte-aligned-reserved-json/`,
+and
+`../../examples/specification/run/binary-schema-byte-aligned-reserved-truncated-json/`
+pin byte-aligned `ReservedBits(width, value)` decode. The valid case consumes
+the reserved bytes without exposing the field in the decoded record. The
+failing cases assert `schema.reserved_bits_mismatch` and
+`schema.truncated_field` with the reserved field path, byte offset, expected
+value or byte count, actual value or available count, and structured byte
+preview fields.
+
 The executable specification cases
 `../../examples/specification/run/binary-schema-frame-payload-decode/`,
 `../../examples/specification/run/binary-schema-frame-payload-length-json/`,
@@ -273,8 +284,12 @@ The case checks complete lowercase hex output for an HTTP/2-style stream
 identifier field and the `UInt31be` maximum boundary. The adjacent checker
 case
 `../../examples/specification/check/schema-reserved-bit-encode-diagnostics/`
-asserts `schema.reserved_bits_encode` for a reserved-bit shape outside the
-implemented encode layout.
+asserts `schema.reserved_bits_encode` for a non-byte-aligned reserved-bit
+shape outside the implemented encode layout.
+`../../examples/specification/run/binary-schema-byte-aligned-reserved-encode/`
+pins byte-aligned reserved-bit encode: the helper omits the reserved field
+from the source value record and writes the declared fixed bytes in
+declaration order.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-encode/`
 pins the closed dispatch encode helper slice. The passing cases select

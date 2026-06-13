@@ -1579,9 +1579,22 @@ pub(crate) fn supported_encode_reserved_bits(
     reserved: (i64, i64),
 ) -> Option<(u8, i64)> {
     let (bit_width, expected_value) = reserved;
-    let next_field = next_field?;
-    if bit_width == 1 && expected_value == 0 && next_field.ty.trim() == "UInt31be" {
+    if bit_width == 1
+        && expected_value == 0
+        && next_field.is_some_and(|field| field.ty.trim() == "UInt31be")
+    {
         return Some((1, 0));
+    }
+    if bit_width <= 0 || bit_width > 32 || bit_width % 8 != 0 {
+        return None;
+    }
+    let max_value = if bit_width == 32 {
+        0xffffffff
+    } else {
+        (1_i64 << bit_width) - 1
+    };
+    if expected_value <= max_value {
+        return Some((bit_width as u8, expected_value));
     }
     None
 }
