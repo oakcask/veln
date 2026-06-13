@@ -414,18 +414,14 @@ incoming byte chunks and emits outgoing byte chunks without opening sockets. A
 host or later network library can feed it transport chunks from a socket or
 another source whose total length is not known in advance.
 
-The core already covers client connection preface validation in the
-ordinary-source protocol-core example. Remaining target coverage includes:
-
-- frame header decode and encode
-- SETTINGS
-- PING
-- GOAWAY
-- DATA
-- HEADERS as an opaque header-block payload
-- CONTINUATION handling only as far as needed to keep header-block boundaries
-  valid
-- typed protocol errors
+The core already covers client connection preface validation, frame header
+decode and encode, SETTINGS maximum-frame-size state, PING, GOAWAY, DATA
+receive-window accounting, HEADERS opaque header-block payload preservation,
+CONTINUATION handling needed to keep header-block boundaries valid, and typed
+protocol errors for those slices in the ordinary-source protocol-core example.
+Remaining target coverage includes broader SETTINGS, stream lifecycle,
+outbound flow control, graceful shutdown interactions, and typed protocol
+errors beyond the implemented frame and stream rules.
 
 HPACK starts outside the frame schema as an opaque header-block boundary or a
 deliberately small library codec. The reserved boundary is an explicit codec

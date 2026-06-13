@@ -22,8 +22,6 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - remaining SETTINGS values and settings interactions beyond the implemented
   maximum-frame-size and initial-window-size peer-advertised state
 - remaining DATA behavior beyond the implemented receive-window accounting
-- HEADERS with opaque header-block payloads
-- CONTINUATION handling only as needed to keep header-block boundaries valid
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
 - stream identifiers
@@ -220,13 +218,15 @@ decode, partial preface input that waits for more bytes, end-of-stream with a
 partial preface, mismatched preface bytes, incomplete frame input that waits
 for more bytes, end-of-stream truncation with pending frame bytes,
 continuation header-block assembly through a valid final CONTINUATION frame,
-one continuation ordering failure, and one incoming frame-size peer-limit
-failure, plus one invalid connection-state frame kind and one invalid
-idle-stream frame kind. It keeps parser state as undecoded suffix bytes plus
-the next absolute byte offset after each consumed preface or frame, reuses the
-implemented frame-header primitive after the preface gate, checks the active
-receive maximum frame size after structural header decode, and projects typed
-protocol failures into stable fixture output ids,
+the combined opaque header-block payload bytes from that completed block,
+single-frame HEADERS completion when END_HEADERS is set alongside another
+flag, one continuation ordering failure, and one incoming frame-size
+peer-limit failure, plus one invalid connection-state frame kind and one
+invalid idle-stream frame kind. It keeps parser state as undecoded suffix bytes
+plus the next absolute byte offset after each consumed preface or frame, reuses
+the implemented frame-header primitive after the preface gate, checks the
+active receive maximum frame size after structural header decode, and projects
+typed protocol failures into stable fixture output ids,
 `protocol_diagnostic` JSON details, and human related context.
 It also splits the active receive-limit entry and receive-window credit from
 peer-advertised SETTINGS state. The checked example keeps protocol-default,
