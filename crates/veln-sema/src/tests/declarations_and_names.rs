@@ -1218,7 +1218,7 @@ fn codec_encode_with_reports_mapped_value_parameter_mismatch_at_clause() {
 }
 
 #[test]
-fn codec_derive_decode_reports_mapping_value_type_that_generated_decode_cannot_expose() {
+fn codec_derive_decode_accepts_mapped_nested_dispatch_value_boundary() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
@@ -1250,32 +1250,7 @@ fn codec_derive_decode_reports_mapping_value_type_that_generated_decode_cannot_e
 
     let diagnostics = analyze_surface_module(&module);
 
-    assert_eq!(diagnostics.len(), 1, "{diagnostics:#?}");
-    let diagnostic = &diagnostics[0];
-    assert_eq!(diagnostic.id, "codec.decode_value_type");
-    assert_eq!(
-        diagnostic.message,
-        "derived decode value type is `{kind: Int, payload: {code: Int}}`, but schema mapping value type is `{body: {code: Int}}`"
-    );
-    assert!(
-        diagnostic
-            .span
-            .as_ref()
-            .is_some_and(|span| span.start.line == 20)
-    );
-    assert!(
-        diagnostic
-            .details
-            .to_json()
-            .contains("\"reason\":\"generated_decode_value_type\"")
-    );
-    assert!(
-        diagnostic
-            .details
-            .to_json()
-            .contains("\"expected_value_type\":\"{body: {code: Int}}\"")
-    );
-    assert!(diagnostic.related.is_empty());
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
 #[test]

@@ -191,11 +191,11 @@ generated `byte_decode_step_<schema>` helper, the codec item name is also an
 ordinary decode call target in the declaring module. A `pub codec` can also be
 called through a written import-qualified module path. The call expects
 `ByteView` and `ByteOffset` arguments and returns that generated helper's
-`DecodeStep<T>` result. If a schema mapping is declared and checked but the
-generated decode helper cannot expose the mapping target as its value type,
-the `derive decode` clause reports `codec.decode_value_type`. Bare imported
-codec names are not call targets, and encode-only codecs do not expose this
-decode boundary.
+`DecodeStep<T>` result. For the implemented single structural mapping slice,
+`T` is the mapping target record shape when each assignment source has the
+same implemented decoded field type as the target field. Bare imported codec
+names are not call targets, and encode-only codecs do not expose this decode
+boundary.
 
 The checker also validates the implemented encode function boundary for
 `encode with function_name`. The name must resolve to an ordinary function in

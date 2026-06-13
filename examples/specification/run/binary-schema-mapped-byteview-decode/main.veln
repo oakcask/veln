@@ -1,0 +1,72 @@
+# Binary schema mapping carries a decoded ByteView payload into a target record.
+use stdio
+
+type Packet
+	Packet {length: Int, payload: ByteView}
+end
+
+schema PacketWire
+	format binary
+
+	wire_length: UInt8
+	payload: ByteView(wire_length)
+
+	map to Packet
+		length = wire_length
+		payload = payload
+end
+
+codec PacketCodec for PacketWire decode
+	derive decode
+end
+
+fn emit_packet(label: String, packet: {length: Int, payload: ByteView}) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(byte_chunk_count(byte_view_to_chunk(packet.payload)))))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_read_u16_be(packet.payload)?))
+	Ok(())
+end
+
+fn emit_step(label: String, step: DecodeStep<{length: Int, payload: ByteView}>) -> Result<(), String> effects [stdio]
+	match step
+		Decoded(packet, consumed) => emit_decoded_step(label, packet, consumed)
+		NeedMore(_) => emit_marker(label, "need_more")
+		Invalid(_) => emit_marker(label, "invalid")
+	end
+end
+
+fn emit_decoded_step(label: String, packet: {length: Int, payload: ByteView}, consumed: ByteCount) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::print(int_to_string(packet.length))
+	stdio::print(" ")
+	stdio::print(int_to_string(byte_count_to_int(consumed)))
+	stdio::print(" ")
+	stdio::println(int_to_string(byte_read_u16_be(packet.payload)?))
+	Ok(())
+end
+
+fn emit_marker(label: String, marker: String) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" ")
+	stdio::println(marker)
+	Ok(())
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("03aabbcc")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
+	let packet: {length: Int, payload: ByteView} = byte_decode_packet_wire(view)?
+	let closed_emit: () = emit_packet("closed", packet)?
+
+	let step: DecodeStep<{length: Int, payload: ByteView}> = byte_decode_step_packet_wire(view, byte_offset(5)?)
+	let step_emit: () = emit_step("step", step)?
+
+	let codec_step: DecodeStep<{length: Int, payload: ByteView}> = PacketCodec(view, byte_offset(9)?)
+	let codec_emit: () = emit_step("codec", codec_step)?
+	Ok(())
+end

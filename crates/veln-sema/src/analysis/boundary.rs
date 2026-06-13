@@ -850,13 +850,16 @@ fn mapping_is_implemented_value_slice(
 ) -> bool {
     let mut seen_targets = BTreeMap::<&str, ()>::new();
     for assignment in &mapping.assignments {
-        if !schema_fields.contains_key(&assignment.source) {
+        let Some(source_ty) = schema_fields.get(&assignment.source) else {
             return false;
-        }
-        if !target_fields
+        };
+        let Some((_, target_ty)) = target_fields
             .iter()
-            .any(|(target_field, _)| target_field == &assignment.target)
-        {
+            .find(|(target_field, _)| target_field == &assignment.target)
+        else {
+            return false;
+        };
+        if source_ty != target_ty {
             return false;
         }
         if seen_targets
@@ -867,9 +870,9 @@ fn mapping_is_implemented_value_slice(
         }
     }
 
-    target_fields.iter().all(|(target_field, target_ty)| {
-        target_ty == &Type::int() && seen_targets.contains_key(target_field.as_str())
-    })
+    target_fields
+        .iter()
+        .all(|(target_field, _)| seen_targets.contains_key(target_field.as_str()))
 }
 
 fn codec_referenced_schema<'a>(

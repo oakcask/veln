@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["\"id\":\"codec.decode_value_type\"", "\"id\":\"codec.encode_value_type\"", "\"reason\":\"generated_decode_value_type\"", "\"reason\":\"generated_encode_value_type\"", "\"expected_value_type\":\"{body: {code: Int}}\"", "\"expected_value_type\":\"{length: Int, kind: Int}\""]
+contains = ["\"id\":\"codec.encode_value_type\"", "\"reason\":\"generated_encode_value_type\"", "\"expected_value_type\":\"{length: Int, kind: Int}\""]
 
 [stderr]
 format = "empty"
@@ -11,12 +11,6 @@ format = "empty"
 [[json_assert]]
 path = "status"
 equals = "error"
-
-[[diagnostics]]
-id = "codec.decode_value_type"
-severity = "error"
-kind = "type"
-message = "derived decode value type is `{kind: Int, payload: {code: Int}}`, but schema mapping value type is `{body: {code: Int}}`"
 
 [[diagnostics]]
 id = "codec.encode_value_type"

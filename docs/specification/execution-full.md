@@ -129,10 +129,10 @@ has one eligible structural `map to Target` clause. In that mapped slice, the
 generated helper constructs the target record field names from decoded schema
 fields after all field-local `where` predicates pass. Mapping diagnostics
 reject unknown source fields, unknown target fields, duplicate or missing
-target fields, and non-`Int` target fields before execution. Failed validation
-returns `schema.validation_failed` at the owning field byte offset with
-structured field path, predicate text, owning field value, decoded values, and
-structured byte preview fields.
+target fields, and decoded source fields whose types do not match their target
+fields before execution. Failed validation returns `schema.validation_failed`
+at the owning field byte offset with structured field path, predicate text,
+owning field value, decoded values, and structured byte preview fields.
 
 The same eligible generated binary schema slice also exposes
 `byte_decode_step_<schema>` helpers. A decode-step helper receives the bounded
@@ -154,9 +154,9 @@ bounded `ByteView` and explicit base `ByteOffset` and returns the same
 `DecodeStep<T>` value as `byte_decode_step_<schema>`, including a mapped record
 value when the schema has the implemented single structural `map to Target`
 record mapping. `Decoded` reports the exact consumed byte count; `NeedMore`
-and `Invalid` consume no bytes. When a declared mapping is valid but the
-generated decode-step helper cannot expose the mapping target as `T`, the
-`derive decode` clause is rejected with `codec.decode_value_type`.
+and `Invalid` consume no bytes. For the implemented single structural mapping
+slice, `T` is the mapping target record shape when each assignment source has
+the same implemented decoded field type as the target field.
 
 A codec declaration with a valid hand-written `decode with function_name`
 clause also exposes the codec item name as an executable decode boundary in
