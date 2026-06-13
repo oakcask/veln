@@ -388,6 +388,15 @@ against the built `veln` binary.
   syntax outside the implemented encode layout reports
   `schema.reserved_bits_encode` with the unsupported bit width and expected
   value.
+- `run/binary-schema-closed-dispatch-encode/`: a generated binary schema
+  encode helper selects a closed dispatch primitive payload from an earlier
+  tag field, writes the selected `UInt8`, `UInt16be`, `UInt24be`, or
+  `UInt32be` payload width, and returns one `ByteChunk`.
+- `run/binary-schema-closed-dispatch-encode-unknown-tag/`: the same encode
+  helper reports `codec.dispatch_unknown_tag` when the tag value has no
+  closed dispatch case.
+- `run/binary-schema-closed-dispatch-encode-out-of-range/`: the same encode
+  helper range-checks the selected dispatch payload case before writing it.
 - `run/binary-schema-closed-dispatch-decode/`: a generated binary schema
   decode helper reads a closed dispatch tag, selects the known payload case,
   and returns the selected payload as an ordinary `Int` field.

@@ -107,18 +107,30 @@ execution reference.
   `ReservedBits(1, 0)` field immediately before a `UInt31be` field is
   representation-only: it is omitted from the record and the helper emits the
   required zero high bit in the shared four-byte stream identifier position.
+  Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
+  `tag_field` names an earlier visible exact-width unsigned field and every
+  case payload is an implemented exact-width unsigned primitive payload. The
+  record contains the visible tag field and one payload field; the helper
+  chooses the case from the encoded tag value, writes the selected payload in
+  declaration order, and returns `Err(EncodeError("codec.dispatch_unknown_tag",
+  field_path, reason))` when the tag value has no case.
   The helper writes fields in declaration order into one immutable big-endian
   `ByteChunk` and returns `Result<ByteChunk, EncodeError>`. Values outside the
   primitive range return `Err(EncodeError("codec.out_of_range", field_path,
   reason))`; `UInt31be` uses the 31-bit maximum even though it occupies four
   bytes. Unsupported reserved-bit encode shapes report
   `schema.reserved_bits_encode`. This slice excludes schema mappings,
-  field-local validation, dispatch fields, other reserved or fixed fields,
-  nested mappings, and derived codec encode execution for unsupported schemas.
+  field-local validation, extension dispatch, nested dispatch payload schemas,
+  other reserved or fixed fields, nested mappings, and derived codec encode
+  execution for unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
-  `examples/specification/run/binary-schema-reserved-bit-encode/`, and
+  `examples/specification/run/binary-schema-reserved-bit-encode/`,
+  `examples/specification/run/binary-schema-closed-dispatch-encode/`,
+  `examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`,
+  `examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`,
+  and
   `examples/specification/check/schema-reserved-bit-encode-diagnostics/`.
 - A codec declaration with a valid `derive encode` clause for the same
   eligible generated binary schema encode helper slice exposes the codec item
