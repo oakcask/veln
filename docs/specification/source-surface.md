@@ -152,10 +152,10 @@ returns its `EncodeStep<TState>` value unchanged. General codec-generated
 decode functions are not implemented. Generated
 `byte_decode_<schema>` helpers for the eligible binary schema slice, generated
 `byte_encode_<schema>` helpers for the exact-width, supported reserved-bit,
-and closed primitive dispatch encode slices, their `byte_decode_step_<schema>`
-incremental decode-step counterparts, derived decode codec calls over that
-decode-step slice, and derived encode codec calls over that encode helper
-slice are covered by
+closed primitive dispatch, and extension primitive dispatch encode slices,
+their `byte_decode_step_<schema>` incremental decode-step counterparts,
+derived decode codec calls over that decode-step slice, and derived encode
+codec calls over that encode helper slice are covered by
 [execution.md](execution.md).
 
 ## Expressions

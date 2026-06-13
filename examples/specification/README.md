@@ -397,6 +397,22 @@ against the built `veln` binary.
   closed dispatch case.
 - `run/binary-schema-closed-dispatch-encode-out-of-range/`: the same encode
   helper range-checks the selected dispatch payload case before writing it.
+- `run/binary-schema-extension-dispatch-encode/`: a generated binary schema
+  encode helper writes a known extension-tolerant primitive payload selected
+  by the earlier visible tag field and preserves matching unknown raw bounded
+  payload bytes.
+- `run/binary-schema-extension-dispatch-encode-mismatch/`: the same encode
+  helper reports `codec.dispatch_mismatch` when a known tag is paired with an
+  unknown payload variant.
+- `run/binary-schema-extension-dispatch-encode-tag-mismatch/`: the same
+  encode helper reports `codec.dispatch_mismatch` when an unknown payload
+  variant carries a tag that differs from the visible tag field.
+- `run/binary-schema-extension-dispatch-encode-out-of-range/`: the same
+  encode helper range-checks the selected known primitive payload case before
+  writing it.
+- `run/binary-schema-extension-dispatch-encode-length-mismatch/`: the same
+  encode helper reports `codec.dispatch_length_mismatch` when the earlier
+  length field does not match the emitted payload byte count.
 - `run/binary-schema-closed-dispatch-decode/`: a generated binary schema
   decode helper reads a closed dispatch tag, selects the known payload case,
   and returns the selected payload as an ordinary `Int` field.

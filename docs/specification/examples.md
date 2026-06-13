@@ -240,6 +240,9 @@ visible tag value.
 `../../examples/specification/run/binary-schema-extension-dispatch-encode-mismatch/`
 asserts `codec.dispatch_mismatch` when the visible tag field selects a known
 case but the payload field supplies `Unknown`.
+`../../examples/specification/run/binary-schema-extension-dispatch-encode-tag-mismatch/`
+asserts `codec.dispatch_mismatch` when an unknown payload variant carries a
+tag that differs from the visible tag field.
 `../../examples/specification/run/binary-schema-extension-dispatch-encode-out-of-range/`
 asserts `codec.out_of_range` against the selected `UInt16be` payload case.
 `../../examples/specification/run/binary-schema-extension-dispatch-encode-length-mismatch/`

@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "codec.dispatch_mismatch\nExtensionDispatchWritePacket.payload\ntag field `kind` value 7 does not match unknown payload tag 9\n"
+
+[[json_assert]]
+path = "error"
+equals = null

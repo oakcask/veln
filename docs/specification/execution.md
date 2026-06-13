@@ -145,6 +145,7 @@ execution reference.
   `examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-mismatch/`,
+  `examples/specification/run/binary-schema-extension-dispatch-encode-tag-mismatch/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-out-of-range/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-length-mismatch/`,
   and
