@@ -1151,7 +1151,7 @@
         }
 
         java.util.Map<Object, Object> fields = asMap(value);
-        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
+        SchemaFieldSpec[] schemaFields = new SchemaFieldSpec[fieldNameValues.size()];
         for (int index = 0; index < fieldNameValues.size(); index += 1) {
             String fieldName = asString(fieldNameValues.get(index));
             int width = (int) asLong(widthValues.get(index));
@@ -1161,13 +1161,11 @@
             String tagField = asString(dispatchTagFieldValues.get(index));
             String lengthField = asString(dispatchLengthFieldValues.get(index));
             if (reservedBitWidth > 0) {
-                if (reservedBitWidth != 1 || reservedValue != 0L) {
-                    return err(encodeError(
-                        "codec.metadata",
-                        name + "." + fieldName,
-                        "unsupported reserved bits encode field"
-                    ));
-                }
+                schemaFields[index] = new SchemaFieldSpec(
+                    fieldName,
+                    reservedBitWidth,
+                    reservedValue
+                );
                 continue;
             }
             if (!tagField.isEmpty()) {
@@ -1187,12 +1185,40 @@
                         asString(resultValue(dispatch))
                     ));
                 }
-                SchemaDispatchSpec dispatchSpec = (SchemaDispatchSpec) unwrapOk(dispatch);
+                schemaFields[index] = new SchemaFieldSpec(
+                    fieldName,
+                    0,
+                    0L,
+                    null,
+                    (SchemaDispatchSpec) unwrapOk(dispatch)
+                );
+                continue;
+            }
+            schemaFields[index] = new SchemaFieldSpec(fieldName, width, maxValue, null);
+        }
+        return byteEncodeBinarySchema(value, new BinarySchemaSpec(name, schemaFields));
+    }
+
+    private static Object byteEncodeBinarySchema(Object value, BinarySchemaSpec schema) {
+        java.util.Map<Object, Object> fields = asMap(value);
+        java.util.ArrayList<Object> bytes = new java.util.ArrayList<Object>();
+        for (SchemaFieldSpec field : schema.fields) {
+            if (field.isReserved()) {
+                if (field.reservedBitWidth != 1 || field.reservedValue != 0L) {
+                    return err(encodeError(
+                        "codec.metadata",
+                        schema.name + "." + field.name,
+                        "unsupported reserved bits encode field"
+                    ));
+                }
+                continue;
+            }
+            if (field.dispatch != null) {
                 Object encoded = schemaWriteDispatchPayload(
                     fields,
-                    dispatchSpec,
-                    name,
-                    fieldName
+                    field.dispatch,
+                    schema.name,
+                    field.name
                 );
                 if (isErr(encoded)) {
                     return encoded;
@@ -1200,19 +1226,19 @@
                 bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
                 continue;
             }
-            if (width < 1 || width > 4) {
+            if (field.width < 1 || field.width > 4) {
                 return err(encodeError(
                     "codec.metadata",
-                    name + "." + fieldName,
-                    "unsupported schema field width " + width
+                    schema.name + "." + field.name,
+                    "unsupported schema field width " + field.width
                 ));
             }
             Object encoded = schemaWriteUnsignedBe(
-                fields.get(fieldName),
-                width,
-                maxValue,
-                name,
-                fieldName
+                fields.get(field.name),
+                field.width,
+                field.maxValue,
+                schema.name,
+                field.name
             );
             if (isErr(encoded)) {
                 return encoded;
@@ -2028,9 +2054,45 @@
         Object mappingTargets,
         Object mappingSources
     ) {
+        return declaredBinarySchemaSpecWithMaxValues(
+            schemaName,
+            fieldNames,
+            widths,
+            null,
+            reservedBitWidths,
+            reservedValues,
+            predicates,
+            dispatchTagFields,
+            dispatchLengthFields,
+            dispatchCaseTags,
+            dispatchCaseWidths,
+            dispatchCaseSchemaSpecs,
+            mappingTargets,
+            mappingSources
+        );
+    }
+
+    private static Object declaredBinarySchemaSpecWithMaxValues(
+        Object schemaName,
+        Object fieldNames,
+        Object widths,
+        Object maxValues,
+        Object reservedBitWidths,
+        Object reservedValues,
+        Object predicates,
+        Object dispatchTagFields,
+        Object dispatchLengthFields,
+        Object dispatchCaseTags,
+        Object dispatchCaseWidths,
+        Object dispatchCaseSchemaSpecs,
+        Object mappingTargets,
+        Object mappingSources
+    ) {
         String name = asString(schemaName);
         java.util.List<Object> fieldNameValues = asList(fieldNames);
         java.util.List<Object> widthValues = asList(widths);
+        java.util.List<Object> maxValueValues =
+            maxValues == null ? null : asList(maxValues);
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
         java.util.List<Object> reservedValueValues = asList(reservedValues);
         java.util.List<Object> predicateValues = asList(predicates);
@@ -2049,6 +2111,7 @@
             || fieldNameValues.size() != dispatchLengthFieldValues.size()
             || fieldNameValues.size() != dispatchCaseTagValues.size()
             || fieldNameValues.size() != dispatchCaseWidthValues.size()
+            || (maxValueValues != null && fieldNameValues.size() != maxValueValues.size())
             || fieldNameValues.size() != dispatchCaseSchemaSpecValues.size()) {
             return err("invalid schema decoder metadata for schema `" + name + "`");
         }
@@ -2122,7 +2185,16 @@
                     return err(failure.getMessage());
                 }
             }
-            fields[index] = unsignedSchemaField(fieldName, (int) width, predicate);
+            if (maxValueValues == null) {
+                fields[index] = unsignedSchemaField(fieldName, (int) width, predicate);
+            } else {
+                fields[index] = new SchemaFieldSpec(
+                    fieldName,
+                    (int) width,
+                    asLong(maxValueValues.get(index)),
+                    predicate
+                );
+            }
         }
         SchemaMappingFieldSpec[] mapping =
             new SchemaMappingFieldSpec[mappingTargetValues.size()];
@@ -2191,10 +2263,10 @@
 
     private static Object declaredBinarySchemaSpecFromMetadata(Object metadata) {
         java.util.List<Object> values = asList(metadata);
-        if (values.size() != 13) {
+        if (values.size() != 14) {
             return err("invalid nested schema decoder metadata");
         }
-        return declaredBinarySchemaSpec(
+        return declaredBinarySchemaSpecWithMaxValues(
             values.get(0),
             values.get(1),
             values.get(2),
@@ -2207,7 +2279,8 @@
             values.get(9),
             values.get(10),
             values.get(11),
-            values.get(12)
+            values.get(12),
+            values.get(13)
         );
     }
 
@@ -2334,11 +2407,7 @@
                 continue;
             }
             if (dispatchCase.payloadSchema != null) {
-                return err(encodeError(
-                    "codec.metadata",
-                    schemaName + "." + fieldName,
-                    "nested dispatch payload encode is not supported"
-                ));
+                return byteEncodeBinarySchema(fields.get(fieldName), dispatchCase.payloadSchema);
             }
             return schemaWriteUnsignedBe(
                 fields.get(fieldName),
@@ -2387,11 +2456,19 @@
                 ));
             }
             if (selectedCase.payloadSchema != null) {
-                return err(encodeError(
-                    "codec.metadata",
-                    fieldPath,
-                    "nested dispatch payload encode is not supported"
-                ));
+                Object encoded = byteEncodeBinarySchema(
+                    asAdt(payload, "SchemaDispatchPayload::Known").payloads[0],
+                    selectedCase.payloadSchema
+                );
+                if (isErr(encoded)) {
+                    return encoded;
+                }
+                return schemaDispatchLengthCheckedChunk(
+                    unwrapOk(encoded),
+                    suppliedLength,
+                    dispatch.lengthField,
+                    fieldPath
+                );
             }
             Object encoded = schemaWriteUnsignedBe(
                 asAdt(payload, "SchemaDispatchPayload::Known").payloads[0],

@@ -36,8 +36,15 @@ same-module nested payload slice also implements known
 schema decode helpers, returns the nested schema's decoded record shape for
 known cases, keeps extension-tolerant unknown tags opaque, and reports nested
 payload failures with the nested schema field path and absolute byte offset.
-General schema decode, encode, imported or generalized dispatch payload
-schemas, and schema value mapping remain proposal work.
+The same-module nested payload encode slice implements known
+`Dispatch(..., tag => SchemaName, ...)` and
+`ExtensionDispatch(..., tag => SchemaName, ...)` cases for generated binary
+schema encode helpers, uses the nested schema decoded record shape for closed
+payload fields and `SchemaDispatchPayload<NestedRecord>` for
+extension-tolerant payload fields, preserves extension-tolerant unknown raw
+payload bytes, and keeps nested schema encode failures on the nested schema
+field path. General schema decode, encode, imported or generalized dispatch
+payload schemas, and schema value mapping remain proposal work.
 
 ## Problem
 
@@ -116,12 +123,18 @@ accepts earlier visible exact-width unsigned tag and length fields plus a
 preserves unknown raw bounded payload bytes, rejects tag or payload variant
 disagreements, rejects length fields that do not match the emitted payload byte
 count, and reports primitive range failures through structured `EncodeError`
-values. General schema-owned decode and encode beyond the implemented slices,
-nested dispatch payload encode, and mapping beyond the implemented slices
-remain proposal work. A `UInt31be` field represents the 31-bit unsigned value
-in a big-endian field position whose remaining bit is handled as a reserved or
-fixed schema bit. The 31-bit value should not become a general-purpose source
-type.
+values. The implemented same-module nested dispatch payload encode slice uses
+the same earlier-schema eligibility boundary as nested dispatch decode, writes
+selected nested records for closed dispatch, writes
+`SchemaDispatchPayload::Known` nested records for extension-tolerant dispatch,
+keeps unknown extension-tolerant raw payload preservation unchanged, and
+reports nested field failures through structured `EncodeError` values.
+General schema-owned decode and encode beyond the implemented slices, imported
+or generalized dispatch payload encode, and mapping beyond the implemented
+slices remain proposal work. A `UInt31be` field represents the 31-bit unsigned
+value in a big-endian field position whose remaining bit is handled as a
+reserved or fixed schema bit. The 31-bit value should not become a
+general-purpose source type.
 
 ## Discussion Result: Reserved Bit Spelling
 
@@ -255,9 +268,9 @@ author likely referred to an earlier field with a compatible role.
 - Executable examples show binary schema writes and general schema-owned
   fixed-width reads beyond the implemented frame-header, width-sample,
   primitive encode helper, reserved-bit encode helper, closed-dispatch
-  primitive encode helper, extension-dispatch primitive encode helper, HTTP/2
-  payload boundary helper, and narrow closed-dispatch and extension-dispatch
-  decode slices.
+  primitive and same-module nested encode helper, extension-dispatch primitive
+  and same-module nested encode helper, HTTP/2 payload boundary helper, and
+  narrow closed-dispatch and extension-dispatch decode slices.
 - Imported or generalized dispatch payload schemas can decode nested known
   payload shapes while keeping extension-tolerant unknown payload bytes
   opaque.

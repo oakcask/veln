@@ -339,6 +339,77 @@ fn generated_schema_encode_helpers_resolve_for_extension_dispatch_binary_schemas
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_for_nested_dispatch_binary_schemas() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema SettingsPayload\n",
+            "  format binary\n",
+            "\n",
+            "  code: UInt8\n",
+            "  value: UInt16be\n",
+            "end\n",
+            "\n",
+            "schema ExtensionNestedWritePacket\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  kind: UInt8\n",
+            "  payload: ExtensionDispatch(kind, length, 1 => SettingsPayload)\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {length: Int, kind: Int, payload: SchemaDispatchPayload<{code: Int, value: Int}>}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_extension_nested_write_packet(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "ExtensionNestedWritePacket"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let schema = ir
+        .schema_decoders
+        .iter()
+        .find(|schema| schema.schema_name == "ExtensionNestedWritePacket")
+        .expect("nested packet encoder metadata should be emitted");
+    let dispatch = schema.fields[2]
+        .dispatch
+        .as_ref()
+        .expect("payload should carry extension dispatch metadata");
+    assert_eq!(dispatch.length_field.as_deref(), Some("length"));
+    assert_eq!(dispatch.cases[0].tag, 1);
+    assert_eq!(dispatch.cases[0].width, 0);
+    assert_eq!(
+        dispatch.cases[0]
+            .payload_schema
+            .as_ref()
+            .expect("case should carry nested schema metadata")
+            .schema_name,
+        "SettingsPayload"
+    );
+}
+
+#[test]
 fn derived_codec_encode_resolves_to_schema_encode_step_boundary() {
     let source = SourceFile::new(
         "main.veln",

@@ -227,6 +227,8 @@ implemented encode layout.
 pins the closed dispatch encode helper slice. The passing cases select
 `UInt8`, `UInt16be`, `UInt24be`, and `UInt32be` payload widths from an earlier
 tag field and write one `ByteChunk` in declaration order.
+`../../examples/specification/run/binary-schema-closed-dispatch-nested-encode/`
+pins same-module nested payload encode for a closed dispatch case.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`
 asserts `codec.dispatch_unknown_tag` when the tag value has no closed case.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`
@@ -237,6 +239,9 @@ pins the extension-tolerant dispatch encode helper slice. The passing cases
 write a known primitive payload selected by the visible tag field and preserve
 unknown raw bounded payload bytes when the unknown payload tag matches the
 visible tag value.
+`../../examples/specification/run/binary-schema-extension-dispatch-nested-encode/`
+pins same-module nested payload encode through
+`SchemaDispatchPayload::Known`.
 `../../examples/specification/run/binary-schema-extension-dispatch-encode-mismatch/`
 asserts `codec.dispatch_mismatch` when the visible tag field selects a known
 case but the payload field supplies `Unknown`.
@@ -248,6 +253,8 @@ asserts `codec.out_of_range` against the selected `UInt16be` payload case.
 `../../examples/specification/run/binary-schema-extension-dispatch-encode-length-mismatch/`
 asserts `codec.dispatch_length_mismatch` when the earlier length field does
 not match the emitted payload byte count.
+`../../examples/specification/run/binary-schema-dispatch-nested-encode-failure/`
+asserts that nested payload encode failures keep the nested schema field path.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
