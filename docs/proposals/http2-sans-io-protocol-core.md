@@ -238,6 +238,11 @@ peer-advertised state and projects out-of-range values as
 `http2.peer_limit.settings_value_out_of_range` with setting identity, observed
 value, accepted range, item byte offset, and peer-limit provenance in
 executable output, human diagnostics, and JSON details.
+It preserves structurally complete unknown extension frame types after the
+client preface gate as ordinary `UnknownFrame` values with frame kind, flags,
+stream id, and bounded payload bytes. Unknown frame types still obey protocol
+state first: a frame received while continuation state requires CONTINUATION
+uses the existing continuation ordering failure.
 The same executable example now includes the outbound frame-header encode
 slice. Ordinary source builds record-shaped frame descriptions with `length`,
 `kind`, `flags`, and `stream_id`, invokes the generated binary schema encode

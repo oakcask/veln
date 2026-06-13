@@ -1358,6 +1358,8 @@ end
 pub fn main() -> Result<(), String> effects [stdio]
 	let preface_valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000000040000000000")?), empty_state())?
 	print_step("preface-valid", preface_valid)
+	let preface_unknown: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a0000030a2300000000aabbcc")?), empty_state())?
+	let preface_unknown_result: () = print_unknown_frame("preface-unknown", preface_unknown)?
 	let preface_partial: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20")?), empty_state())?
 	print_step("preface-partial", preface_partial)
 	let preface_closed: Http2Step = receive(InputEnd, step_state(preface_partial))?
