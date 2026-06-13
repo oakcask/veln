@@ -581,8 +581,11 @@ against the built `veln` binary.
   case also admits an idle peer-created stream on HEADERS, counts the tracked
   open peer-created stream against the active concurrent-stream receive limit,
   and reports limit exhaustion as
-  `http2.peer_limit.concurrent_streams_exceeded`. It also accepts DATA on an
-  open stream,
+  `http2.peer_limit.concurrent_streams_exceeded`. It also accepts
+  `RST_STREAM` on the tracked open stream, records the reset error code,
+  clears the open stream, and rejects later DATA or stream-level
+  `WINDOW_UPDATE` for that reset stream through the existing invalid
+  frame-kind path. It also accepts DATA on an open stream,
   decrements both connection and stream receive-window credit by payload
   length, accepts `WINDOW_UPDATE` receive-credit increments for the connection
   and open stream, and reports zero increments, receive-window overflow, and
