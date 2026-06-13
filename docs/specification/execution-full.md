@@ -114,7 +114,7 @@ followed by one `UInt32be` field from a `ByteView`. Both fields produce
 ordinary `Int` values in the decoded record. Truncation reports the same
 `schema.truncated_field` diagnostic shape as the frame-header helper,
 including byte offset, structured field path, expected byte count, available
-byte count, readiness, and nearby lowercase hex context.
+byte count, readiness, and structured byte preview fields.
 
 The binary schema field-local validation execution slice decodes fields in
 declaration order for generated `byte_decode_<schema>` helpers when every
@@ -132,7 +132,7 @@ reject unknown source fields, unknown target fields, duplicate or missing
 target fields, and non-`Int` target fields before execution. Failed validation
 returns `schema.validation_failed` at the owning field byte offset with
 structured field path, predicate text, owning field value, decoded values, and
-nearby lowercase hex context.
+structured byte preview fields.
 
 The same eligible generated binary schema slice also exposes
 `byte_decode_step_<schema>` helpers. A decode-step helper receives the bounded
@@ -233,7 +233,7 @@ starts immediately after the nine-byte frame header, and uses the decoded
 length field as its count. If the closed input has fewer payload bytes than
 the decoded length, the helper returns `schema.length_out_of_bounds` with the
 first missing byte offset, `Http2FrameHeader.payload` field path, expected
-payload count, available payload count, and nearby lowercase hex context.
+payload count, available payload count, and structured byte preview fields.
 
 Standard `StreamInput` values execute as ordinary immutable source ADT values:
 `Chunk(bytes)` preserves the supplied `ByteChunk`, including an empty chunk,

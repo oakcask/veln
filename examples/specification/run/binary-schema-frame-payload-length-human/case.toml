@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[schema.length_out_of_bounds]: payload length out of bounds at byte offset 11", "note: Payload length expected 5 byte(s); 2 byte(s) were available.", "note: Nearby bytes: 000005010400000001aabb.", "note: Field path: schema `Http2FrameHeader` / field `payload`."]
+contains = ["error[schema.length_out_of_bounds]: payload length out of bounds at byte offset 11", "note: Payload length expected 5 byte(s); 2 byte(s) were available.", "note: Nearby bytes: 00 00 05 01 04 00 00 00 (showing 8 of 11 byte(s), truncated).", "note: Field path: schema `Http2FrameHeader` / field `payload`."]

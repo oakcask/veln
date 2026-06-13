@@ -17,8 +17,8 @@ checked by
 implemented first schema-owned fixed-field mismatch slice, including
 `schema.fixed_field_mismatch`, byte offset, field path, expected and actual
 values, structured byte preview fields in `run --json`, and stable human
-`run` nearby-byte output, is specified under `../specification/run-json.md` and
-`../specification/commands.md` and checked by
+`run` bounded nearby-byte preview output, is specified under
+`../specification/run-json.md` and `../specification/commands.md` and checked by
 `../../examples/specification/run/binary-fixed-field-mismatch-json/` and
 `../../examples/specification/run/binary-fixed-field-mismatch-human/`. The
 implemented frame-header schema truncation, reserved-bit mismatch, payload
@@ -26,7 +26,7 @@ length boundary, and field-local validation slices are specified under
 `../specification/run-json.md` and `../specification/commands.md` and checked
 by the binary schema frame-header, frame-payload, and validation cases under
 `../../examples/specification/run/`; their JSON details use structured byte
-preview fields while human output keeps compact nearby-byte notes. The
+preview fields while human output keeps bounded nearby-byte preview notes. The
 implemented HTTP/2 protocol-state projections use
 `http2.protocol.partial_preface` and `http2.protocol.invalid_preface` for
 client connection preface failures,

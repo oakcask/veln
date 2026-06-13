@@ -141,10 +141,11 @@ bounded by default.
 ## Remaining Completion Criteria
 
 - Specification pages describe the later binary-buffer behavior and any
-  schema-facing conversion boundaries not covered by the current byte helpers.
+  schema-facing conversion boundaries not covered by the current byte helpers
+  and schema-owned byte diagnostic previews.
 - Later protocol-facing diagnostics beyond the implemented schema-owned byte
-  slices cover byte previews, field paths, expected and actual counts, and
-  absolute offsets.
+  slices cover protocol-owned byte previews, field paths, expected and actual
+  counts, and absolute offsets where those diagnostics inspect bytes directly.
 - Runtime support for later buffer APIs preserves bounded data across tasks
   and channels without promising source-visible memory layout.
 - The HTTP/2 design driver can represent pending input and outgoing chunks in

@@ -652,8 +652,8 @@
         static DiagnosticDetail bytePreview(String key, String value) {
             return new DiagnosticDetail(
                 key,
-                "byte_preview",
-                hex(value.toLowerCase(java.util.Locale.ROOT))
+                "byte_preview_v2",
+                value
             );
         }
 

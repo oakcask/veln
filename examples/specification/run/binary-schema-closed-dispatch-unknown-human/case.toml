@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[schema.dispatch_unknown_tag]: unknown dispatch tag at byte offset 1", "note: Dispatch tag field `kind` decoded value 3.", "note: Expected tag values: 1, 2.", "note: Nearby bytes: 03aabbcc.", "note: Field path: schema `ClosedDispatchPacket` / field `payload`."]
+contains = ["error[schema.dispatch_unknown_tag]: unknown dispatch tag at byte offset 1", "note: Dispatch tag field `kind` decoded value 3.", "note: Expected tag values: 1, 2.", "note: Nearby bytes: 03 aa bb cc (showing 4 of 4 byte(s), complete).", "note: Field path: schema `ClosedDispatchPacket` / field `payload`."]

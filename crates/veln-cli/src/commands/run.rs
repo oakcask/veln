@@ -609,7 +609,7 @@ fn field_path_text(entries: &[(String, JsonValue)]) -> Option<String> {
 }
 
 fn push_byte_preview_note(diagnostic: &mut Diagnostic, entries: &[(String, JsonValue)]) {
-    let context = byte_preview_data(entries).or_else(|| json_string(entries, "nearby_context"));
+    let context = byte_preview_note(entries).or_else(|| json_string(entries, "nearby_context"));
     if let Some(context) = context
         && !context.is_empty()
     {
@@ -619,11 +619,45 @@ fn push_byte_preview_note(diagnostic: &mut Diagnostic, entries: &[(String, JsonV
     }
 }
 
-fn byte_preview_data(entries: &[(String, JsonValue)]) -> Option<String> {
+fn byte_preview_note(entries: &[(String, JsonValue)]) -> Option<String> {
     let preview = json_field(entries, "byte_preview")?;
     let preview_entries = json_object(preview)?;
     let encoding = json_string(preview_entries, "encoding")?;
-    (encoding == "hex").then(|| json_string(preview_entries, "data"))?
+    if encoding != "hex" {
+        return None;
+    }
+    let data = json_string(preview_entries, "data")?;
+    let preview_byte_count = json_number(preview_entries, "preview_byte_count")?;
+    let total_byte_count = json_number(preview_entries, "total_byte_count")?;
+    let truncated = json_bool(preview_entries, "truncated")?;
+    let state = if truncated { "truncated" } else { "complete" };
+    let pairs = spaced_hex_pairs(&data)?;
+    let preview_text = if pairs.is_empty() {
+        "<empty>"
+    } else {
+        pairs.as_str()
+    };
+    Some(format!(
+        "{preview_text} (showing {preview_byte_count} of {total_byte_count} byte(s), {state})"
+    ))
+}
+
+fn spaced_hex_pairs(data: &str) -> Option<String> {
+    if !data.len().is_multiple_of(2) {
+        return None;
+    }
+    let mut parts = Vec::with_capacity(data.len() / 2);
+    for index in (0..data.len()).step_by(2) {
+        let pair = data.get(index..index + 2)?;
+        if !pair
+            .chars()
+            .all(|character| character.is_ascii_digit() || ('a'..='f').contains(&character))
+        {
+            return None;
+        }
+        parts.push(pair);
+    }
+    Some(parts.join(" "))
 }
 
 fn note_json(message: String) -> JsonValue {
@@ -653,6 +687,13 @@ fn json_string(entries: &[(String, JsonValue)], key: &str) -> Option<String> {
 fn json_number(entries: &[(String, JsonValue)], key: &str) -> Option<i64> {
     match json_field(entries, key)? {
         JsonValue::Number(value) => Some(*value),
+        _ => None,
+    }
+}
+
+fn json_bool(entries: &[(String, JsonValue)], key: &str) -> Option<bool> {
+    match json_field(entries, key)? {
+        JsonValue::Bool(value) => Some(*value),
         _ => None,
     }
 }
@@ -848,13 +889,17 @@ mod tests {
     use super::*;
 
     fn byte_preview(data: &str) -> JsonValue {
+        byte_preview_with_counts(data, (data.len() / 2) as i64, false)
+    }
+
+    fn byte_preview_with_counts(data: &str, total_byte_count: i64, truncated: bool) -> JsonValue {
         let preview_byte_count = (data.len() / 2) as i64;
         JsonValue::object([
             ("encoding", JsonValue::string("hex")),
             ("data", JsonValue::string(data)),
             ("preview_byte_count", JsonValue::Number(preview_byte_count)),
-            ("total_byte_count", JsonValue::Number(preview_byte_count)),
-            ("truncated", JsonValue::Bool(false)),
+            ("total_byte_count", JsonValue::Number(total_byte_count)),
+            ("truncated", JsonValue::Bool(truncated)),
         ])
     }
 
@@ -961,7 +1006,11 @@ mod tests {
                 .to_json()
                 .contains("expected value 1; actual value was 255")
         );
-        assert!(diagnostic.related[1].to_json().contains("ff0001"));
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("ff 00 01 (showing 3 of 3 byte(s), complete)")
+        );
         assert!(
             diagnostic.related[2]
                 .to_json()
@@ -1204,11 +1253,111 @@ mod tests {
                 .to_json()
                 .contains("length=5, padding_length=6")
         );
-        assert!(diagnostic.related[2].to_json().contains("00000506"));
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("00 00 05 06 (showing 4 of 4 byte(s), complete)")
+        );
         assert!(
             diagnostic.related[3]
                 .to_json()
                 .contains("schema `SchemaValidationSample` / field `padding_length`")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_projects_truncated_preview_counts() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.length_out_of_bounds")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(11)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("Http2FrameHeader")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("payload")),
+                    ]),
+                ]),
+            ),
+            ("expected_count", JsonValue::Number(5)),
+            ("available_count", JsonValue::Number(2)),
+            (
+                "byte_preview",
+                byte_preview_with_counts("0000050104000000", 11, true),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "payload length out of bounds at byte offset 11".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("00 00 05 01 04 00 00 00 (showing 8 of 11 byte(s), truncated)")
+        );
+    }
+
+    #[test]
+    fn byte_result_failure_diagnostic_keeps_empty_preview_counts() {
+        let byte_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("byte_diagnostic")),
+            ("id", JsonValue::string("schema.truncated_field")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            (
+                "field_path",
+                JsonValue::array([
+                    JsonValue::object([
+                        ("kind", JsonValue::string("schema")),
+                        ("name", JsonValue::string("EmptyPacket")),
+                    ]),
+                    JsonValue::object([
+                        ("kind", JsonValue::string("field")),
+                        ("name", JsonValue::string("kind")),
+                    ]),
+                ]),
+            ),
+            ("expected_count", JsonValue::Number(1)),
+            ("available_count", JsonValue::Number(0)),
+            ("readiness", JsonValue::string("need_bytes")),
+            ("byte_preview", byte_preview_with_counts("", 0, false)),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "truncated schema field at byte offset 0".to_string(),
+            None,
+            Some(byte_diagnostic),
+            None,
+        );
+
+        let diagnostic =
+            byte_result_failure_diagnostic(&failure).expect("byte diagnostic should project");
+
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("<empty> (showing 0 of 0 byte(s), complete)")
         );
     }
 

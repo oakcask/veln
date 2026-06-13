@@ -861,7 +861,7 @@
             field,
             expectedValue,
             actualValue,
-            byteViewContextHex(view, 8)
+            byteViewPreviewTrace(view, 8)
         );
         return err(message);
     }
@@ -934,7 +934,7 @@
                 1L,
                 0L,
                 actualReserved,
-                byteViewContextHex(view, 8)
+                byteViewPreviewTrace(view, 8)
             );
             return err(message);
         }
@@ -973,7 +973,7 @@
                 "payload",
                 length,
                 availablePayload,
-                byteViewContextHex(view, 8)
+                byteViewPreviewTrace(view, 8)
             );
             return err(message);
         }
@@ -1602,7 +1602,7 @@
                 fieldName,
                 width,
                 available,
-                byteViewContextHex(view, 8)
+                byteViewPreviewTrace(view, 8)
             );
             return err(message);
         }
@@ -1653,7 +1653,7 @@
                 fieldName,
                 1,
                 available,
-                byteViewContextHex(view, 8)
+                byteViewPreviewTrace(view, 8)
             );
             return err(message);
         }
@@ -1669,7 +1669,7 @@
                 bitWidth,
                 expectedValue,
                 actualValue,
-                byteViewContextHex(view, 8)
+                byteViewPreviewTrace(view, 8)
             );
             return err(message);
         }
@@ -1746,7 +1746,7 @@
                                 field.name,
                                 payloadLength.longValue(),
                                 availablePayload,
-                                byteViewContextHex(view, 8)
+                                byteViewPreviewTrace(view, 8)
                             );
                             return err(message);
                         }
@@ -1775,7 +1775,7 @@
                         field.dispatch.tagField,
                         tagValue == null ? -1L : tagValue.longValue(),
                         schemaDispatchExpectedTags(field.dispatch),
-                        byteViewContextHex(view, 8)
+                        byteViewPreviewTrace(view, 8)
                     );
                     return err(message);
                 }
@@ -1805,7 +1805,7 @@
                             field.name,
                             payloadLength.longValue(),
                             availablePayload,
-                            byteViewContextHex(view, 8)
+                            byteViewPreviewTrace(view, 8)
                         );
                         return err(message);
                     }
@@ -1909,7 +1909,7 @@
                         field.predicate.text,
                         fieldValue,
                         decoded,
-                        byteViewContextHex(view, 8)
+                        byteViewPreviewTrace(view, 8)
                     );
                     return err(message);
                 }
@@ -2320,24 +2320,30 @@
         return null;
     }
 
-    private static String byteViewContextHex(Object view, int radius) {
+    private static String byteViewPreviewTrace(Object view, int maxPreviewBytes) {
         java.util.List<Object> bytes = byteChunkBytes(byteViewChunk(view));
         long offset = byteViewOffset(view);
         long count = byteViewCount(view);
         Object boundsError = byteViewBoundsError(bytes, offset, count);
         if (boundsError != null) {
-            return "";
+            return ":0:0:false";
         }
-        long start = Math.max(0, offset - radius);
-        long end = Math.min(bytes.size(), offset + Math.max(1, count) + radius);
-        StringBuilder out = new StringBuilder((int) ((end - start) * 2));
+        long previewCount = Math.min(count, Math.max(0, maxPreviewBytes));
+        long end = offset + previewCount;
+        StringBuilder out = new StringBuilder((int) (previewCount * 2));
         char[] digits = "0123456789abcdef".toCharArray();
-        for (long index = start; index < end; index += 1) {
+        for (long index = offset; index < end; index += 1) {
             int value = (int) byteValueLong(bytes.get((int) index));
             out.append(digits[value >>> 4]);
             out.append(digits[value & 0x0f]);
         }
-        return out.toString();
+        return hex(out.toString())
+            + ":"
+            + previewCount
+            + ":"
+            + count
+            + ":"
+            + Boolean.toString(count > previewCount);
     }
 
     private static Object byteViewBoundsError(
