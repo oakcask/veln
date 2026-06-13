@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[http2.protocol.partial_preface]: input ended with partial client connection preface at byte offset 0", "note: Input end arrived after 6 of 24 preface byte(s).", "note: Active protocol state: connection-preface.", "note: Rule provenance: rfc9113_client_connection_preface."]
+contains = ["error[http2.protocol.partial_preface]: input ended with partial client connection preface at byte offset 0", "note: Input end arrived after 12 of 24 preface byte(s).", "note: Nearby bytes: 50 52 49 20 2a 20 48 54 (showing 8 of 12 byte(s), truncated).", "note: Active protocol state: connection-preface.", "note: Rule provenance: rfc9113_client_connection_preface."]

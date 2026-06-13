@@ -27,8 +27,9 @@ immutable `ByteView`, `ByteOffset`, `ByteCount`, `StreamInput`, pure helpers
 for construction, length, append, bounded take, bounded drop, bounded views,
 fixed-width unsigned big-endian reads and writes for 8-bit, 16-bit, 24-bit,
 31-bit, and 32-bit values, and structured byte previews for the implemented
-schema-owned byte diagnostics. Current behavior belongs to the specification
-pages, not this proposal.
+schema-owned byte diagnostics and HTTP/2 client connection preface
+protocol-owned byte diagnostics. Current behavior belongs to the
+specification pages, not this proposal.
 
 ## Discussion Result: Core Byte Vocabulary Names
 
@@ -144,8 +145,9 @@ bounded by default.
   schema-facing conversion boundaries not covered by the current byte helpers
   and schema-owned byte diagnostic previews.
 - Later protocol-facing diagnostics beyond the implemented schema-owned byte
-  slices cover protocol-owned byte previews, field paths, expected and actual
-  counts, and absolute offsets where those diagnostics inspect bytes directly.
+  slices and HTTP/2 client connection preface slice cover protocol-owned byte
+  previews, field paths, expected and actual counts, and absolute offsets
+  where those diagnostics inspect bytes directly.
 - Runtime support for later buffer APIs preserves bounded data across tasks
   and channels without promising source-visible memory layout.
 - The HTTP/2 design driver can represent pending input and outgoing chunks in

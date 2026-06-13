@@ -397,8 +397,10 @@ frame sizes, setting identity, observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
 expected payload length, flow-control window credit, expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
-concurrent-stream attempted and allowed counts, required stream id domain,
-endpoint role, and rule provenance. The
+structured bounded preface byte preview fields, concurrent-stream attempted
+and allowed counts, required stream id domain, endpoint role, and rule
+provenance. The preface human cases also check nearby-byte notes rendered as
+bounded lowercase hex pairs with total byte count and truncation state. The
 concurrent-stream command fixtures cover the focused peer-created stream limit
 projection, and the flow-control command fixtures cover stream
 receive-window provenance while the ordinary protocol-core case also covers

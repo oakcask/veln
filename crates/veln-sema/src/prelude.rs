@@ -168,11 +168,17 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             adt::result_type(Type::unit(), Type::string()),
         )),
         "http2_protocol_partial_preface" => Some((
-            vec![Type::int(), Type::int()],
+            vec![Type::int(), Type::int(), byte_view.clone()],
             adt::result_type(Type::unit(), Type::string()),
         )),
         "http2_protocol_invalid_preface" => Some((
-            vec![Type::int(), Type::int(), Type::int(), Type::int()],
+            vec![
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                byte_view.clone(),
+            ],
             adt::result_type(Type::unit(), Type::string()),
         )),
         "http2_protocol_continuation_expected" => Some((
@@ -891,7 +897,7 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
             adt::core_result_type(CoreType::unit(), CoreType::string()),
         )),
         "http2_protocol_partial_preface" => Some((
-            vec![CoreType::int(), CoreType::int()],
+            vec![CoreType::int(), CoreType::int(), byte_view.clone()],
             adt::core_result_type(CoreType::unit(), CoreType::string()),
         )),
         "http2_protocol_invalid_preface" => Some((
@@ -900,6 +906,7 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
                 CoreType::int(),
                 CoreType::int(),
                 CoreType::int(),
+                byte_view.clone(),
             ],
             adt::core_result_type(CoreType::unit(), CoreType::string()),
         )),

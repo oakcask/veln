@@ -1304,7 +1304,8 @@
 
     public static Object http2ProtocolPartialPreface(
         Object offset,
-        Object pendingCount
+        Object pendingCount,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long pending = asLong(pendingCount);
@@ -1313,7 +1314,8 @@
         registerHttp2ProtocolPartialPrefaceDiagnostic(
             message,
             byteOffset,
-            pending
+            pending,
+            byteViewPreviewTrace(preview, 8)
         );
         return err(message);
     }
@@ -1322,7 +1324,8 @@
         Object offset,
         Object expectedByte,
         Object actualByte,
-        Object matchedCount
+        Object matchedCount,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long expected = asLong(expectedByte);
@@ -1335,7 +1338,8 @@
             byteOffset,
             expected,
             actual,
-            matched
+            matched,
+            byteViewPreviewTrace(preview, 8)
         );
         return err(message);
     }

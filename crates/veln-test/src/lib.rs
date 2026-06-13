@@ -651,6 +651,8 @@ fn protocol_diagnostic_details<'a>(
         let json_value = match value_kind {
             "number" => JsonValue::Number(value.parse::<i64>().ok()?),
             "string" => JsonValue::string(decode_hex_text(value)?),
+            "byte_preview" => byte_preview_value(value)?,
+            "byte_preview_v2" => byte_preview_v2_value(value)?,
             _ => return None,
         };
         entries.push((key, json_value));
@@ -3889,6 +3891,46 @@ mod tests {
                 "\"started_frame_kind\":1,",
                 "\"started_byte_offset\":0,",
                 "\"active_continuation\":\"headers\"}}"
+            )
+        );
+    }
+
+    #[test]
+    fn protocol_diagnostic_result_trace_decodes_byte_preview_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f3220696e76616c696420636c69656e7420636f6e6e656374696f6e20707265666163652061742062797465206f66667365742034",
+            "\tprotocol_diagnostic\thttp2.protocol.invalid_preface\t4",
+            "\t7\texpected_byte\tnumber\t42",
+            "\tactual_byte\tnumber\t43",
+            "\tmatched_prefix_count\tnumber\t4",
+            "\texpected_count\tnumber\t24",
+            "\tbyte_preview\tbyte_preview_v2\t35303532343932303262:5:5:false",
+            "\tactive_state\tstring\t636f6e6e656374696f6e2d70726566616365",
+            "\trule_provenance\tstring\t726663393131335f636c69656e745f636f6e6e656374696f6e5f70726566616365\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 invalid client connection preface at byte offset 4\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.protocol.invalid_preface\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":4},",
+                "\"expected_byte\":42,",
+                "\"actual_byte\":43,",
+                "\"matched_prefix_count\":4,",
+                "\"expected_count\":24,",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"505249202b\",",
+                "\"preview_byte_count\":5,",
+                "\"total_byte_count\":5,",
+                "\"truncated\":false},",
+                "\"active_state\":\"connection-preface\",",
+                "\"rule_provenance\":\"rfc9113_client_connection_preface\"}}"
             )
         );
     }
