@@ -27,7 +27,7 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - connection settings beyond maximum frame size
 - stream identifiers
 - remaining stream lifecycle beyond the implemented peer-created stream
-  admission and receive-limit slice
+  admission, receive-limit, and inbound reset slice
 - initial-window-size changes, outbound flow control, and broader
   stream-window interactions beyond the implemented inbound DATA and
   `WINDOW_UPDATE` receive-window accounting
@@ -258,7 +258,7 @@ protocol-state failure when CONTINUATION is required next.
 It validates the stream id domain for received frame headers after structural
 decode and before frame-specific state updates. In the server-side fixture
 core, SETTINGS, PING, and GOAWAY require stream id zero, while HEADERS, DATA,
-CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
+`RST_STREAM`, CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
 client-initiated stream id. Domain failures use
 `http2.protocol.invalid_stream_id` with frame kind, stream id, required
 domain, endpoint role, active state, and rule provenance. Representation
@@ -310,6 +310,14 @@ reference, attempted and allowed concurrent-stream counts, active protocol
 state, receive-limit provenance, and rule provenance in ordinary output, human
 diagnostics, and JSON `protocol_diagnostic` details. Non-HEADERS frames on
 idle streams keep using the existing invalid frame-kind failure.
+The implemented slice also receives `RST_STREAM` frames on the tracked open
+peer-created stream. It decodes the four-byte error-code payload into
+source-visible reset state, clears the open stream, and rejects later DATA or
+stream-level `WINDOW_UPDATE` frames for that reset stream through the existing
+`http2.protocol.invalid_frame_kind` path. `RST_STREAM` on stream id zero uses
+the existing stream id domain failure, wrong-length `RST_STREAM` payloads use
+`http2.protocol.invalid_payload_length`, and idle or unknown-stream
+`RST_STREAM` frames remain stream-state invalid frame-kind failures.
 
 The remaining scope below is still planned work for the full protocol core.
 

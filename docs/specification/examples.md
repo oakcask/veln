@@ -348,8 +348,9 @@ state. It also pins zero-length SETTINGS ACK on the connection stream,
 wrong-length SETTINGS ACK as a typed payload-length failure, SETTINGS ACK on a
 nonzero stream as a stream id domain failure, PING frames with and without ACK,
 wrong-length PING failures, a GOAWAY frame that moves the connection into
-graceful shutdown with last-stream-id and error-code facts, and wrong-length
-GOAWAY failures.
+graceful shutdown with last-stream-id and error-code facts, wrong-length
+GOAWAY failures, and `RST_STREAM` receive behavior for open, zero-id,
+wrong-length, idle-stream, and reset-then-stream-frame cases.
 Pending continuation state records the owning stream, starting frame kind,
 starting byte offset, and accumulated opaque header-block bytes, and the
 closed-input continuation failure projects that context into the stable output.
@@ -364,7 +365,10 @@ stream increases that stream's receive-window credit. Wrong-length
 `WINDOW_UPDATE` remains the existing stream-state frame-kind failure, and zero
 or overflowing increments remain typed peer-limit failures without changing
 window state. DATA payloads larger than the available stream or connection
-receive-window credit also remain typed peer-limit failures.
+receive-window credit also remain typed peer-limit failures. `RST_STREAM` on
+the open stream decodes its four-byte error code into reset state, clears the
+open stream, and leaves later DATA or stream-level `WINDOW_UPDATE` for that
+reset stream on the existing invalid frame-kind path.
 Peer-received `SETTINGS_MAX_FRAME_SIZE` and `SETTINGS_INITIAL_WINDOW_SIZE` are
 stored as peer-advertised state for outbound decisions. The peer-advertised
 maximum frame size does not replace the inbound receive maximum used by later
@@ -422,8 +426,8 @@ check `protocol_diagnostic` details for byte offset, frame kind, stream id,
 active continuation, connection state, or stream state, observed and allowed
 frame sizes, setting identity, observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
-expected payload length including SETTINGS ACK length zero, flow-control
-window credit, expected and actual
+expected payload length including SETTINGS ACK length zero and `RST_STREAM`
+length four, flow-control window credit, expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
 structured bounded preface byte preview fields, concurrent-stream attempted
 and allowed counts, required stream id domain, endpoint role, and rule

@@ -199,8 +199,8 @@ Wrong-length protocol payloads use id
 `frame_kind`, `stream_id`, `stream_ref`, `observed_payload_length`,
 `expected_payload_length`, `active_state`, and `rule_provenance`; the checked
 HTTP/2 examples cover the SETTINGS ACK expected-zero-length failure, PING
-fixed-length failure, GOAWAY fixed-prefix length failure, and `WINDOW_UPDATE`
-fixed-length failure.
+fixed-length failure, GOAWAY fixed-prefix length failure, `RST_STREAM`
+fixed-length failure, and `WINDOW_UPDATE` fixed-length failure.
 
 Other non-zero Java process exits use `error.kind: "runtime"` with
 `details.phase: "runtime"`. JDK setup failures use `error.kind: "runner"` with
