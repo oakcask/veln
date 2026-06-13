@@ -171,17 +171,22 @@ execution reference.
   exact hex strings, decoded byte counts, empty lists, and zero-length chunks.
 - The first ordinary-source HTTP/2 sans-I/O protocol-core example models
   chunk arrival and end-of-stream events as ADTs. Its pure decode state keeps
-  undecoded suffix bytes, the next absolute byte offset, continuation state,
-  the active local receive-limit entry, peer-advertised SETTINGS state, and
-  graceful shutdown state. It reuses the frame-header primitive for available
-  headers and represents closed-input truncation, continuation ordering
+  undecoded suffix bytes, the next absolute byte offset, client connection
+  preface state, continuation state, the active local receive-limit entry,
+  peer-advertised SETTINGS state, and graceful shutdown state. It validates the
+  client connection preface before frame-header decode and represents partial
+  or mismatched prefaces, closed-input truncation, continuation ordering
   failures, incoming frame payloads that exceed the active receive maximum
   frame size, received `SETTINGS_MAX_FRAME_SIZE` values outside the accepted
   SETTINGS range, invalid connection-state and stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, accepted PING ACK distinction, and
-  accepted GOAWAY last-stream-id and error-code facts as typed protocol values
-  before projecting stable diagnostic ids and related context into fixture
-  output, human runtime diagnostics, and `run --json`
+  accepted GOAWAY last-stream-id and error-code facts as typed protocol
+  values. The receive flow-control state consumes DATA payload length from
+  connection and stream windows, accepts connection-level and open-stream
+  `WINDOW_UPDATE` increments, and keeps wrong-length, idle-stream, zero, and
+  overflow `WINDOW_UPDATE` cases as typed protocol failures before projecting
+  stable diagnostic ids and related context into fixture output, human runtime
+  diagnostics, and `run --json`
   `protocol_diagnostic` details.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.

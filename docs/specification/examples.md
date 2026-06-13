@@ -261,13 +261,18 @@ The executable specification case
 `../../examples/specification/run/http2-protocol-core/` shows the implemented
 ordinary-source HTTP/2 sans-I/O decode-state slice. The example models input
 chunks and end-of-stream as explicit ADT events, stores parser state as the
-undecoded `ByteChunk` suffix plus the next absolute byte offset, and reuses
-the binary frame-header primitive for each available header.
+undecoded `ByteChunk` suffix plus the next absolute byte offset, validates the
+HTTP/2 client connection preface before any frame header is decoded, and
+reuses the binary frame-header primitive for each available header after the
+preface is consumed.
 
-The case pins valid frame arrival, incomplete input that waits for more bytes,
-closed input with pending bytes, continuation state after HEADERS, continuation
-state after a non-final CONTINUATION, completion after a final CONTINUATION,
-one continuation ordering failure, and an incoming frame whose payload length
+The case pins a valid preface followed by a SETTINGS frame, partial preface
+input that waits for more bytes, end-of-stream with a partial preface, a
+mismatched preface byte, valid frame arrival after the preface gate,
+incomplete frame input that waits for more bytes, closed input with pending
+frame bytes, continuation state after HEADERS, continuation state after a
+non-final CONTINUATION, completion after a final CONTINUATION, one
+continuation ordering failure, and an incoming frame whose payload length
 exceeds the active receive maximum frame size, plus a DATA frame kind rejected
 for connection-control state and idle-stream state. It also pins PING frames
 with and without ACK, wrong-length and stream-targeted PING failures, a GOAWAY
@@ -279,8 +284,14 @@ Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
 Receive flow-control state records connection receive-window credit and the
 currently open stream receive-window credit. DATA on the open stream consumes
-both windows by payload length, while DATA payloads larger than the available
-stream or connection receive-window credit remain typed peer-limit failures.
+both windows by payload length. `WINDOW_UPDATE` on the connection stream
+increases connection receive-window credit, and `WINDOW_UPDATE` on the open
+stream increases that stream's receive-window credit. Wrong-length
+`WINDOW_UPDATE` payloads remain typed payload-length failures, idle-stream
+`WINDOW_UPDATE` remains the existing stream-state frame-kind failure, and zero
+or overflowing increments remain typed peer-limit failures without changing
+window state. DATA payloads larger than the available stream or connection
+receive-window credit also remain typed peer-limit failures.
 Peer-received `SETTINGS_MAX_FRAME_SIZE` is stored as peer-advertised state for
 outbound decisions and does not replace the inbound receive maximum used by
 later frame-size checks. Received `SETTINGS_MAX_FRAME_SIZE` values are
@@ -293,9 +304,12 @@ stable diagnostic ids and related context fields for byte offset, observed and
 allowed lengths, actual and expected frame kind, stream reference, active
 continuation, connection state, or stream state, setting identity, accepted
 SETTINGS range, receive-limit provenance, peer-limit provenance, payload length
-expectations, and rule provenance.
+expectations, matched preface prefix count, expected and actual preface byte,
+and rule provenance.
 
 `../../examples/specification/run/http2-protocol-core-closed-human/`,
+`../../examples/specification/run/http2-protocol-core-preface-partial-human/`,
+`../../examples/specification/run/http2-protocol-core-preface-invalid-human/`,
 `../../examples/specification/run/http2-protocol-core-continuation-json/`,
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-human/`,
@@ -305,6 +319,8 @@ expectations, and rule provenance.
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
+`../../examples/specification/run/http2-protocol-core-preface-partial-json/`,
+`../../examples/specification/run/http2-protocol-core-preface-invalid-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
@@ -317,9 +333,12 @@ check `protocol_diagnostic` details for byte offset, frame kind, stream id,
 active continuation, connection state, or stream state, observed and allowed
 frame sizes, setting identity, observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
-expected payload length, flow-control window credit, and rule provenance. The
-flow-control command fixtures cover stream receive-window provenance while the
-ordinary protocol-core case also covers connection receive-window provenance.
+expected payload length, flow-control window credit, expected and actual
+preface byte values, matched preface prefix count, expected preface byte count,
+and rule provenance. The flow-control command fixtures cover stream
+receive-window provenance while the ordinary protocol-core case also covers
+connection receive-window provenance and the `WINDOW_UPDATE` receive-credit
+slice.
 The frame-size command fixtures cover local-configuration provenance while the
 ordinary protocol-core case keeps the protocol-default, local-configuration,
 local-SETTINGS, peer-advertised SETTINGS, and rejected peer-advertised SETTINGS

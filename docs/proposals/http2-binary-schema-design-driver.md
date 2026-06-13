@@ -414,9 +414,9 @@ incoming byte chunks and emits outgoing byte chunks without opening sockets. A
 host or later network library can feed it transport chunks from a socket or
 another source whose total length is not known in advance.
 
-The core should cover:
+The core already covers client connection preface validation in the
+ordinary-source protocol-core example. Remaining target coverage includes:
 
-- connection preface validation
 - frame header decode and encode
 - SETTINGS
 - PING

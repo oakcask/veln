@@ -368,6 +368,58 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             )));
             Some(diagnostic)
         }
+        "http2.protocol.partial_preface" => {
+            let pending_count = json_number(protocol_entries, "pending_count")?;
+            let expected_count = json_number(protocol_entries, "expected_count")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!(
+                    "input ended with partial client connection preface at byte offset {byte_offset}"
+                ),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Input end arrived after {pending_count} of {expected_count} preface byte(s)."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {provenance}.")));
+            Some(diagnostic)
+        }
+        "http2.protocol.invalid_preface" => {
+            let expected_byte = json_number(protocol_entries, "expected_byte")?;
+            let actual_byte = json_number(protocol_entries, "actual_byte")?;
+            let matched_count = json_number(protocol_entries, "matched_prefix_count")?;
+            let expected_count = json_number(protocol_entries, "expected_count")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("invalid client connection preface at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Observed byte {actual_byte}; expected byte {expected_byte} after {matched_count} of {expected_count} preface byte(s)."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {provenance}.")));
+            Some(diagnostic)
+        }
         "http2.protocol.continuation_expected" => {
             let actual_kind = json_number(protocol_entries, "actual_frame_kind")?;
             let actual_stream = json_number(protocol_entries, "actual_stream_id")?;
@@ -1201,6 +1253,120 @@ mod tests {
                 .contains("4 byte(s) remained undecoded")
         );
         assert!(diagnostic.related[1].to_json().contains("none"));
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_partial_preface_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            ("id", JsonValue::string("http2.protocol.partial_preface")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("pending_count", JsonValue::Number(6)),
+            ("expected_count", JsonValue::Number(24)),
+            ("active_state", JsonValue::string("connection-preface")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_client_connection_preface"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 input ended with partial client connection preface at byte offset 0"
+                .to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.partial_preface");
+        assert_eq!(
+            diagnostic.message,
+            "input ended with partial client connection preface at byte offset 0"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("6 of 24 preface byte(s)")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("connection-preface")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("rfc9113_client_connection_preface")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_invalid_preface_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            ("id", JsonValue::string("http2.protocol.invalid_preface")),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(4)),
+                ]),
+            ),
+            ("expected_byte", JsonValue::Number(42)),
+            ("actual_byte", JsonValue::Number(43)),
+            ("matched_prefix_count", JsonValue::Number(4)),
+            ("expected_count", JsonValue::Number(24)),
+            ("active_state", JsonValue::string("connection-preface")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_client_connection_preface"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 invalid client connection preface at byte offset 4".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.invalid_preface");
+        assert_eq!(
+            diagnostic.message,
+            "invalid client connection preface at byte offset 4"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("Observed byte 43; expected byte 42")
+        );
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("4 of 24 preface byte(s)")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("connection-preface")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("rfc9113_client_connection_preface")
+        );
     }
 
     #[test]

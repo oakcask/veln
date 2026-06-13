@@ -1087,6 +1087,14 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "byteDecodeSchemaValidationSample",
         ),
         (
+            "http2_protocol_partial_preface",
+            "http2ProtocolPartialPreface",
+        ),
+        (
+            "http2_protocol_invalid_preface",
+            "http2ProtocolInvalidPreface",
+        ),
+        (
             "http2_peer_limit_frame_size_exceeded",
             "http2PeerLimitFrameSizeExceeded",
         ),

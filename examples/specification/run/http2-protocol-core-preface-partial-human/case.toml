@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.partial_preface]: input ended with partial client connection preface at byte offset 0", "note: Input end arrived after 6 of 24 preface byte(s).", "note: Active protocol state: connection-preface.", "note: Rule provenance: rfc9113_client_connection_preface."]

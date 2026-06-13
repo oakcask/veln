@@ -28,6 +28,8 @@ by the binary schema frame-header, frame-payload, and validation cases under
 `../../examples/specification/run/`; their JSON details use structured byte
 preview fields while human output keeps compact nearby-byte notes. The
 implemented HTTP/2 protocol-state projections use
+`http2.protocol.partial_preface` and `http2.protocol.invalid_preface` for
+client connection preface failures,
 `http2.peer_limit.frame_size_exceeded` for frame-size peer-limit failures and
 `http2.protocol.invalid_frame_kind` for invalid connection-state and
 stream-state frame kinds. The fixed payload-length projection uses
@@ -284,9 +286,9 @@ The implemented diagnostic slices cover closed-input `ByteView` read
 truncation as `codec.incomplete_input`, fixed-field mismatches, frame-header
 schema truncation, reserved-bit mismatches, and payload length boundary
 failures, plus HTTP/2 protocol-state projections for frame-size peer-limit,
-SETTINGS value range peer-limit, DATA receive flow-control peer-limit, and
-invalid connection-state and stream-state frame-kind failures, plus fixed
-payload-length failures for PING and GOAWAY.
+SETTINGS value range peer-limit, DATA receive flow-control peer-limit, client
+connection preface failures, and invalid connection-state and stream-state
+frame-kind failures, plus fixed payload-length failures for PING and GOAWAY.
 `run --json` examples assert the stable byte and protocol diagnostic detail
 fields documented in `../specification/run-json.md`; human `run` examples
 assert the focused primary messages and related notes documented in

@@ -477,24 +477,42 @@ against the built `veln` binary.
   committed partial output with produced byte counts and encoder state, and
   invalid representation failures.
 - `run/http2-protocol-core/`: an ordinary-source HTTP/2 sans-I/O decode state
-  handles chunk arrival, incomplete input, end-of-stream truncation, valid
-  CONTINUATION completion for an opaque header block, and a continuation
-  ordering failure while projecting typed protocol failures, including an
+  handles chunk arrival, client connection preface validation, incomplete
+  input, end-of-stream truncation, valid CONTINUATION completion for an opaque
+  header block, and a continuation ordering failure while projecting typed
+  protocol failures, including partial and mismatched preface failures, an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
-  failure, invalid connection-state and stream-state frame kinds,
-  wrong-length PING and GOAWAY payloads, stream-targeted PING and GOAWAY
-  frames, valid PING ACK distinction, and valid GOAWAY graceful shutdown facts,
-  into stable ids and related context. The case keeps local receive-limit
+  failure, invalid connection-state and stream-state frame kinds, wrong-length
+  PING and GOAWAY payloads, stream-targeted PING and GOAWAY frames, valid PING
+  ACK distinction, and valid GOAWAY graceful shutdown facts, into stable ids
+  and related context. The case keeps local receive-limit
   provenance separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state and
   range-checks received `SETTINGS_MAX_FRAME_SIZE` before updating that
   peer-advertised state. The case also accepts DATA on an open stream,
   decrements both connection and stream receive-window credit by payload
-  length, and reports stream-window and connection-window credit exhaustion as
-  `http2.peer_limit.flow_control_window_exceeded`.
+  length, accepts `WINDOW_UPDATE` receive-credit increments for the connection
+  and open stream, and reports zero increments, receive-window overflow, and
+  credit exhaustion as `http2.peer_limit.flow_control_window_exceeded`.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation
   context.
+- `run/http2-protocol-core-preface-partial-human/`: end-of-stream with a
+  partial client connection preface reports `http2.protocol.partial_preface`
+  through human `run` stderr with pending and expected byte counts, active
+  state, and provenance notes.
+- `run/http2-protocol-core-preface-partial-json/`: the same partial preface
+  failure reports `http2.protocol.partial_preface` through `run --json` with
+  byte offset, pending byte count, expected byte count, active state, and rule
+  provenance.
+- `run/http2-protocol-core-preface-invalid-human/`: a mismatched client
+  connection preface byte reports `http2.protocol.invalid_preface` through
+  human `run` stderr with expected and actual byte values, matched prefix
+  count, active state, and provenance notes.
+- `run/http2-protocol-core-preface-invalid-json/`: the same invalid preface
+  failure reports `http2.protocol.invalid_preface` through `run --json` with
+  byte offset, expected and actual byte values, matched prefix count, expected
+  byte count, active state, and rule provenance.
 - `run/http2-protocol-core-continuation-json/`: a continuation ordering
   failure reports `http2.protocol.continuation_expected` through `run --json`
   with byte offset, frame kind, stream id, and active continuation details.

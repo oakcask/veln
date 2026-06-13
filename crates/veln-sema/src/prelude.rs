@@ -167,6 +167,14 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             vec![Type::int(), Type::int(), Type::string()],
             adt::result_type(Type::unit(), Type::string()),
         )),
+        "http2_protocol_partial_preface" => Some((
+            vec![Type::int(), Type::int()],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
+        "http2_protocol_invalid_preface" => Some((
+            vec![Type::int(), Type::int(), Type::int(), Type::int()],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
         "http2_protocol_continuation_expected" => Some((
             vec![
                 Type::int(),
@@ -856,6 +864,19 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
         )),
         "http2_protocol_closed_with_pending" => Some((
             vec![CoreType::int(), CoreType::int(), CoreType::string()],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
+        )),
+        "http2_protocol_partial_preface" => Some((
+            vec![CoreType::int(), CoreType::int()],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
+        )),
+        "http2_protocol_invalid_preface" => Some((
+            vec![
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+            ],
             adt::core_result_type(CoreType::unit(), CoreType::string()),
         )),
         "http2_protocol_continuation_expected" => Some((

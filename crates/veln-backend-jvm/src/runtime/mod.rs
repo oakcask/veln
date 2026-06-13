@@ -45,6 +45,8 @@ runtime_method_table!(prelude_method, "vecLen", {
     "byte_decode_schema_width_sample" => "byteDecodeSchemaWidthSample",
     "byte_decode_schema_validation_sample" => "byteDecodeSchemaValidationSample",
     "http2_protocol_closed_with_pending" => "http2ProtocolClosedWithPending",
+    "http2_protocol_partial_preface" => "http2ProtocolPartialPreface",
+    "http2_protocol_invalid_preface" => "http2ProtocolInvalidPreface",
     "http2_protocol_continuation_expected" => "http2ProtocolContinuationExpected",
     "http2_protocol_invalid_frame_kind" => "http2ProtocolInvalidFrameKind",
     "http2_protocol_invalid_payload_length" => "http2ProtocolInvalidPayloadLength",
