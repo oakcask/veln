@@ -45,7 +45,10 @@ requiring the full command reference on the first read.
   run JSON. Use
   [run-json.md](run-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact
-  command rules.
+  command rules. Human schema-owned byte diagnostics render preview bytes as
+  bounded lowercase hex pairs grouped with spaces and keep byte offsets, field
+  paths, expected counts, and actual counts in separate notes or structured
+  details.
 - `test`: test and doctest selection, static gates, direct JVM classfile
   execution without an ordinary Java source compiler requirement,
   `runtime=contract`, `runtime=ensure`, and `runtime=result` doctest

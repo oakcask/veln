@@ -48,11 +48,11 @@ equals = "hex"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.data"
-equals = "000005010400000001aabb"
+equals = "0000050104000000"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
-equals = 11
+equals = 8
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
@@ -60,4 +60,4 @@ equals = 11
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.truncated"
-equals = false
+equals = true

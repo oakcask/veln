@@ -122,9 +122,11 @@ When the result value is a binary schema closed dispatch unknown tag failure,
 For schema-owned byte diagnostics, `byte_preview` includes:
 
 - `encoding: "hex"`
-- `data`: lowercase hex byte pairs for the previewed bytes
+- `data`: lowercase hex byte pairs for the previewed bytes, with no
+  separators
 - `preview_byte_count`: the number of bytes present in `data`
-- `total_byte_count`: the total byte count represented by the preview source
+- `total_byte_count`: the total byte count represented by the diagnostic byte
+  source
 - `truncated`: whether `data` is a shortened prefix of the preview source
 
 Named binary fixture cases can assert the same byte-stream facts after a

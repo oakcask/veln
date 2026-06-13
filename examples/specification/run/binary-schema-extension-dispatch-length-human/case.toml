@@ -9,4 +9,4 @@ format = "empty"
 
 [stderr]
 format = "text"
-contains = ["error[schema.length_out_of_bounds]: payload length out of bounds at byte offset 4", "note: Payload length expected 5 byte(s); 2 byte(s) were available.", "note: Nearby bytes: 0507aabb.", "note: Field path: schema `ExtensionDispatchPacket` / field `payload`."]
+contains = ["error[schema.length_out_of_bounds]: payload length out of bounds at byte offset 4", "note: Payload length expected 5 byte(s); 2 byte(s) were available.", "note: Nearby bytes: 05 07 aa bb (showing 4 of 4 byte(s), complete).", "note: Field path: schema `ExtensionDispatchPacket` / field `payload`."]

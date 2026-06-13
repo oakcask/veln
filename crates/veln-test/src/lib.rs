@@ -570,6 +570,7 @@ fn byte_diagnostic_v2_details<'a>(fields: &mut impl Iterator<Item = &'a str>) ->
             "number" => JsonValue::Number(value.parse::<i64>().ok()?),
             "string" => JsonValue::string(decode_hex_text(value)?),
             "byte_preview" => byte_preview_value(value)?,
+            "byte_preview_v2" => byte_preview_v2_value(value)?,
             _ => return None,
         };
         entries.push((key, json_value));
@@ -593,6 +594,36 @@ fn byte_preview_value(encoded_hex_text: &str) -> Option<JsonValue> {
         ("preview_byte_count", JsonValue::Number(preview_byte_count)),
         ("total_byte_count", JsonValue::Number(preview_byte_count)),
         ("truncated", JsonValue::Bool(false)),
+    ]))
+}
+
+fn byte_preview_v2_value(encoded_preview: &str) -> Option<JsonValue> {
+    let mut fields = encoded_preview.split(':');
+    let data = decode_hex_text(fields.next()?)?;
+    let preview_byte_count = fields.next()?.parse::<i64>().ok()?;
+    let total_byte_count = fields.next()?.parse::<i64>().ok()?;
+    let truncated = match fields.next()? {
+        "true" => true,
+        "false" => false,
+        _ => return None,
+    };
+    if fields.next().is_some()
+        || data.len() % 2 != 0
+        || preview_byte_count < 0
+        || total_byte_count < preview_byte_count
+        || preview_byte_count != (data.len() / 2) as i64
+        || !data
+            .chars()
+            .all(|ch| ch.is_ascii_digit() || ('a'..='f').contains(&ch))
+    {
+        return None;
+    }
+    Some(JsonValue::object([
+        ("encoding", JsonValue::string("hex")),
+        ("data", JsonValue::string(data)),
+        ("preview_byte_count", JsonValue::Number(preview_byte_count)),
+        ("total_byte_count", JsonValue::Number(total_byte_count)),
+        ("truncated", JsonValue::Bool(truncated)),
     ]))
 }
 
@@ -3788,6 +3819,41 @@ mod tests {
                 "\"preview_byte_count\":3,",
                 "\"total_byte_count\":3,",
                 "\"truncated\":false}}}"
+            )
+        );
+    }
+
+    #[test]
+    fn byte_diagnostic_v2_result_trace_decodes_preview_counts() {
+        let trace = concat!(
+            "result\t",
+            "6669786564206669656c64206d69736d617463682061742062797465206f66667365742030",
+            "\tbyte_diagnostic_v2\tschema.fixed_field_mismatch\t0",
+            "\t2\tschema\t44656d6f5061636b6574\tfield\t6b696e64",
+            "\t3\texpected_value\tnumber\t1",
+            "\tactual_value\tnumber\t255",
+            "\tbyte_preview\tbyte_preview_v2\t666630303031:3:7:true\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"fixed field mismatch at byte offset 0\",",
+                "\"byte_diagnostic\":{\"kind\":\"byte_diagnostic\",",
+                "\"id\":\"schema.fixed_field_mismatch\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":0},",
+                "\"field_path\":[{\"kind\":\"schema\",\"name\":\"DemoPacket\"},",
+                "{\"kind\":\"field\",\"name\":\"kind\"}],",
+                "\"expected_value\":1,",
+                "\"actual_value\":255,",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"ff0001\",",
+                "\"preview_byte_count\":3,",
+                "\"total_byte_count\":7,",
+                "\"truncated\":true}}}"
             )
         );
     }

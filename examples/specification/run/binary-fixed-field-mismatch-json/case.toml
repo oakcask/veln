@@ -64,15 +64,15 @@ equals = "hex"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.data"
-equals = "ff0001"
+equals = "ff"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.preview_byte_count"
-equals = 3
+equals = 1
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.total_byte_count"
-equals = 3
+equals = 1
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_preview.truncated"
