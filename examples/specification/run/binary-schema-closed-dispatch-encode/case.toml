@@ -1,0 +1,35 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "error"
+equals = null
+
+[[output_chunk_list]]
+name = "dispatch-u8"
+chunks = ["0107"]
+
+[[output_chunk_list]]
+name = "dispatch-u16"
+chunks = ["021234"]
+
+[[output_chunk_list]]
+name = "dispatch-u24"
+chunks = ["03abcdef"]
+
+[[output_chunk_list]]
+name = "dispatch-u32"
+chunks = ["04deadbeef"]

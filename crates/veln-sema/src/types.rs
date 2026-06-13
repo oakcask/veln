@@ -827,6 +827,7 @@ fn schema_encode_function_signature_for_schema(schema: &SchemaDecl) -> Option<Fu
         return None;
     }
     let mut fields = Vec::new();
+    let mut exact_width_field_names = Vec::new();
     for (index, field) in schema.fields.iter().enumerate() {
         if field.where_clause.is_some() {
             return None;
@@ -835,7 +836,23 @@ fn schema_encode_function_signature_for_schema(schema: &SchemaDecl) -> Option<Fu
             supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
             continue;
         }
-        exact_width_schema_primitive(&field.ty)?;
+        if exact_width_schema_primitive(&field.ty).is_some() {
+            exact_width_field_names.push(field.name.clone());
+            fields.push((field.name.clone(), Type::int()));
+            continue;
+        }
+        let dispatch = closed_dispatch_schema_primitive(&field.ty)?;
+        if dispatch.length_field.is_some() || !exact_width_field_names.contains(&dispatch.tag_field)
+        {
+            return None;
+        }
+        if dispatch
+            .cases
+            .iter()
+            .any(|case| !matches!(case.payload, SchemaDispatchCasePayload::Primitive { .. }))
+        {
+            return None;
+        }
         fields.push((field.name.clone(), Type::int()));
     }
     let byte_chunk = Type::named("ByteChunk", Vec::new());

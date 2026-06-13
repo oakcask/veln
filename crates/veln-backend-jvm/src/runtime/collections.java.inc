@@ -1116,7 +1116,12 @@
         Object widths,
         Object maxValues,
         Object reservedBitWidths,
-        Object reservedValues
+        Object reservedValues,
+        Object dispatchTagFields,
+        Object dispatchLengthFields,
+        Object dispatchCaseTags,
+        Object dispatchCaseWidths,
+        Object dispatchCaseSchemaSpecs
     ) {
         String name = asString(schemaName);
         java.util.List<Object> fieldNameValues = asList(fieldNames);
@@ -1124,10 +1129,20 @@
         java.util.List<Object> maxValueValues = asList(maxValues);
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
         java.util.List<Object> reservedValueValues = asList(reservedValues);
+        java.util.List<Object> dispatchTagFieldValues = asList(dispatchTagFields);
+        java.util.List<Object> dispatchLengthFieldValues = asList(dispatchLengthFields);
+        java.util.List<Object> dispatchCaseTagValues = asList(dispatchCaseTags);
+        java.util.List<Object> dispatchCaseWidthValues = asList(dispatchCaseWidths);
+        java.util.List<Object> dispatchCaseSchemaSpecValues = asList(dispatchCaseSchemaSpecs);
         if (fieldNameValues.size() != widthValues.size()
             || fieldNameValues.size() != maxValueValues.size()
             || fieldNameValues.size() != reservedBitWidthValues.size()
-            || fieldNameValues.size() != reservedValueValues.size()) {
+            || fieldNameValues.size() != reservedValueValues.size()
+            || fieldNameValues.size() != dispatchTagFieldValues.size()
+            || fieldNameValues.size() != dispatchLengthFieldValues.size()
+            || fieldNameValues.size() != dispatchCaseTagValues.size()
+            || fieldNameValues.size() != dispatchCaseWidthValues.size()
+            || fieldNameValues.size() != dispatchCaseSchemaSpecValues.size()) {
             return err(encodeError(
                 "codec.metadata",
                 name,
@@ -1143,6 +1158,8 @@
             long maxValue = asLong(maxValueValues.get(index));
             int reservedBitWidth = (int) asLong(reservedBitWidthValues.get(index));
             long reservedValue = asLong(reservedValueValues.get(index));
+            String tagField = asString(dispatchTagFieldValues.get(index));
+            String lengthField = asString(dispatchLengthFieldValues.get(index));
             if (reservedBitWidth > 0) {
                 if (reservedBitWidth != 1 || reservedValue != 0L) {
                     return err(encodeError(
@@ -1151,6 +1168,36 @@
                         "unsupported reserved bits encode field"
                     ));
                 }
+                continue;
+            }
+            if (!tagField.isEmpty()) {
+                Object dispatch = declaredSchemaDispatch(
+                    name,
+                    fieldName,
+                    tagField,
+                    lengthField,
+                    dispatchCaseTagValues.get(index),
+                    dispatchCaseWidthValues.get(index),
+                    dispatchCaseSchemaSpecValues.get(index)
+                );
+                if (isErr(dispatch)) {
+                    return err(encodeError(
+                        "codec.metadata",
+                        name + "." + fieldName,
+                        asString(resultValue(dispatch))
+                    ));
+                }
+                SchemaDispatchSpec dispatchSpec = (SchemaDispatchSpec) unwrapOk(dispatch);
+                Object encoded = schemaWriteClosedDispatchPayload(
+                    fields,
+                    dispatchSpec,
+                    name,
+                    fieldName
+                );
+                if (isErr(encoded)) {
+                    return encoded;
+                }
+                bytes.addAll(byteChunkBytes(unwrapOk(encoded)));
                 continue;
             }
             if (width < 1 || width > 4) {
@@ -1182,7 +1229,12 @@
         Object widths,
         Object maxValues,
         Object reservedBitWidths,
-        Object reservedValues
+        Object reservedValues,
+        Object dispatchTagFields,
+        Object dispatchLengthFields,
+        Object dispatchCaseTags,
+        Object dispatchCaseWidths,
+        Object dispatchCaseSchemaSpecs
     ) {
         Object encoded = byteEncodeDeclaredBinarySchema(
             value,
@@ -1191,7 +1243,12 @@
             widths,
             maxValues,
             reservedBitWidths,
-            reservedValues
+            reservedValues,
+            dispatchTagFields,
+            dispatchLengthFields,
+            dispatchCaseTags,
+            dispatchCaseWidths,
+            dispatchCaseSchemaSpecs
         );
         if (isErr(encoded)) {
             return adt("EncodeStep::Invalid", new Object[] { resultValue(encoded) });
@@ -2260,6 +2317,51 @@
             bytes.add(byteObject((unsigned >> (index * 8)) & 0xffL));
         }
         return ok(byteChunkObject(bytes));
+    }
+
+    private static Object schemaWriteClosedDispatchPayload(
+        java.util.Map<Object, Object> fields,
+        SchemaDispatchSpec dispatch,
+        String schemaName,
+        String fieldName
+    ) {
+        if (!dispatch.lengthField.isEmpty()) {
+            return err(encodeError(
+                "codec.metadata",
+                schemaName + "." + fieldName,
+                "extension dispatch encode is not supported"
+            ));
+        }
+        long tagValue = asLong(fields.get(dispatch.tagField));
+        for (SchemaDispatchCaseSpec dispatchCase : dispatch.cases) {
+            if (dispatchCase.tag != tagValue) {
+                continue;
+            }
+            if (dispatchCase.payloadSchema != null) {
+                return err(encodeError(
+                    "codec.metadata",
+                    schemaName + "." + fieldName,
+                    "nested dispatch payload encode is not supported"
+                ));
+            }
+            return schemaWriteUnsignedBe(
+                fields.get(fieldName),
+                dispatchCase.width,
+                dispatchCase.maxValue,
+                schemaName,
+                fieldName
+            );
+        }
+        return err(encodeError(
+            "codec.dispatch_unknown_tag",
+            schemaName + "." + fieldName,
+            "tag field `"
+                + dispatch.tagField
+                + "` value "
+                + tagValue
+                + " must be one of "
+                + schemaDispatchExpectedTags(dispatch)
+        ));
     }
 
     private static Object schemaWriteUnsignedBe(

@@ -186,7 +186,8 @@ Helper `Err(EncodeError)` output is projected to `Invalid(EncodeError)`.
 Same-module private derived encode codecs are callable only inside their
 declaring module; imported calls require a written qualified module path to a
 `pub codec`. General generated encode helpers beyond the exact-width
-primitive slice remain unimplemented.
+primitive, supported reserved-bit, and closed primitive dispatch slices remain
+unimplemented.
 
 Eligible generated binary schema encode helpers named
 `byte_encode_<schema>` accept one record whose fields match the schema-local
@@ -194,14 +195,22 @@ visible exact-width unsigned primitive fields as ordinary `Int` values. A
 `ReservedBits(1, 0)` field immediately before a `UInt31be` field is
 representation-only: it is omitted from the record and the helper emits the
 required zero high bit in the shared four-byte stream identifier position.
+Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
+`tag_field` names an earlier visible exact-width unsigned field and every case
+payload is an implemented exact-width unsigned primitive payload. The record
+contains the visible tag field and one payload field; the helper chooses the
+case from the encoded tag value, writes the selected payload in declaration
+order, and reports `codec.dispatch_unknown_tag` when the tag value has no
+case.
 The helper writes fields in declaration order into one immutable big-endian
 `ByteChunk` and returns `Result<ByteChunk, EncodeError>`. Values outside the
 primitive range return `Err(EncodeError("codec.out_of_range", field_path,
 reason))`; `UInt31be` uses the 31-bit maximum even though it occupies four
 bytes. Unsupported reserved-bit encode shapes report
 `schema.reserved_bits_encode`. This slice excludes schema mappings,
-field-local validation, dispatch fields, other reserved or fixed fields,
-nested mappings, and derived codec encode execution for unsupported schemas.
+field-local validation, extension dispatch, nested dispatch payload schemas,
+other reserved or fixed fields, nested mappings, and derived codec encode
+execution for unsupported schemas.
 
 The frame decode helper extends that slice with a bounded payload view. It
 first applies the same header validation, then returns the visible header

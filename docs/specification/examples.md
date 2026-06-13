@@ -223,6 +223,15 @@ case
 asserts `schema.reserved_bits_encode` for a reserved-bit shape outside the
 implemented encode layout.
 
+`../../examples/specification/run/binary-schema-closed-dispatch-encode/`
+pins the closed dispatch encode helper slice. The passing cases select
+`UInt8`, `UInt16be`, `UInt24be`, and `UInt32be` payload widths from an earlier
+tag field and write one `ByteChunk` in declaration order.
+`../../examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`
+asserts `codec.dispatch_unknown_tag` when the tag value has no closed case.
+`../../examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`
+asserts `codec.out_of_range` against the selected `UInt8` payload case.
+
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
