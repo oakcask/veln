@@ -82,6 +82,8 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
             vec![path_type()],
             adt::result_type(Type::vec(path_type()), Type::named("FsError", Vec::new())),
         )),
+        ("net", "receive_chunk") => Some((Vec::new(), byte_chunk_type())),
+        ("net", "send_chunk") => Some((vec![byte_chunk_type()], Type::unit())),
         ("process", "args") => Some((Vec::new(), Type::vec(Type::string()))),
         ("process", "env") => Some((vec![Type::string()], adt::option_type(Type::string()))),
         ("process", "cwd") => Some((
@@ -89,6 +91,7 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
             adt::result_type(path_type(), Type::named("ProcessError", Vec::new())),
         )),
         ("process", "exit") => Some((vec![Type::int()], Type::unit())),
+        ("time", "timeout_ms") => Some((vec![Type::int()], Type::unit())),
         _ => None,
     }
 }
@@ -105,6 +108,10 @@ pub(crate) fn core_standard_library_signature(
 
 fn path_type() -> Type {
     Type::named("Path", Vec::new())
+}
+
+fn byte_chunk_type() -> Type {
+    Type::named("ByteChunk", Vec::new())
 }
 
 pub(crate) fn concurrency_signature(
@@ -613,5 +620,23 @@ mod tests {
         let (_, return_type) =
             standard_library_signature(&path("process", "args")).expect("process signature");
         assert_eq!(return_type, Type::vec(Type::string()));
+    }
+
+    #[test]
+    fn net_and_time_signatures_come_from_standard_descriptors() {
+        let (params, return_type) =
+            standard_library_signature(&path("net", "receive_chunk")).expect("net signature");
+        assert!(params.is_empty());
+        assert_eq!(return_type, byte_chunk_type());
+
+        let (params, return_type) =
+            standard_library_signature(&path("net", "send_chunk")).expect("net signature");
+        assert_eq!(params, vec![byte_chunk_type()]);
+        assert_eq!(return_type, Type::unit());
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "timeout_ms")).expect("time signature");
+        assert_eq!(params, vec![Type::int()]);
+        assert_eq!(return_type, Type::unit());
     }
 }

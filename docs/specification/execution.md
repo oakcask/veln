@@ -208,8 +208,8 @@ execution reference.
 
 - Core, typed IR, selected-entry reachability, and stdio ordering:
   [execution-full.md](execution-full.md#core-and-ir).
-- JVM lowering support, runtime containers, file-system and process
-  intrinsics, channels, tasks, contract failures, and the class cache:
+- JVM lowering support, runtime containers, file-system, network, time, and
+  process intrinsics, channels, tasks, contract failures, and the class cache:
   [execution-full.md](execution-full.md#jvm-backend).
 
 ## Skip Unless Needed

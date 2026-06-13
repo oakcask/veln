@@ -106,8 +106,9 @@ Implemented effect labels are:
 Function and test `effects [...]` declarations may name these labels. A
 declaration that names any other effect reports `effect.unknown` at the
 function or test declaration. The checker currently infers `stdio`, `fs`,
-`process`, and `concurrency` from compiler-known calls. The other labels are
-reserved coarse-grained public boundary labels for source compatibility.
+`net`, `time`, `process`, and `concurrency` from compiler-known calls. The
+other labels are reserved coarse-grained public boundary labels for source
+compatibility.
 
 ## Compiler-Known Descriptor Table
 
@@ -117,10 +118,10 @@ labels, lowering identity, and stability class for the descriptor-backed
 subset.
 
 The current descriptor-backed subset covers stdio effect metadata,
-concurrency effect metadata, minimal `fs` and `process` intrinsics, pure
-prelude helper admission, and source provenance for source-backed pure helpers.
-Type adapters and most runtime lowering still use their existing specialized
-implementations.
+concurrency effect metadata, minimal `fs`, `net`, `time`, and `process`
+intrinsics, pure prelude helper admission, and source provenance for
+source-backed pure helpers. Type adapters and most runtime lowering still use
+their existing specialized implementations.
 
 For prelude helpers, the descriptor table is also the source of truth for
 whether a helper is descriptor-only or source-backed. A source-backed helper
@@ -179,6 +180,28 @@ File-system calls return `Result` values instead of throwing host I/O
 exceptions into Veln execution. `Ok` carries the successful value. `Err`
 carries an implementation-provided `FsError` value represented by the current
 runtime error text.
+
+## Network And Time Boundary Calls
+
+The checker recognizes these minimal transport-boundary call targets through
+the standard symbol table:
+
+```veln
+net::receive_chunk() -> ByteChunk effects [net]
+net::send_chunk(bytes: ByteChunk) -> () effects [net]
+time::timeout_ms(milliseconds: Int) -> () effects [time]
+```
+
+Direct calls to `net::receive_chunk` and `net::send_chunk` infer the `net`
+effect. Direct calls to `time::timeout_ms` infer the `time` effect. A public
+function or test that calls one of them directly or through a private helper
+must declare the matching effect in its `effects [...]` list.
+
+This boundary is intentionally descriptor-backed and narrow. `net::receive_chunk`
+returns a host-fed immutable `ByteChunk`; `net::send_chunk` exposes an outgoing
+chunk to the host runtime; `time::timeout_ms` waits at the runtime boundary.
+These calls do not define sockets, stream routing, deadlines, cancellation,
+TLS, ALPN, or an HTTP application framework.
 
 ## Process Calls
 

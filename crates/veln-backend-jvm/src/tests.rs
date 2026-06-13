@@ -1191,10 +1191,13 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("fs::write_string", "fsWriteString"),
         ("fs::exists", "fsExists"),
         ("fs::read_dir", "fsReadDir"),
+        ("net::receive_chunk", "netReceiveChunk"),
+        ("net::send_chunk", "netSendChunk"),
         ("process::args", "processArgs"),
         ("process::env", "processEnv"),
         ("process::cwd", "processCwd"),
         ("process::exit", "processExit"),
+        ("time::timeout_ms", "timeTimeoutMs"),
     ] {
         assert_eq!(standard_library_method(surface), method);
     }
