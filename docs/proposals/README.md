@@ -46,17 +46,19 @@ compare it with `../specification/` before changing behavior.
   `ByteView` read truncation, schema fixed-field mismatch, frame-header schema
   truncation, reserved-bit mismatch, payload length boundary, field-local
   schema validation details, structured schema byte previews, and the HTTP/2
-  client connection preface failures, frame-size and flow-control peer-limits,
-  SETTINGS value range peer-limit, invalid connection-state and stream-state
-  frame-kind failures, and fixed payload-length protocol projections.
+  client connection preface failures, frame-size, flow-control, and
+  concurrent-stream peer-limits, SETTINGS value range peer-limit, invalid
+  connection-state and stream-state frame-kind failures, and fixed
+  payload-length protocol projections.
 - [HTTP/2 Sans-I/O Protocol Core](http2-sans-io-protocol-core.md): define the
   remaining concrete pure protocol-core behavior beyond the implemented
   ordinary-source decode-state fixture slice, client connection preface
   validation slice, frame-size peer-limit diagnostic slice with receive-limit
   provenance, SETTINGS value range diagnostic slice, invalid frame-kind
   diagnostic slice, unknown extension-frame preservation slice, PING/GOAWAY
-  receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices, and
-  outbound frame-header encode slice.
+  receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
+  peer-created stream concurrency receive-limit slice, and outbound
+  frame-header encode slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define the later route from pure protocol code to transport effects,
   deadlines, channels, and stream tasks.

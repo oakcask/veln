@@ -1103,6 +1103,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2PeerLimitFlowControlWindowExceeded",
         ),
         (
+            "http2_peer_limit_concurrent_streams_exceeded",
+            "http2PeerLimitConcurrentStreamsExceeded",
+        ),
+        (
             "http2_peer_limit_settings_value_out_of_range",
             "http2PeerLimitSettingsValueOutOfRange",
         ),

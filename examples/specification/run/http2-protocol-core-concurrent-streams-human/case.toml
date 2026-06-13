@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.peer_limit.concurrent_streams_exceeded]: concurrent stream limit exceeded at byte offset 0", "note: HEADERS on stream 3 would open 2 peer-created stream(s); active maximum is 1.", "note: Active protocol state: idle-stream.", "note: Receive limit provenance: local_configuration.", "note: Rule provenance: peer_created_stream_limit."]

@@ -1,0 +1,15 @@
+# HTTP/2 concurrent stream limit failures project structured runtime details.
+
+type Http2ProtocolFailure
+	ConcurrentStreamsExceeded(Int, Int, Int, Int, String, String, String)
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		ConcurrentStreamsExceeded(offset, observed_open_stream_count, allowed_max_concurrent_streams, stream_id, active_state, receive_limit_provenance, rule_provenance) => http2_peer_limit_concurrent_streams_exceeded(offset, observed_open_stream_count, allowed_max_concurrent_streams, stream_id, active_state, receive_limit_provenance, rule_provenance)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	project(ConcurrentStreamsExceeded(0, 2, 1, 3, "idle-stream", "local_configuration", "peer_created_stream_limit"))
+end

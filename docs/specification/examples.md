@@ -285,6 +285,11 @@ Pending continuation state records the owning stream, starting frame kind,
 starting byte offset, and accumulated opaque header-block byte count.
 Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
+Peer-created stream concurrency state records the current open stream count
+and the active maximum with receive-limit provenance. A HEADERS frame on an
+idle peer-created stream increments the count when the active maximum allows
+it, and a HEADERS frame that would exceed that maximum stays a typed
+peer-limit failure.
 Receive flow-control state records connection receive-window credit and the
 currently open stream receive-window credit. DATA on the open stream consumes
 both windows by payload length. `WINDOW_UPDATE` on the connection stream
@@ -324,6 +329,7 @@ and reason text visible without converting it into a protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-frame-size-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-human/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-human/`,
+`../../examples/specification/run/http2-protocol-core-concurrent-streams-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
@@ -333,6 +339,7 @@ and reason text visible without converting it into a protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-preface-invalid-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-value-json/`,
 `../../examples/specification/run/http2-protocol-core-flow-control-json/`,
+`../../examples/specification/run/http2-protocol-core-concurrent-streams-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
@@ -341,11 +348,12 @@ pin the command-facing projection path for those typed failures. The human
 cases check focused primary messages and related context, while the JSON cases
 check `protocol_diagnostic` details for byte offset, frame kind, stream id,
 active continuation, connection state, or stream state, observed and allowed
-frame sizes, setting identity, observed setting value, accepted setting range,
-stream reference, receive-limit provenance, peer-limit provenance, observed and
-expected payload length, flow-control window credit, expected and actual
-preface byte values, matched preface prefix count, expected preface byte count,
-and rule provenance. The flow-control command fixtures cover stream
+frame sizes, observed and allowed peer-created stream counts, setting identity,
+observed setting value, accepted setting range, stream reference,
+receive-limit provenance, peer-limit provenance, observed and expected payload
+length, flow-control window credit, expected and actual preface byte values,
+matched preface prefix count, expected preface byte count, and rule
+provenance. The flow-control command fixtures cover stream
 receive-window provenance while the ordinary protocol-core case also covers
 connection receive-window provenance and the `WINDOW_UPDATE` receive-credit
 slice.

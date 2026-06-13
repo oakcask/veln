@@ -173,18 +173,22 @@ execution reference.
   chunk arrival and end-of-stream events as ADTs. Its pure decode state keeps
   undecoded suffix bytes, the next absolute byte offset, client connection
   preface state, continuation state, the active local receive-limit entry,
-  peer-advertised SETTINGS state, and graceful shutdown state. It validates the
-  client connection preface before frame-header decode and represents partial
-  or mismatched prefaces, closed-input truncation, continuation ordering
-  failures, incoming frame payloads that exceed the active receive maximum
-  frame size, received `SETTINGS_MAX_FRAME_SIZE` values outside the accepted
+  peer-advertised SETTINGS state, graceful shutdown state, and peer-created
+  stream concurrency state. It validates the client connection preface before
+  frame-header decode and represents partial or mismatched prefaces,
+  closed-input truncation, continuation ordering failures, incoming frame
+  payloads that exceed the active receive maximum frame size, peer-created
+  HEADERS frames that would exceed the active concurrent-stream receive
+  maximum, received `SETTINGS_MAX_FRAME_SIZE` values outside the accepted
   SETTINGS range, invalid connection-state and stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, accepted PING ACK distinction, and
   accepted GOAWAY last-stream-id and error-code facts as typed protocol
-  values. The receive flow-control state consumes DATA payload length from
-  connection and stream windows, accepts connection-level and open-stream
-  `WINDOW_UPDATE` increments, and keeps wrong-length, idle-stream, zero, and
-  overflow `WINDOW_UPDATE` cases as typed protocol failures. After the client
+  values. HEADERS on an idle peer-created stream increments the open-stream
+  count when the active maximum allows it. The receive flow-control state
+  consumes DATA payload length from connection and stream windows, accepts
+  connection-level and open-stream `WINDOW_UPDATE` increments, and keeps
+  wrong-length, idle-stream, zero, and overflow `WINDOW_UPDATE` cases as typed
+  protocol failures. After the client
   preface gate, structurally complete unknown extension frame types decode to
   ordinary `UnknownFrame` values that preserve frame type, flags, stream id,
   payload length, and each bounded payload byte; an active continuation

@@ -20,14 +20,18 @@ Define the remaining HTTP/2 core behavior beyond the implemented
 ordinary-source decode-state slices. Planned coverage still includes:
 
 - remaining SETTINGS values and settings interactions beyond the implemented
-  maximum-frame-size receive and peer-advertised state
+  maximum-frame-size receive and peer-advertised state and the implemented
+  maximum-concurrent-streams receive-limit state
 - remaining DATA behavior beyond the implemented receive-window accounting
-- HEADERS with opaque header-block payloads
+- remaining HEADERS behavior beyond the implemented peer-created stream
+  opening, concurrent-stream receive-limit check, and opaque header-block
+  continuation state
 - CONTINUATION handling only as needed to keep header-block boundaries valid
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
-- stream identifiers
-- stream lifecycle
+- stream identifiers beyond the narrow checked stream references
+- stream lifecycle beyond the implemented open peer-created stream count and
+  single open receive-window stream
 - initial-window-size changes, outbound flow control, and broader
   stream-window interactions beyond the implemented inbound DATA and
   `WINDOW_UPDATE` receive-window accounting
@@ -279,6 +283,16 @@ receive-window credit. Wrong-length `WINDOW_UPDATE` payloads use
 `http2.protocol.invalid_frame_kind` shape, and zero or overflowing increments
 use `http2.peer_limit.flow_control_window_exceeded` without changing receive
 window state.
+The implemented slice also tracks peer-created stream concurrency. The decode
+state stores the current open peer-created stream count and the active
+maximum-concurrent-streams receive limit with protocol-default or
+local-configuration provenance. A peer-created HEADERS frame on an idle stream
+opens that stream when the active maximum allows it; a HEADERS frame that
+would exceed the active maximum uses
+`http2.peer_limit.concurrent_streams_exceeded` with byte offset, observed open
+stream count, allowed maximum, stream reference, active state, receive-limit
+provenance, and rule provenance in executable output, human diagnostics, and
+JSON `protocol_diagnostic` details.
 
 The remaining scope below is still planned work for the full protocol core.
 

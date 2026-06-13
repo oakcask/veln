@@ -176,6 +176,7 @@ source_prelude_symbol_set! {
     "http2_protocol_invalid_payload_length" => veln_stdlib::prelude_source("http2_protocol_invalid_payload_length"),
     "http2_peer_limit_frame_size_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_frame_size_exceeded"),
     "http2_peer_limit_flow_control_window_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_flow_control_window_exceeded"),
+    "http2_peer_limit_concurrent_streams_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_concurrent_streams_exceeded"),
     "http2_peer_limit_settings_value_out_of_range" => veln_stdlib::prelude_source("http2_peer_limit_settings_value_out_of_range"),
     "byte_read_u16_be" => veln_stdlib::prelude_source("byte_read_u16_be"),
     "byte_read_u24_be" => veln_stdlib::prelude_source("byte_read_u24_be"),
