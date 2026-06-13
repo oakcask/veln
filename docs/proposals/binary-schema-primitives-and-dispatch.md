@@ -81,7 +81,8 @@ for:
 - executable exact-width unsigned field reads and writes beyond the
   implemented narrow primitive decode slices
 - endian-aware field reads and writes
-- reserved bits that are consumed but not exposed as ordinary data
+- reserved-bit forms beyond the implemented byte-aligned representation-only
+  fields and `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
 - flags that decode as raw bits, bitsets, or frame-specific ADTs
 - general schema-declared length-prefixed payloads
 - field references inside later field definitions
@@ -166,9 +167,13 @@ should not become a general-purpose source type.
 
 ## Discussion Result: Reserved Bit Spelling
 
-Reserved bits should be spelled as schema-local fixed fields that are consumed
-from the external representation but omitted from the mapped Veln value by
-default.
+Reserved bits are spelled as schema-local fixed fields that are consumed from
+the external representation but omitted from the mapped Veln value by default.
+The byte-aligned `ReservedBits(width, value)` slice and the
+`ReservedBits(1, 0)` plus `UInt31be` shared-bit layout are implemented under
+`../specification/execution.md`. Remaining proposal work is limited to
+non-byte-aligned shapes outside that stream-id layout and any later opt-in
+mapping exposure.
 
 Use a `ReservedBits(width, value)` binary schema primitive for this purpose.
 The field still has a schema-local name so diagnostics can report a stable
