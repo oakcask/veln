@@ -169,6 +169,8 @@ source_prelude_symbol_set! {
     "byte_decode_schema_width_sample" => veln_stdlib::prelude_source("byte_decode_schema_width_sample"),
     "byte_decode_schema_validation_sample" => veln_stdlib::prelude_source("byte_decode_schema_validation_sample"),
     "http2_protocol_closed_with_pending" => veln_stdlib::prelude_source("http2_protocol_closed_with_pending"),
+    "http2_protocol_partial_preface" => veln_stdlib::prelude_source("http2_protocol_partial_preface"),
+    "http2_protocol_invalid_preface" => veln_stdlib::prelude_source("http2_protocol_invalid_preface"),
     "http2_protocol_continuation_expected" => veln_stdlib::prelude_source("http2_protocol_continuation_expected"),
     "http2_protocol_invalid_frame_kind" => veln_stdlib::prelude_source("http2_protocol_invalid_frame_kind"),
     "http2_protocol_invalid_payload_length" => veln_stdlib::prelude_source("http2_protocol_invalid_payload_length"),

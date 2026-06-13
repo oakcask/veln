@@ -43,8 +43,13 @@ type ReceiveFlowControl
 	ReceiveFlowControl(Int, OpenStreamReceiveWindow)
 end
 
+type PrefaceState
+	ExpectPreface
+	AfterPreface
+end
+
 type Http2DecodeState
-	State(ByteChunk, Int, PendingContinuation, ReceiveLimitEntry, PeerSettingsState, ConnectionShutdownState, ReceiveFlowControl)
+	State(ByteChunk, Int, PrefaceState, PendingContinuation, ReceiveLimitEntry, PeerSettingsState, ConnectionShutdownState, ReceiveFlowControl)
 end
 
 type Http2Input
@@ -54,6 +59,8 @@ end
 
 type Http2ProtocolFailure
 	ClosedWithPending(Int, Int)
+	ClosedWithPartialPreface(Int, Int)
+	InvalidPreface(Int, Int, Int, Int)
 	ContinuationExpected(Int, Int, Int, Int, Int, Int)
 	InvalidFrameKind(Int, Int, Int, Int, String, String)
 	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String)
@@ -84,19 +91,23 @@ type Http2Step
 end
 
 fn empty_state() -> Http2DecodeState
-	State(byte_chunk([]), 0, NoContinuation, protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control())
+	State(byte_chunk([]), 0, ExpectPreface, NoContinuation, protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control())
+end
+
+fn frame_state() -> Http2DecodeState
+	State(byte_chunk([]), 0, AfterPreface, NoContinuation, protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, default_receive_flow_control())
 end
 
 fn local_config_state(max_frame_size: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, NoContinuation, ReceiveLimit(max_frame_size, LocalConfiguration), empty_peer_settings(), OpenConnection, default_receive_flow_control())
+	State(byte_chunk([]), 0, AfterPreface, NoContinuation, ReceiveLimit(max_frame_size, LocalConfiguration), empty_peer_settings(), OpenConnection, default_receive_flow_control())
 end
 
 fn local_settings_state(max_frame_size: Int, item_offset: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, NoContinuation, ReceiveLimit(max_frame_size, LocalSettingsItem(item_offset)), empty_peer_settings(), OpenConnection, default_receive_flow_control())
+	State(byte_chunk([]), 0, AfterPreface, NoContinuation, ReceiveLimit(max_frame_size, LocalSettingsItem(item_offset)), empty_peer_settings(), OpenConnection, default_receive_flow_control())
 end
 
 fn receive_window_state(connection_window: Int, stream_id: Int, stream_window: Int) -> Http2DecodeState
-	State(byte_chunk([]), 0, NoContinuation, protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window)))
+	State(byte_chunk([]), 0, AfterPreface, NoContinuation, protocol_default_frame_size_limit(), empty_peer_settings(), OpenConnection, ReceiveFlowControl(connection_window, OpenStreamReceiveWindow(stream_id, stream_window)))
 end
 
 fn receive(input: Http2Input, state: Http2DecodeState) -> Result<Http2Step, String>
@@ -108,28 +119,156 @@ end
 
 fn receive_chunk(bytes: ByteChunk, state: Http2DecodeState) -> Result<Http2Step, String>
 	match state
-		State(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control) => decode_available(byte_append(pending, bytes), next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+		State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control) => receive_available(byte_append(pending, bytes), next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
 	end
 end
 
 fn receive_end(state: Http2DecodeState) -> Result<Http2Step, String>
 	match state
-		State(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control) => end_pending(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+		State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control) => end_pending(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
 	end
 end
 
-fn end_pending(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
+fn end_pending(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	match available == 0
-		true => Ok(Waiting(State(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
-		false => Ok(Failed(State(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available)))
+		true => Ok(Waiting(State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
+		false => match preface_state
+			ExpectPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPartialPreface(next_offset, available)))
+			AfterPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available)))
+		end
+	end
+end
+
+fn receive_available(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
+	match preface_state
+		ExpectPreface => validate_preface(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+		AfterPreface => decode_available(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+	end
+end
+
+fn client_connection_preface_count() -> Int
+	24
+end
+
+fn validate_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
+	let available: Int = byte_count_to_int(byte_chunk_count(pending))
+	let matched: Int = matched_preface_count(pending, available, 0)?
+	match matched < available
+		true => match matched < client_connection_preface_count()
+			true => Ok(Failed(State(pending, next_offset, ExpectPreface, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control), InvalidPreface(next_offset + matched, expected_preface_byte(matched), read_byte(pending, matched)?, matched)))
+			false => consume_preface(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+		end
+		false => match available < client_connection_preface_count()
+			true => Ok(Waiting(State(pending, next_offset, ExpectPreface, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
+			false => consume_preface(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+		end
+	end
+end
+
+fn consume_preface(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
+	let preface_count: ByteCount = byte_count(client_connection_preface_count())?
+	let suffix: ByteChunk = byte_drop(pending, preface_count)?
+	decode_available(suffix, next_offset + client_connection_preface_count(), continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+end
+
+fn matched_preface_count(pending: ByteChunk, available: Int, index: Int) -> Result<Int, String>
+	match index < available
+		false => Ok(index)
+		true => match index < client_connection_preface_count()
+			false => Ok(index)
+			true => match read_byte(pending, index)? == expected_preface_byte(index)
+				true => matched_preface_count(pending, available, index + 1)
+				false => Ok(index)
+			end
+		end
+	end
+end
+
+fn read_byte(pending: ByteChunk, index: Int) -> Result<Int, String>
+	byte_read_u8_be(byte_view(pending, byte_offset(index)?, byte_count(1)?)?)
+end
+
+fn expected_preface_byte(index: Int) -> Int
+	match index == 0
+		true => 80
+		false => match index == 1
+			true => 82
+			false => match index == 2
+				true => 73
+				false => match index == 3
+					true => 32
+					false => match index == 4
+						true => 42
+						false => match index == 5
+							true => 32
+							false => match index == 6
+								true => 72
+								false => match index == 7
+									true => 84
+									false => match index == 8
+										true => 84
+										false => match index == 9
+											true => 80
+											false => match index == 10
+												true => 47
+												false => match index == 11
+													true => 50
+													false => match index == 12
+														true => 46
+														false => match index == 13
+															true => 48
+															false => match index == 14
+																true => 13
+																false => match index == 15
+																	true => 10
+																	false => match index == 16
+																		true => 13
+																		false => match index == 17
+																			true => 10
+																			false => match index == 18
+																				true => 83
+																				false => match index == 19
+																					true => 77
+																					false => match index == 20
+																						true => 13
+																						false => match index == 21
+																							true => 10
+																							false => match index == 22
+																								true => 13
+																								false => match index == 23
+																									true => 10
+																									false => 0
+																								end
+																							end
+																						end
+																					end
+																				end
+																			end
+																		end
+																	end
+																end
+															end
+														end
+													end
+												end
+											end
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
 	end
 end
 
 fn decode_available(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	match available < 9
-		true => Ok(Waiting(State(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
+		true => Ok(Waiting(State(pending, next_offset, AfterPreface, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
 		false => decode_header(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
 	end
 end
@@ -142,7 +281,7 @@ fn decode_header(pending: ByteChunk, next_offset: Int, continuation: PendingCont
 	let header: {length: Int, kind: Int, flags: Int, stream_id: Int} = byte_decode_http2_frame_header(view)?
 	let max_frame_size: Int = receive_limit_value(receive_limit)
 	match header.length > max_frame_size
-		true => Ok(Failed(State(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control), FrameSizeExceeded(next_offset, header.length, receive_limit, header.kind, header.stream_id)))
+		true => Ok(Failed(State(pending, next_offset, AfterPreface, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control), FrameSizeExceeded(next_offset, header.length, receive_limit, header.kind, header.stream_id)))
 		false => decode_sized_frame(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control, available, header.length, header.kind, header.flags, header.stream_id)
 	end
 end
@@ -176,7 +315,7 @@ end
 fn decode_sized_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, available: Int, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<Http2Step, String>
 	let frame_count_int: Int = 9 + length
 	match available < frame_count_int
-		true => Ok(Waiting(State(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
+		true => Ok(Waiting(State(pending, next_offset, AfterPreface, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
 		false => decode_complete_frame(pending, next_offset, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, frame_count_int)
 	end
 end
@@ -184,7 +323,7 @@ end
 fn decode_complete_frame(pending: ByteChunk, next_offset: Int, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, frame_count_int: Int) -> Result<Http2Step, String>
 	let frame_count: ByteCount = byte_count(frame_count_int)?
 	let suffix: ByteChunk = byte_drop(pending, frame_count)?
-	let consumed_state: Http2DecodeState = State(suffix, next_offset + frame_count_int, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
+	let consumed_state: Http2DecodeState = State(suffix, next_offset + frame_count_int, AfterPreface, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)
 	let settings_decision: SettingsRangeDecision = validate_settings_value(pending, next_offset, length, kind)?
 	match settings_decision
 		SettingsValueOk => match validate_protocol_payload(next_offset, length, kind, stream_id)
@@ -201,7 +340,7 @@ end
 fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_count: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let flow_control_decision: ReceiveFlowControlDecision = update_receive_flow_control(pending, next_offset, length, kind, stream_id, receive_flow_control)?
 	match flow_control_decision
-		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, next_receive_flow_control), next_offset, length, kind, flags, stream_id, completed_count))
+		ReceiveFlowControlOk(next_receive_flow_control) => Ok(FrameDecoded(State(suffix, next_offset + frame_count_int, AfterPreface, next_continuation, receive_limit, update_peer_settings(pending, next_offset, length, kind, peer_settings)?, update_shutdown_state(pending, length, kind, shutdown_state)?, next_receive_flow_control), next_offset, length, kind, flags, stream_id, completed_count))
 		ReceiveFlowControlFailed(error) => Ok(Failed(consumed_state, error))
 	end
 end
@@ -532,88 +671,97 @@ end
 
 fn state_pending_count(state: Http2DecodeState) -> Int
 	match state
-		State(pending, _, _, _, _, _, _) => byte_count_to_int(byte_chunk_count(pending))
+		State(pending, _, _, _, _, _, _, _) => byte_count_to_int(byte_chunk_count(pending))
 	end
 end
 
 fn state_next_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, next_offset, _, _, _, _, _) => next_offset
+		State(_, next_offset, _, _, _, _, _, _) => next_offset
+	end
+end
+
+fn state_preface_label(state: Http2DecodeState) -> String
+	match state
+		State(_, _, ExpectPreface, _, _, _, _, _) => "expect"
+		State(_, _, AfterPreface, _, _, _, _, _) => "done"
 	end
 end
 
 fn state_continuation_label(state: Http2DecodeState) -> String
 	match state
-		State(_, _, NoContinuation, _, _, _, _) => "none"
-		State(_, _, Continuation(_, _, _, _), _, _, _, _) => "active"
+		State(_, _, _, NoContinuation, _, _, _, _) => "none"
+		State(_, _, _, Continuation(_, _, _, _), _, _, _, _) => "active"
 	end
 end
 
 fn state_continuation_count(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, NoContinuation, _, _, _, _) => 0
-		State(_, _, Continuation(_, _, _, accumulated), _, _, _, _) => accumulated
+		State(_, _, _, NoContinuation, _, _, _, _) => 0
+		State(_, _, _, Continuation(_, _, _, accumulated), _, _, _, _) => accumulated
 	end
 end
 
 fn state_peer_max_frame_size(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, PeerSettings(NoPeerMaxFrameSize), _, _) => 0
-		State(_, _, _, _, PeerSettings(PeerMaxFrameSize(value, _)), _, _) => value
+		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(PeerMaxFrameSize(value, _)), _, _) => value
 	end
 end
 
 fn state_peer_max_frame_size_offset(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, PeerSettings(NoPeerMaxFrameSize), _, _) => 0
-		State(_, _, _, _, PeerSettings(PeerMaxFrameSize(_, item_offset)), _, _) => item_offset
+		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize), _, _) => 0
+		State(_, _, _, _, _, PeerSettings(PeerMaxFrameSize(_, item_offset)), _, _) => item_offset
 	end
 end
 
 fn state_shutdown_label(state: Http2DecodeState) -> String
 	match state
-		State(_, _, _, _, _, OpenConnection, _) => "open"
-		State(_, _, _, _, _, GracefulShutdown(_, _), _) => "graceful_shutdown"
+		State(_, _, _, _, _, _, OpenConnection, _) => "open"
+		State(_, _, _, _, _, _, GracefulShutdown(_, _), _) => "graceful_shutdown"
 	end
 end
 
 fn state_shutdown_last_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, OpenConnection, _) => 0
-		State(_, _, _, _, _, GracefulShutdown(last_stream_id, _), _) => last_stream_id
+		State(_, _, _, _, _, _, OpenConnection, _) => 0
+		State(_, _, _, _, _, _, GracefulShutdown(last_stream_id, _), _) => last_stream_id
 	end
 end
 
 fn state_shutdown_error_code(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, OpenConnection, _) => 0
-		State(_, _, _, _, _, GracefulShutdown(_, error_code), _) => error_code
+		State(_, _, _, _, _, _, OpenConnection, _) => 0
+		State(_, _, _, _, _, _, GracefulShutdown(_, error_code), _) => error_code
 	end
 end
 
 fn state_connection_window(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, ReceiveFlowControl(connection_window, _)) => connection_window
+		State(_, _, _, _, _, _, _, ReceiveFlowControl(connection_window, _)) => connection_window
 	end
 end
 
 fn state_stream_window(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, stream_window))) => stream_window
+		State(_, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
+		State(_, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(_, stream_window))) => stream_window
 	end
 end
 
 fn state_open_stream_id(state: Http2DecodeState) -> Int
 	match state
-		State(_, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
-		State(_, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(stream_id, _))) => stream_id
+		State(_, _, _, _, _, _, _, ReceiveFlowControl(_, NoOpenStreamReceiveWindow)) => 0
+		State(_, _, _, _, _, _, _, ReceiveFlowControl(_, OpenStreamReceiveWindow(stream_id, _))) => stream_id
 	end
 end
 
 fn failure_id(failure: Http2ProtocolFailure) -> String
 	match failure
 		ClosedWithPending(_, _) => "http2.protocol.closed_with_pending"
+		ClosedWithPartialPreface(_, _) => "http2.protocol.partial_preface"
+		InvalidPreface(_, _, _, _) => "http2.protocol.invalid_preface"
 		ContinuationExpected(_, _, _, _, _, _) => "http2.protocol.continuation_expected"
 		InvalidFrameKind(_, _, _, _, _, _) => "http2.protocol.invalid_frame_kind"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "http2.protocol.invalid_payload_length"
@@ -626,6 +774,8 @@ end
 fn failure_offset(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(offset, _) => offset
+		ClosedWithPartialPreface(offset, _) => offset
+		InvalidPreface(offset, _, _, _) => offset
 		ContinuationExpected(offset, _, _, _, _, _) => offset
 		InvalidFrameKind(offset, _, _, _, _, _) => offset
 		InvalidPayloadLength(offset, _, _, _, _, _, _) => offset
@@ -638,6 +788,8 @@ end
 fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, pending_count) => pending_count
+		ClosedWithPartialPreface(_, pending_count) => pending_count
+		InvalidPreface(_, _, _, matched_count) => matched_count
 		ContinuationExpected(_, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
@@ -650,6 +802,8 @@ end
 fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, _, actual_byte, _) => actual_byte
 		ContinuationExpected(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidFrameKind(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _) => actual_kind
@@ -662,6 +816,8 @@ end
 fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, _, _, _) => 0
 		ContinuationExpected(_, _, actual_stream, _, _, _) => actual_stream
 		InvalidFrameKind(_, _, actual_stream, _, _, _) => actual_stream
 		InvalidPayloadLength(_, _, actual_stream, _, _, _, _) => actual_stream
@@ -674,6 +830,8 @@ end
 fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, _, _, _) => 0
 		ContinuationExpected(_, _, _, expected_stream, _, _) => expected_stream
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
@@ -686,6 +844,8 @@ end
 fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, expected_byte, _, _) => expected_byte
 		ContinuationExpected(_, _, _, _, _, _) => 9
 		InvalidFrameKind(_, _, _, expected_kind, _, _) => expected_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _) => actual_kind
@@ -698,6 +858,8 @@ end
 fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, _, _, _) => 0
 		ContinuationExpected(_, _, _, _, started_kind, _) => started_kind
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
@@ -710,6 +872,8 @@ end
 fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, _, _, _) => 0
 		ContinuationExpected(_, _, _, _, _, started_offset) => started_offset
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
@@ -722,6 +886,8 @@ end
 fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, _, _, _) => 0
 		ContinuationExpected(_, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, observed_length, _, _, _) => observed_length
@@ -734,6 +900,8 @@ end
 fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => client_connection_preface_count()
+		InvalidPreface(_, _, _, _) => client_connection_preface_count()
 		ContinuationExpected(_, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, expected_length, _, _) => expected_length
@@ -746,6 +914,8 @@ end
 fn failure_active_state(failure: Http2ProtocolFailure) -> String
 	match failure
 		ClosedWithPending(_, _) => "none"
+		ClosedWithPartialPreface(_, _) => "connection-preface"
+		InvalidPreface(_, _, _, _) => "connection-preface"
 		ContinuationExpected(_, _, _, _, _, _) => "headers"
 		InvalidFrameKind(_, _, _, _, active_state, _) => active_state
 		InvalidPayloadLength(_, _, _, _, _, active_state, _) => active_state
@@ -758,6 +928,8 @@ end
 fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 	match failure
 		ClosedWithPending(_, _) => "none"
+		ClosedWithPartialPreface(_, _) => "rfc9113_client_connection_preface"
+		InvalidPreface(_, _, _, _) => "rfc9113_client_connection_preface"
 		ContinuationExpected(_, _, _, _, _, _) => "rfc9113_continuation_sequence"
 		InvalidFrameKind(_, _, _, _, _, rule_provenance) => rule_provenance
 		InvalidPayloadLength(_, _, _, _, _, _, rule_provenance) => rule_provenance
@@ -770,6 +942,8 @@ end
 fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 	match failure
 		ClosedWithPending(_, _) => "none"
+		ClosedWithPartialPreface(_, _) => "none"
+		InvalidPreface(_, _, _, _) => "none"
 		ContinuationExpected(_, _, _, _, _, _) => "none"
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
@@ -782,6 +956,8 @@ end
 fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, _, _, _) => 0
 		ContinuationExpected(_, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
@@ -794,6 +970,8 @@ end
 fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 	match failure
 		ClosedWithPending(_, _) => "none"
+		ClosedWithPartialPreface(_, _) => "none"
+		InvalidPreface(_, _, _, _) => "none"
 		ContinuationExpected(_, _, _, _, _, _) => "none"
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
@@ -806,6 +984,8 @@ end
 fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, _, _, _) => 0
 		ContinuationExpected(_, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
@@ -818,6 +998,8 @@ end
 fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, _, _, _) => 0
 		ContinuationExpected(_, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
@@ -830,6 +1012,8 @@ end
 fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 	match failure
 		ClosedWithPending(_, _) => 0
+		ClosedWithPartialPreface(_, _) => 0
+		InvalidPreface(_, _, _, _) => 0
 		ContinuationExpected(_, _, _, _, _, _) => 0
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
@@ -842,6 +1026,8 @@ end
 fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 	match failure
 		ClosedWithPending(_, _) => "none"
+		ClosedWithPartialPreface(_, _) => "none"
+		InvalidPreface(_, _, _, _) => "none"
 		ContinuationExpected(_, _, _, _, _, _) => "none"
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
@@ -990,13 +1176,21 @@ fn print_goaway(label: String, step: Http2Step) -> () effects [stdio]
 end
 
 pub fn main() -> Result<(), String> effects [stdio]
-	let valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040000000000")?), empty_state())?
+	let preface_valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20485454502f322e300d0a0d0a534d0d0a0d0a000000040000000000")?), empty_state())?
+	print_step("preface-valid", preface_valid)
+	let preface_partial: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202a20")?), empty_state())?
+	print_step("preface-partial", preface_partial)
+	let preface_closed: Http2Step = receive(InputEnd, step_state(preface_partial))?
+	print_failure("preface-closed", preface_closed)
+	let preface_mismatch: Http2Step = receive(InputChunk(byte_chunk_from_hex("505249202b")?), empty_state())?
+	print_failure("preface-mismatch", preface_mismatch)
+	let valid: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040000000000")?), frame_state())?
 	print_step("valid", valid)
-	let incomplete: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000004")?), empty_state())?
+	let incomplete: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000004")?), frame_state())?
 	print_step("incomplete", incomplete)
 	let truncated: Http2Step = receive(InputEnd, step_state(incomplete))?
 	print_failure("closed", truncated)
-	let header_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010000000001aabbcc")?), empty_state())?
+	let header_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010000000001aabbcc")?), frame_state())?
 	print_step("headers", header_start)
 	let continuation_more: Http2Step = receive(InputChunk(byte_chunk_from_hex("000002090000000001ddee")?), step_state(header_start))?
 	print_step("continuation-more", continuation_more)
@@ -1004,31 +1198,31 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("continuation-done", continuation_done)
 	let bad_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(header_start))?
 	print_failure("continuation", bad_continuation)
-	let max_allowed_incomplete: Http2Step = receive(InputChunk(byte_chunk_from_hex("004000000000000003")?), empty_state())?
+	let max_allowed_incomplete: Http2Step = receive(InputChunk(byte_chunk_from_hex("004000000000000003")?), frame_state())?
 	print_step("frame-size-at-limit", max_allowed_incomplete)
-	let too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("004001000000000003")?), empty_state())?
+	let too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("004001000000000003")?), frame_state())?
 	print_failure("frame-size", too_large)
 	let local_config_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("000401000000000003")?), local_config_state(1024))?
 	print_failure("frame-size-config", local_config_too_large)
 	let local_settings_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("002ee1000000000003")?), local_settings_state(12000, 2))?
 	print_failure("frame-size-local-settings", local_settings_too_large)
-	let peer_settings: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000500008000")?), empty_state())?
+	let peer_settings: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000500008000")?), frame_state())?
 	print_step("peer-settings", peer_settings)
 	print_peer_settings("peer-settings", step_state(peer_settings))
-	let peer_settings_too_low: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000500003fff")?), empty_state())?
+	let peer_settings_too_low: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000500003fff")?), frame_state())?
 	print_settings_failure("settings-range", peer_settings_too_low)
 	print_peer_settings("settings-range", step_state(peer_settings_too_low))
-	let peer_settings_too_high: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000501000000")?), empty_state())?
+	let peer_settings_too_high: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000000501000000")?), frame_state())?
 	print_settings_failure("settings-range-high", peer_settings_too_high)
 	print_peer_settings("settings-range-high", step_state(peer_settings_too_high))
 	let peer_advertised_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("004001000000000003")?), step_state(peer_settings))?
 	print_failure("frame-size-peer-advertised", peer_advertised_too_large)
 	print_peer_settings("frame-size-peer-advertised", step_state(peer_advertised_too_large))
-	let bad_connection_kind: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000000")?), empty_state())?
+	let bad_connection_kind: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000000")?), frame_state())?
 	print_failure("invalid-kind", bad_connection_kind)
-	let bad_stream_kind: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), empty_state())?
+	let bad_stream_kind: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), frame_state())?
 	print_failure("invalid-stream-kind", bad_stream_kind)
-	let data_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), empty_state())?
+	let data_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000001")?), frame_state())?
 	print_step("data-headers", data_headers)
 	print_receive_windows("data-headers", step_state(data_headers))
 	let data_open: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000400000000000101020304")?), step_state(data_headers))?
@@ -1046,7 +1240,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_receive_windows("window-update-stream", step_state(window_update_stream))
 	let window_update_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003080000000000000001")?), receive_window_state(10, 1, 20))?
 	print_failure("window-update-length", window_update_bad_length)
-	let window_update_idle_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000300000001")?), empty_state())?
+	let window_update_idle_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000300000001")?), frame_state())?
 	print_failure("window-update-idle", window_update_idle_stream)
 	let window_update_zero: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000000000000")?), receive_window_state(10, 1, 20))?
 	print_failure("window-update-zero", window_update_zero)
@@ -1054,19 +1248,19 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("window-update-connection-overflow", window_update_connection_overflow)
 	let window_update_stream_overflow: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000100000008")?), receive_window_state(20, 1, 2147483640))?
 	print_failure("window-update-stream-overflow", window_update_stream_overflow)
-	let ping_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000000102030405060708")?), empty_state())?
+	let ping_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000000102030405060708")?), frame_state())?
 	print_ping("ping-data", ping_data)
-	let ping_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080601000000000102030405060708")?), empty_state())?
+	let ping_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080601000000000102030405060708")?), frame_state())?
 	print_ping("ping-ack", ping_ack)
-	let ping_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000706000000000001020304050607")?), empty_state())?
+	let ping_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000706000000000001020304050607")?), frame_state())?
 	print_failure("ping-length", ping_bad_length)
-	let ping_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000010102030405060708")?), empty_state())?
+	let ping_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000010102030405060708")?), frame_state())?
 	print_failure("ping-stream", ping_bad_stream)
-	let goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), empty_state())?
+	let goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), frame_state())?
 	print_goaway("goaway", goaway)
-	let goaway_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000707000000000000000005000000")?), empty_state())?
+	let goaway_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000707000000000000000005000000")?), frame_state())?
 	print_failure("goaway-length", goaway_bad_length)
-	let goaway_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000001000000050000000b")?), empty_state())?
+	let goaway_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000001000000050000000b")?), frame_state())?
 	print_failure("goaway-stream", goaway_bad_stream)
 	Ok(())
 end

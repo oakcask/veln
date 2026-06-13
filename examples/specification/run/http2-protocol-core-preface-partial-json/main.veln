@@ -1,0 +1,15 @@
+# HTTP/2 partial connection preface failures project structured runtime details.
+
+type Http2ProtocolFailure
+	ClosedWithPartialPreface(Int, Int)
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		ClosedWithPartialPreface(offset, pending_count) => http2_protocol_partial_preface(offset, pending_count)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	project(ClosedWithPartialPreface(0, 6))
+end

@@ -136,8 +136,14 @@ fixture metadata for the diagnostic id, byte offset, structured field path,
 and consumed count where applicable.
 
 HTTP/2 protocol-core failures that originate from a source-visible projection
-helper attach `details.protocol_diagnostic`. The frame-size peer-limit slice
-uses id `http2.peer_limit.frame_size_exceeded` and records
+helper attach `details.protocol_diagnostic`. End-of-stream with a partial
+client connection preface uses id `http2.protocol.partial_preface` and records
+`byte_offset.value`, `pending_count`, `expected_count`, `active_state`, and
+`rule_provenance`. A mismatched client connection preface byte uses id
+`http2.protocol.invalid_preface` and records `byte_offset.value`,
+`expected_byte`, `actual_byte`, `matched_prefix_count`, `expected_count`,
+`active_state`, and `rule_provenance`. The frame-size peer-limit slice uses id
+`http2.peer_limit.frame_size_exceeded` and records
 `byte_offset.value`, `observed_payload_length`, `allowed_max_frame_size`,
 `frame_kind`, `stream_id`, `stream_ref`, and `receive_limit_provenance`. The
 provenance names the active receive-limit entry used for the failed inbound

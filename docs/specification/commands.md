@@ -39,9 +39,9 @@ requiring the full command reference on the first read.
   schema fixed-field mismatch, binary schema field truncation, reserved-bit
   mismatch, field-local validation failure, closed-dispatch unknown tag
   failures, payload length boundary failures, HTTP/2 protocol-core failures
-  including frame-size and flow-control peer-limits, SETTINGS value range
-  peer-limit, invalid connection-state and stream-state frame-kind failures,
-  and
+  including partial and invalid client connection prefaces, frame-size and
+  flow-control peer-limits, SETTINGS value range peer-limit, invalid
+  connection-state and stream-state frame-kind failures, and
   run JSON. Use
   [run-json.md](run-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact

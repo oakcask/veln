@@ -110,6 +110,51 @@
         );
     }
 
+    private static void registerHttp2ProtocolPartialPrefaceDiagnostic(
+        String message,
+        long byteOffset,
+        long pendingCount
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.partial_preface",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("pending_count", pendingCount),
+                    DiagnosticDetail.number("expected_count", 24),
+                    DiagnosticDetail.string("input_event", "end"),
+                    DiagnosticDetail.string("active_state", "connection-preface"),
+                    DiagnosticDetail.string("rule_provenance", "rfc9113_client_connection_preface")
+                )
+            )
+        );
+    }
+
+    private static void registerHttp2ProtocolInvalidPrefaceDiagnostic(
+        String message,
+        long byteOffset,
+        long expectedByte,
+        long actualByte,
+        long matchedCount
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.invalid_preface",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("expected_byte", expectedByte),
+                    DiagnosticDetail.number("actual_byte", actualByte),
+                    DiagnosticDetail.number("matched_prefix_count", matchedCount),
+                    DiagnosticDetail.number("expected_count", 24),
+                    DiagnosticDetail.string("active_state", "connection-preface"),
+                    DiagnosticDetail.string("rule_provenance", "rfc9113_client_connection_preface")
+                )
+            )
+        );
+    }
+
     private static void registerHttp2ProtocolContinuationExpectedDiagnostic(
         String message,
         long byteOffset,

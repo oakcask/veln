@@ -1219,6 +1219,44 @@
         return err(message);
     }
 
+    public static Object http2ProtocolPartialPreface(
+        Object offset,
+        Object pendingCount
+    ) {
+        long byteOffset = asLong(offset);
+        long pending = asLong(pendingCount);
+        String message = "HTTP/2 input ended with partial client connection preface at byte offset "
+            + byteOffset;
+        registerHttp2ProtocolPartialPrefaceDiagnostic(
+            message,
+            byteOffset,
+            pending
+        );
+        return err(message);
+    }
+
+    public static Object http2ProtocolInvalidPreface(
+        Object offset,
+        Object expectedByte,
+        Object actualByte,
+        Object matchedCount
+    ) {
+        long byteOffset = asLong(offset);
+        long expected = asLong(expectedByte);
+        long actual = asLong(actualByte);
+        long matched = asLong(matchedCount);
+        String message = "HTTP/2 invalid client connection preface at byte offset "
+            + byteOffset;
+        registerHttp2ProtocolInvalidPrefaceDiagnostic(
+            message,
+            byteOffset,
+            expected,
+            actual,
+            matched
+        );
+        return err(message);
+    }
+
     public static Object http2ProtocolContinuationExpected(
         Object offset,
         Object actualKind,

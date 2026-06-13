@@ -171,10 +171,11 @@ execution reference.
   exact hex strings, decoded byte counts, empty lists, and zero-length chunks.
 - The first ordinary-source HTTP/2 sans-I/O protocol-core example models
   chunk arrival and end-of-stream events as ADTs. Its pure decode state keeps
-  undecoded suffix bytes, the next absolute byte offset, continuation state,
-  the active local receive-limit entry, peer-advertised SETTINGS state, and
-  graceful shutdown state. It reuses the frame-header primitive for available
-  headers and represents closed-input truncation, continuation ordering
+  undecoded suffix bytes, the next absolute byte offset, client connection
+  preface state, continuation state, the active local receive-limit entry,
+  peer-advertised SETTINGS state, and graceful shutdown state. It validates the
+  client connection preface before frame-header decode and represents partial
+  or mismatched prefaces, closed-input truncation, continuation ordering
   failures, incoming frame payloads that exceed the active receive maximum
   frame size, received `SETTINGS_MAX_FRAME_SIZE` values outside the accepted
   SETTINGS range, invalid connection-state and stream-state frame kinds,

@@ -19,7 +19,6 @@ ordinary Veln values.
 Define the remaining HTTP/2 core behavior beyond the implemented
 ordinary-source decode-state slices. Planned coverage still includes:
 
-- connection preface validation
 - frame header encode
 - remaining SETTINGS values and settings interactions beyond the implemented
   maximum-frame-size receive and peer-advertised state
@@ -235,15 +234,18 @@ public API questions appear.
 The first ordinary-source executable slice is current behavior under
 `../specification/` and `../../examples/specification/run/http2-protocol-core/`,
 with command-facing diagnostic projection fixtures beside that case. It covers
-chunk arrival, incomplete input that waits for more bytes, end-of-stream
-truncation with pending bytes, continuation header-block assembly through a
-valid final CONTINUATION frame, one continuation ordering failure, and one
-incoming frame-size peer-limit failure, plus one invalid connection-state frame
-kind and one invalid idle-stream frame kind. It keeps parser state as
-undecoded suffix bytes plus the next absolute byte offset after each consumed
-frame, reuses the implemented frame-header primitive, checks the active receive
-maximum frame size after structural header decode, and projects typed protocol
-failures into stable fixture output ids,
+chunk arrival, client connection preface validation before frame-header
+decode, partial preface input that waits for more bytes, end-of-stream with a
+partial preface, mismatched preface bytes, incomplete frame input that waits
+for more bytes, end-of-stream truncation with pending frame bytes,
+continuation header-block assembly through a valid final CONTINUATION frame,
+one continuation ordering failure, and one incoming frame-size peer-limit
+failure, plus one invalid connection-state frame kind and one invalid
+idle-stream frame kind. It keeps parser state as undecoded suffix bytes plus
+the next absolute byte offset after each consumed preface or frame, reuses the
+implemented frame-header primitive after the preface gate, checks the active
+receive maximum frame size after structural header decode, and projects typed
+protocol failures into stable fixture output ids,
 `protocol_diagnostic` JSON details, and human related context.
 It also splits the active receive-limit entry from peer-advertised SETTINGS
 state for maximum frame size. The checked example keeps protocol-default,
