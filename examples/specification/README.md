@@ -540,9 +540,10 @@ against the built `veln` binary.
   handles chunk arrival, client connection preface validation, incomplete
   input, end-of-stream truncation, valid CONTINUATION completion for an opaque
   header block with preserved payload bytes, single-frame HEADERS completion
-  when END_HEADERS is combined with another flag, and a continuation ordering
-  failure while projecting typed
-  protocol failures, including partial and mismatched preface failures, an
+  when END_HEADERS is combined with another flag, continuation ordering
+  failures for a different frame kind and a different stream id, and closed
+  input while a header block remains pending. It projects typed protocol
+  failures, including partial and mismatched preface failures, an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
   failure, stream id domain failures, invalid stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, valid PING ACK distinction, and valid

@@ -163,7 +163,10 @@ end
 fn end_pending(pending: ByteChunk, next_offset: Int, preface_state: PrefaceState, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl) -> Result<Http2Step, String>
 	let available: Int = byte_count_to_int(byte_chunk_count(pending))
 	match available == 0
-		true => Ok(Waiting(State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
+		true => match continuation
+			NoContinuation => Ok(Waiting(State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control)))
+			Continuation(_, _, _, _) => Ok(Failed(State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available)))
+		end
 		false => match preface_state
 			ExpectPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPartialPreface(next_offset, available)))
 			AfterPreface => Ok(Failed(State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control), ClosedWithPending(next_offset, available)))
@@ -904,6 +907,27 @@ fn state_continuation_count(state: Http2DecodeState) -> Int
 	end
 end
 
+fn state_continuation_stream(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, NoContinuation, _, _, _, _) => 0
+		State(_, _, _, Continuation(stream_id, _, _, _), _, _, _, _) => stream_id
+	end
+end
+
+fn state_continuation_started_kind(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, NoContinuation, _, _, _, _) => 0
+		State(_, _, _, Continuation(_, started_kind, _, _), _, _, _, _) => started_kind
+	end
+end
+
+fn state_continuation_started_offset(state: Http2DecodeState) -> Int
+	match state
+		State(_, _, _, NoContinuation, _, _, _, _) => 0
+		State(_, _, _, Continuation(_, _, started_offset, _), _, _, _, _) => started_offset
+	end
+end
+
 fn state_peer_max_frame_size(state: Http2DecodeState) -> Int
 	match state
 		State(_, _, _, _, _, PeerSettings(NoPeerMaxFrameSize, _), _, _) => 0
@@ -1300,6 +1324,57 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 	end
 end
 
+fn context_expected_stream(failure: Http2ProtocolFailure, state: Http2DecodeState) -> Int
+	match failure_expected_stream(failure) == 0
+		true => state_continuation_stream(state)
+		false => failure_expected_stream(failure)
+	end
+end
+
+fn context_expected_kind(failure: Http2ProtocolFailure, state: Http2DecodeState) -> Int
+	match failure_expected_kind(failure) == 0
+		true => match state_continuation_label(state) == "active"
+			true => 9
+			false => 0
+		end
+		false => failure_expected_kind(failure)
+	end
+end
+
+fn context_started_kind(failure: Http2ProtocolFailure, state: Http2DecodeState) -> Int
+	match failure_started_kind(failure) == 0
+		true => state_continuation_started_kind(state)
+		false => failure_started_kind(failure)
+	end
+end
+
+fn context_started_offset(failure: Http2ProtocolFailure, state: Http2DecodeState) -> Int
+	match failure_started_offset(failure) == 0
+		true => state_continuation_started_offset(state)
+		false => failure_started_offset(failure)
+	end
+end
+
+fn context_active_state(failure: Http2ProtocolFailure, state: Http2DecodeState) -> String
+	match failure_active_state(failure) == "none"
+		true => match state_continuation_label(state) == "active"
+			true => "headers"
+			false => "none"
+		end
+		false => failure_active_state(failure)
+	end
+end
+
+fn context_rule_provenance(failure: Http2ProtocolFailure, state: Http2DecodeState) -> String
+	match failure_rule_provenance(failure) == "none"
+		true => match state_continuation_label(state) == "active"
+			true => "rfc9113_continuation_sequence"
+			false => "none"
+		end
+		false => failure_rule_provenance(failure)
+	end
+end
+
 fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 	match failure
 		ClosedWithPending(_, _) => "none"
@@ -1370,13 +1445,13 @@ fn print_failure(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::print(" actual_stream ")
 	stdio::print(int_to_string(failure_actual_stream(failure)))
 	stdio::print(" expected_stream ")
-	stdio::print(int_to_string(failure_expected_stream(failure)))
+	stdio::print(int_to_string(context_expected_stream(failure, state)))
 	stdio::print(" expected_kind ")
-	stdio::print(int_to_string(failure_expected_kind(failure)))
+	stdio::print(int_to_string(context_expected_kind(failure, state)))
 	stdio::print(" started_kind ")
-	stdio::print(int_to_string(failure_started_kind(failure)))
+	stdio::print(int_to_string(context_started_kind(failure, state)))
 	stdio::print(" started_offset ")
-	stdio::print(int_to_string(failure_started_offset(failure)))
+	stdio::print(int_to_string(context_started_offset(failure, state)))
 	stdio::print(" continuation ")
 	stdio::print(state_continuation_label(state))
 	stdio::print(" accumulated ")
@@ -1388,9 +1463,9 @@ fn print_failure(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::print(" receive_limit ")
 	stdio::print(failure_receive_limit_provenance(failure))
 	stdio::print(" active_state ")
-	stdio::print(failure_active_state(failure))
+	stdio::print(context_active_state(failure, state))
 	stdio::print(" rule ")
-	stdio::println(failure_rule_provenance(failure))
+	stdio::println(context_rule_provenance(failure, state))
 end
 
 fn print_stream_id_failure(label: String, step: Http2Step) -> () effects [stdio]
@@ -1677,6 +1752,10 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let ignored_headers_header_block: () = emit_header_block("http2-headers-header-block", headers_done, "102030")?
 	let bad_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(header_start))?
 	print_failure("continuation", bad_continuation)
+	let wrong_stream_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000090400000003")?), step_state(header_start))?
+	print_failure("continuation-stream", wrong_stream_continuation)
+	let closed_continuation: Http2Step = receive(InputEnd, step_state(header_start))?
+	print_failure("continuation-closed", closed_continuation)
 	let unknown_extension: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030a2300000000aabbcc")?), frame_state())?
 	let ignored_unknown: () = print_unknown_frame("unknown-extension", unknown_extension)?
 	let unknown_during_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000030a2300000001aabbcc")?), step_state(header_start))?

@@ -221,9 +221,10 @@ for more bytes, end-of-stream truncation with pending frame bytes,
 continuation header-block assembly through a valid final CONTINUATION frame,
 the combined opaque header-block payload bytes from that completed block,
 single-frame HEADERS completion when END_HEADERS is set alongside another
-flag, one continuation ordering failure, and one incoming frame-size
-peer-limit failure, plus one invalid idle-stream frame kind and stream id
-domain failures for zero, even, and connection-only stream ids. It keeps
+flag, continuation failures for a different frame kind, a different stream id,
+and closed input while a header block remains pending, and one incoming
+frame-size peer-limit failure, plus one invalid idle-stream frame kind and
+stream id domain failures for zero, even, and connection-only stream ids. It keeps
 parser state as undecoded suffix bytes plus the next absolute byte offset
 after each consumed preface or frame, reuses the implemented frame-header
 primitive after the preface gate, checks the active receive maximum frame size
