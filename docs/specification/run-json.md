@@ -182,8 +182,10 @@ SETTINGS. Peer-received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`,
 `SETTINGS_HEADER_TABLE_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE` values
 belong to peer-advertised state for outbound decisions and are not reported as
 the receive-limit provenance for later inbound frame-size, concurrent-stream,
-or DATA receive-window failures. Received
-DATA frames that exceed available inbound receive-window credit, and
+or DATA receive-window failures. A received `SETTINGS_INITIAL_WINDOW_SIZE`
+delta can still change the tracked open stream's allowed receive-window credit
+reported by later DATA failures. Received DATA frames that exceed available
+inbound receive-window credit, and
 `WINDOW_UPDATE` increments that would exceed available inbound receive-window
 growth, use id
 `http2.peer_limit.flow_control_window_exceeded` and record

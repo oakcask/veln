@@ -72,7 +72,8 @@ compare it with `../specification/` before changing behavior.
   PING/GOAWAY receive slice, DATA and `WINDOW_UPDATE` receive flow-control
   slices, peer-created stream admission with concurrent-stream receive-limit
   diagnostics, stream id domain diagnostic slice, GOAWAY last-stream-id
-  enforcement for later peer-created HEADERS, `RST_STREAM` receive slice, and
+  enforcement for later peer-created HEADERS, `RST_STREAM` receive slice,
+  `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window adjustment, and
   outbound frame-header encode slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, socket, stream-routing, deadline API,

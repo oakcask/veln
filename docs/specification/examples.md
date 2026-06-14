@@ -446,15 +446,19 @@ Receive flow-control state records connection receive-window credit and the
 currently open stream receive-window credit. DATA on the open stream consumes
 both windows by payload length. `WINDOW_UPDATE` on the connection stream
 increases connection receive-window credit, and `WINDOW_UPDATE` on the open
-stream increases that stream's receive-window credit. Wrong-length
-`WINDOW_UPDATE` payloads remain typed payload-length failures, idle-stream
-`WINDOW_UPDATE` remains the existing stream-state frame-kind failure, and zero
-or overflowing increments remain typed peer-limit failures without changing
-window state. DATA payloads larger than the available stream or connection
-receive-window credit also remain typed peer-limit failures. `RST_STREAM` on
-the open stream decodes its four-byte error code into reset state, clears the
-open stream, and leaves later DATA or stream-level `WINDOW_UPDATE` for that
-reset stream on the existing invalid frame-kind path.
+stream increases that stream's receive-window credit. A received
+`SETTINGS_INITIAL_WINDOW_SIZE` item applies the delta from the previous active
+peer setting to the currently open stream receive-window credit; the adjusted
+credit can become negative, and DATA remains blocked until `WINDOW_UPDATE`
+restores enough stream credit. Wrong-length `WINDOW_UPDATE` payloads remain
+typed payload-length failures, idle-stream `WINDOW_UPDATE` remains the existing
+stream-state frame-kind failure, and zero or overflowing increments remain
+typed peer-limit failures without changing window state. DATA payloads larger
+than the available stream or connection receive-window credit also remain
+typed peer-limit failures. `RST_STREAM` on the open stream decodes its
+four-byte error code into reset state, clears the open stream, and leaves
+later DATA or stream-level `WINDOW_UPDATE` for that reset stream on the
+existing invalid frame-kind path.
 Peer-received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`,
 `SETTINGS_MAX_CONCURRENT_STREAMS`, `SETTINGS_INITIAL_WINDOW_SIZE`,
 `SETTINGS_HEADER_TABLE_SIZE`, and `SETTINGS_MAX_HEADER_LIST_SIZE` are stored
@@ -462,12 +466,12 @@ as peer-advertised state for outbound decisions with item byte offsets. The
 peer-advertised maximum frame size does not replace the inbound receive
 maximum used by later frame-size checks, the peer-advertised maximum
 concurrent streams value does not replace the local concurrent-stream receive
-limit, and the peer-advertised initial window size does not replace the
-inbound receive-window credit used by later DATA checks. Received values for
-settings with protocol range constraints are checked before updating
-peer-advertised state; out-of-range values stay as typed peer-limit failures
-at the offending SETTINGS item byte offset. SETTINGS ACK frames do not update
-peer-advertised state. A
+limit, and the peer-advertised initial window size does not become an inbound
+frame-size or receive-limit provenance entry. Received values for settings
+with protocol range constraints are checked before updating peer-advertised
+state or open-stream receive-window credit; out-of-range values stay as typed
+peer-limit failures at the offending SETTINGS item byte offset. SETTINGS ACK
+frames do not update peer-advertised state or receive-window credit. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
 completed accumulated header-block bytes in observable example output.
 Protocol failures stay as ordinary ADT values and are projected by source code

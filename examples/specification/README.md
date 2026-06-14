@@ -634,12 +634,13 @@ against the built `veln` binary.
   case keeps local receive-limit
   provenance separate from peer-advertised `SETTINGS_MAX_FRAME_SIZE` state,
   keeps the local concurrent-stream receive limit separate from
-  peer-advertised `SETTINGS_MAX_CONCURRENT_STREAMS` state, keeps inbound
-  receive-window credit separate from peer-advertised
-  `SETTINGS_INITIAL_WINDOW_SIZE` state, stores peer-advertised
-  `SETTINGS_HEADER_TABLE_SIZE` and `SETTINGS_MAX_HEADER_LIST_SIZE` state with
-  item byte offsets, and range-checks constrained settings before updating
-  peer-advertised state. It also
+  peer-advertised `SETTINGS_MAX_CONCURRENT_STREAMS` state, applies
+  peer-advertised `SETTINGS_INITIAL_WINDOW_SIZE` deltas to the tracked open
+  stream receive-window credit without turning that setting into an inbound
+  frame-size receive limit, stores peer-advertised `SETTINGS_HEADER_TABLE_SIZE`
+  and `SETTINGS_MAX_HEADER_LIST_SIZE` state with item byte offsets, and
+  range-checks constrained settings before updating peer-advertised state or
+  receive-window credit. It also
   accepts a structurally complete
   unknown extension frame as an ordinary value preserving frame type, flags,
   stream id, and bounded payload bytes, with the preserved payload bytes also
@@ -660,8 +661,9 @@ against the built `veln` binary.
   frame-kind path. It also accepts DATA on an open stream,
   decrements both connection and stream receive-window credit by payload
   length, accepts `WINDOW_UPDATE` receive-credit increments for the connection
-  and open stream, and reports zero increments, receive-window overflow, and
-  credit exhaustion as `http2.peer_limit.flow_control_window_exceeded`.
+  and open stream, and reports zero increments, receive-window overflow,
+  negative stream credit, and credit exhaustion as
+  `http2.peer_limit.flow_control_window_exceeded`.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation

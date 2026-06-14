@@ -320,11 +320,13 @@ execution reference.
   peer-created stream on an admitted HEADERS frame, counts the tracked open
   peer-created stream for the active concurrent-stream receive limit, consumes
   DATA payload length from connection and stream windows, accepts
-  connection-level and open-stream `WINDOW_UPDATE` increments, and keeps
-  wrong-length, idle-stream, zero, reset-stream, concurrent-stream-limit, and
-  overflow cases as typed protocol failures. A received `RST_STREAM` on the
-  open stream clears that stream and stores the reset error code so later DATA
-  or stream-level `WINDOW_UPDATE` cannot treat the stream as open. After the
+  connection-level and open-stream `WINDOW_UPDATE` increments, applies
+  received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to the tracked open-stream
+  receive-window credit, and keeps wrong-length, idle-stream, zero,
+  reset-stream, concurrent-stream-limit, negative-credit DATA, and overflow
+  cases as typed protocol failures. A received `RST_STREAM` on the open stream
+  clears that stream and stores the reset error code so later DATA or
+  stream-level `WINDOW_UPDATE` cannot treat the stream as open. After the
   client preface gate, structurally
   complete unknown extension frame types decode to ordinary `UnknownFrame`
   values that preserve frame type, flags, stream id, payload length, and each
