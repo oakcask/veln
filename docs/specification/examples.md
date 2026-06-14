@@ -216,10 +216,11 @@ preview fields.
 `../../examples/specification/run/binary-schema-packed-reserved-decode/` and
 `../../examples/specification/run/binary-schema-packed-reserved-json/` pin the
 one-byte packed reserved-bit decode slice. The valid case decodes high
-reserved bits plus a low visible `UInt5` field from one byte, omits the
-reserved field from the decoded record, and then reads the following field at
-the next byte. The failing case asserts `schema.reserved_bits_mismatch` for
-the packed reserved field. The checked diagnostics case
+`ReservedBits(width, value)` prefixes for widths one through seven plus the
+visible `UIntN` field that completes each byte, omits the reserved field from
+the decoded record, and then reads the following field at the next byte. The
+failing case asserts `schema.reserved_bits_mismatch` for the packed reserved
+field. The checked diagnostics case
 `../../examples/specification/check/schema-packed-reserved-mapping-diagnostics/`
 asserts that the packed reserved field is not available as a structural
 mapping source field.
@@ -305,9 +306,9 @@ pins byte-aligned reserved-bit encode: the helper omits the reserved field
 from the source value record and writes the declared fixed bytes in
 declaration order.
 `../../examples/specification/run/binary-schema-packed-reserved-encode/` pins
-one-byte packed reserved-bit encode: the helper writes high reserved bits from
-the declaration and low visible bits from the source value record in one
-byte.
+one-byte packed reserved-bit encode for widths one through seven: the helper
+writes high reserved bits from the declaration and low visible bits from the
+source value record in one byte.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-encode/`
 pins the closed dispatch encode helper slice. The passing cases select
