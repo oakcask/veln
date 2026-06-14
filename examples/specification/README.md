@@ -481,6 +481,8 @@ against the built `veln` binary.
   standalone `UInt1` through `UInt7` visible fields from one byte each, expose
   the declared low bits as mapped `Int` values, and keep decode-step plus
   derived decode codec boundaries eligible.
+- `run/binary-schema-sub-byte-decode-human/`: the same standalone sub-byte
+  decode value projection is pinned in human command output.
 - `run/binary-schema-sub-byte-truncated-json/`: standalone sub-byte decode
   reports `schema.truncated_field` through JSON run output when the next
   one-byte field is missing.
@@ -494,9 +496,13 @@ against the built `veln` binary.
   standalone `UInt1` through `UInt7` visible fields as one byte each with the
   value in the declared low bits and keep derived encode codec boundaries
   eligible.
+- `run/binary-schema-sub-byte-encode-human/`: the same standalone sub-byte
+  encode output chunk is pinned in human command output.
 - `run/binary-schema-sub-byte-encode-out-of-range/`: standalone sub-byte
   encode reports `codec.encode_value_unrepresentable` when the `Int` value
   exceeds the declared low-bit range.
+- `run/binary-schema-sub-byte-encode-out-of-range-human/`: the same
+  standalone sub-byte encode range failure is pinned in human command output.
 - `run/binary-schema-primitive-encode-out-of-range/`: the same encode helper
   slice returns a structured `EncodeError` with
   `codec.encode_value_unrepresentable`, schema field path, and primitive range

@@ -85,6 +85,7 @@ execution reference.
   `map to` runtime mappings, and uses the same `schema.truncated_field`
   diagnostic shape as other exact-width primitives. The checked examples are
   `examples/specification/run/binary-schema-sub-byte-decode/`,
+  `examples/specification/run/binary-schema-sub-byte-decode-human/`,
   `examples/specification/run/binary-schema-sub-byte-truncated-json/`, and
   `examples/specification/run/binary-schema-sub-byte-truncated-human/`.
 - Generated binary schema decode helpers support opt-in `Flag8` fields as
@@ -299,7 +300,9 @@ execution reference.
   execution for unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-sub-byte-encode/`,
+  `examples/specification/run/binary-schema-sub-byte-encode-human/`,
   `examples/specification/run/binary-schema-sub-byte-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-sub-byte-encode-out-of-range-human/`,
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-encode/`,
