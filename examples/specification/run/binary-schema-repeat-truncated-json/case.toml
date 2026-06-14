@@ -20,7 +20,7 @@ equals = "result"
 
 [[json_assert]]
 path = "error.details.value"
-equals = "truncated schema field `items` at byte offset 6"
+equals = "truncated schema field `items` at byte offset 2"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.id"
@@ -28,11 +28,11 @@ equals = "schema.truncated_field"
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.byte_offset.value"
-equals = 6
+equals = 2
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.field_path"
-equals = [{"kind":"schema","name":"CountedValues"},{"kind":"field","name":"items"},{"kind":"index","name":"2"}]
+equals = [{"kind":"schema","name":"CountedValues"},{"kind":"field","name":"items"},{"kind":"index","name":"0"}]
 
 [[json_assert]]
 path = "error.details.byte_diagnostic.expected_count"

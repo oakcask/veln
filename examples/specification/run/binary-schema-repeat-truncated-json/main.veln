@@ -8,9 +8,9 @@ schema CountedValues
 end
 
 pub fn main() -> Result<{count: Int, items: List<Int>}, String>
-	let bytes: ByteChunk = byte_chunk_from_hex("0300010002ff")?
+	let bytes: ByteChunk = byte_chunk_from_hex("0300")?
 	let offset: ByteOffset = byte_offset(0)?
-	let count: ByteCount = byte_count(6)?
+	let count: ByteCount = byte_count(2)?
 	let view: ByteView = byte_view(bytes, offset, count)?
 	byte_decode_counted_values(view)
 end

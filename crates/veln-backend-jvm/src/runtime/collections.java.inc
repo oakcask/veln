@@ -2598,8 +2598,8 @@
                             + "`"
                     );
                 }
-                Object repeated = listNil();
-                for (long elementIndex = repeatCount.longValue() - 1L; elementIndex >= 0L; elementIndex -= 1L) {
+                java.util.ArrayList<Object> elements = new java.util.ArrayList<Object>();
+                for (long elementIndex = 0L; elementIndex < repeatCount.longValue(); elementIndex += 1L) {
                     long elementOffset = relativeOffset + elementIndex * field.repeat.width;
                     Object read = schemaReadUnsignedWithBasePath(
                         view,
@@ -2615,7 +2615,11 @@
                     if (isErr(read)) {
                         return read;
                     }
-                    repeated = listCons(Long.valueOf(asLong(unwrapOk(read))), repeated);
+                    elements.add(Long.valueOf(asLong(unwrapOk(read))));
+                }
+                Object repeated = listNil();
+                for (int elementIndex = elements.size() - 1; elementIndex >= 0; elementIndex -= 1) {
+                    repeated = listCons(elements.get(elementIndex), repeated);
                 }
                 decoded.put(field.name, Long.valueOf(0L));
                 values.put(field.name, repeated);
