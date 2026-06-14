@@ -238,7 +238,10 @@ Wrong-length protocol payloads use id
 HTTP/2 examples cover the SETTINGS ACK expected-zero-length failure, PING
 fixed-length failure, PRIORITY fixed-length failure, GOAWAY fixed-prefix
 length failure, `RST_STREAM` fixed-length failure, and `WINDOW_UPDATE`
-fixed-length failure. A PRIORITY frame whose dependency stream id is its own
+fixed-length failure. A SETTINGS ACK received while no local SETTINGS batch is
+outstanding uses id `http2.protocol.unexpected_settings_ack` and records
+`byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`, `active_state`,
+and `rule_provenance`. A PRIORITY frame whose dependency stream id is its own
 stream id uses id `http2.protocol.invalid_priority_dependency` and records
 `byte_offset.value`, `frame_kind`, `stream_id`, `stream_ref`,
 `dependency_stream_id`, `active_state`, and `rule_provenance`.

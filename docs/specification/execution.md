@@ -363,7 +363,7 @@ execution reference.
   undecoded suffix bytes, the next absolute byte offset, client connection
   preface state, continuation state with accumulated opaque header-block
   bytes, the active local receive-limit entry, peer-advertised SETTINGS state,
-  and graceful shutdown state. It validates the
+  outstanding local SETTINGS state, and graceful shutdown state. It validates the
   client connection preface before frame-header decode and represents partial
   or mismatched prefaces, closed-input truncation, continuation ordering
   failures for different frame kinds and stream ids, closed input while a
@@ -380,7 +380,9 @@ execution reference.
   `SETTINGS_INITIAL_WINDOW_SIZE` values outside their accepted SETTINGS
   ranges, HPACK fixture-codec calls at the completed HEADERS or CONTINUATION
   header-block boundary, local header-list receive-limit checks after fixture
-  decoding, zero-length SETTINGS ACK frames,
+  decoding, zero-length SETTINGS ACK frames that clear outstanding local
+  SETTINGS state,
+  zero-length SETTINGS ACK frames with no outstanding local SETTINGS state,
   wrong-length SETTINGS ACK payloads,
   stream id domain failures, invalid stream-state frame kinds, wrong-length
   PING, PRIORITY, GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction,
@@ -456,6 +458,14 @@ execution reference.
   immutable nine-byte output chunk with length `0`, kind `4`, flags `1`, and
   stream id `0`. That send intent only constructs the output chunk; it does
   not update peer-advertised SETTINGS state or local receive-limit state.
+- The same example also covers the narrow local SETTINGS send-intent and ACK
+  tracking slice. Ordinary source constructs one SETTINGS item for
+  `SETTINGS_MAX_FRAME_SIZE`, emits a frame-header-plus-item output chunk, and
+  records one outstanding local SETTINGS batch in connection state. A valid
+  received SETTINGS ACK clears that outstanding state. A valid received
+  SETTINGS ACK when no local SETTINGS batch is outstanding fails as
+  `http2.protocol.unexpected_settings_ack` with active state and rule
+  provenance in related context.
 - The same HTTP/2 protocol-core example also covers the narrow outbound PING
   ACK send-intent. After a valid inbound non-ACK PING frame, ordinary source
   reuses the frame-header encode path to construct exactly one immutable

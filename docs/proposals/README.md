@@ -80,7 +80,8 @@ compare it with `../specification/` before changing behavior.
   provenance, peer-received SETTINGS state for enable push, maximum frame size,
   maximum concurrent streams, initial window size, header table size, and
   maximum header list size, unknown SETTINGS identifier handling, SETTINGS
-  value range diagnostic slice, SETTINGS ACK receive slice, invalid
+  value range diagnostic slice, SETTINGS ACK receive and outstanding-local
+  SETTINGS tracking slice, invalid
   frame-kind diagnostic slice, HEADERS/CONTINUATION opaque header-block
   preservation slice, HPACK fixture codec boundary slice,
   unknown extension-frame preservation slice, PING/GOAWAY

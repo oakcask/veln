@@ -735,8 +735,12 @@ against the built `veln` binary.
   `http2.peer_limit.flow_control_window_exceeded`. After a valid non-ACK
   SETTINGS receive, it also constructs one immutable outbound SETTINGS ACK
   chunk through the frame-header encode path and shows that the send intent
-  leaves peer-advertised SETTINGS state unchanged. After a valid inbound
-  non-ACK PING frame, it constructs one immutable outbound PING ACK chunk
+  leaves peer-advertised SETTINGS state unchanged. It also constructs a local
+  SETTINGS frame-header-plus-item chunk, records one outstanding local
+  SETTINGS batch, clears that outstanding state on a valid received SETTINGS
+  ACK, and rejects an ACK with no outstanding local SETTINGS as
+  `http2.protocol.unexpected_settings_ack`. After a valid inbound non-ACK
+  PING frame, it constructs one immutable outbound PING ACK chunk
   through the frame-header encode path with the original opaque payload, while
   a received PING ACK remains observable and produces no response chunk.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
@@ -841,6 +845,13 @@ against the built `veln` binary.
   payload-length failure reports `http2.protocol.invalid_payload_length`
   through `run --json` with byte offset, frame kind, stream reference,
   observed and expected payload lengths, active state, and rule provenance.
+- `run/http2-protocol-core-settings-unexpected-ack-human/`: a SETTINGS ACK
+  received with no outstanding local SETTINGS reports
+  `http2.protocol.unexpected_settings_ack` through human `run` stderr.
+- `run/http2-protocol-core-settings-unexpected-ack-json/`: the same
+  unexpected SETTINGS ACK reports `http2.protocol.unexpected_settings_ack`
+  through `run --json` with byte offset, frame kind, stream reference, active
+  state, and rule provenance.
 - `run/http2-protocol-core-ping-length-human/`: a wrong-length PING payload
   reports `http2.protocol.invalid_payload_length` through human `run` stderr
   with observed and expected payload length plus protocol state and provenance
