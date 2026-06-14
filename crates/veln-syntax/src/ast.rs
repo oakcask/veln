@@ -58,6 +58,7 @@ pub struct PublicAliasDecl {
 pub enum PublicAliasKind {
     Function,
     Type,
+    Schema,
 }
 
 #[derive(Clone, Debug)]

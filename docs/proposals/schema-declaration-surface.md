@@ -43,6 +43,9 @@ The implemented first slice covers:
 - schema visibility and module ownership rules for `schema` and `pub schema`
 - schema references from codec declaration heads, including same-module bare
   references and imported public schema references through written `use` paths
+- top-level public schema member aliases that re-export existing public
+  schemas through the declaring module's public path and resolve through
+  schema-aware lookup
 - structural schema value mapping clauses with explicit `map to Target`
   headers and `target_field = schema_field` assignments preserved by the
   parser, formatter, lowered AST, and editor token metadata
@@ -77,7 +80,8 @@ This proposal remains open for:
 - general binary primitive execution semantics beyond the implemented narrow
   primitive decode slices
 - schema-aware references from later schema composition, fixture, and
-  documentation surfaces beyond codec declaration heads
+  documentation surfaces beyond codec declaration heads and public schema
+  member aliases
 
 ## Discussion Result: Codec Binding Direction
 
@@ -179,9 +183,21 @@ import schema-local field names as ordinary bindings, expose a generated record
 type, or make any decoder or encoder available. Executable APIs remain owned
 by public codec declarations that explicitly cite the schema.
 
-The implemented surface does not add schema member aliases. Facade modules can
-publish selected executable codecs. Schema aliases remain later proposal work
-with explicit wrong-kind diagnostics if real packages need that API shape.
+The implemented surface also accepts top-level public schema member aliases:
+
+```text
+pub schema PublicPacket = wire::Packet
+```
+
+Schema aliases resolve their targets through schema-aware lookup rather than
+ordinary value or type lookup. A schema alias may publish a public schema from
+an imported module through the declaring module's public path. Codec schema
+references resolve through exported schema aliases wherever they resolve
+public schemas through written module paths. Missing, private, function,
+source ADT type, and codec targets are rejected at the alias declaration.
+Schema aliases do not import schema-local field names, generated helper names,
+codec names, or ordinary source type bindings, and they do not create wrapper
+schemas, new schema identities, or generated codec aliases.
 
 ## Discussion Result: Field Validation Semantics
 

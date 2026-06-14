@@ -3,7 +3,7 @@ exit = 1
 
 [stdout]
 format = "json"
-contains = ["codec schema `app::wire::PrivatePacket` is private", "unresolved codec schema `app::wire::MissingPacket`", "codec schema target `app::wire::make_packet` is a function, not a schema", "codec schema target `app::wire::PacketShape` is a type, not a schema", "codec schema target `app::wire::PacketCodec` is a codec, not a schema", "unresolved codec schema `PublicPacket`", "unresolved codec schema `other::PublicPacket`", "unresolved codec schema `facade::PublicPacket`", "unresolved value `payload`", "expected `Int`, but found `DecodeStep<{payload: Int}>`"]
+contains = ["codec schema `app::wire::PrivatePacket` is private", "unresolved codec schema `app::wire::MissingPacket`", "codec schema target `app::wire::make_packet` is a function, not a schema", "codec schema target `app::wire::PacketShape` is a type, not a schema", "codec schema target `app::wire::PacketCodec` is a codec, not a schema", "unresolved codec schema `PublicPacket`", "unresolved codec schema `other::PublicPacket`", "unresolved schema alias target `app::wire::MissingPacket`", "schema alias target `app::wire::PrivatePacket` is private", "public alias target `app::wire::make_packet` is a function, not a schema", "public alias target `app::wire::PacketShape` is a type, not a schema", "public alias target `app::wire::PacketCodec` is a codec, not a schema", "unresolved value `payload`", "expected `Int`, but found `DecodeStep<{payload: Int}>`"]
 
 [stderr]
 format = "empty"
@@ -58,7 +58,31 @@ message = "unresolved codec schema `other::PublicPacket`"
 id = "name.unresolved"
 severity = "error"
 kind = "name"
-message = "unresolved codec schema `facade::PublicPacket`"
+message = "unresolved schema alias target `app::wire::MissingPacket`"
+
+[[diagnostics]]
+id = "name.visibility"
+severity = "error"
+kind = "name"
+message = "schema alias target `app::wire::PrivatePacket` is private"
+
+[[diagnostics]]
+id = "name.kind_mismatch"
+severity = "error"
+kind = "name"
+message = "public alias target `app::wire::make_packet` is a function, not a schema"
+
+[[diagnostics]]
+id = "name.kind_mismatch"
+severity = "error"
+kind = "name"
+message = "public alias target `app::wire::PacketShape` is a type, not a schema"
+
+[[diagnostics]]
+id = "name.kind_mismatch"
+severity = "error"
+kind = "name"
+message = "public alias target `app::wire::PacketCodec` is a codec, not a schema"
 
 [[diagnostics]]
 id = "name.unresolved"

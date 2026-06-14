@@ -403,21 +403,26 @@ reachability rule. Calls through a function-typed local binding or parameter
 conservatively include visible function declarations with the same argument
 count when surface reachability cannot prove one concrete declaration target.
 
-A public member alias publishes an existing function or source ADT member
-through the declaring module's public path without introducing a wrapper or a
-new type identity:
+A public member alias publishes an existing function, source ADT member, or
+schema member through the declaring module's public path without introducing a
+wrapper, a new type identity, a new schema identity, or a generated codec
+alias:
 
 ```veln
 pub fn parse = impl::parse
 pub type Document = impl::Document
+pub schema Packet = wire::Packet
 ```
 
 The left side is the exported member name. The right side is a member path,
 not an expression, signature, constructor list, or body. `pub fn` aliases
 resolve to function members and `pub type` aliases resolve to source ADT
-members; unresolved or wrong-kind targets are rejected at the alias
-declaration. An alias name shares the corresponding function or type member
-namespace for the declaring module.
+members. `pub schema` aliases resolve through schema-aware lookup to public
+schema members or public schema aliases. Missing, private, function, source
+ADT type, and codec targets are rejected at the alias declaration. A schema
+alias does not import schema-local field names, generated helper names, codec
+names, or ordinary source type bindings. An alias name shares the corresponding
+function, type, or schema member namespace for the declaring module.
 
 `test` is a top-level declaration keyword, not a visibility modifier. Test
 declarations are selected by `veln test` from `*_test.veln` files, explicit

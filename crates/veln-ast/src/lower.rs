@@ -183,6 +183,7 @@ impl AstBuilder {
             kind: match alias.kind {
                 SyntaxPublicAliasKind::Function => PublicAliasKind::Function,
                 SyntaxPublicAliasKind::Type => PublicAliasKind::Type,
+                SyntaxPublicAliasKind::Schema => PublicAliasKind::Schema,
             },
             name: alias.name.clone(),
             target: alias.target.clone(),

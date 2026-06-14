@@ -354,6 +354,7 @@ fn alias_signature(alias: &PublicAliasDecl) -> String {
     let kind = match alias.kind {
         PublicAliasKind::Function => "fn",
         PublicAliasKind::Type => "type",
+        PublicAliasKind::Schema => "schema",
     };
     format!(
         "{kind} {} = {}",

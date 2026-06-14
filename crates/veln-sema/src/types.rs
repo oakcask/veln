@@ -586,31 +586,78 @@ fn codec_referenced_schema<'a>(
     codec: &CodecDecl,
 ) -> Option<&'a SchemaDecl> {
     let schema_name = codec.schema.as_ref()?;
-    let current_module = codec.module_name.as_deref();
     let segments = schema_name
         .split("::")
         .map(str::to_string)
         .collect::<Vec<_>>();
-    match segments.as_slice() {
-        [name] => module.schemas.iter().find(|schema| {
-            schema.name.as_deref() == Some(name.as_str())
-                && schema.module_name.as_deref() == current_module
-        }),
+    schema_reference(
+        module,
+        &segments,
+        codec.module_name.as_deref(),
+        true,
+        &mut Vec::new(),
+    )
+}
+
+fn schema_reference<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+    allow_private_local_schema: bool,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+) -> Option<&'a SchemaDecl> {
+    match segments {
+        [name] => schema_in_module(
+            module,
+            current_module,
+            name,
+            allow_private_local_schema,
+            visited_aliases,
+        ),
         [_, .., name] => {
             let use_decl = imported_use_for_path(
                 &module.uses,
                 &segments[..segments.len() - 1],
                 current_module,
             )?;
-            let target_module = Some(use_decl.name.as_str());
-            module.schemas.iter().find(|schema| {
-                schema.name.as_deref() == Some(name.as_str())
-                    && schema.module_name.as_deref() == target_module
-                    && schema.visibility == Visibility::Public
-            })
+            schema_in_module(module, Some(&use_decl.name), name, false, visited_aliases)
         }
         _ => None,
     }
+}
+
+fn schema_in_module<'a>(
+    module: &'a SurfaceModule,
+    module_name: Option<&str>,
+    name: &str,
+    allow_private_schema: bool,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+) -> Option<&'a SchemaDecl> {
+    if let Some(schema) = module.schemas.iter().find(|schema| {
+        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == module_name
+    }) {
+        return (allow_private_schema || schema.visibility == Visibility::Public).then_some(schema);
+    }
+    let alias = module.aliases.iter().find(|alias| {
+        alias.kind == PublicAliasKind::Schema
+            && alias.name.as_deref() == Some(name)
+            && alias.module_name.as_deref() == module_name
+    })?;
+    let alias_name = alias.name.as_ref()?;
+    let key = (alias.module_name.clone(), alias_name.clone());
+    if visited_aliases.contains(&key) {
+        return None;
+    }
+    visited_aliases.push(key);
+    let schema = schema_reference(
+        module,
+        &alias.target,
+        alias.module_name.as_deref(),
+        false,
+        visited_aliases,
+    );
+    visited_aliases.pop();
+    schema
 }
 
 fn schema_decode_function_signatures(module: &SurfaceModule) -> Vec<FunctionSignature> {

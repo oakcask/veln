@@ -106,7 +106,7 @@ grammar_line(107, "CodecDirections ::= CodecDirection+").
 grammar_line(107, "CodecDirection ::= \"decode\" | \"encode\"").
 grammar_line(107, "CodecImplementation ::= \"derive\" CodecDirection NL").
 grammar_line(107, "                  | CodecDirection \"with\" Name NL").
-grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\") Name \"=\" MemberPath NL").
+grammar_line(108, "PublicAlias   ::= \"pub\" (\"fn\" | \"type\" | \"schema\") Name \"=\" MemberPath NL").
 grammar_line(110, "TypeParamList ::= \"<\" Name (\",\" Name)* \",\"? \">\"").
 grammar_line(120, "TypeVariant   ::= \"pub\"? UpperName TypeVariantFields? NL").
 grammar_line(130, "TypeVariantFields ::= \"(\" TypeVariantField (\",\" TypeVariantField)* \",\"? \")\"").
@@ -463,6 +463,7 @@ public_alias -->
 
 alias_kind --> tok(fn).
 alias_kind --> tok(type).
+alias_kind --> tok(schema).
 
 type_params_opt --> tok(less), ident_list_opt, tok(greater), !.
 type_params_opt --> [].

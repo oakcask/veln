@@ -60,6 +60,7 @@ pub struct PublicAlias {
 pub enum PublicAliasKind {
     Function,
     Type,
+    Schema,
 }
 
 #[derive(Clone, Debug)]
