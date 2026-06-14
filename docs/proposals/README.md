@@ -88,7 +88,8 @@ compare it with `../specification/` before changing behavior.
   value range diagnostic slice, SETTINGS ACK receive and outstanding-local
   SETTINGS tracking slice, invalid
   frame-kind diagnostic slice, HEADERS/CONTINUATION opaque header-block
-  preservation slice, HPACK fixture codec boundary slice,
+  preservation slice, HPACK fixture codec boundary slice including the static
+  indexed `:method: GET` byte,
   unknown extension-frame preservation slice, PING/GOAWAY
   receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
   peer-created stream admission with concurrent-stream receive-limit

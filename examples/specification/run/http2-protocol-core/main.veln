@@ -3764,6 +3764,10 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	print_step("header-list-accepted", header_list_accepted)
 	let ignored_header_list_accepted: () = emit_header_block("http2-header-list-accepted", header_list_accepted, "0102030405060708")?
 	print_hpack_transition("header-list-accepted", header_list_accepted)
+	let hpack_static_indexed_method: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000101040000000182")?), state)?
+	print_step("hpack-static-indexed-method", hpack_static_indexed_method)
+	let ignored_hpack_static_indexed_method: () = emit_header_block("http2-hpack-static-indexed-method", hpack_static_indexed_method, "82")?
+	print_hpack_transition("hpack-static-indexed-method", hpack_static_indexed_method)
 	let header_list_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000010102030405")?), state)?
 	print_step("header-list-start", header_list_start)
 	let header_list_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005090400000001060708090a")?), step_state(header_list_start))?

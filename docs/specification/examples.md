@@ -577,6 +577,11 @@ SETTINGS ACK clears outstanding local SETTINGS state; an ACK with no
 outstanding local SETTINGS is a typed protocol failure. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
 completed accumulated header-block bytes in observable example output.
+The same HPACK fixture boundary accepts the static indexed `:method: GET`
+header-block byte in a completed HEADERS frame, exposes the decoded header
+name and value through ordinary header-list accessors, advances the immutable
+fixture state, and keeps unsupported HPACK input on
+`hpack.fixture.unsupported_header_block`.
 The outbound DATA send-intent slice keeps outbound connection and stream
 credit separate from inbound receive windows. It accepts a DATA intent within
 the peer-advertised maximum frame size and available outbound connection and
