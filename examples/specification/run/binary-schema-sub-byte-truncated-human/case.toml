@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[schema.truncated_field]: truncated schema field at byte offset 2", "note: pending readiness is `need_bytes` because input is closed.", "note: Schema field expected 1 byte(s); 0 byte(s) were available.", "note: Nearby bytes: 01 06 (showing 2 of 2 byte(s), complete).", "note: Field path: schema `SubByteWire` / field `seven_bits`."]

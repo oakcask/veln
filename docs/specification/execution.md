@@ -79,6 +79,14 @@ execution reference.
   ordinary `Int` fields, preserve structural `map to` runtime mappings, and
   use the same truncation diagnostic shape as the other exact-width
   primitives.
+- Generated binary schema decode helpers support standalone visible `UInt1`
+  through `UInt7` fields. Each field consumes one byte, exposes the declared
+  low bits as an ordinary `Int`, advances by one byte, preserves structural
+  `map to` runtime mappings, and uses the same `schema.truncated_field`
+  diagnostic shape as other exact-width primitives. The checked examples are
+  `examples/specification/run/binary-schema-sub-byte-decode/`,
+  `examples/specification/run/binary-schema-sub-byte-truncated-json/`, and
+  `examples/specification/run/binary-schema-sub-byte-truncated-human/`.
 - Generated binary schema decode helpers support opt-in `Flag8` fields as
   one-byte visible flag bitsets. They consume the same byte width and
   truncation behavior as `UInt8`, but the decoded record field is the
@@ -198,13 +206,15 @@ execution reference.
   field argument before assigning the returned value to the target field.
   Mapping assignment targets must name target fields, and every target field
   must be assigned once before execution. The implemented mapped decoded field
-  types are exact-width unsigned primitive fields as `Int`, length-bounded
-  `ByteView(length_field)` payload fields as `ByteView`, closed nested
-  dispatch payload fields as the nested schema record shape, and extension
-  dispatch payload fields as `SchemaDispatchPayload<T>`. Mapping expressions
-  cannot call imported converter functions, arbitrary ordinary functions, read
-  runtime settings, inspect stream state, recover from decode failures, or
-  perform effects. The checked examples are
+  types are exact-width unsigned primitive fields, including standalone
+  `UInt1` through `UInt7`, as `Int`; length-bounded `ByteView(length_field)`
+  payload fields as `ByteView`; closed nested dispatch payload fields as the
+  nested schema record shape; and extension dispatch payload fields as
+  `SchemaDispatchPayload<T>`. Mapping expressions cannot call imported
+  converter functions, arbitrary ordinary functions, read runtime settings,
+  inspect stream state, recover from decode failures, or perform effects. The
+  checked examples are
+  `examples/specification/run/binary-schema-sub-byte-decode/`,
   `examples/specification/run/binary-schema-mapped-record-decode/`,
   `examples/specification/run/binary-schema-mapped-byteview-decode/`,
   `examples/specification/run/binary-schema-mapped-record-expression-decode/`,
@@ -275,7 +285,9 @@ execution reference.
   `ByteChunk`, using each primitive's declared byte order, and returns
   `Result<ByteChunk, EncodeError>`. `UInt16le`, `UInt24le`, and `UInt32le`
   emit little-endian bytes and use the same representability boundaries as
-  their matching unsigned widths. Values outside the primitive range return
+  their matching unsigned widths. Standalone visible `UInt1` through `UInt7`
+  fields emit one byte with the value in the declared low bits. Values outside
+  the primitive range return
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))`; nested schema encode failures keep the nested schema field path.
   `UInt31be` uses the 31-bit maximum even though it occupies four bytes.
@@ -286,6 +298,8 @@ execution reference.
   dispatch payload schemas, nested mappings, and derived codec encode
   execution for unsupported schemas.
   The checked examples are
+  `examples/specification/run/binary-schema-sub-byte-encode/`,
+  `examples/specification/run/binary-schema-sub-byte-encode-out-of-range/`,
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-encode/`,

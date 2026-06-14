@@ -172,7 +172,8 @@ executable.
 
 The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose
-fields are visible exact-width unsigned primitives, plus the supported
+fields are visible exact-width unsigned primitives, including standalone
+`UInt1` through `UInt7` fields that consume one byte each, plus the supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, supported one-byte packed
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight

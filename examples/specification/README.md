@@ -477,10 +477,26 @@ against the built `veln` binary.
 - `run/binary-schema-mapped-nested-dispatch-decode/`: a generated binary
   schema decode helper maps a closed nested dispatch payload record into an
   outer target record field.
+- `run/binary-schema-sub-byte-decode/`: generated schema decode helpers read
+  standalone `UInt1` through `UInt7` visible fields from one byte each, expose
+  the declared low bits as mapped `Int` values, and keep decode-step plus
+  derived decode codec boundaries eligible.
+- `run/binary-schema-sub-byte-truncated-json/`: standalone sub-byte decode
+  reports `schema.truncated_field` through JSON run output when the next
+  one-byte field is missing.
+- `run/binary-schema-sub-byte-truncated-human/`: the same standalone
+  sub-byte truncation projects the focused human diagnostic shape.
 - `run/binary-schema-primitive-encode/`: a generated binary schema encode
   helper writes visible exact-width unsigned primitive `Int` fields in
   declaration order and checks complete lowercase hex output for one
   `ByteChunk`.
+- `run/binary-schema-sub-byte-encode/`: generated schema encode helpers write
+  standalone `UInt1` through `UInt7` visible fields as one byte each with the
+  value in the declared low bits and keep derived encode codec boundaries
+  eligible.
+- `run/binary-schema-sub-byte-encode-out-of-range/`: standalone sub-byte
+  encode reports `codec.encode_value_unrepresentable` when the `Int` value
+  exceeds the declared low-bit range.
 - `run/binary-schema-primitive-encode-out-of-range/`: the same encode helper
   slice returns a structured `EncodeError` with
   `codec.encode_value_unrepresentable`, schema field path, and primitive range

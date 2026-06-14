@@ -1,0 +1,60 @@
+# Standalone sub-byte fields encode as one byte each with low-bit values.
+use stdio
+
+schema SubByteWrite
+	format binary
+
+	one_bit: UInt1
+	three_bits: UInt3
+	seven_bits: UInt7
+end
+
+codec SubByteWriteCodec for SubByteWrite encode
+	derive encode
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, bytes, expected_hex)
+end
+
+fn emit_result(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded("sub-byte-write", bytes, "01067f")
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+fn step_kind(step: EncodeStep<()>) -> String
+	match step
+		Encoded(_) => "encoded"
+		Partial(_, _, _) => "partial"
+		Invalid(_) => "invalid"
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_sub_byte_write({one_bit: 1, three_bits: 6, seven_bits: 127})
+	emit_result(encoded)
+
+	let stepped: EncodeStep<()> = SubByteWriteCodec({one_bit: 1, three_bits: 6, seven_bits: 127})
+	stdio::println(step_kind(stepped))
+end

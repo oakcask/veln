@@ -139,6 +139,11 @@ be followed by the visible `UIntN` primitive whose width completes the byte.
 The helper validates the high reserved bits, decodes the low visible bits as
 an ordinary `Int`, omits the reserved field from decoded records and mapping
 source values, and advances by one byte for the pair.
+Generated binary schema decode helpers also support standalone visible
+`UInt1` through `UInt7` fields. Each field consumes one byte, exposes the
+declared low bits as an ordinary `Int`, advances by one byte, preserves
+structural `map to` runtime mappings, and uses the same truncation diagnostic
+shape as other exact-width primitives.
 Generated binary schema decode helpers also treat a field-local equality
 predicate of the form `field == literal` or `literal == field` as a visible
 schema-owned fixed field when the literal fits the field's external integer
@@ -277,7 +282,9 @@ The helper writes fields in declaration order into one immutable `ByteChunk`,
 using each primitive's declared byte order, and returns
 `Result<ByteChunk, EncodeError>`. `UInt16le`, `UInt24le`, and `UInt32le` emit
 little-endian bytes and use the same representability boundaries as their
-matching unsigned widths. Values outside the primitive range return
+matching unsigned widths. Standalone visible `UInt1` through `UInt7` fields
+emit one byte with the value in the declared low bits. Values outside the
+primitive range return
 `Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`;
 nested schema encode failures keep the nested schema field path. `UInt31be`
 uses the 31-bit maximum even though it occupies four bytes.

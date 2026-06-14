@@ -27,7 +27,11 @@ followed by the visible `UIntN` primitive that completes the byte. The helpers
 validate the high reserved bits, decode or encode the low visible bits from
 the ordinary record field, omit the reserved field from decoded records and
 mapping source values, and report the same reserved-bit mismatch diagnostic
-shape. The
+shape. Generated schema helpers also decode and encode standalone visible
+`UInt1` through `UInt7` fields as one byte each, expose the declared low bits
+as ordinary `Int` values, preserve structural mapping and generated
+decode-step and derived codec eligibility, and report existing truncation and
+`codec.encode_value_unrepresentable` range-failure shapes. The
 generated helper slice also treats visible exact-width fields with a
 field-local equality predicate such as `field == literal` as schema-owned
 fixed fields, leaves matching values visible in the decoded result, and
@@ -111,7 +115,7 @@ dispatch payload decode, and imported nested dispatch payload encode slices
 for:
 
 - executable exact-width unsigned field reads and writes beyond the
-  implemented narrow primitive decode slices
+  implemented primitive helper slices
 - endian-aware field reads and writes
 - reserved-bit forms beyond the implemented byte-aligned representation-only
   fields, one-byte packed reserved prefixes, and `ReservedBits(1, 0)` plus
@@ -171,7 +175,12 @@ accepts byte-aligned `ReservedBits(width, value)` fields, omits the reserved
 field from the encoder value record, and writes the declared fixed value. It
 also accepts `ReservedBits(1, 0)` immediately before `UInt31be` and writes
 the required zero high bit in the shared four-byte stream identifier
-position. The implemented
+position. The implemented standalone sub-byte primitive slice consumes
+`UInt1` through `UInt7` visible fields from one byte each, masks the declared
+low bits into ordinary `Int` values, emits one byte per field from accepted
+`Int` values, preserves structural mapping and generated decode-step and
+derived codec eligibility, and reports existing truncation and
+`codec.encode_value_unrepresentable` range-failure shapes. The implemented
 closed-dispatch primitive encode slice accepts an earlier visible exact-width
 unsigned tag field and exact-width unsigned primitive payload cases, chooses
 the payload case from the encoded tag value, and reports structured

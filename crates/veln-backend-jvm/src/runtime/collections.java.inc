@@ -2383,19 +2383,23 @@
                 | byteValueLong(bytes.get((int) storageBaseOffset + relativeOffset + byteIndex));
         }
         if (value > maxValue) {
-            long byteOffset = diagnosticBaseOffset + relativeOffset;
-            String message = "schema integer out of range at byte offset " + byteOffset;
-            registerSchemaIntegerOutOfRangePathDiagnostic(
-                message,
-                byteOffset,
-                fieldPath,
-                width,
-                0L,
-                maxValue,
-                value,
-                byteViewPreviewTrace(view, 8)
-            );
-            return err(message);
+            if (width == 1 && maxValue < 0xffL) {
+                value = value & maxValue;
+            } else {
+                long byteOffset = diagnosticBaseOffset + relativeOffset;
+                String message = "schema integer out of range at byte offset " + byteOffset;
+                registerSchemaIntegerOutOfRangePathDiagnostic(
+                    message,
+                    byteOffset,
+                    fieldPath,
+                    width,
+                    0L,
+                    maxValue,
+                    value,
+                    byteViewPreviewTrace(view, 8)
+                );
+                return err(message);
+            }
         }
         return ok(Long.valueOf(value));
     }

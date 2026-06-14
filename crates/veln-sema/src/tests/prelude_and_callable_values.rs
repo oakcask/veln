@@ -480,14 +480,33 @@ fn generated_schema_helpers_accept_all_one_byte_packed_reserved_widths() {
 }
 
 #[test]
-fn generated_schema_helpers_require_reserved_prefix_for_sub_byte_primitives() {
+fn generated_schema_helpers_accept_standalone_sub_byte_primitives() {
     let source = SourceFile::new(
         "main.veln",
         concat!(
+            "type BitRecord\n",
+            "  BitRecord {one: Int, five: Int, seven: Int}\n",
+            "end\n",
+            "\n",
             "schema LooseBits\n",
             "  format binary\n",
             "\n",
-            "  control: UInt5\n",
+            "  first: UInt1\n",
+            "  middle: UInt5\n",
+            "  last: UInt7\n",
+            "\n",
+            "  map to BitRecord\n",
+            "    one = first\n",
+            "    five = middle\n",
+            "    seven = last\n",
+            "end\n",
+            "\n",
+            "codec LooseCodec for LooseBits decode\n",
+            "  derive decode\n",
+            "end\n",
+            "\n",
+            "pub fn read_bits(view: ByteView, base: ByteOffset) -> DecodeStep<{one: Int, five: Int, seven: Int}>\n",
+            "  LooseCodec(view, base)\n",
             "end\n",
         ),
     );
@@ -498,11 +517,16 @@ fn generated_schema_helpers_require_reserved_prefix_for_sub_byte_primitives() {
 
     assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
     let ir = lowered.ir.expect("typed IR should be built");
-    assert!(
-        ir.schema_decoders
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "LooseBits");
+    assert_eq!(
+        schema
+            .fields
             .iter()
-            .all(|schema| schema.schema_name != "LooseBits"),
-        "sub-byte visible fields should require a matching reserved prefix"
+            .map(|field| (field.name.as_str(), field.width, field.max_value))
+            .collect::<Vec<_>>(),
+        vec![("first", 1, 0x1), ("middle", 1, 0x1f), ("last", 1, 0x7f)]
     );
 }
 
