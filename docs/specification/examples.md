@@ -148,8 +148,10 @@ The executable specification case
 `../../examples/specification/run/codec-encode-boundary/` covers a
 hand-written codec encode boundary: a codec item call passes the mapped record
 value and ordinary encoder parameters to the referenced encoder and observes
-its returned `Encoded` and `Invalid(EncodeError)` `EncodeStep<TState>` values
-unchanged.
+its returned `Encoded`, `Partial`, and `Invalid(EncodeError)`
+`EncodeStep<TState>` values unchanged. The partial path keeps the emitted
+chunk list, produced `ByteCount`, and resumed encoder state source-visible,
+then uses the returned state to complete a later encode call.
 The executable specification case
 `../../examples/specification/run/derived-codec-encode-boundary/` covers a
 derived codec encode boundary for the eligible generated binary schema encode
