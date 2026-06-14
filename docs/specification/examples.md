@@ -655,6 +655,14 @@ stream windows, then consumes both outbound credits by payload length. It
 rejects DATA intents that exceed the received `SETTINGS_MAX_FRAME_SIZE`, the
 available outbound connection credit, or the peer-advertised stream credit
 derived from received `SETTINGS_INITIAL_WINDOW_SIZE`.
+The local SETTINGS send-intent slice emits exactly one SETTINGS item per
+intent for either `SETTINGS_MAX_FRAME_SIZE` or
+`SETTINGS_MAX_HEADER_LIST_SIZE`. Each accepted intent emits a
+frame-header-plus-item chunk with length `6`, kind `4`, flags `0`, stream id
+`0`, the selected setting identifier, and the selected four-byte unsigned
+value, then records one outstanding local SETTINGS batch. A valid SETTINGS ACK
+clears that outstanding state, and an ACK with no outstanding local SETTINGS
+stays on the typed unexpected-ACK failure path.
 The outbound PING ACK send-intent slice accepts a valid inbound non-ACK PING,
 emits one frame-header plus opaque-payload output chunk with length `8`, kind
 `6`, ACK flag `1`, and stream id `0`, and preserves the original eight-byte
@@ -685,10 +693,12 @@ count, expected and actual preface byte, and rule provenance.
 The same case also pins outbound frame header encoding from an ordinary
 record-shaped frame description through the generated binary schema encode
 helper. The checked `[[output_chunk_list]]` fixtures cover a SETTINGS header
-on the connection stream, a DATA header on a nonzero stream, a local SETTINGS
-frame-header-plus-item chunk, an accepted `RST_STREAM` frame plus error-code
-payload, an accepted GOAWAY frame plus last-stream-id and error-code payload,
-and the maximum valid `UInt31be` stream id. The source output also matches generated helper
+on the connection stream, a DATA header on a nonzero stream, local SETTINGS
+frame-header-plus-item chunks for `SETTINGS_MAX_FRAME_SIZE` and
+`SETTINGS_MAX_HEADER_LIST_SIZE`, an accepted `RST_STREAM` frame plus
+error-code payload, an accepted GOAWAY frame plus last-stream-id and
+error-code payload, and the maximum valid `UInt31be` stream id. The source
+output also matches generated helper
 `codec.encode_value_unrepresentable` failure for an out-of-range stream id,
 keeping field path and reason text visible without converting it into a
 protocol diagnostic.

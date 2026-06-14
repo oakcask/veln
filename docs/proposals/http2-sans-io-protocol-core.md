@@ -23,8 +23,7 @@ ordinary-source decode-state slices. Planned coverage still includes:
   maximum-frame-size, maximum-concurrent-streams, initial-window-size,
   header-table-size, and maximum-header-list-size peer-advertised state,
   unknown-identifier handling, SETTINGS ACK receive and outstanding-local
-  SETTINGS tracking, the local SETTINGS send-intent for one max-frame-size
-  item, and the narrow outbound SETTINGS ACK send-intent slice
+  SETTINGS tracking, and the narrow outbound SETTINGS ACK send-intent slice
 - remaining DATA behavior beyond the implemented receive-window accounting
   and inbound `END_STREAM` closed-by-peer lifecycle
 - typed protocol errors for the remaining frame and stream rules
@@ -289,9 +288,14 @@ It accepts zero-length SETTINGS ACK frames on the connection stream without
 updating peer-advertised SETTINGS state, rejects nonzero-length SETTINGS ACK
 frames as `http2.protocol.invalid_payload_length`, and keeps SETTINGS ACK on
 nonzero streams on the existing `http2.protocol.invalid_stream_id` path.
-It also records one outstanding local SETTINGS batch when the fixture emits a
-local SETTINGS item, clears that state when a valid SETTINGS ACK arrives, and
-rejects a valid SETTINGS ACK with no outstanding local SETTINGS as
+It also records one outstanding local SETTINGS batch when the fixture emits
+one local `SETTINGS_MAX_FRAME_SIZE` item or one local
+`SETTINGS_MAX_HEADER_LIST_SIZE` item, preserving the sent identifier and item
+count. Both local SETTINGS send-intents emit a single frame-header-plus-item
+chunk with length `6`, kind `4`, flags `0`, stream id `0`, the selected
+identifier, and the selected four-byte unsigned value. A valid SETTINGS ACK
+clears that state, and a valid SETTINGS ACK with no outstanding local
+SETTINGS is rejected as
 `http2.protocol.unexpected_settings_ack` in ordinary output, human diagnostics,
 and JSON details.
 It also accepts structurally complete unknown extension frames after the
