@@ -374,6 +374,12 @@ execution reference.
   helper's range returns
   `EncodeError("codec.encode_value_unrepresentable", field_path, reason)`
   without adding an HTTP/2-specific diagnostic.
+- The same HTTP/2 protocol-core example also covers the narrow outbound
+  SETTINGS ACK send-intent. After a valid non-ACK SETTINGS receive, ordinary
+  source reuses the frame-header encode path to construct exactly one
+  immutable nine-byte output chunk with length `0`, kind `4`, flags `1`, and
+  stream id `0`. That send intent only constructs the output chunk; it does
+  not update peer-advertised SETTINGS state or local receive-limit state.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior

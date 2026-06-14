@@ -878,6 +878,10 @@ fn send_data(length: Int, stream_id: Int, peer_settings: PeerSettingsState, outb
 	end
 end
 
+fn send_settings_ack() -> Result<ByteChunk, EncodeError>
+	encode_frame_header({length: 0, kind: 4, flags: 1, stream_id: 0})
+end
+
 fn consume_outbound_data_window(length: Int, stream_id: Int, outbound_flow_control: OutboundFlowControl) -> OutboundDataDecision
 	match outbound_flow_control
 		OutboundFlowControl(connection_window, NoOutboundOpenStreamWindow) => OutboundDataStreamWindowRejected(stream_id, length, 0)
@@ -2723,6 +2727,8 @@ fn print_outbound_data_cases() -> Result<(), String> effects [stdio]
 	let outbound_peer_limits: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000c040000000000000500008000000400000003")?), frame_state())?
 	print_step("outbound-peer-limits", outbound_peer_limits)
 	print_peer_settings("outbound-peer-limits", step_state(outbound_peer_limits))
+	let ignored_settings_ack_intent: () = print_encoded_header("http2-settings-ack", send_settings_ack(), "000000040100000000")?
+	print_peer_settings("outbound-settings-ack-intent-state", step_state(outbound_peer_limits))
 	let outbound_peer_settings: PeerSettingsState = state_peer_settings(step_state(outbound_peer_limits))
 	let outbound_initial: OutboundFlowControl = default_outbound_flow_control(outbound_peer_settings, 1)
 	let outbound_data_accepted: OutboundDataDecision = send_data(2, 1, outbound_peer_settings, outbound_initial)
