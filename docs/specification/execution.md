@@ -84,6 +84,13 @@ execution reference.
   the decoded value and structural mapping source values, and reports
   `schema.truncated_field` or `schema.reserved_bits_mismatch` at the reserved
   field path when the input is short or the fixed value differs.
+- Generated binary schema decode helpers also support one-byte packed
+  reserved prefixes: `ReservedBits(width, value)` where `width` is one
+  through seven may be followed by the visible `UIntN` primitive whose width
+  completes the byte. The helper validates the high reserved bits, decodes
+  the low visible bits as an ordinary `Int`, omits the reserved field from
+  decoded records and mapping source values, and advances by one byte for the
+  pair.
 - Exact-width generated binary schema decode helpers preserve each field's
   schema-owned external integer maximum while decoding. A structurally present
   field whose decoded value exceeds that maximum reports
@@ -198,7 +205,11 @@ execution reference.
   declaration order. A `ReservedBits(1, 0)` field immediately before a
   `UInt31be` field keeps the shared stream-identifier layout: it is omitted
   from the record and the helper emits the required zero high bit in the
-  shared four-byte position.
+  shared four-byte position. A one-byte packed `ReservedBits(width, value)`
+  field followed by the visible `UIntN` primitive whose width completes the
+  byte is also representation-only: the helper emits the high reserved bits
+  from the declared value and the low visible bits from the encoder input
+  record.
   Closed `Dispatch(tag_field, tag => Payload, ...)` fields are eligible when
   `tag_field` names an earlier visible exact-width unsigned field and every
   case payload is an implemented exact-width unsigned primitive payload or an
@@ -244,6 +255,7 @@ execution reference.
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
+  `examples/specification/run/binary-schema-packed-reserved-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-encode/`,
   `examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`,

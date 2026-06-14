@@ -46,9 +46,9 @@ Top-level `schema Name` and `pub schema Name` declarations are implemented as
 source module items. The implemented schema body slice requires a single
 `format binary` clause before schema fields. Schema field lines contain a field
 name, `:`, type text, and an optional field-local `where` predicate. In binary
-schemas, `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
-`UInt32be`, `UInt32le`, and `ReservedBits(width, value)` are accepted as
-schema primitives.
+schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
+`UInt24le`, `UInt31be`, `UInt32be`, `UInt32le`, and
+`ReservedBits(width, value)` are accepted as schema primitives.
 `ReservedBits` arguments must be literal
 non-negative integers. The narrow closed tag-dispatch field type
 `Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names a
@@ -107,7 +107,9 @@ return type through `schema.mapping_converter_return`, converter purity, and
 unsupported converter shape diagnostics.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, supported byte-aligned `ReservedBits(width, value)` fields,
-the supported `ReservedBits(1, 0)` before `UInt31be` layout,
+the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
+one-byte packed `ReservedBits(width, value)` plus `UIntN` layouts whose widths
+sum to eight bits,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and
 extension-tolerant `ExtensionDispatch(tag_field, length_field, tag => Payload,
 ...)` fields whose tag and length names are earlier visible exact-width fields
@@ -117,9 +119,9 @@ named through written `use` paths, also expose generated
 `byte_encode_<schema>` helpers described in [execution.md](execution.md);
 schema mappings, encode-time field-local validation beyond primitive
 representation ranges, recursive or otherwise ineligible dispatch payload
-schemas, non-byte-aligned reserved fields except the `UInt31be` shared-bit
-layout, and derived codec encode execution over unsupported schemas are
-outside that encode helper slice.
+schemas, non-byte-aligned reserved fields outside the supported one-byte
+packed and `UInt31be` shared-bit layouts, and derived codec encode execution
+over unsupported schemas are outside that encode helper slice.
 Schema declarations do not create ordinary value bindings or ordinary type
 declarations.
 

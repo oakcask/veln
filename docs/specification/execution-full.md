@@ -133,6 +133,12 @@ declaration order, validates the declared fixed value, omits the field from
 the decoded value and structural mapping source values, and reports
 `schema.truncated_field` or `schema.reserved_bits_mismatch` at the reserved
 field path when the input is short or the fixed value differs.
+Generated binary schema decode helpers also support one-byte packed reserved
+prefixes: `ReservedBits(width, value)` where `width` is one through seven may
+be followed by the visible `UIntN` primitive whose width completes the byte.
+The helper validates the high reserved bits, decodes the low visible bits as
+an ordinary `Int`, omits the reserved field from decoded records and mapping
+source values, and advances by one byte for the pair.
 Generated binary schema decode helpers also treat a field-local equality
 predicate of the form `field == literal` or `literal == field` as a visible
 schema-owned fixed field when the literal fits the field's external integer
@@ -279,8 +285,12 @@ Byte-aligned `ReservedBits(width, value)` fields are representation-only: the
 helper omits them from the record and emits the declared fixed value in
 declaration order. A `ReservedBits(1, 0)` field immediately before a
 `UInt31be` field keeps the shared stream-identifier layout and emits the
-required zero high bit in the shared four-byte position. Unsupported
-non-byte-aligned reserved-bit encode shapes report
+required zero high bit in the shared four-byte position. A one-byte packed
+`ReservedBits(width, value)` field followed by the visible `UIntN` primitive
+whose width completes the byte is also representation-only: the helper emits
+the high reserved bits from the declared value and the low visible bits from
+the encoder input record. Unsupported non-byte-aligned reserved-bit encode
+shapes report
 `schema.reserved_bits_encode`.
 This slice excludes schema mappings, field-local validation, generalized
 dispatch payload schemas, other fixed fields, nested mappings, and derived

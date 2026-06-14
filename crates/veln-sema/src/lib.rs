@@ -35,10 +35,10 @@ use crate::lowering::lower_surface_module_to_core;
 use crate::types::{
     SchemaDecodeMappingExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, Type, TypeEnvironment,
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
-    exact_width_schema_primitive_little_endian, exact_width_schema_primitive_max_value,
-    extension_dispatch_schema_primitive, reserved_bits_schema_primitive,
-    schema_decode_function_name, schema_decode_mapping_fields, schema_decode_value_type,
-    schema_dispatch_payload_schema, supported_encode_reserved_bits,
+    exact_width_schema_primitive_bit_width, exact_width_schema_primitive_little_endian,
+    exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
+    reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
+    schema_decode_value_type, schema_dispatch_payload_schema, supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -166,10 +166,13 @@ fn schema_decode_spec_inner_after_push(
     let schema_name = schema.name.as_ref()?;
     let mut decoded_field_types = std::collections::BTreeMap::<String, Type>::new();
     let mut fields = Vec::new();
+    let mut expected_packed_visible_field = None::<String>;
     for (index, field) in schema.fields.iter().enumerate() {
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
             let (bit_width, expected_value) =
                 supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
+            expected_packed_visible_field =
+                packed_reserved_visible_field(schema.fields.get(index + 1), bit_width);
             fields.push(IrSchemaDecodeField {
                 name: field.name.clone(),
                 width: 0,
@@ -186,6 +189,13 @@ fn schema_decode_spec_inner_after_push(
             continue;
         }
         if let Some(width) = exact_width_schema_primitive(&field.ty) {
+            let bit_width = exact_width_schema_primitive_bit_width(&field.ty)?;
+            if bit_width < 8
+                && expected_packed_visible_field.as_deref() != Some(field.name.as_str())
+            {
+                return None;
+            }
+            expected_packed_visible_field = None;
             decoded_field_types.insert(field.name.clone(), Type::int());
             fields.push(IrSchemaDecodeField {
                 name: field.name.clone(),
@@ -203,6 +213,7 @@ fn schema_decode_spec_inner_after_push(
             continue;
         }
         if let Some(length_field) = byte_view_schema_primitive(&field.ty) {
+            expected_packed_visible_field = None;
             if decoded_field_types.get(&length_field) != Some(&Type::int()) {
                 return None;
             }
@@ -221,6 +232,7 @@ fn schema_decode_spec_inner_after_push(
         }
         let dispatch = closed_dispatch_schema_primitive(&field.ty)
             .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
+        expected_packed_visible_field = None;
         if decoded_field_types.get(&dispatch.tag_field) != Some(&Type::int())
             || dispatch.length_field.as_ref().is_some_and(|length_field| {
                 decoded_field_types.get(length_field) != Some(&Type::int())
@@ -263,6 +275,18 @@ fn schema_decode_spec_inner_after_push(
             })
             .collect(),
     })
+}
+
+fn packed_reserved_visible_field(
+    next_field: Option<&veln_ast::SchemaField>,
+    reserved_bit_width: u8,
+) -> Option<String> {
+    if !(1..=7).contains(&reserved_bit_width) {
+        return None;
+    }
+    let next = next_field?;
+    let next_bit_width = exact_width_schema_primitive_bit_width(&next.ty)?;
+    (next_bit_width + reserved_bit_width == 8).then(|| next.name.clone())
 }
 
 fn ir_schema_mapping_expr(expr: SchemaDecodeMappingExpr) -> IrSchemaDecodeMappingExpr {
