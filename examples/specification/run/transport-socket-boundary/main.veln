@@ -1,0 +1,15 @@
+# Socket-boundary calls use listener and stream handles under the net effect.
+fn read_stream(stream: NetStream) -> ByteChunk effects [net]
+	net::read_chunk(stream)
+end
+
+pub fn main() -> Result<(), String> effects [net, stdio]
+	let listener: NetListener = net::listen("127.0.0.1:0")
+	let stream: NetStream = net::accept(listener)
+	let incoming: ByteChunk = read_stream(stream)
+	let outgoing: ByteChunk = byte_chunk_from_hex("0a0b")?
+	net::write_chunk(stream, outgoing)
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(incoming))))
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(outgoing))))
+	Ok(())
+end

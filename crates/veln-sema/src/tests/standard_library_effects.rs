@@ -479,7 +479,9 @@ fn net_calls_require_net_effect_with_descriptor_provenance() {
         "main.veln",
         concat!(
             "pub fn main() -> ByteChunk\n",
-            "  net::receive_chunk()\n",
+            "  let listener: NetListener = net::listen(\"127.0.0.1:0\")\n",
+            "  let stream: NetStream = net::accept(listener)\n",
+            "  net::read_chunk(stream)\n",
             "end\n",
         ),
     );
@@ -497,7 +499,7 @@ fn net_calls_require_net_effect_with_descriptor_provenance() {
     let details = diagnostics[0].details.to_json();
     assert!(details.contains("\"effect\":\"net\""));
     assert!(details.contains("\"inferred_effects\":[\"net\"]"));
-    assert!(details.contains("\"symbol\":\"net::receive_chunk\""));
+    assert!(details.contains("\"symbol\":\"net::listen\""));
 }
 
 #[test]
@@ -538,6 +540,10 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             "  let present: Option<String> = process::env(key)\n",
             "  let chunk: ByteChunk = net::receive_chunk()\n",
             "  net::send_chunk(chunk)\n",
+            "  let listener: NetListener = net::listen(\"127.0.0.1:0\")\n",
+            "  let stream: NetStream = net::accept(listener)\n",
+            "  let socket_chunk: ByteChunk = net::read_chunk(stream)\n",
+            "  net::write_chunk(stream, socket_chunk)\n",
             "  time::timeout_ms(1)\n",
             "  let deadline: Deadline = time::deadline_after_ms(1)\n",
             "  time::wait_until(deadline)\n",
@@ -587,7 +593,47 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "net::send_chunk"
     ));
-    let IrStmtKind::Expr { value } = &main.body[4].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[4].kind else {
+        panic!("net listen call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "net::listen"
+    ));
+    let IrStmtKind::Let { value, .. } = &main.body[5].kind else {
+        panic!("net accept call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "net::accept"
+    ));
+    let IrStmtKind::Let { value, .. } = &main.body[6].kind else {
+        panic!("net read call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "net::read_chunk"
+    ));
+    let IrStmtKind::Expr { value } = &main.body[7].kind else {
+        panic!("net write call should lower as an expression");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "net::write_chunk"
+    ));
+    let IrStmtKind::Expr { value } = &main.body[8].kind else {
         panic!("time call should lower as an expression");
     };
     assert!(matches!(
@@ -597,7 +643,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::timeout_ms"
     ));
-    let IrStmtKind::Let { value, .. } = &main.body[5].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[9].kind else {
         panic!("deadline call should lower as a let");
     };
     assert!(matches!(
@@ -607,7 +653,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::deadline_after_ms"
     ));
-    let IrStmtKind::Expr { value } = &main.body[6].kind else {
+    let IrStmtKind::Expr { value } = &main.body[10].kind else {
         panic!("wait call should lower as an expression");
     };
     assert!(matches!(
@@ -617,7 +663,7 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::wait_until"
     ));
-    let IrStmtKind::Return { value } = &main.body[7].kind else {
+    let IrStmtKind::Return { value } = &main.body[11].kind else {
         panic!("fs call should lower as tail return");
     };
     assert!(matches!(

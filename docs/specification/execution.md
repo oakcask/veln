@@ -33,10 +33,13 @@ execution reference.
   consumed views as owned `ByteChunk` values that remain readable after
   retained input advances, and collect outgoing immutable `ByteChunk` values
   without socket calls.
-- Descriptor-backed `net` and `time` calls are host runtime boundaries:
-  malformed received bytes, failed outgoing event recording, and forced
-  timeout or deadline expiry stop the entry as runtime failures rather than
-  schema, codec, or peer protocol diagnostics.
+- Fixture-backed `net` and `time` calls are host runtime boundaries:
+  descriptor chunk receive/send, listener creation, accept, stream read,
+  stream write, timeout, and deadline waits execute outside the pure protocol
+  core. Malformed received or read bytes, failed outgoing send or write event
+  recording, and forced listen, accept, read, write, timeout, or deadline
+  failures stop the entry as runtime failures rather than schema, codec, or
+  peer protocol diagnostics.
 - Stream adapter event-boundary examples use ordinary source ADT, record, and
   list values for decoded stream events and response actions. A handler
   receives an event plus explicit state and returns action intent values plus

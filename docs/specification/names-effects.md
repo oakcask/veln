@@ -18,8 +18,10 @@ compiler-known calls.
   [process](names-effects-full.md#process-calls), and
   [concurrency](names-effects-full.md#concurrency-calls).
   The network and time boundary keeps the coarse `net` and `time` effect
-  labels and treats malformed receive fixtures, failed send recording, and
-  forced timeout or deadline expiry as runtime failures.
+  labels and includes descriptor-backed chunk calls, fixture-backed listener
+  and stream calls, and relative deadline calls. Malformed receive fixtures,
+  failed send or write recording, forced read or write failures, and forced
+  timeout or deadline expiry are runtime failures.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).

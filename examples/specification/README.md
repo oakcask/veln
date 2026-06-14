@@ -835,6 +835,11 @@ against the built `veln` binary.
 - `run/transport-boundary/`: descriptor-backed `net` and `time` boundary
   calls with host-fed input chunks, outgoing chunks, timeout use, and relative
   deadline waiting.
+- `run/transport-socket-boundary/`: fixture-backed socket boundary calls with
+  source-visible listener and stream handles, one stream read, one stream
+  write, and recorded host transport events under the coarse `net` effect.
+- `check/transport-socket-effects/`: listener creation, accept, stream read,
+  and stream write infer the `net` effect for public effect checking.
 - `run/transport-deadline/`: relative deadline creation and waiting succeed
   through descriptor-backed `time` calls.
 - `check/transport-deadline-effects/`: deadline creation and waiting infer
@@ -843,6 +848,14 @@ against the built `veln` binary.
   fail as run JSON runtime errors, not schema, codec, or protocol diagnostics.
 - `run/transport-send-record-failure-json/`: failed outgoing transport event
   recording fails as a run JSON runtime error.
+- `run/transport-socket-read-failure-human/`: forced socket read failure stays
+  runtime blame in human command output.
+- `run/transport-socket-read-failure-json/`: forced socket read failure uses
+  the run JSON runtime error shape.
+- `run/transport-socket-write-failure-human/`: forced socket write failure
+  stays runtime blame in human command output.
+- `run/transport-socket-write-failure-json/`: forced socket write failure uses
+  the run JSON runtime error shape.
 - `run/transport-timeout-expired-json/`: host-fixture-forced timeout expiry
   through `time::timeout_ms` fails as a run JSON runtime error.
 - `run/transport-deadline-expired-human/`: host-fixture-forced deadline expiry

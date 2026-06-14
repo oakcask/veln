@@ -389,6 +389,21 @@ state. The actions describe send-bytes, end-stream, reset-stream, and decline
 intent as values for an adapter to interpret; the handler does not call socket
 or `net::send_chunk` APIs.
 
+The executable specification case
+`../../examples/specification/run/transport-socket-boundary/` covers the first
+fixture-backed socket API slice. It creates a source-visible `NetListener`,
+accepts a distinct `NetStream`, reads one immutable `ByteChunk`, writes one
+immutable `ByteChunk`, and records host transport events while keeping all
+calls under the coarse `net` effect. The matching
+`../../examples/specification/check/transport-socket-effects/` case pins
+missing-effect diagnostics for the socket calls. The
+`../../examples/specification/run/transport-socket-read-failure-human/`,
+`../../examples/specification/run/transport-socket-read-failure-json/`,
+`../../examples/specification/run/transport-socket-write-failure-human/`, and
+`../../examples/specification/run/transport-socket-write-failure-json/` cases
+show read and write failures as runtime transport failures, not schema, codec,
+or peer protocol diagnostics.
+
 ## Pending Input Byte Chunks
 
 The executable specification case

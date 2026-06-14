@@ -9,6 +9,32 @@
         processArgs = freezeList(values);
     }
 
+    private static final class NetListener {
+        private final String address;
+
+        private NetListener(String address) {
+            this.address = address;
+        }
+
+        @Override
+        public String toString() {
+            return "NetListener(" + address + ")";
+        }
+    }
+
+    private static final class NetStream {
+        private final String id;
+
+        private NetStream(String id) {
+            this.id = id;
+        }
+
+        @Override
+        public String toString() {
+            return "NetStream(" + id + ")";
+        }
+    }
+
     public static Object fsReadToString(Object path) {
         try {
             byte[] bytes = java.nio.file.Files.readAllBytes(asPath(path));
@@ -67,6 +93,82 @@
         } catch (java.io.IOException | RuntimeException error) {
             throw new RuntimeFailure(
                 "transport send failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return UNIT;
+    }
+
+    public static Object netListen(Object address) {
+        if (forced("VELN_NET_LISTEN_FAILED")) {
+            throw new RuntimeFailure("transport listen failed: VELN_NET_LISTEN_FAILED");
+        }
+        String value = asString(address);
+        try {
+            writeNetEvent("listen " + value);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport listen failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return new NetListener(value);
+    }
+
+    public static Object netAccept(Object listener) {
+        if (forced("VELN_NET_ACCEPT_FAILED")) {
+            throw new RuntimeFailure("transport accept failed: VELN_NET_ACCEPT_FAILED");
+        }
+        NetListener value = asNetListener(listener);
+        String streamId = System.getenv("VELN_NET_ACCEPT_STREAM");
+        if (streamId == null || streamId.isEmpty()) {
+            streamId = "stream-1";
+        }
+        try {
+            writeNetEvent("accept " + value.address + " " + streamId);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport accept failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return new NetStream(streamId);
+    }
+
+    public static Object netReadChunk(Object stream) {
+        if (forced("VELN_NET_READ_FAILED")) {
+            throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
+        }
+        NetStream value = asNetStream(stream);
+        String input = System.getenv("VELN_NET_READ_CHUNK_HEX");
+        if (input == null) {
+            input = "";
+        }
+        Object chunk = byteChunkFromHex(input);
+        if (isErr(chunk)) {
+            throw new RuntimeFailure("transport read failed: malformed VELN_NET_READ_CHUNK_HEX");
+        }
+        try {
+            writeNetEvent("read " + value.id + " " + input);
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport read failed: could not record VELN_NET_EVENTS",
+                error
+            );
+        }
+        return unwrapOk(chunk);
+    }
+
+    public static Object netWriteChunk(Object stream, Object bytes) {
+        if (forced("VELN_NET_WRITE_FAILED")) {
+            throw new RuntimeFailure("transport write failed: VELN_NET_WRITE_FAILED");
+        }
+        NetStream value = asNetStream(stream);
+        try {
+            writeNetEvent("write " + value.id + " " + format(bytes));
+        } catch (java.io.IOException | RuntimeException error) {
+            throw new RuntimeFailure(
+                "transport write failed: could not record VELN_NET_EVENTS",
                 error
             );
         }
@@ -170,4 +272,16 @@
             java.nio.file.StandardOpenOption.CREATE,
             java.nio.file.StandardOpenOption.APPEND
         );
+    }
+
+    private static boolean forced(String name) {
+        return "1".equals(System.getenv(name));
+    }
+
+    private static NetListener asNetListener(Object value) {
+        return (NetListener) value;
+    }
+
+    private static NetStream asNetStream(Object value) {
+        return (NetStream) value;
     }

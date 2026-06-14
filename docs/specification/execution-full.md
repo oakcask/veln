@@ -393,15 +393,19 @@ exposing host exceptions.
 Network and time boundary intrinsics are backend-owned runtime operations.
 `net::receive_chunk` returns a host-fed immutable `ByteChunk`.
 `net::send_chunk` exposes an outgoing immutable `ByteChunk` to the host
-runtime and returns `()`. `time::timeout_ms` waits for a non-negative
-millisecond duration at the runtime boundary and returns `()`.
+runtime and returns `()`. `net::listen` returns a source-visible `NetListener`,
+`net::accept` returns a source-visible `NetStream`, `net::read_chunk` reads
+one immutable `ByteChunk` from that stream, and `net::write_chunk` writes one
+immutable `ByteChunk` to that stream. `time::timeout_ms` waits for a
+non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative
 millisecond duration, and `time::wait_until` waits until that deadline expires.
-Malformed host-fed receive bytes, failed outgoing event recording, and
-host-fixture-forced timeout or deadline expiry stop the entry as runtime
-failures. They do not produce schema, codec, or HTTP/2 peer protocol
-diagnostics. The deadline boundary does not add a source timer handle beyond
-the returned `Deadline`, cancellation token, socket API, or new effect label.
+Malformed host-fed receive or read bytes, failed outgoing send or write event
+recording, and host-fixture-forced listen, accept, read, write, timeout, or
+deadline expiry stop the entry as runtime failures. They do not produce
+schema, codec, or HTTP/2 peer protocol diagnostics. The deadline boundary does
+not add a source timer handle beyond the returned `Deadline`, cancellation
+token, routing API, or new effect label.
 
 The stream adapter event boundary is source-level in the current executable
 specification. Example-owned `StreamEvent` and `ResponseAction` ADTs model

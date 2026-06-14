@@ -84,6 +84,10 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
         )),
         ("net", "receive_chunk") => Some((Vec::new(), byte_chunk_type())),
         ("net", "send_chunk") => Some((vec![byte_chunk_type()], Type::unit())),
+        ("net", "listen") => Some((vec![Type::string()], net_listener_type())),
+        ("net", "accept") => Some((vec![net_listener_type()], net_stream_type())),
+        ("net", "read_chunk") => Some((vec![net_stream_type()], byte_chunk_type())),
+        ("net", "write_chunk") => Some((vec![net_stream_type(), byte_chunk_type()], Type::unit())),
         ("process", "args") => Some((Vec::new(), Type::vec(Type::string()))),
         ("process", "env") => Some((vec![Type::string()], adt::option_type(Type::string()))),
         ("process", "cwd") => Some((
@@ -116,6 +120,14 @@ fn path_type() -> Type {
 
 fn byte_chunk_type() -> Type {
     Type::named("ByteChunk", Vec::new())
+}
+
+fn net_listener_type() -> Type {
+    Type::named("NetListener", Vec::new())
+}
+
+fn net_stream_type() -> Type {
+    Type::named("NetStream", Vec::new())
 }
 
 pub(crate) fn concurrency_signature(

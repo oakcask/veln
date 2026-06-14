@@ -51,7 +51,9 @@ requiring the full command reference on the first read.
   lowercase hex pairs grouped with spaces and keep byte offsets, field paths,
   expected counts, actual counts, accepted ranges, actual values, matched
   prefix counts, byte values, and rule provenance in separate notes or
-  structured details.
+  structured details. Transport runtime failures from descriptor-backed
+  receive/send calls, fixture-backed socket listen/accept/read/write calls,
+  and relative timeout or deadline calls stay runtime errors.
 - `test`: test and doctest selection, static gates, direct JVM classfile
   execution without an ordinary Java source compiler requirement,
   `runtime=contract`, `runtime=ensure`, and `runtime=result` doctest

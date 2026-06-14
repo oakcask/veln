@@ -1,0 +1,15 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_NET_WRITE_FAILED = "1"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["transport write failed: VELN_NET_WRITE_FAILED"]
