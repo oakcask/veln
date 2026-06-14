@@ -11,3 +11,29 @@ format = "empty"
 [[json_assert]]
 path = "status"
 equals = "error"
+
+[[json_assert]]
+path = "summary.diagnostic_count"
+equals = 13
+
+[[json_assert]]
+path = "summary.by_kind.parse"
+equals = 13
+
+[[json_assert]]
+path = "diagnostics.3.id"
+equals = "parse.schema_field_where"
+
+[[json_assert]]
+path = "diagnostics.3.details.parser_context"
+equals = "schema_field"
+
+[[json_assert]]
+path = "diagnostics.3.details.expected.0"
+equals = "predicate"
+
+[[diagnostics]]
+id = "parse.schema_field_where"
+severity = "error"
+kind = "parse"
+message = "expected schema field where predicate"

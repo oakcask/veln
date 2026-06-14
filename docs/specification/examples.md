@@ -259,6 +259,10 @@ the decoded record shape. The failing cases assert `schema.validation_failed`,
 the owning field byte offset, structured field path, failed predicate text,
 decoded values, structured byte preview fields, and the focused human primary
 message.
+`../../examples/specification/check/schema-declaration-diagnostics/` pins the
+matching declaration boundary: malformed field-local `where` syntax remains a
+`check` parse diagnostic instead of becoming a runtime schema validation
+failure.
 
 `../../examples/specification/run/binary-schema-validation-arithmetic-decode/`
 and `../../examples/specification/run/binary-schema-validation-arithmetic-json/`
