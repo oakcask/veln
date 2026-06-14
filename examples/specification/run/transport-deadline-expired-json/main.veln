@@ -1,0 +1,7 @@
+# Transport deadline expiry is a runtime failure, not schema or protocol blame.
+pub fn main() -> Result<(), String> effects [time, stdio]
+	let deadline: Deadline = time::deadline_after_ms(5)
+	time::wait_until(deadline)
+	stdio::println("deadline")
+	Ok(())
+end

@@ -1,0 +1,15 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_TIME_DEADLINE_EXPIRED = "1"
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["transport deadline expired: VELN_TIME_DEADLINE_EXPIRED"]

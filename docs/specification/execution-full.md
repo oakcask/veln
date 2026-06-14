@@ -391,11 +391,13 @@ Network and time boundary intrinsics are backend-owned runtime operations.
 `net::send_chunk` exposes an outgoing immutable `ByteChunk` to the host
 runtime and returns `()`. `time::timeout_ms` waits for a non-negative
 millisecond duration at the runtime boundary and returns `()`.
+`time::deadline_after_ms` returns a source-visible `Deadline` for a relative
+millisecond duration, and `time::wait_until` waits until that deadline expires.
 Malformed host-fed receive bytes, failed outgoing event recording, and
-host-fixture-forced timeout expiry stop the entry as runtime failures. They do
-not produce schema, codec, or HTTP/2 peer protocol diagnostics. The timeout
-boundary does not add a source timer handle, cancellation token, socket API,
-or new effect label.
+host-fixture-forced timeout or deadline expiry stop the entry as runtime
+failures. They do not produce schema, codec, or HTTP/2 peer protocol
+diagnostics. The deadline boundary does not add a source timer handle beyond
+the returned `Deadline`, cancellation token, socket API, or new effect label.
 
 The stream adapter event boundary is source-level in the current executable
 specification. Example-owned `StreamEvent` and `ResponseAction` ADTs model

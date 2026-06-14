@@ -150,6 +150,18 @@ const QUALIFIED_SYMBOLS: &[StandardSymbolDescriptor] = &[
         TIME_EFFECTS,
         "runtime.time.timeout_ms",
     ),
+    runtime_symbol(
+        "time",
+        "deadline_after_ms",
+        TIME_EFFECTS,
+        "runtime.time.deadline_after_ms",
+    ),
+    runtime_symbol(
+        "time",
+        "wait_until",
+        TIME_EFFECTS,
+        "runtime.time.wait_until",
+    ),
 ];
 
 const FLOAT_COMPATIBILITY_PRELUDE_SYMBOLS: &[StandardSymbolDescriptor] = &[
