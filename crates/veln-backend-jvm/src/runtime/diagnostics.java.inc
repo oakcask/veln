@@ -457,6 +457,29 @@
         );
     }
 
+    private static void registerHpackFixtureUnsupportedHeaderBlockDiagnostic(
+        String message,
+        long byteOffset,
+        long observedSize,
+        long observedFirstByte,
+        String expectedFixture,
+        String codecModule
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "hpack.fixture.unsupported_header_block",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("observed_header_block_size", observedSize),
+                    DiagnosticDetail.number("observed_first_byte", observedFirstByte),
+                    DiagnosticDetail.string("expected_fixture", expectedFixture),
+                    DiagnosticDetail.string("codec_module", codecModule)
+                )
+            )
+        );
+    }
+
     private static void registerCodecIncompleteInputDiagnostic(
         String message,
         long byteOffset,

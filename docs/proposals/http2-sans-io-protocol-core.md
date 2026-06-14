@@ -421,12 +421,24 @@ The remaining scope below is still planned work for the full protocol core.
 - Do not optimize for production throughput.
 - Do not encode all protocol state rules inside schema declarations.
 
+The implemented slice now also passes completed HEADERS and final CONTINUATION
+header-block bytes into an imported HPACK fixture module. That module returns
+ordinary header-list data plus a next immutable fixture state for deterministic
+fixture blocks. Unsupported fixture blocks project through
+`hpack.fixture.unsupported_header_block`, and the local
+`http2.peer_limit.header_list_size_exceeded` receive-limit check remains after
+fixture decoding.
+
+The remaining scope below is still planned work for the full protocol core and
+full HPACK behavior.
+
 ## Completion Criteria
 
 - Examples show valid and invalid frame fixtures for the target slice.
 - A pure decode state transition handles chunk arrival and end-of-stream.
 - Protocol-state failures are typed and diagnostically structured.
 - The core keeps only undecoded suffix bytes after frame consumption.
-- HPACK has a reserved boundary for later work.
+- Full HPACK compression, dynamic table behavior, and production header
+  validation remain later work beyond the implemented fixture boundary.
 - The design driver can use the core to evaluate schema, byte, codec,
   diagnostic, and standard-library decisions.

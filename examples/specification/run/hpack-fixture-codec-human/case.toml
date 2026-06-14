@@ -1,0 +1,11 @@
+command = ["run", "main", "main.veln", "hpack_fixture.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+contains = ["error[hpack.fixture.unsupported_header_block]: unsupported HPACK fixture header block at byte offset 27", "note: HPACK fixture codec `hpack_fixture` observed header block size 1 and first byte 255.", "note: Expected fixture header block."]

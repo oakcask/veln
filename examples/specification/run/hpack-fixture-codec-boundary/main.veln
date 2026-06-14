@@ -1,0 +1,50 @@
+use hpack_fixture
+use stdio
+
+fn print_decoded_transition(label: String, transition: HpackDecodeTransition) -> () effects [stdio]
+	let headers: HpackHeaderList = transition_headers(transition)
+	stdio::print(label)
+	stdio::print(" decoded ")
+	stdio::print(header_list_first_name(headers))
+	stdio::print(" ")
+	stdio::print(header_list_first_value(headers))
+	stdio::print(" wire_size ")
+	stdio::print(int_to_string(header_list_wire_size(headers)))
+	stdio::print(" next_decode_count ")
+	stdio::println(int_to_string(state_decode_count(transition_state(transition))))
+end
+
+fn print_decode_failure(label: String, failure: HpackFixtureFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" failed offset ")
+	stdio::print(int_to_string(failure_offset(failure)))
+	stdio::print(" observed_size ")
+	stdio::print(int_to_string(failure_observed_size(failure)))
+	stdio::print(" observed_first_byte ")
+	stdio::print(int_to_string(failure_observed_first_byte(failure)))
+	stdio::print(" expected ")
+	stdio::println(failure_expected_fixture(failure))
+end
+
+fn print_transition(label: String, result: Result<HpackDecodeTransition, HpackFixtureFailure>) -> () effects [stdio]
+	match result
+		Ok(transition) => print_decoded_transition(label, transition)
+		Err(failure) => print_decode_failure(label, failure)
+	end
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let initial: HpackFixtureState = initial_state()
+	let first_block: ByteChunk = byte_chunk_from_hex("102030")?
+	let first: Result<HpackDecodeTransition, HpackFixtureFailure> = decode_header_block(first_block, initial, 9)
+	print_transition("first", first)
+	let second_state: HpackFixtureState = match first
+		Ok(transition) => transition_state(transition)
+		Err(_) => initial
+	end
+	let second_block: ByteChunk = byte_chunk_from_hex("0102030405060708")?
+	print_transition("second", decode_header_block(second_block, second_state, 18))
+	let bad_block: ByteChunk = byte_chunk_from_hex("ff")?
+	print_transition("bad", decode_header_block(bad_block, second_state, 27))
+	Ok(())
+end

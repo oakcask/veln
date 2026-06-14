@@ -326,6 +326,16 @@ fn prelude_byte_signature(name: &str) -> Option<(Vec<Type>, Type)> {
             ],
             adt::result_type(Type::unit(), Type::string()),
         )),
+        "hpack_fixture_unsupported_header_block" => Some((
+            vec![
+                Type::int(),
+                Type::int(),
+                Type::int(),
+                Type::string(),
+                Type::string(),
+            ],
+            adt::result_type(Type::unit(), Type::string()),
+        )),
         "byte_read_u8_be" | "byte_read_u16_be" | "byte_read_u24_be" | "byte_read_u31_be"
         | "byte_read_u32_be" | "byte_read_u16_le" | "byte_read_u24_le" | "byte_read_u31_le"
         | "byte_read_u32_le" => Some((
@@ -1107,6 +1117,16 @@ fn core_prelude_byte_signature(name: &str) -> Option<(Vec<CoreType>, CoreType)> 
                 CoreType::int(),
                 CoreType::int(),
                 CoreType::int(),
+                CoreType::string(),
+            ],
+            adt::core_result_type(CoreType::unit(), CoreType::string()),
+        )),
+        "hpack_fixture_unsupported_header_block" => Some((
+            vec![
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::int(),
+                CoreType::string(),
                 CoreType::string(),
             ],
             adt::core_result_type(CoreType::unit(), CoreType::string()),

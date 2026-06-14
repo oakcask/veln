@@ -280,11 +280,13 @@ decode and encode transitions. That keeps it aligned with the codec execution
 boundary while avoiding a schema language that can express arbitrary
 state-machine behavior.
 
-The first HTTP/2 core may keep header blocks opaque or use a deliberately
-small HPACK fixture codec. Either way, the reserved boundary is an imported
-codec module with explicit state and diagnostics. Future HPACK work may use
-binary schema primitives for stateless substructures if useful, but schema
-support is not required to make HPACK part of the HTTP/2 design driver.
+The first HTTP/2 core uses a deliberately small HPACK fixture codec after
+completed HEADERS or final CONTINUATION assembly. The implemented fixture
+boundary is an imported ordinary source module with explicit immutable state,
+ordinary header-list data, and a stable `hpack.fixture.*` diagnostic path.
+Future HPACK work may use binary schema primitives for stateless substructures
+if useful, but schema support is not required to make HPACK part of the HTTP/2
+design driver.
 
 ## Discussion Result: First Server Handler Shape
 
@@ -403,9 +405,9 @@ Remaining target coverage includes broader SETTINGS, stream lifecycle,
 outbound flow control, graceful shutdown interactions, and typed protocol
 errors beyond the implemented frame and stream rules.
 
-HPACK starts outside the frame schema as an opaque header-block boundary or a
-deliberately small library codec. The reserved boundary is an explicit codec
-module because header compression has independent state and security limits.
+HPACK starts outside the frame schema at a deliberately small library codec
+boundary. The reserved boundary is an explicit codec module because header
+compression has independent state and security limits.
 
 ## Illustrative Shape
 

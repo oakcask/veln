@@ -76,7 +76,8 @@ compare it with `../specification/` before changing behavior.
   maximum header list size, unknown SETTINGS identifier handling, SETTINGS
   value range diagnostic slice, SETTINGS ACK receive slice, invalid
   frame-kind diagnostic slice, HEADERS/CONTINUATION opaque header-block
-  preservation slice, unknown extension-frame preservation slice, PING/GOAWAY
+  preservation slice, HPACK fixture codec boundary slice,
+  unknown extension-frame preservation slice, PING/GOAWAY
   receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
   peer-created stream admission with concurrent-stream receive-limit
   diagnostics, stream id domain diagnostic slice, GOAWAY last-stream-id

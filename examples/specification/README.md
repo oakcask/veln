@@ -580,6 +580,13 @@ against the built `veln` binary.
   valid `Decoded`, `NeedMore`, and `Invalid` `DecodeStep<T>` values while the
   schema mapping pins the accepted value type. It projects an oversized
   consumed count to `codec.consumed_count_invalid`.
+- `run/hpack-fixture-codec-boundary/`: an imported HPACK fixture module decodes
+  deterministic header-block byte fixtures into ordinary header-list data and
+  returns the next immutable fixture state.
+- `run/hpack-fixture-codec-json/` and `run/hpack-fixture-codec-human/`: an
+  unsupported HPACK fixture header block projects through
+  `hpack.fixture.unsupported_header_block`, separate from schema diagnostics
+  and HTTP/2 frame-state diagnostics.
 - `run/codec-encode-boundary/`: a hand-written `encode with` codec item call
   passes the mapped record value and ordinary encoder parameters to the
   referenced encoder and observes its returned `Encoded` and

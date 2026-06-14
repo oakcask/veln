@@ -338,8 +338,9 @@ execution reference.
   while known items are applied or diagnosed at their own item byte offset,
   received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`, and
   `SETTINGS_INITIAL_WINDOW_SIZE` values outside their accepted SETTINGS
-  ranges, local header-list receive-limit checks at the completed HEADERS or
-  CONTINUATION fixture-codec boundary, zero-length SETTINGS ACK frames,
+  ranges, HPACK fixture-codec calls at the completed HEADERS or CONTINUATION
+  header-block boundary, local header-list receive-limit checks after fixture
+  decoding, zero-length SETTINGS ACK frames,
   wrong-length SETTINGS ACK payloads,
   stream id domain failures, invalid stream-state frame kinds, wrong-length
   PING, PRIORITY, GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction,
@@ -380,6 +381,15 @@ execution reference.
   human runtime diagnostics, and
   `run --json`
   `protocol_diagnostic` details.
+- The first HPACK fixture-codec examples model HPACK as an imported ordinary
+  source module, not as schema syntax. The fixture module accepts a small
+  deterministic set of header-block byte fixtures, returns ordinary header-list
+  data plus the next immutable fixture state, and projects unsupported fixture
+  input through `hpack.fixture.unsupported_header_block`. That diagnostic path
+  is distinct from `schema.*`, `http2.protocol.*`, and `http2.peer_limit.*`
+  ids; the HTTP/2 core still owns the local
+  `http2.peer_limit.header_list_size_exceeded` receive-limit boundary after
+  fixture decoding.
 - The same example keeps outbound DATA send-intent flow control separate from
   inbound receive limits. Received `SETTINGS_MAX_FRAME_SIZE` constrains DATA
   payloads this endpoint sends, received `SETTINGS_INITIAL_WINDOW_SIZE`

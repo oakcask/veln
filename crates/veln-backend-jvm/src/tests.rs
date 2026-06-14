@@ -1255,6 +1255,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2PeerLimitSettingsValueOutOfRange",
         ),
         (
+            "hpack_fixture_unsupported_header_block",
+            "hpackFixtureUnsupportedHeaderBlock",
+        ),
+        (
             "http2_protocol_invalid_frame_kind",
             "http2ProtocolInvalidFrameKind",
         ),

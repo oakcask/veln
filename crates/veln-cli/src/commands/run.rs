@@ -736,6 +736,27 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Peer limit provenance: {provenance}.")));
             Some(diagnostic)
         }
+        "hpack.fixture.unsupported_header_block" => {
+            let observed_size = json_number(protocol_entries, "observed_header_block_size")?;
+            let observed_first_byte = json_number(protocol_entries, "observed_first_byte")?;
+            let expected_fixture = json_string(protocol_entries, "expected_fixture")?;
+            let codec_module = json_string(protocol_entries, "codec_module")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("unsupported HPACK fixture header block at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "HPACK fixture codec `{codec_module}` observed header block size {observed_size} and first byte {observed_first_byte}."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Expected {expected_fixture}.")));
+            Some(diagnostic)
+        }
         _ => None,
     }
 }
