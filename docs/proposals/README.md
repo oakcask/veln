@@ -91,7 +91,8 @@ compare it with `../specification/` before changing behavior.
   beyond the implemented descriptor-backed `net` and `time` boundary calls,
   first fixture-backed listener/stream calls, first transport-error,
   timeout-expiry, and deadline-expiry runtime failure slices, and the
-  source-level stream event/action handler boundary examples.
+  source-level stream event/action handler boundary examples plus the narrow
+  socket-to-handler routing slice.
 
 ## Update When
 

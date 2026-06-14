@@ -885,6 +885,13 @@ against the built `veln` binary.
 - `run/stream-adapter-event-boundary/`: source-owned stream event and response
   action ADTs model handler inputs and protocol intent, with direct fixture
   invocation and existing channel routing under the `concurrency` effect.
+- `run/socket-stream-adapter-routing/`: fixture-backed socket reads are wrapped
+  as ordinary stream events, routed through a standard channel, handled by a
+  plain event handler, and projected back to ordered socket writes by adapter
+  code.
+- `check/socket-stream-adapter-routing-effects/`: adapter-owned socket routing
+  must declare the existing `concurrency` effect when it uses standard channel
+  calls in addition to `net`.
 - `run/pending-input-byte-chunks/`: `StreamInput.Chunk` events append immutable
   `ByteChunk` values into bounded pending input, `End` remains distinct,
   bounded `ByteView` consumption preserves absolute `ByteOffset` facts,

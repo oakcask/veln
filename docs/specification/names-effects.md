@@ -22,6 +22,9 @@ compiler-known calls.
   and stream calls, and relative deadline calls. Malformed receive fixtures,
   failed send or write recording, forced read or write failures, and forced
   timeout or deadline expiry are runtime failures.
+  The socket stream adapter routing example composes existing `net` stream
+  calls with existing channel calls under `concurrency`; it adds no new effect
+  label or compiler-known routing call.
 - Prelude helper signatures, value semantics, source-backed helper set, and
   descriptor-only helper boundary:
   [names-effects-full.md](names-effects-full.md#prelude-helpers).
