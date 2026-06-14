@@ -21,8 +21,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
 
 - remaining settings interactions beyond the implemented enable-push,
   maximum-frame-size, maximum-concurrent-streams, initial-window-size,
-  header-table-size, and maximum-header-list-size peer-advertised state and
-  SETTINGS ACK receive handling
+  header-table-size, and maximum-header-list-size peer-advertised state,
+  unknown-identifier handling, and SETTINGS ACK receive handling
 - remaining DATA behavior beyond the implemented receive-window accounting
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
@@ -250,9 +250,11 @@ that those peer-advertised values are not used as inbound frame-size or
 concurrent-stream receive limits. For `SETTINGS_INITIAL_WINDOW_SIZE`, it
 applies the delta from the previous active value to the tracked open-stream
 receive-window credit while keeping that setting out of receive-limit
-provenance. It range-checks received values for constrained settings before
-updating peer-advertised state or open-stream receive-window credit and
-projects
+provenance. It ignores unknown received SETTINGS identifiers for
+peer-advertised state and range diagnostics, while still applying or diagnosing
+known SETTINGS items in the same frame at their own item byte offsets. It
+range-checks received values for constrained settings before updating
+peer-advertised state or open-stream receive-window credit and projects
 out-of-range values as
 `http2.peer_limit.settings_value_out_of_range` with setting identity, observed
 value, accepted range, item byte offset, and peer-limit provenance in

@@ -66,11 +66,12 @@ compare it with `../specification/` before changing behavior.
   validation slice, frame-size peer-limit diagnostic slice with receive-limit
   provenance, peer-received SETTINGS state for enable push, maximum frame size,
   maximum concurrent streams, initial window size, header table size, and
-  maximum header list size, SETTINGS value range diagnostic slice, SETTINGS ACK
-  receive slice, invalid frame-kind diagnostic slice, HEADERS/CONTINUATION opaque
-  header-block preservation slice, unknown extension-frame preservation slice,
-  PING/GOAWAY receive slice, DATA and `WINDOW_UPDATE` receive flow-control
-  slices, peer-created stream admission with concurrent-stream receive-limit
+  maximum header list size, unknown SETTINGS identifier handling, SETTINGS
+  value range diagnostic slice, SETTINGS ACK receive slice, invalid
+  frame-kind diagnostic slice, HEADERS/CONTINUATION opaque header-block
+  preservation slice, unknown extension-frame preservation slice, PING/GOAWAY
+  receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
+  peer-created stream admission with concurrent-stream receive-limit
   diagnostics, stream id domain diagnostic slice, GOAWAY last-stream-id
   enforcement for later peer-created HEADERS, `RST_STREAM` receive slice,
   `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window adjustment, and

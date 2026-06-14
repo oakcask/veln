@@ -467,7 +467,10 @@ peer-advertised maximum frame size does not replace the inbound receive
 maximum used by later frame-size checks, the peer-advertised maximum
 concurrent streams value does not replace the local concurrent-stream receive
 limit, and the peer-advertised initial window size does not become an inbound
-frame-size or receive-limit provenance entry. Received values for settings
+frame-size or receive-limit provenance entry. Unknown SETTINGS identifiers
+leave peer-advertised state unchanged and do not report SETTINGS range
+failures; when a later item in the same frame is known, that known item is
+still applied or rejected at its own byte offset. Received values for settings
 with protocol range constraints are checked before updating peer-advertised
 state or open-stream receive-window credit; out-of-range values stay as typed
 peer-limit failures at the offending SETTINGS item byte offset. SETTINGS ACK
