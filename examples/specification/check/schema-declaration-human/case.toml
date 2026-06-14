@@ -1,0 +1,9 @@
+command = ["check", "main.veln"]
+exit = 1
+
+[stdout]
+format = "text"
+contains = ["error[parse.schema_field_where]: expected schema field where predicate"]
+
+[stderr]
+format = "empty"

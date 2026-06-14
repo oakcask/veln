@@ -302,6 +302,9 @@ Implemented:
 - Examples show schema declarations as boundary contracts, not ordinary types.
 - Parser diagnostics distinguish malformed schema syntax from ordinary type and
   value use.
+- Human and JSON check examples keep malformed schema declaration syntax on the
+  source diagnostic side of the boundary instead of treating it as a runtime
+  schema validation failure.
 - Codec declaration heads resolve schemas through schema-aware lookup,
   including same-module references, imported public schemas through written
   `use` paths and import aliases, private imported schema diagnostics,
@@ -329,9 +332,8 @@ Implemented:
 
 Remaining:
 
-- General schema validation diagnostics beyond the implemented generated-helper
-  slice distinguish malformed schema syntax from failed schema validation for
-  arbitrary schema declarations.
+- General schema validation execution beyond the implemented generated-helper
+  slice evaluates arbitrary schema declarations.
 - Runtime schema value mapping beyond schema-local field reference, record
   construction, ADT constructor construction, one pure same-module converter
   call, and decoded-field integer equality selection resolves codec-selected

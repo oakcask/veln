@@ -262,7 +262,8 @@ message.
 `../../examples/specification/check/schema-declaration-diagnostics/` pins the
 matching declaration boundary: malformed field-local `where` syntax remains a
 `check` parse diagnostic instead of becoming a runtime schema validation
-failure.
+failure. `../../examples/specification/check/schema-declaration-human/` pins
+the same boundary through human `check` output.
 
 `../../examples/specification/run/binary-schema-validation-arithmetic-decode/`
 and `../../examples/specification/run/binary-schema-validation-arithmetic-json/`
