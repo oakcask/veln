@@ -20,8 +20,8 @@ use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{
     IrSchemaDecodeDispatch, IrSchemaDecodeDispatchCase, IrSchemaDecodeField, IrSchemaDecodeMapping,
     IrSchemaDecodeMappingExpr, IrSchemaDecodeMappingField, IrSchemaDecodeMappingRecordField,
-    IrSchemaDecodeMappingSelector, IrSchemaDecodeSpec, IrSchemaReservedBits, TypedProgram,
-    lower_checked_core,
+    IrSchemaDecodeMappingSelector, IrSchemaDecodeSpec, IrSchemaRepeat, IrSchemaReservedBits,
+    TypedProgram, lower_checked_core,
 };
 
 use crate::analysis::{
@@ -38,9 +38,9 @@ use crate::types::{
     byte_view_schema_primitive, closed_dispatch_schema_primitive, exact_width_schema_primitive,
     exact_width_schema_primitive_bit_width, exact_width_schema_primitive_little_endian,
     exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
-    flag8_schema_primitive, reserved_bits_schema_primitive, schema_decode_function_name,
-    schema_decode_mapping_fields, schema_decode_mappings, schema_decode_value_type,
-    schema_dispatch_payload_schema, supported_encode_reserved_bits,
+    flag8_schema_primitive, repeat_schema_primitive, reserved_bits_schema_primitive,
+    schema_decode_function_name, schema_decode_mapping_fields, schema_decode_mappings,
+    schema_decode_value_type, schema_dispatch_payload_schema, supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -183,6 +183,7 @@ fn schema_decode_spec_inner_after_push(
                 flag8: false,
                 predicate: None,
                 length_field: None,
+                repeat: None,
                 dispatch: None,
                 reserved_bits: Some(IrSchemaReservedBits {
                     bit_width,
@@ -211,6 +212,7 @@ fn schema_decode_spec_inner_after_push(
                     .as_ref()
                     .map(|where_clause| where_clause.predicate.clone()),
                 length_field: None,
+                repeat: None,
                 dispatch: None,
                 reserved_bits: None,
             });
@@ -230,6 +232,32 @@ fn schema_decode_spec_inner_after_push(
                 flag8: false,
                 predicate: None,
                 length_field: Some(length_field),
+                repeat: None,
+                dispatch: None,
+                reserved_bits: None,
+            });
+            continue;
+        }
+        if let Some(repeat) = repeat_schema_primitive(&field.ty) {
+            expected_packed_visible_field = None;
+            if decoded_field_types.get(&repeat.count_field) != Some(&Type::int()) {
+                return None;
+            }
+            decoded_field_types.insert(field.name.clone(), Type::named("List", vec![Type::int()]));
+            fields.push(IrSchemaDecodeField {
+                name: field.name.clone(),
+                width: 0,
+                max_value: 0,
+                little_endian: false,
+                flag8: false,
+                predicate: None,
+                length_field: None,
+                repeat: Some(IrSchemaRepeat {
+                    count_field: repeat.count_field,
+                    width: repeat.width,
+                    max_value: repeat.max_value,
+                    little_endian: repeat.little_endian,
+                }),
                 dispatch: None,
                 reserved_bits: None,
             });
@@ -255,6 +283,7 @@ fn schema_decode_spec_inner_after_push(
             flag8: false,
             predicate: None,
             length_field: None,
+            repeat: None,
             dispatch: Some(IrSchemaDecodeDispatch {
                 tag_field: dispatch.tag_field,
                 length_field: dispatch.length_field,

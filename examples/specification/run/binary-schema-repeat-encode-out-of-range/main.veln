@@ -1,0 +1,42 @@
+# Binary schema Repeat encode rejects out-of-range primitive elements.
+use stdio
+
+schema CountedValues
+	format binary
+
+	count: UInt8
+	items: Repeat(count, UInt16be)
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let items: List<Int> = list_cons(65536, list_nil())
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_counted_values({count: 1, items: items})
+	match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end

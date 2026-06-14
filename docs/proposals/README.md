@@ -42,6 +42,8 @@ compare it with `../specification/` before changing behavior.
   primitive decode and encode, byte-aligned reserved-bit decode and encode,
   one-byte packed reserved-bit decode and encode,
   opt-in `Flag8` one-byte visible flag bitset decode and encode,
+  the bounded `Repeat(count_field, Primitive)` primitive field decode and
+  encode slice,
   visible fixed exact-width field mismatch diagnostics for generated schema
   decode helpers, exact-width primitive encode, the narrow HTTP/2 payload
   boundary helper, and narrow closed-dispatch and extension-dispatch

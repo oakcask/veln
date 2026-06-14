@@ -86,6 +86,14 @@ source-visible `Flag8(bits: Int)` value instead of a raw `Int`, preserves
 existing `UInt8` field behavior, shares exact-width truncation behavior, and
 reports existing encode value-representation failures when `bits` cannot be
 represented in one byte.
+The narrow bounded repeated primitive slice is implemented as
+`Repeat(count_field, Primitive)` for generated binary schema decode and encode
+helpers. The count field must be an earlier visible `Int` field in the same
+schema, the primitive payload must be one of the implemented byte-aligned
+exact-width unsigned primitives, the decoded and encoded value is `List<Int>`,
+encode rejects list length and primitive range mismatches through
+`EncodeError`, and decode truncation appends an index segment to the repeated
+field path.
 
 ## Problem
 
@@ -111,7 +119,9 @@ for:
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset, including
   raw-bit variants and frame-specific ADTs
 - general schema-declared length-prefixed payloads
-- field references inside later field definitions
+- field references inside later field definitions beyond implemented
+  bounded repeat counts, byte-view lengths, dispatch tags, and extension
+  dispatch lengths
 - recursive or otherwise ineligible dispatch payload schemas beyond the
   implemented same-module and imported public nested helper slices
 - schema-level structural validation
@@ -191,6 +201,11 @@ diagnostic behavior already available to ordinary generated schema fields.
 The implemented `Flag8` helper slice consumes and emits one-byte visible
 bitsets as source-visible `Flag8(bits: Int)` values while leaving existing
 `UInt8` fields as ordinary `Int` values.
+The implemented bounded repeated primitive helper slice consumes and emits
+`Repeat(count_field, Primitive)` fields as `List<Int>` values when
+`count_field` names an earlier visible `Int` field in the same schema and
+`Primitive` is `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`,
+`UInt31be`, `UInt32be`, or `UInt32le`.
 General schema-owned decode and encode beyond the implemented slices,
 recursive or otherwise ineligible dispatch payload schemas, and mapping
 beyond the implemented slices remain proposal work. A `UInt31be` field

@@ -26,8 +26,9 @@ TypeDecl      ::= "pub"? "type" Name TypeParamList? NL TypeVariant+ "end" NL?
 SchemaDecl    ::= "pub"? "schema" Name NL SchemaFormat NL SchemaField+ SchemaMapping* "end" NL?
 SchemaFormat  ::= "format" "binary" NL
 SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
-SchemaFieldType ::= TypeText | ReservedBitsPrimitive
+SchemaFieldType ::= TypeText | ReservedBitsPrimitive | RepeatPrimitive
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
+RepeatPrimitive ::= "Repeat" "(" Name "," TypeText ")"
 SchemaFieldWhere ::= "where" ContractPredicate
 SchemaMapping ::= "map" "to" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+
 SchemaMappingSelector ::= "when" Name "==" IntLiteral
@@ -102,6 +103,10 @@ Binary schema fields also accept the
 spelling when `width` and `value` are literal non-negative integers, such as
 `ReservedBits(1, 0)`, a byte-aligned reserved field, or a supported one-byte
 packed reserved prefix. Binary schema fields
+also accept `Repeat(count_field, Primitive)` when `count_field` names a
+previously decoded visible `Int` field in the same schema and `Primitive` is
+one of the implemented byte-aligned exact-width unsigned primitives. A repeat
+field decodes and encodes as `List<Int>`. Binary schema fields
 also accept the closed dispatch
 type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
 type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
@@ -141,8 +146,9 @@ editor token collector preserve mapping clauses as source metadata. The
 generated binary decode helper uses one eligible structural mapping clause, or
 multiple eligible mapping clauses selected by `when field == literal`, when all
 schema fields are implemented exact-width unsigned primitives, supported
-reserved-bit fields, closed dispatch fields, or extension dispatch fields and
-the target resolves to matching record fields. Multiple selected mappings must
+reserved-bit fields, bounded repeated primitive fields, closed dispatch
+fields, or extension dispatch fields and the target resolves to matching
+record fields. Multiple selected mappings must
 all use the same decoded `Int` selector field, must use distinct selector
 literal values, and must decode to the same record shape. Missing selectors
 report `schema.mapping_selection_required`, duplicate selector values report

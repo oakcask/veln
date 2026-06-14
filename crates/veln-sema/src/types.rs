@@ -787,6 +787,12 @@ fn schema_decode_record_fields_inner_after_push(
                 return None;
             }
             (0, Type::named("ByteView", Vec::new()))
+        } else if let Some(repeat) = repeat_schema_primitive(&field.ty) {
+            expected_packed_visible_field = None;
+            if decoded_fields.get(&repeat.count_field) != Some(&Type::int()) {
+                return None;
+            }
+            (0, Type::named("List", vec![Type::int()]))
         } else {
             expected_packed_visible_field = None;
             let dispatch = closed_dispatch_schema_primitive(&field.ty)
@@ -973,6 +979,14 @@ fn schema_encode_function_signature_for_schema(
                 Type::int()
             };
             fields.push((field.name.clone(), ty));
+            continue;
+        }
+        if let Some(repeat) = repeat_schema_primitive(&field.ty) {
+            expected_packed_visible_field = None;
+            if !exact_width_field_names.contains(&repeat.count_field) {
+                return None;
+            }
+            fields.push((field.name.clone(), Type::named("List", vec![Type::int()])));
             continue;
         }
         expected_packed_visible_field = None;
@@ -1925,6 +1939,39 @@ pub(crate) fn byte_view_schema_primitive(ty: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct SchemaRepeatSpec {
+    pub(crate) count_field: String,
+    pub(crate) width: u8,
+    pub(crate) max_value: i64,
+    pub(crate) little_endian: bool,
+}
+
+pub(crate) fn repeat_schema_primitive(ty: &str) -> Option<SchemaRepeatSpec> {
+    let inner = schema_call_inner(ty, "Repeat")?;
+    let args = inner
+        .split(',')
+        .map(str::trim)
+        .filter(|arg| !arg.is_empty())
+        .collect::<Vec<_>>();
+    let [count_field, primitive] = args.as_slice() else {
+        return None;
+    };
+    if !is_simple_schema_field_reference(count_field) {
+        return None;
+    }
+    let width = exact_width_schema_primitive(primitive)?;
+    if exact_width_schema_primitive_bit_width(primitive)? < 8 || flag8_schema_primitive(primitive) {
+        return None;
+    }
+    Some(SchemaRepeatSpec {
+        count_field: (*count_field).to_string(),
+        width,
+        max_value: exact_width_schema_primitive_max_value(primitive)?,
+        little_endian: exact_width_schema_primitive_little_endian(primitive),
+    })
 }
 
 fn is_simple_schema_field_reference(text: &str) -> bool {

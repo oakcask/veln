@@ -84,6 +84,17 @@ execution reference.
   including existing `flags: UInt8` declarations, continue to decode as
   ordinary `Int` fields. The checked decode example is
   `examples/specification/run/binary-schema-flag8-decode/`.
+- Generated binary schema decode helpers support bounded
+  `Repeat(count_field, Primitive)` fields when `count_field` is an earlier
+  visible exact-width unsigned field decoded as `Int` and `Primitive` is
+  `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
+  `UInt32be`, or `UInt32le`. The repeated field decodes to `List<Int>` by
+  reading exactly `count_field` elements in declaration order. Truncation is
+  reported at the first element that cannot be fully read with the usual
+  `schema.truncated_field` details and a schema field path that appends an
+  `index` segment for the element. The checked examples are
+  `examples/specification/run/binary-schema-repeat-decode/` and
+  `examples/specification/run/binary-schema-repeat-truncated-json/`.
 - Generated binary schema decode helpers support byte-aligned
   `ReservedBits(width, value)` fields up to four bytes wide as
   representation-only fields. The helper consumes the reserved bytes in
@@ -211,7 +222,12 @@ execution reference.
 - Eligible generated binary schema encode helpers named
   `byte_encode_<schema>` accept one record whose fields match the schema-local
   visible exact-width unsigned primitive fields as ordinary `Int` values and
-  whose `Flag8` fields are source-visible `Flag8(bits)` values. `Flag8` emits
+  whose `Flag8` fields are source-visible `Flag8(bits)` values. Bounded
+  repeated primitive fields are `List<Int>` record fields and emit exactly the
+  number of elements named by the earlier count field. A list length mismatch
+  or an element outside the selected primitive range returns
+  `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
+  reason))`. `Flag8` emits
   one byte through the same representation path as `UInt8`; `bits` values
   outside `0..255` return
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
@@ -272,6 +288,9 @@ execution reference.
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-encode/`,
   `examples/specification/run/binary-schema-flag8-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-repeat-encode/`,
+  `examples/specification/run/binary-schema-repeat-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-repeat-encode-count-mismatch/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,

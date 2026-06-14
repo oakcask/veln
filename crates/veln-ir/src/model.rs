@@ -26,8 +26,17 @@ pub struct IrSchemaDecodeField {
     pub flag8: bool,
     pub predicate: Option<String>,
     pub length_field: Option<String>,
+    pub repeat: Option<IrSchemaRepeat>,
     pub dispatch: Option<IrSchemaDecodeDispatch>,
     pub reserved_bits: Option<IrSchemaReservedBits>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct IrSchemaRepeat {
+    pub count_field: String,
+    pub width: u8,
+    pub max_value: i64,
+    pub little_endian: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
