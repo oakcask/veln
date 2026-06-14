@@ -480,8 +480,10 @@ frame bytes, continuation state after HEADERS retaining opaque header-block
 bytes, continuation state across multiple non-final CONTINUATION frames
 appending those bytes, completion after a final CONTINUATION with combined
 header-block hex/count output, single-frame HEADERS completion when
-END_HEADERS is set alongside another flag, continuation ordering failures for
-a different frame kind and a different stream id, closed input while a header
+END_HEADERS is set alongside `END_STREAM`, closed-by-peer stream lifecycle
+after accepted HEADERS `END_STREAM` completion through both single-frame
+HEADERS and final CONTINUATION paths, continuation ordering failures for a
+different frame kind and a different stream id, closed input while a header
 block remains pending, an
 accepted unknown extension frame after the client preface gate that preserves
 flags, stream id, and bounded payload bytes in an ordinary `UnknownFrame`
@@ -509,8 +511,9 @@ Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
 Receive flow-control state records connection receive-window credit and the
 currently open stream receive-window credit. DATA on the open stream consumes
-both windows by payload length. Accepted DATA with `END_STREAM` then moves the
-tracked stream to closed-by-peer state, and later DATA or stream-level
+both windows by payload length. Accepted DATA with `END_STREAM`, and accepted
+HEADERS sequences with `END_STREAM` after header-block completion, move the
+tracked stream to closed-by-peer state. Later DATA or stream-level
 `WINDOW_UPDATE` for that stream uses the same stream-state failure shape as
 other non-open stream states. `WINDOW_UPDATE` on the connection stream
 increases connection receive-window credit, and `WINDOW_UPDATE` on the open

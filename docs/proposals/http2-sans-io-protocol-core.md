@@ -30,9 +30,10 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - connection settings beyond maximum frame size
 - stream identifiers
 - remaining stream lifecycle beyond the implemented peer-created stream
-  admission, receive-limit, inbound reset slice, DATA `END_STREAM`
-  closed-by-peer transition, outbound `RST_STREAM` local reset send-intent
-  slice, and GOAWAY last-stream-id enforcement for later peer-created HEADERS
+  admission, receive-limit, inbound reset slice, DATA and HEADERS
+  `END_STREAM` closed-by-peer transitions, outbound `RST_STREAM` local
+  reset send-intent slice, and GOAWAY last-stream-id enforcement for later
+  peer-created HEADERS
 - remaining outbound flow control and broader stream-window interactions
   beyond the implemented narrow outbound DATA send-intent credit checks,
   outbound `RST_STREAM` reset send intent, inbound DATA, stream-level
@@ -231,12 +232,15 @@ partial preface, mismatched preface bytes, incomplete frame input that waits
 for more bytes, end-of-stream truncation with pending frame bytes,
 continuation header-block assembly through a valid final CONTINUATION frame,
 the combined opaque header-block payload bytes from that completed block,
-single-frame HEADERS completion when END_HEADERS is set alongside another
-flag, continuation failures for a different frame kind, a different stream id,
-and closed input while a header block remains pending, one incoming
-frame-size peer-limit failure, one completed header-list-size peer-limit
-failure at the fixture-codec boundary, plus one invalid idle-stream frame kind
-and stream id domain failures for zero, even, and connection-only stream ids. It keeps
+single-frame HEADERS completion when `END_HEADERS` is set alongside
+`END_STREAM`, closed-by-peer stream lifecycle after accepted HEADERS
+`END_STREAM` completion through both single-frame HEADERS and final
+CONTINUATION paths, continuation failures for a different frame kind, a
+different stream id, and closed input while a header block remains pending,
+one incoming frame-size peer-limit failure, one completed header-list-size
+peer-limit failure at the fixture-codec boundary, plus one invalid
+idle-stream frame kind and stream id domain failures for zero, even, and
+connection-only stream ids. It keeps
 parser state as undecoded suffix bytes plus the next absolute byte offset
 after each consumed preface or frame, reuses the implemented frame-header
 primitive after the preface gate, checks the active receive maximum frame size
@@ -345,6 +349,12 @@ closed-by-peer state. Later DATA and stream-level `WINDOW_UPDATE` frames for
 that stream use the existing stream-state
 `http2.protocol.invalid_frame_kind` failure shape with closed-by-peer active
 state and rule provenance.
+When accepted inbound HEADERS carries `END_STREAM`, the stream transitions to
+the same closed-by-peer state after the header block completes, HPACK fixture
+decoding succeeds, and the local header-list receive-limit check passes. The
+single-frame HEADERS `END_HEADERS | END_STREAM` path and the HEADERS
+`END_STREAM` plus final CONTINUATION path both reject later DATA and
+stream-level `WINDOW_UPDATE` through the same closed-by-peer failure shape.
 The implemented slice also receives `WINDOW_UPDATE` frames. Connection-level
 `WINDOW_UPDATE` increases connection receive-window credit, and
 stream-level `WINDOW_UPDATE` increases the currently open stream's

@@ -382,7 +382,10 @@ execution reference.
   peer-created stream on an admitted HEADERS frame, counts the tracked open
   peer-created stream for the active concurrent-stream receive limit, consumes
   DATA payload length from connection and stream windows, moves the stream to
-  a closed-by-peer state when accepted inbound DATA carries `END_STREAM`, accepts
+  a closed-by-peer state when accepted inbound DATA carries `END_STREAM`, moves
+  completed inbound HEADERS or CONTINUATION header blocks to the same
+  closed-by-peer state when the accepted HEADERS sequence carries
+  `END_STREAM`, accepts
   connection-level and open-stream `WINDOW_UPDATE` increments, applies
   received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to the tracked open-stream
   receive-window credit, and keeps wrong-length, idle-stream, zero,
