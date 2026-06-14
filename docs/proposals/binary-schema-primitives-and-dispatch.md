@@ -8,10 +8,10 @@ declaration surface and a byte standard-library vocabulary.
 
 The source-surface `ReservedBits(width, value)` declaration syntax is
 implemented under `../specification/source-surface.md`.
-The declaration-time exact-width primitive names `UInt8`, `UInt16be`,
-`UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`, and `UInt32le`
-are also implemented there for `format binary` schema field type positions
-only. The executable frame-header
+The declaration-time exact-width primitive names `UInt1` through `UInt8`,
+`UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`, and
+`UInt32le` are also implemented there for `format binary` schema field type
+positions only. The executable frame-header
 primitive decode slice is implemented under `../specification/execution.md`:
 it consumes `UInt24be`, `UInt8`, `UInt8`, `ReservedBits(1, 0)`, and
 `UInt31be` from a `ByteView`, returns ordinary `Int` fields for the visible
@@ -20,7 +20,14 @@ reserved-bit mismatches. Generated schema helpers also consume byte-aligned
 `ReservedBits(width, value)` fields up to four bytes wide as
 representation-only fields, omit those fields from decoded records and
 mapping source values, encode them from the declared fixed value, and report
-the same reserved-bit mismatch and truncation diagnostic shapes. The
+the same reserved-bit mismatch and truncation diagnostic shapes. Generated
+schema helpers also consume and encode one-byte packed
+`ReservedBits(width, value)` prefixes where widths one through seven are
+followed by the visible `UIntN` primitive that completes the byte. The helpers
+validate the high reserved bits, decode or encode the low visible bits from
+the ordinary record field, omit the reserved field from decoded records and
+mapping source values, and report the same reserved-bit mismatch diagnostic
+shape. The
 generated helper slice also treats visible exact-width fields with a
 field-local equality predicate such as `field == literal` as schema-owned
 fixed fields, leaves matching values visible in the decoded result, and
@@ -92,7 +99,8 @@ for:
   implemented narrow primitive decode slices
 - endian-aware field reads and writes
 - reserved-bit forms beyond the implemented byte-aligned representation-only
-  fields and `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
+  fields, one-byte packed reserved prefixes, and `ReservedBits(1, 0)` plus
+  `UInt31be` shared-bit layout
 - flags that decode as raw bits, bitsets, or frame-specific ADTs
 - general schema-declared length-prefixed payloads
 - field references inside later field definitions
@@ -132,11 +140,11 @@ ADT, or wrapper through an explicit mapping rule. This keeps schema
 declarations responsible for byte layout while keeping ordinary Veln values
 responsible for protocol meaning.
 
-The implemented narrow executable slices already make `UInt8`, `UInt16be`,
-`UInt24be`, `UInt31be`, and `UInt32be` consume fixed-width unsigned
-big-endian fields, and `UInt16le`, `UInt24le`, and `UInt32le` consume
-fixed-width unsigned little-endian fields, then return ordinary `Int` values
-for visible fields.
+The implemented narrow executable slices already make `UInt1` through
+`UInt8`, `UInt16be`, `UInt24be`, `UInt31be`, and `UInt32be` consume
+fixed-width unsigned big-endian fields, and `UInt16le`, `UInt24le`, and
+`UInt32le` consume fixed-width unsigned little-endian fields, then return
+ordinary `Int` values for visible fields.
 The implemented exact-width primitive encode helper slice emits those visible
 ordinary `Int` fields in their declared byte order as `ByteChunk` output and
 reports structured `EncodeError` range failures. The implemented reserved-bit
@@ -183,11 +191,11 @@ should not become a general-purpose source type.
 
 Reserved bits are spelled as schema-local fixed fields that are consumed from
 the external representation but omitted from the mapped Veln value by default.
-The byte-aligned `ReservedBits(width, value)` slice and the
-`ReservedBits(1, 0)` plus `UInt31be` shared-bit layout are implemented under
-`../specification/execution.md`. Remaining proposal work is limited to
-non-byte-aligned shapes outside that stream-id layout and any later opt-in
-mapping exposure.
+The byte-aligned `ReservedBits(width, value)` slice, one-byte packed reserved
+prefix slice, and the `ReservedBits(1, 0)` plus `UInt31be` shared-bit layout
+are implemented under `../specification/execution.md`. Remaining proposal
+work is limited to non-byte-aligned shapes outside those layouts and any later
+opt-in mapping exposure.
 
 Use a `ReservedBits(width, value)` binary schema primitive for this purpose.
 The field still has a schema-local name so diagnostics can report a stable

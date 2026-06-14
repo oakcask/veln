@@ -3028,6 +3028,13 @@ fn schema_type_reference_diagnostic(
 
 pub(in crate::analysis) fn exact_width_binary_primitive_name(name: &str) -> Option<&'static str> {
     match name {
+        "UInt1" => Some("UInt1"),
+        "UInt2" => Some("UInt2"),
+        "UInt3" => Some("UInt3"),
+        "UInt4" => Some("UInt4"),
+        "UInt5" => Some("UInt5"),
+        "UInt6" => Some("UInt6"),
+        "UInt7" => Some("UInt7"),
         "UInt8" => Some("UInt8"),
         "UInt16be" => Some("UInt16be"),
         "UInt16le" => Some("UInt16le"),
@@ -3194,7 +3201,7 @@ fn reserved_bits_encode_shape_diagnostic(
         "schema.reserved_bits_encode",
         Severity::Error,
         DiagnosticKind::Type,
-        "`ReservedBits` encode support requires a byte-aligned width or `ReservedBits(1, 0)` followed by `UInt31be`",
+        "`ReservedBits` encode support requires a byte-aligned width, a one-byte packed unsigned field, or `ReservedBits(1, 0)` followed by `UInt31be`",
         Some(field.span.clone()),
         JsonValue::object([
             (

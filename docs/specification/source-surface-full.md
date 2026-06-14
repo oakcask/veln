@@ -92,13 +92,15 @@ one `format binary` clause before any schema fields, followed by one or more
 `name: TypeText` field lines. A field line may end with a field-local `where`
 predicate after the type text, such as `padding_length: UInt8 where
 padding_length <= length`. Binary schema fields also accept exact-width
-unsigned primitive names `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
-`UInt24le`, `UInt31be`, `UInt32be`, and `UInt32le`; those names are
-schema-local representation vocabulary, not ordinary source types or values.
+unsigned primitive names `UInt1` through `UInt8`, `UInt16be`, `UInt16le`,
+`UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`, and `UInt32le`; those names
+are schema-local representation vocabulary, not ordinary source types or
+values.
 Binary schema fields also accept the
 `ReservedBits(width, value)` primitive
 spelling when `width` and `value` are literal non-negative integers, such as
-`ReservedBits(1, 0)` or a byte-aligned reserved field. Binary schema fields
+`ReservedBits(1, 0)`, a byte-aligned reserved field, or a supported one-byte
+packed reserved prefix. Binary schema fields
 also accept the closed dispatch
 type `Dispatch(tag_field, tag => Payload, ...)` and the extension-tolerant
 type `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` when
@@ -136,9 +138,9 @@ lines are parse diagnostics; reserved bits and other representation fields are
 omitted unless explicitly assigned. The parser, formatter, lowered AST, and
 editor token collector preserve mapping clauses as source metadata. The
 generated binary decode helper uses one eligible structural mapping clause
-when all schema fields are implemented exact-width unsigned primitives, closed
-dispatch fields, or extension dispatch fields and the target resolves to
-matching record fields.
+when all schema fields are implemented exact-width unsigned primitives,
+supported reserved-bit fields, closed dispatch fields, or extension dispatch
+fields and the target resolves to matching record fields.
 `format binary` schemas with more than one structural mapping clause report
 `schema.mapping_multiple_clauses` at each later `map to` clause, with details
 naming the schema, the selected mapping target, and the previous mapping
@@ -162,7 +164,9 @@ The parser preserves the predicate, primitive, and mapping text with the owning
 schema for diagnostics and editor support. Eligible binary schemas whose
 fields are visible exact-width unsigned primitives, plus the supported
 byte-aligned `ReservedBits(width, value)` fields, the supported
-`ReservedBits(1, 0)` before `UInt31be` layout, closed dispatch fields, and
+`ReservedBits(1, 0)` before `UInt31be` layout, supported one-byte packed
+`ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight
+bits, closed dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier
 visible exact-width fields and whose cases are exact-width unsigned primitive
 payloads or earlier same-module binary schema payloads or public imported
