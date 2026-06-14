@@ -247,8 +247,9 @@ The implemented narrow slice exposes this through
 tag and length fields must already be decoded in the same schema, known cases
 use implemented exact-width unsigned primitive payloads, same-module nested
 binary schema payloads, or public imported nested binary schema payloads, and
-unknown cases retain the bounded raw `ByteView`. Generalized nested payload
-schemas and protocol-state legality checks remain outside this slice.
+unknown cases retain the bounded raw `ByteView`. Recursive or otherwise
+ineligible nested payload schemas and protocol-state legality checks remain
+outside this slice.
 
 ## Discussion Result: Binary Schema Value Mapping
 
