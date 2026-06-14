@@ -78,8 +78,9 @@ compare it with `../specification/` before changing behavior.
   `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window adjustment, and
   inbound DATA `END_STREAM` closed-by-peer stream lifecycle, peer-sent
   `PUSH_PROMISE` rejection on the server receive boundary, outbound
-  frame-header encode plus narrow outbound DATA flow-control send intent, and
-  outbound `WINDOW_UPDATE` receive-credit intent slices.
+  frame-header encode, outbound SETTINGS ACK send intent, narrow outbound
+  DATA flow-control send intent, and outbound `WINDOW_UPDATE` receive-credit
+  intent slices.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle,
   stream-routing, richer deadline, cancellation, channel, and task behavior
