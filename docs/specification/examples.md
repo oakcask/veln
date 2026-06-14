@@ -479,6 +479,13 @@ peer-limit failures at the offending SETTINGS item byte offset. SETTINGS ACK
 frames do not update peer-advertised state or receive-window credit. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
 completed accumulated header-block bytes in observable example output.
+The outbound DATA send-intent slice keeps outbound connection and stream
+credit separate from inbound receive windows. It accepts a DATA intent within
+the peer-advertised maximum frame size and available outbound connection and
+stream windows, then consumes both outbound credits by payload length. It
+rejects DATA intents that exceed the received `SETTINGS_MAX_FRAME_SIZE`, the
+available outbound connection credit, or the peer-advertised stream credit
+derived from received `SETTINGS_INITIAL_WINDOW_SIZE`.
 Protocol failures stay as ordinary ADT values and are projected by source code
 into stable diagnostic ids and related context fields for byte offset,
 observed and allowed lengths, actual and expected frame kind, stream reference,
