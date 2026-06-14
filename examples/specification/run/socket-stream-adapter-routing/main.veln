@@ -59,6 +59,26 @@ fn route_socket_event(stream: NetStream, stream_id: Int, state: { request_count 
 	handle_stream_event(event, state)
 end
 
+fn spawned_stream_handler() -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
+	let payload: ByteChunk = byte_chunk_from_hex("050607")?
+	let marker: ByteChunk = byte_chunk_from_hex("cc")?
+	let route = channel::bounded<StreamEvent>(1)
+	let _ = channel::send(route.tx, Request(11, payload))
+	let event: StreamEvent = match channel::recv(route.rx)
+		Some(value) => value
+		None => PeerClosed(11)
+	end
+	Ok(handle_stream_event(event, { request_count: 40, marker: marker }))
+end
+
+fn run_stream_task() -> Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String> effects [concurrency]
+	let worker = task::spawn<Result<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }, String>>(spawned_stream_handler)
+	match task::join(worker)
+		Ok(value) => value
+		Err(_) => Err("stream task failed")
+	end
+end
+
 fn apply_response_actions(stream: NetStream, actions: List<ResponseAction>) -> () effects [net]
 	match actions
 		Nil => ()
@@ -82,6 +102,7 @@ pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
 	let initial = { request_count: 0, marker: marker }
 	let routed = route_socket_event(stream, 7, initial)
 	apply_response_actions(stream, routed.actions)
+	let task_routed: { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } = run_stream_task()?
 	stdio::print("actions ")
 	stdio::print(int_to_string(action_count(routed.actions)))
 	stdio::print(" state ")
@@ -89,6 +110,12 @@ pub fn main() -> Result<(), String> effects [net, concurrency, stdio]
 	stdio::print(" writes ")
 	stdio::print(int_to_string(write_count(routed.actions)))
 	stdio::print(" first-bytes ")
-	stdio::println(int_to_string(first_action_bytes(routed.actions)))
+	stdio::print(int_to_string(first_action_bytes(routed.actions)))
+	stdio::print(" task-actions ")
+	stdio::print(int_to_string(action_count(task_routed.actions)))
+	stdio::print(" task-state ")
+	stdio::print(int_to_string(task_routed.next_state.request_count))
+	stdio::print(" task-first-bytes ")
+	stdio::println(int_to_string(first_action_bytes(task_routed.actions)))
 	Ok(())
 end
