@@ -190,6 +190,10 @@ pub fn http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, strea
 	prelude_builtin::http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance)
 end
 
+pub fn http2_protocol_invalid_priority_dependency(offset: Int, stream_id: Int, dependency_stream_id: Int, active_state: String, rule_provenance: String) -> Result<(), String>
+	prelude_builtin::http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance)
+end
+
 pub fn http2_protocol_stream_after_goaway(offset: Int, stream_id: Int, last_stream_id: Int, shutdown_state: String, endpoint_role: String, rule_provenance: String) -> Result<(), String>
 	prelude_builtin::http2_protocol_stream_after_goaway(offset, stream_id, last_stream_id, shutdown_state, endpoint_role, rule_provenance)
 end

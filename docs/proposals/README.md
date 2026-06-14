@@ -74,6 +74,7 @@ compare it with `../specification/` before changing behavior.
   peer-created stream admission with concurrent-stream receive-limit
   diagnostics, stream id domain diagnostic slice, GOAWAY last-stream-id
   enforcement for later peer-created HEADERS, `RST_STREAM` receive slice,
+  PRIORITY receive slice with dependency facts and self-dependency diagnostic,
   `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window adjustment, and
   outbound frame-header encode slice.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):

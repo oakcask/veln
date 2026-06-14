@@ -1,0 +1,15 @@
+# HTTP/2 PRIORITY self-dependency failures project to human runtime diagnostics.
+
+type Http2ProtocolFailure
+	InvalidPriorityDependency(Int, Int, Int, String, String)
+end
+
+fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+	match failure
+		InvalidPriorityDependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance) => http2_protocol_invalid_priority_dependency(offset, stream_id, dependency_stream_id, active_state, rule_provenance)
+	end
+end
+
+pub fn main() -> Result<(), String>
+	project(InvalidPriorityDependency(0, 1, 1, "stream-control", "rfc9113_priority_dependency"))
+end

@@ -1946,6 +1946,7 @@ fn infers_prelude_helper_calls_from_expected_types() {
             "invalid_kind_http2: http2_protocol_invalid_frame_kind(0, 0, 0, 4, \"connection-control\", \"connection_frames_require_settings\"), ",
             "invalid_stream_http2: http2_protocol_invalid_stream_id(0, 1, 2, \"nonzero client-initiated stream id\", \"server\", \"stream-id-domain\", \"server_receives_client_initiated_streams\"), ",
             "invalid_payload_http2: http2_protocol_invalid_payload_length(0, 6, 0, 7, 8, \"connection-control\", \"rfc9113_ping_payload_length\"), ",
+            "invalid_priority_dependency_http2: http2_protocol_invalid_priority_dependency(0, 1, 1, \"stream-control\", \"rfc9113_priority_dependency\"), ",
             "stream_after_goaway_http2: http2_protocol_stream_after_goaway(9, 7, 5, \"graceful_shutdown\", \"server\", \"goaway_last_stream_id\"), ",
             "frame_size_http2: http2_peer_limit_frame_size_exceeded(0, 16385, 16384, 0, 3, \"protocol_default\"), ",
             "flow_control_http2: http2_peer_limit_flow_control_window_exceeded(0, 4, 3, 0, 1, \"open-stream\", \"stream_receive_window\"), ",

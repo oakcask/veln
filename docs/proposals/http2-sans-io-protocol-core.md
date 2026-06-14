@@ -337,6 +337,14 @@ stream-level `WINDOW_UPDATE` frames for that reset stream through the existing
 the existing stream id domain failure, wrong-length `RST_STREAM` payloads use
 `http2.protocol.invalid_payload_length`, and idle or unknown-stream
 `RST_STREAM` frames remain stream-state invalid frame-kind failures.
+The implemented slice also receives PRIORITY frames on nonzero
+client-initiated stream ids. It decodes the five-byte payload into
+source-visible dependency stream id, exclusive flag, and weight facts.
+PRIORITY on stream id zero uses the existing stream id domain failure,
+wrong-length PRIORITY payloads use `http2.protocol.invalid_payload_length`,
+and PRIORITY self-dependency uses
+`http2.protocol.invalid_priority_dependency` in ordinary output, human
+diagnostics, and JSON `protocol_diagnostic` details.
 
 The remaining scope below is still planned work for the full protocol core.
 

@@ -1212,6 +1212,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2ProtocolInvalidPayloadLength",
         ),
         (
+            "http2_protocol_invalid_priority_dependency",
+            "http2ProtocolInvalidPriorityDependency",
+        ),
+        (
             "http2_protocol_stream_after_goaway",
             "http2ProtocolStreamAfterGoaway",
         ),

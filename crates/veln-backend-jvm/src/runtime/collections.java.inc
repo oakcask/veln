@@ -1646,6 +1646,30 @@
         return err(message);
     }
 
+    public static Object http2ProtocolInvalidPriorityDependency(
+        Object offset,
+        Object streamId,
+        Object dependencyStreamId,
+        Object activeState,
+        Object ruleProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        long stream = asLong(streamId);
+        long dependency = asLong(dependencyStreamId);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 invalid PRIORITY dependency at byte offset " + byteOffset;
+        registerHttp2ProtocolInvalidPriorityDependencyDiagnostic(
+            message,
+            byteOffset,
+            stream,
+            dependency,
+            state,
+            provenance
+        );
+        return err(message);
+    }
+
     public static Object http2ProtocolStreamAfterGoaway(
         Object offset,
         Object streamId,
