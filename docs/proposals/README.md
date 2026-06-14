@@ -33,8 +33,7 @@ compare it with `../specification/` before changing behavior.
   view-to-chunk materialization, outgoing chunk-list, stream-input, pending
   input and outgoing immutable chunk collection for protocol examples,
   byte-view freeze preservation across task and channel boundaries, and schema
-  byte-preview diagnostic slices plus HTTP/2 client connection preface
-  protocol byte previews.
+  byte-preview diagnostic slices plus HTTP/2 protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.
   Implemented slices include source-surface exact-width and
@@ -71,9 +70,10 @@ compare it with `../specification/` before changing behavior.
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
   failures, invalid
   connection-state and stream-state frame-kind failures, fixed payload-length
-  protocol projections, the explicit HTTP/2 protocol diagnostic projection
-  boundary for representative protocol and peer-limit failures, post-GOAWAY
-  stream rejection projection, and generated
+  protocol projections with protocol-owned payload byte previews, the explicit
+  HTTP/2 protocol diagnostic projection boundary for representative protocol
+  and peer-limit failures, post-GOAWAY stream rejection projection, and
+  generated
   binary schema encode value-representation failures, generated binary schema
   decode integer range failures, plus hand-written codec decode consumed-count
   failures.

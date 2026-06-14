@@ -248,7 +248,8 @@
         long observedLength,
         long expectedLength,
         String activeState,
-        String ruleProvenance
+        String ruleProvenance,
+        String nearbyContext
     ) {
         protocolDiagnostics.get().put(
             message,
@@ -261,6 +262,7 @@
                     DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
                     DiagnosticDetail.number("observed_payload_length", observedLength),
                     DiagnosticDetail.number("expected_payload_length", expectedLength),
+                    DiagnosticDetail.bytePreviewV2("byte_preview", nearbyContext),
                     DiagnosticDetail.string("active_state", activeState),
                     DiagnosticDetail.string("rule_provenance", ruleProvenance)
                 )

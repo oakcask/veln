@@ -59,6 +59,26 @@ path = "error.details.protocol_diagnostic.expected_payload_length"
 equals = 0
 
 [[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.encoding"
+equals = "hex"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.data"
+equals = "000102030405"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.preview_byte_count"
+equals = 6
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.total_byte_count"
+equals = 6
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_preview.truncated"
+equals = false
+
+[[json_assert]]
 path = "error.details.protocol_diagnostic.active_state"
 equals = "connection-control"
 

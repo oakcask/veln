@@ -862,7 +862,8 @@ against the built `veln` binary.
 - `run/http2-protocol-core-settings-ack-length-json/`: the same SETTINGS ACK
   payload-length failure reports `http2.protocol.invalid_payload_length`
   through `run --json` with byte offset, frame kind, stream reference,
-  observed and expected payload lengths, active state, and rule provenance.
+  observed and expected payload lengths, structured byte preview, active
+  state, and rule provenance.
 - `run/http2-protocol-core-settings-unexpected-ack-human/`: a SETTINGS ACK
   received with no outstanding local SETTINGS reports
   `http2.protocol.unexpected_settings_ack` through human `run` stderr.
@@ -872,12 +873,13 @@ against the built `veln` binary.
   state, and rule provenance.
 - `run/http2-protocol-core-ping-length-human/`: a wrong-length PING payload
   reports `http2.protocol.invalid_payload_length` through human `run` stderr
-  with observed and expected payload length plus protocol state and provenance
-  notes.
+  with observed and expected payload length, bounded inspected-payload byte
+  preview, protocol state, and provenance notes.
 - `run/http2-protocol-core-ping-length-json/`: the same PING payload-length
   failure reports `http2.protocol.invalid_payload_length` through `run --json`
   with byte offset, frame kind, stream reference, observed and expected
-  payload lengths, active state, and rule provenance.
+  payload lengths, structured byte preview, active state, and rule
+  provenance.
 - `run/http2-protocol-core-goaway-length-human/`: a wrong-length GOAWAY
   fixed-prefix payload reports `http2.protocol.invalid_payload_length` through
   human `run` stderr with observed and expected payload length plus protocol

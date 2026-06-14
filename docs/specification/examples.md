@@ -506,9 +506,10 @@ clearing outstanding local SETTINGS state, an unexpected SETTINGS ACK with no
 outstanding local SETTINGS as `http2.protocol.unexpected_settings_ack`,
 wrong-length SETTINGS ACK as a typed payload-length failure, SETTINGS ACK on a
 nonzero stream as a stream id domain failure, PING frames with and without ACK,
-wrong-length PING failures, a PRIORITY frame that exposes dependency stream
-id, exclusive flag, and weight facts, PRIORITY stream id zero, wrong-length,
-and self-dependency failures, a GOAWAY frame that moves the connection into
+wrong-length PING failures with inspected-payload byte previews, a PRIORITY
+frame that exposes dependency stream id, exclusive flag, and weight facts,
+PRIORITY stream id zero, wrong-length, and self-dependency failures, a GOAWAY
+frame that moves the connection into
 graceful shutdown with last-stream-id and error-code facts, wrong-length
 GOAWAY failures, and `RST_STREAM` receive behavior for open, zero-id,
 wrong-length, idle-stream, and reset-then-stream-frame cases.
@@ -646,9 +647,10 @@ expected payload length including SETTINGS ACK length zero and `RST_STREAM`
 length four, unexpected SETTINGS ACK state, flow-control window credit,
 expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
-structured bounded preface byte preview fields, concurrent-stream attempted
-and allowed counts, required stream id domain, endpoint role, PRIORITY
-dependency stream id, and rule provenance. The preface human cases also check nearby-byte notes rendered as
+structured bounded preface and invalid-payload byte preview fields,
+concurrent-stream attempted and allowed counts, required stream id domain,
+endpoint role, PRIORITY dependency stream id, and rule provenance. The
+preface human cases also check nearby-byte notes rendered as
 bounded lowercase hex pairs with total byte count and truncation state. The
 concurrent-stream command fixtures cover the focused peer-created stream limit
 projection, and the flow-control command fixtures cover stream

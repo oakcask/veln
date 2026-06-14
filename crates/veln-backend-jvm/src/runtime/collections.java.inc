@@ -1961,7 +1961,8 @@
         Object observedLength,
         Object expectedLength,
         Object activeState,
-        Object ruleProvenance
+        Object ruleProvenance,
+        Object preview
     ) {
         long byteOffset = asLong(offset);
         long kind = asLong(frameKind);
@@ -1979,7 +1980,8 @@
             observed,
             expected,
             state,
-            provenance
+            provenance,
+            byteViewPreviewTrace(preview, 8)
         );
         return err(message);
     }

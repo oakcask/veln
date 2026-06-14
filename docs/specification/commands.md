@@ -43,7 +43,9 @@ requiring the full command reference on the first read.
   including partial and invalid client connection prefaces, frame-size and
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
   failures, invalid connection-state and stream-state frame-kind failures, and
-  fixed payload-length failures including `RST_STREAM`, and run JSON. Use
+  fixed payload-length failures including SETTINGS ACK, PING, GOAWAY,
+  `RST_STREAM`, and `WINDOW_UPDATE` with bounded payload byte-preview notes,
+  and run JSON. Use
   [run-json.md](run-json.md) first for
   machine-readable output, then [commands-full.md](commands-full.md) for exact
   command rules. Human schema-owned byte diagnostics and HTTP/2 client
