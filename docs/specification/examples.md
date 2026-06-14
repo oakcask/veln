@@ -276,11 +276,11 @@ and
 `../../examples/specification/run/binary-schema-mapped-constructor-expression-decode/`
 pin the structural mapping expression slice. The helper constructs nested
 record and ADT target fields from decoded schema-local values.
-`../../examples/specification/check/schema-mapping-multiple-clause-diagnostics/`
-and
-`../../examples/specification/check/schema-mapping-multiple-clause-human/`
-pin JSON and human diagnostics for binary schemas that declare more than one
-structural mapping clause.
+`../../examples/specification/run/binary-schema-mapping-selection-decode/`
+pins deterministic mapping selection by an already decoded field value.
+`../../examples/specification/check/schema-mapping-selection-diagnostics/`
+pins JSON diagnostics for missing, ambiguous, and unsupported mapping
+selection.
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
 arity, and constructor payload type diagnostics.

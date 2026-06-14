@@ -165,28 +165,32 @@ execution reference.
   and
   `examples/specification/run/binary-schema-extension-dispatch-length-human/`.
 - When an eligible generated binary schema decode helper has one structural
-  `map to Target` clause and the target resolves to a single record-shaped
-  source type whose mapped expressions match the target field types, the
-  helper returns the mapped ordinary record shape instead of the schema-local
-  field shape. Mapping assignment expressions may reference decoded schema
-  fields, construct records, construct ADT payloads resolved through the
-  ordinary source module rules, or call one pure same-module converter
-  function with one decoded schema-local field argument before assigning the
-  returned value to the target field. Mapping assignment targets must name
-  target fields, and every target field must be assigned once before
-  execution. The implemented mapped decoded field types are exact-width unsigned primitive
-  fields as `Int`, length-bounded `ByteView(length_field)` payload fields as
-  `ByteView`, closed nested dispatch payload fields as the nested schema
-  record shape, and extension dispatch payload fields as
-  `SchemaDispatchPayload<T>`. Mapping expressions cannot call imported
-  converter functions, arbitrary ordinary functions, read runtime settings,
-  inspect stream state, recover from decode failures, or perform effects. The
-  checked examples are
+  `map to Target` clause, or multiple structural mapping clauses selected by
+  `when field == literal`, and each target resolves to the same decoded record
+  shape whose mapped expressions match the target field types, the
+  helper returns the selected mapped ordinary record shape instead of the
+  schema-local field shape. Mapping selection reads the already decoded `Int`
+  selector field after field-local validation succeeds; selector literals must
+  be distinct so at most one mapping is selected. Mapping assignment
+  expressions may reference decoded schema fields, construct records,
+  construct ADT payloads resolved through the ordinary source module rules, or
+  call one pure same-module converter function with one decoded schema-local
+  field argument before assigning the returned value to the target field.
+  Mapping assignment targets must name target fields, and every target field
+  must be assigned once before execution. The implemented mapped decoded field
+  types are exact-width unsigned primitive fields as `Int`, length-bounded
+  `ByteView(length_field)` payload fields as `ByteView`, closed nested
+  dispatch payload fields as the nested schema record shape, and extension
+  dispatch payload fields as `SchemaDispatchPayload<T>`. Mapping expressions
+  cannot call imported converter functions, arbitrary ordinary functions, read
+  runtime settings, inspect stream state, recover from decode failures, or
+  perform effects. The checked examples are
   `examples/specification/run/binary-schema-mapped-record-decode/`,
   `examples/specification/run/binary-schema-mapped-byteview-decode/`,
   `examples/specification/run/binary-schema-mapped-record-expression-decode/`,
   `examples/specification/run/binary-schema-mapped-constructor-expression-decode/`,
-  `examples/specification/run/binary-schema-mapped-converter-decode/`, and
+  `examples/specification/run/binary-schema-mapped-converter-decode/`,
+  `examples/specification/run/binary-schema-mapping-selection-decode/`, and
   `examples/specification/run/binary-schema-mapped-nested-dispatch-decode/`.
 - Eligible generated binary schema decode-step helpers named
   `byte_decode_step_<schema>` accept a bounded `ByteView` and explicit base
@@ -299,7 +303,7 @@ execution reference.
   checked examples are
   `examples/specification/run/derived-codec-decode-boundary/` and
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`.
-  For the implemented single structural mapping slice, `T` is the mapping
+  For the implemented structural mapping slice, `T` is the mapping
   target record shape when each assignment source has the same implemented
   decoded field type as the target field.
 - A codec declaration with a valid hand-written `decode with function_name`
@@ -315,8 +319,8 @@ execution reference.
   clause exposes the codec item name as the executable encode boundary for
   ordinary source calls. The call invokes the referenced same-module function
   with that function's parameters and returns its `EncodeStep<TState>` value
-  unchanged. For the implemented single structural `map to Target` schema
-  slice, the first encoder parameter remains the mapped target record shape.
+  unchanged. For the implemented structural `map to Target` schema slice, the
+  first encoder parameter remains the mapped target record shape.
 - Same-module private decode codecs are callable only in their declaring
   module; same-module private encode codecs follow the same rule. Imported
   calls require a written qualified module path to a `pub codec`.

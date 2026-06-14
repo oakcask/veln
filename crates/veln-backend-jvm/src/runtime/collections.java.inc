@@ -345,19 +345,48 @@
         }
     }
 
+    private static final class SchemaMappingSpec {
+        final String selectorField;
+        final Long selectorValue;
+        final SchemaMappingFieldSpec[] fields;
+
+        SchemaMappingSpec(SchemaMappingFieldSpec[] fields) {
+            this("", null, fields);
+        }
+
+        SchemaMappingSpec(
+            String selectorField,
+            Long selectorValue,
+            SchemaMappingFieldSpec[] fields
+        ) {
+            this.selectorField = selectorField;
+            this.selectorValue = selectorValue;
+            this.fields = fields;
+        }
+
+        boolean matches(java.util.Map<String, Object> decoded) {
+            if (selectorValue == null) {
+                return true;
+            }
+            Object value = decoded.get(selectorField);
+            return value instanceof Long
+                && ((Long) value).longValue() == selectorValue.longValue();
+        }
+    }
+
     private static final class BinarySchemaSpec {
         final String name;
         final SchemaFieldSpec[] fields;
-        final SchemaMappingFieldSpec[] mapping;
+        final SchemaMappingSpec[] mapping;
 
         BinarySchemaSpec(String name, SchemaFieldSpec[] fields) {
-            this(name, fields, new SchemaMappingFieldSpec[0]);
+            this(name, fields, new SchemaMappingSpec[0]);
         }
 
         BinarySchemaSpec(
             String name,
             SchemaFieldSpec[] fields,
-            SchemaMappingFieldSpec[] mapping
+            SchemaMappingSpec[] mapping
         ) {
             this.name = name;
             this.fields = fields;
@@ -2607,7 +2636,11 @@
             pendingPackedReserved = null;
         }
 
-        return ok(schemaDecodedRecord(schema, values));
+        Object decodedRecord = schemaDecodedRecord(schema, values);
+        if (isErr(decodedRecord)) {
+            return decodedRecord;
+        }
+        return ok(decodedRecord);
     }
 
     private static Object byteDecodeStepBinarySchema(
@@ -2796,9 +2829,17 @@
         java.util.LinkedHashMap<String, Object> decoded
     ) {
         if (schema.mapping.length > 0) {
+            SchemaMappingSpec mapping = selectedSchemaMapping(schema, decoded);
+            if (mapping == null) {
+                return err(
+                    "schema mapping selection did not match any mapping in schema `"
+                        + schema.name
+                        + "`"
+                );
+            }
             java.util.ArrayList<Object> entries =
-                new java.util.ArrayList<Object>(schema.mapping.length * 2);
-            for (SchemaMappingFieldSpec field : schema.mapping) {
+                new java.util.ArrayList<Object>(mapping.fields.length * 2);
+            for (SchemaMappingFieldSpec field : mapping.fields) {
                 entries.add(field.target);
                 entries.add(schemaMappingExprValue(decoded, field.expr));
             }
@@ -2811,6 +2852,23 @@
             entries.add(entry.getValue());
         }
         return record(entries.toArray(new Object[entries.size()]));
+    }
+
+    private static SchemaMappingSpec selectedSchemaMapping(
+        BinarySchemaSpec schema,
+        java.util.Map<String, Object> decoded
+    ) {
+        SchemaMappingSpec selected = null;
+        for (SchemaMappingSpec mapping : schema.mapping) {
+            if (!mapping.matches(decoded)) {
+                continue;
+            }
+            if (selected != null) {
+                return null;
+            }
+            selected = mapping;
+        }
+        return selected;
     }
 
     private static Object declaredBinarySchemaSpec(
@@ -3013,13 +3071,47 @@
                 );
             }
         }
-        SchemaMappingFieldSpec[] mapping =
-            new SchemaMappingFieldSpec[mappingTargetValues.size()];
-        for (int index = 0; index < mappingTargetValues.size(); index += 1) {
-            mapping[index] = new SchemaMappingFieldSpec(
-                asString(mappingTargetValues.get(index)),
-                mappingSourceValues.get(index)
-            );
+        SchemaMappingSpec[] mapping;
+        boolean selectedMappings =
+            !mappingTargetValues.isEmpty() && mappingTargetValues.get(0) instanceof java.util.List;
+        if (selectedMappings) {
+            mapping = new SchemaMappingSpec[mappingTargetValues.size()];
+            for (int index = 0; index < mappingTargetValues.size(); index += 1) {
+                java.util.List<Object> targetSpec = asList(mappingTargetValues.get(index));
+                if (targetSpec.size() != 4 || !asString(targetSpec.get(0)).equals("select")) {
+                    return err("invalid schema decoder mapping selection metadata for schema `" + name + "`");
+                }
+                java.util.List<Object> targets = asList(targetSpec.get(3));
+                java.util.List<Object> sources = asList(mappingSourceValues.get(index));
+                if (targets.size() != sources.size()) {
+                    return err("invalid schema decoder mapping metadata for schema `" + name + "`");
+                }
+                SchemaMappingFieldSpec[] mappingFields =
+                    new SchemaMappingFieldSpec[targets.size()];
+                for (int fieldIndex = 0; fieldIndex < targets.size(); fieldIndex += 1) {
+                    mappingFields[fieldIndex] = new SchemaMappingFieldSpec(
+                        asString(targets.get(fieldIndex)),
+                        sources.get(fieldIndex)
+                    );
+                }
+                mapping[index] = new SchemaMappingSpec(
+                    asString(targetSpec.get(1)),
+                    Long.valueOf(asLong(targetSpec.get(2))),
+                    mappingFields
+                );
+            }
+        } else {
+            SchemaMappingFieldSpec[] mappingFields =
+                new SchemaMappingFieldSpec[mappingTargetValues.size()];
+            for (int index = 0; index < mappingTargetValues.size(); index += 1) {
+                mappingFields[index] = new SchemaMappingFieldSpec(
+                    asString(mappingTargetValues.get(index)),
+                    mappingSourceValues.get(index)
+                );
+            }
+            mapping = mappingFields.length == 0
+                ? new SchemaMappingSpec[0]
+                : new SchemaMappingSpec[] { new SchemaMappingSpec(mappingFields) };
         }
         return ok(new BinarySchemaSpec(name, fields, mapping));
     }

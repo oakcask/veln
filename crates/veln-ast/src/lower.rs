@@ -273,6 +273,14 @@ impl AstBuilder {
                 .map(|mapping| SchemaMappingClause {
                     node_id: self.alloc(),
                     target: mapping.target.clone(),
+                    selector: mapping.selector.as_ref().map(|selector| {
+                        crate::SchemaMappingSelector {
+                            node_id: self.alloc(),
+                            field: selector.field.clone(),
+                            value: selector.value,
+                            span: selector.span.clone(),
+                        }
+                    }),
                     assignments: mapping
                         .assignments
                         .iter()

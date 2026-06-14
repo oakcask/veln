@@ -18,9 +18,10 @@ use veln_ast::{FunctionKind, SurfaceModule, Visibility};
 use veln_core::CheckedProgram;
 use veln_diagnostics::{Diagnostic, Severity};
 use veln_ir::{
-    IrSchemaDecodeDispatch, IrSchemaDecodeDispatchCase, IrSchemaDecodeField,
+    IrSchemaDecodeDispatch, IrSchemaDecodeDispatchCase, IrSchemaDecodeField, IrSchemaDecodeMapping,
     IrSchemaDecodeMappingExpr, IrSchemaDecodeMappingField, IrSchemaDecodeMappingRecordField,
-    IrSchemaDecodeSpec, IrSchemaReservedBits, TypedProgram, lower_checked_core,
+    IrSchemaDecodeMappingSelector, IrSchemaDecodeSpec, IrSchemaReservedBits, TypedProgram,
+    lower_checked_core,
 };
 
 use crate::analysis::{
@@ -38,7 +39,8 @@ use crate::types::{
     exact_width_schema_primitive_bit_width, exact_width_schema_primitive_little_endian,
     exact_width_schema_primitive_max_value, extension_dispatch_schema_primitive,
     reserved_bits_schema_primitive, schema_decode_function_name, schema_decode_mapping_fields,
-    schema_decode_value_type, schema_dispatch_payload_schema, supported_encode_reserved_bits,
+    schema_decode_mappings, schema_decode_value_type, schema_dispatch_payload_schema,
+    supported_encode_reserved_bits,
 };
 
 #[derive(Clone, Debug)]
@@ -272,6 +274,27 @@ fn schema_decode_spec_inner_after_push(
                 target: field.target,
                 source: field.source,
                 expr: ir_schema_mapping_expr(field.expr),
+            })
+            .collect(),
+        mapping_alternatives: schema_decode_mappings(module, schema)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|mapping| IrSchemaDecodeMapping {
+                selector: mapping
+                    .selector
+                    .map(|selector| IrSchemaDecodeMappingSelector {
+                        field: selector.field,
+                        value: selector.value,
+                    }),
+                fields: mapping
+                    .fields
+                    .into_iter()
+                    .map(|field| IrSchemaDecodeMappingField {
+                        target: field.target,
+                        source: field.source,
+                        expr: ir_schema_mapping_expr(field.expr),
+                    })
+                    .collect(),
             })
             .collect(),
     })

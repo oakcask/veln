@@ -29,7 +29,8 @@ SchemaField   ::= Name ":" SchemaFieldType SchemaFieldWhere? NL
 SchemaFieldType ::= TypeText | ReservedBitsPrimitive
 ReservedBitsPrimitive ::= "ReservedBits" "(" IntLiteral "," IntLiteral ")"
 SchemaFieldWhere ::= "where" ContractPredicate
-SchemaMapping ::= "map" "to" MemberPath NL SchemaMappingAssignment+
+SchemaMapping ::= "map" "to" MemberPath SchemaMappingSelector? NL SchemaMappingAssignment+
+SchemaMappingSelector ::= "when" Name "==" IntLiteral
 SchemaMappingAssignment ::= Name "=" Expr NL
 CodecDecl     ::= "pub"? "codec" Name "for" MemberPath CodecDirections NL
                   CodecImplementation* "end" NL?
@@ -137,19 +138,22 @@ Duplicate left-hand targets, missing left-hand targets, and bare schema-field
 lines are parse diagnostics; reserved bits and other representation fields are
 omitted unless explicitly assigned. The parser, formatter, lowered AST, and
 editor token collector preserve mapping clauses as source metadata. The
-generated binary decode helper uses one eligible structural mapping clause
-when all schema fields are implemented exact-width unsigned primitives,
-supported reserved-bit fields, closed dispatch fields, or extension dispatch
-fields and the target resolves to matching record fields.
-`format binary` schemas with more than one structural mapping clause report
-`schema.mapping_multiple_clauses` at each later `map to` clause, with details
-naming the schema, the selected mapping target, and the previous mapping
-target. Target-field resolution outside that single-record slice, arbitrary
-calls, multiple mapping selection, and encode-side mapping are not
-implemented.
+generated binary decode helper uses one eligible structural mapping clause, or
+multiple eligible mapping clauses selected by `when field == literal`, when all
+schema fields are implemented exact-width unsigned primitives, supported
+reserved-bit fields, closed dispatch fields, or extension dispatch fields and
+the target resolves to matching record fields. Multiple selected mappings must
+all use the same decoded `Int` selector field, must use distinct selector
+literal values, and must decode to the same record shape. Missing selectors
+report `schema.mapping_selection_required`, duplicate selector values report
+`schema.mapping_selection_ambiguous`, and unsupported selector or target-shape
+boundaries report `schema.mapping_selection` or
+`schema.mapping_selection_unsupported`. Target-field resolution outside that
+record slice, arbitrary calls, value-dependent mapping beyond decoded-field
+integer equality, and encode-side mapping are not implemented.
 The executable diagnostics case
-`../../examples/specification/check/schema-mapping-multiple-clause-diagnostics/`
-keeps the multiple mapping clause boundary executable.
+`../../examples/specification/check/schema-mapping-selection-diagnostics/`
+keeps the mapping-selection boundary executable.
 The executable diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 keeps unsupported mapping expression, unresolved constructor, constructor
@@ -202,7 +206,7 @@ the same module as the codec declaration. The referenced function must take
 exactly two parameters, first `ByteView` for the bounded input view and then
 `ByteOffset` for the absolute base byte offset. Its return type must be
 `DecodeStep<T>` for one source-visible decoded value type `T`. When the
-referenced schema has one implemented structural `map to Target` clause, `T`
+referenced schema has an implemented structural `map to Target` slice, `T`
 must match the mapped target record shape. A missing function reports
 `name.unresolved` at the `decode with` clause. A wrong parameter count,
 parameter type, or return type reports `codec.decode_signature` at that clause
@@ -221,16 +225,16 @@ generated `byte_decode_step_<schema>` helper, the codec item name is also an
 ordinary decode call target in the declaring module. A `pub codec` can also be
 called through a written import-qualified module path. The call expects
 `ByteView` and `ByteOffset` arguments and returns that generated helper's
-`DecodeStep<T>` result. For the implemented single structural mapping slice,
-`T` is the mapping target record shape when each assignment source has the
+`DecodeStep<T>` result. For the implemented structural mapping slice, `T` is
+the mapping target record shape when each assignment source has the
 same implemented decoded field type as the target field. Bare imported codec
 names are not call targets, and encode-only codecs do not expose this decode
 boundary.
 
 The checker also validates the implemented encode function boundary for
 `encode with function_name`. The name must resolve to an ordinary function in
-the same module as the codec declaration. When the referenced schema has one
-implemented structural `map to Target` clause, the referenced function's first
+the same module as the codec declaration. When the referenced schema has an
+implemented structural `map to Target` slice, the referenced function's first
 parameter must match the mapped target record shape. The referenced function
 must return `EncodeStep<TState>` for one source-visible encoder state type
 `TState`. A missing function reports `name.unresolved` at the `encode with`

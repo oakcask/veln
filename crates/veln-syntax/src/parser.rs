@@ -9,8 +9,9 @@ use crate::{
     Expr, ExprKind, FunctionDecl, FunctionKind, MatchArm, ModuleDecl, Param, Pattern, PatternField,
     PatternKind, PrefixOp, PublicAliasDecl, PublicAliasKind, RecordField, SatisfyClause,
     SchemaDecl, SchemaField, SchemaFieldWhereClause, SchemaFormatClause, SchemaMappingAssignment,
-    SchemaMappingClause, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl, TypeVariantDecl,
-    TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility, lex,
+    SchemaMappingClause, SchemaMappingSelector, SyntaxItem, SyntaxTree, Token, TokenKind, TypeDecl,
+    TypeVariantDecl, TypeVariantField, TypeVariantFieldDelimiter, UseDecl, UsePackage, Visibility,
+    lex,
 };
 
 #[derive(Clone, Debug)]
@@ -548,6 +549,7 @@ impl<'a> Parser<'a> {
             );
         }
         let target = self.expect_name_path("schema_mapping", "mapping target");
+        let selector = self.parse_schema_mapping_selector();
         let mut end = self.expect_newline("schema_mapping").range;
 
         let mut assignments = Vec::new();
@@ -576,9 +578,40 @@ impl<'a> Parser<'a> {
 
         SchemaMappingClause {
             target,
+            selector,
             assignments,
             span: self.source.span(start.cover(end)),
         }
+    }
+
+    fn parse_schema_mapping_selector(&mut self) -> Option<SchemaMappingSelector> {
+        if !self.at_ident_text("when") {
+            return None;
+        }
+        let start = self.bump().range;
+        let field = self
+            .expect_ident("schema_mapping", "mapping selector field")
+            .unwrap_or_else(|| "<missing>".to_string());
+        self.expect(TokenKind::EqualEqual, "schema_mapping", vec!["=="]);
+        let value_token = if self.at(TokenKind::Int) {
+            self.bump()
+        } else {
+            self.error_current(
+                "parse.schema_mapping_selector",
+                "schema mapping selector must compare a field to an integer literal",
+                "schema_mapping",
+                vec!["integer literal"],
+                RecoveryStrategy::InsertToken,
+                Some("newline"),
+            );
+            self.current().clone()
+        };
+        let value = value_token.text.parse::<i64>().unwrap_or(0);
+        Some(SchemaMappingSelector {
+            field,
+            value,
+            span: self.source.span(start.cover(value_token.range)),
+        })
     }
 
     fn parse_schema_mapping_assignment(

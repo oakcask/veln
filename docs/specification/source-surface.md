@@ -79,25 +79,29 @@ field. Other ordinary calls, imported converter functions, effects, runtime
 settings, stream state, and recovery behavior are not mapping expressions.
 Mapping clauses are parsed, formatted, lowered, exposed to editor support,
 and used by the generated decode slice described in
-[execution.md](execution.md) when the schema has a single structural mapping
-and all assignment expressions use implemented decoded field types:
+[execution.md](execution.md) when the schema has one structural mapping, or
+multiple structural mappings selected by `when field == literal`, and all
+assignment expressions use implemented decoded field types:
 exact-width unsigned primitive fields as `Int`, length-bounded
 `ByteView(length_field)` payload fields as `ByteView`, closed nested dispatch
 payload fields as the nested schema record shape, and extension dispatch
-payload fields as `SchemaDispatchPayload<T>`. A `format binary` schema with
-more than one structural mapping clause reports
-`schema.mapping_multiple_clauses` at each later `map to` clause. The predicate,
-primitive, dispatch, and mapping text are parsed and preserved as
-source-surface syntax.
+payload fields as `SchemaDispatchPayload<T>`. Multiple selected mappings must
+all use the same decoded `Int` selector field, distinct selector literal
+values, and the same decoded record shape. Missing, duplicate, and unsupported
+selectors report `schema.mapping_selection_required`,
+`schema.mapping_selection_ambiguous`, `schema.mapping_selection`, or
+`schema.mapping_selection_unsupported`. The predicate, primitive, dispatch,
+and mapping text are parsed and preserved as source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
 primitive, supported reserved-bit, closed dispatch, extension dispatch, and
 same-module or imported public nested dispatch payload helper slices, general
 ADT constructor mapping beyond schema-local structural expressions,
 recursive or otherwise ineligible dispatch payload schemas, arbitrary mapping
-expressions, and multiple mapping selection are not implemented.
+expressions, and mapping selection beyond decoded-field integer equality are
+not implemented.
 The checked diagnostics case
-`../../examples/specification/check/schema-mapping-multiple-clause-diagnostics/`
-pins the multiple mapping clause boundary. The checked diagnostics case
+`../../examples/specification/check/schema-mapping-selection-diagnostics/`
+pins the mapping selection boundary. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-expression-boundary-diagnostics/`
 pins unsupported mapping expression, unresolved constructor, constructor
 arity, and constructor payload type diagnostics. The checked diagnostics case
@@ -162,7 +166,7 @@ the codec's module with exactly `ByteView` and `ByteOffset` parameters and a
 `DecodeStep<T>` return type. Invalid decode signatures report
 `codec.decode_signature` at the codec implementation clause, with related
 context pointing to the referenced function when it is available. When the
-referenced schema has one implemented structural mapping, the `T` value type
+referenced schema has an implemented structural mapping slice, the `T` value type
 must match the mapping target record shape; mismatches report
 `codec.decode_value_type` at the codec implementation clause. A codec with a
 hand-written `decode with` clause is callable through the codec item name in
@@ -175,13 +179,13 @@ consumed count to `codec.consumed_count_invalid` as specified in
 `derive decode` codecs are callable through the same visibility and import
 rules when their schema is eligible for `byte_decode_step_<schema>`, and the
 call returns that generated helper's `DecodeStep<T>` result. For the
-implemented single structural mapping slice, `T` is the mapping target record
+implemented structural mapping slice, `T` is the mapping target record
 shape when each assignment source has the same implemented decoded field type
 as the target field. Bare imported codec names are not ordinary call targets.
 
 An `encode with function_name` clause must resolve to an ordinary function in
 the codec's module with an `EncodeStep<TState>` return type. When the
-referenced schema has one implemented structural mapping, the function's first
+referenced schema has an implemented structural mapping slice, the function's first
 parameter must match the mapping target record shape. Invalid encode
 signatures report `codec.encode_signature`; mapped value parameter mismatches
 report `codec.encode_value_type` at the codec implementation clause, with
