@@ -18,9 +18,15 @@ implemented first schema-owned fixed-field mismatch slice, including
 `schema.fixed_field_mismatch`, byte offset, field path, expected and actual
 values, structured byte preview fields in `run --json`, and stable human
 `run` bounded nearby-byte preview output, is specified under
-`../specification/run-json.md` and `../specification/commands.md` and checked by
+`../specification/run-json.md`, `../specification/commands.md`, and
+`../specification/execution.md` and checked by
 `../../examples/specification/run/binary-fixed-field-mismatch-json/` and
-`../../examples/specification/run/binary-fixed-field-mismatch-human/`. The
+`../../examples/specification/run/binary-fixed-field-mismatch-human/` for
+direct byte helpers and by
+`../../examples/specification/run/binary-schema-fixed-field-mismatch-json/`
+and
+`../../examples/specification/run/binary-schema-fixed-field-mismatch-human/`
+for generated binary schema decode helpers. The
 implemented frame-header schema truncation, reserved-bit mismatch, payload
 length boundary, and field-local validation slices are specified under
 `../specification/run-json.md` and `../specification/commands.md` and checked

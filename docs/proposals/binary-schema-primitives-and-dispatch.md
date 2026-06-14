@@ -21,6 +21,11 @@ reserved-bit mismatches. Generated schema helpers also consume byte-aligned
 representation-only fields, omit those fields from decoded records and
 mapping source values, encode them from the declared fixed value, and report
 the same reserved-bit mismatch and truncation diagnostic shapes. The
+generated helper slice also treats visible exact-width fields with a
+field-local equality predicate such as `field == literal` as schema-owned
+fixed fields, leaves matching values visible in the decoded result, and
+reports `schema.fixed_field_mismatch` with byte offset, field path, expected
+value, actual value, and byte preview details when the input differs. The
 width-sample primitive decode slice consumes
 `UInt16be` and `UInt32be`, returns ordinary `Int` values, and reports the
 same structured truncation shape. The narrow HTTP/2 frame helper also returns
@@ -300,8 +305,8 @@ author likely referred to an earlier field with a compatible role.
 
 - Executable examples show binary schema writes and general schema-owned
   fixed-width reads beyond the implemented frame-header, width-sample,
-  little-endian primitive widths, primitive encode helper, reserved-bit
-  decode and encode helper, closed-dispatch
+  visible fixed-field mismatch, little-endian primitive widths, primitive
+  encode helper, reserved-bit decode and encode helper, closed-dispatch
   primitive plus same-module and imported public nested encode helper,
   extension-dispatch primitive plus same-module and imported public nested
   encode helper, HTTP/2 payload boundary helper, and narrow closed-dispatch
@@ -309,9 +314,6 @@ author likely referred to an earlier field with a compatible role.
 - Generalized dispatch payload schemas can decode nested known payload shapes,
   and generalized dispatch payload schemas can encode nested known payload
   shapes, while keeping extension-tolerant unknown payload bytes opaque.
-- Invalid fixed fields in general schema decode produce structured
-  diagnostics beyond the implemented frame-header truncation and byte-aligned
-  reserved-bit mismatch details.
 - The schema vocabulary is general enough for another binary protocol example.
 - The HTTP/2 design driver can express frame header and payload boundaries
   through general schema declarations instead of the current narrow helper.

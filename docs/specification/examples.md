@@ -227,12 +227,16 @@ first missing byte offset, expected and available counts, structured byte
 preview fields in JSON, human nearby-byte notes, and `Http2FrameHeader.payload`
 field path.
 
-`../../examples/specification/run/binary-fixed-field-mismatch-json/` and
-`../../examples/specification/run/binary-fixed-field-mismatch-human/` pin the
-first schema-owned fixed-field mismatch diagnostic slice. The JSON case
-asserts `schema.fixed_field_mismatch`, decoded byte offset, structured field
-path, expected and actual byte values, and structured byte preview fields. The
-human case asserts that the primary message stays focused on the fixed-field
+`../../examples/specification/run/binary-fixed-field-mismatch-json/`,
+`../../examples/specification/run/binary-fixed-field-mismatch-human/`,
+`../../examples/specification/run/binary-schema-fixed-field-mismatch-json/`,
+and
+`../../examples/specification/run/binary-schema-fixed-field-mismatch-human/`
+pin schema-owned fixed-field mismatch diagnostics through direct byte helpers
+and generated binary schema decode helpers. The JSON cases assert
+`schema.fixed_field_mismatch`, decoded byte offset, structured field path,
+expected and actual values, and structured byte preview fields. The human
+cases assert that the primary message stays focused on the fixed-field
 mismatch and puts field path, expected value, actual value, and nearby context
 in related notes.
 
