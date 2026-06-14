@@ -229,6 +229,9 @@ against the built `veln` binary.
 - `check/schema-mapping-diagnostics/`: generated binary schema mapping
   diagnostics for mapping assignments that name schema-local source fields
   not decoded by the schema.
+- `check/schema-packed-reserved-mapping-diagnostics/`: one-byte packed
+  `ReservedBits(width, value)` fields are representation-only and are not
+  available as structural mapping source fields.
 - `check/schema-mapping-multiple-clause-diagnostics/`: binary schema
   diagnostics for later structural `map to Target` clauses when a schema has
   more than one mapping clause.

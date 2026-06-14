@@ -219,7 +219,10 @@ one-byte packed reserved-bit decode slice. The valid case decodes high
 reserved bits plus a low visible `UInt5` field from one byte, omits the
 reserved field from the decoded record, and then reads the following field at
 the next byte. The failing case asserts `schema.reserved_bits_mismatch` for
-the packed reserved field.
+the packed reserved field. The checked diagnostics case
+`../../examples/specification/check/schema-packed-reserved-mapping-diagnostics/`
+asserts that the packed reserved field is not available as a structural
+mapping source field.
 
 The executable specification cases
 `../../examples/specification/run/binary-schema-frame-payload-decode/`,
