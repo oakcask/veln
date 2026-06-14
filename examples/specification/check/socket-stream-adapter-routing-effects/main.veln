@@ -1,0 +1,33 @@
+# Socket-to-handler adapter routing must declare socket and channel effects.
+type StreamEvent
+	Request {stream_id: Int, payload: ByteChunk}
+	PeerClosed {stream_id: Int}
+end
+
+type ResponseAction
+	SendBytes {stream_id: Int, bytes: ByteChunk}
+	EndStream {stream_id: Int}
+	Decline {stream_id: Int}
+end
+
+fn handle_stream_event(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }
+	match event
+		Request(stream_id, payload) => { actions: list_cons(SendBytes(stream_id, payload), list_cons(SendBytes(stream_id, state.marker), list_cons(EndStream(stream_id), list_nil()))), next_state: { request_count: state.request_count + 1, marker: state.marker } }
+		PeerClosed(stream_id) => { actions: list_cons(Decline(stream_id), list_nil()), next_state: state }
+	end
+end
+
+fn route_socket_event(stream: NetStream, stream_id: Int, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net]
+	let incoming: ByteChunk = net::read_chunk(stream)
+	let route = channel::bounded<StreamEvent>(1)
+	let _ = channel::send(route.tx, Request(stream_id, incoming))
+	let event: StreamEvent = match channel::recv(route.rx)
+		Some(value) => value
+		None => PeerClosed(stream_id)
+	end
+	handle_stream_event(event, state)
+end
+
+pub fn adapter_boundary(stream: NetStream, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net]
+	route_socket_event(stream, 7, state)
+end
