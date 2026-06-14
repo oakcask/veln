@@ -510,6 +510,14 @@ stream windows, then consumes both outbound credits by payload length. It
 rejects DATA intents that exceed the received `SETTINGS_MAX_FRAME_SIZE`, the
 available outbound connection credit, or the peer-advertised stream credit
 derived from received `SETTINGS_INITIAL_WINDOW_SIZE`.
+The outbound `RST_STREAM` send-intent slice accepts a nonzero currently open
+stream, emits a frame-header plus error-code output chunk with length `4`,
+kind `3`, flags `0`, and the selected stream id, then records local reset
+state so a later stream-level `WINDOW_UPDATE` for that stream follows the
+same reset stream-state rejection boundary. It rejects stream id `0`, missing
+streams, closed streams, already reset streams, mismatched open streams, and
+generated encode-helper representation failures for the stream id or
+error-code payload before accepted bytes are produced.
 Protocol failures stay as ordinary ADT values and are projected by source code
 into stable diagnostic ids and related context fields for byte offset,
 observed and allowed lengths, actual and expected frame kind, stream reference,
@@ -520,8 +528,9 @@ count, expected and actual preface byte, and rule provenance.
 The same case also pins outbound frame header encoding from an ordinary
 record-shaped frame description through the generated binary schema encode
 helper. The checked `[[output_chunk_list]]` fixtures cover a SETTINGS header
-on the connection stream, a DATA header on a nonzero stream, and the maximum
-valid `UInt31be` stream id. The source output also matches a generated helper
+on the connection stream, a DATA header on a nonzero stream, an accepted
+`RST_STREAM` frame plus error-code payload, and the maximum valid `UInt31be`
+stream id. The source output also matches a generated helper
 `codec.encode_value_unrepresentable` failure for an out-of-range stream id,
 keeping field path and reason text visible without converting it into a
 protocol diagnostic.
