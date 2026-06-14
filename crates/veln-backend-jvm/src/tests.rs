@@ -313,6 +313,57 @@ fn bytecode_backend_reports_forced_timeout_expiry_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_reports_forced_deadline_expiry_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [time]\n",
+        "  let deadline: Deadline = time::deadline_after_ms(5)\n",
+        "  time::wait_until(deadline)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+        "bytecode-deadline-expiry",
+        &program,
+        &[("VELN_TIME_DEADLINE_EXPIRED", "1")],
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "transport deadline expired: VELN_TIME_DEADLINE_EXPIRED\n"
+    );
+}
+
+#[test]
+fn bytecode_backend_waits_until_deadline_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [time, stdio]\n",
+        "  let deadline: Deadline = time::deadline_after_ms(0)\n",
+        "  time::wait_until(deadline)\n",
+        "  stdio::println(\"deadline\")\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_when_java_is_available("bytecode-deadline", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "deadline\n");
+}
+
+#[test]
 fn bytecode_backend_runs_result_try_collections_and_function_values_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn parse(raw: String) -> Result<Int, {message: String}>\n",
@@ -1311,6 +1362,8 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("process::cwd", "processCwd"),
         ("process::exit", "processExit"),
         ("time::timeout_ms", "timeTimeoutMs"),
+        ("time::deadline_after_ms", "timeDeadlineAfterMs"),
+        ("time::wait_until", "timeWaitUntil"),
     ] {
         assert_eq!(standard_library_method(surface), method);
     }

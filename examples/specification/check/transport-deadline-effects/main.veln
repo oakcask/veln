@@ -1,0 +1,5 @@
+# Public deadline-boundary functions must declare inferred time effects.
+pub fn wait_for_deadline() -> ()
+	let deadline: Deadline = time::deadline_after_ms(0)
+	time::wait_until(deadline)
+end

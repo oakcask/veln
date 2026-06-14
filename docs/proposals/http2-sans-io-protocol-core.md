@@ -24,12 +24,14 @@ ordinary-source decode-state slices. Planned coverage still includes:
   header-table-size, and maximum-header-list-size peer-advertised state,
   unknown-identifier handling, and SETTINGS ACK receive handling
 - remaining DATA behavior beyond the implemented receive-window accounting
+  and inbound `END_STREAM` closed-by-peer lifecycle
 - typed protocol errors for the remaining frame and stream rules
 - connection settings beyond maximum frame size
 - stream identifiers
 - remaining stream lifecycle beyond the implemented peer-created stream
-  admission, receive-limit, inbound reset slice, and GOAWAY last-stream-id
-  enforcement for later peer-created HEADERS
+  admission, receive-limit, inbound reset slice, DATA `END_STREAM`
+  closed-by-peer transition, and GOAWAY last-stream-id enforcement for later
+  peer-created HEADERS
 - remaining outbound flow control and broader stream-window interactions
   beyond the implemented inbound DATA receive-window accounting,
   stream-level `WINDOW_UPDATE` receive-credit handling,
@@ -327,6 +329,12 @@ available stream or connection receive-window credit use
 reference, observed payload length, allowed window credit, active state, and
 rule provenance in executable output, human diagnostics, and JSON
 `protocol_diagnostic` details.
+When accepted inbound DATA carries `END_STREAM`, the same receive-window
+accounting is applied before the tracked peer-created stream transitions to a
+closed-by-peer state. Later DATA and stream-level `WINDOW_UPDATE` frames for
+that stream use the existing stream-state
+`http2.protocol.invalid_frame_kind` failure shape with closed-by-peer active
+state and rule provenance.
 The implemented slice also receives `WINDOW_UPDATE` frames. Connection-level
 `WINDOW_UPDATE` increases connection receive-window credit, and
 stream-level `WINDOW_UPDATE` increases the currently open stream's

@@ -446,7 +446,10 @@ Receive-limit state records the active maximum frame size with
 protocol-default, local-configuration, or local-SETTINGS provenance.
 Receive flow-control state records connection receive-window credit and the
 currently open stream receive-window credit. DATA on the open stream consumes
-both windows by payload length. `WINDOW_UPDATE` on the connection stream
+both windows by payload length. Accepted DATA with `END_STREAM` then moves the
+tracked stream to closed-by-peer state, and later DATA or stream-level
+`WINDOW_UPDATE` for that stream uses the same stream-state failure shape as
+other non-open stream states. `WINDOW_UPDATE` on the connection stream
 increases connection receive-window credit, and `WINDOW_UPDATE` on the open
 stream increases that stream's receive-window credit. A received
 `SETTINGS_INITIAL_WINDOW_SIZE` item applies the delta from the previous active

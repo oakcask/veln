@@ -76,14 +76,15 @@ compare it with `../specification/` before changing behavior.
   enforcement for later peer-created HEADERS, `RST_STREAM` receive slice,
   PRIORITY receive slice with dependency facts and self-dependency diagnostic,
   `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window adjustment, and
-  outbound frame-header encode plus narrow outbound DATA flow-control send
-  intent and outbound `WINDOW_UPDATE` receive-credit intent slices.
+  inbound DATA `END_STREAM` closed-by-peer stream lifecycle, outbound
+  frame-header encode plus narrow outbound DATA flow-control send intent, and
+  outbound `WINDOW_UPDATE` receive-credit intent slices.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
-  define remaining transport adapter, socket, stream-routing, deadline API,
+  define remaining transport adapter, socket, stream-routing, richer deadline,
   cancellation, channel, and task behavior beyond the implemented
   descriptor-backed `net` and `time` boundary calls plus their first
-  transport-error and timeout-expiry runtime failure slices, and the
-  source-level stream event/action handler boundary examples.
+  transport-error, timeout-expiry, and deadline-expiry runtime failure slices,
+  and the source-level stream event/action handler boundary examples.
 
 ## Update When
 

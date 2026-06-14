@@ -24,7 +24,8 @@ Runtime contract failures use `error.kind: "contract"`. The error details use
 Host runtime failures use `error.kind: "runtime"`, `details.phase:
 "runtime"`, and the first captured runtime stderr line as `error.message`.
 Descriptor-backed transport failures such as malformed host-fed receive bytes,
-failed outgoing event recording, and forced timeout expiry use this shape.
+failed outgoing event recording, and forced timeout or deadline expiry use
+this shape.
 
 An entry returning `Err(value)` uses `error.kind: "result"`. The error details
 use `kind: "result"`, `phase: "runtime"`, and `value` with the rendered error
@@ -215,7 +216,8 @@ even client stream ids, and nonzero stream ids on connection-only frames. The
 invalid frame-kind state slice uses id `http2.protocol.invalid_frame_kind` and
 records `byte_offset.value`, `actual_frame_kind`, `stream_id`, `stream_ref`,
 `expected_frame_kind`, `active_state`, and `rule_provenance`; the checked
-HTTP/2 examples cover both connection-control and idle-stream state failures.
+HTTP/2 examples cover connection-control, idle-stream, reset-stream, and
+closed-by-peer stream state failures.
 After receiving GOAWAY, a peer-created HEADERS stream greater than the
 recorded last stream id uses id `http2.protocol.stream_after_goaway` and
 records `byte_offset.value`, `stream_id`, `stream_ref`, `last_stream_id`,

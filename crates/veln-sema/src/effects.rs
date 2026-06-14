@@ -92,6 +92,10 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
         )),
         ("process", "exit") => Some((vec![Type::int()], Type::unit())),
         ("time", "timeout_ms") => Some((vec![Type::int()], Type::unit())),
+        ("time", "deadline_after_ms") => {
+            Some((vec![Type::int()], Type::named("Deadline", Vec::new())))
+        }
+        ("time", "wait_until") => Some((vec![Type::named("Deadline", Vec::new())], Type::unit())),
         _ => None,
     }
 }
@@ -637,6 +641,16 @@ mod tests {
         let (params, return_type) =
             standard_library_signature(&path("time", "timeout_ms")).expect("time signature");
         assert_eq!(params, vec![Type::int()]);
+        assert_eq!(return_type, Type::unit());
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "deadline_after_ms")).expect("time signature");
+        assert_eq!(params, vec![Type::int()]);
+        assert_eq!(return_type, Type::named("Deadline", Vec::new()));
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "wait_until")).expect("time signature");
+        assert_eq!(params, vec![Type::named("Deadline", Vec::new())]);
         assert_eq!(return_type, Type::unit());
     }
 }

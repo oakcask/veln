@@ -663,8 +663,11 @@ against the built `veln` binary.
   `WINDOW_UPDATE` for that reset stream through the existing invalid
   frame-kind path. It also accepts DATA on an open stream,
   decrements both connection and stream receive-window credit by payload
-  length, accepts `WINDOW_UPDATE` receive-credit increments for the connection
-  and open stream, and reports zero increments, receive-window overflow,
+  length, moves that stream to closed-by-peer when accepted DATA carries
+  `END_STREAM`, rejects later DATA and stream-level `WINDOW_UPDATE` for the
+  closed-by-peer stream through the stream-state failure path, accepts
+  `WINDOW_UPDATE` receive-credit increments for the connection and open
+  stream, and reports zero increments, receive-window overflow,
   negative stream credit, and credit exhaustion as
   `http2.peer_limit.flow_control_window_exceeded`. Its outbound intent
   coverage keeps receive-credit advertisement separate from DATA send credit,
@@ -830,13 +833,22 @@ against the built `veln` binary.
   declared effect boundaries, including present and missing environment
   lookups.
 - `run/transport-boundary/`: descriptor-backed `net` and `time` boundary
-  calls with host-fed input chunks, outgoing chunks, and timeout use.
+  calls with host-fed input chunks, outgoing chunks, timeout use, and relative
+  deadline waiting.
+- `run/transport-deadline/`: relative deadline creation and waiting succeed
+  through descriptor-backed `time` calls.
+- `check/transport-deadline-effects/`: deadline creation and waiting infer
+  the `time` effect for public effect checking.
 - `run/transport-receive-malformed-json/`: malformed host-fed transport bytes
   fail as run JSON runtime errors, not schema, codec, or protocol diagnostics.
 - `run/transport-send-record-failure-json/`: failed outgoing transport event
   recording fails as a run JSON runtime error.
 - `run/transport-timeout-expired-json/`: host-fixture-forced timeout expiry
   through `time::timeout_ms` fails as a run JSON runtime error.
+- `run/transport-deadline-expired-human/`: host-fixture-forced deadline expiry
+  through `time::wait_until` stays runtime blame in human command output.
+- `run/transport-deadline-expired-json/`: host-fixture-forced deadline expiry
+  through `time::wait_until` fails as a run JSON runtime error.
 - `run/stream-adapter-event-boundary/`: source-owned stream event and response
   action ADTs model handler inputs and protocol intent, with direct fixture
   invocation and existing channel routing under the `concurrency` effect.

@@ -35,8 +35,8 @@ execution reference.
   without socket calls.
 - Descriptor-backed `net` and `time` calls are host runtime boundaries:
   malformed received bytes, failed outgoing event recording, and forced
-  timeout expiry stop the entry as runtime failures rather than schema,
-  codec, or peer protocol diagnostics.
+  timeout or deadline expiry stop the entry as runtime failures rather than
+  schema, codec, or peer protocol diagnostics.
 - Stream adapter event-boundary examples use ordinary source ADT, record, and
   list values for decoded stream events and response actions. A handler
   receives an event plus explicit state and returns action intent values plus
@@ -325,12 +325,16 @@ execution reference.
   client-initiated stream id. The receive flow-control state opens an idle
   peer-created stream on an admitted HEADERS frame, counts the tracked open
   peer-created stream for the active concurrent-stream receive limit, consumes
-  DATA payload length from connection and stream windows, accepts
+  DATA payload length from connection and stream windows, moves the stream to
+  a closed-by-peer state when accepted inbound DATA carries `END_STREAM`, accepts
   connection-level and open-stream `WINDOW_UPDATE` increments, applies
   received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to the tracked open-stream
   receive-window credit, and keeps wrong-length, idle-stream, zero,
-  reset-stream, concurrent-stream-limit, negative-credit DATA, and overflow
-  cases as typed protocol failures. A received `RST_STREAM` on the open stream
+  closed-by-peer stream, reset-stream, concurrent-stream-limit,
+  negative-credit DATA, and overflow cases as typed protocol failures.
+  Closed-by-peer streams reject later DATA and stream-level `WINDOW_UPDATE`
+  through the same stream-state protocol failure shape used by other
+  non-open stream states. A received `RST_STREAM` on the open stream
   clears that stream and stores the reset error code so later DATA or
   stream-level `WINDOW_UPDATE` cannot treat the stream as open. After the
   client preface gate, structurally
