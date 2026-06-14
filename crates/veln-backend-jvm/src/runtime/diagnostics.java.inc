@@ -268,6 +268,28 @@
         );
     }
 
+    private static void registerHttp2ProtocolUnexpectedSettingsAckDiagnostic(
+        String message,
+        long byteOffset,
+        String activeState,
+        String ruleProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.unexpected_settings_ack",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("frame_kind", 4),
+                    DiagnosticDetail.number("stream_id", 0),
+                    DiagnosticDetail.string("stream_ref", "connection"),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2ProtocolInvalidPriorityDependencyDiagnostic(
         String message,
         long byteOffset,

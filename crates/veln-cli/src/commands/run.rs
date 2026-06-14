@@ -544,6 +544,31 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
                 .push(note_json(format!("Rule provenance: {provenance}.")));
             Some(diagnostic)
         }
+        "http2.protocol.unexpected_settings_ack" => {
+            let frame_kind = json_number(protocol_entries, "frame_kind")?;
+            let stream_id = json_number(protocol_entries, "stream_id")?;
+            let stream_ref = json_string(protocol_entries, "stream_ref")?;
+            let active_state = json_string(protocol_entries, "active_state")?;
+            let provenance = json_string(protocol_entries, "rule_provenance")?;
+            let mut diagnostic = Diagnostic::new(
+                id,
+                Severity::Error,
+                DiagnosticKind::Runtime,
+                format!("unexpected SETTINGS ACK at byte offset {byte_offset}"),
+                None,
+                protocol_diagnostic.clone(),
+            );
+            diagnostic.related.push(note_json(format!(
+                "Frame kind {frame_kind} on {stream_ref} {stream_id} acknowledged local SETTINGS, but no local SETTINGS batch is outstanding."
+            )));
+            diagnostic
+                .related
+                .push(note_json(format!("Active protocol state: {active_state}.")));
+            diagnostic
+                .related
+                .push(note_json(format!("Rule provenance: {provenance}.")));
+            Some(diagnostic)
+        }
         "http2.protocol.invalid_priority_dependency" => {
             let frame_kind = json_number(protocol_entries, "frame_kind")?;
             let stream_id = json_number(protocol_entries, "stream_id")?;
@@ -2319,6 +2344,63 @@ mod tests {
             diagnostic.related[2]
                 .to_json()
                 .contains("rfc9113_ping_payload_length")
+        );
+    }
+
+    #[test]
+    fn protocol_result_failure_diagnostic_projects_unexpected_settings_ack_context() {
+        let protocol_diagnostic = JsonValue::object([
+            ("kind", JsonValue::string("protocol_diagnostic")),
+            (
+                "id",
+                JsonValue::string("http2.protocol.unexpected_settings_ack"),
+            ),
+            (
+                "byte_offset",
+                JsonValue::object([
+                    ("kind", JsonValue::string("ByteOffset")),
+                    ("value", JsonValue::Number(0)),
+                ]),
+            ),
+            ("frame_kind", JsonValue::Number(4)),
+            ("stream_id", JsonValue::Number(0)),
+            ("stream_ref", JsonValue::string("connection")),
+            ("active_state", JsonValue::string("connection-control")),
+            (
+                "rule_provenance",
+                JsonValue::string("rfc9113_settings_ack_requires_outstanding_local_settings"),
+            ),
+        ]);
+        let failure = TestFailure::result_with_details(
+            "HTTP/2 unexpected SETTINGS ACK at byte offset 0".to_string(),
+            None,
+            None,
+            Some(protocol_diagnostic),
+        );
+
+        let diagnostic = protocol_result_failure_diagnostic(&failure)
+            .expect("protocol diagnostic should project");
+
+        assert_eq!(diagnostic.id, "http2.protocol.unexpected_settings_ack");
+        assert_eq!(
+            diagnostic.message,
+            "unexpected SETTINGS ACK at byte offset 0"
+        );
+        assert_eq!(diagnostic.related.len(), 3);
+        assert!(
+            diagnostic.related[0]
+                .to_json()
+                .contains("no local SETTINGS batch is outstanding")
+        );
+        assert!(
+            diagnostic.related[1]
+                .to_json()
+                .contains("connection-control")
+        );
+        assert!(
+            diagnostic.related[2]
+                .to_json()
+                .contains("rfc9113_settings_ack_requires_outstanding_local_settings")
         );
     }
 

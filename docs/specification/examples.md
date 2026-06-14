@@ -495,7 +495,9 @@ connection-only stream ids and a DATA frame kind rejected for idle-stream
 state, plus peer-sent `PUSH_PROMISE` rejected as a known frame kind instead
 of preserved as an unknown extension frame and `PUSH_PROMISE` on the
 connection stream rejected by the existing stream id domain route. It also
-pins zero-length SETTINGS ACK on the connection stream,
+pins zero-length SETTINGS ACK on the connection stream, a valid SETTINGS ACK
+clearing outstanding local SETTINGS state, an unexpected SETTINGS ACK with no
+outstanding local SETTINGS as `http2.protocol.unexpected_settings_ack`,
 wrong-length SETTINGS ACK as a typed payload-length failure, SETTINGS ACK on a
 nonzero stream as a stream id domain failure, PING frames with and without ACK,
 wrong-length PING failures, a PRIORITY frame that exposes dependency stream
@@ -547,7 +549,9 @@ still applied or rejected at its own byte offset. Received values for settings
 with protocol range constraints are checked before updating peer-advertised
 state or open-stream receive-window credit; out-of-range values stay as typed
 peer-limit failures at the offending SETTINGS item byte offset. SETTINGS ACK
-frames do not update peer-advertised state or receive-window credit. A
+frames do not update peer-advertised state or receive-window credit. A valid
+SETTINGS ACK clears outstanding local SETTINGS state; an ACK with no
+outstanding local SETTINGS is a typed protocol failure. A
 final CONTINUATION with END_HEADERS clears continuation state and exposes the
 completed accumulated header-block bytes in observable example output.
 The outbound DATA send-intent slice keeps outbound connection and stream
@@ -587,10 +591,10 @@ count, expected and actual preface byte, and rule provenance.
 The same case also pins outbound frame header encoding from an ordinary
 record-shaped frame description through the generated binary schema encode
 helper. The checked `[[output_chunk_list]]` fixtures cover a SETTINGS header
-on the connection stream, a DATA header on a nonzero stream, an accepted
-`RST_STREAM` frame plus error-code payload, an accepted GOAWAY frame plus
-last-stream-id and error-code payload, and the maximum valid `UInt31be`
-stream id. The source output also matches generated helper
+on the connection stream, a DATA header on a nonzero stream, a local SETTINGS
+frame-header-plus-item chunk, an accepted `RST_STREAM` frame plus error-code
+payload, an accepted GOAWAY frame plus last-stream-id and error-code payload,
+and the maximum valid `UInt31be` stream id. The source output also matches generated helper
 `codec.encode_value_unrepresentable` failure for an out-of-range stream id,
 keeping field path and reason text visible without converting it into a
 protocol diagnostic.
@@ -608,6 +612,7 @@ protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-push-promise-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-human/case.toml`,
+`../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-frame-size-json/`,
@@ -621,6 +626,7 @@ protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-push-promise-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-settings-unexpected-ack-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-json/case.toml`,
 and `../../examples/specification/run/http2-protocol-core-goaway-length-json/case.toml`
@@ -631,7 +637,8 @@ active continuation, connection state, or stream state, observed and allowed
 frame sizes, setting identity, observed setting value, accepted setting range,
 stream reference, receive-limit provenance, peer-limit provenance, observed and
 expected payload length including SETTINGS ACK length zero and `RST_STREAM`
-length four, flow-control window credit, expected and actual
+length four, unexpected SETTINGS ACK state, flow-control window credit,
+expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
 structured bounded preface byte preview fields, concurrent-stream attempted
 and allowed counts, required stream id domain, endpoint role, PRIORITY

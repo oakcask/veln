@@ -79,6 +79,15 @@ type PeerSettingsState
 	PeerSettings(PeerAdvertisedMaxFrameSize, PeerAdvertisedInitialWindowSize, PeerAdvertisedEnablePush, PeerAdvertisedMaxConcurrentStreams, PeerAdvertisedHeaderTableSize, PeerAdvertisedMaxHeaderListSize)
 end
 
+type OutstandingLocalSettings
+	NoOutstandingLocalSettings
+	OutstandingLocalSettings(Int, Int)
+end
+
+type Http2ConnectionState
+	ConnectionState(Http2DecodeState, OutstandingLocalSettings)
+end
+
 type ConnectionShutdownState
 	OpenConnection
 	GracefulShutdown(Int, Int)
@@ -143,6 +152,7 @@ type Http2ProtocolFailure
 	InvalidFrameKind(Int, Int, Int, Int, String, String)
 	InvalidStreamId(Int, Int, Int, String, String, String, String)
 	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String)
+	UnexpectedSettingsAck(Int, String, String)
 	InvalidPriorityDependency(Int, Int, Int, String, String)
 	StreamAfterGoaway(Int, Int, Int, String, String, String)
 	FrameSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int)
@@ -223,10 +233,21 @@ type OutboundPingAckDecision
 	OutboundPingAckEncodeFailed(EncodeError)
 end
 
+type OutboundSettingsDecision
+	OutboundSettingsAccepted(Int, Int, Http2ConnectionState, ByteChunk)
+	OutboundSettingsEncodeFailed(EncodeError)
+end
+
 type Http2Step
 	FrameDecoded(Http2DecodeState, Int, Int, Int, Int, Int, ByteChunk, Http2Frame)
 	Waiting(Http2DecodeState)
 	Failed(Http2DecodeState, Http2ProtocolFailure)
+end
+
+type Http2ConnectionStep
+	ConnectionFrameDecoded(Http2ConnectionState, Http2Step)
+	ConnectionWaiting(Http2ConnectionState)
+	ConnectionFailed(Http2ConnectionState, Http2ProtocolFailure)
 end
 
 fn empty_state() -> Http2DecodeState
@@ -988,6 +1009,56 @@ fn send_settings_ack() -> Result<ByteChunk, EncodeError>
 	encode_frame_header({length: 0, kind: 4, flags: 1, stream_id: 0})
 end
 
+fn connection_state(decode_state: Http2DecodeState) -> Http2ConnectionState
+	ConnectionState(decode_state, NoOutstandingLocalSettings)
+end
+
+fn receive_connection(input: Http2Input, connection: Http2ConnectionState) -> Result<Http2ConnectionStep, String>
+	match connection
+		ConnectionState(decode_state, outstanding_settings) => update_connection_after_receive(receive(input, decode_state)?, outstanding_settings)
+	end
+end
+
+fn update_connection_after_receive(step: Http2Step, outstanding_settings: OutstandingLocalSettings) -> Result<Http2ConnectionStep, String>
+	match step
+		FrameDecoded(decode_state, offset, _, kind, flags, _, _, _) => match settings_ack_frame(kind, flags)
+			true => receive_settings_ack(offset, decode_state, outstanding_settings, step)
+			false => Ok(ConnectionFrameDecoded(ConnectionState(decode_state, outstanding_settings), step))
+		end
+		Waiting(decode_state) => Ok(ConnectionWaiting(ConnectionState(decode_state, outstanding_settings)))
+		Failed(decode_state, failure) => Ok(ConnectionFailed(ConnectionState(decode_state, outstanding_settings), failure))
+	end
+end
+
+fn settings_ack_frame(kind: Int, flags: Int) -> Bool
+	match kind == 4
+		true => settings_ack_set(flags)
+		false => false
+	end
+end
+
+fn receive_settings_ack(offset: Int, decode_state: Http2DecodeState, outstanding_settings: OutstandingLocalSettings, step: Http2Step) -> Result<Http2ConnectionStep, String>
+	match outstanding_settings
+		NoOutstandingLocalSettings => Ok(ConnectionFailed(ConnectionState(decode_state, NoOutstandingLocalSettings), UnexpectedSettingsAck(offset, "connection-control", "rfc9113_settings_ack_requires_outstanding_local_settings")))
+		OutstandingLocalSettings(_, _) => Ok(ConnectionFrameDecoded(ConnectionState(decode_state, NoOutstandingLocalSettings), step))
+	end
+end
+
+fn send_local_max_frame_size_setting(value: Int, connection: Http2ConnectionState) -> Result<OutboundSettingsDecision, String>
+	match connection
+		ConnectionState(decode_state, _) => encode_local_settings_intent(value, decode_state)
+	end
+end
+
+fn encode_local_settings_intent(value: Int, decode_state: Http2DecodeState) -> Result<OutboundSettingsDecision, String>
+	let payload: ByteChunk = byte_append(byte_write_u16_be(5)?, byte_write_u32_be(value)?)
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 6, kind: 4, flags: 0, stream_id: 0})
+	match encoded_header
+		Ok(header) => Ok(OutboundSettingsAccepted(5, value, ConnectionState(decode_state, OutstandingLocalSettings(5, 1)), byte_append(header, payload)))
+		Err(error) => Ok(OutboundSettingsEncodeFailed(error))
+	end
+end
+
 fn send_ping_ack_for_received(step: Http2Step) -> Result<OutboundPingAckDecision, String>
 	match step
 		FrameDecoded(_, _, _, kind, flags, _, _, frame) => match kind == 6
@@ -1743,6 +1814,63 @@ fn state_peer_settings(state: Http2DecodeState) -> PeerSettingsState
 	end
 end
 
+fn connection_decode_state(connection: Http2ConnectionState) -> Http2DecodeState
+	match connection
+		ConnectionState(decode_state, _) => decode_state
+	end
+end
+
+fn connection_outstanding_settings(connection: Http2ConnectionState) -> OutstandingLocalSettings
+	match connection
+		ConnectionState(_, outstanding_settings) => outstanding_settings
+	end
+end
+
+fn connection_step_state(step: Http2ConnectionStep) -> Http2ConnectionState
+	match step
+		ConnectionFrameDecoded(state, _) => state
+		ConnectionWaiting(state) => state
+		ConnectionFailed(state, _) => state
+	end
+end
+
+fn connection_step_decode_step(step: Http2ConnectionStep) -> Http2Step
+	match step
+		ConnectionFrameDecoded(_, decode_step) => decode_step
+		ConnectionWaiting(state) => Waiting(connection_decode_state(state))
+		ConnectionFailed(state, failure) => Failed(connection_decode_state(state), failure)
+	end
+end
+
+fn connection_step_failure(step: Http2ConnectionStep) -> Http2ProtocolFailure
+	match step
+		ConnectionFrameDecoded(_, _) => ClosedWithPending(0, 0)
+		ConnectionWaiting(_) => ClosedWithPending(0, 0)
+		ConnectionFailed(_, failure) => failure
+	end
+end
+
+fn outstanding_settings_label(outstanding_settings: OutstandingLocalSettings) -> String
+	match outstanding_settings
+		NoOutstandingLocalSettings => "none"
+		OutstandingLocalSettings(_, _) => "active"
+	end
+end
+
+fn outstanding_settings_identifier(outstanding_settings: OutstandingLocalSettings) -> Int
+	match outstanding_settings
+		NoOutstandingLocalSettings => 0
+		OutstandingLocalSettings(identifier, _) => identifier
+	end
+end
+
+fn outstanding_settings_count(outstanding_settings: OutstandingLocalSettings) -> Int
+	match outstanding_settings
+		NoOutstandingLocalSettings => 0
+		OutstandingLocalSettings(_, count) => count
+	end
+end
+
 fn state_shutdown_state_value(state: Http2DecodeState) -> ConnectionShutdownState
 	match state
 		State(_, _, _, _, _, _, shutdown_state, _) => shutdown_state
@@ -2214,6 +2342,41 @@ fn outbound_ping_ack_encode_detail(decision: OutboundPingAckDecision) -> String
 	end
 end
 
+fn outbound_settings_status(decision: OutboundSettingsDecision) -> String
+	match decision
+		OutboundSettingsAccepted(_, _, _, _) => "accepted"
+		OutboundSettingsEncodeFailed(_) => "encode_error"
+	end
+end
+
+fn outbound_settings_identifier(decision: OutboundSettingsDecision) -> Int
+	match decision
+		OutboundSettingsAccepted(identifier, _, _, _) => identifier
+		OutboundSettingsEncodeFailed(_) => 0
+	end
+end
+
+fn outbound_settings_value(decision: OutboundSettingsDecision) -> Int
+	match decision
+		OutboundSettingsAccepted(_, value, _, _) => value
+		OutboundSettingsEncodeFailed(_) => 0
+	end
+end
+
+fn outbound_settings_connection(decision: OutboundSettingsDecision) -> Http2ConnectionState
+	match decision
+		OutboundSettingsAccepted(_, _, connection, _) => connection
+		OutboundSettingsEncodeFailed(_) => connection_state(frame_state())
+	end
+end
+
+fn outbound_settings_chunk(decision: OutboundSettingsDecision) -> ByteChunk
+	match decision
+		OutboundSettingsAccepted(_, _, _, chunk) => chunk
+		OutboundSettingsEncodeFailed(_) => byte_chunk([])
+	end
+end
+
 fn outbound_receive_reset_stream_id(receive_credit: OutboundReceiveCredit) -> Int
 	match receive_credit
 		OutboundReceiveCredit(_, NoOutboundReceiveCreditStream) => 0
@@ -2232,6 +2395,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "http2.protocol.invalid_frame_kind"
 		InvalidStreamId(_, _, _, _, _, _, _) => "http2.protocol.invalid_stream_id"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "http2.protocol.invalid_payload_length"
+		UnexpectedSettingsAck(_, _, _) => "http2.protocol.unexpected_settings_ack"
 		InvalidPriorityDependency(_, _, _, _, _) => "http2.protocol.invalid_priority_dependency"
 		StreamAfterGoaway(_, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
 		FrameSizeExceeded(_, _, _, _, _) => "http2.peer_limit.frame_size_exceeded"
@@ -2252,6 +2416,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(offset, _, _, _, _, _) => offset
 		InvalidStreamId(offset, _, _, _, _, _, _) => offset
 		InvalidPayloadLength(offset, _, _, _, _, _, _) => offset
+		UnexpectedSettingsAck(offset, _, _) => offset
 		InvalidPriorityDependency(offset, _, _, _, _) => offset
 		StreamAfterGoaway(offset, _, _, _, _, _) => offset
 		FrameSizeExceeded(offset, _, _, _, _) => offset
@@ -2272,6 +2437,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
@@ -2292,6 +2458,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidStreamId(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _) => actual_kind
+		UnexpectedSettingsAck(_, _, _) => 4
 		InvalidPriorityDependency(_, _, _, _, _) => 2
 		StreamAfterGoaway(_, _, _, _, _, _) => 1
 		FrameSizeExceeded(_, _, _, actual_kind, _) => actual_kind
@@ -2312,6 +2479,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, actual_stream, _, _, _) => actual_stream
 		InvalidStreamId(_, _, actual_stream, _, _, _, _) => actual_stream
 		InvalidPayloadLength(_, _, actual_stream, _, _, _, _) => actual_stream
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, stream_id, _, _, _) => stream_id
 		StreamAfterGoaway(_, stream_id, _, _, _, _) => stream_id
 		FrameSizeExceeded(_, _, _, _, actual_stream) => actual_stream
@@ -2332,6 +2500,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, dependency_stream_id, _, _) => dependency_stream_id
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
 		FrameSizeExceeded(_, _, _, _, _) => 0
@@ -2352,6 +2521,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, expected_kind, _, _) => expected_kind
 		InvalidStreamId(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _) => actual_kind
+		UnexpectedSettingsAck(_, _, _) => 4
 		InvalidPriorityDependency(_, _, _, _, _) => 2
 		StreamAfterGoaway(_, _, _, _, _, _) => 1
 		FrameSizeExceeded(_, _, _, _, _) => 0
@@ -2372,6 +2542,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
@@ -2392,6 +2563,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
@@ -2412,6 +2584,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, observed_length, _, _, _) => observed_length
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, stream_id, _, _, _, _) => stream_id
 		FrameSizeExceeded(_, observed_length, _, _, _) => observed_length
@@ -2432,6 +2605,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, expected_length, _, _) => expected_length
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, dependency_stream_id, _, _) => dependency_stream_id
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_value(receive_limit)
@@ -2452,6 +2626,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, active_state, _) => active_state
 		InvalidStreamId(_, _, _, _, _, active_state, _) => active_state
 		InvalidPayloadLength(_, _, _, _, _, active_state, _) => active_state
+		UnexpectedSettingsAck(_, active_state, _) => active_state
 		InvalidPriorityDependency(_, _, _, active_state, _) => active_state
 		StreamAfterGoaway(_, _, _, shutdown_state, _, _) => shutdown_state
 		FrameSizeExceeded(_, _, _, _, _) => "none"
@@ -2472,6 +2647,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, rule_provenance) => rule_provenance
 		InvalidStreamId(_, _, _, _, _, _, rule_provenance) => rule_provenance
 		InvalidPayloadLength(_, _, _, _, _, _, rule_provenance) => rule_provenance
+		UnexpectedSettingsAck(_, _, rule_provenance) => rule_provenance
 		InvalidPriorityDependency(_, _, _, _, rule_provenance) => rule_provenance
 		StreamAfterGoaway(_, _, _, _, _, rule_provenance) => rule_provenance
 		FrameSizeExceeded(_, _, _, _, _) => "none"
@@ -2492,6 +2668,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
+		UnexpectedSettingsAck(_, _, _) => "none"
 		InvalidPriorityDependency(_, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_provenance_label(receive_limit)
@@ -2512,6 +2689,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
@@ -2532,6 +2710,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
+		UnexpectedSettingsAck(_, _, _) => "none"
 		InvalidPriorityDependency(_, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
@@ -2552,6 +2731,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
@@ -2572,6 +2752,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
@@ -2592,6 +2773,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
@@ -2612,6 +2794,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
+		UnexpectedSettingsAck(_, _, _) => "none"
 		InvalidPriorityDependency(_, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
@@ -2683,6 +2866,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, required_domain, _, _, _) => required_domain
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
+		UnexpectedSettingsAck(_, _, _) => "none"
 		InvalidPriorityDependency(_, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
@@ -2703,6 +2887,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, endpoint_role, _, _) => endpoint_role
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
+		UnexpectedSettingsAck(_, _, _) => "none"
 		InvalidPriorityDependency(_, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, endpoint_role, _) => endpoint_role
 		FrameSizeExceeded(_, _, _, _, _) => "none"
@@ -2724,6 +2909,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		UnexpectedSettingsAck(_, _, _) => 0
 		InvalidPriorityDependency(_, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -2861,6 +3047,29 @@ fn print_peer_settings(label: String, state: Http2DecodeState) -> () effects [st
 	stdio::print(int_to_string(state_peer_max_header_list_size(state)))
 	stdio::print(" peer_max_header_list_size_offset ")
 	stdio::println(int_to_string(state_peer_max_header_list_size_offset(state)))
+end
+
+fn print_outstanding_settings(label: String, connection: Http2ConnectionState) -> () effects [stdio]
+	let outstanding_settings: OutstandingLocalSettings = connection_outstanding_settings(connection)
+	stdio::print(label)
+	stdio::print(" local_settings outstanding ")
+	stdio::print(outstanding_settings_label(outstanding_settings))
+	stdio::print(" setting_identifier ")
+	stdio::print(int_to_string(outstanding_settings_identifier(outstanding_settings)))
+	stdio::print(" setting_count ")
+	stdio::println(int_to_string(outstanding_settings_count(outstanding_settings)))
+end
+
+fn print_outbound_settings(label: String, decision: OutboundSettingsDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" outbound-settings ")
+	stdio::print(outbound_settings_status(decision))
+	stdio::print(" setting_identifier ")
+	stdio::print(int_to_string(outbound_settings_identifier(decision)))
+	stdio::print(" value ")
+	stdio::print(int_to_string(outbound_settings_value(decision)))
+	stdio::print(" outstanding ")
+	stdio::println(outstanding_settings_label(connection_outstanding_settings(outbound_settings_connection(decision))))
 end
 
 fn print_settings_failure(label: String, step: Http2Step) -> () effects [stdio]
@@ -3573,6 +3782,16 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let settings_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000040100000000")?), step_state(peer_settings))?
 	print_step("settings-ack", settings_ack)
 	print_peer_settings("settings-ack", step_state(settings_ack))
+	let local_settings_sent: OutboundSettingsDecision = send_local_max_frame_size_setting(32768, connection_state(frame_state()))?
+	print_outbound_settings("local-settings-sent", local_settings_sent)
+	let ignored_local_settings_chunk: () = emit_encoded_header("http2-local-settings", outbound_settings_chunk(local_settings_sent), "000006040000000000000500008000")?
+	print_outstanding_settings("local-settings-sent", outbound_settings_connection(local_settings_sent))
+	let local_settings_ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), outbound_settings_connection(local_settings_sent))?
+	print_step("local-settings-ack", connection_step_decode_step(local_settings_ack))
+	print_outstanding_settings("local-settings-ack", connection_step_state(local_settings_ack))
+	let unexpected_settings_ack: Http2ConnectionStep = receive_connection(InputChunk(byte_chunk_from_hex("000000040100000000")?), connection_state(frame_state()))?
+	print_failure("settings-ack-unexpected", connection_step_decode_step(unexpected_settings_ack))
+	print_outstanding_settings("settings-ack-unexpected", connection_step_state(unexpected_settings_ack))
 	let settings_unknown_only: Http2Step = receive(InputChunk(byte_chunk_from_hex("000006040000000000aaaa12345678")?), frame_state())?
 	print_step("settings-unknown-only", settings_unknown_only)
 	print_peer_settings("settings-unknown-only", step_state(settings_unknown_only))

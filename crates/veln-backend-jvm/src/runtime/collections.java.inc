@@ -1900,6 +1900,24 @@
         return err(message);
     }
 
+    public static Object http2ProtocolUnexpectedSettingsAck(
+        Object offset,
+        Object activeState,
+        Object ruleProvenance
+    ) {
+        long byteOffset = asLong(offset);
+        String state = asString(activeState);
+        String provenance = asString(ruleProvenance);
+        String message = "HTTP/2 unexpected SETTINGS ACK at byte offset " + byteOffset;
+        registerHttp2ProtocolUnexpectedSettingsAckDiagnostic(
+            message,
+            byteOffset,
+            state,
+            provenance
+        );
+        return err(message);
+    }
+
     public static Object http2ProtocolInvalidPriorityDependency(
         Object offset,
         Object streamId,
