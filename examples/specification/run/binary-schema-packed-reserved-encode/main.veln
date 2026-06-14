@@ -1,11 +1,65 @@
 use stdio
 
-schema PackedControlHeader
+schema PackedWidthOneHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(1, 1)
+	control: UInt7
+	suffix: UInt8
+end
+
+schema PackedWidthTwoHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(2, 2)
+	control: UInt6
+	suffix: UInt8
+end
+
+schema PackedWidthThreeHeader
 	format binary
 
 	prefix: UInt8
 	control_reserved: ReservedBits(3, 5)
 	control: UInt5
+	suffix: UInt8
+end
+
+schema PackedWidthFourHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(4, 9)
+	control: UInt4
+	suffix: UInt8
+end
+
+schema PackedWidthFiveHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(5, 17)
+	control: UInt3
+	suffix: UInt8
+end
+
+schema PackedWidthSixHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(6, 21)
+	control: UInt2
+	suffix: UInt8
+end
+
+schema PackedWidthSevenHeader
+	format binary
+
+	prefix: UInt8
+	control_reserved: ReservedBits(7, 85)
+	control: UInt1
 	suffix: UInt8
 end
 
@@ -27,19 +81,37 @@ fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
 	stdio::println(int_to_string(count))
 end
 
-fn emit_encoded(bytes: ByteChunk) -> () effects [stdio]
-	emit_output_chunk_list_header("packed-control-header", 1)
-	emit_output_chunk("packed-control-header", 0, bytes, "12b234")
+fn emit_encoded_chunk(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, bytes, expected_hex)
 end
 
-fn emit_result(encoded: Result<ByteChunk, EncodeError>) -> () effects [stdio]
+fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
 	match encoded
-		Ok(bytes) => emit_encoded(bytes)
+		Ok(bytes) => emit_encoded_chunk(name, bytes, expected_hex)
 		Err(_) => stdio::println("unexpected encode failure")
 	end
 end
 
 pub fn main() -> () effects [stdio]
-	let encoded: Result<ByteChunk, EncodeError> = byte_encode_packed_control_header({prefix: 18, control: 18, suffix: 52})
-	emit_result(encoded)
+	let one: Result<ByteChunk, EncodeError> = byte_encode_packed_width_one_header({prefix: 18, control: 42, suffix: 52})
+	emit_encoded("packed-width-1", one, "12aa34")
+
+	let two: Result<ByteChunk, EncodeError> = byte_encode_packed_width_two_header({prefix: 18, control: 17, suffix: 52})
+	emit_encoded("packed-width-2", two, "129134")
+
+	let three: Result<ByteChunk, EncodeError> = byte_encode_packed_width_three_header({prefix: 18, control: 18, suffix: 52})
+	emit_encoded("packed-width-3", three, "12b234")
+
+	let four: Result<ByteChunk, EncodeError> = byte_encode_packed_width_four_header({prefix: 18, control: 7, suffix: 52})
+	emit_encoded("packed-width-4", four, "129734")
+
+	let five: Result<ByteChunk, EncodeError> = byte_encode_packed_width_five_header({prefix: 18, control: 3, suffix: 52})
+	emit_encoded("packed-width-5", five, "128b34")
+
+	let six: Result<ByteChunk, EncodeError> = byte_encode_packed_width_six_header({prefix: 18, control: 2, suffix: 52})
+	emit_encoded("packed-width-6", six, "125634")
+
+	let seven: Result<ByteChunk, EncodeError> = byte_encode_packed_width_seven_header({prefix: 18, control: 1, suffix: 52})
+	emit_encoded("packed-width-7", seven, "12ab34")
 end

@@ -19,5 +19,29 @@ path = "error"
 equals = null
 
 [[output_chunk_list]]
-name = "packed-control-header"
+name = "packed-width-1"
+chunks = ["12aa34"]
+
+[[output_chunk_list]]
+name = "packed-width-2"
+chunks = ["129134"]
+
+[[output_chunk_list]]
+name = "packed-width-3"
 chunks = ["12b234"]
+
+[[output_chunk_list]]
+name = "packed-width-4"
+chunks = ["129734"]
+
+[[output_chunk_list]]
+name = "packed-width-5"
+chunks = ["128b34"]
+
+[[output_chunk_list]]
+name = "packed-width-6"
+chunks = ["125634"]
+
+[[output_chunk_list]]
+name = "packed-width-7"
+chunks = ["12ab34"]
