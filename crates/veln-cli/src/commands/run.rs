@@ -536,6 +536,7 @@ fn protocol_result_failure_diagnostic(failure: &TestFailure) -> Option<Diagnosti
             diagnostic.related.push(note_json(format!(
                 "Frame kind {frame_kind} on {stream_ref} {stream_id} declared {observed_length} byte(s); expected {expected_length} byte(s)."
             )));
+            push_byte_preview_note(&mut diagnostic, protocol_entries);
             diagnostic
                 .related
                 .push(note_json(format!("Active protocol state: {active_state}.")));
@@ -2303,6 +2304,7 @@ mod tests {
             ("stream_ref", JsonValue::string("connection")),
             ("observed_payload_length", JsonValue::Number(7)),
             ("expected_payload_length", JsonValue::Number(8)),
+            ("byte_preview", byte_preview("01020304050607")),
             ("active_state", JsonValue::string("connection-control")),
             (
                 "rule_provenance",
@@ -2324,7 +2326,7 @@ mod tests {
             diagnostic.message,
             "invalid payload length at byte offset 0"
         );
-        assert_eq!(diagnostic.related.len(), 3);
+        assert_eq!(diagnostic.related.len(), 4);
         assert!(
             diagnostic.related[0]
                 .to_json()
@@ -2338,10 +2340,15 @@ mod tests {
         assert!(
             diagnostic.related[1]
                 .to_json()
-                .contains("connection-control")
+                .contains("01 02 03 04 05 06 07 (showing 7 of 7 byte(s), complete)")
         );
         assert!(
             diagnostic.related[2]
+                .to_json()
+                .contains("connection-control")
+        );
+        assert!(
+            diagnostic.related[3]
                 .to_json()
                 .contains("rfc9113_ping_payload_length")
         );

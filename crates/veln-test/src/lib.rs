@@ -4154,6 +4154,49 @@ mod tests {
     }
 
     #[test]
+    fn invalid_payload_length_protocol_diagnostic_result_trace_keeps_byte_preview() {
+        let trace = concat!(
+            "result\t",
+            "485454502f3220696e76616c6964207061796c6f6164206c656e6774682061742062797465206f66667365742030",
+            "\tprotocol_diagnostic\thttp2.protocol.invalid_payload_length\t0",
+            "\t8\tframe_kind\tnumber\t6",
+            "\tstream_id\tnumber\t0",
+            "\tstream_ref\tstring\t636f6e6e656374696f6e",
+            "\tobserved_payload_length\tnumber\t7",
+            "\texpected_payload_length\tnumber\t8",
+            "\tbyte_preview\tbyte_preview_v2\t3031303230333034303530363037:7:7:false",
+            "\tactive_state\tstring\t636f6e6e656374696f6e2d636f6e74726f6c",
+            "\trule_provenance\tstring\t726663393131335f70696e675f7061796c6f61645f6c656e677468\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 invalid payload length at byte offset 0\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.protocol.invalid_payload_length\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":0},",
+                "\"frame_kind\":6,",
+                "\"stream_id\":0,",
+                "\"stream_ref\":\"connection\",",
+                "\"observed_payload_length\":7,",
+                "\"expected_payload_length\":8,",
+                "\"byte_preview\":{\"encoding\":\"hex\",",
+                "\"data\":\"01020304050607\",",
+                "\"preview_byte_count\":7,",
+                "\"total_byte_count\":7,",
+                "\"truncated\":false},",
+                "\"active_state\":\"connection-control\",",
+                "\"rule_provenance\":\"rfc9113_ping_payload_length\"}}"
+            )
+        );
+    }
+
+    #[test]
     fn stream_after_goaway_protocol_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",

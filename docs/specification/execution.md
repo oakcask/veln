@@ -402,10 +402,11 @@ execution reference.
   decoding, zero-length SETTINGS ACK frames that clear outstanding local
   SETTINGS state,
   zero-length SETTINGS ACK frames with no outstanding local SETTINGS state,
-  wrong-length SETTINGS ACK payloads,
+  wrong-length SETTINGS ACK payloads with bounded inspected-payload previews,
   stream id domain failures including HEADERS and CONTINUATION on the
   connection stream, invalid stream-state frame kinds, wrong-length
-  PING, PRIORITY, GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction,
+  PING, PRIORITY, GOAWAY, and `RST_STREAM` payloads with bounded
+  inspected-payload previews, accepted PING ACK distinction,
   accepted PRIORITY dependency stream id, exclusive flag, and weight facts,
   PRIORITY self-dependency failures, peer-sent `PUSH_PROMISE` rejection,
   accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id

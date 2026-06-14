@@ -190,8 +190,8 @@ pub fn http2_protocol_invalid_stream_id(offset: Int, frame_kind: Int, stream_id:
 	prelude_builtin::http2_protocol_invalid_stream_id(offset, frame_kind, stream_id, required_domain, endpoint_role, active_state, rule_provenance)
 end
 
-pub fn http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String) -> Result<(), String>
-	prelude_builtin::http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance)
+pub fn http2_protocol_invalid_payload_length(offset: Int, frame_kind: Int, stream_id: Int, observed_length: Int, expected_length: Int, active_state: String, rule_provenance: String, preview: ByteView) -> Result<(), String>
+	prelude_builtin::http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
 end
 
 pub fn http2_protocol_unexpected_settings_ack(offset: Int, active_state: String, rule_provenance: String) -> Result<(), String>

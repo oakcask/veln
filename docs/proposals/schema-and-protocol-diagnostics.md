@@ -43,8 +43,9 @@ stream-state frame kinds. Stream id domain failures use
 id domain, endpoint role, active state, and rule provenance. The fixed
 payload-length projection uses
 `http2.protocol.invalid_payload_length` for SETTINGS ACK, PING, GOAWAY,
-`RST_STREAM`, and `WINDOW_UPDATE` payload-length failures. Post-GOAWAY
-peer-created stream failures use `http2.protocol.stream_after_goaway` with
+`RST_STREAM`, and `WINDOW_UPDATE` payload-length failures, including
+protocol-owned inspected-payload byte previews. Post-GOAWAY peer-created
+stream failures use `http2.protocol.stream_after_goaway` with
 attempted stream id, recorded last stream id, shutdown state, endpoint role,
 active state, and rule provenance. These protocol projections are checked by
 the HTTP/2 protocol-core cases under
@@ -335,7 +336,7 @@ SETTINGS value range peer-limit, DATA receive flow-control peer-limit, client
 connection preface failures, and invalid connection-state and stream-state
 frame-kind failures, stream id domain failures, post-GOAWAY stream failures,
 plus fixed payload-length failures for SETTINGS ACK, PING, GOAWAY,
-`RST_STREAM`, and `WINDOW_UPDATE`.
+`RST_STREAM`, and `WINDOW_UPDATE` with protocol-owned payload byte previews.
 `run --json` examples assert the stable byte and protocol diagnostic detail
 fields documented in `../specification/run-json.md`; human `run` examples
 assert the focused primary messages and related notes documented in

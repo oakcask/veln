@@ -1,15 +1,17 @@
 # HTTP/2 PING payload length failures project to human diagnostics.
 
 type Http2ProtocolFailure
-	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String)
+	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String, ByteView)
 end
 
 fn project(failure: Http2ProtocolFailure) -> Result<(), String>
 	match failure
-		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance) => http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance)
+		InvalidPayloadLength(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview) => http2_protocol_invalid_payload_length(offset, frame_kind, stream_id, observed_length, expected_length, active_state, rule_provenance, preview)
 	end
 end
 
 pub fn main() -> Result<(), String>
-	project(InvalidPayloadLength(0, 6, 0, 7, 8, "connection-control", "rfc9113_ping_payload_length"))
+	let bytes: ByteChunk = byte_chunk_from_hex("01020304050607")?
+	let preview: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(7)?)?
+	project(InvalidPayloadLength(0, 6, 0, 7, 8, "connection-control", "rfc9113_ping_payload_length", preview))
 end
