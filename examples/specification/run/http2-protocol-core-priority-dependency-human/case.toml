@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.invalid_priority_dependency]: invalid PRIORITY dependency at byte offset 0", "note: Frame kind 2 on stream 1 declared itself as dependency stream 1.", "note: Active protocol state: stream-control.", "note: Rule provenance: rfc9113_priority_dependency."]

@@ -313,12 +313,14 @@ execution reference.
   `SETTINGS_INITIAL_WINDOW_SIZE` values outside their accepted SETTINGS
   ranges, zero-length SETTINGS ACK frames, wrong-length SETTINGS ACK payloads,
   stream id domain failures, invalid stream-state frame kinds, wrong-length
-  PING, GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction,
+  PING, PRIORITY, GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction,
+  accepted PRIORITY dependency stream id, exclusive flag, and weight facts,
+  PRIORITY self-dependency failures,
   accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id
   enforcement for later peer-created HEADERS streams, and accepted
   `RST_STREAM` error-code facts as typed protocol values. In the server-side
   fixture core, SETTINGS,
-  PING, and GOAWAY require stream id zero; HEADERS, DATA, `RST_STREAM`,
+  PING, and GOAWAY require stream id zero; HEADERS, DATA, PRIORITY, `RST_STREAM`,
   CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
   client-initiated stream id. The receive flow-control state opens an idle
   peer-created stream on an admitted HEADERS frame, counts the tracked open

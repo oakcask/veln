@@ -95,6 +95,7 @@ end
 
 type Http2Frame
 	KnownFrame(Int, Int, Int, ByteView)
+	PriorityFrame(Int, Int, Int, Bool, Int)
 	UnknownFrame(Int, Int, Int, ByteView)
 end
 
@@ -106,6 +107,7 @@ type Http2ProtocolFailure
 	InvalidFrameKind(Int, Int, Int, Int, String, String)
 	InvalidStreamId(Int, Int, Int, String, String, String, String)
 	InvalidPayloadLength(Int, Int, Int, Int, Int, String, String)
+	InvalidPriorityDependency(Int, Int, Int, String, String)
 	StreamAfterGoaway(Int, Int, Int, String, String, String)
 	FrameSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int)
 	FlowControlWindowExceeded(Int, Int, Int, Int, Int, String, String)
@@ -126,6 +128,11 @@ end
 type SettingsRangeDecision
 	SettingsValueOk
 	SettingsValueFailed(Http2ProtocolFailure)
+end
+
+type PriorityDependencyDecision
+	PriorityDependencyOk
+	PriorityDependencyFailed(Http2ProtocolFailure)
 end
 
 type ReceiveFlowControlDecision
@@ -398,15 +405,38 @@ end
 
 fn decode_complete_frame_after_stream_id(pending: ByteChunk, suffix: ByteChunk, payload: ByteChunk, next_offset: Int, frame_count_int: Int, continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
 	let settings_decision: SettingsRangeDecision = validate_settings_value(pending, next_offset, length, kind, flags)?
+	let priority_decision: PriorityDependencyDecision = validate_priority_dependency(next_offset, payload, length, kind, stream_id)?
 	match settings_decision
 		SettingsValueOk => match validate_protocol_payload(next_offset, length, kind, flags, stream_id)
-			ProtocolPayloadOk => match validate_continuation(continuation, next_offset, payload, kind, flags, stream_id, receive_flow_control)
-				Ok(Decision(next_continuation, completed_header_block)) => complete_receive_flow_control_update(pending, suffix, next_offset, frame_count_int, next_continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_header_block, consumed_state)
-				Err(error) => Ok(Failed(consumed_state, error))
+			ProtocolPayloadOk => match priority_decision
+				PriorityDependencyOk => match validate_continuation(continuation, next_offset, payload, kind, flags, stream_id, receive_flow_control)
+					Ok(Decision(next_continuation, completed_header_block)) => complete_receive_flow_control_update(pending, suffix, next_offset, frame_count_int, next_continuation, receive_limit, peer_settings, shutdown_state, receive_flow_control, length, kind, flags, stream_id, completed_header_block, consumed_state)
+					Err(error) => Ok(Failed(consumed_state, error))
+				end
+				PriorityDependencyFailed(error) => Ok(Failed(consumed_state, error))
 			end
 			ProtocolPayloadFailed(error) => Ok(Failed(consumed_state, error))
 		end
 		SettingsValueFailed(error) => Ok(Failed(consumed_state, error))
+	end
+end
+
+fn validate_priority_dependency(offset: Int, payload: ByteChunk, length: Int, kind: Int, stream_id: Int) -> Result<PriorityDependencyDecision, String>
+	match kind == 2
+		true => match length == 5
+			true => validate_priority_dependency_payload(offset, payload, stream_id)
+			false => Ok(PriorityDependencyOk)
+		end
+		false => Ok(PriorityDependencyOk)
+	end
+end
+
+fn validate_priority_dependency_payload(offset: Int, payload: ByteChunk, stream_id: Int) -> Result<PriorityDependencyDecision, String>
+	let payload_view: ByteView = byte_view(payload, byte_offset(0)?, byte_count(5)?)?
+	let dependency_stream_id: Int = priority_dependency_stream_id(payload_view)?
+	match dependency_stream_id == stream_id
+		true => Ok(PriorityDependencyFailed(InvalidPriorityDependency(offset, stream_id, dependency_stream_id, "stream-control", "rfc9113_priority_dependency")))
+		false => Ok(PriorityDependencyOk)
 	end
 end
 
@@ -433,7 +463,10 @@ fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int) -> Protocol
 								true => require_client_stream_id(offset, kind, stream_id)
 								false => match kind == 8
 									true => validate_window_update_stream_id(offset, kind, stream_id)
-									false => ProtocolStreamIdOk
+									false => match kind == 2
+										true => require_client_stream_id(offset, kind, stream_id)
+										false => ProtocolStreamIdOk
+									end
 								end
 							end
 						end
@@ -482,10 +515,32 @@ end
 
 fn frame_value(pending: ByteChunk, length: Int, kind: Int, flags: Int, stream_id: Int) -> Result<Http2Frame, String>
 	let payload: ByteView = byte_view(pending, byte_offset(9)?, byte_count(length)?)?
-	match is_known_frame_kind(kind)
-		true => Ok(KnownFrame(kind, flags, stream_id, payload))
-		false => Ok(UnknownFrame(kind, flags, stream_id, payload))
+	match kind == 2
+		true => Ok(PriorityFrame(flags, stream_id, priority_dependency_stream_id(payload)?, priority_exclusive(payload)?, priority_weight(payload)?))
+		false => match is_known_frame_kind(kind)
+			true => Ok(KnownFrame(kind, flags, stream_id, payload))
+			false => Ok(UnknownFrame(kind, flags, stream_id, payload))
+		end
 	end
+end
+
+fn priority_dependency_stream_id(payload: ByteView) -> Result<Int, String>
+	let payload_chunk: ByteChunk = byte_view_to_chunk(payload)
+	let first_byte: Int = byte_read_u8_be(byte_view(payload_chunk, byte_offset(0)?, byte_count(1)?)?)?
+	let second_byte: Int = byte_read_u8_be(byte_view(payload_chunk, byte_offset(1)?, byte_count(1)?)?)?
+	let third_byte: Int = byte_read_u8_be(byte_view(payload_chunk, byte_offset(2)?, byte_count(1)?)?)?
+	let fourth_byte: Int = byte_read_u8_be(byte_view(payload_chunk, byte_offset(3)?, byte_count(1)?)?)?
+	Ok((first_byte - (first_byte / 128) * 128) * 16777216 + second_byte * 65536 + third_byte * 256 + fourth_byte)
+end
+
+fn priority_exclusive(payload: ByteView) -> Result<Bool, String>
+	let first_byte: Int = byte_read_u8_be(byte_view(byte_view_to_chunk(payload), byte_offset(0)?, byte_count(1)?)?)?
+	Ok(first_byte >= 128)
+end
+
+fn priority_weight(payload: ByteView) -> Result<Int, String>
+	let encoded_weight: Int = byte_read_u8_be(byte_view(byte_view_to_chunk(payload), byte_offset(4)?, byte_count(1)?)?)?
+	Ok(encoded_weight + 1)
 end
 
 fn is_known_frame_kind(kind: Int) -> Bool
@@ -505,7 +560,10 @@ fn is_known_frame_kind(kind: Int) -> Bool
 								true => true
 								false => match kind == 9
 									true => true
-									false => false
+									false => match kind == 2
+										true => true
+										false => false
+									end
 								end
 							end
 						end
@@ -534,7 +592,10 @@ fn validate_protocol_payload(offset: Int, length: Int, kind: Int, flags: Int, st
 					true => validate_settings_ack_payload_length(offset, length, flags, stream_id)
 					false => match kind == 3
 						true => validate_fixed_payload_length(offset, length, kind, stream_id, 4, "stream-control", "rfc9113_rst_stream_payload_length")
-						false => ProtocolPayloadOk
+						false => match kind == 2
+							true => validate_fixed_payload_length(offset, length, kind, stream_id, 5, "stream-control", "rfc9113_priority_payload_length")
+							false => ProtocolPayloadOk
+						end
 					end
 				end
 			end
@@ -822,9 +883,12 @@ fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_fl
 				true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
 				false => match kind == 8
 					true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
-					false => match is_unknown_frame_kind(kind)
-						true => validate_unknown_stream_state(offset, kind, stream_id, receive_flow_control)
-						false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+					false => match kind == 2
+						true => Ok(Decision(NoContinuation, empty_header_block()))
+						false => match is_unknown_frame_kind(kind)
+							true => validate_unknown_stream_state(offset, kind, stream_id, receive_flow_control)
+							false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+						end
 					end
 				end
 			end
@@ -1302,6 +1366,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "http2.protocol.invalid_frame_kind"
 		InvalidStreamId(_, _, _, _, _, _, _) => "http2.protocol.invalid_stream_id"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "http2.protocol.invalid_payload_length"
+		InvalidPriorityDependency(_, _, _, _, _) => "http2.protocol.invalid_priority_dependency"
 		StreamAfterGoaway(_, _, _, _, _, _) => "http2.protocol.stream_after_goaway"
 		FrameSizeExceeded(_, _, _, _, _) => "http2.peer_limit.frame_size_exceeded"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.flow_control_window_exceeded"
@@ -1319,6 +1384,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(offset, _, _, _, _, _) => offset
 		InvalidStreamId(offset, _, _, _, _, _, _) => offset
 		InvalidPayloadLength(offset, _, _, _, _, _, _) => offset
+		InvalidPriorityDependency(offset, _, _, _, _) => offset
 		StreamAfterGoaway(offset, _, _, _, _, _) => offset
 		FrameSizeExceeded(offset, _, _, _, _) => offset
 		FlowControlWindowExceeded(offset, _, _, _, _, _, _) => offset
@@ -1336,6 +1402,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -1353,6 +1420,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, actual_kind, _, _, _, _) => actual_kind
 		InvalidStreamId(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _) => actual_kind
+		InvalidPriorityDependency(_, _, _, _, _) => 2
 		StreamAfterGoaway(_, _, _, _, _, _) => 1
 		FrameSizeExceeded(_, _, _, actual_kind, _) => actual_kind
 		FlowControlWindowExceeded(_, actual_kind, _, _, _, _, _) => actual_kind
@@ -1370,6 +1438,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, actual_stream, _, _, _) => actual_stream
 		InvalidStreamId(_, _, actual_stream, _, _, _, _) => actual_stream
 		InvalidPayloadLength(_, _, actual_stream, _, _, _, _) => actual_stream
+		InvalidPriorityDependency(_, stream_id, _, _, _) => stream_id
 		StreamAfterGoaway(_, stream_id, _, _, _, _) => stream_id
 		FrameSizeExceeded(_, _, _, _, actual_stream) => actual_stream
 		FlowControlWindowExceeded(_, _, actual_stream, _, _, _, _) => actual_stream
@@ -1387,6 +1456,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, dependency_stream_id, _, _) => dependency_stream_id
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -1404,6 +1474,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, expected_kind, _, _) => expected_kind
 		InvalidStreamId(_, actual_kind, _, _, _, _, _) => actual_kind
 		InvalidPayloadLength(_, actual_kind, _, _, _, _, _) => actual_kind
+		InvalidPriorityDependency(_, _, _, _, _) => 2
 		StreamAfterGoaway(_, _, _, _, _, _) => 1
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -1421,6 +1492,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -1438,6 +1510,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -1455,6 +1528,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, observed_length, _, _, _) => observed_length
+		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, stream_id, _, _, _, _) => stream_id
 		FrameSizeExceeded(_, observed_length, _, _, _) => observed_length
 		FlowControlWindowExceeded(_, _, _, observed_length, _, _, _) => observed_length
@@ -1472,6 +1546,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, expected_length, _, _) => expected_length
+		InvalidPriorityDependency(_, _, dependency_stream_id, _, _) => dependency_stream_id
 		StreamAfterGoaway(_, _, last_stream_id, _, _, _) => last_stream_id
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_value(receive_limit)
 		FlowControlWindowExceeded(_, _, _, _, allowed_length, _, _) => allowed_length
@@ -1489,6 +1564,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, active_state, _) => active_state
 		InvalidStreamId(_, _, _, _, _, active_state, _) => active_state
 		InvalidPayloadLength(_, _, _, _, _, active_state, _) => active_state
+		InvalidPriorityDependency(_, _, _, active_state, _) => active_state
 		StreamAfterGoaway(_, _, _, shutdown_state, _, _) => shutdown_state
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, active_state, _) => active_state
@@ -1506,6 +1582,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, rule_provenance) => rule_provenance
 		InvalidStreamId(_, _, _, _, _, _, rule_provenance) => rule_provenance
 		InvalidPayloadLength(_, _, _, _, _, _, rule_provenance) => rule_provenance
+		InvalidPriorityDependency(_, _, _, _, rule_provenance) => rule_provenance
 		StreamAfterGoaway(_, _, _, _, _, rule_provenance) => rule_provenance
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, rule_provenance) => rule_provenance
@@ -1523,6 +1600,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
+		InvalidPriorityDependency(_, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, receive_limit, _, _) => receive_limit_provenance_label(receive_limit)
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
@@ -1540,6 +1618,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -1557,6 +1636,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
+		InvalidPriorityDependency(_, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
@@ -1574,6 +1654,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -1591,6 +1672,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -1608,6 +1690,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _) => 0
 		StreamAfterGoaway(_, _, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
@@ -1625,6 +1708,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, _, _, _) => "none"
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
+		InvalidPriorityDependency(_, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
@@ -1693,6 +1777,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, required_domain, _, _, _) => required_domain
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
+		InvalidPriorityDependency(_, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, _, _) => "none"
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
@@ -1710,6 +1795,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		InvalidFrameKind(_, _, _, _, _, _) => "none"
 		InvalidStreamId(_, _, _, _, endpoint_role, _, _) => endpoint_role
 		InvalidPayloadLength(_, _, _, _, _, _, _) => "none"
+		InvalidPriorityDependency(_, _, _, _, _) => "none"
 		StreamAfterGoaway(_, _, _, _, endpoint_role, _) => endpoint_role
 		FrameSizeExceeded(_, _, _, _, _) => "none"
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => "none"
@@ -1728,6 +1814,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		InvalidFrameKind(_, _, _, _, _, _) => 0
 		InvalidStreamId(_, _, _, _, _, _, _) => 0
 		InvalidPayloadLength(_, _, _, _, _, _, _) => 0
+		InvalidPriorityDependency(_, _, _, _, _) => 0
 		FrameSizeExceeded(_, _, _, _, _) => 0
 		FlowControlWindowExceeded(_, _, _, _, _, _, _) => 0
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
@@ -1958,12 +2045,51 @@ fn print_rst_stream(label: String, step: Http2Step) -> () effects [stdio]
 	stdio::println(int_to_string(state_open_stream_id(state)))
 end
 
+fn print_priority_frame_value(label: String, frame: Http2Frame) -> Result<(), String> effects [stdio]
+	match frame
+		PriorityFrame(flags, stream_id, dependency_stream_id, exclusive, weight) => print_priority_payload(label, flags, stream_id, dependency_stream_id, exclusive, weight)
+		KnownFrame(_, _, _, _) => Err("expected priority frame")
+		UnknownFrame(_, _, _, _) => Err("expected priority frame")
+	end
+end
+
+fn print_priority_payload(label: String, flags: Int, stream_id: Int, dependency_stream_id: Int, exclusive: Bool, weight: Int) -> Result<(), String> effects [stdio]
+	stdio::print(label)
+	stdio::print(" result priority stream ")
+	stdio::print(int_to_string(stream_id))
+	stdio::print(" dependency ")
+	stdio::print(int_to_string(dependency_stream_id))
+	stdio::print(" exclusive ")
+	stdio::print(bool_label(exclusive))
+	stdio::print(" weight ")
+	stdio::print(int_to_string(weight))
+	stdio::print(" flags ")
+	stdio::println(int_to_string(flags))
+	Ok(())
+end
+
+fn bool_label(value: Bool) -> String
+	match value
+		true => "true"
+		false => "false"
+	end
+end
+
+fn print_priority_frame(label: String, step: Http2Step) -> Result<(), String> effects [stdio]
+	match step
+		FrameDecoded(_, _, _, _, _, _, _, frame) => print_priority_frame_value(label, frame)
+		Waiting(_) => Err("expected priority frame but step was waiting")
+		Failed(_, _) => Err("expected priority frame but step failed")
+	end
+end
+
 fn payload_byte_at(payload: ByteView, index: Int) -> Result<Int, String>
 	byte_read_u8_be(byte_view(byte_view_to_chunk(payload), byte_offset(index)?, byte_count(1)?)?)
 end
 
 fn print_unknown_frame_value(label: String, frame: Http2Frame) -> Result<(), String> effects [stdio]
 	match frame
+		PriorityFrame(_, _, _, _, _) => Err("expected unknown frame")
 		KnownFrame(_, _, _, _) => Err("expected unknown frame")
 		UnknownFrame(kind, flags, stream_id, payload) => print_unknown_frame_payload(label, kind, flags, stream_id, payload)
 	end
@@ -2124,6 +2250,18 @@ fn print_initial_window_update_cases() -> Result<(), String> effects [stdio]
 	let initial_window_restored_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001000000000001ff")?), step_state(initial_window_restore))?
 	print_step("initial-window-restored-data", initial_window_restored_data)
 	print_receive_windows("initial-window-restored-data", step_state(initial_window_restored_data))
+	Ok(())
+end
+
+fn print_priority_cases() -> Result<(), String> effects [stdio]
+	let priority: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), frame_state())?
+	let ignored_priority: () = print_priority_frame("priority", priority)?
+	let priority_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000000000000010f")?), frame_state())?
+	print_stream_id_failure("priority-zero-stream", priority_zero_stream)
+	let priority_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000402000000000100000001")?), frame_state())?
+	print_failure("priority-length", priority_bad_length)
+	let priority_self_dependency: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001000000010f")?), frame_state())?
+	print_failure("priority-self-dependency", priority_self_dependency)
 	Ok(())
 end
 
@@ -2299,6 +2437,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("ping-length", ping_bad_length)
 	let ping_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000010102030405060708")?), frame_state())?
 	print_failure("ping-stream", ping_bad_stream)
+	let ignored_priority_cases: () = print_priority_cases()?
 	let goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), frame_state())?
 	print_goaway("goaway", goaway)
 	let goaway_allowed_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000005")?), step_state(goaway))?

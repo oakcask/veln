@@ -433,7 +433,9 @@ connection-only stream ids and a DATA frame kind rejected for idle-stream
 state. It also pins zero-length SETTINGS ACK on the connection stream,
 wrong-length SETTINGS ACK as a typed payload-length failure, SETTINGS ACK on a
 nonzero stream as a stream id domain failure, PING frames with and without ACK,
-wrong-length PING failures, a GOAWAY frame that moves the connection into
+wrong-length PING failures, a PRIORITY frame that exposes dependency stream
+id, exclusive flag, and weight facts, PRIORITY stream id zero, wrong-length,
+and self-dependency failures, a GOAWAY frame that moves the connection into
 graceful shutdown with last-stream-id and error-code facts, wrong-length
 GOAWAY failures, and `RST_STREAM` receive behavior for open, zero-id,
 wrong-length, idle-stream, and reset-then-stream-frame cases.
@@ -518,6 +520,7 @@ protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
+`../../examples/specification/run/http2-protocol-core-priority-dependency-json/case.toml`,
 and `../../examples/specification/run/http2-protocol-core-goaway-length-json/case.toml`
 pin the command-facing projection path for those typed failures. The human
 cases check focused primary messages and related context, while the JSON cases
@@ -529,8 +532,8 @@ expected payload length including SETTINGS ACK length zero and `RST_STREAM`
 length four, flow-control window credit, expected and actual
 preface byte values, matched preface prefix count, expected preface byte count,
 structured bounded preface byte preview fields, concurrent-stream attempted
-and allowed counts, required stream id domain, endpoint role, and rule
-provenance. The preface human cases also check nearby-byte notes rendered as
+and allowed counts, required stream id domain, endpoint role, PRIORITY
+dependency stream id, and rule provenance. The preface human cases also check nearby-byte notes rendered as
 bounded lowercase hex pairs with total byte count and truncation state. The
 concurrent-stream command fixtures cover the focused peer-created stream limit
 projection, and the flow-control command fixtures cover stream

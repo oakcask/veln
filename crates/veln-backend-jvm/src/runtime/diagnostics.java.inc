@@ -268,6 +268,31 @@
         );
     }
 
+    private static void registerHttp2ProtocolInvalidPriorityDependencyDiagnostic(
+        String message,
+        long byteOffset,
+        long streamId,
+        long dependencyStreamId,
+        String activeState,
+        String ruleProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.protocol.invalid_priority_dependency",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("frame_kind", 2),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", "stream"),
+                    DiagnosticDetail.number("dependency_stream_id", dependencyStreamId),
+                    DiagnosticDetail.string("active_state", activeState),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2ProtocolStreamAfterGoawayDiagnostic(
         String message,
         long byteOffset,
