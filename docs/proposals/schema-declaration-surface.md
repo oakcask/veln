@@ -332,6 +332,9 @@ Implemented:
   after field-local validation passes.
 - Binary schemas that declare ambiguous or unsupported mapping selection report
   focused `schema.mapping_selection_*` diagnostics.
+- Eligible generated `byte_encode_<schema>` helpers and `derive encode`
+  codec boundaries accept one direct structural mapping target record when
+  every visible encode field is assigned from a schema-local field reference.
 
 Remaining:
 
