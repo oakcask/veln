@@ -518,6 +518,13 @@ same reset stream-state rejection boundary. It rejects stream id `0`, missing
 streams, closed streams, already reset streams, mismatched open streams, and
 generated encode-helper representation failures for the stream id or
 error-code payload before accepted bytes are produced.
+The outbound GOAWAY send-intent slice accepts a last stream id and error code,
+emits a frame-header plus GOAWAY payload output chunk with length `8`, kind
+`7`, flags `0`, and stream id `0`, then records local graceful-shutdown state
+so a later peer-created HEADERS stream greater than the sent last stream id
+follows the existing post-GOAWAY stream rejection boundary. It preserves
+generated encode-helper representation failures for the last stream id or
+error-code payload before accepted bytes are produced.
 Protocol failures stay as ordinary ADT values and are projected by source code
 into stable diagnostic ids and related context fields for byte offset,
 observed and allowed lengths, actual and expected frame kind, stream reference,
@@ -529,8 +536,9 @@ The same case also pins outbound frame header encoding from an ordinary
 record-shaped frame description through the generated binary schema encode
 helper. The checked `[[output_chunk_list]]` fixtures cover a SETTINGS header
 on the connection stream, a DATA header on a nonzero stream, an accepted
-`RST_STREAM` frame plus error-code payload, and the maximum valid `UInt31be`
-stream id. The source output also matches a generated helper
+`RST_STREAM` frame plus error-code payload, an accepted GOAWAY frame plus
+last-stream-id and error-code payload, and the maximum valid `UInt31be`
+stream id. The source output also matches generated helper
 `codec.encode_value_unrepresentable` failure for an out-of-range stream id,
 keeping field path and reason text visible without converting it into a
 protocol diagnostic.
