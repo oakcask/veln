@@ -1,0 +1,141 @@
+pub type HpackFixtureState
+	HpackFixtureState(table_size: Int, decode_count: Int)
+end
+
+pub type HpackHeader
+	HpackHeader(name: String, value: String)
+end
+
+pub type HpackHeaderList
+	HpackHeaderList(first: HpackHeader, second: HpackHeader, wire_size: Int)
+end
+
+pub type HpackDecodeTransition
+	HpackDecodeTransition(headers: HpackHeaderList, state: HpackFixtureState)
+end
+
+pub type HpackFixtureFailure
+	UnsupportedHeaderBlock(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String)
+end
+
+pub fn initial_state() -> HpackFixtureState
+	HpackFixtureState(4096, 0)
+end
+
+fn byte_at(block: ByteChunk, index: Int) -> Result<Int, String>
+	let view: ByteView = byte_view(block, byte_offset(index)?, byte_count(1)?)?
+	byte_read_u8_be(view)
+end
+
+fn byte_at_or_missing(block: ByteChunk, index: Int) -> Int
+	match byte_at(block, index)
+		Ok(value) => value
+		Err(_) => -1
+	end
+end
+
+fn next_state(state: HpackFixtureState) -> HpackFixtureState
+	match state
+		HpackFixtureState(table_size, decode_count) => HpackFixtureState(table_size, decode_count + 1)
+	end
+end
+
+fn fixture_headers(label: String, wire_size: Int) -> HpackHeaderList
+	HpackHeaderList(HpackHeader(":fixture", label), HpackHeader(":status", "ok"), wire_size)
+end
+
+fn decoded(label: String, wire_size: Int, state: HpackFixtureState) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Ok(HpackDecodeTransition(fixture_headers(label, wire_size), next_state(state)))
+end
+
+fn unsupported(block: ByteChunk, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	Err(UnsupportedHeaderBlock(offset, byte_count_to_int(byte_chunk_count(block)), byte_at_or_missing(block, 0), "fixture header block", "hpack_fixture"))
+end
+
+pub fn decode_header_block(block: ByteChunk, state: HpackFixtureState, offset: Int) -> Result<HpackDecodeTransition, HpackFixtureFailure>
+	let observed_size: Int = byte_count_to_int(byte_chunk_count(block))
+	let first_byte: Int = byte_at_or_missing(block, 0)
+	match first_byte == 16 and observed_size == 3
+		true => decoded("single-headers", 8, state)
+		false => match first_byte == 1 and observed_size == 8
+			true => decoded("header-list-accepted", 8, state)
+			false => match first_byte == 1 and observed_size == 10
+				true => decoded("header-list-too-large", 10, state)
+				false => match first_byte == 170 and observed_size == 9
+					true => decoded("continuation", 9, state)
+					false => unsupported(block, offset)
+				end
+			end
+		end
+	end
+end
+
+pub fn transition_headers(transition: HpackDecodeTransition) -> HpackHeaderList
+	match transition
+		HpackDecodeTransition(headers, _) => headers
+	end
+end
+
+pub fn transition_state(transition: HpackDecodeTransition) -> HpackFixtureState
+	match transition
+		HpackDecodeTransition(_, state) => state
+	end
+end
+
+pub fn header_list_wire_size(headers: HpackHeaderList) -> Int
+	match headers
+		HpackHeaderList(_, _, wire_size) => wire_size
+	end
+end
+
+pub fn header_list_first_name(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(name, _), _, _) => name
+	end
+end
+
+pub fn header_list_first_value(headers: HpackHeaderList) -> String
+	match headers
+		HpackHeaderList(HpackHeader(_, value), _, _) => value
+	end
+end
+
+pub fn state_decode_count(state: HpackFixtureState) -> Int
+	match state
+		HpackFixtureState(_, decode_count) => decode_count
+	end
+end
+
+pub fn failure_offset(failure: HpackFixtureFailure) -> Int
+	match failure
+		UnsupportedHeaderBlock(offset, _, _, _, _) => offset
+	end
+end
+
+pub fn failure_observed_size(failure: HpackFixtureFailure) -> Int
+	match failure
+		UnsupportedHeaderBlock(_, observed_size, _, _, _) => observed_size
+	end
+end
+
+pub fn failure_observed_first_byte(failure: HpackFixtureFailure) -> Int
+	match failure
+		UnsupportedHeaderBlock(_, _, observed_first_byte, _, _) => observed_first_byte
+	end
+end
+
+pub fn failure_expected_fixture(failure: HpackFixtureFailure) -> String
+	match failure
+		UnsupportedHeaderBlock(_, _, _, expected_fixture, _) => expected_fixture
+	end
+end
+
+pub fn failure_codec_module(failure: HpackFixtureFailure) -> String
+	match failure
+		UnsupportedHeaderBlock(_, _, _, _, codec_module) => codec_module
+	end
+end
+
+pub fn project_failure(failure: HpackFixtureFailure) -> Result<(), String>
+	hpack_fixture_unsupported_header_block(failure_offset(failure), failure_observed_size(failure), failure_observed_first_byte(failure), failure_expected_fixture(failure), failure_codec_module(failure))
+end

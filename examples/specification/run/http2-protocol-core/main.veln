@@ -1,4 +1,5 @@
 # A pure HTTP/2 core consumes frame headers from explicit input events and emits encoded headers.
+use hpack_fixture
 use stdio
 
 schema Http2FrameHeaderWire
@@ -149,6 +150,7 @@ type Http2ProtocolFailure
 	ConcurrentStreamsExceeded(Int, Int, Int, Int, String, String, String)
 	HeaderListSizeExceeded(Int, Int, ReceiveLimitEntry, Int, Int, String)
 	SettingsValueOutOfRange(Int, Int, String, Int, Int, Int, String)
+	HpackFixtureDecodeFailed(Int, Int, Int, String, String)
 end
 
 type ProtocolPayloadDecision
@@ -179,6 +181,11 @@ end
 type HeaderListSizeDecision
 	HeaderListSizeOk
 	HeaderListSizeFailed(Http2ProtocolFailure)
+end
+
+type HeaderListDecodeDecision
+	HeaderListDecodeOk(Int)
+	HeaderListDecodeFailed(Http2ProtocolFailure)
 end
 
 type OutboundDataDecision
@@ -597,9 +604,12 @@ fn stream_id_is_client_initiated(stream_id: Int) -> Bool
 end
 
 fn complete_receive_flow_control_update(pending: ByteChunk, suffix: ByteChunk, next_offset: Int, frame_count_int: Int, next_continuation: PendingContinuation, receive_limit: ReceiveLimitEntry, peer_settings: PeerSettingsState, shutdown_state: ConnectionShutdownState, receive_flow_control: ReceiveFlowControl, length: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk, consumed_state: Http2DecodeState) -> Result<Http2Step, String>
-	match validate_header_list_size(next_offset, kind, flags, stream_id, completed_header_block)
-		HeaderListSizeOk => complete_after_header_list_size(pending, next_continuation, length, kind, flags, stream_id, completed_header_block, consumed_state)
-		HeaderListSizeFailed(error) => Ok(Failed(consumed_state, error))
+	match decode_completed_header_list(next_offset, kind, flags, completed_header_block)
+		HeaderListDecodeOk(decoded_header_list_size) => match validate_header_list_size(next_offset, kind, flags, stream_id, decoded_header_list_size)
+			HeaderListSizeOk => complete_after_header_list_size(pending, next_continuation, length, kind, flags, stream_id, completed_header_block, consumed_state)
+			HeaderListSizeFailed(error) => Ok(Failed(consumed_state, error))
+		end
+		HeaderListDecodeFailed(error) => Ok(Failed(consumed_state, error))
 	end
 end
 
@@ -612,9 +622,19 @@ fn complete_after_header_list_size(pending: ByteChunk, next_continuation: Pendin
 	end
 end
 
-fn validate_header_list_size(offset: Int, kind: Int, flags: Int, stream_id: Int, completed_header_block: ByteChunk) -> HeaderListSizeDecision
+fn decode_completed_header_list(offset: Int, kind: Int, flags: Int, completed_header_block: ByteChunk) -> HeaderListDecodeDecision
 	match header_list_boundary_reached(kind, flags)
-		true => validate_completed_header_list_size(offset, kind, stream_id, byte_count_to_int(byte_chunk_count(completed_header_block)), header_list_receive_limit())
+		true => match hpack_fixture::decode_header_block(completed_header_block, hpack_fixture::initial_state(), offset)
+			Ok(transition) => HeaderListDecodeOk(hpack_fixture::header_list_wire_size(hpack_fixture::transition_headers(transition)))
+			Err(failure) => HeaderListDecodeFailed(HpackFixtureDecodeFailed(hpack_fixture::hpack_failure_offset(failure), hpack_fixture::hpack_failure_observed_size(failure), hpack_fixture::hpack_failure_observed_first_byte(failure), hpack_fixture::hpack_failure_expected_fixture(failure), hpack_fixture::hpack_failure_codec_module(failure)))
+		end
+		false => HeaderListDecodeOk(byte_count_to_int(byte_chunk_count(completed_header_block)))
+	end
+end
+
+fn validate_header_list_size(offset: Int, kind: Int, flags: Int, stream_id: Int, decoded_header_list_size: Int) -> HeaderListSizeDecision
+	match header_list_boundary_reached(kind, flags)
+		true => validate_completed_header_list_size(offset, kind, stream_id, decoded_header_list_size, header_list_receive_limit())
 		false => HeaderListSizeOk
 	end
 end
@@ -2180,6 +2200,7 @@ fn failure_id(failure: Http2ProtocolFailure) -> String
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "http2.peer_limit.concurrent_streams_exceeded"
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "http2.peer_limit.header_list_size_exceeded"
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "http2.peer_limit.settings_value_out_of_range"
+		HpackFixtureDecodeFailed(_, _, _, _, _) => "hpack.fixture.unsupported_header_block"
 	end
 end
 
@@ -2199,6 +2220,7 @@ fn failure_offset(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(offset, _, _, _, _, _, _) => offset
 		HeaderListSizeExceeded(offset, _, _, _, _, _) => offset
 		SettingsValueOutOfRange(offset, _, _, _, _, _, _) => offset
+		HpackFixtureDecodeFailed(offset, _, _, _, _) => offset
 	end
 end
 
@@ -2218,6 +2240,7 @@ fn failure_pending_count(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 0
 	end
 end
 
@@ -2237,6 +2260,7 @@ fn failure_actual_kind(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 1
 		HeaderListSizeExceeded(_, _, _, actual_kind, _, _) => actual_kind
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 4
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 1
 	end
 end
 
@@ -2256,6 +2280,7 @@ fn failure_actual_stream(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, stream_id, _, _, _, _, _) => stream_id
 		HeaderListSizeExceeded(_, _, _, _, actual_stream, _) => actual_stream
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 0
 	end
 end
 
@@ -2275,6 +2300,7 @@ fn failure_expected_stream(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 0
 	end
 end
 
@@ -2294,6 +2320,7 @@ fn failure_expected_kind(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 1
 		HeaderListSizeExceeded(_, _, _, actual_kind, _, _) => actual_kind
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 4
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 1
 	end
 end
 
@@ -2313,6 +2340,7 @@ fn failure_started_kind(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 0
 	end
 end
 
@@ -2332,6 +2360,7 @@ fn failure_started_offset(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 0
 	end
 end
 
@@ -2351,6 +2380,7 @@ fn failure_observed_length(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, attempted_count, _, _, _, _) => attempted_count
 		HeaderListSizeExceeded(_, observed_size, _, _, _, _) => observed_size
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		HpackFixtureDecodeFailed(_, observed_size, _, _, _) => observed_size
 	end
 end
 
@@ -2370,6 +2400,7 @@ fn failure_allowed_length(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, allowed_count, _, _, _) => allowed_count
 		HeaderListSizeExceeded(_, _, receive_limit, _, _, _) => receive_limit_value(receive_limit)
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 0
 	end
 end
 
@@ -2389,6 +2420,7 @@ fn failure_active_state(failure: Http2ProtocolFailure) -> String
 		ConcurrentStreamsExceeded(_, _, _, _, active_state, _, _) => active_state
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "header-list"
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "connection-control"
+		HpackFixtureDecodeFailed(_, _, _, _, _) => "hpack-fixture"
 	end
 end
 
@@ -2408,6 +2440,7 @@ fn failure_rule_provenance(failure: Http2ProtocolFailure) -> String
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, rule_provenance) => rule_provenance
 		HeaderListSizeExceeded(_, _, _, _, _, rule_provenance) => rule_provenance
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "http2_settings_value_range"
+		HpackFixtureDecodeFailed(_, _, _, _, _) => "hpack_fixture_decode"
 	end
 end
 
@@ -2427,6 +2460,7 @@ fn failure_receive_limit_provenance(failure: Http2ProtocolFailure) -> String
 		ConcurrentStreamsExceeded(_, _, _, _, _, receive_limit_provenance, _) => receive_limit_provenance
 		HeaderListSizeExceeded(_, _, receive_limit, _, _, _) => receive_limit_provenance_label(receive_limit)
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
+		HpackFixtureDecodeFailed(_, _, _, _, _) => "none"
 	end
 end
 
@@ -2446,6 +2480,7 @@ fn failure_setting_identifier(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, setting_identifier, _, _, _, _, _) => setting_identifier
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 0
 	end
 end
 
@@ -2465,6 +2500,7 @@ fn failure_setting_name(failure: Http2ProtocolFailure) -> String
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, setting_name, _, _, _, _) => setting_name
+		HpackFixtureDecodeFailed(_, _, _, _, _) => "none"
 	end
 end
 
@@ -2484,6 +2520,7 @@ fn failure_observed_value(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, observed_value, _, _, _) => observed_value
+		HpackFixtureDecodeFailed(_, _, observed_first_byte, _, _) => observed_first_byte
 	end
 end
 
@@ -2503,6 +2540,7 @@ fn failure_accepted_min_value(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, accepted_min_value, _, _) => accepted_min_value
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 0
 	end
 end
 
@@ -2522,6 +2560,7 @@ fn failure_accepted_max_value(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, accepted_max_value, _) => accepted_max_value
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 0
 	end
 end
 
@@ -2541,6 +2580,7 @@ fn failure_peer_limit_provenance(failure: Http2ProtocolFailure) -> String
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, _, _, _, _, peer_limit_provenance) => peer_limit_provenance
+		HpackFixtureDecodeFailed(_, _, _, _, _) => "none"
 	end
 end
 
@@ -2611,6 +2651,7 @@ fn failure_required_stream_id_domain(failure: Http2ProtocolFailure) -> String
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
+		HpackFixtureDecodeFailed(_, _, _, _, _) => "none"
 	end
 end
 
@@ -2630,6 +2671,7 @@ fn failure_endpoint_role(failure: Http2ProtocolFailure) -> String
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => "none"
 		HeaderListSizeExceeded(_, _, _, _, _, _) => "none"
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => "none"
+		HpackFixtureDecodeFailed(_, _, _, _, _) => "none"
 	end
 end
 
@@ -2649,6 +2691,7 @@ fn failure_shutdown_last_stream_id(failure: Http2ProtocolFailure) -> Int
 		ConcurrentStreamsExceeded(_, _, _, _, _, _, _) => 0
 		HeaderListSizeExceeded(_, _, _, _, _, _) => 0
 		SettingsValueOutOfRange(_, _, _, _, _, _, _) => 0
+		HpackFixtureDecodeFailed(_, _, _, _, _) => 0
 	end
 end
 
@@ -3149,6 +3192,32 @@ fn emit_header_block(name: String, step: Http2Step, expected_hex: String) -> Res
 	emit_output_chunk(name, 0, step_completed_header_block(step), expected_hex)
 end
 
+fn print_hpack_decoded(label: String, transition: HpackDecodeTransition) -> () effects [stdio]
+	let headers: HpackHeaderList = hpack_fixture::transition_headers(transition)
+	stdio::print(label)
+	stdio::print(" hpack decoded ")
+	stdio::print(hpack_fixture::header_list_first_name(headers))
+	stdio::print(" ")
+	stdio::print(hpack_fixture::header_list_first_value(headers))
+	stdio::print(" wire_size ")
+	stdio::print(int_to_string(hpack_fixture::header_list_wire_size(headers)))
+	stdio::print(" next_decode_count ")
+	stdio::println(int_to_string(hpack_fixture::state_decode_count(hpack_fixture::transition_state(transition))))
+end
+
+fn print_hpack_failed(label: String, failure: HpackFixtureFailure) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" hpack failed ")
+	stdio::println(hpack_fixture::hpack_failure_expected_fixture(failure))
+end
+
+fn print_hpack_transition(label: String, step: Http2Step) -> () effects [stdio]
+	match hpack_fixture::decode_header_block(step_completed_header_block(step), hpack_fixture::initial_state(), step_offset(step))
+		Ok(transition) => print_hpack_decoded(label, transition)
+		Err(failure) => print_hpack_failed(label, failure)
+	end
+end
+
 fn unexpected_frame_header_encode_failure() -> Result<(), String> effects [stdio]
 	stdio::println("unexpected frame header encode failure")
 	Ok(())
@@ -3367,11 +3436,14 @@ fn print_header_list_size_cases(state: Http2DecodeState) -> Result<(), String> e
 	let header_list_accepted: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080104000000010102030405060708")?), state)?
 	print_step("header-list-accepted", header_list_accepted)
 	let ignored_header_list_accepted: () = emit_header_block("http2-header-list-accepted", header_list_accepted, "0102030405060708")?
+	print_hpack_transition("header-list-accepted", header_list_accepted)
 	let header_list_start: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000050100000000010102030405")?), state)?
 	print_step("header-list-start", header_list_start)
 	let header_list_too_large: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005090400000001060708090a")?), step_state(header_list_start))?
 	print_failure("header-list-size", header_list_too_large)
 	print_peer_settings("header-list-size", step_state(header_list_too_large))
+	let hpack_fixture_bad: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000010104000000017f")?), state)?
+	print_failure("hpack-fixture", hpack_fixture_bad)
 	Ok(())
 end
 
@@ -3412,9 +3484,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003090400000001010203")?), step_state(continuation_extra))?
 	print_step("continuation-done", continuation_done)
 	let ignored_continuation_header_block: () = emit_header_block("http2-continuation-header-block", continuation_done, "aabbccddeeff010203")?
+	print_hpack_transition("continuation-done", continuation_done)
 	let headers_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010500000001102030")?), frame_state())?
 	print_step("headers-done", headers_done)
 	let ignored_headers_header_block: () = emit_header_block("http2-headers-header-block", headers_done, "102030")?
+	print_hpack_transition("headers-done", headers_done)
 	let bad_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000000000000001")?), step_state(header_start))?
 	print_failure("continuation", bad_continuation)
 	let wrong_stream_continuation: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000090400000003")?), step_state(header_start))?

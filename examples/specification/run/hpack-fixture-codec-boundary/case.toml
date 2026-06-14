@@ -1,0 +1,23 @@
+command = ["run", "--json", "main", "main.veln", "hpack_fixture.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "passed"
+
+[[json_assert]]
+path = "stdout"
+equals = "first decoded :fixture single-headers wire_size 8 next_decode_count 1\nsecond decoded :fixture header-list-accepted wire_size 8 next_decode_count 2\nbad failed offset 27 observed_size 1 observed_first_byte 255 expected fixture header block\n"
+
+[[json_assert]]
+path = "error"
+equals = null

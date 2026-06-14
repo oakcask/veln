@@ -1990,6 +1990,31 @@
         return err(message);
     }
 
+    public static Object hpackFixtureUnsupportedHeaderBlock(
+        Object offset,
+        Object observedSize,
+        Object observedFirstByte,
+        Object expectedFixture,
+        Object codecModule
+    ) {
+        long byteOffset = asLong(offset);
+        long size = asLong(observedSize);
+        long firstByte = asLong(observedFirstByte);
+        String expected = asString(expectedFixture);
+        String module = asString(codecModule);
+        String message = "HPACK fixture unsupported header block at byte offset "
+            + byteOffset;
+        registerHpackFixtureUnsupportedHeaderBlockDiagnostic(
+            message,
+            byteOffset,
+            size,
+            firstByte,
+            expected,
+            module
+        );
+        return err(message);
+    }
+
     public static Object byteReadU16Be(Object view) {
         return byteReadUnsigned(view, 2, 0xffffL, "byte_read_u16_be", false);
     }

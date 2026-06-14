@@ -218,6 +218,10 @@ pub fn http2_peer_limit_settings_value_out_of_range(offset: Int, setting_identif
 	prelude_builtin::http2_peer_limit_settings_value_out_of_range(offset, setting_identifier, setting_name, observed_value, accepted_min_value, accepted_max_value, peer_limit_provenance)
 end
 
+pub fn hpack_fixture_unsupported_header_block(offset: Int, observed_size: Int, observed_first_byte: Int, expected_fixture: String, codec_module: String) -> Result<(), String>
+	prelude_builtin::hpack_fixture_unsupported_header_block(offset, observed_size, observed_first_byte, expected_fixture, codec_module)
+end
+
 pub fn byte_read_u16_be(view: ByteView) -> Result<Int, String>
 	prelude_builtin::byte_read_u16_be(view)
 end
