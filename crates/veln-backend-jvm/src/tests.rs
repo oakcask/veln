@@ -364,6 +364,114 @@ fn bytecode_backend_waits_until_deadline_when_java_is_available() {
 }
 
 #[test]
+fn bytecode_backend_waits_until_cancellable_deadline_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [time, stdio]\n",
+        "  let deadline: Deadline = time::deadline_after_ms(0)\n",
+        "  let token: CancelToken = time::cancel_token()\n",
+        "  time::wait_until_cancellable(deadline, token)\n",
+        "  stdio::println(\"cancellable\")\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-cancellable-deadline", &program, &[])
+    else {
+        return;
+    };
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "cancellable\n");
+}
+
+#[test]
+fn bytecode_backend_reports_forced_cancellable_wait_expiry_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [time]\n",
+        "  let deadline: Deadline = time::deadline_after_ms(5)\n",
+        "  let token: CancelToken = time::cancel_token()\n",
+        "  time::wait_until_cancellable(deadline, token)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+        "bytecode-cancellable-deadline-expiry",
+        &program,
+        &[("VELN_TIME_DEADLINE_EXPIRED", "1")],
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "transport deadline expired: VELN_TIME_DEADLINE_EXPIRED\n"
+    );
+}
+
+#[test]
+fn bytecode_backend_reports_forced_cancellable_wait_cancellation_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [time]\n",
+        "  let deadline: Deadline = time::deadline_after_ms(5)\n",
+        "  let token: CancelToken = time::cancel_token()\n",
+        "  time::wait_until_cancellable(deadline, token)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) = run_jvm_program_with_env_when_java_is_available(
+        "bytecode-cancellable-wait-cancelled",
+        &program,
+        &[("VELN_TIME_WAIT_CANCELLED", "1")],
+        &[],
+    ) else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "transport wait cancelled: VELN_TIME_WAIT_CANCELLED\n"
+    );
+}
+
+#[test]
+fn bytecode_backend_reports_source_cancelled_wait_when_java_is_available() {
+    let ir = lower_to_ir(concat!(
+        "pub fn main() -> () effects [time]\n",
+        "  let deadline: Deadline = time::deadline_after_ms(0)\n",
+        "  let token: CancelToken = time::cancel_token()\n",
+        "  time::cancel(token)\n",
+        "  time::wait_until_cancellable(deadline, token)\n",
+        "end\n",
+    ));
+    let program = generate_classfiles_with_entry(&ir, "main");
+
+    let Some(output) =
+        run_jvm_program_when_java_is_available("bytecode-source-cancelled-wait", &program, &[])
+    else {
+        return;
+    };
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "transport wait cancelled: cancellation token\n"
+    );
+}
+
+#[test]
 fn bytecode_backend_runs_result_try_collections_and_function_values_when_java_is_available() {
     let ir = lower_to_ir(concat!(
         "fn parse(raw: String) -> Result<Int, {message: String}>\n",
@@ -1380,6 +1488,9 @@ fn java_method_name_helpers_map_builtin_surface_names() {
         ("time::timeout_ms", "timeTimeoutMs"),
         ("time::deadline_after_ms", "timeDeadlineAfterMs"),
         ("time::wait_until", "timeWaitUntil"),
+        ("time::cancel_token", "timeCancelToken"),
+        ("time::cancel", "timeCancel"),
+        ("time::wait_until_cancellable", "timeWaitUntilCancellable"),
     ] {
         assert_eq!(standard_library_method(surface), method);
     }

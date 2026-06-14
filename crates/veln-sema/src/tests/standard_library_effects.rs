@@ -509,6 +509,8 @@ fn time_calls_require_time_effect_with_descriptor_provenance() {
         concat!(
             "pub fn main() -> ()\n",
             "  let deadline: Deadline = time::deadline_after_ms(10)\n",
+            "  let token: CancelToken = time::cancel_token()\n",
+            "  time::wait_until_cancellable(deadline, token)\n",
             "  time::wait_until(deadline)\n",
             "end\n",
         ),
@@ -547,6 +549,9 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             "  time::timeout_ms(1)\n",
             "  let deadline: Deadline = time::deadline_after_ms(1)\n",
             "  time::wait_until(deadline)\n",
+            "  let token: CancelToken = time::cancel_token()\n",
+            "  time::wait_until_cancellable(deadline, token)\n",
+            "  time::cancel(token)\n",
             "  fs::read_to_string(path)\n",
             "end\n",
         ),
@@ -663,7 +668,37 @@ fn fs_process_net_and_time_calls_lower_to_standard_library_builtins() {
             ..
         } if symbol == "time::wait_until"
     ));
-    let IrStmtKind::Return { value } = &main.body[11].kind else {
+    let IrStmtKind::Let { value, .. } = &main.body[11].kind else {
+        panic!("cancel token call should lower as a let");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "time::cancel_token"
+    ));
+    let IrStmtKind::Expr { value } = &main.body[12].kind else {
+        panic!("cancellable wait call should lower as an expression");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "time::wait_until_cancellable"
+    ));
+    let IrStmtKind::Expr { value } = &main.body[13].kind else {
+        panic!("cancel call should lower as an expression");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::StandardLibraryBuiltin(symbol),
+            ..
+        } if symbol == "time::cancel"
+    ));
+    let IrStmtKind::Return { value } = &main.body[14].kind else {
         panic!("fs call should lower as tail return");
     };
     assert!(matches!(

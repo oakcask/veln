@@ -5,12 +5,14 @@ Status: proposed
 This proposal tracks remaining work between a pure sans-I/O protocol core and
 transport integration. The first descriptor-backed `net` and `time`
 boundary calls, the first fixture-backed socket listener/stream calls, and
-the narrow socket-to-handler routing slice are current behavior under
+the narrow socket-to-handler routing slice, and the first cancellable
+adapter-owned wait boundary are current behavior under
 `../specification/names-effects.md` and `../specification/execution.md`,
 including host-runtime failures for malformed received or read bytes, failed
 outgoing event recording, forced read and write failures, and forced timeout
-and deadline expiry. This page keeps the larger transport adapter, richer
-stream routing, richer deadline, cancellation, and socket work open.
+and deadline expiry, plus forced cancellable-wait cancellation. This page
+keeps the larger transport adapter, richer stream routing, richer deadline,
+cancellation, and socket work open.
 
 ## Problem
 
@@ -39,7 +41,9 @@ socket-to-handler routing slice for:
 - channel-first stream event routing
 - per-stream task handling
 - richer deadline, timeout, and cancellation adapter APIs beyond
-  `time::timeout_ms`, `time::deadline_after_ms`, and `time::wait_until`
+  `time::timeout_ms`, `time::deadline_after_ms`, `time::wait_until`,
+  `time::cancel_token`, `time::cancel`, and
+  `time::wait_until_cancellable`
 - ownership of frame ordering, flow control, and transport writes
 
 ## Discussion Result: Network Effect Labels
@@ -178,22 +182,28 @@ adapter surface with related connection and stream context when available.
 ## Discussion Result: Deadline And Timeout API
 
 Implemented first slices: `time::timeout_ms(milliseconds)`,
-`time::deadline_after_ms(milliseconds)`, and `time::wait_until(deadline)` use
-the existing `time` effect label and wait at the runtime boundary. Host
-fixtures can force timeout or deadline expiry as runtime failures. These calls
-do not add a separate richer timer effect or timer-specific source construct.
+`time::deadline_after_ms(milliseconds)`, `time::wait_until(deadline)`,
+`time::cancel_token()`, `time::cancel(token)`, and
+`time::wait_until_cancellable(deadline, token)` use the existing `time` effect
+label and wait at the runtime boundary. `CancelToken` is the first
+source-visible cancellation handle for adapter-owned waits. Host fixtures can
+force timeout expiry, deadline expiry, or cancellable-wait cancellation as
+runtime failures. These calls do not add a separate richer timer effect or
+timer-specific source construct.
 
 The transport adapter should own wall-clock interaction. It can compute
-deadlines, wait for timeouts, cancel pending transport work, and translate
-deadline expiry into transport-layer outcomes while carrying the `time` effect.
-The pure sans-I/O core continues to receive explicit input events and protocol
-state values; it does not read time, sleep, or observe host timers.
+deadlines, wait for timeouts, cancel pending transport work through a
+source-visible handle, and translate deadline expiry or cancellation into
+transport-layer outcomes while carrying the `time` effect. The pure sans-I/O
+core continues to receive explicit input events and protocol state values; it
+does not read time, sleep, or observe host timers or cancellation handles.
 
 This keeps the first integration boundary aligned with the current coarse
 effect model. A later runtime proposal may add richer timer handles,
-monotonic-clock values, cancellation tokens, or scheduler APIs if examples need
-them, but that work should extend the `time` standard-library surface rather
-than introduce deadline behavior into schemas or the pure protocol core.
+monotonic-clock values, cancellation ownership APIs beyond `CancelToken`, or
+scheduler APIs if examples need them, but that work should extend the `time`
+standard-library surface rather than introduce deadline behavior into schemas
+or the pure protocol core.
 
 ## Non-Goals
 
@@ -209,8 +219,8 @@ than introduce deadline behavior into schemas or the pure protocol core.
   effectful adapter functions.
 - Examples show production adapter socket ownership beyond the first
   fixture-backed listener/stream handles and narrow socket-to-handler routing
-  slice, richer stream routing, richer deadline APIs beyond the narrow
-  relative `Deadline`, and cancellation once those runtime APIs exist.
+  slice, richer stream routing, and richer deadline and cancellation APIs
+  beyond the narrow relative `Deadline` and `CancelToken` boundaries.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

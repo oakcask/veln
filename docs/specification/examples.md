@@ -442,6 +442,22 @@ missing-effect diagnostics for the socket calls. The
 show read and write failures as runtime transport failures, not schema, codec,
 or peer protocol diagnostics.
 
+The executable specification cases
+`../../examples/specification/run/transport-boundary/`,
+`../../examples/specification/run/transport-deadline/`,
+`../../examples/specification/run/transport-cancellable-wait/`, and
+`../../examples/specification/check/transport-cancellable-wait-effects/`
+cover descriptor-backed time waits, relative deadlines, and source-visible
+`CancelToken` values under the existing `time` effect. The
+`../../examples/specification/run/transport-timeout-expired-json/`,
+`../../examples/specification/run/transport-deadline-expired-json/`,
+`../../examples/specification/run/transport-cancellable-wait-deadline-expired-json/`,
+and
+`../../examples/specification/run/transport-cancellable-wait-cancelled-json/`
+cases show timeout expiry, deadline expiry, and cancellable-wait cancellation
+as runtime transport failures, not schema, codec, or peer protocol
+diagnostics.
+
 The executable specification case
 `../../examples/specification/run/socket-stream-adapter-routing/` covers the
 narrow adapter-owned socket-to-handler routing slice. It reads one
