@@ -307,9 +307,9 @@ execution reference.
   client connection preface before frame-header decode and represents partial
   or mismatched prefaces, closed-input truncation, continuation ordering
   failures for different frame kinds and stream ids, closed input while a
-  header block remains pending, completed HEADERS and CONTINUATION
-  header-block output, incoming frame payloads that exceed the active receive
-  maximum frame size, received `SETTINGS_ENABLE_PUSH`,
+  header block remains pending, completed HEADERS and multi-frame
+  CONTINUATION header-block output, incoming frame payloads that exceed the
+  active receive maximum frame size, received `SETTINGS_ENABLE_PUSH`,
   `SETTINGS_MAX_FRAME_SIZE`, `SETTINGS_MAX_CONCURRENT_STREAMS`,
   `SETTINGS_INITIAL_WINDOW_SIZE`, `SETTINGS_HEADER_TABLE_SIZE`, and
   `SETTINGS_MAX_HEADER_LIST_SIZE` peer-advertised state with item byte

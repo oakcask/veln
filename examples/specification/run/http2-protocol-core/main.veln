@@ -2924,9 +2924,11 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("headers", header_start)
 	let continuation_more: Http2Step = receive(InputChunk(byte_chunk_from_hex("000002090000000001ddee")?), step_state(header_start))?
 	print_step("continuation-more", continuation_more)
-	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000409040000000101020304")?), step_state(continuation_more))?
+	let continuation_extra: Http2Step = receive(InputChunk(byte_chunk_from_hex("000001090000000001ff")?), step_state(continuation_more))?
+	print_step("continuation-extra", continuation_extra)
+	let continuation_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003090400000001010203")?), step_state(continuation_extra))?
 	print_step("continuation-done", continuation_done)
-	let ignored_continuation_header_block: () = emit_header_block("http2-continuation-header-block", continuation_done, "aabbccddee01020304")?
+	let ignored_continuation_header_block: () = emit_header_block("http2-continuation-header-block", continuation_done, "aabbccddeeff010203")?
 	let headers_done: Http2Step = receive(InputChunk(byte_chunk_from_hex("000003010500000001102030")?), frame_state())?
 	print_step("headers-done", headers_done)
 	let ignored_headers_header_block: () = emit_header_block("http2-headers-header-block", headers_done, "102030")?
