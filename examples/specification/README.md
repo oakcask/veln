@@ -834,9 +834,11 @@ against the built `veln` binary.
   SETTINGS receive, it also constructs one immutable outbound SETTINGS ACK
   chunk through the frame-header encode path and shows that the send intent
   leaves peer-advertised SETTINGS state unchanged. It also constructs a local
-  SETTINGS frame-header-plus-item chunk, records one outstanding local
-  SETTINGS batch, clears that outstanding state on a valid received SETTINGS
-  ACK, and rejects an ACK with no outstanding local SETTINGS as
+  SETTINGS frame-header-plus-item chunk for `SETTINGS_MAX_FRAME_SIZE` and for
+  `SETTINGS_MAX_HEADER_LIST_SIZE`, records one outstanding local SETTINGS
+  batch with the sent identifier and item count, clears that outstanding state
+  on a valid received SETTINGS ACK, and rejects an ACK with no outstanding
+  local SETTINGS as
   `http2.protocol.unexpected_settings_ack`. After a valid inbound non-ACK
   PING frame, it constructs one immutable outbound PING ACK chunk
   through the frame-header encode path with the original opaque payload, while
