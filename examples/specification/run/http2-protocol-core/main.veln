@@ -11,6 +11,12 @@ schema Http2FrameHeaderWire
 	stream_id: UInt31be
 end
 
+schema Http2RstStreamPayloadWire
+	format binary
+
+	error_code: UInt32be
+end
+
 type PendingContinuation
 	NoContinuation
 	Continuation(Int, Int, Int, ByteChunk)
@@ -185,6 +191,12 @@ type OutboundWindowUpdateDecision
 	OutboundWindowUpdateEncodeFailed(EncodeError)
 end
 
+type OutboundRstStreamDecision
+	OutboundRstStreamAccepted(Int, Int, OutboundReceiveCredit, ByteChunk)
+	OutboundRstStreamRejected(Int, Int, Http2ProtocolFailure)
+	OutboundRstStreamEncodeFailed(Int, Int, EncodeError)
+end
+
 type Http2Step
 	FrameDecoded(Http2DecodeState, Int, Int, Int, Int, Int, ByteChunk, Http2Frame)
 	Waiting(Http2DecodeState)
@@ -213,6 +225,10 @@ end
 
 fn encode_frame_header(header: {length: Int, kind: Int, flags: Int, stream_id: Int}) -> Result<ByteChunk, EncodeError>
 	byte_encode_http2_frame_header_wire(header)
+end
+
+fn encode_rst_stream_payload(payload: {error_code: Int}) -> Result<ByteChunk, EncodeError>
+	byte_encode_http2_rst_stream_payload_wire(payload)
 end
 
 fn receive(input: Http2Input, state: Http2DecodeState) -> Result<Http2Step, String>
@@ -923,6 +939,47 @@ end
 
 fn send_settings_ack() -> Result<ByteChunk, EncodeError>
 	encode_frame_header({length: 0, kind: 4, flags: 1, stream_id: 0})
+end
+
+fn send_rst_stream(stream_id: Int, error_code: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundRstStreamDecision, String>
+	match stream_id == 0
+		true => Ok(OutboundRstStreamRejected(stream_id, error_code, InvalidStreamId(0, 3, stream_id, "nonzero open stream id", "local", "stream-id-domain", "outbound_rst_stream_requires_open_stream")))
+		false => send_nonzero_rst_stream(stream_id, error_code, receive_credit)
+	end
+end
+
+fn send_nonzero_rst_stream(stream_id: Int, error_code: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundRstStreamDecision, String>
+	match receive_credit
+		OutboundReceiveCredit(connection_window, NoOutboundReceiveCreditStream) => Ok(OutboundRstStreamRejected(stream_id, error_code, InvalidFrameKind(0, 3, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditOpenStream(open_stream_id, _)) => match stream_id == open_stream_id
+			true => encode_rst_stream_intent(stream_id, error_code, connection_window)
+			false => Ok(OutboundRstStreamRejected(stream_id, error_code, InvalidFrameKind(0, 3, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditClosedStream(closed_stream_id)) => match stream_id == closed_stream_id
+			true => Ok(OutboundRstStreamRejected(stream_id, error_code, InvalidFrameKind(0, 3, stream_id, 1, "closed-stream", "closed_stream_rejects_later_frames")))
+			false => Ok(OutboundRstStreamRejected(stream_id, error_code, InvalidFrameKind(0, 3, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+		OutboundReceiveCredit(connection_window, OutboundReceiveCreditResetStream(reset_stream_id, _)) => match stream_id == reset_stream_id
+			true => Ok(OutboundRstStreamRejected(stream_id, error_code, InvalidFrameKind(0, 3, stream_id, 1, "reset-stream", "reset_stream_rejects_later_frames")))
+			false => Ok(OutboundRstStreamRejected(stream_id, error_code, InvalidFrameKind(0, 3, stream_id, 1, "idle-stream", "idle_streams_require_headers")))
+		end
+	end
+end
+
+fn encode_rst_stream_intent(stream_id: Int, error_code: Int, connection_window: Int) -> Result<OutboundRstStreamDecision, String>
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 4, kind: 3, flags: 0, stream_id: stream_id})
+	match encoded_header
+		Ok(header) => encode_rst_stream_payload_intent(stream_id, error_code, connection_window, header)
+		Err(error) => Ok(OutboundRstStreamEncodeFailed(stream_id, error_code, error))
+	end
+end
+
+fn encode_rst_stream_payload_intent(stream_id: Int, error_code: Int, connection_window: Int, header: ByteChunk) -> Result<OutboundRstStreamDecision, String>
+	let encoded_payload: Result<ByteChunk, EncodeError> = encode_rst_stream_payload({error_code: error_code})
+	match encoded_payload
+		Ok(payload) => Ok(OutboundRstStreamAccepted(stream_id, error_code, OutboundReceiveCredit(connection_window, OutboundReceiveCreditResetStream(stream_id, error_code)), byte_append(header, payload)))
+		Err(error) => Ok(OutboundRstStreamEncodeFailed(stream_id, error_code, error))
+	end
 end
 
 fn consume_outbound_data_window(length: Int, stream_id: Int, outbound_flow_control: OutboundFlowControl) -> OutboundDataDecision
@@ -1828,6 +1885,103 @@ fn outbound_window_update_chunk(decision: OutboundWindowUpdateDecision) -> ByteC
 	end
 end
 
+fn outbound_rst_stream_status(decision: OutboundRstStreamDecision) -> String
+	match decision
+		OutboundRstStreamAccepted(_, _, _, _) => "accepted"
+		OutboundRstStreamRejected(_, _, _) => "rejected"
+		OutboundRstStreamEncodeFailed(_, _, _) => "encode_error"
+	end
+end
+
+fn outbound_rst_stream_reason(decision: OutboundRstStreamDecision) -> String
+	match decision
+		OutboundRstStreamAccepted(_, _, _, _) => "none"
+		OutboundRstStreamRejected(_, _, error) => failure_rule_provenance(error)
+		OutboundRstStreamEncodeFailed(_, _, error) => encode_error_id(error)
+	end
+end
+
+fn outbound_rst_stream_stream(decision: OutboundRstStreamDecision) -> Int
+	match decision
+		OutboundRstStreamAccepted(stream_id, _, _, _) => stream_id
+		OutboundRstStreamRejected(stream_id, _, _) => stream_id
+		OutboundRstStreamEncodeFailed(stream_id, _, _) => stream_id
+	end
+end
+
+fn outbound_rst_stream_error_code(decision: OutboundRstStreamDecision) -> Int
+	match decision
+		OutboundRstStreamAccepted(_, error_code, _, _) => error_code
+		OutboundRstStreamRejected(_, error_code, _) => error_code
+		OutboundRstStreamEncodeFailed(_, error_code, _) => error_code
+	end
+end
+
+fn outbound_rst_stream_connection_window(decision: OutboundRstStreamDecision) -> Int
+	match decision
+		OutboundRstStreamAccepted(_, _, receive_credit, _) => outbound_receive_connection_window(receive_credit)
+		OutboundRstStreamRejected(_, _, _) => 0
+		OutboundRstStreamEncodeFailed(_, _, _) => 0
+	end
+end
+
+fn outbound_rst_stream_reset_stream(decision: OutboundRstStreamDecision) -> Int
+	match decision
+		OutboundRstStreamAccepted(_, _, receive_credit, _) => outbound_receive_reset_stream_id(receive_credit)
+		OutboundRstStreamRejected(_, _, _) => 0
+		OutboundRstStreamEncodeFailed(_, _, _) => 0
+	end
+end
+
+fn outbound_rst_stream_active_state(decision: OutboundRstStreamDecision) -> String
+	match decision
+		OutboundRstStreamAccepted(_, _, _, _) => "none"
+		OutboundRstStreamRejected(_, _, error) => failure_active_state(error)
+		OutboundRstStreamEncodeFailed(_, _, _) => "codec"
+	end
+end
+
+fn outbound_rst_stream_chunk(decision: OutboundRstStreamDecision) -> ByteChunk
+	match decision
+		OutboundRstStreamAccepted(_, _, _, chunk) => chunk
+		OutboundRstStreamRejected(_, _, _) => byte_chunk([])
+		OutboundRstStreamEncodeFailed(_, _, _) => byte_chunk([])
+	end
+end
+
+fn outbound_rst_stream_receive_credit(decision: OutboundRstStreamDecision) -> OutboundReceiveCredit
+	match decision
+		OutboundRstStreamAccepted(_, _, receive_credit, _) => receive_credit
+		OutboundRstStreamRejected(_, _, _) => outbound_receive_credit_without_stream(0)
+		OutboundRstStreamEncodeFailed(_, _, _) => outbound_receive_credit_without_stream(0)
+	end
+end
+
+fn outbound_rst_stream_encode_path(decision: OutboundRstStreamDecision) -> String
+	match decision
+		OutboundRstStreamAccepted(_, _, _, _) => "none"
+		OutboundRstStreamRejected(_, _, _) => "none"
+		OutboundRstStreamEncodeFailed(_, _, error) => encode_error_path(error)
+	end
+end
+
+fn outbound_rst_stream_encode_detail(decision: OutboundRstStreamDecision) -> String
+	match decision
+		OutboundRstStreamAccepted(_, _, _, _) => "none"
+		OutboundRstStreamRejected(_, _, _) => "none"
+		OutboundRstStreamEncodeFailed(_, _, error) => encode_error_reason(error)
+	end
+end
+
+fn outbound_receive_reset_stream_id(receive_credit: OutboundReceiveCredit) -> Int
+	match receive_credit
+		OutboundReceiveCredit(_, NoOutboundReceiveCreditStream) => 0
+		OutboundReceiveCredit(_, OutboundReceiveCreditOpenStream(_, _)) => 0
+		OutboundReceiveCredit(_, OutboundReceiveCreditClosedStream(_)) => 0
+		OutboundReceiveCredit(_, OutboundReceiveCreditResetStream(stream_id, _)) => stream_id
+	end
+end
+
 fn failure_id(failure: Http2ProtocolFailure) -> String
 	match failure
 		ClosedWithPending(_, _) => "http2.protocol.closed_with_pending"
@@ -2530,6 +2684,32 @@ fn print_outbound_window_update_chunk(label: String, decision: OutboundWindowUpd
 	emit_encoded_header(label, outbound_window_update_chunk(decision), expected_hex)
 end
 
+fn print_outbound_rst_stream(label: String, decision: OutboundRstStreamDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" outbound-rst-stream ")
+	stdio::print(outbound_rst_stream_status(decision))
+	stdio::print(" reason ")
+	stdio::print(outbound_rst_stream_reason(decision))
+	stdio::print(" stream ")
+	stdio::print(int_to_string(outbound_rst_stream_stream(decision)))
+	stdio::print(" error_code ")
+	stdio::print(int_to_string(outbound_rst_stream_error_code(decision)))
+	stdio::print(" connection_window ")
+	stdio::print(int_to_string(outbound_rst_stream_connection_window(decision)))
+	stdio::print(" reset_stream ")
+	stdio::print(int_to_string(outbound_rst_stream_reset_stream(decision)))
+	stdio::print(" active_state ")
+	stdio::print(outbound_rst_stream_active_state(decision))
+	stdio::print(" encode_path ")
+	stdio::print(outbound_rst_stream_encode_path(decision))
+	stdio::print(" encode_detail ")
+	stdio::println(outbound_rst_stream_encode_detail(decision))
+end
+
+fn print_outbound_rst_stream_chunk(label: String, decision: OutboundRstStreamDecision, expected_hex: String) -> Result<(), String> effects [stdio]
+	emit_encoded_header(label, outbound_rst_stream_chunk(decision), expected_hex)
+end
+
 fn print_peer_streams(label: String, state: Http2DecodeState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" open_stream_count ")
@@ -2859,6 +3039,37 @@ fn print_outbound_window_update_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_outbound_rst_stream_cases() -> Result<(), String> effects [stdio]
+	let outbound_receive_credit: OutboundReceiveCredit = outbound_receive_credit_with_open_stream(10, 1, 20)
+	let outbound_rst_stream_accepted: OutboundRstStreamDecision = send_rst_stream(1, 8, outbound_receive_credit)?
+	print_outbound_rst_stream("outbound-rst-stream-accepted", outbound_rst_stream_accepted)
+	let ignored_rst_stream_chunk: () = print_outbound_rst_stream_chunk("http2-rst-stream", outbound_rst_stream_accepted, "00000403000000000100000008")?
+	let outbound_rst_then_window_update: OutboundWindowUpdateDecision = send_stream_window_update(1, 1, outbound_rst_stream_receive_credit(outbound_rst_stream_accepted))?
+	print_outbound_window_update("outbound-rst-stream-then-window-update", outbound_rst_then_window_update)
+	let outbound_rst_stream_zero: OutboundRstStreamDecision = send_rst_stream(0, 8, outbound_receive_credit)?
+	print_outbound_rst_stream("outbound-rst-stream-zero", outbound_rst_stream_zero)
+	let outbound_rst_stream_missing: OutboundRstStreamDecision = send_rst_stream(1, 8, outbound_receive_credit_without_stream(10))?
+	print_outbound_rst_stream("outbound-rst-stream-missing", outbound_rst_stream_missing)
+	let outbound_rst_stream_closed: OutboundRstStreamDecision = send_rst_stream(1, 8, outbound_receive_credit_with_closed_stream(10, 1))?
+	print_outbound_rst_stream("outbound-rst-stream-closed", outbound_rst_stream_closed)
+	let outbound_rst_stream_reset: OutboundRstStreamDecision = send_rst_stream(1, 8, outbound_receive_credit_with_reset_stream(10, 1, 8))?
+	print_outbound_rst_stream("outbound-rst-stream-reset", outbound_rst_stream_reset)
+	let outbound_rst_stream_mismatch: OutboundRstStreamDecision = send_rst_stream(3, 8, outbound_receive_credit)?
+	print_outbound_rst_stream("outbound-rst-stream-mismatch", outbound_rst_stream_mismatch)
+	let outbound_rst_stream_id_encode_error: OutboundRstStreamDecision = send_rst_stream(2147483648, 8, outbound_receive_credit_with_open_stream(10, 2147483648, 20))?
+	print_outbound_rst_stream("outbound-rst-stream-id-encode-error", outbound_rst_stream_id_encode_error)
+	let outbound_rst_stream_error_code_encode_error: OutboundRstStreamDecision = send_rst_stream(1, 4294967296, outbound_receive_credit)?
+	print_outbound_rst_stream("outbound-rst-stream-error-code-encode-error", outbound_rst_stream_error_code_encode_error)
+	Ok(())
+end
+
+fn print_outbound_send_intent_cases() -> Result<(), String> effects [stdio]
+	let ignored_outbound_data_cases: () = print_outbound_data_cases()?
+	let ignored_outbound_window_update_cases: () = print_outbound_window_update_cases()?
+	let ignored_outbound_rst_stream_cases: () = print_outbound_rst_stream_cases()?
+	Ok(())
+end
+
 fn print_priority_cases() -> Result<(), String> effects [stdio]
 	let priority: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), frame_state())?
 	let ignored_priority: () = print_priority_frame("priority", priority)?
@@ -3011,8 +3222,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_step("peer-initial-window-data", peer_initial_window_data)
 	print_peer_settings("peer-initial-window-data", step_state(peer_initial_window_data))
 	print_receive_windows("peer-initial-window-data", step_state(peer_initial_window_data))
-	let ignored_outbound_data_cases: () = print_outbound_data_cases()?
-	let ignored_outbound_window_update_cases: () = print_outbound_window_update_cases()?
+	let ignored_outbound_send_intent_cases: () = print_outbound_send_intent_cases()?
 	let ignored_initial_window_update_cases: () = print_initial_window_update_cases()?
 	let headers_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000000")?), frame_state())?
 	print_stream_id_failure("headers-zero-stream", headers_zero_stream)

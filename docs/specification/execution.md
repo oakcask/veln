@@ -388,6 +388,17 @@ execution reference.
   immutable nine-byte output chunk with length `0`, kind `4`, flags `1`, and
   stream id `0`. That send intent only constructs the output chunk; it does
   not update peer-advertised SETTINGS state or local receive-limit state.
+- The same HTTP/2 protocol-core example also covers the narrow outbound
+  `RST_STREAM` send-intent. Ordinary source accepts a nonzero currently open
+  stream, emits one immutable output chunk with a nine-byte frame header
+  length `4`, kind `3`, flags `0`, and the selected stream id followed by the
+  four-byte error-code payload, then records local reset state so a later
+  stream-level `WINDOW_UPDATE` for that stream is rejected through the reset
+  stream-state boundary. Stream id `0`, missing streams, closed streams,
+  already reset streams, and mismatched open streams are rejected before
+  output bytes are produced. Stream id and error-code values outside the
+  generated binary schema encode helpers' representable ranges stay as
+  `codec.encode_value_unrepresentable` failures with the generated field path.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior

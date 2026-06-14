@@ -31,12 +31,13 @@ ordinary-source decode-state slices. Planned coverage still includes:
 - stream identifiers
 - remaining stream lifecycle beyond the implemented peer-created stream
   admission, receive-limit, inbound reset slice, DATA `END_STREAM`
-  closed-by-peer transition, and GOAWAY last-stream-id enforcement for later
-  peer-created HEADERS
+  closed-by-peer transition, outbound `RST_STREAM` local reset send-intent
+  slice, and GOAWAY last-stream-id enforcement for later peer-created HEADERS
 - remaining outbound flow control and broader stream-window interactions
   beyond the implemented narrow outbound DATA send-intent credit checks,
-  inbound DATA, stream-level `WINDOW_UPDATE`, and
-  `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window accounting
+  outbound `RST_STREAM` reset send intent, inbound DATA, stream-level
+  `WINDOW_UPDATE`, and `SETTINGS_INITIAL_WINDOW_SIZE` open-stream
+  receive-window accounting
 - graceful shutdown interactions beyond the implemented GOAWAY receive state
   and later peer-created HEADERS rejection
 
@@ -347,6 +348,15 @@ receive-window credit. Wrong-length `WINDOW_UPDATE` payloads use
 `http2.protocol.invalid_frame_kind` shape, and zero or overflowing increments
 use `http2.peer_limit.flow_control_window_exceeded` without changing receive
 window state.
+The implemented slice also includes the narrow outbound `RST_STREAM`
+send-intent. Ordinary source accepts a nonzero currently open stream, encodes
+a nine-byte header with length `4`, kind `3`, flags `0`, and the selected
+stream id, appends the four-byte error-code payload, and records outbound
+reset state so a later stream-level `WINDOW_UPDATE` for that stream uses the
+same reset stream-state rejection boundary. It rejects stream id `0`, missing
+or non-open streams, already reset streams, and generated encode-helper
+representation failures for the stream id or error-code payload before
+accepted bytes are produced.
 The implemented slice also applies received `SETTINGS_INITIAL_WINDOW_SIZE`
 values to the tracked open stream's receive-window credit by the delta between
 the previous active peer setting and the new value. The adjusted stream credit
