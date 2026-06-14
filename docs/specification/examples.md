@@ -121,6 +121,15 @@ The executable specification case
 covers the same derived codec call boundary when the generated decode-step
 helper decodes a same-module nested dispatch payload schema.
 The executable specification case
+`../../examples/specification/run/codec-selected-mapping-decode-boundary/`
+covers codec item calls over a schema with multiple decoded-field selected
+mappings that resolve to one target record shape, including both derived and
+hand-written decode boundaries.
+The executable specification case
+`../../examples/specification/check/codec-selected-mapping-boundary-diagnostics/`
+covers hand-written decode functions that return the raw schema-local record
+or another wrong record shape instead of the selected mapping target shape.
+The executable specification case
 `../../examples/specification/check/derived-codec-mapping-boundary-diagnostics/`
 covers mapped derived encode clauses whose generated helper boundary cannot
 project the schema mapping target value back to schema-local fields.

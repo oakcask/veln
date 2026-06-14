@@ -44,9 +44,10 @@ compiler-known calls.
   outgoing immutable chunks in `List<ByteChunk>` action values. Generated
   binary schema decode helpers
   return schema-local
-  `Int` record fields unless the eligible single structural `map to Target`
-  slice resolves a mapped `Int` record shape; generated decode-step helpers
-  expose the same value shape through `DecodeStep<T>` for open input.
+  `Int` record fields unless the eligible structural `map to Target` slice,
+  including decoded-field selected mappings that resolve to one record shape,
+  resolves a mapped `Int` record shape; generated decode-step helpers expose
+  the same value shape through `DecodeStep<T>` for open input.
   Generated binary schema encode helpers for the exact-width primitive,
   supported reserved-bit, length-bounded `ByteView`, closed dispatch,
   extension dispatch, and same-module or imported public nested dispatch

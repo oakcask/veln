@@ -716,6 +716,12 @@ against the built `veln` binary.
   decode` codec item boundary over a same-module nested dispatch payload
   schema, including the generated helper's nested record value and consumed
   count.
+- `run/codec-selected-mapping-decode-boundary/`: derived and hand-written
+  codec decode item calls over a schema with multiple decoded-field selected
+  mappings return the shared mapping target record shape.
+- `check/codec-selected-mapping-boundary-diagnostics/`: hand-written codec
+  decode functions over selected mappings reject the raw schema-local record
+  and other wrong selected mapping value shapes.
 - `run/binary-schema-frame-payload-decode/`: HTTP/2 frame decode returns the
   visible header fields plus a bounded payload `ByteView` selected by the
   decoded length.

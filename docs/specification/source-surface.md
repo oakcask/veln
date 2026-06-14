@@ -189,8 +189,9 @@ the codec's module with exactly `ByteView` and `ByteOffset` parameters and a
 `DecodeStep<T>` return type. Invalid decode signatures report
 `codec.decode_signature` at the codec implementation clause, with related
 context pointing to the referenced function when it is available. When the
-referenced schema has an implemented structural mapping slice, the `T` value type
-must match the mapping target record shape; mismatches report
+referenced schema has an implemented structural mapping slice, the `T` value
+type must match the mapping target record shape, including selected mappings
+that all resolve to that same record shape; mismatches report
 `codec.decode_value_type` at the codec implementation clause. A codec with a
 hand-written `decode with` clause is callable through the codec item name in
 its declaring module, or through a written import-qualified module path when
@@ -204,7 +205,8 @@ rules when their schema is eligible for `byte_decode_step_<schema>`, and the
 call returns that generated helper's `DecodeStep<T>` result. For the
 implemented structural mapping slice, `T` is the mapping target record
 shape when each assignment source has the same implemented decoded field type
-as the target field. Bare imported codec names are not ordinary call targets.
+as the target field and all selected mappings resolve to that same record
+shape. Bare imported codec names are not ordinary call targets.
 
 An `encode with function_name` clause must resolve to an ordinary function in
 the codec's module with an `EncodeStep<TState>` return type. When the

@@ -378,18 +378,22 @@ execution reference.
 - A codec declaration with a valid `derive decode` clause for the same
   eligible generated binary schema decode-step slice exposes the codec item
   name as the executable decode boundary for ordinary source calls, including
-  repeat-backed schemas and same-module nested dispatch payload schemas
-  already accepted by `byte_decode_step_<schema>`. The call accepts a bounded
-  `ByteView` and explicit base `ByteOffset` and returns the same
-  `DecodeStep<T>` value as `byte_decode_step_<schema>`, including mapped
-  record values, `NeedMore(NeedBytes(count))`, and `Invalid` without consumed
-  bytes. The checked examples are
+  repeat-backed schemas, same-module nested dispatch payload schemas, and
+  multiple decoded-field selected schema mappings already accepted by
+  `byte_decode_step_<schema>`. The call accepts a bounded `ByteView` and
+  explicit base `ByteOffset` and returns the same `DecodeStep<T>` value as
+  `byte_decode_step_<schema>`, including mapped record values,
+  `NeedMore(NeedBytes(count))`, and `Invalid` without consumed bytes. The
+  checked examples are
   `examples/specification/run/derived-codec-decode-boundary/`,
   `examples/specification/run/derived-codec-repeat-decode-boundary/`, and
   `examples/specification/run/derived-codec-nested-dispatch-decode-boundary/`.
-  For the implemented structural mapping slice, `T` is the mapping
+  `examples/specification/run/codec-selected-mapping-decode-boundary/`
+  covers the selected mapping boundary shared with hand-written decode
+  codecs. For the implemented structural mapping slice, `T` is the mapping
   target record shape when each assignment source has the same implemented
-  decoded field type as the target field.
+  decoded field type as the target field and all selected mappings resolve to
+  that same record shape.
 - A codec declaration with a valid hand-written `decode with function_name`
   clause exposes the codec item name as the executable decode boundary for
   ordinary source calls. The call accepts a bounded `ByteView` and explicit
@@ -398,7 +402,10 @@ execution reference.
   `Decoded(value, consumed)` returns unchanged when `consumed` is within the
   supplied view length; when `consumed` is outside the supplied view, the codec
   boundary returns `Invalid(DecodeError("codec.consumed_count_invalid",
-  base_offset, codec_name))`.
+  base_offset, codec_name))`. When the referenced schema uses multiple
+  decoded-field selected mappings that resolve to one implemented target
+  record shape, the referenced function must return `DecodeStep<T>` for that
+  selected mapping record shape.
 - A codec declaration with a valid hand-written `encode with function_name`
   clause exposes the codec item name as the executable encode boundary for
   ordinary source calls. The call invokes the referenced same-module function
