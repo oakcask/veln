@@ -161,6 +161,7 @@
         final int width;
         final long maxValue;
         final boolean littleEndian;
+        final boolean flag8;
         final SchemaPredicate predicate;
         final SchemaDispatchSpec dispatch;
         final String lengthField;
@@ -169,7 +170,7 @@
         final Long fixedValue;
 
         SchemaFieldSpec(String name, int width, long maxValue, SchemaPredicate predicate) {
-            this(name, width, maxValue, false, predicate, null, "", 0, 0L, null);
+            this(name, width, maxValue, false, false, predicate, null, "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -179,7 +180,7 @@
             boolean littleEndian,
             SchemaPredicate predicate
         ) {
-            this(name, width, maxValue, littleEndian, predicate, null, "", 0, 0L, null);
+            this(name, width, maxValue, littleEndian, false, predicate, null, "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -190,7 +191,30 @@
             SchemaPredicate predicate,
             Long fixedValue
         ) {
-            this(name, width, maxValue, littleEndian, predicate, null, "", 0, 0L, fixedValue);
+            this(name, width, maxValue, littleEndian, false, predicate, null, "", 0, 0L, fixedValue);
+        }
+
+        SchemaFieldSpec(
+            String name,
+            int width,
+            long maxValue,
+            boolean littleEndian,
+            boolean flag8,
+            SchemaPredicate predicate
+        ) {
+            this(name, width, maxValue, littleEndian, flag8, predicate, null, "", 0, 0L, null);
+        }
+
+        SchemaFieldSpec(
+            String name,
+            int width,
+            long maxValue,
+            boolean littleEndian,
+            boolean flag8,
+            SchemaPredicate predicate,
+            Long fixedValue
+        ) {
+            this(name, width, maxValue, littleEndian, flag8, predicate, null, "", 0, 0L, fixedValue);
         }
 
         SchemaFieldSpec(
@@ -200,15 +224,15 @@
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch
         ) {
-            this(name, width, maxValue, false, predicate, dispatch, "", 0, 0L, null);
+            this(name, width, maxValue, false, false, predicate, dispatch, "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, String lengthField) {
-            this(name, 0, 0L, false, null, null, lengthField, 0, 0L, null);
+            this(name, 0, 0L, false, false, null, null, lengthField, 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, int reservedBitWidth, long reservedValue) {
-            this(name, 0, 0L, false, null, null, "", reservedBitWidth, reservedValue, null);
+            this(name, 0, 0L, false, false, null, null, "", reservedBitWidth, reservedValue, null);
         }
 
         SchemaFieldSpec(
@@ -216,6 +240,7 @@
             int width,
             long maxValue,
             boolean littleEndian,
+            boolean flag8,
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch,
             String lengthField,
@@ -227,6 +252,7 @@
             this.width = width;
             this.maxValue = maxValue;
             this.littleEndian = littleEndian;
+            this.flag8 = flag8;
             this.predicate = predicate;
             this.dispatch = dispatch;
             this.lengthField = lengthField;
@@ -241,6 +267,15 @@
 
         boolean isLengthBoundedView() {
             return dispatch == null && !lengthField.isEmpty();
+        }
+
+        boolean isFlag8Bitset() {
+            return dispatch == null
+                && lengthField.isEmpty()
+                && reservedBitWidth == 0
+                && width == 1
+                && maxValue == 0xffL
+                && flag8;
         }
     }
 
@@ -1338,6 +1373,7 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
+        Object flag8Values,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -1356,6 +1392,7 @@
             widths,
             maxValues,
             littleEndianValues,
+            flag8Values,
             reservedBitWidths,
             reservedValues,
             predicates,
@@ -1382,6 +1419,7 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
+        Object flag8Values,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -1400,6 +1438,7 @@
             widths,
             maxValues,
             littleEndianValues,
+            flag8Values,
             reservedBitWidths,
             reservedValues,
             predicates,
@@ -1453,6 +1492,7 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
+        Object flag8Values,
         Object reservedBitWidths,
         Object reservedValues,
         Object dispatchTagFields,
@@ -1467,6 +1507,7 @@
         java.util.List<Object> widthValues = asList(widths);
         java.util.List<Object> maxValueValues = asList(maxValues);
         java.util.List<Object> littleEndianValueList = asList(littleEndianValues);
+        java.util.List<Object> flag8ValueList = asList(flag8Values);
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
         java.util.List<Object> reservedValueValues = asList(reservedValues);
         java.util.List<Object> dispatchTagFieldValues = asList(dispatchTagFields);
@@ -1479,6 +1520,7 @@
         if (fieldNameValues.size() != widthValues.size()
             || fieldNameValues.size() != maxValueValues.size()
             || fieldNameValues.size() != littleEndianValueList.size()
+            || fieldNameValues.size() != flag8ValueList.size()
             || fieldNameValues.size() != reservedBitWidthValues.size()
             || fieldNameValues.size() != reservedValueValues.size()
             || fieldNameValues.size() != dispatchTagFieldValues.size()
@@ -1505,6 +1547,7 @@
             String tagField = asString(dispatchTagFieldValues.get(index));
             String lengthField = asString(dispatchLengthFieldValues.get(index));
             boolean littleEndian = asBool(littleEndianValueList.get(index));
+            boolean flag8 = asBool(flag8ValueList.get(index));
             if (reservedBitWidth > 0) {
                 schemaFields[index] = new SchemaFieldSpec(
                     fieldName,
@@ -1545,6 +1588,7 @@
                 width,
                 maxValue,
                 littleEndian,
+                flag8,
                 null
             );
         }
@@ -1622,7 +1666,7 @@
                 ));
             }
             Object encoded = schemaWriteUnsigned(
-                fields.get(field.name),
+                schemaFieldEncodeValue(fields.get(field.name), field),
                 field.width,
                 field.maxValue,
                 field.littleEndian,
@@ -1644,6 +1688,7 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
+        Object flag8Values,
         Object reservedBitWidths,
         Object reservedValues,
         Object dispatchTagFields,
@@ -1660,6 +1705,7 @@
             widths,
             maxValues,
             littleEndianValues,
+            flag8Values,
             reservedBitWidths,
             reservedValues,
             dispatchTagFields,
@@ -2606,7 +2652,12 @@
                 return err(message);
             }
             decoded.put(field.name, Long.valueOf(fieldValue));
-            values.put(field.name, Long.valueOf(fieldValue));
+            values.put(
+                field.name,
+                field.isFlag8Bitset()
+                    ? flag8Object(fieldValue)
+                    : Long.valueOf(fieldValue)
+            );
 
             if (field.predicate != null) {
                 boolean passed;
@@ -2877,6 +2928,7 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
+        Object flag8Values,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -2895,6 +2947,7 @@
             widths,
             maxValues,
             littleEndianValues,
+            flag8Values,
             reservedBitWidths,
             reservedValues,
             predicates,
@@ -2915,6 +2968,7 @@
         Object widths,
         Object maxValues,
         Object littleEndianValues,
+        Object flag8Values,
         Object reservedBitWidths,
         Object reservedValues,
         Object predicates,
@@ -2934,6 +2988,8 @@
             maxValues == null ? null : asList(maxValues);
         java.util.List<Object> littleEndianValueList =
             littleEndianValues == null ? null : asList(littleEndianValues);
+        java.util.List<Object> flag8ValueList =
+            flag8Values == null ? null : asList(flag8Values);
         java.util.List<Object> reservedBitWidthValues = asList(reservedBitWidths);
         java.util.List<Object> reservedValueValues = asList(reservedValues);
         java.util.List<Object> predicateValues = asList(predicates);
@@ -2956,6 +3012,7 @@
             || fieldNameValues.size() != dispatchCaseWidthValues.size()
             || (littleEndianValueList != null
                 && fieldNameValues.size() != littleEndianValueList.size())
+            || (flag8ValueList != null && fieldNameValues.size() != flag8ValueList.size())
             || (dispatchCaseLittleEndianValueList != null
                 && fieldNameValues.size() != dispatchCaseLittleEndianValueList.size())
             || (maxValueValues != null && fieldNameValues.size() != maxValueValues.size())
@@ -2975,6 +3032,7 @@
             String lengthField = asString(dispatchLengthFieldValues.get(index));
             boolean littleEndian =
                 littleEndianValueList != null && asBool(littleEndianValueList.get(index));
+            boolean flag8 = flag8ValueList != null && asBool(flag8ValueList.get(index));
             if (reservedBitWidth > 0L) {
                 if (reservedBitWidth > Integer.MAX_VALUE
                     || !supportedReservedBits((int) reservedBitWidth, reservedValue)) {
@@ -3057,6 +3115,7 @@
                     (int) width,
                     unsignedMaxValue((int) width),
                     false,
+                    false,
                     predicate,
                     fixedValue
                 );
@@ -3066,6 +3125,7 @@
                     (int) width,
                     asLong(maxValueValues.get(index)),
                     littleEndian,
+                    flag8,
                     predicate,
                     fixedValue
                 );
@@ -3219,7 +3279,7 @@
 
     private static Object declaredBinarySchemaSpecFromMetadata(Object metadata) {
         java.util.List<Object> values = asList(metadata);
-        if (values.size() != 16) {
+        if (values.size() != 17) {
             return err("invalid nested schema decoder metadata");
         }
         return declaredBinarySchemaSpecWithMaxValues(
@@ -3238,7 +3298,8 @@
             values.get(12),
             values.get(13),
             values.get(14),
-            values.get(15)
+            values.get(15),
+            values.get(16)
         );
     }
 
@@ -3559,6 +3620,18 @@
             bytes.add(byteObject((unsigned >> (shiftIndex * 8)) & 0xffL));
         }
         return ok(byteChunkObject(bytes));
+    }
+
+    private static Object schemaFieldEncodeValue(Object value, SchemaFieldSpec field) {
+        return field.isFlag8Bitset() ? Long.valueOf(flag8Bits(value)) : value;
+    }
+
+    private static Object flag8Object(long bits) {
+        return adt("Flag8::Flag8", new Object[] { Long.valueOf(bits) });
+    }
+
+    private static long flag8Bits(Object value) {
+        return asLong(asAdt(value, "Flag8::Flag8").payloads[0]);
     }
 
     private static Object encodeError(String id, String fieldPath, String reason) {

@@ -48,7 +48,10 @@ source module items. The implemented schema body slice requires a single
 name, `:`, type text, and an optional field-local `where` predicate. In binary
 schemas, `UInt1` through `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`,
 `UInt24le`, `UInt31be`, `UInt32be`, `UInt32le`, and
-`ReservedBits(width, value)` are accepted as schema primitives.
+`ReservedBits(width, value)` are accepted as schema primitives. `Flag8` is
+accepted as an opt-in one-byte visible flag bitset field; it decodes and
+encodes through the source-visible `Flag8(bits: Int)` value type instead of
+the raw `Int` used by `UInt8`.
 `ReservedBits` arguments must be literal
 non-negative integers. The narrow closed tag-dispatch field type
 `Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names a
@@ -93,8 +96,9 @@ selectors report `schema.mapping_selection_required`,
 `schema.mapping_selection_unsupported`. The predicate, primitive, dispatch,
 and mapping text are parsed and preserved as source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
-primitive, supported reserved-bit, closed dispatch, extension dispatch, and
-same-module or imported public nested dispatch payload helper slices, general
+primitive, `Flag8`, supported reserved-bit, closed dispatch, extension
+dispatch, and same-module or imported public nested dispatch payload helper
+slices, general
 ADT constructor mapping beyond schema-local structural expressions,
 recursive or otherwise ineligible dispatch payload schemas, arbitrary mapping
 expressions, and mapping selection beyond decoded-field integer equality are
@@ -110,7 +114,8 @@ pins unresolved converter, converter arity, converter input type, converter
 return type through `schema.mapping_converter_return`, converter purity, and
 unsupported converter shape diagnostics.
 Eligible binary schemas whose fields are visible exact-width unsigned
-primitives, supported byte-aligned `ReservedBits(width, value)` fields,
+primitives, `Flag8` bitset fields, supported byte-aligned
+`ReservedBits(width, value)` fields,
 the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
 one-byte packed `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 sum to eight bits,
