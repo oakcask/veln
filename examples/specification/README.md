@@ -695,9 +695,11 @@ against the built `veln` binary.
   input, end-of-stream truncation, valid CONTINUATION completion for an opaque
   header block with preserved payload bytes across multiple non-final
   CONTINUATION frames, single-frame HEADERS completion when `END_HEADERS` is
-  combined with `END_STREAM`, closed-by-peer stream lifecycle after accepted
-  HEADERS `END_STREAM` completion through both single-frame HEADERS and final
-  CONTINUATION paths, continuation ordering failures for a different frame kind
+  combined with `END_STREAM`, a completed HEADERS block that carries the HPACK
+  static indexed `:method: GET` byte through the imported fixture codec,
+  closed-by-peer stream lifecycle after accepted HEADERS `END_STREAM`
+  completion through both single-frame HEADERS and final CONTINUATION paths,
+  continuation ordering failures for a different frame kind
   and a different stream id, and closed input while a header block remains
   pending. It projects typed protocol
   failures, including partial and mismatched preface failures, an
