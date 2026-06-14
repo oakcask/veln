@@ -5,8 +5,8 @@ Status: proposed
 This proposal tracks remaining work between a pure sans-I/O protocol core and
 transport integration. The first descriptor-backed `net` and `time`
 boundary calls, the first fixture-backed socket listener/stream calls, the
-narrow socket-to-handler routing and stream-task handler slices, and the first
-cancellable
+narrow socket-to-handler routing and stream-task handler slices, the
+fixture-backed multi-event socket routing slice, and the first cancellable
 adapter-owned wait boundary are current behavior under
 `../specification/names-effects.md` and `../specification/execution.md`,
 including host-runtime failures for malformed received or read bytes, failed
@@ -30,14 +30,14 @@ commit to a full network runtime.
 
 Define future integration support beyond the implemented descriptor-backed
 boundary calls, first fixture-backed listener/stream calls, and narrow
-socket-to-handler routing and stream-task handler slices for:
+multi-event socket-to-handler routing and stream-task handler slices for:
 
 - production socket ownership and lifecycle beyond the fixture-backed listen,
   accept, read-one-chunk, and write-one-chunk slice
 - general mapping of transport byte chunks into sans-I/O input events beyond
-  one adapter-owned event routing case
+  the checked adapter-owned multi-event routing fixture
 - general mapping of outgoing chunks back to host transport writes beyond one
-  ordered `SendBytes` projection
+  checked ordered `SendBytes` projection path
 - composed use of `net`, `time`, and `concurrency` effects
 - channel-first stream event routing beyond the narrow checked fixture
 - per-stream task handling beyond the zero-argument spawned handler task
@@ -132,10 +132,11 @@ replacement for it.
 
 Implemented narrow slice: an executable specification case composes the
 fixture-backed socket boundary with the source-level event/action handler
-boundary. Adapter-owned code reads one `ByteChunk` from a `NetStream` with
-`net::read_chunk`, wraps the chunk as an ordinary stream event value, routes
-that event through an existing channel under the `concurrency` effect, calls a
-plain handler, joins a spawned stream-handler task over the same event/action
+boundary. Adapter-owned code reads multiple `ByteChunk` values from one
+`NetStream` with `net::read_chunk`, wraps each chunk as an ordinary stream
+event value, routes those events through an existing channel under the
+`concurrency` effect, calls a plain handler while carrying explicit state
+across events, joins a spawned stream-handler task over the same event/action
 boundary, and translates ordered `SendBytes` response actions into
 `net::write_chunk` calls. The handler receives only ordinary event and state
 values; it does not receive socket handles and does not call `net` functions.
@@ -221,10 +222,10 @@ or the pure protocol core.
 - Specification work distinguishes pure protocol functions from transport
   effectful adapter functions.
 - Examples show production adapter socket ownership beyond the first
-  fixture-backed listener/stream handles, narrow socket-to-handler routing,
-  and stream-task handler slices, richer stream routing, and richer deadline
-  and cancellation APIs beyond the narrow relative `Deadline` and
-  `CancelToken` boundaries.
+  fixture-backed listener/stream handles, narrow multi-event
+  socket-to-handler routing, and stream-task handler slices, richer stream
+  routing, and richer deadline and cancellation APIs beyond the narrow
+  relative `Deadline` and `CancelToken` boundaries.
 - Effect inference and diagnostics cover any new compiler-known network,
   timer, channel, or task calls introduced by the remaining adapter work.
 - The HTTP/2 design driver can remain pure while leaving a documented route to

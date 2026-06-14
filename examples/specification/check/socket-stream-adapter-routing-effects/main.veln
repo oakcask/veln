@@ -12,7 +12,7 @@ end
 
 fn handle_stream_event(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }
 	match event
-		Request(stream_id, payload) => { actions: list_cons(SendBytes(stream_id, payload), list_cons(SendBytes(stream_id, state.marker), list_cons(EndStream(stream_id), list_nil()))), next_state: { request_count: state.request_count + 1, marker: state.marker } }
+		Request(stream_id, payload) => { actions: list_cons(SendBytes(stream_id, state.marker), list_cons(SendBytes(stream_id, payload), list_cons(EndStream(stream_id), list_nil()))), next_state: { request_count: state.request_count + 1, marker: payload } }
 		PeerClosed(stream_id) => { actions: list_cons(Decline(stream_id), list_nil()), next_state: state }
 	end
 end
@@ -28,19 +28,34 @@ fn spawned_stream_handler() -> { actions : List<ResponseAction>, next_state : { 
 	handle_stream_event(event, { request_count: 40, marker: marker })
 end
 
-fn route_socket_event(stream: NetStream, stream_id: Int, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net, concurrency]
-	let incoming: ByteChunk = net::read_chunk(stream)
+fn route_socket_events(stream: NetStream, stream_id: Int, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net, concurrency]
+	let first_incoming: ByteChunk = net::read_chunk(stream)
+	let second_incoming: ByteChunk = net::read_chunk(stream)
 	let route = channel::bounded<StreamEvent>(1)
-	let _ = channel::send(route.tx, Request(stream_id, incoming))
-	let event: StreamEvent = match channel::recv(route.rx)
+	let _ = channel::send(route.tx, Request(stream_id, first_incoming))
+	let first_event: StreamEvent = match channel::recv(route.rx)
 		Some(value) => value
 		None => PeerClosed(stream_id)
 	end
+	let first_result = handle_stream_event(first_event, state)
+	let _ = channel::send(route.tx, Request(stream_id, second_incoming))
+	let second_event: StreamEvent = match channel::recv(route.rx)
+		Some(value) => value
+		None => PeerClosed(stream_id)
+	end
+	handle_stream_event(second_event, first_result.next_state)
+end
+
+pub fn handler_boundary(event: StreamEvent, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }
 	handle_stream_event(event, state)
 end
 
-pub fn adapter_boundary(stream: NetStream, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net]
+pub fn adapter_missing_concurrency(stream: NetStream, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [net]
 	let worker = task::spawn<{ actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } }>(spawned_stream_handler)
 	let _ = task::join(worker)
-	route_socket_event(stream, 7, state)
+	route_socket_events(stream, 7, state)
+end
+
+pub fn adapter_missing_net(stream: NetStream, state: { request_count : Int, marker : ByteChunk }) -> { actions : List<ResponseAction>, next_state : { request_count : Int, marker : ByteChunk } } effects [concurrency]
+	route_socket_events(stream, 7, state)
 end

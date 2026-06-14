@@ -6,7 +6,7 @@ jdk = true
 
 [env]
 VELN_NET_ACCEPT_STREAM = "fixture-stream"
-VELN_NET_READ_CHUNK_HEX = "01020304"
+VELN_NET_READ_CHUNKS_HEX = "01020304,0a0b0c"
 VELN_NET_EVENTS = "net-events.log"
 
 [stdout]
@@ -21,7 +21,7 @@ equals = "passed"
 
 [[json_assert]]
 path = "stdout"
-equals = "actions 3 state 1 writes 2 first-bytes 4 task-actions 3 task-state 41 task-first-bytes 3\n"
+equals = "actions 6 state 2 writes 4 first-bytes 2 task-actions 3 task-state 41 task-first-bytes 1\n"
 
 [[json_assert]]
 path = "error"
@@ -29,4 +29,4 @@ equals = null
 
 [[file_assert]]
 path = "net-events.log"
-equals = "listen 127.0.0.1:0\naccept 127.0.0.1:0 fixture-stream\nread fixture-stream 01020304\nwrite fixture-stream ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])\nwrite fixture-stream ByteChunk([Byte(170), Byte(187)])\n"
+equals = "listen 127.0.0.1:0\naccept 127.0.0.1:0 fixture-stream\nread fixture-stream 01020304\nread fixture-stream 0a0b0c\nwrite fixture-stream ByteChunk([Byte(170), Byte(187)])\nwrite fixture-stream ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])\nwrite fixture-stream ByteChunk([Byte(1), Byte(2), Byte(3), Byte(4)])\nwrite fixture-stream ByteChunk([Byte(10), Byte(11), Byte(12)])\n"

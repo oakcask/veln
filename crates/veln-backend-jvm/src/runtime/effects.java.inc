@@ -35,6 +35,9 @@
         }
     }
 
+    private static final java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>
+        netReadIndexes = new java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>();
+
     private static final class CancelToken {
         private volatile boolean cancelled;
 
@@ -149,13 +152,14 @@
             throw new RuntimeFailure("transport read failed: VELN_NET_READ_FAILED");
         }
         NetStream value = asNetStream(stream);
-        String input = System.getenv("VELN_NET_READ_CHUNK_HEX");
-        if (input == null) {
-            input = "";
+        String sourceName = "VELN_NET_READ_CHUNK_HEX";
+        String input = nextNetReadChunkHex(value.id);
+        if (System.getenv("VELN_NET_READ_CHUNKS_HEX") != null) {
+            sourceName = "VELN_NET_READ_CHUNKS_HEX";
         }
         Object chunk = byteChunkFromHex(input);
         if (isErr(chunk)) {
-            throw new RuntimeFailure("transport read failed: malformed VELN_NET_READ_CHUNK_HEX");
+            throw new RuntimeFailure("transport read failed: malformed " + sourceName);
         }
         try {
             writeNetEvent("read " + value.id + " " + input);
@@ -166,6 +170,25 @@
             );
         }
         return unwrapOk(chunk);
+    }
+
+    private static String nextNetReadChunkHex(String streamId) {
+        String inputs = System.getenv("VELN_NET_READ_CHUNKS_HEX");
+        if (inputs != null) {
+            String[] parts = inputs.split(",", -1);
+            int index = netReadIndexes
+                .computeIfAbsent(streamId, key -> new java.util.concurrent.atomic.AtomicInteger())
+                .getAndIncrement();
+            if (index < parts.length) {
+                return parts[index].trim();
+            }
+            return "";
+        }
+        String input = System.getenv("VELN_NET_READ_CHUNK_HEX");
+        if (input == null) {
+            return "";
+        }
+        return input;
     }
 
     public static Object netWriteChunk(Object stream, Object bytes) {

@@ -228,13 +228,13 @@ transport runtime failures, not schema, codec, or peer protocol diagnostics.
 These calls do not define stream routing, richer timer handles beyond
 `Deadline` and `CancelToken`, TLS, ALPN, or an HTTP application framework.
 
-The implemented socket stream adapter routing example composes
-`net::read_chunk` and `net::write_chunk` with standard channel and task calls.
-The adapter function therefore declares both `net` and `concurrency`; the
-plain handler it calls remains free of socket handles and `net` calls. This
-composition does not add any effect label beyond the existing coarse labels
-or any compiler-known routing symbol beyond the socket, channel, and task
-calls listed here.
+The implemented socket stream adapter routing example composes multiple
+`net::read_chunk` calls and ordered `net::write_chunk` calls with standard
+channel and task calls. The adapter function therefore declares both `net`
+and `concurrency`; the plain handler it calls remains free of socket handles
+and `net` calls. This composition does not add any effect label beyond the
+existing coarse labels or any compiler-known routing symbol beyond the socket,
+channel, and task calls listed here.
 
 ## Process Calls
 
