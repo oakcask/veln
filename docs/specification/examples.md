@@ -433,11 +433,12 @@ The case pins a valid preface followed by a SETTINGS frame, partial preface
 input that waits for more bytes, end-of-stream with a partial preface, a
 mismatched preface byte, valid frame arrival after the preface gate,
 frame bytes, continuation state after HEADERS retaining opaque header-block
-bytes, continuation state after a non-final CONTINUATION appending those bytes,
-completion after a final CONTINUATION with combined header-block hex/count
-output, single-frame HEADERS completion when END_HEADERS is set alongside
-another flag, continuation ordering failures for a different frame kind and a
-different stream id, closed input while a header block remains pending, an
+bytes, continuation state across multiple non-final CONTINUATION frames
+appending those bytes, completion after a final CONTINUATION with combined
+header-block hex/count output, single-frame HEADERS completion when
+END_HEADERS is set alongside another flag, continuation ordering failures for
+a different frame kind and a different stream id, closed input while a header
+block remains pending, an
 accepted unknown extension frame after the client preface gate that preserves
 flags, stream id, and bounded payload bytes in an ordinary `UnknownFrame`
 value, with the preserved payload also pinned as complete lowercase hex output,
