@@ -177,7 +177,8 @@ fields are visible exact-width unsigned primitives, including standalone
 byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, supported one-byte packed
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight
-bits, closed dispatch fields, and
+bits, length-bounded `ByteView(length_field)` fields whose length names an
+earlier visible exact-width field, closed dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier
 visible exact-width fields and whose cases are exact-width unsigned primitive
 payloads or earlier same-module binary schema payloads or public imported
@@ -186,8 +187,9 @@ binary schema payloads named through written `use` paths, expose generated
 encode execution beyond those helper slices and schema decode outside the
 narrow generated binary helper slices are not implemented. The narrow
 primitive, field-local validation, mapped-record decode, dispatch decode, and
-primitive, reserved-bit, closed dispatch, extension dispatch, or same-module
-and imported public nested dispatch payload encode slices are routed from
+primitive, reserved-bit, length-bounded `ByteView`, closed dispatch, extension
+dispatch, or same-module and imported public nested dispatch payload encode
+slices are routed from
 `execution.md`. Field
 names must be ordinary identifiers; names
 beginning with `_` remain hole tokens and are rejected as schema field names.

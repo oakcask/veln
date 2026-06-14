@@ -963,6 +963,13 @@ fn schema_encode_function_signature_for_schema(
             fields.push((field.name.clone(), Type::named("List", vec![Type::int()])));
             continue;
         }
+        if let Some(length_field) = byte_view_schema_primitive(&field.ty) {
+            if !exact_width_field_names.contains(&length_field) {
+                return None;
+            }
+            fields.push((field.name.clone(), Type::named("ByteView", Vec::new())));
+            continue;
+        }
         let dispatch = closed_dispatch_schema_primitive(&field.ty)
             .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
         if !exact_width_field_names.contains(&dispatch.tag_field)

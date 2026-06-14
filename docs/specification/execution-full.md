@@ -239,8 +239,8 @@ immutable output chunk. Helper `Err(EncodeError)` output is projected to
 Same-module private derived encode codecs are callable only inside their
 declaring module; imported calls require a written qualified module path to a
 `pub codec`. General generated encode helper behavior outside the exact-width
-primitive, supported reserved-bit, closed dispatch, extension dispatch, and
-same-module or imported public nested dispatch payload slices remains
+primitive, supported reserved-bit, length-bounded `ByteView`, closed dispatch,
+extension dispatch, and same-module or imported public nested dispatch payload slices remains
 unimplemented. When a
 mapped schema would require the codec item to accept the mapping target rather
 than the generated helper's schema-local value record, the `derive encode`
@@ -248,7 +248,13 @@ clause is rejected with `codec.encode_value_type`.
 
 Eligible generated binary schema encode helpers named
 `byte_encode_<schema>` accept one record whose fields match the schema-local
-visible exact-width unsigned primitive fields as ordinary `Int` values. A
+visible exact-width unsigned primitive fields as ordinary `Int` values.
+Length-bounded `ByteView(length_field)` payload fields are `ByteView` record
+fields and emit exactly the bounded bytes from that view after the earlier
+visible length field is written. If the supplied view count differs from the
+earlier length field, the helper returns
+`Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`
+without emitting partial output. A
 byte-aligned `ReservedBits(width, value)` field is representation-only: it is
 omitted from the record and the helper emits the declared fixed value in
 declaration order. A `ReservedBits(1, 0)` field immediately before a

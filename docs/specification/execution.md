@@ -236,7 +236,13 @@ execution reference.
 - Eligible generated binary schema encode helpers named
   `byte_encode_<schema>` accept one record whose fields match the schema-local
   visible exact-width unsigned primitive fields as ordinary `Int` values and
-  whose `Flag8` fields are source-visible `Flag8(bits)` values. Bounded
+  whose `Flag8` fields are source-visible `Flag8(bits)` values. A
+  length-bounded `ByteView(length_field)` payload field is a `ByteView` record
+  field and emits exactly the bounded bytes from that view after the earlier
+  visible length field is written. If the supplied view count differs from the
+  earlier length field, the helper returns
+  `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
+  reason))` without emitting partial output. Bounded
   repeated primitive fields are `List<Int>` record fields and emit exactly the
   number of elements named by the earlier count field. A list length mismatch
   or an element outside the selected primitive range returns
@@ -308,6 +314,8 @@ execution reference.
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-flag8-encode/`,
   `examples/specification/run/binary-schema-flag8-encode-out-of-range/`,
+  `examples/specification/run/binary-schema-byteview-encode/`,
+  `examples/specification/run/binary-schema-byteview-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-repeat-encode/`,
   `examples/specification/run/binary-schema-repeat-encode-out-of-range/`,
   `examples/specification/run/binary-schema-repeat-encode-count-mismatch/`,
@@ -341,7 +349,8 @@ execution reference.
   helper `Ok(ByteChunk)` output to `Encoded(List<ByteChunk>)` with one chunk,
   and projects helper `Err(EncodeError)` output to `Invalid(EncodeError)`.
   The checked examples are
-  `examples/specification/run/derived-codec-encode-boundary/` and
+  `examples/specification/run/derived-codec-encode-boundary/`,
+  `examples/specification/run/derived-codec-byteview-encode-boundary/`, and
   `examples/specification/run/derived-codec-nested-dispatch-encode-boundary/`.
   A mapped schema is rejected with `codec.encode_value_type` when the generated
   encode helper cannot accept the mapping target value type.

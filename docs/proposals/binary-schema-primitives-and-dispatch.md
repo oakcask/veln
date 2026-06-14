@@ -98,6 +98,13 @@ exact-width unsigned primitives, the decoded and encoded value is `List<Int>`,
 encode rejects list length and primitive range mismatches through
 `EncodeError`, and decode truncation appends an index segment to the repeated
 field path.
+The generated length-bounded byte payload encode slice is implemented as
+`ByteView(length_field)` for generated binary schema encode helpers. The
+length field must be an earlier visible `Int` field in the same schema, the
+encoded value record keeps both the length field and the `ByteView` payload
+field, the helper writes the earlier fields normally and then writes exactly
+the bounded bytes from the supplied view, and mismatched view counts return
+the existing structured `EncodeError` value-representation shape.
 
 ## Problem
 
@@ -122,7 +129,8 @@ for:
   `UInt31be` shared-bit layout
 - flag vocabulary beyond the implemented one-byte `Flag8` bitset, including
   raw-bit variants and frame-specific ADTs
-- general schema-declared length-prefixed payloads
+- general schema-declared length-prefixed payloads beyond the implemented
+  `ByteView(length_field)` decode and encode helper slices
 - field references inside later field definitions beyond implemented
   bounded repeat counts, byte-view lengths, dispatch tags, and extension
   dispatch lengths

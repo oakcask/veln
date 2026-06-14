@@ -47,9 +47,10 @@ compiler-known calls.
   slice resolves a mapped `Int` record shape; generated decode-step helpers
   expose the same value shape through `DecodeStep<T>` for open input.
   Generated binary schema encode helpers for the exact-width primitive,
-  supported reserved-bit, closed dispatch, extension dispatch, and
-  same-module or imported public nested dispatch payload slices accept
-  schema-local visible fields, using `SchemaDispatchPayload<T>` for extension
+  supported reserved-bit, length-bounded `ByteView`, closed dispatch,
+  extension dispatch, and same-module or imported public nested dispatch
+  payload slices accept schema-local visible fields, using `ByteView` fields
+  for length-bounded payloads and `SchemaDispatchPayload<T>` for extension
   dispatch payload fields, and return `Result<ByteChunk, EncodeError>`.
   `UInt16le`, `UInt24le`, and `UInt32le` fields use little-endian byte order
   in generated decode and encode helpers.

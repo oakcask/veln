@@ -102,8 +102,8 @@ selectors report `schema.mapping_selection_required`,
 and mapping text are parsed and preserved as source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
 primitive, `Flag8`, supported reserved-bit, closed dispatch, extension
-dispatch, bounded repeated primitive field, and same-module or imported public
-nested dispatch payload helper slices, general
+dispatch, bounded repeated primitive field, length-bounded `ByteView`, and
+same-module or imported public nested dispatch payload helper slices, general
 ADT constructor mapping beyond schema-local structural expressions,
 recursive or otherwise ineligible dispatch payload schemas, arbitrary mapping
 expressions, and mapping selection beyond decoded-field integer equality are
@@ -129,6 +129,8 @@ bounded `Repeat(count_field, Primitive)` fields whose count names an earlier
 visible exact-width unsigned `Int` field and whose primitive is `UInt8`,
 `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`, or
 `UInt32le`,
+length-bounded `ByteView(length_field)` payload fields whose length names an
+earlier visible exact-width unsigned `Int` field,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and
 extension-tolerant `ExtensionDispatch(tag_field, length_field, tag => Payload,
 ...)` fields whose tag and length names are earlier visible exact-width fields
@@ -213,7 +215,8 @@ decode functions are not implemented. Generated
 `byte_decode_<schema>` helpers for the eligible binary schema slice, generated
 `byte_encode_<schema>` helpers for the exact-width including standalone
 `UInt1` through `UInt7`, supported reserved-bit, closed dispatch, extension
-dispatch, and same-module nested dispatch payload encode slices,
+dispatch, length-bounded `ByteView`, and same-module nested dispatch payload
+encode slices,
 their `byte_decode_step_<schema>` incremental decode-step counterparts,
 derived decode codec calls over that decode-step slice, and derived encode
 codec calls over that encode helper slice are covered by

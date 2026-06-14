@@ -162,6 +162,58 @@ fn generated_schema_helpers_resolve_bounded_repeated_primitive_fields() {
 }
 
 #[test]
+fn generated_schema_encode_helpers_resolve_length_bounded_byte_view_fields() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length)\n",
+            "end\n",
+            "\n",
+            "pub fn read(view: ByteView) -> Result<{length: Int, payload: ByteView}, String>\n",
+            "  byte_decode_packet_wire(view)\n",
+            "end\n",
+            "\n",
+            "pub fn write(packet: {length: Int, payload: ByteView}) -> Result<ByteChunk, EncodeError>\n",
+            "  byte_encode_packet_wire(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let write = core
+        .functions
+        .iter()
+        .find(|function| function.name == "write")
+        .expect("write should be lowered");
+    let CoreStmtKind::Return { expr } = &write.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncode(name),
+            ..
+        } if name == "PacketWire"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    assert_eq!(ir.schema_decoders.len(), 1);
+    let schema = &ir.schema_decoders[0];
+    assert_eq!(schema.schema_name, "PacketWire");
+    assert_eq!(schema.fields[1].name, "payload");
+    assert_eq!(schema.fields[1].length_field.as_deref(), Some("length"));
+}
+
+#[test]
 fn generated_schema_encode_helpers_resolve_for_exact_width_binary_schemas() {
     let source = SourceFile::new(
         "main.veln",
@@ -745,6 +797,68 @@ fn derived_codec_encode_resolves_to_schema_encode_step_boundary() {
             "end\n",
             "\n",
             "pub fn main(packet: {length: Int, kind: Int}) -> EncodeStep<()>\n",
+            "  PacketCodec(packet)\n",
+            "end\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let lowered = lower_checked_surface_module(&module);
+
+    assert!(lowered.diagnostics.is_empty(), "{:#?}", lowered.diagnostics);
+    let core = lowered.core.as_ref().expect("checked core should be built");
+    let main = core
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be lowered");
+    let CoreStmtKind::Return { expr } = &main.body[0].kind else {
+        panic!("tail expression should lower as return");
+    };
+    assert!(matches!(
+        &expr.kind,
+        CoreExprKind::Call {
+            target: CoreCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "PacketWire"
+    ));
+
+    let ir = lowered.ir.expect("typed IR should be built");
+    let main = ir
+        .functions
+        .iter()
+        .find(|function| function.name == "main")
+        .expect("main should be in IR");
+    let IrStmtKind::Return { value } = &main.body[0].kind else {
+        panic!("tail expression should lower as IR return");
+    };
+    assert!(matches!(
+        &value.kind,
+        IrExprKind::Call {
+            target: IrCallTarget::SchemaEncodeStep(name),
+            ..
+        } if name == "PacketWire"
+    ));
+}
+
+#[test]
+fn derived_codec_encode_resolves_length_bounded_byte_view_schema_boundary() {
+    let source = SourceFile::new(
+        "main.veln",
+        concat!(
+            "schema PacketWire\n",
+            "  format binary\n",
+            "\n",
+            "  length: UInt8\n",
+            "  payload: ByteView(length)\n",
+            "end\n",
+            "\n",
+            "codec PacketCodec for PacketWire encode\n",
+            "  derive encode\n",
+            "end\n",
+            "\n",
+            "pub fn main(packet: {length: Int, payload: ByteView}) -> EncodeStep<()>\n",
             "  PacketCodec(packet)\n",
             "end\n",
         ),
