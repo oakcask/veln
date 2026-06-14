@@ -666,7 +666,13 @@ against the built `veln` binary.
   length, accepts `WINDOW_UPDATE` receive-credit increments for the connection
   and open stream, and reports zero increments, receive-window overflow,
   negative stream credit, and credit exhaustion as
-  `http2.peer_limit.flow_control_window_exceeded`.
+  `http2.peer_limit.flow_control_window_exceeded`. Its outbound intent
+  coverage keeps receive-credit advertisement separate from DATA send credit,
+  emits accepted connection-level and stream-level `WINDOW_UPDATE` intents as
+  checked output chunks, rejects zero and out-of-range increments before
+  output, rejects stream-level intents for missing, closed, reset, or
+  mismatched stream state, and keeps generated frame-header representation
+  failures as encode failures.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation
