@@ -686,7 +686,8 @@ against the built `veln` binary.
   pending. It projects typed protocol
   failures, including partial and mismatched preface failures, an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
-  failure, stream id domain failures, invalid stream-state frame kinds,
+  failure, stream id domain failures including HEADERS and CONTINUATION on
+  the connection stream, invalid stream-state frame kinds,
   wrong-length PING and GOAWAY payloads, valid PING ACK distinction,
   peer-sent `PUSH_PROMISE` rejection as a known frame kind rather than an
   unknown extension frame, and valid
@@ -808,7 +809,8 @@ against the built `veln` binary.
 - `run/http2-protocol-core-invalid-stream-id-human/`: a stream frame on
   connection stream id zero reports `http2.protocol.invalid_stream_id` through
   human `run` stderr with focused stream id domain, endpoint role, state, and
-  provenance notes.
+  provenance notes; the ordinary protocol-core case also covers HEADERS and
+  CONTINUATION on the connection stream.
 - `run/http2-protocol-core-invalid-stream-id-json/`: an even client stream id
   reports `http2.protocol.invalid_stream_id` through `run --json` with byte
   offset, frame kind, stream reference, required stream id domain, endpoint

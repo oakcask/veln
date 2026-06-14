@@ -87,8 +87,9 @@ compare it with `../specification/` before changing behavior.
   unknown extension-frame preservation slice, PING/GOAWAY
   receive slice, DATA and `WINDOW_UPDATE` receive flow-control slices,
   peer-created stream admission with concurrent-stream receive-limit
-  diagnostics, stream id domain diagnostic slice, GOAWAY last-stream-id
-  enforcement for later peer-created HEADERS, `RST_STREAM` receive slice,
+  diagnostics, stream id domain diagnostic slice including HEADERS and
+  CONTINUATION on the connection stream, GOAWAY last-stream-id enforcement
+  for later peer-created HEADERS, `RST_STREAM` receive slice,
   PRIORITY receive slice with dependency facts and self-dependency diagnostic,
   `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window adjustment, and
   inbound DATA and HEADERS `END_STREAM` closed-by-peer stream lifecycle,
