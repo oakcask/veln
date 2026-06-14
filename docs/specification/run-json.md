@@ -217,7 +217,8 @@ invalid frame-kind state slice uses id `http2.protocol.invalid_frame_kind` and
 records `byte_offset.value`, `actual_frame_kind`, `stream_id`, `stream_ref`,
 `expected_frame_kind`, `active_state`, and `rule_provenance`; the checked
 HTTP/2 examples cover connection-control, idle-stream, reset-stream, and
-closed-by-peer stream state failures.
+closed-by-peer stream state failures, plus peer-sent `PUSH_PROMISE` rejection
+on a nonzero stream.
 After receiving GOAWAY, a peer-created HEADERS stream greater than the
 recorded last stream id uses id `http2.protocol.stream_after_goaway` and
 records `byte_offset.value`, `stream_id`, `stream_ref`, `last_stream_id`,

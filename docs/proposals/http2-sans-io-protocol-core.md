@@ -364,6 +364,12 @@ wrong-length PRIORITY payloads use `http2.protocol.invalid_payload_length`,
 and PRIORITY self-dependency uses
 `http2.protocol.invalid_priority_dependency` in ordinary output, human
 diagnostics, and JSON `protocol_diagnostic` details.
+The implemented slice also recognizes `PUSH_PROMISE` as a known HTTP/2 frame
+kind before unknown extension-frame fallback. In the server-side receive core,
+`PUSH_PROMISE` on a nonzero client-initiated stream is rejected through the
+existing `http2.protocol.invalid_frame_kind` projection with server receive
+state and rule provenance. `PUSH_PROMISE` on stream id zero follows the
+existing stream id domain failure route before frame-kind state validation.
 
 The remaining scope below is still planned work for the full protocol core.
 

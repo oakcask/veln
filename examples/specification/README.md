@@ -634,7 +634,9 @@ against the built `veln` binary.
   failures, including partial and mismatched preface failures, an
   incoming frame-size peer-limit failure, a SETTINGS value range peer-limit
   failure, stream id domain failures, invalid stream-state frame kinds,
-  wrong-length PING and GOAWAY payloads, valid PING ACK distinction, and valid
+  wrong-length PING and GOAWAY payloads, valid PING ACK distinction,
+  peer-sent `PUSH_PROMISE` rejection as a known frame kind rather than an
+  unknown extension frame, and valid
   GOAWAY graceful shutdown facts plus post-GOAWAY stream rejection, into
   stable ids and related context. The
   case keeps local receive-limit
@@ -762,6 +764,14 @@ against the built `veln` binary.
   stream-state frame-kind failure reports `http2.protocol.invalid_frame_kind`
   through `run --json` with byte offset, actual and expected frame kinds,
   stream reference, active state, and rule provenance.
+- `run/http2-protocol-core-push-promise-human/`: a peer-sent `PUSH_PROMISE`
+  on a nonzero stream reports `http2.protocol.invalid_frame_kind` through
+  human `run` stderr with server receive state and rule provenance, confirming
+  the frame kind is not preserved as an unknown extension frame.
+- `run/http2-protocol-core-push-promise-json/`: the same peer-sent
+  `PUSH_PROMISE` rejection reports `http2.protocol.invalid_frame_kind` through
+  `run --json` with byte offset, actual frame kind, stream reference, expected
+  frame kind, active state, and rule provenance.
 - `run/http2-protocol-core-settings-ack-length-human/`: a non-empty SETTINGS
   ACK payload reports `http2.protocol.invalid_payload_length` through human
   `run` stderr with observed and expected payload length plus protocol state
