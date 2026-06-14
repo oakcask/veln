@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "empty"
+
+[stderr]
+format = "text"
+contains = ["error[http2.protocol.invalid_frame_kind]: invalid frame kind at byte offset 0", "note: Frame kind 5 on stream 1 did not match expected frame kind 1.", "note: Active protocol state: server-receive.", "note: Rule provenance: server_receives_no_push_promise."]

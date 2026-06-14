@@ -445,7 +445,10 @@ an unknown frame rejected by active continuation state, and an incoming frame
 whose payload length exceeds the active receive maximum frame size, plus stream
 id domain failures for zero, even, and
 connection-only stream ids and a DATA frame kind rejected for idle-stream
-state. It also pins zero-length SETTINGS ACK on the connection stream,
+state, plus peer-sent `PUSH_PROMISE` rejected as a known frame kind instead
+of preserved as an unknown extension frame and `PUSH_PROMISE` on the
+connection stream rejected by the existing stream id domain route. It also
+pins zero-length SETTINGS ACK on the connection stream,
 wrong-length SETTINGS ACK as a typed payload-length failure, SETTINGS ACK on a
 nonzero stream as a stream id domain failure, PING frames with and without ACK,
 wrong-length PING failures, a PRIORITY frame that exposes dependency stream
@@ -531,6 +534,7 @@ protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-human/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-human/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-human/`,
+`../../examples/specification/run/http2-protocol-core-push-promise-human/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-human/case.toml`,
 `../../examples/specification/run/http2-protocol-core-goaway-length-human/case.toml`,
@@ -543,6 +547,7 @@ protocol diagnostic.
 `../../examples/specification/run/http2-protocol-core-invalid-stream-id-json/`,
 `../../examples/specification/run/http2-protocol-core-invalid-frame-kind-json/`,
 `../../examples/specification/run/http2-protocol-core-stream-invalid-frame-kind-json/`,
+`../../examples/specification/run/http2-protocol-core-push-promise-json/`,
 `../../examples/specification/run/http2-protocol-core-settings-ack-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-ping-length-json/case.toml`,
 `../../examples/specification/run/http2-protocol-core-priority-dependency-json/case.toml`,
