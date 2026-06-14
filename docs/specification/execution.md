@@ -399,6 +399,18 @@ execution reference.
   output bytes are produced. Stream id and error-code values outside the
   generated binary schema encode helpers' representable ranges stay as
   `codec.encode_value_unrepresentable` failures with the generated field path.
+- The same HTTP/2 protocol-core example also covers the narrow outbound
+  GOAWAY send-intent. Ordinary source validates the selected last stream id
+  through the generated `UInt31be` payload helper and the error code through
+  the generated `UInt32be` payload helper, then emits one immutable output
+  chunk with a nine-byte frame header length `8`, kind `7`, flags `0`, and
+  stream id `0` followed by the eight-byte GOAWAY payload. An accepted intent
+  records local graceful-shutdown state so a later peer-created HEADERS stream
+  greater than the sent last stream id is rejected through the post-GOAWAY
+  stream rule. Last-stream-id and error-code values outside the generated
+  payload helper's representable ranges stay as
+  `codec.encode_value_unrepresentable` failures with the generated field path
+  before accepted output bytes are produced.
 - Eligible direct tail-recursive user functions execute deep self-recursive
   chains without growing the host call stack for each logical step.
 - Other JVM details are backend details unless this reference marks a behavior

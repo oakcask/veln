@@ -17,6 +17,14 @@ schema Http2RstStreamPayloadWire
 	error_code: UInt32be
 end
 
+schema Http2GoawayPayloadWire
+	format binary
+
+	last_stream_reserved: ReservedBits(1, 0)
+	last_stream_id: UInt31be
+	error_code: UInt32be
+end
+
 type PendingContinuation
 	NoContinuation
 	Continuation(Int, Int, Int, ByteChunk)
@@ -197,6 +205,11 @@ type OutboundRstStreamDecision
 	OutboundRstStreamEncodeFailed(Int, Int, EncodeError)
 end
 
+type OutboundGoawayDecision
+	OutboundGoawayAccepted(Int, Int, Http2DecodeState, ByteChunk)
+	OutboundGoawayEncodeFailed(Int, Int, EncodeError)
+end
+
 type Http2Step
 	FrameDecoded(Http2DecodeState, Int, Int, Int, Int, Int, ByteChunk, Http2Frame)
 	Waiting(Http2DecodeState)
@@ -229,6 +242,10 @@ end
 
 fn encode_rst_stream_payload(payload: {error_code: Int}) -> Result<ByteChunk, EncodeError>
 	byte_encode_http2_rst_stream_payload_wire(payload)
+end
+
+fn encode_goaway_payload(payload: {last_stream_id: Int, error_code: Int}) -> Result<ByteChunk, EncodeError>
+	byte_encode_http2_goaway_payload_wire(payload)
 end
 
 fn receive(input: Http2Input, state: Http2DecodeState) -> Result<Http2Step, String>
@@ -939,6 +956,28 @@ end
 
 fn send_settings_ack() -> Result<ByteChunk, EncodeError>
 	encode_frame_header({length: 0, kind: 4, flags: 1, stream_id: 0})
+end
+
+fn send_goaway(last_stream_id: Int, error_code: Int, state: Http2DecodeState) -> Result<OutboundGoawayDecision, String>
+	let encoded_payload: Result<ByteChunk, EncodeError> = encode_goaway_payload({last_stream_id: last_stream_id, error_code: error_code})
+	match encoded_payload
+		Ok(payload) => encode_goaway_intent(last_stream_id, error_code, state, payload)
+		Err(error) => Ok(OutboundGoawayEncodeFailed(last_stream_id, error_code, error))
+	end
+end
+
+fn encode_goaway_intent(last_stream_id: Int, error_code: Int, state: Http2DecodeState, payload: ByteChunk) -> Result<OutboundGoawayDecision, String>
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 8, kind: 7, flags: 0, stream_id: 0})
+	match encoded_header
+		Ok(header) => Ok(OutboundGoawayAccepted(last_stream_id, error_code, goaway_sent_state(last_stream_id, error_code, state), byte_append(header, payload)))
+		Err(error) => Ok(OutboundGoawayEncodeFailed(last_stream_id, error_code, error))
+	end
+end
+
+fn goaway_sent_state(last_stream_id: Int, error_code: Int, state: Http2DecodeState) -> Http2DecodeState
+	match state
+		State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, _, receive_flow_control) => State(pending, next_offset, preface_state, continuation, receive_limit, peer_settings, GracefulShutdown(last_stream_id, error_code), receive_flow_control)
+	end
 end
 
 fn send_rst_stream(stream_id: Int, error_code: Int, receive_credit: OutboundReceiveCredit) -> Result<OutboundRstStreamDecision, String>
@@ -1973,6 +2012,69 @@ fn outbound_rst_stream_encode_detail(decision: OutboundRstStreamDecision) -> Str
 	end
 end
 
+fn outbound_goaway_status(decision: OutboundGoawayDecision) -> String
+	match decision
+		OutboundGoawayAccepted(_, _, _, _) => "accepted"
+		OutboundGoawayEncodeFailed(_, _, _) => "encode_error"
+	end
+end
+
+fn outbound_goaway_reason(decision: OutboundGoawayDecision) -> String
+	match decision
+		OutboundGoawayAccepted(_, _, _, _) => "none"
+		OutboundGoawayEncodeFailed(_, _, error) => encode_error_id(error)
+	end
+end
+
+fn outbound_goaway_last_stream_id(decision: OutboundGoawayDecision) -> Int
+	match decision
+		OutboundGoawayAccepted(last_stream_id, _, _, _) => last_stream_id
+		OutboundGoawayEncodeFailed(last_stream_id, _, _) => last_stream_id
+	end
+end
+
+fn outbound_goaway_error_code(decision: OutboundGoawayDecision) -> Int
+	match decision
+		OutboundGoawayAccepted(_, error_code, _, _) => error_code
+		OutboundGoawayEncodeFailed(_, error_code, _) => error_code
+	end
+end
+
+fn outbound_goaway_state(decision: OutboundGoawayDecision) -> Http2DecodeState
+	match decision
+		OutboundGoawayAccepted(_, _, state, _) => state
+		OutboundGoawayEncodeFailed(_, _, _) => frame_state()
+	end
+end
+
+fn outbound_goaway_shutdown_label(decision: OutboundGoawayDecision) -> String
+	match decision
+		OutboundGoawayAccepted(_, _, state, _) => state_shutdown_label(state)
+		OutboundGoawayEncodeFailed(_, _, _) => "none"
+	end
+end
+
+fn outbound_goaway_chunk(decision: OutboundGoawayDecision) -> ByteChunk
+	match decision
+		OutboundGoawayAccepted(_, _, _, chunk) => chunk
+		OutboundGoawayEncodeFailed(_, _, _) => byte_chunk([])
+	end
+end
+
+fn outbound_goaway_encode_path(decision: OutboundGoawayDecision) -> String
+	match decision
+		OutboundGoawayAccepted(_, _, _, _) => "none"
+		OutboundGoawayEncodeFailed(_, _, error) => encode_error_path(error)
+	end
+end
+
+fn outbound_goaway_encode_detail(decision: OutboundGoawayDecision) -> String
+	match decision
+		OutboundGoawayAccepted(_, _, _, _) => "none"
+		OutboundGoawayEncodeFailed(_, _, error) => encode_error_reason(error)
+	end
+end
+
 fn outbound_receive_reset_stream_id(receive_credit: OutboundReceiveCredit) -> Int
 	match receive_credit
 		OutboundReceiveCredit(_, NoOutboundReceiveCreditStream) => 0
@@ -2710,6 +2812,38 @@ fn print_outbound_rst_stream_chunk(label: String, decision: OutboundRstStreamDec
 	emit_encoded_header(label, outbound_rst_stream_chunk(decision), expected_hex)
 end
 
+fn print_outbound_goaway(label: String, decision: OutboundGoawayDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" outbound-goaway ")
+	stdio::print(outbound_goaway_status(decision))
+	stdio::print(" reason ")
+	stdio::print(outbound_goaway_reason(decision))
+	stdio::print(" last_stream_id ")
+	stdio::print(int_to_string(outbound_goaway_last_stream_id(decision)))
+	stdio::print(" error_code ")
+	stdio::print(int_to_string(outbound_goaway_error_code(decision)))
+	stdio::print(" shutdown ")
+	stdio::print(outbound_goaway_shutdown_label(decision))
+	stdio::print(" encode_path ")
+	stdio::print(outbound_goaway_encode_path(decision))
+	stdio::print(" encode_detail ")
+	stdio::println(outbound_goaway_encode_detail(decision))
+end
+
+fn print_outbound_goaway_chunk(label: String, decision: OutboundGoawayDecision, expected_hex: String) -> Result<(), String> effects [stdio]
+	emit_encoded_header(label, outbound_goaway_chunk(decision), expected_hex)
+end
+
+fn print_shutdown_state(label: String, state: Http2DecodeState) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" shutdown ")
+	stdio::print(state_shutdown_label(state))
+	stdio::print(" last_stream_id ")
+	stdio::print(int_to_string(state_shutdown_last_stream_id(state)))
+	stdio::print(" error_code ")
+	stdio::println(int_to_string(state_shutdown_error_code(state)))
+end
+
 fn print_peer_streams(label: String, state: Http2DecodeState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" open_stream_count ")
@@ -3063,10 +3197,25 @@ fn print_outbound_rst_stream_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_outbound_goaway_cases() -> Result<(), String> effects [stdio]
+	let outbound_goaway_accepted: OutboundGoawayDecision = send_goaway(5, 11, frame_state())?
+	print_outbound_goaway("outbound-goaway-accepted", outbound_goaway_accepted)
+	let ignored_goaway_chunk: () = print_outbound_goaway_chunk("http2-goaway", outbound_goaway_accepted, "000008070000000000000000050000000b")?
+	print_shutdown_state("outbound-goaway-state", outbound_goaway_state(outbound_goaway_accepted))
+	let outbound_goaway_late_headers: Http2Step = receive(InputChunk(byte_chunk_from_hex("000000010400000007")?), outbound_goaway_state(outbound_goaway_accepted))?
+	print_goaway_stream_failure("outbound-goaway-late-headers", outbound_goaway_late_headers)
+	let outbound_goaway_last_stream_id_encode_error: OutboundGoawayDecision = send_goaway(2147483648, 11, frame_state())?
+	print_outbound_goaway("outbound-goaway-last-stream-id-encode-error", outbound_goaway_last_stream_id_encode_error)
+	let outbound_goaway_error_code_encode_error: OutboundGoawayDecision = send_goaway(5, 4294967296, frame_state())?
+	print_outbound_goaway("outbound-goaway-error-code-encode-error", outbound_goaway_error_code_encode_error)
+	Ok(())
+end
+
 fn print_outbound_send_intent_cases() -> Result<(), String> effects [stdio]
 	let ignored_outbound_data_cases: () = print_outbound_data_cases()?
 	let ignored_outbound_window_update_cases: () = print_outbound_window_update_cases()?
 	let ignored_outbound_rst_stream_cases: () = print_outbound_rst_stream_cases()?
+	let ignored_outbound_goaway_cases: () = print_outbound_goaway_cases()?
 	Ok(())
 end
 

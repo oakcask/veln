@@ -83,7 +83,7 @@ compare it with `../specification/` before changing behavior.
   `PUSH_PROMISE` rejection on the server receive boundary, outbound
   frame-header encode, outbound SETTINGS ACK send intent, narrow outbound
   DATA flow-control send intent, and outbound `WINDOW_UPDATE` receive-credit
-  intent and `RST_STREAM` reset send-intent slices.
+  intent, `RST_STREAM` reset send-intent, and GOAWAY send-intent slices.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, production socket lifecycle,
   stream-routing, richer deadline, cancellation, channel, and task behavior

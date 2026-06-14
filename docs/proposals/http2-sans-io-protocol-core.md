@@ -38,8 +38,8 @@ ordinary-source decode-state slices. Planned coverage still includes:
   outbound `RST_STREAM` reset send intent, inbound DATA, stream-level
   `WINDOW_UPDATE`, and `SETTINGS_INITIAL_WINDOW_SIZE` open-stream
   receive-window accounting
-- graceful shutdown interactions beyond the implemented GOAWAY receive state
-  and later peer-created HEADERS rejection
+- graceful shutdown interactions beyond the implemented GOAWAY receive state,
+  outbound GOAWAY send-intent state, and later peer-created HEADERS rejection
 
 ## Discussion Result: Limit Placement
 
@@ -357,6 +357,17 @@ same reset stream-state rejection boundary. It rejects stream id `0`, missing
 or non-open streams, already reset streams, and generated encode-helper
 representation failures for the stream id or error-code payload before
 accepted bytes are produced.
+The implemented slice also includes the narrow outbound GOAWAY send-intent.
+Ordinary source validates the selected last stream id through the same
+generated `UInt31be` payload representation boundary used by inbound GOAWAY
+payloads, validates the error code through the generated `UInt32be` payload
+boundary, encodes a nine-byte header with length `8`, kind `7`, flags `0`, and
+stream id `0`, appends the eight-byte GOAWAY payload, and records local
+graceful-shutdown state. A later peer-created HEADERS stream greater than the
+sent last stream id uses the same post-GOAWAY stream rejection boundary as
+received GOAWAY state. Generated encode-helper representation failures for
+the last stream id or error-code payload are preserved before accepted bytes
+are produced.
 The implemented slice also applies received `SETTINGS_INITIAL_WINDOW_SIZE`
 values to the tracked open stream's receive-window credit by the delta between
 the previous active peer setting and the new value. The adjusted stream credit
