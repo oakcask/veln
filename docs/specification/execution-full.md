@@ -458,16 +458,16 @@ new listen, read, write, routing, or deadline effect labels.
 
 The socket stream adapter routing case composes that handler boundary with the
 fixture-backed socket calls without adding a service interface or new effect
-labels. Adapter code owns the `NetListener` and `NetStream`, reads one
-immutable `ByteChunk` with `net::read_chunk`, wraps it as an ordinary
-`StreamEvent`, sends and receives that event through a standard channel under
-`concurrency`, calls the plain handler, and then walks the returned action
-list. The same checked boundary also joins a spawned stream-handler task that
-uses the same ordinary event/action values. `SendBytes` actions are translated
-into ordered `net::write_chunk` calls by the adapter. Non-write response
-intents remain ordinary values for the adapter to interpret. The handler has
-no socket handle parameter and does not call `net` functions. The checked
-example is
+labels. Adapter code owns the `NetListener` and `NetStream`, reads multiple
+immutable `ByteChunk` values with `net::read_chunk`, wraps each chunk as an
+ordinary `StreamEvent`, sends and receives those events through a standard
+channel under `concurrency`, calls the plain handler with explicit state, and
+then walks the returned action list. The same checked boundary also joins a
+spawned stream-handler task that uses the same ordinary event/action values.
+`SendBytes` actions are translated into ordered `net::write_chunk` calls by
+the adapter. Non-write response intents remain ordinary values for the adapter
+to interpret. The handler has no socket handle parameter and does not call
+`net` functions. The checked example is
 `examples/specification/run/socket-stream-adapter-routing/`.
 
 Current-process intrinsics are also backend-owned runtime operations.

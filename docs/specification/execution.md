@@ -54,9 +54,10 @@ execution reference.
   actions do not perform socket writes or introduce new effect labels.
 - The socket stream adapter routing example composes the existing
   fixture-backed socket calls with the source-level event/action handler
-  boundary. Adapter code reads one `ByteChunk` from a `NetStream`, routes an
-  ordinary event through a standard channel under `concurrency`, joins a
-  spawned stream-handler task over the same event/action boundary, and
+  boundary. Adapter code reads multiple fixture-backed `ByteChunk` values
+  from one `NetStream`, routes ordinary events through a standard channel
+  under `concurrency`, carries explicit handler state across those events,
+  joins a spawned stream-handler task over the same event/action boundary, and
   translates ordered `SendBytes` actions into `net::write_chunk` calls.
   Handler code remains free of socket handles and `net` calls. The checked
   example is
