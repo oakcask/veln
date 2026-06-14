@@ -77,7 +77,7 @@ compare it with `../specification/` before changing behavior.
   PRIORITY receive slice with dependency facts and self-dependency diagnostic,
   `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window adjustment, and
   outbound frame-header encode plus narrow outbound DATA flow-control send
-  intent slices.
+  intent and outbound `WINDOW_UPDATE` receive-credit intent slices.
 - [Network Effect Integration Boundary](network-effect-integration-boundary.md):
   define remaining transport adapter, socket, stream-routing, deadline API,
   cancellation, channel, and task behavior beyond the implemented

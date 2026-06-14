@@ -349,6 +349,16 @@ execution reference.
   supplies the outbound stream credit for the peer-owned stream window, valid
   DATA intents consume outbound connection and stream credit, and oversized or
   over-window DATA intents are rejected before credit changes.
+- The same example also keeps outbound `WINDOW_UPDATE` receive-credit
+  advertisement separate from outbound DATA send credit. Source-level helpers
+  emit connection-level and stream-level `WINDOW_UPDATE` intents as immutable
+  header-plus-increment output chunks for nonzero increments in the HTTP/2
+  flow-control increment range. Zero or out-of-range increments are rejected
+  before output is emitted. Stream-level intents require the tracked outbound
+  receive-credit stream to be open and matching; missing, closed, reset, or
+  mismatched stream state reports the existing protocol-state failure shape.
+  Generated frame-header representation failures remain encode failures rather
+  than HTTP/2 protocol diagnostics.
 - The same HTTP/2 protocol-core example also covers the narrow outbound frame
   header encode slice. Ordinary source builds a record-shaped frame
   description with `length`, `kind`, `flags`, and `stream_id`, passes it to an

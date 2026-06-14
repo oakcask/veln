@@ -31,9 +31,11 @@ ordinary-source decode-state slices. Planned coverage still includes:
   admission, receive-limit, inbound reset slice, and GOAWAY last-stream-id
   enforcement for later peer-created HEADERS
 - remaining outbound flow control and broader stream-window interactions
-  beyond the implemented narrow outbound DATA send-intent credit checks,
-  inbound DATA, stream-level `WINDOW_UPDATE`, and
-  `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window accounting
+  beyond the implemented inbound DATA receive-window accounting,
+  stream-level `WINDOW_UPDATE` receive-credit handling,
+  `SETTINGS_INITIAL_WINDOW_SIZE` open-stream receive-window accounting,
+  narrow outbound DATA send-intent credit checks, and outbound
+  `WINDOW_UPDATE` receive-credit intent slice
 - graceful shutdown interactions beyond the implemented GOAWAY receive state
   and later peer-created HEADERS rejection
 
@@ -297,6 +299,15 @@ connection and stream credit by payload length. DATA intents larger than the
 peer-advertised maximum frame size, available outbound connection credit, or
 available outbound stream credit are rejected in source-level fixture output
 before credit changes.
+The implemented slice also includes outbound `WINDOW_UPDATE` receive-credit
+intents. Ordinary source tracks outbound receive-credit advertisement
+separately from outbound DATA send credit, emits accepted connection-level and
+stream-level `WINDOW_UPDATE` intents as immutable header-plus-increment output
+chunks, and rejects zero or out-of-range increments before output is emitted.
+Stream-level intents require matching open stream state; missing, closed,
+reset, or mismatched stream state uses the existing protocol-state failure
+shape. Generated frame-header representation failures remain encode failures
+instead of HTTP/2 protocol diagnostics.
 It now also handles structurally decoded PING and GOAWAY frames. PING is
 accepted only on the connection stream with an eight-byte payload, and the
 observable output preserves the ACK flag distinction. GOAWAY is accepted only
