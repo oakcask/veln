@@ -504,7 +504,10 @@ fn validate_stream_id_domain(offset: Int, kind: Int, stream_id: Int) -> Protocol
 									true => validate_window_update_stream_id(offset, kind, stream_id)
 									false => match kind == 2
 										true => require_client_stream_id(offset, kind, stream_id)
-										false => ProtocolStreamIdOk
+										false => match kind == 5
+											true => require_client_stream_id(offset, kind, stream_id)
+											false => ProtocolStreamIdOk
+										end
 									end
 								end
 							end
@@ -601,7 +604,10 @@ fn is_known_frame_kind(kind: Int) -> Bool
 									true => true
 									false => match kind == 2
 										true => true
-										false => false
+										false => match kind == 5
+											true => true
+											false => false
+										end
 									end
 								end
 							end
@@ -1039,9 +1045,12 @@ fn validate_stream_frame_kind(offset: Int, kind: Int, stream_id: Int, receive_fl
 					true => validate_data_stream_state(offset, kind, stream_id, receive_flow_control)
 					false => match kind == 2
 						true => Ok(Decision(NoContinuation, empty_header_block()))
-						false => match is_unknown_frame_kind(kind)
-							true => validate_unknown_stream_state(offset, kind, stream_id, receive_flow_control)
-							false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+						false => match kind == 5
+							true => Err(InvalidFrameKind(offset, kind, stream_id, 1, "server-receive", "server_receives_no_push_promise"))
+							false => match is_unknown_frame_kind(kind)
+								true => validate_unknown_stream_state(offset, kind, stream_id, receive_flow_control)
+								false => Err(InvalidFrameKind(offset, kind, stream_id, 1, "idle-stream", "idle_streams_require_headers"))
+							end
 						end
 					end
 				end
@@ -2763,6 +2772,15 @@ fn print_priority_cases() -> Result<(), String> effects [stdio]
 	print_failure("priority-length", priority_bad_length)
 	let priority_self_dependency: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001000000010f")?), frame_state())?
 	print_failure("priority-self-dependency", priority_self_dependency)
+	let ignored_push_promise_cases: () = print_push_promise_cases()?
+	Ok(())
+end
+
+fn print_push_promise_cases() -> Result<(), String> effects [stdio]
+	let push_promise_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000405040000000100000002")?), frame_state())?
+	print_failure("push-promise-stream", push_promise_stream)
+	let push_promise_zero_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000405040000000000000002")?), frame_state())?
+	print_stream_id_failure("push-promise-zero-stream", push_promise_zero_stream)
 	Ok(())
 end
 

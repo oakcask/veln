@@ -322,13 +322,13 @@ execution reference.
   stream id domain failures, invalid stream-state frame kinds, wrong-length
   PING, PRIORITY, GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction,
   accepted PRIORITY dependency stream id, exclusive flag, and weight facts,
-  PRIORITY self-dependency failures,
+  PRIORITY self-dependency failures, peer-sent `PUSH_PROMISE` rejection,
   accepted GOAWAY last-stream-id and error-code, GOAWAY last-stream-id
   enforcement for later peer-created HEADERS streams, and accepted
   `RST_STREAM` error-code facts as typed protocol values. In the server-side
   fixture core, SETTINGS,
   PING, and GOAWAY require stream id zero; HEADERS, DATA, PRIORITY, `RST_STREAM`,
-  CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
+  `PUSH_PROMISE`, CONTINUATION, and stream-level `WINDOW_UPDATE` require a nonzero
   client-initiated stream id. The receive flow-control state opens an idle
   peer-created stream on an admitted HEADERS frame, counts the tracked open
   peer-created stream for the active concurrent-stream receive limit, consumes
@@ -343,8 +343,11 @@ execution reference.
   through the same stream-state protocol failure shape used by other
   non-open stream states. A received `RST_STREAM` on the open stream
   clears that stream and stores the reset error code so later DATA or
-  stream-level `WINDOW_UPDATE` cannot treat the stream as open. After the
-  client preface gate, structurally
+  stream-level `WINDOW_UPDATE` cannot treat the stream as open. A received
+  `PUSH_PROMISE` is a known HTTP/2 frame kind and is rejected by the
+  server-side receive core through `http2.protocol.invalid_frame_kind` instead
+  of falling back to unknown extension-frame preservation. After the client
+  preface gate, structurally
   complete unknown extension frame types decode to ordinary `UnknownFrame`
   values that preserve frame type, flags, stream id, payload length, and each
   bounded payload byte, with the preserved payload also checked as complete
