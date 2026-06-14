@@ -684,7 +684,10 @@ against the built `veln` binary.
   `http2.peer_limit.flow_control_window_exceeded`. After a valid non-ACK
   SETTINGS receive, it also constructs one immutable outbound SETTINGS ACK
   chunk through the frame-header encode path and shows that the send intent
-  leaves peer-advertised SETTINGS state unchanged.
+  leaves peer-advertised SETTINGS state unchanged. After a valid inbound
+  non-ACK PING frame, it constructs one immutable outbound PING ACK chunk
+  through the frame-header encode path with the original opaque payload, while
+  a received PING ACK remains observable and produces no response chunk.
 - `run/http2-protocol-core-closed-human/`: closed HTTP/2 input with undecoded
   pending bytes reports `http2.protocol.closed_with_pending` through human
   `run` stderr with byte offset, pending byte count, and active continuation

@@ -388,6 +388,12 @@ execution reference.
   immutable nine-byte output chunk with length `0`, kind `4`, flags `1`, and
   stream id `0`. That send intent only constructs the output chunk; it does
   not update peer-advertised SETTINGS state or local receive-limit state.
+- The same HTTP/2 protocol-core example also covers the narrow outbound PING
+  ACK send-intent. After a valid inbound non-ACK PING frame, ordinary source
+  reuses the frame-header encode path to construct exactly one immutable
+  output chunk with length `8`, kind `6`, ACK flag `1`, stream id `0`, and the
+  original eight-byte opaque PING payload. Received PING ACK frames remain
+  observable as received ACK frames and produce no outbound response chunk.
 - The same HTTP/2 protocol-core example also covers the narrow outbound
   `RST_STREAM` send-intent. Ordinary source accepts a nonzero currently open
   stream, emits one immutable output chunk with a nine-byte frame header

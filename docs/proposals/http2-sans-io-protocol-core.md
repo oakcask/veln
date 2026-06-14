@@ -323,6 +323,12 @@ shutdown. Stream-targeted PING and GOAWAY frames are stream id domain
 failures, while wrong-length PING and GOAWAY payloads use
 `http2.protocol.invalid_payload_length` in ordinary output, human diagnostics,
 and JSON `protocol_diagnostic` details.
+The implemented slice also includes the narrow outbound PING ACK send-intent.
+After a valid inbound non-ACK PING frame, ordinary source encodes a nine-byte
+header with length `8`, kind `6`, ACK flag `1`, and stream id `0`, appends
+the original eight-byte opaque payload, and emits exactly one immutable output
+chunk. Received PING ACK frames remain observable as received ACKs and emit no
+response chunk.
 The implemented slice also accepts DATA frames on an already-open stream and
 decrements both connection and stream receive-window credit by the payload
 length. DATA on the connection stream is a stream id domain failure, DATA on

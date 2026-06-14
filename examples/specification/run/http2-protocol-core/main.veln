@@ -210,6 +210,12 @@ type OutboundGoawayDecision
 	OutboundGoawayEncodeFailed(Int, Int, EncodeError)
 end
 
+type OutboundPingAckDecision
+	OutboundPingAckAccepted(ByteChunk)
+	OutboundPingAckNoResponse
+	OutboundPingAckEncodeFailed(EncodeError)
+end
+
 type Http2Step
 	FrameDecoded(Http2DecodeState, Int, Int, Int, Int, Int, ByteChunk, Http2Frame)
 	Waiting(Http2DecodeState)
@@ -728,6 +734,10 @@ fn settings_ack_set(flags: Int) -> Bool
 	(flags / 2) * 2 != flags
 end
 
+fn ping_ack_set(flags: Int) -> Bool
+	(flags / 2) * 2 != flags
+end
+
 fn validate_settings_ack_payload_length(offset: Int, length: Int, flags: Int, stream_id: Int) -> ProtocolPayloadDecision
 	match settings_ack_set(flags)
 		true => validate_fixed_payload_length(offset, length, 4, stream_id, 0, "connection-control", "rfc9113_settings_ack_payload_length")
@@ -956,6 +966,36 @@ end
 
 fn send_settings_ack() -> Result<ByteChunk, EncodeError>
 	encode_frame_header({length: 0, kind: 4, flags: 1, stream_id: 0})
+end
+
+fn send_ping_ack_for_received(step: Http2Step) -> Result<OutboundPingAckDecision, String>
+	match step
+		FrameDecoded(_, _, _, kind, flags, _, _, frame) => match kind == 6
+			true => match ping_ack_set(flags)
+				true => Ok(OutboundPingAckNoResponse)
+				false => encode_ping_ack_intent(frame)
+			end
+			false => Ok(OutboundPingAckNoResponse)
+		end
+		Waiting(_) => Ok(OutboundPingAckNoResponse)
+		Failed(_, _) => Ok(OutboundPingAckNoResponse)
+	end
+end
+
+fn encode_ping_ack_intent(frame: Http2Frame) -> Result<OutboundPingAckDecision, String>
+	match frame
+		KnownFrame(_, _, _, payload) => encode_ping_ack_payload(byte_view_to_chunk(payload))
+		PriorityFrame(_, _, _, _, _) => Ok(OutboundPingAckNoResponse)
+		UnknownFrame(_, _, _, _) => Ok(OutboundPingAckNoResponse)
+	end
+end
+
+fn encode_ping_ack_payload(payload: ByteChunk) -> Result<OutboundPingAckDecision, String>
+	let encoded_header: Result<ByteChunk, EncodeError> = encode_frame_header({length: 8, kind: 6, flags: 1, stream_id: 0})
+	match encoded_header
+		Ok(header) => Ok(OutboundPingAckAccepted(byte_append(header, payload)))
+		Err(error) => Ok(OutboundPingAckEncodeFailed(error))
+	end
 end
 
 fn send_goaway(last_stream_id: Int, error_code: Int, state: Http2DecodeState) -> Result<OutboundGoawayDecision, String>
@@ -2075,6 +2115,46 @@ fn outbound_goaway_encode_detail(decision: OutboundGoawayDecision) -> String
 	end
 end
 
+fn outbound_ping_ack_status(decision: OutboundPingAckDecision) -> String
+	match decision
+		OutboundPingAckAccepted(_) => "accepted"
+		OutboundPingAckNoResponse => "no_response"
+		OutboundPingAckEncodeFailed(_) => "encode_error"
+	end
+end
+
+fn outbound_ping_ack_reason(decision: OutboundPingAckDecision) -> String
+	match decision
+		OutboundPingAckAccepted(_) => "none"
+		OutboundPingAckNoResponse => "ack_received"
+		OutboundPingAckEncodeFailed(error) => encode_error_id(error)
+	end
+end
+
+fn outbound_ping_ack_chunk(decision: OutboundPingAckDecision) -> ByteChunk
+	match decision
+		OutboundPingAckAccepted(chunk) => chunk
+		OutboundPingAckNoResponse => byte_chunk([])
+		OutboundPingAckEncodeFailed(_) => byte_chunk([])
+	end
+end
+
+fn outbound_ping_ack_encode_path(decision: OutboundPingAckDecision) -> String
+	match decision
+		OutboundPingAckAccepted(_) => "none"
+		OutboundPingAckNoResponse => "none"
+		OutboundPingAckEncodeFailed(error) => encode_error_path(error)
+	end
+end
+
+fn outbound_ping_ack_encode_detail(decision: OutboundPingAckDecision) -> String
+	match decision
+		OutboundPingAckAccepted(_) => "none"
+		OutboundPingAckNoResponse => "none"
+		OutboundPingAckEncodeFailed(error) => encode_error_reason(error)
+	end
+end
+
 fn outbound_receive_reset_stream_id(receive_credit: OutboundReceiveCredit) -> Int
 	match receive_credit
 		OutboundReceiveCredit(_, NoOutboundReceiveCreditStream) => 0
@@ -2834,6 +2914,31 @@ fn print_outbound_goaway_chunk(label: String, decision: OutboundGoawayDecision, 
 	emit_encoded_header(label, outbound_goaway_chunk(decision), expected_hex)
 end
 
+fn print_outbound_ping_ack(label: String, decision: OutboundPingAckDecision) -> () effects [stdio]
+	stdio::print(label)
+	stdio::print(" outbound-ping-ack ")
+	stdio::print(outbound_ping_ack_status(decision))
+	stdio::print(" reason ")
+	stdio::print(outbound_ping_ack_reason(decision))
+	stdio::print(" encode_path ")
+	stdio::print(outbound_ping_ack_encode_path(decision))
+	stdio::print(" encode_detail ")
+	stdio::println(outbound_ping_ack_encode_detail(decision))
+end
+
+fn print_outbound_ping_ack_chunks(label: String, decision: OutboundPingAckDecision, expected_hex: String) -> Result<(), String> effects [stdio]
+	match decision
+		OutboundPingAckAccepted(_) => emit_encoded_header(label, outbound_ping_ack_chunk(decision), expected_hex)
+		OutboundPingAckNoResponse => print_empty_output_chunks(label)
+		OutboundPingAckEncodeFailed(_) => print_empty_output_chunks(label)
+	end
+end
+
+fn print_empty_output_chunks(label: String) -> Result<(), String> effects [stdio]
+	emit_output_chunk_list_header(label, 0)
+	Ok(())
+end
+
 fn print_shutdown_state(label: String, state: Http2DecodeState) -> () effects [stdio]
 	stdio::print(label)
 	stdio::print(" shutdown ")
@@ -3219,6 +3324,24 @@ fn print_outbound_send_intent_cases() -> Result<(), String> effects [stdio]
 	Ok(())
 end
 
+fn print_ping_cases() -> Result<(), String> effects [stdio]
+	let ping_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000000102030405060708")?), frame_state())?
+	print_ping("ping-data", ping_data)
+	let ping_ack_intent: OutboundPingAckDecision = send_ping_ack_for_received(ping_data)?
+	print_outbound_ping_ack("outbound-ping-ack", ping_ack_intent)
+	let ignored_ping_ack_chunk: () = print_outbound_ping_ack_chunks("http2-ping-ack", ping_ack_intent, "0000080601000000000102030405060708")?
+	let ping_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080601000000000102030405060708")?), frame_state())?
+	print_ping("ping-ack", ping_ack)
+	let ping_ack_no_response: OutboundPingAckDecision = send_ping_ack_for_received(ping_ack)?
+	print_outbound_ping_ack("outbound-ping-ack-received", ping_ack_no_response)
+	let ignored_ping_ack_no_response: () = print_outbound_ping_ack_chunks("http2-ping-ack-received", ping_ack_no_response, "")?
+	let ping_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000706000000000001020304050607")?), frame_state())?
+	print_failure("ping-length", ping_bad_length)
+	let ping_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000010102030405060708")?), frame_state())?
+	print_failure("ping-stream", ping_bad_stream)
+	Ok(())
+end
+
 fn print_priority_cases() -> Result<(), String> effects [stdio]
 	let priority: Http2Step = receive(InputChunk(byte_chunk_from_hex("000005020000000001800000030f")?), frame_state())?
 	let ignored_priority: () = print_priority_frame("priority", priority)?
@@ -3426,14 +3549,7 @@ pub fn main() -> Result<(), String> effects [stdio]
 	print_failure("window-update-connection-overflow", window_update_connection_overflow)
 	let window_update_stream_overflow: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000408000000000100000008")?), receive_window_state(20, 1, 2147483640))?
 	print_failure("window-update-stream-overflow", window_update_stream_overflow)
-	let ping_data: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000000102030405060708")?), frame_state())?
-	print_ping("ping-data", ping_data)
-	let ping_ack: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080601000000000102030405060708")?), frame_state())?
-	print_ping("ping-ack", ping_ack)
-	let ping_bad_length: Http2Step = receive(InputChunk(byte_chunk_from_hex("00000706000000000001020304050607")?), frame_state())?
-	print_failure("ping-length", ping_bad_length)
-	let ping_bad_stream: Http2Step = receive(InputChunk(byte_chunk_from_hex("0000080600000000010102030405060708")?), frame_state())?
-	print_failure("ping-stream", ping_bad_stream)
+	let ignored_ping_cases: () = print_ping_cases()?
 	let ignored_priority_cases: () = print_priority_cases()?
 	let goaway: Http2Step = receive(InputChunk(byte_chunk_from_hex("000008070000000000000000050000000b")?), frame_state())?
 	print_goaway("goaway", goaway)

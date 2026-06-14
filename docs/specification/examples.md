@@ -510,6 +510,11 @@ stream windows, then consumes both outbound credits by payload length. It
 rejects DATA intents that exceed the received `SETTINGS_MAX_FRAME_SIZE`, the
 available outbound connection credit, or the peer-advertised stream credit
 derived from received `SETTINGS_INITIAL_WINDOW_SIZE`.
+The outbound PING ACK send-intent slice accepts a valid inbound non-ACK PING,
+emits one frame-header plus opaque-payload output chunk with length `8`, kind
+`6`, ACK flag `1`, and stream id `0`, and preserves the original eight-byte
+PING payload. A received PING ACK remains visible as a received ACK frame and
+emits an empty output chunk list.
 The outbound `RST_STREAM` send-intent slice accepts a nonzero currently open
 stream, emits a frame-header plus error-code output chunk with length `4`,
 kind `3`, flags `0`, and the selected stream id, then records local reset
