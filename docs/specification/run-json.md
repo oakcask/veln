@@ -77,7 +77,8 @@ When the result value is a binary schema frame-header truncation,
 For repeated binary schema fields, the same `schema.truncated_field` shape
 adds an `index` segment after the repeated field segment in `field_path`; the
 segment `name` is the zero-based element index whose representation could not
-be fully read.
+be fully read. Nested repeated schema failures append the nested schema field
+segments after that `index` segment.
 
 When the result value is a binary schema payload length boundary failure,
 `details.byte_diagnostic` includes:

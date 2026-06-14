@@ -1,0 +1,49 @@
+# Binary schema Repeat nested encode failures include the element index.
+use stdio
+
+schema ItemRecord
+	format binary
+
+	code: UInt8
+	value: UInt16be
+end
+
+schema CountedItems
+	format binary
+
+	count: UInt8
+	items: Repeat(count, ItemRecord)
+end
+
+fn error_id(error: EncodeError) -> String
+	match error
+		EncodeError(id, _, _) => id
+	end
+end
+
+fn error_path(error: EncodeError) -> String
+	match error
+		EncodeError(_, field_path, _) => field_path
+	end
+end
+
+fn error_reason(error: EncodeError) -> String
+	match error
+		EncodeError(_, _, reason) => reason
+	end
+end
+
+fn emit_error(error: EncodeError) -> () effects [stdio]
+	stdio::println(error_id(error))
+	stdio::println(error_path(error))
+	stdio::println(error_reason(error))
+end
+
+pub fn main() -> () effects [stdio]
+	let items: List<{code: Int, value: Int}> = list_cons({code: 7, value: 300}, list_cons({code: 9, value: 70000}, list_nil()))
+	let encoded: Result<ByteChunk, EncodeError> = byte_encode_counted_items({count: 2, items: items})
+	match encoded
+		Ok(_) => stdio::println("unexpected encode success")
+		Err(error) => emit_error(error)
+	end
+end

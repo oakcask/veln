@@ -1,0 +1,22 @@
+# Binary schema Repeat nested decode failures include the element index.
+
+schema ItemRecord
+	format binary
+
+	code: UInt8
+	value: UInt16be
+end
+
+schema CountedItems
+	format binary
+
+	count: UInt8
+	items: Repeat(count, ItemRecord)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0207012c09")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(5)?)?
+	let _: {count: Int, items: List<{code: Int, value: Int}>} = byte_decode_counted_items(view)?
+	Ok(())
+end

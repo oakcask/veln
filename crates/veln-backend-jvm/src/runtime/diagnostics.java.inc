@@ -723,6 +723,21 @@
         );
     }
 
+    private static java.util.List<ByteDiagnosticFieldPathSegment> schemaFieldPathWithPrefix(
+        java.util.List<ByteDiagnosticFieldPathSegment> prefix,
+        String schemaName,
+        String fieldName
+    ) {
+        if (prefix == null) {
+            return schemaFieldPath(schemaName, fieldName);
+        }
+        java.util.ArrayList<ByteDiagnosticFieldPathSegment> path =
+            new java.util.ArrayList<ByteDiagnosticFieldPathSegment>(prefix);
+        path.add(new ByteDiagnosticFieldPathSegment("schema", schemaName));
+        path.add(new ByteDiagnosticFieldPathSegment("field", fieldName));
+        return path;
+    }
+
     private static void registerSchemaValidationFailedDiagnostic(
         String message,
         long byteOffset,

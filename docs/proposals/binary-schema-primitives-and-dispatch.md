@@ -90,14 +90,16 @@ source-visible `Flag8(bits: Int)` value instead of a raw `Int`, preserves
 existing `UInt8` field behavior, shares exact-width truncation behavior, and
 reports existing encode value-representation failures when `bits` cannot be
 represented in one byte.
-The narrow bounded repeated primitive slice is implemented as
-`Repeat(count_field, Primitive)` for generated binary schema decode and encode
+The narrow bounded repeated payload slice is implemented as
+`Repeat(count_field, Payload)` for generated binary schema decode and encode
 helpers. The count field must be an earlier visible `Int` field in the same
-schema, the primitive payload must be one of the implemented byte-aligned
-exact-width unsigned primitives, the decoded and encoded value is `List<Int>`,
-encode rejects list length and primitive range mismatches through
-`EncodeError`, and decode truncation appends an index segment to the repeated
-field path.
+schema, and the payload must be one of the implemented byte-aligned
+exact-width unsigned primitives or an eligible nested binary schema payload.
+Primitive repeats decode and encode as `List<Int>`; nested schema repeats
+decode and encode as lists of the nested schema's decoded record shape.
+Encode rejects list length, primitive range, and nested element
+representation mismatches through `EncodeError`, and element failures append
+an index segment before nested schema field path segments.
 The generated length-bounded byte payload encode slice is implemented as
 `ByteView(length_field)` for generated binary schema encode helpers. The
 length field must be an earlier visible `Int` field in the same schema, the
@@ -218,11 +220,11 @@ diagnostic behavior already available to ordinary generated schema fields.
 The implemented `Flag8` helper slice consumes and emits one-byte visible
 bitsets as source-visible `Flag8(bits: Int)` values while leaving existing
 `UInt8` fields as ordinary `Int` values.
-The implemented bounded repeated primitive helper slice consumes and emits
-`Repeat(count_field, Primitive)` fields as `List<Int>` values when
-`count_field` names an earlier visible `Int` field in the same schema and
-`Primitive` is `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`,
-`UInt31be`, `UInt32be`, or `UInt32le`.
+The implemented bounded repeated helper slice consumes and emits
+`Repeat(count_field, Payload)` fields when `count_field` names an earlier
+visible `Int` field in the same schema and `Payload` is `UInt8`, `UInt16be`,
+`UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`, `UInt32le`, or an
+eligible nested binary schema payload.
 General schema-owned decode and encode beyond the implemented slices,
 recursive or otherwise ineligible dispatch payload schemas, and mapping
 beyond the implemented slices remain proposal work. A `UInt31be` field

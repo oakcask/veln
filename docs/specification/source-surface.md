@@ -53,11 +53,13 @@ accepted as an opt-in one-byte visible flag bitset field; it decodes and
 encodes through the source-visible `Flag8(bits: Int)` value type instead of
 the raw `Int` used by `UInt8`.
 `ReservedBits` arguments must be literal
-non-negative integers. `Repeat(count_field, Primitive)` is accepted as a
+non-negative integers. `Repeat(count_field, Payload)` is accepted as a
 bounded repeated field when `count_field` names a previously decoded visible
-`Int` field in the same binary schema and `Primitive` is an implemented
-byte-aligned exact-width unsigned primitive. A repeated field decodes and
-encodes as `List<Int>`. The narrow closed tag-dispatch field type
+`Int` field in the same binary schema and `Payload` is either an implemented
+byte-aligned exact-width unsigned primitive or an eligible nested binary
+schema payload. A repeated primitive field decodes and encodes as `List<Int>`;
+a repeated nested schema field decodes and encodes as a list of the nested
+schema's decoded record shape. The narrow closed tag-dispatch field type
 `Dispatch(tag_field, tag => Payload, ...)` is accepted when `tag_field` names a
 previously decoded schema field and each case payload is either one of the
 implemented exact-width unsigned binary primitives, a same-module binary
@@ -90,10 +92,10 @@ and used by the generated decode slice described in
 multiple structural mappings selected by `when field == literal`, and all
 assignment expressions use implemented decoded field types:
 exact-width unsigned primitive fields as `Int`, length-bounded
-`ByteView(length_field)` payload fields as `ByteView`,
-`Repeat(count_field, Primitive)` fields as `List<Int>`, closed nested
-dispatch payload fields as the nested schema record shape, and extension
-dispatch payload fields as `SchemaDispatchPayload<T>`. Multiple selected mappings must
+`ByteView(length_field)` payload fields as `ByteView`, bounded
+`Repeat(count_field, Payload)` fields as lists of their payload value shape,
+closed nested dispatch payload fields as the nested schema record shape, and
+extension dispatch payload fields as `SchemaDispatchPayload<T>`. Multiple selected mappings must
 all use the same decoded `Int` selector field, distinct selector literal
 values, and the same decoded record shape. Missing, duplicate, and unsupported
 selectors report `schema.mapping_selection_required`,
@@ -102,8 +104,8 @@ selectors report `schema.mapping_selection_required`,
 and mapping text are parsed and preserved as source-surface syntax.
 General schema decode, general schema encode beyond the exact-width
 primitive, `Flag8`, supported reserved-bit, closed dispatch, extension
-dispatch, bounded repeated primitive field, length-bounded `ByteView`, and
-same-module or imported public nested dispatch payload helper slices, general
+dispatch, bounded repeated primitive or nested schema field, length-bounded
+`ByteView`, and same-module or imported public nested dispatch payload helper slices, general
 ADT constructor mapping beyond schema-local structural expressions,
 recursive or otherwise ineligible dispatch payload schemas, arbitrary mapping
 expressions, and mapping selection beyond decoded-field integer equality are
@@ -125,10 +127,10 @@ one byte each, `Flag8` bitset fields, supported byte-aligned
 the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
 one-byte packed `ReservedBits(width, value)` plus `UIntN` layouts whose widths
 sum to eight bits,
-bounded `Repeat(count_field, Primitive)` fields whose count names an earlier
-visible exact-width unsigned `Int` field and whose primitive is `UInt8`,
-`UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`, or
-`UInt32le`,
+bounded `Repeat(count_field, Payload)` fields whose count names an earlier
+visible exact-width unsigned `Int` field and whose payload is either `UInt8`,
+`UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`, `UInt32be`,
+`UInt32le`, or an eligible nested binary schema payload,
 length-bounded `ByteView(length_field)` payload fields whose length names an
 earlier visible exact-width unsigned `Int` field,
 closed `Dispatch(tag_field, tag => Payload, ...)` fields, and

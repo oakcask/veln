@@ -43,8 +43,8 @@ compare it with `../specification/` before changing behavior.
   one-byte packed reserved-bit decode and encode,
   opt-in `Flag8` one-byte visible flag bitset decode and encode,
   standalone visible `UInt1` through `UInt7` decode and encode,
-  the bounded `Repeat(count_field, Primitive)` primitive field decode and
-  encode slice, length-bounded `ByteView(length_field)` decode and encode,
+  bounded `Repeat(count_field, Payload)` primitive and nested schema field
+  decode and encode slices, length-bounded `ByteView(length_field)` decode and encode,
   visible fixed exact-width field mismatch diagnostics for generated schema
   decode helpers, exact-width primitive encode, the narrow HTTP/2 payload
   boundary helper, and narrow closed-dispatch and extension-dispatch

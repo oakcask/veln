@@ -98,16 +98,20 @@ execution reference.
   ordinary `Int` fields. The checked decode example is
   `examples/specification/run/binary-schema-flag8-decode/`.
 - Generated binary schema decode helpers support bounded
-  `Repeat(count_field, Primitive)` fields when `count_field` is an earlier
-  visible exact-width unsigned field decoded as `Int` and `Primitive` is
+  `Repeat(count_field, Payload)` fields when `count_field` is an earlier
+  visible exact-width unsigned field decoded as `Int` and `Payload` is
   `UInt8`, `UInt16be`, `UInt16le`, `UInt24be`, `UInt24le`, `UInt31be`,
-  `UInt32be`, or `UInt32le`. The repeated field decodes to `List<Int>` by
-  reading exactly `count_field` elements in declaration order. Truncation is
-  reported at the first element that cannot be fully read with the usual
+  `UInt32be`, `UInt32le`, or an eligible nested binary schema payload. A
+  repeated primitive field decodes to `List<Int>`; a repeated nested schema
+  field decodes to a list of the nested schema's decoded record shape. The
+  helper reads exactly `count_field` elements in declaration order. Truncation
+  is reported at the first element that cannot be fully read with the usual
   `schema.truncated_field` details and a schema field path that appends an
-  `index` segment for the element. The checked examples are
-  `examples/specification/run/binary-schema-repeat-decode/` and
-  `examples/specification/run/binary-schema-repeat-truncated-json/`.
+  `index` segment before nested schema field segments. The checked examples
+  are `examples/specification/run/binary-schema-repeat-decode/`,
+  `examples/specification/run/binary-schema-repeat-truncated-json/`,
+  `examples/specification/run/binary-schema-repeat-nested-decode/`, and
+  `examples/specification/run/binary-schema-repeat-nested-truncated-json/`.
 - Generated binary schema decode helpers support byte-aligned
   `ReservedBits(width, value)` fields up to four bytes wide as
   representation-only fields. The helper consumes the reserved bytes in
@@ -244,11 +248,14 @@ execution reference.
   earlier length field, the helper returns
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))` without emitting partial output. Bounded
-  repeated primitive fields are `List<Int>` record fields and emit exactly the
-  number of elements named by the earlier count field. A list length mismatch
-  or an element outside the selected primitive range returns
+  repeated primitive fields are `List<Int>` record fields and repeated nested
+  schema fields are list fields whose element type is the nested schema's
+  decoded record shape. They emit exactly the number of elements named by the
+  earlier count field. A list length mismatch, a primitive element outside the
+  selected primitive range, or a nested element representation failure returns
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
-  reason))`. `Flag8` emits
+  reason))`; nested element failures prefix the field path with the repeated
+  field and element index before the nested schema field path. `Flag8` emits
   one byte through the same representation path as `UInt8`; `bits` values
   outside `0..255` return
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
@@ -320,6 +327,8 @@ execution reference.
   `examples/specification/run/binary-schema-repeat-encode/`,
   `examples/specification/run/binary-schema-repeat-encode-out-of-range/`,
   `examples/specification/run/binary-schema-repeat-encode-count-mismatch/`,
+  `examples/specification/run/binary-schema-repeat-nested-encode/`,
+  `examples/specification/run/binary-schema-repeat-nested-encode-failure/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
   `examples/specification/run/binary-schema-packed-reserved-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
