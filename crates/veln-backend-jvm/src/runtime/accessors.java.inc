@@ -68,11 +68,27 @@
     }
 
     public static boolean isAdt(Object value, String name) {
+        if (value instanceof FrozenByteView) {
+            return name.equals("ByteView") || name.endsWith("::ByteView");
+        }
         return value instanceof Adt
             && (((Adt) value).name.equals(name) || ((Adt) value).name.endsWith("::" + name));
     }
 
     public static Object adtPayload(Object value, int index) {
+        if (value instanceof FrozenByteView) {
+            FrozenByteView view = (FrozenByteView) value;
+            if (index == 0) {
+                return view.chunk;
+            }
+            if (index == 1) {
+                return byteOffsetObject(view.logicalOffset);
+            }
+            if (index == 2) {
+                return byteCountObject(view.count);
+            }
+            throw new IndexOutOfBoundsException("ByteView payload index " + index);
+        }
         return ((Adt) value).payloads[index];
     }
 

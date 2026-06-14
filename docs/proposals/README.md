@@ -26,8 +26,9 @@ compare it with `../specification/` before changing behavior.
   diagnostic behavior beyond the implemented byte vocabulary, byte-view, fixed
   big-endian and little-endian read/write, bounded view buffer helper,
   view-to-chunk materialization, outgoing chunk-list, stream-input, pending
-  input and outgoing immutable chunk collection for protocol examples, and
-  schema byte-preview diagnostic slices plus HTTP/2 client connection preface
+  input and outgoing immutable chunk collection for protocol examples,
+  byte-view freeze preservation across task and channel boundaries, and schema
+  byte-preview diagnostic slices plus HTTP/2 client connection preface
   protocol byte previews.
 - [Binary Schema Primitives And Dispatch](binary-schema-primitives-and-dispatch.md):
   define remaining general binary schema primitive and dispatch behavior.

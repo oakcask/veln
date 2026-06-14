@@ -356,6 +356,9 @@ against the built `veln` binary.
   and little-endian reads and writes, truncation failures, range failures, and
   conversion overflow failures, plus channel freeze preservation for bounded
   views and materialized chunks.
+- `run/binary-byteview-freeze-boundary/`: channel sends and task returns
+  preserve a `ByteView`'s bounded bytes, logical offset, and count after
+  retained input can no longer rely on the original buffer.
 - `run/binary-buffer-boundary/`: bounded `ByteView` count, take, drop, and
   slice helpers represent pending input, preserve bounded views across channel
   freeze, and construct outgoing `List<ByteChunk>` values without an

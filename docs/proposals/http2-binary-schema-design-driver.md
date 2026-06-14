@@ -193,26 +193,6 @@ This keeps the 24-bit frame length and 31-bit stream identifier visible at the
 binary boundary without making non-standard integer widths part of the general
 source type system.
 
-## Discussion Result: Byte View Freezing
-
-Byte slices should cross task and channel boundaries as frozen immutable views,
-with no source-visible borrow lifetime or transfer-only wrapper.
-
-Freezing a `ByteView` freezes the reachable byte storage needed by that view.
-After crossing a task or channel boundary, the receiver observes the same byte
-sequence, offset, and length as the sender observed at send or return time.
-The implementation may preserve this with shared immutable storage, reference
-counting, pinning, or by materializing a compact `ByteChunk` for the bounded
-view. Source programs must not depend on which representation is chosen.
-
-This keeps parser and protocol examples simple: an HTTP/2 core can pass a
-payload window, header block, or decoded field slice to another task without
-introducing mutable aliases or dangling views when the connection parser later
-drops consumed input. It also keeps memory ownership under the runtime rather
-than exposing lifetime parameters in Veln source. APIs that retain or send byte
-views should still be explicit about size limits, because freezing preserves
-the needed bytes until the receiving value is no longer reachable.
-
 ## Discussion Result: HTTP/2 Limit Placement
 
 HTTP/2 limits should be split by the authority that owns the fact.
