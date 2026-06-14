@@ -71,7 +71,9 @@ compare it with `../specification/` before changing behavior.
   flow-control peer-limits, SETTINGS value range peer-limit, stream id domain
   failures, invalid
   connection-state and stream-state frame-kind failures, fixed payload-length
-  protocol projections, post-GOAWAY stream rejection projection, and generated
+  protocol projections, the explicit HTTP/2 protocol diagnostic projection
+  boundary for representative protocol and peer-limit failures, post-GOAWAY
+  stream rejection projection, and generated
   binary schema encode value-representation failures, generated binary schema
   decode integer range failures, plus hand-written codec decode consumed-count
   failures.

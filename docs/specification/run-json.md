@@ -162,9 +162,21 @@ Valid fixture bytes that fail a test-owned codec or protocol field check use
 fixture metadata for the diagnostic id, byte offset, structured field path,
 and consumed count where applicable.
 
-HTTP/2 protocol-core failures that originate from a source-visible projection
-helper attach `details.protocol_diagnostic`. End-of-stream with a partial
-client connection preface uses id `http2.protocol.partial_preface` and records
+HTTP/2 protocol-core failures are ordinary source-level error ADT values until
+a command, fixture helper, or adapter explicitly reports them through the
+source-visible `http2_protocol_diagnostic` projection function. Returning a
+protocol error value by itself does not attach `details.protocol_diagnostic`
+or emit a human diagnostic. The projection function accepts the protocol error
+plus `Http2DiagnosticContext`, then routes each supported failure shape to the
+stable helper that owns the diagnostic id, primary message, related notes, and
+structured details. The HTTP/2 protocol-core executable example and the
+converted command-facing frame-size and invalid-frame-kind examples check this
+boundary for both `http2.peer_limit.*` and `http2.protocol.*` failures.
+
+HTTP/2 protocol-core failures that originate from this source-visible
+projection helper attach `details.protocol_diagnostic`. End-of-stream with a
+partial client connection preface uses id `http2.protocol.partial_preface` and
+records
 `byte_offset.value`, `pending_count`, `expected_count`, `active_state`, and
 `rule_provenance`, plus a structured bounded `byte_preview` for the pending
 raw input bytes. A mismatched client connection preface byte uses id

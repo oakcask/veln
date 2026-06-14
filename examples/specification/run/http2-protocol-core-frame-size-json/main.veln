@@ -1,15 +1,26 @@
 # HTTP/2 peer-limit failures project structured runtime details.
 
 type Http2ProtocolFailure
-	FrameSizeExceeded(Int, Int, Int, Int, Int, String)
+	FrameSizeExceeded(Int, Int, Int, Int, Int)
 end
 
-fn project(failure: Http2ProtocolFailure) -> Result<(), String>
+type Http2DiagnosticContext
+	DiagnosticContext(String)
+end
+
+fn context_receive_limit_provenance(context: Http2DiagnosticContext) -> String
+	match context
+		DiagnosticContext(receive_limit_provenance) => receive_limit_provenance
+	end
+end
+
+fn http2_protocol_diagnostic(failure: Http2ProtocolFailure, context: Http2DiagnosticContext) -> Result<(), String>
 	match failure
-		FrameSizeExceeded(offset, observed_length, allowed_length, frame_kind, stream_id, receive_limit_provenance) => http2_peer_limit_frame_size_exceeded(offset, observed_length, allowed_length, frame_kind, stream_id, receive_limit_provenance)
+		FrameSizeExceeded(offset, observed_length, allowed_length, frame_kind, stream_id) => http2_peer_limit_frame_size_exceeded(offset, observed_length, allowed_length, frame_kind, stream_id, context_receive_limit_provenance(context))
 	end
 end
 
 pub fn main() -> Result<(), String>
-	project(FrameSizeExceeded(0, 1025, 1024, 0, 3, "local_configuration"))
+	let context: Http2DiagnosticContext = DiagnosticContext("local_configuration")
+	http2_protocol_diagnostic(FrameSizeExceeded(0, 1025, 1024, 0, 3), context)
 end
