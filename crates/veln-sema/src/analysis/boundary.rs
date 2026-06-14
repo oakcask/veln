@@ -2007,7 +2007,7 @@ pub(crate) fn check_schema_mappings(module: &SurfaceModule) -> Vec<Diagnostic> {
                     target_ty,
                 ) {
                     diagnostics.push(schema_mapping_expr_diagnostic(
-                        schema, mapping, assignment, error,
+                        schema, mapping, assignment, *error,
                     ));
                 }
                 if let Some(first_span) =
@@ -2301,6 +2301,54 @@ fn schema_mapping_expr_diagnostic(
                     assignment,
                     [
                         ("reason", JsonValue::string("converter_input_type_mismatch")),
+                        (
+                            "mapping_target",
+                            JsonValue::string(mapping.target.clone().unwrap_or_default()),
+                        ),
+                        ("converter", JsonValue::string(name)),
+                        ("input_source_field", JsonValue::string(source)),
+                        ("expected", JsonValue::string(expected.render())),
+                        ("actual", JsonValue::string(actual.render())),
+                    ],
+                ),
+            );
+            diagnostic.related.push(JsonValue::object([
+                ("span", span_json(&function_span)),
+                (
+                    "message",
+                    JsonValue::string("Converter declaration is here."),
+                ),
+            ]));
+            diagnostic
+        }
+        SchemaMappingExprError::ConverterReturnType {
+            name,
+            expected,
+            actual,
+            source,
+            span,
+            function_span,
+        } => {
+            let mut diagnostic = Diagnostic::new(
+                "schema.mapping_converter_return",
+                Severity::Error,
+                DiagnosticKind::Type,
+                format!(
+                    "schema mapping converter `{name}` returns `{}`, but target field `{}` expects `{}`",
+                    actual.render(),
+                    assignment.target,
+                    expected.render()
+                ),
+                Some(span),
+                schema_mapping_assignment_details(
+                    assignment.node_id.display("schema-mapping-assignment"),
+                    schema,
+                    assignment,
+                    [
+                        (
+                            "reason",
+                            JsonValue::string("converter_return_type_mismatch"),
+                        ),
                         (
                             "mapping_target",
                             JsonValue::string(mapping.target.clone().unwrap_or_default()),

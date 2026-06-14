@@ -1692,9 +1692,9 @@ fn generated_schema_mappings_report_converter_diagnostics() {
     );
     assert!(
         diagnostics.iter().any(|diagnostic| {
-            diagnostic.id == "schema.mapping_type"
+            diagnostic.id == "schema.mapping_converter_return"
                 && diagnostic.message
-                    == "schema mapping target field `bad_return` expects `Int`, but source field `to_text(kind)` decodes as `String`"
+                    == "schema mapping converter `to_text` returns `String`, but target field `bad_return` expects `Int`"
         }),
         "{diagnostics:#?}"
     );

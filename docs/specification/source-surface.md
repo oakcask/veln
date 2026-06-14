@@ -103,7 +103,8 @@ pins unsupported mapping expression, unresolved constructor, constructor
 arity, and constructor payload type diagnostics. The checked diagnostics case
 `../../examples/specification/check/schema-mapping-converter-diagnostics/`
 pins unresolved converter, converter arity, converter input type, converter
-purity, converter return type, and unsupported converter shape diagnostics.
+return type through `schema.mapping_converter_return`, converter purity, and
+unsupported converter shape diagnostics.
 Eligible binary schemas whose fields are visible exact-width unsigned
 primitives, supported byte-aligned `ReservedBits(width, value)` fields,
 the supported `ReservedBits(1, 0)` before `UInt31be` layout,
