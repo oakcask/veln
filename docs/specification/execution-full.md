@@ -270,10 +270,13 @@ one structural `map to Target` clause whose assignments are direct
 fields, the helper accepts the mapping target record shape instead and
 projects those target fields back to the schema-local encode record before
 writing bytes.
-Length-bounded `ByteView(length_field)` payload fields are `ByteView` record
+Length-bounded `ByteView(length_field)` and
+`ByteView(left_length - right_length)` payload fields are `ByteView` record
 fields and emit exactly the bounded bytes from that view after the earlier
-visible length field is written. If the supplied view count differs from the
-earlier length field, the helper returns
+visible length operand fields are written. Decode computes subtraction lengths
+from earlier decoded field values and rejects negative or unavailable payload
+ranges as `schema.length_out_of_bounds`. If the supplied view count differs
+from the earlier length field or computed length expression, the helper returns
 `Err(EncodeError("codec.encode_value_unrepresentable", field_path, reason))`
 without emitting partial output. A
 bounded `Repeat(count_field, Payload)` field emits exactly the number of

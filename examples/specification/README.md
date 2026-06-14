@@ -542,6 +542,20 @@ against the built `veln` binary.
 - `run/binary-schema-byteview-encode-length-mismatch/`: length-bounded
   `ByteView` encode rejects a view whose count does not match the earlier
   length field.
+- `run/binary-schema-byteview-subtract-decode/`: generated schema decode
+  helpers compute a `ByteView(length - padding_length)` payload count from
+  earlier decoded fields.
+- `run/binary-schema-byteview-subtract-negative-json/`: subtraction length
+  decode reports `schema.length_out_of_bounds` when the computed length is
+  negative.
+- `run/binary-schema-byteview-subtract-truncated-json/`: subtraction length
+  decode reports `schema.length_out_of_bounds` when the computed length
+  exceeds the remaining bytes.
+- `run/binary-schema-byteview-subtract-encode/`: derived schema encode accepts
+  a `ByteView(length - padding_length)` payload whose view count matches the
+  computed length.
+- `run/binary-schema-byteview-subtract-encode-length-mismatch/`: subtraction
+  length encode rejects a view whose count does not match the computed length.
 - `run/binary-schema-reserved-bit-encode/`: the reserved-bit encode helper
   slice writes `ReservedBits(1, 0)` followed by `UInt31be` as one shared
   four-byte stream identifier position, omits the reserved field from the

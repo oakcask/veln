@@ -1,0 +1,15 @@
+# Binary schema ByteView subtraction rejects payloads beyond available bytes.
+schema PacketWire
+	format binary
+
+	length: UInt8
+	padding_length: UInt8
+	payload: ByteView(length - padding_length)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0501aabb")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(4)?)?
+	let ignored: {length: Int, padding_length: Int, payload: ByteView} = byte_decode_packet_wire(view)?
+	Ok(())
+end

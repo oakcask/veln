@@ -2660,18 +2660,18 @@
             }
             if (field.isLengthBoundedView()) {
                 pendingPackedReserved = null;
-                Long payloadLength = decoded.get(field.lengthField);
-                if (payloadLength == null) {
-                    return err(
-                        "missing payload length field `"
-                            + field.lengthField
-                            + "` in schema `"
-                            + schema.name
-                            + "`"
-                    );
+                Object payloadLengthValue = schemaLengthExpressionValue(
+                    decoded,
+                    field.lengthField,
+                    "payload",
+                    schema.name
+                );
+                if (isErr(payloadLengthValue)) {
+                    return payloadLengthValue;
                 }
+                long payloadLength = asLong(unwrapOk(payloadLengthValue));
                 long availablePayload = Math.max(0L, byteViewCountLong(view) - relativeOffset);
-                if (payloadLength.longValue() > availablePayload) {
+                if (payloadLength < 0L || payloadLength > availablePayload) {
                     long byteOffset = diagnosticBaseOffset + relativeOffset + availablePayload;
                     String message = "payload length out of bounds at byte offset " + byteOffset;
                     registerSchemaLengthOutOfBoundsDiagnostic(
@@ -2679,15 +2679,15 @@
                         byteOffset,
                         schema.name,
                         field.name,
-                        payloadLength.longValue(),
+                        payloadLength,
                         availablePayload,
                         byteViewPreviewTrace(view, 8)
                     );
                     return err(message);
                 }
-                Object payloadView = byteViewDerivedObject(view, relativeOffset, payloadLength.longValue());
+                Object payloadView = byteViewDerivedObject(view, relativeOffset, payloadLength);
                 values.put(field.name, payloadView);
-                relativeOffset += payloadLength.longValue();
+                relativeOffset += payloadLength;
                 continue;
             }
             if (field.isRepeat()) {
@@ -3037,11 +3037,20 @@
             }
             if (field.isLengthBoundedView()) {
                 pendingPackedReserved = null;
-                Long payloadLength = decoded.get(field.lengthField);
-                if (payloadLength == null) {
+                Object payloadLengthValue = schemaLengthExpressionValue(
+                    decoded,
+                    field.lengthField,
+                    "payload",
+                    schema.name
+                );
+                if (isErr(payloadLengthValue)) {
                     return relativeOffset;
                 }
-                relativeOffset += payloadLength.longValue();
+                long payloadLength = asLong(unwrapOk(payloadLengthValue));
+                if (payloadLength < 0L) {
+                    return relativeOffset;
+                }
+                relativeOffset += payloadLength;
                 continue;
             }
             if (field.isRepeat()) {
@@ -4150,23 +4159,129 @@
         return ok(chunk);
     }
 
+    private static Object schemaLengthExpressionValue(
+        java.util.Map<?, ?> fields,
+        String expression,
+        String role,
+        String schemaName
+    ) {
+        String[] operands = schemaLengthExpressionOperands(expression);
+        if (operands == null) {
+            return err(
+                "unsupported "
+                    + role
+                    + " length expression `"
+                    + expression
+                    + "` in schema `"
+                    + schemaName
+                    + "`"
+            );
+        }
+        Object left = fields.get(operands[0]);
+        if (left == null) {
+            return err(
+                "missing "
+                    + role
+                    + " length field `"
+                    + operands[0]
+                    + "` in schema `"
+                    + schemaName
+                    + "`"
+            );
+        }
+        if (operands.length == 1) {
+            return ok(Long.valueOf(asLong(left)));
+        }
+        Object right = fields.get(operands[1]);
+        if (right == null) {
+            return err(
+                "missing "
+                    + role
+                    + " length operand `"
+                    + operands[1]
+                    + "` in expression `"
+                    + expression
+                    + "` in schema `"
+                    + schemaName
+                    + "`"
+            );
+        }
+        return ok(Long.valueOf(asLong(left) - asLong(right)));
+    }
+
+    private static String[] schemaLengthExpressionOperands(String expression) {
+        int minus = expression.indexOf('-');
+        if (minus < 0) {
+            String field = expression.trim();
+            return isSchemaLengthExpressionIdentifier(field) ? new String[] { field } : null;
+        }
+        if (expression.indexOf('-', minus + 1) >= 0) {
+            return null;
+        }
+        String left = expression.substring(0, minus).trim();
+        String right = expression.substring(minus + 1).trim();
+        if (!isSchemaLengthExpressionIdentifier(left)
+            || !isSchemaLengthExpressionIdentifier(right)) {
+            return null;
+        }
+        return new String[] { left, right };
+    }
+
+    private static boolean isSchemaLengthExpressionIdentifier(String text) {
+        if (text.isEmpty()) {
+            return false;
+        }
+        char first = text.charAt(0);
+        if (!((first >= 'A' && first <= 'Z') || (first >= 'a' && first <= 'z') || first == '_')) {
+            return false;
+        }
+        for (int index = 1; index < text.length(); index += 1) {
+            char ch = text.charAt(index);
+            if (!((ch >= 'A' && ch <= 'Z')
+                || (ch >= 'a' && ch <= 'z')
+                || (ch >= '0' && ch <= '9')
+                || ch == '_')) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private static Object schemaWriteLengthBoundedView(
         java.util.Map<Object, Object> fields,
         SchemaFieldSpec field,
         String schemaName
     ) {
-        long suppliedLength = asLong(fields.get(field.lengthField));
+        Object lengthValue = schemaLengthExpressionValue(
+            fields,
+            field.lengthField,
+            "payload",
+            schemaName
+        );
+        if (isErr(lengthValue)) {
+            return lengthValue;
+        }
+        long suppliedLength = asLong(unwrapOk(lengthValue));
         Object view = fields.get(field.name);
         long actualLength = byteViewCountLong(view);
         if (actualLength != suppliedLength) {
             return err(encodeError(
                 "codec.encode_value_unrepresentable",
                 schemaName + "." + field.name,
-                "byte view count " + actualLength + " does not match length field `"
-                    + field.lengthField + "` value " + suppliedLength
+                "byte view count " + actualLength + " does not match "
+                    + schemaLengthDescription(field.lengthField)
+                    + " value " + suppliedLength
             ));
         }
         return ok(byteViewToChunk(view));
+    }
+
+    private static String schemaLengthDescription(String expression) {
+        String[] operands = schemaLengthExpressionOperands(expression);
+        if (operands != null && operands.length == 1) {
+            return "length field `" + expression + "`";
+        }
+        return "length expression `" + expression + "`";
     }
 
     private static Object schemaWriteUnsigned(

@@ -1,11 +1,11 @@
 use super::*;
 use crate::prelude::PRELUDE_MODULE;
 use crate::types::{
-    SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
-    closed_dispatch_schema_primitive, extension_dispatch_schema_primitive, flag8_schema_primitive,
-    repeat_schema_primitive, schema_decode_record_type, schema_decode_value_type,
-    schema_encode_value_type, schema_payload_name_last_segment, schema_payload_name_path,
-    supported_encode_reserved_bits,
+    ByteViewLengthExpr, SchemaDispatchCasePayload, SchemaDispatchSpec, SchemaRepeatPayload,
+    byte_view_schema_primitive, closed_dispatch_schema_primitive,
+    extension_dispatch_schema_primitive, flag8_schema_primitive, repeat_schema_primitive,
+    schema_decode_record_type, schema_decode_value_type, schema_encode_value_type,
+    schema_payload_name_last_segment, schema_payload_name_path, supported_encode_reserved_bits,
 };
 use veln_ast::{
     CodecDecl, CodecDirection, CodecImplementationClause, CodecImplementationKind, PublicAliasKind,
@@ -1733,6 +1733,20 @@ pub(crate) fn check_schema_field_primitives(module: &SurfaceModule) -> Vec<Diagn
                 continue;
             }
             if format_name == Some("binary")
+                && let Some(length_expr) = byte_view_schema_primitive(&field.ty)
+            {
+                if check_schema_byte_view_reference(
+                    schema,
+                    field,
+                    &length_expr,
+                    &decoded_fields,
+                    &mut diagnostics,
+                ) {
+                    decoded_fields.insert(field.name.clone(), Type::named("ByteView", Vec::new()));
+                }
+                continue;
+            }
+            if format_name == Some("binary")
                 && let Some(repeat) = repeat_schema_primitive(&field.ty)
             {
                 if let Some(field_ty) = check_schema_repeat_field(
@@ -1836,6 +1850,52 @@ fn check_schema_repeat_field(
         }
     };
     Some(Type::named("List", vec![element_ty]))
+}
+
+fn check_schema_byte_view_reference(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    length_expr: &ByteViewLengthExpr,
+    decoded_fields: &BTreeMap<String, Type>,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let mut valid = true;
+    for reference in length_expr.references() {
+        let Some(ty) = decoded_fields.get(reference) else {
+            let reason = if schema_field_declared_after(schema, field, reference) {
+                "forward_field_reference"
+            } else {
+                "unknown_field_reference"
+            };
+            diagnostics.push(schema_byte_view_reference_diagnostic(
+                schema,
+                field,
+                reference,
+                reason,
+                format!(
+                    "ByteView length operand `{reference}` must be an earlier decoded `Int` field"
+                ),
+                [],
+            ));
+            valid = false;
+            continue;
+        };
+        if ty != &Type::int() {
+            diagnostics.push(schema_byte_view_reference_diagnostic(
+                schema,
+                field,
+                reference,
+                "incompatible_field_reference",
+                format!(
+                    "ByteView length operand `{reference}` decodes as `{}`, not `Int`",
+                    ty.render()
+                ),
+                [("actual", JsonValue::string(ty.render()))],
+            ));
+            valid = false;
+        }
+    }
+    valid
 }
 
 fn check_schema_repeat_reference(
@@ -2078,6 +2138,28 @@ fn schema_repeat_reference_diagnostic<const N: usize>(
     fields.extend(extra);
     Diagnostic::new(
         "schema.repeat_reference",
+        Severity::Error,
+        DiagnosticKind::Name,
+        message,
+        Some(field.span.clone()),
+        JsonValue::object(fields),
+    )
+}
+
+fn schema_byte_view_reference_diagnostic<const N: usize>(
+    schema: &SchemaDecl,
+    field: &SchemaField,
+    reference: &str,
+    reason: &'static str,
+    message: String,
+    extra: [(&'static str, JsonValue); N],
+) -> Diagnostic {
+    let mut fields = schema_dispatch_details(schema, field, reason);
+    fields.push(("role", JsonValue::string("length")));
+    fields.push(("reference", JsonValue::string(reference.to_string())));
+    fields.extend(extra);
+    Diagnostic::new(
+        "schema.byte_view_reference",
         Severity::Error,
         DiagnosticKind::Name,
         message,

@@ -208,8 +208,12 @@ fn schema_decode_spec_inner_after_push(
             });
             continue;
         }
-        if let Some(length_field) = byte_view_schema_primitive(&field.ty) {
-            if decoded_field_types.get(&length_field) != Some(&Type::int()) {
+        if let Some(length_expr) = byte_view_schema_primitive(&field.ty) {
+            if length_expr
+                .references()
+                .into_iter()
+                .any(|reference| decoded_field_types.get(reference) != Some(&Type::int()))
+            {
                 return None;
             }
             decoded_field_types.insert(field.name.clone(), Type::named("ByteView", Vec::new()));
@@ -220,7 +224,7 @@ fn schema_decode_spec_inner_after_push(
                 little_endian: false,
                 flag8: false,
                 predicate: None,
-                length_field: Some(length_field),
+                length_field: Some(length_expr.render()),
                 repeat: None,
                 dispatch: None,
                 reserved_bits: None,

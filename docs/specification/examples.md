@@ -364,6 +364,14 @@ field path, and the view-count mismatch reason. The derived codec boundary
 case
 `../../examples/specification/run/derived-codec-byteview-encode-boundary/`
 pins the same helper eligibility through `derive encode`.
+`../../examples/specification/run/binary-schema-byteview-subtract-decode/`,
+`../../examples/specification/run/binary-schema-byteview-subtract-negative-json/`,
+`../../examples/specification/run/binary-schema-byteview-subtract-truncated-json/`,
+`../../examples/specification/run/binary-schema-byteview-subtract-encode/`, and
+`../../examples/specification/run/binary-schema-byteview-subtract-encode-length-mismatch/`
+pin the same boundary for `ByteView(length - padding_length)`, including
+negative computed lengths, payload truncation, direct helper encode mismatch,
+and derived codec encode success.
 
 `../../examples/specification/run/binary-schema-packed-reserved-encode/` pins
 one-byte packed reserved-bit encode for widths one through seven: the helper

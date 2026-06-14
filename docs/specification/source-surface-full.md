@@ -180,7 +180,9 @@ byte-aligned `ReservedBits(width, value)` fields, the supported
 `ReservedBits(1, 0)` before `UInt31be` layout, supported one-byte packed
 `ReservedBits(width, value)` plus `UIntN` layouts whose widths sum to eight
 bits, length-bounded `ByteView(length_field)` fields whose length names an
-earlier visible exact-width field, closed dispatch fields, and
+earlier visible exact-width field, `ByteView(left_length - right_length)`
+fields whose operands both name earlier visible exact-width fields, closed
+dispatch fields, and
 extension-tolerant dispatch fields whose tag and length names are earlier
 visible exact-width fields and whose cases are exact-width unsigned primitive
 payloads or earlier same-module binary schema payloads or public imported

@@ -1,3 +1,7 @@
+type FrameHeader
+  FrameHeader {priority: Int, length: Int, kind: Int, stream_id: Int, checksum: Int, payload: ByteView}
+end
+
 schema Http2FrameHeader
   format binary
 

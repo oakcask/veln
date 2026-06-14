@@ -214,8 +214,9 @@ execution reference.
   Mapping assignment targets must name target fields, and every target field
   must be assigned once before execution. The implemented mapped decoded field
   types are exact-width unsigned primitive fields, including standalone
-  `UInt1` through `UInt7`, as `Int`; length-bounded `ByteView(length_field)`
-  payload fields as `ByteView`; closed nested dispatch payload fields as the
+  `UInt1` through `UInt7`, as `Int`; length-bounded
+  `ByteView(length_field)` and `ByteView(left_length - right_length)` payload
+  fields as `ByteView`; closed nested dispatch payload fields as the
   nested schema record shape; and extension dispatch payload fields as
   `SchemaDispatchPayload<T>`. Mapping expressions cannot call imported
   converter functions, arbitrary ordinary functions, read runtime settings,
@@ -247,10 +248,15 @@ execution reference.
   encode fields, the helper accepts the mapping target record shape instead
   and projects those target fields back to the schema-local encode record
   before writing bytes. A
-  length-bounded `ByteView(length_field)` payload field is a `ByteView` record
+  length-bounded `ByteView(length_field)` or
+  `ByteView(left_length - right_length)` payload field is a `ByteView` record
   field and emits exactly the bounded bytes from that view after the earlier
-  visible length field is written. If the supplied view count differs from the
-  earlier length field, the helper returns
+  visible length operand fields are written. Decode computes subtraction
+  lengths from the earlier decoded field values, rejects negative results as
+  `schema.length_out_of_bounds`, and reports the same diagnostic when the
+  computed payload length exceeds the remaining bytes. If the supplied view
+  count differs from the earlier length field or computed length expression,
+  the helper returns
   `Err(EncodeError("codec.encode_value_unrepresentable", field_path,
   reason))` without emitting partial output. Bounded
   repeated primitive fields are `List<Int>` record fields and repeated nested
@@ -331,6 +337,11 @@ execution reference.
   `examples/specification/run/binary-schema-flag8-encode-out-of-range/`,
   `examples/specification/run/binary-schema-byteview-encode/`,
   `examples/specification/run/binary-schema-byteview-encode-length-mismatch/`,
+  `examples/specification/run/binary-schema-byteview-subtract-decode/`,
+  `examples/specification/run/binary-schema-byteview-subtract-negative-json/`,
+  `examples/specification/run/binary-schema-byteview-subtract-truncated-json/`,
+  `examples/specification/run/binary-schema-byteview-subtract-encode/`,
+  `examples/specification/run/binary-schema-byteview-subtract-encode-length-mismatch/`,
   `examples/specification/run/binary-schema-repeat-encode/`,
   `examples/specification/run/binary-schema-repeat-encode-out-of-range/`,
   `examples/specification/run/binary-schema-repeat-encode-count-mismatch/`,
