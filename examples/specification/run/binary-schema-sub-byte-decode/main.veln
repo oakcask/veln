@@ -1,0 +1,117 @@
+# Standalone sub-byte fields decode from one byte each and expose masked Ints.
+use stdio
+
+type BitFieldRecord
+	BitFieldRecord {one: Int, three: Int, seven: Int}
+end
+
+schema SubByteWire
+	format binary
+
+	one_bit: UInt1
+	three_bits: UInt3
+	seven_bits: UInt7
+
+	map to BitFieldRecord
+		one = one_bit
+		three = three_bits
+		seven = seven_bits
+end
+
+codec SubByteCodec for SubByteWire decode
+	derive decode
+end
+
+fn step_kind(step: DecodeStep<{one: Int, three: Int, seven: Int}>) -> String
+	match step
+		Decoded(_, _) => "decoded"
+		NeedMore(_) => "need_more"
+		Invalid(_) => "invalid"
+	end
+end
+
+fn decoded_one(step: DecodeStep<{one: Int, three: Int, seven: Int}>) -> Int
+	match step
+		Decoded(value, _) => value.one
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_three(step: DecodeStep<{one: Int, three: Int, seven: Int}>) -> Int
+	match step
+		Decoded(value, _) => value.three
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn decoded_seven(step: DecodeStep<{one: Int, three: Int, seven: Int}>) -> Int
+	match step
+		Decoded(value, _) => value.seven
+		NeedMore(_) => -1
+		Invalid(_) => -1
+	end
+end
+
+fn consumed_count(step: DecodeStep<{one: Int, three: Int, seven: Int}>) -> Int
+	match step
+		Decoded(_, consumed) => byte_count_to_int(consumed)
+		NeedMore(_) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn readiness_kind(step: DecodeStep<{one: Int, three: Int, seven: Int}>) -> String
+	match step
+		Decoded(_, _) => "none"
+		NeedMore(NeedBytes(_)) => "need_bytes"
+		NeedMore(NeedEnd) => "need_end"
+		Invalid(_) => "none"
+	end
+end
+
+fn readiness_count(step: DecodeStep<{one: Int, three: Int, seven: Int}>) -> Int
+	match step
+		Decoded(_, _) => 0
+		NeedMore(NeedBytes(count)) => byte_count_to_int(count)
+		NeedMore(NeedEnd) => 0
+		Invalid(_) => 0
+	end
+end
+
+fn emit_bits(value: {one: Int, three: Int, seven: Int}) -> () effects [stdio]
+	stdio::println(int_to_string(value.one))
+	stdio::println(int_to_string(value.three))
+	stdio::println(int_to_string(value.seven))
+end
+
+pub fn main() -> Result<(), String> effects [stdio]
+	let bytes: ByteChunk = byte_chunk_from_hex("fffe81")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(3)?)?
+	let decoded: {one: Int, three: Int, seven: Int} = byte_decode_sub_byte_wire(view)?
+	emit_bits(decoded)
+
+	let stepped: DecodeStep<{one: Int, three: Int, seven: Int}> = byte_decode_step_sub_byte_wire(view, byte_offset(40)?)
+	stdio::println(step_kind(stepped))
+	stdio::println(int_to_string(decoded_one(stepped)))
+	stdio::println(int_to_string(decoded_three(stepped)))
+	stdio::println(int_to_string(decoded_seven(stepped)))
+	stdio::println(int_to_string(consumed_count(stepped)))
+
+	let codec_step: DecodeStep<{one: Int, three: Int, seven: Int}> = SubByteCodec(view, byte_offset(40)?)
+	stdio::println(step_kind(codec_step))
+	stdio::println(int_to_string(decoded_one(codec_step)))
+	stdio::println(int_to_string(decoded_three(codec_step)))
+	stdio::println(int_to_string(decoded_seven(codec_step)))
+	stdio::println(int_to_string(consumed_count(codec_step)))
+
+	let short_bytes: ByteChunk = byte_chunk_from_hex("fffe")?
+	let short_view: ByteView = byte_view(short_bytes, byte_offset(0)?, byte_count(2)?)?
+	let waiting: DecodeStep<{one: Int, three: Int, seven: Int}> = byte_decode_step_sub_byte_wire(short_view, byte_offset(50)?)
+	stdio::println(step_kind(waiting))
+	stdio::println(readiness_kind(waiting))
+	stdio::println(int_to_string(readiness_count(waiting)))
+	stdio::println(int_to_string(consumed_count(waiting)))
+	Ok(())
+end

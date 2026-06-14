@@ -297,6 +297,21 @@ encodes `UInt16be` followed by `UInt32be` into one immutable `ByteChunk` and
 checks complete lowercase hex output. The failing case matches the returned
 `EncodeError` and asserts `codec.encode_value_unrepresentable`, the schema
 field path, and the `UInt31be` maximum.
+`../../examples/specification/run/binary-schema-sub-byte-decode/`,
+`../../examples/specification/run/binary-schema-sub-byte-decode-human/`,
+`../../examples/specification/run/binary-schema-sub-byte-encode/`,
+`../../examples/specification/run/binary-schema-sub-byte-encode-human/`,
+`../../examples/specification/run/binary-schema-sub-byte-encode-out-of-range/`,
+`../../examples/specification/run/binary-schema-sub-byte-encode-out-of-range-human/`,
+`../../examples/specification/run/binary-schema-sub-byte-truncated-json/`,
+and
+`../../examples/specification/run/binary-schema-sub-byte-truncated-human/`
+pin standalone `UInt1` through `UInt7` helper behavior in JSON and human
+command output. The decode cases prove one-byte-per-field low-bit masking and
+structural mapping. The encode cases prove one-byte output and
+`codec.encode_value_unrepresentable` for values outside the declared low-bit
+range. The truncation cases prove the existing `schema.truncated_field`
+diagnostic shape for a missing one-byte standalone field.
 
 `../../examples/specification/run/binary-schema-reserved-bit-encode/` pins the
 reserved-bit encode slice for `ReservedBits(1, 0)` followed by `UInt31be`.

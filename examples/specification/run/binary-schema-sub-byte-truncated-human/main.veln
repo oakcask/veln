@@ -1,0 +1,15 @@
+# Standalone sub-byte truncation projects the same focused human diagnostic.
+schema SubByteWire
+	format binary
+
+	one_bit: UInt1
+	three_bits: UInt3
+	seven_bits: UInt7
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("0106")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(2)?)?
+	let ignored: {one_bit: Int, three_bits: Int, seven_bits: Int} = byte_decode_sub_byte_wire(view)?
+	Ok(())
+end

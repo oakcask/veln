@@ -1,0 +1,12 @@
+command = ["run", "main", "main.veln"]
+exit = 0
+
+[requires]
+jdk = true
+
+[stdout]
+format = "text"
+contains = ["output_chunk_list sub-byte-write count 1\noutput_chunk sub-byte-write index 0 hex \"01067f\" count 3\n"]
+
+[stderr]
+format = "empty"

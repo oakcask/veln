@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use veln_ast::{
     BodyLineKind, CodecDecl, CodecDirection, CodecImplementationKind, Expr, ExprKind, FunctionKind,
-    NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaField, SchemaMappingClause,
-    SurfaceModule, TypeDecl, TypeVariantDecl, UseDecl, Visibility,
+    NodeId, Pattern, PatternKind, PublicAliasKind, SchemaDecl, SchemaMappingClause, SurfaceModule,
+    TypeDecl, TypeVariantDecl, UseDecl, Visibility,
 };
 use veln_core::CoreType;
 use veln_source::SourceSpan;
@@ -758,23 +758,12 @@ fn schema_decode_record_fields_inner_after_push(
 ) -> Option<Vec<(String, Type, u8)>> {
     let mut decoded_fields = BTreeMap::<String, Type>::new();
     let mut fields = Vec::new();
-    let mut expected_packed_visible_field = None::<String>;
     for (index, field) in schema.fields.iter().enumerate() {
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
-            let (bit_width, _) =
-                supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
-            expected_packed_visible_field =
-                packed_reserved_visible_field(schema.fields.get(index + 1), bit_width);
+            supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
             continue;
         }
         let (width, ty) = if let Some(width) = exact_width_schema_primitive(&field.ty) {
-            let bit_width = exact_width_schema_primitive_bit_width(&field.ty)?;
-            if bit_width < 8
-                && expected_packed_visible_field.as_deref() != Some(field.name.as_str())
-            {
-                return None;
-            }
-            expected_packed_visible_field = None;
             let ty = if flag8_schema_primitive(&field.ty) {
                 Type::named("Flag8", Vec::new())
             } else {
@@ -782,19 +771,16 @@ fn schema_decode_record_fields_inner_after_push(
             };
             (width, ty)
         } else if let Some(length_field) = byte_view_schema_primitive(&field.ty) {
-            expected_packed_visible_field = None;
             if decoded_fields.get(&length_field) != Some(&Type::int()) {
                 return None;
             }
             (0, Type::named("ByteView", Vec::new()))
         } else if let Some(repeat) = repeat_schema_primitive(&field.ty) {
-            expected_packed_visible_field = None;
             if decoded_fields.get(&repeat.count_field) != Some(&Type::int()) {
                 return None;
             }
             (0, Type::named("List", vec![Type::int()]))
         } else {
-            expected_packed_visible_field = None;
             let dispatch = closed_dispatch_schema_primitive(&field.ty)
                 .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
             if decoded_fields.get(&dispatch.tag_field) != Some(&Type::int())
@@ -952,26 +938,15 @@ fn schema_encode_function_signature_for_schema(
     }
     let mut fields = Vec::new();
     let mut exact_width_field_names = Vec::new();
-    let mut expected_packed_visible_field = None::<String>;
     for (index, field) in schema.fields.iter().enumerate() {
         if field.where_clause.is_some() {
             return None;
         }
         if let Some(reserved) = reserved_bits_schema_primitive(&field.ty) {
-            let (bit_width, _) =
-                supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
-            expected_packed_visible_field =
-                packed_reserved_visible_field(schema.fields.get(index + 1), bit_width);
+            supported_encode_reserved_bits(schema.fields.get(index + 1), reserved)?;
             continue;
         }
         if exact_width_schema_primitive(&field.ty).is_some() {
-            let bit_width = exact_width_schema_primitive_bit_width(&field.ty)?;
-            if bit_width < 8
-                && expected_packed_visible_field.as_deref() != Some(field.name.as_str())
-            {
-                return None;
-            }
-            expected_packed_visible_field = None;
             exact_width_field_names.push(field.name.clone());
             let ty = if flag8_schema_primitive(&field.ty) {
                 Type::named("Flag8", Vec::new())
@@ -982,14 +957,12 @@ fn schema_encode_function_signature_for_schema(
             continue;
         }
         if let Some(repeat) = repeat_schema_primitive(&field.ty) {
-            expected_packed_visible_field = None;
             if !exact_width_field_names.contains(&repeat.count_field) {
                 return None;
             }
             fields.push((field.name.clone(), Type::named("List", vec![Type::int()])));
             continue;
         }
-        expected_packed_visible_field = None;
         let dispatch = closed_dispatch_schema_primitive(&field.ty)
             .or_else(|| extension_dispatch_schema_primitive(&field.ty))?;
         if !exact_width_field_names.contains(&dispatch.tag_field)
@@ -1899,18 +1872,6 @@ pub(crate) fn exact_width_schema_primitive_bit_width(ty: &str) -> Option<u8> {
         "UInt32be" | "UInt32le" => Some(32),
         _ => None,
     }
-}
-
-fn packed_reserved_visible_field(
-    next_field: Option<&SchemaField>,
-    reserved_bit_width: u8,
-) -> Option<String> {
-    if !(1..=7).contains(&reserved_bit_width) {
-        return None;
-    }
-    let next = next_field?;
-    let next_bit_width = exact_width_schema_primitive_bit_width(&next.ty)?;
-    (next_bit_width + reserved_bit_width == 8).then(|| next.name.clone())
 }
 
 pub(crate) fn exact_width_schema_primitive_max_value(ty: &str) -> Option<i64> {

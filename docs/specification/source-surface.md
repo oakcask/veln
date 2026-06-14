@@ -119,7 +119,8 @@ pins unresolved converter, converter arity, converter input type, converter
 return type through `schema.mapping_converter_return`, converter purity, and
 unsupported converter shape diagnostics.
 Eligible binary schemas whose fields are visible exact-width unsigned
-primitives, `Flag8` bitset fields, supported byte-aligned
+primitives, including standalone `UInt1` through `UInt7` fields that consume
+one byte each, `Flag8` bitset fields, supported byte-aligned
 `ReservedBits(width, value)` fields,
 the supported `ReservedBits(1, 0)` before `UInt31be` layout, supported
 one-byte packed `ReservedBits(width, value)` plus `UIntN` layouts whose widths
@@ -210,9 +211,9 @@ the codec is `pub`. The call uses the referenced function's parameters and
 returns its `EncodeStep<TState>` value unchanged. General codec-generated
 decode functions are not implemented. Generated
 `byte_decode_<schema>` helpers for the eligible binary schema slice, generated
-`byte_encode_<schema>` helpers for the exact-width, supported reserved-bit,
-closed dispatch, extension dispatch, and same-module nested dispatch payload
-encode slices,
+`byte_encode_<schema>` helpers for the exact-width including standalone
+`UInt1` through `UInt7`, supported reserved-bit, closed dispatch, extension
+dispatch, and same-module nested dispatch payload encode slices,
 their `byte_decode_step_<schema>` incremental decode-step counterparts,
 derived decode codec calls over that decode-step slice, and derived encode
 codec calls over that encode helper slice are covered by
