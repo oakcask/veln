@@ -410,8 +410,12 @@ execution reference.
   clause exposes the codec item name as the executable encode boundary for
   ordinary source calls. The call invokes the referenced same-module function
   with that function's parameters and returns its `EncodeStep<TState>` value
-  unchanged. For the implemented structural `map to Target` schema slice, the
-  first encoder parameter remains the mapped target record shape.
+  unchanged, including `Encoded`, `Partial`, and `Invalid` results. A checked
+  budgeted encode example observes `Partial` with its emitted chunk list,
+  produced byte count, and resumed encoder state as ordinary source-visible
+  values, then uses the returned state to complete a later encode call. For
+  the implemented structural `map to Target` schema slice, the first encoder
+  parameter remains the mapped target record shape.
 - Same-module private decode codecs are callable only in their declaring
   module; same-module private encode codecs follow the same rule. Imported
   calls require a written qualified module path to a `pub codec`.

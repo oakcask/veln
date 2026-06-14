@@ -231,11 +231,15 @@ A codec declaration with a valid hand-written `encode with function_name`
 clause exposes the codec item name as an executable encode boundary in
 ordinary source calls. The call invokes the already-checked same-module encode
 function with that function's parameters and returns its
-`EncodeStep<TState>` value unchanged. For the implemented single structural
-`map to Target` schema slice, the first encoder parameter remains the mapped
-target record shape. Same-module private encode codecs are callable only
-inside their declaring module; imported calls require a written qualified
-module path to a `pub codec`.
+`EncodeStep<TState>` value unchanged, including `Encoded`, `Partial`, and
+`Invalid` results. A checked budgeted encode example observes `Partial` with
+its emitted chunk list, produced byte count, and resumed encoder state as
+ordinary source-visible values, then uses the returned state to complete a
+later encode call. For the implemented single structural `map to Target`
+schema slice, the first encoder parameter remains the mapped target record
+shape. Same-module private encode codecs are callable only inside their
+declaring module; imported calls require a written qualified module path to a
+`pub codec`.
 
 A codec declaration with a valid `derive encode` clause for the same eligible
 generated binary schema encode helper slice exposes the codec item name as an
