@@ -316,11 +316,9 @@ author likely referred to an earlier field with a compatible role.
   fixed-width reads beyond the implemented frame-header, width-sample,
   visible fixed-field mismatch, little-endian primitive widths, primitive
   encode helper, reserved-bit decode and encode helper, closed-dispatch
-  primitive plus same-module and imported public nested encode helper through
-  the generalized nested payload helper path, extension-dispatch primitive
-  plus same-module and imported public nested encode helper through the
-  generalized nested payload helper path, HTTP/2 payload boundary helper, and
-  narrow closed-dispatch and extension-dispatch decode slices.
+  primitive, extension-dispatch primitive, same-module and imported public
+  nested dispatch decode and encode helper slices through the generalized
+  nested payload helper path, and HTTP/2 payload boundary helper.
 - The schema vocabulary is general enough for another binary protocol example.
 - The HTTP/2 design driver can express frame header and payload boundaries
   through general schema declarations instead of the current narrow helper.
