@@ -43,6 +43,9 @@ compare it with `../specification/` before changing behavior.
   decode helpers, exact-width primitive encode, the narrow HTTP/2 payload
   boundary helper, and narrow closed-dispatch and extension-dispatch
   primitive, same-module nested, and imported public nested payload helpers.
+  The nested payload helper slices route selected nested payload schemas
+  through the same generated binary schema helper path used for ordinary
+  generated schema fields.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

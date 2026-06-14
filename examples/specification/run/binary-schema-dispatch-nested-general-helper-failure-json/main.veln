@@ -1,0 +1,23 @@
+# Nested dispatch payload failures keep general helper diagnostics.
+schema SettingsPayload
+	format binary
+
+	version: UInt8 where version == 1
+	padding: ReservedBits(8, 0)
+	code: UInt8
+	value: UInt16le
+end
+
+schema ClosedNestedPacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => SettingsPayload)
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("010200073412")?
+	let view: ByteView = byte_view(bytes, byte_offset(0)?, byte_count(6)?)?
+	let ignored: {kind: Int, payload: {version: Int, code: Int, value: Int}} = byte_decode_closed_nested_packet(view)?
+	Ok(())
+end

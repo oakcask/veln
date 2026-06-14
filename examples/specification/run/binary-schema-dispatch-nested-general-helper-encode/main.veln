@@ -1,0 +1,64 @@
+use stdio
+
+schema SettingsPayload
+	format binary
+
+	version: UInt8
+	padding: ReservedBits(8, 0)
+	code: UInt8
+	value: UInt16le
+end
+
+schema ClosedNestedWritePacket
+	format binary
+
+	kind: UInt8
+	payload: Dispatch(kind, 1 => SettingsPayload)
+end
+
+schema ExtensionNestedWritePacket
+	format binary
+
+	length: UInt8
+	kind: UInt8
+	payload: ExtensionDispatch(kind, length, 1 => SettingsPayload)
+end
+
+fn emit_output_chunk(name: String, index: Int, chunk: ByteChunk, expected_hex: String) -> () effects [stdio]
+	stdio::print("output_chunk ")
+	stdio::print(name)
+	stdio::print(" index ")
+	stdio::print(int_to_string(index))
+	stdio::print(" hex \"")
+	stdio::print(expected_hex)
+	stdio::print("\" count ")
+	stdio::println(int_to_string(byte_count_to_int(byte_chunk_count(chunk))))
+end
+
+fn emit_output_chunk_list_header(name: String, count: Int) -> () effects [stdio]
+	stdio::print("output_chunk_list ")
+	stdio::print(name)
+	stdio::print(" count ")
+	stdio::println(int_to_string(count))
+end
+
+fn emit_encoded_chunk(name: String, bytes: ByteChunk, expected_hex: String) -> () effects [stdio]
+	emit_output_chunk_list_header(name, 1)
+	emit_output_chunk(name, 0, bytes, expected_hex)
+end
+
+fn emit_encoded(name: String, encoded: Result<ByteChunk, EncodeError>, expected_hex: String) -> () effects [stdio]
+	match encoded
+		Ok(bytes) => emit_encoded_chunk(name, bytes, expected_hex)
+		Err(_) => stdio::println("unexpected encode failure")
+	end
+end
+
+pub fn main() -> () effects [stdio]
+	let payload: {version: Int, code: Int, value: Int} = {version: 1, code: 7, value: 4660}
+	let closed: Result<ByteChunk, EncodeError> = byte_encode_closed_nested_write_packet({kind: 1, payload: payload})
+	emit_encoded("closed-general-nested", closed, "010100073412")
+
+	let extension: Result<ByteChunk, EncodeError> = byte_encode_extension_nested_write_packet({length: 5, kind: 1, payload: Known(payload)})
+	emit_encoded("extension-general-nested", extension, "05010100073412")
+end

@@ -301,6 +301,10 @@ pins the closed dispatch encode helper slice. The passing cases select
 tag field and write one `ByteChunk` in declaration order.
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-encode/`
 pins same-module nested payload encode for a closed dispatch case.
+`../../examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`
+pins closed and extension-tolerant nested payload encode through the generated
+schema helper path, including byte-aligned reserved fields and little-endian
+primitive output.
 `../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`
 pins public imported nested payload encode for a closed dispatch case.
 `../../examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`
@@ -317,6 +321,9 @@ visible tag value.
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-encode/`
 pins same-module nested payload encode through
 `SchemaDispatchPayload::Known`.
+`../../examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`
+also pins that extension-tolerant known nested payload encode uses the
+generated schema helper path.
 `../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode/`
 pins public imported nested payload encode through
 `SchemaDispatchPayload::Known`.
@@ -345,8 +352,10 @@ schema.
 
 `../../examples/specification/run/binary-schema-closed-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
+`../../examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
 `../../examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
 `../../examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
+`../../examples/specification/run/binary-schema-dispatch-nested-general-helper-failure-json/`,
 `../../examples/specification/run/binary-schema-imported-dispatch-nested-failure-json/`,
 `../../examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
 and
@@ -354,8 +363,12 @@ and
 pin the narrow closed dispatch slice. The passing case decodes a known tag and
 selected primitive payload as ordinary `Int` fields; the nested passing cases
 decode selected same-module and public imported payload schemas as
-record-shaped fields. The nested failure cases pin the nested schema field
-path and absolute byte offset. The unknown-tag failing cases assert
+record-shaped fields. The general helper passing case proves selected nested
+payload schemas keep fixed-field validation, byte-aligned reserved fields, and
+little-endian primitive reads when reached through closed or extension
+dispatch. The nested failure cases pin the nested schema field path and
+absolute byte offset, including fixed-field mismatch diagnostics produced by
+the nested helper. The unknown-tag failing cases assert
 `schema.dispatch_unknown_tag`, the dispatch byte offset, structured field path,
 decoded tag field and value, expected tag values, structured byte preview
 fields, and focused human related notes.
@@ -366,6 +379,7 @@ forward references, and incompatible payload shapes.
 
 `../../examples/specification/run/binary-schema-extension-dispatch-decode/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-decode/`,
+`../../examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
 `../../examples/specification/run/binary-schema-imported-extension-dispatch-nested-decode/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-unknown/`,
 `../../examples/specification/run/binary-schema-extension-dispatch-nested-unknown/`,

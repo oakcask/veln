@@ -113,17 +113,21 @@ execution reference.
   field has been decoded by an earlier exact-width field in the same schema.
   Known dispatch cases consume either the selected exact-width unsigned
   payload primitive and expose an ordinary `Int` field, or the selected
-  same-module or imported public nested binary schema and expose that schema's
-  decoded record shape. Nested payload decode failures report the nested
-  schema field path and absolute byte offset from the enclosing input. Unknown
-  tags in the closed dispatch report
+  same-module or imported public nested binary schema through the generated
+  schema helper path and expose that schema's decoded record shape. Nested
+  payload decode failures report the nested schema field path and absolute
+  byte offset from the enclosing input, including failures from the nested
+  helper's fixed-field, reserved-bit, endian, mapping, and primitive decoding
+  behavior. Unknown tags in the closed dispatch report
   `schema.dispatch_unknown_tag` at the dispatch field byte offset with schema
   field path, decoded tag field, decoded tag value, expected tags, and
   structured byte preview fields. The checked examples are
   `examples/specification/run/binary-schema-closed-dispatch-decode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-decode/`,
+  `examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
   `examples/specification/run/binary-schema-imported-closed-dispatch-nested-decode/`,
   `examples/specification/run/binary-schema-dispatch-nested-failure-json/`,
+  `examples/specification/run/binary-schema-dispatch-nested-general-helper-failure-json/`,
   `examples/specification/run/binary-schema-imported-dispatch-nested-failure-json/`,
   `examples/specification/run/binary-schema-closed-dispatch-unknown-json/`,
   and
@@ -133,8 +137,9 @@ execution reference.
   after both referenced fields have been decoded by earlier exact-width fields
   in the same schema. Known cases consume either the selected exact-width
   unsigned payload primitive or the selected same-module or imported public
-  nested binary schema from the bounded payload bytes selected by
-  `length_field`, then expose it as `SchemaDispatchPayload::Known(value)`.
+  nested binary schema through the generated schema helper path from the
+  bounded payload bytes selected by `length_field`, then expose it as
+  `SchemaDispatchPayload::Known(value)`.
   Unknown cases do not report
   `schema.dispatch_unknown_tag`; they expose
   `SchemaDispatchPayload::Unknown(tag, payload)` where `payload` is a bounded
@@ -145,6 +150,7 @@ execution reference.
   offset from the enclosing input. The checked examples are
   `examples/specification/run/binary-schema-extension-dispatch-decode/`,
   `examples/specification/run/binary-schema-extension-dispatch-nested-decode/`,
+  `examples/specification/run/binary-schema-dispatch-nested-general-helper-decode/`,
   `examples/specification/run/binary-schema-imported-extension-dispatch-nested-decode/`,
   `examples/specification/run/binary-schema-extension-dispatch-unknown/`,
   `examples/specification/run/binary-schema-extension-dispatch-nested-unknown/`,
@@ -200,8 +206,9 @@ execution reference.
   named through a written `use` path. The record contains the visible tag
   field and one payload field; for nested payload schemas the payload field
   uses the nested schema decoded record shape. The helper chooses the case
-  from the encoded tag value, writes the selected payload in declaration
-  order, and returns `Err(EncodeError("codec.dispatch_unknown_tag",
+  from the encoded tag value, writes selected nested payload schemas through
+  the generated schema helper path in declaration order, and returns
+  `Err(EncodeError("codec.dispatch_unknown_tag",
   field_path, reason))` when the tag value has no case.
   Extension-tolerant
   `ExtensionDispatch(tag_field, length_field, tag => Payload, ...)` fields are
@@ -229,20 +236,23 @@ execution reference.
   `UInt31be` uses the 31-bit maximum even though it occupies four bytes.
   Unsupported non-byte-aligned reserved-bit encode shapes report
   `schema.reserved_bits_encode`.
-  This slice excludes schema mappings, field-local validation, generalized
-  dispatch payload schemas, other fixed fields, nested mappings, and derived
-  codec encode execution for unsupported schemas.
+  This slice excludes schema mappings, encode-time field-local validation
+  beyond primitive representation ranges, recursive or otherwise ineligible
+  dispatch payload schemas, nested mappings, and derived codec encode
+  execution for unsupported schemas.
   The checked examples are
   `examples/specification/run/binary-schema-primitive-encode/`,
   `examples/specification/run/binary-schema-primitive-encode-out-of-range/`,
   `examples/specification/run/binary-schema-reserved-bit-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-nested-encode/`,
+  `examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`,
   `examples/specification/run/binary-schema-imported-closed-dispatch-nested-encode/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-unknown-tag/`,
   `examples/specification/run/binary-schema-closed-dispatch-encode-out-of-range/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode/`,
   `examples/specification/run/binary-schema-extension-dispatch-nested-encode/`,
+  `examples/specification/run/binary-schema-dispatch-nested-general-helper-encode/`,
   `examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode/`,
   `examples/specification/run/binary-schema-imported-extension-dispatch-nested-encode-unknown/`,
   `examples/specification/run/binary-schema-extension-dispatch-encode-mismatch/`,
