@@ -1026,6 +1026,31 @@ mod tests {
     }
 
     #[test]
+    fn collector_classifies_schema_member_alias_declarations() {
+        let source = SourceFile::new(
+            "facade.veln",
+            "use wire\n\npub schema PublicPacket = wire::Packet\n",
+        );
+
+        let tokens = collect_text(&source);
+
+        assert!(tokens.contains(&(
+            "schema".to_string(),
+            SemanticTokenType::Keyword,
+            SemanticTokenModifiers::empty().bits()
+        )));
+        assert!(
+            tokens.contains(&(
+                "PublicPacket".to_string(),
+                SemanticTokenType::Type,
+                SemanticTokenModifiers::empty()
+                    .with(SemanticTokenModifier::Declaration)
+                    .bits()
+            ))
+        );
+    }
+
+    #[test]
     fn collector_classifies_unnamed_holes_and_boolean_literals() {
         let source = SourceFile::new(
             "main.veln",

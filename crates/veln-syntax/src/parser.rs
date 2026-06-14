@@ -212,7 +212,7 @@ impl<'a> Parser<'a> {
             && matches!(
                 (self.peek_kind(1), self.peek_kind(2), self.peek_kind(3)),
                 (
-                    Some(TokenKind::Fn | TokenKind::Type),
+                    Some(TokenKind::Fn | TokenKind::Type | TokenKind::Schema),
                     Some(TokenKind::Ident),
                     Some(TokenKind::Equal)
                 )
@@ -225,9 +225,15 @@ impl<'a> Parser<'a> {
             .range;
         let kind = if self.eat(TokenKind::Fn).is_some() {
             PublicAliasKind::Function
-        } else {
-            self.expect(TokenKind::Type, "public_alias", vec!["fn", "type"]);
+        } else if self.eat(TokenKind::Type).is_some() {
             PublicAliasKind::Type
+        } else {
+            self.expect(
+                TokenKind::Schema,
+                "public_alias",
+                vec!["fn", "type", "schema"],
+            );
+            PublicAliasKind::Schema
         };
         let name = self.expect_ident("public_alias", "public member name");
         self.expect(TokenKind::Equal, "public_alias", vec!["="]);

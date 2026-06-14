@@ -270,6 +270,58 @@ pub(crate) fn check_duplicate_type_names(module: &SurfaceModule) -> Vec<Diagnost
     diagnostics
 }
 
+pub(crate) fn check_duplicate_schema_names(module: &SurfaceModule) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
+
+    for schema in &module.schemas {
+        let Some(name) = &schema.name else {
+            continue;
+        };
+        let key = (schema.module_name.clone(), name.clone());
+        let node_id = schema.node_id.display("schema");
+        if let Some((first_node_id, first_span)) = seen.get(&key) {
+            diagnostics.push(duplicate_name_diagnostic(
+                name,
+                "schema",
+                "schema declaration",
+                node_id,
+                schema.span.clone(),
+                first_node_id.clone(),
+                first_span,
+            ));
+        } else {
+            seen.insert(key, (node_id, schema.span.clone()));
+        }
+    }
+    for alias in module
+        .aliases
+        .iter()
+        .filter(|alias| alias.kind == PublicAliasKind::Schema)
+    {
+        let Some(name) = &alias.name else {
+            continue;
+        };
+        let key = (alias.module_name.clone(), name.clone());
+        let node_id = alias.node_id.display("alias");
+        if let Some((first_node_id, first_span)) = seen.get(&key) {
+            diagnostics.push(duplicate_name_diagnostic(
+                name,
+                "schema",
+                "schema alias",
+                node_id,
+                alias.span.clone(),
+                first_node_id.clone(),
+                first_span,
+            ));
+        } else {
+            seen.insert(key, (node_id, alias.span.clone()));
+        }
+    }
+
+    diagnostics
+}
+
 pub(crate) fn check_duplicate_codec_names(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
@@ -306,18 +358,18 @@ pub(crate) fn check_codec_schema_references(module: &SurfaceModule) -> Vec<Diagn
             continue;
         };
         match resolve_codec_schema_reference(module, codec, schema_name) {
-            CodecSchemaResolution::Resolved => {}
-            CodecSchemaResolution::Private => {
+            SchemaResolution::Resolved(_) => {}
+            SchemaResolution::Private => {
                 diagnostics.push(private_codec_schema_diagnostic(codec, schema_name));
             }
-            CodecSchemaResolution::WrongKind(actual_kind) => {
+            SchemaResolution::WrongKind(actual_kind) => {
                 diagnostics.push(codec_schema_kind_mismatch_diagnostic(
                     codec,
                     schema_name,
                     actual_kind,
                 ));
             }
-            CodecSchemaResolution::Unresolved => {
+            SchemaResolution::Unresolved => {
                 diagnostics.push(unresolved_codec_schema_diagnostic(codec, schema_name));
             }
         }
@@ -326,75 +378,113 @@ pub(crate) fn check_codec_schema_references(module: &SurfaceModule) -> Vec<Diagn
     diagnostics
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum CodecSchemaResolution {
+#[derive(Clone, Copy, Debug)]
+enum SchemaResolution<'a> {
+    Resolved(&'a SchemaDecl),
+    Private,
+    WrongKind(&'static str),
+    Unresolved,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum SchemaAliasCheckResolution {
     Resolved,
     Private,
     WrongKind(&'static str),
     Unresolved,
 }
 
-fn resolve_codec_schema_reference(
-    module: &SurfaceModule,
+fn resolve_codec_schema_reference<'a>(
+    module: &'a SurfaceModule,
     codec: &CodecDecl,
     schema_name: &str,
-) -> CodecSchemaResolution {
+) -> SchemaResolution<'a> {
     let current_module = codec.module_name.as_deref();
     let segments = schema_name
         .split("::")
         .map(str::to_string)
         .collect::<Vec<_>>();
-    match segments.as_slice() {
-        [name] => resolve_local_codec_schema_reference(module, current_module, name),
+    resolve_schema_reference(module, &segments, current_module, true, &mut Vec::new())
+}
+
+fn resolve_schema_reference<'a>(
+    module: &'a SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+    allow_private_local_schema: bool,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+) -> SchemaResolution<'a> {
+    match segments {
+        [name] => resolve_schema_in_module(
+            module,
+            current_module,
+            name,
+            allow_private_local_schema,
+            visited_aliases,
+        ),
         [_, .., name] => {
             let Some(use_decl) = imported_use_for_path(
                 &module.uses,
                 &segments[..segments.len() - 1],
                 current_module,
             ) else {
-                return CodecSchemaResolution::Unresolved;
+                return SchemaResolution::Unresolved;
             };
-            resolve_imported_codec_schema_reference(module, use_decl, name)
+            resolve_schema_in_module(module, Some(&use_decl.name), name, false, visited_aliases)
         }
-        _ => CodecSchemaResolution::Unresolved,
+        _ => SchemaResolution::Unresolved,
     }
 }
 
-fn resolve_local_codec_schema_reference(
-    module: &SurfaceModule,
-    current_module: Option<&str>,
+fn resolve_schema_in_module<'a>(
+    module: &'a SurfaceModule,
+    module_name: Option<&str>,
     name: &str,
-) -> CodecSchemaResolution {
-    if module.schemas.iter().any(|schema| {
-        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == current_module
-    }) {
-        return CodecSchemaResolution::Resolved;
-    }
-    codec_schema_wrong_kind(module, current_module, name).map_or(
-        CodecSchemaResolution::Unresolved,
-        CodecSchemaResolution::WrongKind,
-    )
-}
-
-fn resolve_imported_codec_schema_reference(
-    module: &SurfaceModule,
-    use_decl: &UseDecl,
-    name: &str,
-) -> CodecSchemaResolution {
-    let target_module = Some(use_decl.name.as_str());
+    allow_private_schema: bool,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+) -> SchemaResolution<'a> {
     if let Some(schema) = module.schemas.iter().find(|schema| {
-        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == target_module
+        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == module_name
     }) {
-        return if schema.visibility == Visibility::Public {
-            CodecSchemaResolution::Resolved
+        return if allow_private_schema || schema.visibility == Visibility::Public {
+            SchemaResolution::Resolved(schema)
         } else {
-            CodecSchemaResolution::Private
+            SchemaResolution::Private
         };
     }
-    codec_schema_wrong_kind(module, target_module, name).map_or(
-        CodecSchemaResolution::Unresolved,
-        CodecSchemaResolution::WrongKind,
-    )
+    if let Some(alias) = module.aliases.iter().find(|alias| {
+        alias.kind == PublicAliasKind::Schema
+            && alias.name.as_deref() == Some(name)
+            && alias.module_name.as_deref() == module_name
+    }) {
+        return resolve_schema_alias_target(module, alias, visited_aliases);
+    }
+    codec_schema_wrong_kind(module, module_name, name)
+        .map_or(SchemaResolution::Unresolved, SchemaResolution::WrongKind)
+}
+
+fn resolve_schema_alias_target<'a>(
+    module: &'a SurfaceModule,
+    alias: &veln_ast::PublicAlias,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+) -> SchemaResolution<'a> {
+    let Some(name) = &alias.name else {
+        return SchemaResolution::Unresolved;
+    };
+    let key = (alias.module_name.clone(), name.clone());
+    if visited_aliases.contains(&key) {
+        return SchemaResolution::Unresolved;
+    }
+    visited_aliases.push(key);
+    let resolution = resolve_schema_reference(
+        module,
+        &alias.target,
+        alias.module_name.as_deref(),
+        false,
+        visited_aliases,
+    );
+    visited_aliases.pop();
+    resolution
 }
 
 fn codec_schema_wrong_kind(
@@ -418,6 +508,15 @@ fn codec_schema_wrong_kind(
         codec.name.as_deref() == Some(name) && codec.module_name.as_deref() == module_name
     }) {
         return Some("codec");
+    }
+    if let Some(alias) = module.aliases.iter().find(|alias| {
+        alias.name.as_deref() == Some(name) && alias.module_name.as_deref() == module_name
+    }) {
+        return match alias.kind {
+            PublicAliasKind::Function => Some("function"),
+            PublicAliasKind::Type => Some("type"),
+            PublicAliasKind::Schema => None,
+        };
     }
     None
 }
@@ -892,30 +991,11 @@ fn codec_referenced_schema<'a>(
     codec: &CodecDecl,
 ) -> Option<&'a SchemaDecl> {
     let schema_name = codec.schema.as_ref()?;
-    let current_module = codec.module_name.as_deref();
-    let segments = schema_name
-        .split("::")
-        .map(str::to_string)
-        .collect::<Vec<_>>();
-    match segments.as_slice() {
-        [name] => module.schemas.iter().find(|schema| {
-            schema.name.as_deref() == Some(name.as_str())
-                && schema.module_name.as_deref() == current_module
-        }),
-        [_, .., name] => {
-            let use_decl = imported_use_for_path(
-                &module.uses,
-                &segments[..segments.len() - 1],
-                current_module,
-            )?;
-            let target_module = Some(use_decl.name.as_str());
-            module.schemas.iter().find(|schema| {
-                schema.name.as_deref() == Some(name.as_str())
-                    && schema.module_name.as_deref() == target_module
-                    && schema.visibility == Visibility::Public
-            })
-        }
-        _ => None,
+    match resolve_codec_schema_reference(module, codec, schema_name) {
+        SchemaResolution::Resolved(schema) => Some(schema),
+        SchemaResolution::Private
+        | SchemaResolution::WrongKind(_)
+        | SchemaResolution::Unresolved => None,
     }
 }
 
@@ -1284,6 +1364,7 @@ fn codec_function_related(function: &Function, function_name: &str) -> JsonValue
 
 pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
+    let mut schema_alias_cache = BTreeMap::new();
     for alias in &module.aliases {
         if alias.name.is_none() {
             continue;
@@ -1311,9 +1392,135 @@ pub(crate) fn check_public_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
                     diagnostics.push(unresolved_alias_diagnostic(alias, "type"));
                 }
             }
+            PublicAliasKind::Schema => {
+                match resolve_schema_alias_check_reference(
+                    module,
+                    &alias.target,
+                    alias.module_name.as_deref(),
+                    false,
+                    &mut Vec::new(),
+                    &mut schema_alias_cache,
+                ) {
+                    SchemaAliasCheckResolution::Resolved => {}
+                    SchemaAliasCheckResolution::Private => {
+                        diagnostics.push(private_alias_diagnostic(alias));
+                    }
+                    SchemaAliasCheckResolution::WrongKind(actual_kind) => {
+                        diagnostics.push(alias_kind_mismatch_diagnostic(
+                            alias,
+                            "schema",
+                            actual_kind,
+                        ));
+                    }
+                    SchemaAliasCheckResolution::Unresolved => {
+                        diagnostics.push(unresolved_alias_diagnostic(alias, "schema"));
+                    }
+                }
+            }
         }
     }
     diagnostics
+}
+
+fn resolve_schema_alias_check_reference(
+    module: &SurfaceModule,
+    segments: &[String],
+    current_module: Option<&str>,
+    allow_private_local_schema: bool,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+    cache: &mut BTreeMap<(Option<String>, String), SchemaAliasCheckResolution>,
+) -> SchemaAliasCheckResolution {
+    match segments {
+        [name] => resolve_schema_alias_check_in_module(
+            module,
+            current_module,
+            name,
+            allow_private_local_schema,
+            visited_aliases,
+            cache,
+        ),
+        [_, .., name] => {
+            let Some(use_decl) = imported_use_for_path(
+                &module.uses,
+                &segments[..segments.len() - 1],
+                current_module,
+            ) else {
+                return SchemaAliasCheckResolution::Unresolved;
+            };
+            resolve_schema_alias_check_in_module(
+                module,
+                Some(&use_decl.name),
+                name,
+                false,
+                visited_aliases,
+                cache,
+            )
+        }
+        _ => SchemaAliasCheckResolution::Unresolved,
+    }
+}
+
+fn resolve_schema_alias_check_in_module(
+    module: &SurfaceModule,
+    module_name: Option<&str>,
+    name: &str,
+    allow_private_schema: bool,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+    cache: &mut BTreeMap<(Option<String>, String), SchemaAliasCheckResolution>,
+) -> SchemaAliasCheckResolution {
+    if let Some(schema) = module.schemas.iter().find(|schema| {
+        schema.name.as_deref() == Some(name) && schema.module_name.as_deref() == module_name
+    }) {
+        return if allow_private_schema || schema.visibility == Visibility::Public {
+            SchemaAliasCheckResolution::Resolved
+        } else {
+            SchemaAliasCheckResolution::Private
+        };
+    }
+
+    if let Some(alias) = module.aliases.iter().find(|alias| {
+        alias.kind == PublicAliasKind::Schema
+            && alias.name.as_deref() == Some(name)
+            && alias.module_name.as_deref() == module_name
+    }) {
+        return resolve_schema_alias_check_target(module, alias, visited_aliases, cache);
+    }
+
+    codec_schema_wrong_kind(module, module_name, name).map_or(
+        SchemaAliasCheckResolution::Unresolved,
+        SchemaAliasCheckResolution::WrongKind,
+    )
+}
+
+fn resolve_schema_alias_check_target(
+    module: &SurfaceModule,
+    alias: &veln_ast::PublicAlias,
+    visited_aliases: &mut Vec<(Option<String>, String)>,
+    cache: &mut BTreeMap<(Option<String>, String), SchemaAliasCheckResolution>,
+) -> SchemaAliasCheckResolution {
+    let Some(name) = &alias.name else {
+        return SchemaAliasCheckResolution::Unresolved;
+    };
+    let key = (alias.module_name.clone(), name.clone());
+    if let Some(resolution) = cache.get(&key) {
+        return *resolution;
+    }
+    if visited_aliases.contains(&key) {
+        return SchemaAliasCheckResolution::Unresolved;
+    }
+
+    visited_aliases.push(key.clone());
+    let resolution = resolve_schema_alias_check_reference(
+        module,
+        &alias.target,
+        alias.module_name.as_deref(),
+        false,
+        visited_aliases,
+        cache,
+    );
+    visited_aliases.pop();
+    cache.insert(key, resolution);
+    resolution
 }
 
 fn unresolved_codec_schema_diagnostic(codec: &CodecDecl, schema_name: &str) -> Diagnostic {
@@ -3095,6 +3302,26 @@ fn unresolved_alias_diagnostic(
     )
 }
 
+fn private_alias_diagnostic(alias: &veln_ast::PublicAlias) -> Diagnostic {
+    Diagnostic::new(
+        "name.visibility",
+        Severity::Error,
+        DiagnosticKind::Name,
+        format!(
+            "schema alias target `{}` is private",
+            alias.target.join("::")
+        ),
+        Some(alias.span.clone()),
+        JsonValue::object([
+            ("phase", JsonValue::string("name")),
+            ("node_id", JsonValue::string(alias.node_id.display("alias"))),
+            ("expected_kind", JsonValue::string("schema")),
+            ("target", JsonValue::string(alias.target.join("::"))),
+            ("reason", JsonValue::string("private")),
+        ]),
+    )
+}
+
 fn alias_kind_mismatch_diagnostic(
     alias: &veln_ast::PublicAlias,
     expected_kind: &'static str,
@@ -3121,11 +3348,12 @@ fn alias_kind_mismatch_diagnostic(
 
 pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    let mut seen = BTreeMap::<String, (String, SourceSpan)>::new();
+    let mut seen = BTreeMap::<(Option<String>, String), (String, SourceSpan)>::new();
 
     for use_decl in &module.uses {
         let node_id = use_decl.node_id.display("use");
-        if let Some((first_node_id, first_span)) = seen.get(&use_decl.alias) {
+        let key = (use_decl.module_name.clone(), use_decl.alias.clone());
+        if let Some((first_node_id, first_span)) = seen.get(&key) {
             diagnostics.push(duplicate_name_diagnostic(
                 &use_decl.alias,
                 "module",
@@ -3136,7 +3364,7 @@ pub(crate) fn check_duplicate_use_aliases(module: &SurfaceModule) -> Vec<Diagnos
                 first_span,
             ));
         } else {
-            seen.insert(use_decl.alias.clone(), (node_id, use_decl.span.clone()));
+            seen.insert(key, (node_id, use_decl.span.clone()));
         }
     }
 

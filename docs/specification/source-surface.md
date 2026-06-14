@@ -134,19 +134,25 @@ schema ownership, directions, and body clauses for metadata, formatting,
 editor support, and checker boundaries.
 
 A codec schema reference resolves through schema-aware name lookup. Bare
-`codec Name for SchemaName` references are limited to schemas declared in the
-codec's own module. Qualified `codec Name for imported::SchemaName` references
-require a matching written `use imported` path or alias in the codec's module,
-and the target schema must be `pub`. The import is not re-exported from the
-importing module's qualified path. Imported private schemas report
-`name.visibility` at the codec declaration. Missing schema targets report
-`name.unresolved`; ordinary functions, source ADT types, and codec items at
-the referenced path report `name.kind_mismatch` instead of being treated as
-schemas. Importing or referencing a schema does not import schema-local field
-names or create ordinary type bindings. Executable decode codec item calls are
-provided by valid hand-written decode implementations and by `derive decode`
-for the eligible generated binary schema decode-step slice, not by schema
-references themselves.
+`codec Name for SchemaName` references are limited to schemas and schema
+aliases declared in the codec's own module. Qualified
+`codec Name for imported::SchemaName` references require a matching written
+`use imported` path or alias in the codec's module, and the target schema or
+schema alias must be `pub`. A `pub schema Public = imported::Packet` member
+alias publishes an existing public schema through the declaring module's
+public path without creating a wrapper schema, schema identity, generated
+codec alias, ordinary type binding, generated helper binding, or schema-local
+field binding. Schema alias targets use schema-aware lookup. Missing, private,
+function, source ADT type, and codec targets are rejected at the alias
+declaration. Imported private schemas report `name.visibility` at the codec
+declaration. Missing schema targets report `name.unresolved`; ordinary
+functions, source ADT types, and codec items at the referenced path report
+`name.kind_mismatch` instead of being treated as schemas. Importing or
+referencing a schema does not import schema-local field names or create
+ordinary type bindings. Executable decode codec item calls are provided by
+valid hand-written decode implementations and by `derive decode` for the
+eligible generated binary schema decode-step slice, not by schema references
+themselves.
 
 A `decode with function_name` clause must resolve to an ordinary function in
 the codec's module with exactly `ByteView` and `ByteOffset` parameters and a

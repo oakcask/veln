@@ -185,6 +185,7 @@ fn format_alias(alias: &crate::PublicAliasDecl) -> String {
     let kind = match alias.kind {
         crate::PublicAliasKind::Function => "fn",
         crate::PublicAliasKind::Type => "type",
+        crate::PublicAliasKind::Schema => "schema",
     };
     format!(
         "pub {kind} {} = {}",

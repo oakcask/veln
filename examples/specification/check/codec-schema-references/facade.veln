@@ -1,0 +1,3 @@
+use app::wire
+
+pub schema PublicPacket = app::wire::PublicPacket

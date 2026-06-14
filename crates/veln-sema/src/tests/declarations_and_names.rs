@@ -649,6 +649,54 @@ fn codec_declarations_resolve_imported_public_schema_targets() {
 }
 
 #[test]
+fn codec_declarations_resolve_imported_public_schema_alias_targets() {
+    let app_source = SourceFile::new(
+        "app.veln",
+        concat!(
+            "mod app.main\n",
+            "use app.facade\n",
+            "codec ImportedDecode for facade::PublicPacket decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let facade_source = SourceFile::new(
+        "facade.veln",
+        concat!(
+            "mod app.facade\n",
+            "use app.wire\n",
+            "pub schema PublicPacket = wire::Packet\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod app.wire\n",
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+        ),
+    );
+    let app = lower_surface_ast(&parse(&app_source).tree);
+    let facade = lower_surface_ast(&parse(&facade_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: app.module,
+        uses: [app.uses, facade.uses].concat(),
+        aliases: facade.aliases,
+        types: Vec::new(),
+        schemas: wire.schemas,
+        codecs: app.codecs,
+        functions: Vec::new(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
 fn codec_declarations_require_written_use_for_imported_schema_targets() {
     let app_source = SourceFile::new(
         "app.veln",
@@ -689,6 +737,92 @@ fn codec_declarations_require_written_use_for_imported_schema_targets() {
         diagnostics[0].message,
         "unresolved codec schema `other::Packet`"
     );
+}
+
+#[test]
+fn public_schema_aliases_reject_unresolved_private_and_wrong_kind_targets() {
+    let facade_source = SourceFile::new(
+        "facade.veln",
+        concat!(
+            "mod facade\n",
+            "use wire\n",
+            "pub schema MissingPacket = wire::MissingPacket\n",
+            "pub schema PrivatePacket = wire::PrivatePacket\n",
+            "pub schema FunctionPacket = wire::make_packet\n",
+            "pub schema TypePacket = wire::PacketShape\n",
+            "pub schema CodecPacket = wire::PacketCodec\n",
+        ),
+    );
+    let wire_source = SourceFile::new(
+        "wire.veln",
+        concat!(
+            "mod wire\n",
+            "pub schema PublicPacket\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "schema PrivatePacket\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "\n",
+            "pub fn make_packet() -> Int\n",
+            "  1\n",
+            "end\n",
+            "\n",
+            "pub type PacketShape\n",
+            "  pub Packet(Int)\n",
+            "end\n",
+            "\n",
+            "pub codec PacketCodec for PublicPacket decode\n",
+            "  derive decode\n",
+            "end\n",
+        ),
+    );
+    let facade = lower_surface_ast(&parse(&facade_source).tree);
+    let wire = lower_surface_ast(&parse(&wire_source).tree);
+    let module = SurfaceModule {
+        module: facade.module,
+        uses: facade.uses,
+        aliases: facade.aliases,
+        types: wire.types,
+        schemas: wire.schemas,
+        codecs: wire.codecs,
+        functions: wire.functions,
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    for (id, message) in [
+        (
+            "name.unresolved",
+            "unresolved schema alias target `wire::MissingPacket`",
+        ),
+        (
+            "name.visibility",
+            "schema alias target `wire::PrivatePacket` is private",
+        ),
+        (
+            "name.kind_mismatch",
+            "public alias target `wire::make_packet` is a function, not a schema",
+        ),
+        (
+            "name.kind_mismatch",
+            "public alias target `wire::PacketShape` is a type, not a schema",
+        ),
+        (
+            "name.kind_mismatch",
+            "public alias target `wire::PacketCodec` is a codec, not a schema",
+        ),
+    ] {
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.id == id && diagnostic.message == message),
+            "{diagnostics:#?}"
+        );
+    }
 }
 
 #[test]
@@ -1928,6 +2062,50 @@ fn duplicate_use_aliases_are_static_errors() {
 }
 
 #[test]
+fn duplicate_use_aliases_are_scoped_to_declaring_module() {
+    let first_source = SourceFile::new(
+        "first.veln",
+        concat!(
+            "mod first\n",
+            "use shared\n",
+            "fn first_value() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let second_source = SourceFile::new(
+        "second.veln",
+        concat!(
+            "mod second\n",
+            "use shared\n",
+            "fn second_value() -> ()\n",
+            "  ()\n",
+            "end\n",
+        ),
+    );
+    let first = lower_surface_ast(&parse(&first_source).tree);
+    let second = lower_surface_ast(&parse(&second_source).tree);
+    let module = SurfaceModule {
+        module: first.module,
+        uses: [first.uses, second.uses].concat(),
+        aliases: Vec::new(),
+        types: Vec::new(),
+        schemas: Vec::new(),
+        codecs: Vec::new(),
+        functions: [first.functions, second.functions].concat(),
+    };
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(
+        diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.id != "name.duplicate"),
+        "{diagnostics:#?}"
+    );
+}
+
+#[test]
 fn public_function_alias_rejects_type_targets() {
     let source = SourceFile::new(
         "api.veln",
@@ -2026,6 +2204,30 @@ fn public_alias_names_share_member_namespaces() {
     assert!(diagnostics.iter().any(|diagnostic| {
         diagnostic.id == "name.duplicate"
             && diagnostic.message == "duplicate type alias name `Document`"
+    }));
+}
+
+#[test]
+fn public_schema_alias_names_share_schema_namespace() {
+    let source = SourceFile::new(
+        "api.veln",
+        concat!(
+            "mod spec.api\n",
+            "pub schema Packet\n",
+            "  format binary\n",
+            "  length: UInt8\n",
+            "end\n",
+            "pub schema Packet = Packet\n",
+        ),
+    );
+    let parsed = parse(&source);
+    let module = lower_surface_ast(&parsed.tree);
+
+    let diagnostics = analyze_surface_module(&module);
+
+    assert!(diagnostics.iter().any(|diagnostic| {
+        diagnostic.id == "name.duplicate"
+            && diagnostic.message == "duplicate schema alias name `Packet`"
     }));
 }
 

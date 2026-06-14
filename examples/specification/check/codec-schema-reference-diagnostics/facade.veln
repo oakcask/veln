@@ -1,5 +1,8 @@
-use other
+use app::wire
 
-pub fn facade_ready() -> Int
-	1
-end
+pub schema PublicPacket = app::wire::PublicPacket
+pub schema MissingPacket = app::wire::MissingPacket
+pub schema PrivatePacket = app::wire::PrivatePacket
+pub schema FunctionPacket = app::wire::make_packet
+pub schema TypePacket = app::wire::PacketShape
+pub schema CodecPacket = app::wire::PacketCodec

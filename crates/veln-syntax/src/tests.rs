@@ -45,13 +45,14 @@ fn parses_public_member_aliases() {
             "\n",
             "pub fn parse = impl::parse\n",
             "pub type Document = impl::Document\n",
+            "pub schema Packet = impl::Packet\n",
         ),
     );
 
     let output = parse(&source);
 
     assert!(output.diagnostics.is_empty(), "{:#?}", output.diagnostics);
-    assert_eq!(output.tree.items.len(), 2);
+    assert_eq!(output.tree.items.len(), 3);
     let SyntaxItem::PublicAlias(function_alias) = &output.tree.items[0] else {
         panic!("expected function alias");
     };
@@ -64,6 +65,12 @@ fn parses_public_member_aliases() {
     assert_eq!(type_alias.kind, PublicAliasKind::Type);
     assert_eq!(type_alias.name.as_deref(), Some("Document"));
     assert_eq!(type_alias.target, vec!["impl", "Document"]);
+    let SyntaxItem::PublicAlias(schema_alias) = &output.tree.items[2] else {
+        panic!("expected schema alias");
+    };
+    assert_eq!(schema_alias.kind, PublicAliasKind::Schema);
+    assert_eq!(schema_alias.name.as_deref(), Some("Packet"));
+    assert_eq!(schema_alias.target, vec!["impl", "Packet"]);
     assert_eq!(
         format_tree(&output.tree),
         concat!(
@@ -73,6 +80,8 @@ fn parses_public_member_aliases() {
             "pub fn parse = impl::parse\n",
             "\n",
             "pub type Document = impl::Document\n",
+            "\n",
+            "pub schema Packet = impl::Packet\n",
         )
     );
 }
