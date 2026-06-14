@@ -1,0 +1,16 @@
+# Generated binary schema decode helpers report fixed-field mismatches.
+schema DemoPacket
+	format binary
+
+	kind: UInt8 where kind == 1
+	sequence: UInt16be
+end
+
+pub fn main() -> Result<(), String>
+	let bytes: ByteChunk = byte_chunk_from_hex("ff0001")?
+	let offset: ByteOffset = byte_offset(0)?
+	let count: ByteCount = byte_count(3)?
+	let view: ByteView = byte_view(bytes, offset, count)?
+	let ignored: {kind: Int, sequence: Int} = byte_decode_demo_packet(view)?
+	Ok(())
+end

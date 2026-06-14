@@ -90,6 +90,13 @@ execution reference.
   `schema.integer_out_of_range` at the field byte offset with schema field
   path, byte width, accepted range, actual value, and structured byte preview
   fields.
+- Exact-width generated binary schema decode helpers treat a field-local
+  equality predicate of the form `field == literal` or `literal == field` as a
+  visible schema-owned fixed field when the literal fits the field's external
+  integer range. The decoded field remains visible in the result when the
+  value matches. A mismatch reports `schema.fixed_field_mismatch` at the field
+  byte offset with schema field path, expected value, actual value, and
+  structured byte preview fields.
 - The binary schema field-local validation slice decodes fields in declaration
   order for generated `byte_decode_<schema>` helpers when every field uses an
   implemented exact-width unsigned binary primitive. It checks each supported

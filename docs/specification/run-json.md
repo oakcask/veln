@@ -58,8 +58,8 @@ When the result value is a schema fixed-field mismatch,
 - `id: "schema.fixed_field_mismatch"`
 - `byte_offset`: the decoded-stream `ByteOffset` of the mismatched field
 - `field_path`: schema-local path segment objects with `kind` and `name`
-- `expected_value`: the fixed byte value required by the schema field
-- `actual_value`: the decoded byte value that was present
+- `expected_value`: the fixed value required by the schema field
+- `actual_value`: the decoded value that was present
 - `byte_preview`: a structured bounded byte preview object
 
 When the result value is a binary schema frame-header truncation,

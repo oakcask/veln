@@ -592,8 +592,10 @@ Source `format binary` schema declarations whose fields
 all use implemented exact-width unsigned primitives expose generated
 `byte_decode_<schema>` helpers in their declaring module. Those helpers decode
 fields in schema order, check supported field-local `where` predicates after
-the owning field is decoded, return ordinary `Int` values when validation
-passes, and can return a mapped record shape when one eligible structural
+the owning field is decoded, project field-local fixed equality predicates
+through `schema.fixed_field_mismatch` when the decoded value differs, return
+ordinary `Int` values when validation passes, and can return a mapped record
+shape when one eligible structural
 `map to Target` clause maps decoded schema fields into `Int` target fields.
 They report `schema.validation_failed` with field path, predicate, decoded
 values, and structured byte preview fields when validation fails. The same

@@ -36,9 +36,10 @@ compare it with `../specification/` before changing behavior.
   `ReservedBits(width, value)` declarations, frame-header and width-sample
   primitive decode, `UInt16le`, `UInt24le`, and `UInt32le` little-endian
   primitive decode and encode, byte-aligned reserved-bit decode and encode,
-  exact-width primitive encode, the narrow HTTP/2 payload boundary helper,
-  and narrow closed-dispatch and extension-dispatch primitive, same-module
-  nested, and imported public nested payload helpers.
+  visible fixed exact-width field mismatch diagnostics for generated schema
+  decode helpers, exact-width primitive encode, the narrow HTTP/2 payload
+  boundary helper, and narrow closed-dispatch and extension-dispatch
+  primitive, same-module nested, and imported public nested payload helpers.
 - [Codec Execution Boundary](codec-execution-boundary.md): define remaining
   executable decode and encode behavior beyond the implemented codec
   declaration source-surface slice, decode function signature boundary,

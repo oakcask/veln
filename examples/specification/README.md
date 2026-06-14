@@ -397,6 +397,13 @@ against the built `veln` binary.
 - `run/binary-schema-byte-aligned-reserved-truncated-json/`: generated schema
   decode helpers report `schema.truncated_field` at the byte-aligned reserved
   field path when input ends before the reserved field is complete.
+- `run/binary-schema-fixed-field-mismatch-json/`: generated schema decode
+  helpers report `schema.fixed_field_mismatch` for a visible fixed exact-width
+  field with field path, byte offset, expected value, actual value, and byte
+  preview details.
+- `run/binary-schema-fixed-field-mismatch-human/`: generated schema decode
+  helpers report the same visible fixed exact-width field mismatch through
+  human `run` output with focused primary text and related notes.
 - `run/binary-schema-u16le-decode/`: generated schema decode helpers read
   `UInt16le` as two little-endian bytes, return an ordinary `Int`, and keep a
   structural `map to` target record shape.

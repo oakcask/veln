@@ -166,9 +166,10 @@
         final String lengthField;
         final int reservedBitWidth;
         final long reservedValue;
+        final Long fixedValue;
 
         SchemaFieldSpec(String name, int width, long maxValue, SchemaPredicate predicate) {
-            this(name, width, maxValue, false, predicate, null, "", 0, 0L);
+            this(name, width, maxValue, false, predicate, null, "", 0, 0L, null);
         }
 
         SchemaFieldSpec(
@@ -178,7 +179,18 @@
             boolean littleEndian,
             SchemaPredicate predicate
         ) {
-            this(name, width, maxValue, littleEndian, predicate, null, "", 0, 0L);
+            this(name, width, maxValue, littleEndian, predicate, null, "", 0, 0L, null);
+        }
+
+        SchemaFieldSpec(
+            String name,
+            int width,
+            long maxValue,
+            boolean littleEndian,
+            SchemaPredicate predicate,
+            Long fixedValue
+        ) {
+            this(name, width, maxValue, littleEndian, predicate, null, "", 0, 0L, fixedValue);
         }
 
         SchemaFieldSpec(
@@ -188,15 +200,15 @@
             SchemaPredicate predicate,
             SchemaDispatchSpec dispatch
         ) {
-            this(name, width, maxValue, false, predicate, dispatch, "", 0, 0L);
+            this(name, width, maxValue, false, predicate, dispatch, "", 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, String lengthField) {
-            this(name, 0, 0L, false, null, null, lengthField, 0, 0L);
+            this(name, 0, 0L, false, null, null, lengthField, 0, 0L, null);
         }
 
         SchemaFieldSpec(String name, int reservedBitWidth, long reservedValue) {
-            this(name, 0, 0L, false, null, null, "", reservedBitWidth, reservedValue);
+            this(name, 0, 0L, false, null, null, "", reservedBitWidth, reservedValue, null);
         }
 
         SchemaFieldSpec(
@@ -208,7 +220,8 @@
             SchemaDispatchSpec dispatch,
             String lengthField,
             int reservedBitWidth,
-            long reservedValue
+            long reservedValue,
+            Long fixedValue
         ) {
             this.name = name;
             this.width = width;
@@ -219,6 +232,7 @@
             this.lengthField = lengthField;
             this.reservedBitWidth = reservedBitWidth;
             this.reservedValue = reservedValue;
+            this.fixedValue = fixedValue;
         }
 
         boolean isReserved() {
@@ -740,15 +754,54 @@
     }
 
     private static SchemaFieldSpec unsignedSchemaField(String name, int width, SchemaPredicate predicate) {
+        return new SchemaFieldSpec(name, width, unsignedMaxValue(width), predicate);
+    }
+
+    private static long unsignedMaxValue(int width) {
         long maxValue = 0L;
         for (int index = 0; index < width; index += 1) {
             maxValue = (maxValue << 8) | 0xffL;
         }
-        return new SchemaFieldSpec(name, width, maxValue, predicate);
+        return maxValue;
     }
 
     private static SchemaPredicate schemaPredicate(String text, SchemaBoolExpr expr) {
         return new SchemaPredicate(text, expr);
+    }
+
+    private static Long schemaFixedFieldValue(String fieldName, String predicateText, long maxValue) {
+        int operator = predicateText.indexOf("==");
+        if (operator < 0 || predicateText.indexOf("==", operator + 2) >= 0) {
+            return null;
+        }
+        String left = predicateText.substring(0, operator).trim();
+        String right = predicateText.substring(operator + 2).trim();
+        Long value = null;
+        if (left.equals(fieldName)) {
+            value = schemaFixedFieldLiteral(right);
+        } else if (right.equals(fieldName)) {
+            value = schemaFixedFieldLiteral(left);
+        }
+        if (value == null || value.longValue() < 0L || value.longValue() > maxValue) {
+            return null;
+        }
+        return value;
+    }
+
+    private static Long schemaFixedFieldLiteral(String text) {
+        if (text.isEmpty()) {
+            return null;
+        }
+        for (int index = 0; index < text.length(); index += 1) {
+            if (!Character.isDigit(text.charAt(index))) {
+                return null;
+            }
+        }
+        try {
+            return Long.valueOf(Long.parseLong(text));
+        } catch (NumberFormatException failure) {
+            return null;
+        }
     }
 
     private static SchemaIntExpr schemaLiteral(long value) {
@@ -2382,6 +2435,20 @@
                 return read;
             }
             long fieldValue = asLong(unwrapOk(read));
+            if (field.fixedValue != null && fieldValue != field.fixedValue.longValue()) {
+                long byteOffset = diagnosticBaseOffset + relativeOffset;
+                String message = "fixed field mismatch at byte offset " + byteOffset;
+                registerSchemaFixedFieldMismatchDiagnostic(
+                    message,
+                    byteOffset,
+                    schema.name,
+                    field.name,
+                    field.fixedValue.longValue(),
+                    fieldValue,
+                    byteViewPreviewTrace(view, 8)
+                );
+                return err(message);
+            }
             decoded.put(field.name, Long.valueOf(fieldValue));
             values.put(field.name, Long.valueOf(fieldValue));
 
@@ -2758,22 +2825,39 @@
             }
             String predicateText = asString(predicateValues.get(index));
             SchemaPredicate predicate = null;
+            Long fixedValue = schemaFixedFieldValue(
+                fieldName,
+                predicateText,
+                maxValueValues == null
+                    ? unsignedMaxValue((int) width)
+                    : asLong(maxValueValues.get(index))
+            );
             if (!predicateText.isEmpty()) {
-                try {
-                    predicate = new SchemaPredicateParser(predicateText).parse();
-                } catch (IllegalStateException failure) {
-                    return err(failure.getMessage());
+                if (fixedValue == null) {
+                    try {
+                        predicate = new SchemaPredicateParser(predicateText).parse();
+                    } catch (IllegalStateException failure) {
+                        return err(failure.getMessage());
+                    }
                 }
             }
             if (maxValueValues == null) {
-                fields[index] = unsignedSchemaField(fieldName, (int) width, predicate);
+                fields[index] = new SchemaFieldSpec(
+                    fieldName,
+                    (int) width,
+                    unsignedMaxValue((int) width),
+                    false,
+                    predicate,
+                    fixedValue
+                );
             } else {
                 fields[index] = new SchemaFieldSpec(
                     fieldName,
                     (int) width,
                     asLong(maxValueValues.get(index)),
                     littleEndian,
-                    predicate
+                    predicate,
+                    fixedValue
                 );
             }
         }
