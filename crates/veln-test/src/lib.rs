@@ -3971,6 +3971,43 @@ mod tests {
     }
 
     #[test]
+    fn header_list_protocol_diagnostic_result_trace_keeps_value_details() {
+        let trace = concat!(
+            "result\t",
+            "485454502f3220686561646572206c6973742073697a6520657863656564732072656365697665206d6178696d756d2061742062797465206f6666736574203132",
+            "\tprotocol_diagnostic\thttp2.peer_limit.header_list_size_exceeded\t12",
+            "\t7\tobserved_header_list_size\tnumber\t10",
+            "\tallowed_header_list_size\tnumber\t9",
+            "\tframe_kind\tnumber\t9",
+            "\tstream_id\tnumber\t1",
+            "\tstream_ref\tstring\t73747265616d",
+            "\treceive_limit_provenance\tstring\t6c6f63616c5f636f6e66696775726174696f6e",
+            "\trule_provenance\tstring\t6865616465725f6c6973745f726563656976655f6c696d6974\n",
+        );
+
+        let failure = result_failure_from_trace(trace).expect("trace should decode");
+
+        assert_eq!(failure.kind, "result");
+        assert_eq!(
+            failure.details.to_json(),
+            concat!(
+                "{\"kind\":\"result\",\"phase\":\"runtime\",",
+                "\"value\":\"HTTP/2 header list size exceeds receive maximum at byte offset 12\",",
+                "\"protocol_diagnostic\":{\"kind\":\"protocol_diagnostic\",",
+                "\"id\":\"http2.peer_limit.header_list_size_exceeded\",",
+                "\"byte_offset\":{\"kind\":\"ByteOffset\",\"value\":12},",
+                "\"observed_header_list_size\":10,",
+                "\"allowed_header_list_size\":9,",
+                "\"frame_kind\":9,",
+                "\"stream_id\":1,",
+                "\"stream_ref\":\"stream\",",
+                "\"receive_limit_provenance\":\"local_configuration\",",
+                "\"rule_provenance\":\"header_list_receive_limit\"}}"
+            )
+        );
+    }
+
+    #[test]
     fn flow_control_protocol_diagnostic_result_trace_keeps_value_details() {
         let trace = concat!(
             "result\t",

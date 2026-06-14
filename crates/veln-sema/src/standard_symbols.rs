@@ -216,6 +216,7 @@ source_prelude_symbol_set! {
     "http2_protocol_invalid_priority_dependency" => veln_stdlib::prelude_source("http2_protocol_invalid_priority_dependency"),
     "http2_protocol_stream_after_goaway" => veln_stdlib::prelude_source("http2_protocol_stream_after_goaway"),
     "http2_peer_limit_frame_size_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_frame_size_exceeded"),
+    "http2_peer_limit_header_list_size_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_header_list_size_exceeded"),
     "http2_peer_limit_flow_control_window_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_flow_control_window_exceeded"),
     "http2_peer_limit_concurrent_streams_exceeded" => veln_stdlib::prelude_source("http2_peer_limit_concurrent_streams_exceeded"),
     "http2_peer_limit_settings_value_out_of_range" => veln_stdlib::prelude_source("http2_peer_limit_settings_value_out_of_range"),

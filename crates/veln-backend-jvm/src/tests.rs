@@ -1239,6 +1239,10 @@ fn java_method_name_helpers_map_builtin_surface_names() {
             "http2PeerLimitFrameSizeExceeded",
         ),
         (
+            "http2_peer_limit_header_list_size_exceeded",
+            "http2PeerLimitHeaderListSizeExceeded",
+        ),
+        (
             "http2_peer_limit_flow_control_window_exceeded",
             "http2PeerLimitFlowControlWindowExceeded",
         ),

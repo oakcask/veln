@@ -1,0 +1,63 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "error.kind"
+equals = "result"
+
+[[json_assert]]
+path = "error.details.value"
+equals = "HTTP/2 header list size exceeds receive maximum at byte offset 12"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.kind"
+equals = "protocol_diagnostic"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.id"
+equals = "http2.peer_limit.header_list_size_exceeded"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.byte_offset.value"
+equals = 12
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.observed_header_list_size"
+equals = 10
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.allowed_header_list_size"
+equals = 9
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.frame_kind"
+equals = 9
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.stream_id"
+equals = 1
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.stream_ref"
+equals = "stream"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.receive_limit_provenance"
+equals = "local_configuration"
+
+[[json_assert]]
+path = "error.details.protocol_diagnostic.rule_provenance"
+equals = "header_list_receive_limit"

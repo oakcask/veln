@@ -318,7 +318,9 @@ execution reference.
   while known items are applied or diagnosed at their own item byte offset,
   received `SETTINGS_ENABLE_PUSH`, `SETTINGS_MAX_FRAME_SIZE`, and
   `SETTINGS_INITIAL_WINDOW_SIZE` values outside their accepted SETTINGS
-  ranges, zero-length SETTINGS ACK frames, wrong-length SETTINGS ACK payloads,
+  ranges, local header-list receive-limit checks at the completed HEADERS or
+  CONTINUATION fixture-codec boundary, zero-length SETTINGS ACK frames,
+  wrong-length SETTINGS ACK payloads,
   stream id domain failures, invalid stream-state frame kinds, wrong-length
   PING, PRIORITY, GOAWAY, and `RST_STREAM` payloads, accepted PING ACK distinction,
   accepted PRIORITY dependency stream id, exclusive flag, and weight facts,
@@ -338,7 +340,8 @@ execution reference.
   received `SETTINGS_INITIAL_WINDOW_SIZE` deltas to the tracked open-stream
   receive-window credit, and keeps wrong-length, idle-stream, zero,
   closed-by-peer stream, reset-stream, concurrent-stream-limit,
-  negative-credit DATA, and overflow cases as typed protocol failures.
+  header-list-size, negative-credit DATA, and overflow cases as typed
+  protocol failures.
   Closed-by-peer streams reject later DATA and stream-level `WINDOW_UPDATE`
   through the same stream-state protocol failure shape used by other
   non-open stream states. A received `RST_STREAM` on the open stream

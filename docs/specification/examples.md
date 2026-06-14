@@ -489,7 +489,9 @@ as peer-advertised state for outbound decisions with item byte offsets. The
 peer-advertised maximum frame size does not replace the inbound receive
 maximum used by later frame-size checks, the peer-advertised maximum
 concurrent streams value does not replace the local concurrent-stream receive
-limit, and the peer-advertised initial window size does not become an inbound
+limit, the peer-advertised maximum header-list size does not replace the
+local header-list receive policy used by completed HEADERS or CONTINUATION
+checks, and the peer-advertised initial window size does not become an inbound
 frame-size or receive-limit provenance entry. Unknown SETTINGS identifiers
 leave peer-advertised state unchanged and do not report SETTINGS range
 failures; when a later item in the same frame is known, that known item is

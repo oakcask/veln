@@ -346,6 +346,34 @@
         );
     }
 
+    private static void registerHttp2PeerLimitHeaderListSizeExceededDiagnostic(
+        String message,
+        long byteOffset,
+        long observedSize,
+        long allowedSize,
+        long frameKind,
+        long streamId,
+        String receiveLimitProvenance,
+        String ruleProvenance
+    ) {
+        protocolDiagnostics.get().put(
+            message,
+            new ProtocolDiagnostic(
+                "http2.peer_limit.header_list_size_exceeded",
+                byteOffset,
+                java.util.Arrays.asList(
+                    DiagnosticDetail.number("observed_header_list_size", observedSize),
+                    DiagnosticDetail.number("allowed_header_list_size", allowedSize),
+                    DiagnosticDetail.number("frame_kind", frameKind),
+                    DiagnosticDetail.number("stream_id", streamId),
+                    DiagnosticDetail.string("stream_ref", streamId == 0 ? "connection" : "stream"),
+                    DiagnosticDetail.string("receive_limit_provenance", receiveLimitProvenance),
+                    DiagnosticDetail.string("rule_provenance", ruleProvenance)
+                )
+            )
+        );
+    }
+
     private static void registerHttp2PeerLimitFlowControlWindowExceededDiagnostic(
         String message,
         long byteOffset,
