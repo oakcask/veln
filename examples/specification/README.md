@@ -946,6 +946,11 @@ against the built `veln` binary.
   through descriptor-backed `time` calls.
 - `check/transport-deadline-effects/`: deadline creation and waiting infer
   the `time` effect for public effect checking.
+- `run/transport-cancellable-wait/`: cancellable deadline creation and waiting
+  succeed through descriptor-backed `time` calls and a source-visible
+  `CancelToken`.
+- `check/transport-cancellable-wait-effects/`: cancellable wait token
+  creation and waiting infer the `time` effect for public effect checking.
 - `run/transport-receive-malformed-json/`: malformed host-fed transport bytes
   fail as run JSON runtime errors, not schema, codec, or protocol diagnostics.
 - `run/transport-send-record-failure-json/`: failed outgoing transport event
@@ -964,6 +969,12 @@ against the built `veln` binary.
   through `time::wait_until` stays runtime blame in human command output.
 - `run/transport-deadline-expired-json/`: host-fixture-forced deadline expiry
   through `time::wait_until` fails as a run JSON runtime error.
+- `run/transport-cancellable-wait-deadline-expired-json/`: host-fixture-forced
+  deadline expiry through `time::wait_until_cancellable` fails as a run JSON
+  runtime error.
+- `run/transport-cancellable-wait-cancelled-json/`: host-fixture-forced
+  cancellation through `time::wait_until_cancellable` fails as a run JSON
+  runtime error.
 - `run/stream-adapter-event-boundary/`: source-owned stream event and response
   action ADTs model handler inputs and protocol intent, with direct fixture
   invocation and existing channel routing under the `concurrency` effect.

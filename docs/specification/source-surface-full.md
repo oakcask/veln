@@ -556,7 +556,9 @@ Implemented expressions:
   `task::join(task)`, and `task::cancel(task)`
 - network and time boundary calls: `net::receive_chunk()`,
   `net::send_chunk(bytes)`, `time::timeout_ms(milliseconds)`,
-  `time::deadline_after_ms(milliseconds)`, and `time::wait_until(deadline)`
+  `time::deadline_after_ms(milliseconds)`, `time::wait_until(deadline)`,
+  `time::cancel_token()`, `time::cancel(token)`, and
+  `time::wait_until_cancellable(deadline, token)`
 - prelude helpers as bare or qualified calls such as `vec_len(items)` and
   `prelude::vec_len(items)`
 - reserved embedded-standard-library builtin calls such as

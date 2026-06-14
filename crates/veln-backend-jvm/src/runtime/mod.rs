@@ -156,6 +156,9 @@ pub(crate) fn standard_library_method(name: &str) -> &'static str {
         "time::timeout_ms" => "timeTimeoutMs",
         "time::deadline_after_ms" => "timeDeadlineAfterMs",
         "time::wait_until" => "timeWaitUntil",
+        "time::cancel_token" => "timeCancelToken",
+        "time::cancel" => "timeCancel",
+        "time::wait_until_cancellable" => "timeWaitUntilCancellable",
         _ => panic!("unknown standard library builtin `{name}`"),
     }
 }

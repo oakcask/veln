@@ -1,0 +1,8 @@
+# Cancellable transport waits use the time effect boundary.
+pub fn main() -> Result<(), String> effects [time, stdio]
+	let deadline: Deadline = time::deadline_after_ms(0)
+	let token: CancelToken = time::cancel_token()
+	time::wait_until_cancellable(deadline, token)
+	stdio::println("cancellable wait")
+	Ok(())
+end

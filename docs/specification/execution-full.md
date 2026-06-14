@@ -420,12 +420,17 @@ immutable `ByteChunk` to that stream. `time::timeout_ms` waits for a
 non-negative millisecond duration at the runtime boundary and returns `()`.
 `time::deadline_after_ms` returns a source-visible `Deadline` for a relative
 millisecond duration, and `time::wait_until` waits until that deadline expires.
+`time::cancel_token` returns a source-visible `CancelToken`,
+`time::cancel` requests cancellation through that handle, and
+`time::wait_until_cancellable` waits until a deadline expires unless the
+handle is cancelled first.
 Malformed host-fed receive or read bytes, failed outgoing send or write event
 recording, and host-fixture-forced listen, accept, read, write, timeout, or
-deadline expiry stop the entry as runtime failures. They do not produce
+deadline expiry, or cancellable-wait cancellation stop the entry as runtime
+failures. They do not produce
 schema, codec, or HTTP/2 peer protocol diagnostics. The deadline boundary does
 not add a source timer handle beyond the returned `Deadline`, cancellation
-token, routing API, or new effect label.
+handle beyond `CancelToken`, routing API, or new effect label.
 
 The stream adapter event boundary is source-level in the current executable
 specification. Example-owned `StreamEvent` and `ResponseAction` ADTs model

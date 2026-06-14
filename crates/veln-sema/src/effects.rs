@@ -100,6 +100,12 @@ pub(crate) fn standard_library_signature(segments: &[String]) -> Option<(Vec<Typ
             Some((vec![Type::int()], Type::named("Deadline", Vec::new())))
         }
         ("time", "wait_until") => Some((vec![Type::named("Deadline", Vec::new())], Type::unit())),
+        ("time", "cancel_token") => Some((Vec::new(), cancel_token_type())),
+        ("time", "cancel") => Some((vec![cancel_token_type()], Type::unit())),
+        ("time", "wait_until_cancellable") => Some((
+            vec![Type::named("Deadline", Vec::new()), cancel_token_type()],
+            Type::unit(),
+        )),
         _ => None,
     }
 }
@@ -128,6 +134,10 @@ fn net_listener_type() -> Type {
 
 fn net_stream_type() -> Type {
     Type::named("NetStream", Vec::new())
+}
+
+fn cancel_token_type() -> Type {
+    Type::named("CancelToken", Vec::new())
 }
 
 pub(crate) fn concurrency_signature(
@@ -663,6 +673,25 @@ mod tests {
         let (params, return_type) =
             standard_library_signature(&path("time", "wait_until")).expect("time signature");
         assert_eq!(params, vec![Type::named("Deadline", Vec::new())]);
+        assert_eq!(return_type, Type::unit());
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "cancel_token")).expect("time signature");
+        assert!(params.is_empty());
+        assert_eq!(return_type, cancel_token_type());
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "cancel")).expect("time signature");
+        assert_eq!(params, vec![cancel_token_type()]);
+        assert_eq!(return_type, Type::unit());
+
+        let (params, return_type) =
+            standard_library_signature(&path("time", "wait_until_cancellable"))
+                .expect("time signature");
+        assert_eq!(
+            params,
+            vec![Type::named("Deadline", Vec::new()), cancel_token_type()]
+        );
         assert_eq!(return_type, Type::unit());
     }
 }

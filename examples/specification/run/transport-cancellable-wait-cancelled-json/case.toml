@@ -1,0 +1,38 @@
+command = ["run", "--json", "main", "main.veln"]
+exit = 1
+
+[requires]
+jdk = true
+
+[env]
+VELN_TIME_WAIT_CANCELLED = "1"
+
+[stdout]
+format = "json"
+
+[stderr]
+format = "empty"
+
+[[json_assert]]
+path = "status"
+equals = "failed"
+
+[[json_assert]]
+path = "stdout"
+equals = ""
+
+[[json_assert]]
+path = "stderr"
+equals = "transport wait cancelled: VELN_TIME_WAIT_CANCELLED\n"
+
+[[json_assert]]
+path = "error.kind"
+equals = "runtime"
+
+[[json_assert]]
+path = "error.message"
+equals = "transport wait cancelled: VELN_TIME_WAIT_CANCELLED"
+
+[[json_assert]]
+path = "error.details.phase"
+equals = "runtime"

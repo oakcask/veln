@@ -19,9 +19,11 @@ compiler-known calls.
   [concurrency](names-effects-full.md#concurrency-calls).
   The network and time boundary keeps the coarse `net` and `time` effect
   labels and includes descriptor-backed chunk calls, fixture-backed listener
-  and stream calls, and relative deadline calls. Malformed receive fixtures,
-  failed send or write recording, forced read or write failures, and forced
-  timeout or deadline expiry are runtime failures.
+  and stream calls, relative deadline calls, and cancellable deadline waits
+  through source-visible `CancelToken` handles. Malformed receive fixtures,
+  failed send or write recording, forced read or write failures, forced
+  timeout or deadline expiry, and forced cancellable-wait cancellation are
+  runtime failures.
   The socket stream adapter routing example composes existing `net` stream
   calls with existing channel calls under `concurrency`; it adds no new effect
   label or compiler-known routing call.

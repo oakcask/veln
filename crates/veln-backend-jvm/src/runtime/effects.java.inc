@@ -35,6 +35,15 @@
         }
     }
 
+    private static final class CancelToken {
+        private volatile boolean cancelled;
+
+        @Override
+        public String toString() {
+            return cancelled ? "CancelToken(cancelled)" : "CancelToken(active)";
+        }
+    }
+
     public static Object fsReadToString(Object path) {
         try {
             byte[] bytes = java.nio.file.Files.readAllBytes(asPath(path));
@@ -260,6 +269,42 @@
         return UNIT;
     }
 
+    public static Object timeCancelToken() {
+        return new CancelToken();
+    }
+
+    public static Object timeCancel(Object token) {
+        asCancelToken(token).cancelled = true;
+        return UNIT;
+    }
+
+    public static Object timeWaitUntilCancellable(Object deadline, Object token) {
+        CancelToken cancelToken = asCancelToken(token);
+        failIfWaitCancelled(cancelToken);
+        String forcedExpiry = System.getenv("VELN_TIME_DEADLINE_EXPIRED");
+        if ("1".equals(forcedExpiry)) {
+            throw new RuntimeFailure("transport deadline expired: VELN_TIME_DEADLINE_EXPIRED");
+        }
+        long target = asLong(deadline);
+        long remaining = target - System.nanoTime();
+        while (remaining > 0L) {
+            failIfWaitCancelled(cancelToken);
+            try {
+                long slice = Math.min(remaining, 10000000L);
+                long millis = slice / 1000000L;
+                int nanos = (int) (slice % 1000000L);
+                Thread.sleep(millis, nanos);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                cancelToken.cancelled = true;
+                throw new RuntimeFailure("transport wait cancelled: thread interrupted");
+            }
+            remaining = target - System.nanoTime();
+        }
+        failIfWaitCancelled(cancelToken);
+        return UNIT;
+    }
+
     private static void writeNetEvent(String line) throws java.io.IOException {
         String path = System.getenv("VELN_NET_EVENTS");
         if (path == null || path.isEmpty()) {
@@ -278,10 +323,24 @@
         return "1".equals(System.getenv(name));
     }
 
+    private static void failIfWaitCancelled(CancelToken token) {
+        if (forced("VELN_TIME_WAIT_CANCELLED")) {
+            token.cancelled = true;
+            throw new RuntimeFailure("transport wait cancelled: VELN_TIME_WAIT_CANCELLED");
+        }
+        if (token.cancelled) {
+            throw new RuntimeFailure("transport wait cancelled: cancellation token");
+        }
+    }
+
     private static NetListener asNetListener(Object value) {
         return (NetListener) value;
     }
 
     private static NetStream asNetStream(Object value) {
         return (NetStream) value;
+    }
+
+    private static CancelToken asCancelToken(Object value) {
+        return (CancelToken) value;
     }
