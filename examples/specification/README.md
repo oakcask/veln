@@ -226,6 +226,9 @@ against the built `veln` binary.
   schema headers, missing `end`, fields before `format`, multiple `format`
   clauses, `_`-prefixed fields, malformed field-local `where` predicates,
   and malformed schema mapping clauses.
+- `check/schema-declaration-human/`: malformed field-local schema `where`
+  syntax reports a human `check` parse diagnostic instead of a runtime schema
+  validation diagnostic.
 - `check/schema-mapping-diagnostics/`: generated binary schema mapping
   diagnostics for mapping assignments that name schema-local source fields
   not decoded by the schema.

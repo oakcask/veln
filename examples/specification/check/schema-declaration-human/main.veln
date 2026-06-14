@@ -1,0 +1,6 @@
+schema BrokenPadding
+  format binary
+
+  length: UInt24be
+  padding_length: UInt8 where
+end

@@ -21,7 +21,8 @@ compare it with `../specification/` before changing behavior.
   helper slices with schema-local field reference, record construction, ADT
   constructor construction mapping expressions, pure same-module
   representation conversion hooks, decoded-field integer equality mapping
-  selection, and focused mapping selection diagnostics.
+  selection, focused mapping selection diagnostics, and the generated-helper
+  schema validation diagnostic boundary.
   The implemented source-surface slice also includes top-level public schema
   member aliases for re-exporting existing public schemas through schema-aware
   lookup.

@@ -239,8 +239,11 @@ keywords. This keeps representation checks readable without making schema
 validation part of the ordinary function contract system.
 
 A failed `where` clause is a schema structural failure at the owning field
-path. Diagnostics should report the field path, byte offset, failed predicate,
-and relevant decoded field values through structured data and related notes.
+path. The implemented generated-helper slice reports the field path, byte
+offset, failed predicate, owning field value, decoded values available to the
+predicate, and bounded byte preview through structured data and related notes.
+Malformed declaration syntax remains a source `check` diagnostic rather than a
+runtime schema validation failure.
 Protocol-state limits that depend on negotiated settings remain explicit
 codec or protocol-core checks rather than schema `where` clauses.
 
@@ -299,6 +302,9 @@ Implemented:
 - Examples show schema declarations as boundary contracts, not ordinary types.
 - Parser diagnostics distinguish malformed schema syntax from ordinary type and
   value use.
+- Human and JSON check examples keep malformed schema declaration syntax on the
+  source diagnostic side of the boundary instead of treating it as a runtime
+  schema validation failure.
 - Codec declaration heads resolve schemas through schema-aware lookup,
   including same-module references, imported public schemas through written
   `use` paths and import aliases, private imported schema diagnostics,
@@ -326,8 +332,8 @@ Implemented:
 
 Remaining:
 
-- General schema validation diagnostics distinguish malformed schema syntax
-  from failed schema validation for arbitrary schema declarations.
+- General schema validation execution beyond the implemented generated-helper
+  slice evaluates arbitrary schema declarations.
 - Runtime schema value mapping beyond schema-local field reference, record
   construction, ADT constructor construction, one pure same-module converter
   call, and decoded-field integer equality selection resolves codec-selected
